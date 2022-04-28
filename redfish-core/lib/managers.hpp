@@ -262,20 +262,13 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
                                            managerId);
                 return;
             }
+            std::string ifnameFactoryReset =
+                "xyz.openbmc_project.Common.FactoryReset";
 
             BMCWEB_LOG_DEBUG("Post ResetToDefaults.");
 
             std::optional<std::string> resetType;
             std::optional<std::string> resetToDefaultsType;
-            if constexpr (BMCWEB_REDFISH_DBUS_LOG)
-            {
-                // Send an event for reset to defaults
-                NvEvent event = redfish::EventUtil::createEventRebootReason(
-                    "FactoryReset", "Managers");
-                redfish::EventServiceManager::getInstance().sendEventWithOOC(
-                    std::string(req.target()), event);
-            }
-
             if (!json_util::readJsonAction(                     //
                     req, asyncResp->res,                        //
                     "ResetToDefaultsType", resetToDefaultsType, //
@@ -311,19 +304,45 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
                 sendFactoryResetEvent(req);
             }
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code& ec) {
-                    if (ec)
+                [asyncResp, ifnameFactoryReset](
+                    const boost::system::error_code& ec,
+                    const std::vector<
+                        std::pair<std::string, std::vector<std::string>>>&
+                        interfaceNames) {
+                    if (ec || interfaceNames.empty())
                     {
-                        BMCWEB_LOG_DEBUG("Failed to ResetToDefaults: {}", ec);
+                        BMCWEB_LOG_ERROR("Can't find object: {}", ec);
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    // Factory Reset doesn't actually happen until a reboot
-                    // Can't erase what the BMC is running on
-                    doBMCGracefulRestart(asyncResp);
+
+                    for (const std::pair<std::string, std::vector<std::string>>&
+                             object : interfaceNames)
+                    {
+                        crow::connections::systemBus->async_method_call(
+                            [asyncResp,
+                             object](const boost::system::error_code& ec2) {
+                                if (ec2)
+                                {
+                                    BMCWEB_LOG_DEBUG(
+                                        "Failed to ResetToDefaults: {}", ec2);
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                // Factory Reset doesn't actually happen
+                                // until a reboot Can't erase what the BMC
+                                // is running on
+                                doBMCGracefulRestart(asyncResp);
+                            },
+                            object.first, "/xyz/openbmc_project/software/bmc",
+                            ifnameFactoryReset, "Reset");
+                    }
                 },
-                getBMCUpdateServiceName(), getBMCUpdateServicePath(),
-                "xyz.openbmc_project.Common.FactoryReset", "Reset");
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetObject",
+                "/xyz/openbmc_project/software/bmc",
+                std::array<const char*, 1>{ifnameFactoryReset.c_str()});
         });
 }
 
