@@ -488,6 +488,12 @@ option(
     description: '''Enable TFTP based firmware update transactions through
                     Redfish UpdateService.   SimpleUpdate.''',
 )
+option(
+    'profile-configuration',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable profile configuration.'''
+)
 
 option(
     'scp-update',

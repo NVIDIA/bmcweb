@@ -80,6 +80,9 @@
 #include "system_host_eth.hpp"
 #endif
 #include "trusted_components.hpp"
+#ifdef BMCWEB_ENABLE_PROFILES
+#include "profiles.hpp"
+#endif
 
 namespace redfish
 {
@@ -482,6 +485,9 @@ RedfishService::RedfishService(App& app)
 #endif
     // Note, this must be the last route registered
     requestRoutesRedfish(app);
+#ifdef BMCWEB_ENABLE_PROFILES
+    requestRoutesProfiles(app);
+#endif
 }
 
 } // namespace redfish

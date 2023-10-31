@@ -1173,11 +1173,20 @@ void payloadTooLarge(crow::Response& res, const std::string& resolution = {});
 
 /**
  * @brief Formats OperationNotAllowed message into JSON
- * Message body: "he HTTP method is not allowed on this resource."
+ * Message body: "The HTTP method is not allowed on this resource."
  * @returns Message OperationNotAllowed formatted to JSON */
 nlohmann::json operationNotAllowed();
 
 void operationNotAllowed(crow::Response& res);
+
+/**
+ * @brief Formats OperationNotAllowed message into JSON
+ * Message body: "The HTTP method is not allowed on this resource."
+ * @param[in] arg - argument
+ * @returns Message OperationNotAllowed formatted to JSON */
+nlohmann::json operationNotAllowed(std::string_view arg);
+
+void operationNotAllowed(crow::Response& res, std::string_view arg);
 
 /**
  * @brief Formats ActionParameterValueError message into JSON

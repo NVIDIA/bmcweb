@@ -144,6 +144,7 @@ feature_map = {
   'cpu-diag-support'                            : '-DBMCWEB_ENABLE_CPU_DIAG_FEATURE',
   'command-smbpbi-oob'                          : '-DBMCWEB_COMMAND_SMBPBI_OOB',
   'redfish-leak-detect'                         : '-DBMCWEB_ENABLE_REDFISH_LEAK_DETECT',
+  'profile-configuration'                       : '-DBMCWEB_ENABLE_PROFILES',
 }
 
 if(get_option('tls-auth-opt-in').enabled())

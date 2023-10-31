@@ -1958,10 +1958,29 @@ nlohmann::json operationNotAllowed()
     return getLog(redfish::registries::base::Index::operationNotAllowed, {});
 }
 
+nlohmann::json operationNotAllowed(std::string_view arg)
+{
+    std::string msg = "Operation is not allowed on this resource, ";
+    msg += arg;
+    return nlohmann::json{
+        {"@odata.type", "/redfish/v1/$metadata#Message.v1_1_1.Message"},
+        {"MessageId", "OpenBMC.0.2.InvalidUpload"},
+        {"Message", "Base.1.15.0.OperationNotAllowed"},
+        {"MessageArgs", {arg}},
+        {"MessageSeverity", "Critical"},
+        {"Resolution", "None."}};
+}
+
 void operationNotAllowed(crow::Response& res)
 {
     res.result(boost::beast::http::status::method_not_allowed);
     addMessageToErrorJson(res.jsonValue, operationNotAllowed());
+}
+
+void operationNotAllowed(crow::Response& res, std::string_view arg)
+{
+    res.result(boost::beast::http::status::method_not_allowed);
+    addMessageToErrorJson(res.jsonValue, operationNotAllowed(arg));
 }
 
 /**

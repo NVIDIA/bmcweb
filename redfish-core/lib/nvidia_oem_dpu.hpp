@@ -1732,6 +1732,12 @@ inline void requestRoutesNvidiaOemBf(App& app)
                 asyncResp->res.jsonValue["BaseMAC"] = *baseMac;
             }
         });
+#ifdef BMCWEB_ENABLE_PROFILES
+        nvidia["Profiles"]["@odata.id"] =
+            "/redfish/v1/Systems/" +
+            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+            "/Oem/Nvidia/SystemConfigurationProfile";
+#endif
     });
 #ifdef BMCWEB_ENABLE_NVIDIA_OEM_BF3_PROPERTIES
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
