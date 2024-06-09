@@ -133,6 +133,7 @@ feature_options = [
     'insecure-push-style-notification',
     'insecure-tftp-update',
     'kvm',
+    'meta-tls-common-name-parsing',
     'mutual-tls-auth',
     'redfish-aggregation',
     'redfish-allow-deprecated-power-thermal',
@@ -157,7 +158,7 @@ feature_options = [
 
 string_options = [
     'dns-resolver',
-    'mutual-tls-common-name-parsing',
+    'mutual-tls-common-name-parsing-default',
     'redfish-manager-uri-name',
     'redfish-system-uri-name',
 ]
