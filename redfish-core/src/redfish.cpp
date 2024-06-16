@@ -33,6 +33,7 @@
 #include "network_protocol.hpp"
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_protected_component.hpp"
+#include "odata.hpp"
 #include "pcie.hpp"
 #include "policy.hpp"
 #include "power.hpp"
@@ -91,6 +92,7 @@ RedfishService::RedfishService(App& app)
     requestAssemblyRoutes(app);
     requestRoutesMetadata(app);
     requestPcieSlotsRoutes(app);
+    requestRoutesOdata(app);
     if (persistent_data::getConfig().isTLSAuthEnabled())
     {
         requestAccountServiceRoutes(app);
