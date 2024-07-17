@@ -275,11 +275,10 @@ RedfishService::RedfishService(App& app)
     }
 
     requestRoutesBMCLogServiceCollection(app);
+
     if constexpr (BMCWEB_REDFISH_BMC_JOURNAL)
     {
         requestRoutesBMCJournalLogService(app);
-        requestRoutesBMCJournalLogEntryCollection(app);
-        requestRoutesBMCJournalLogEntry(app);
     }
 
     if constexpr (BMCWEB_REDFISH_CPU_LOG)
