@@ -107,41 +107,6 @@ constexpr auto retimerHashMaxTimeSec =
 const std::string firmwarePrefix =
     "redfish/v1/UpdateService/FirmwareInventory/";
 
-struct MemoryFileDescriptor
-{
-    int fd = -1;
-
-    explicit MemoryFileDescriptor(const std::string& filename) :
-        fd(memfd_create(filename.c_str(), 0))
-    {}
-
-    MemoryFileDescriptor(const MemoryFileDescriptor&) = default;
-    MemoryFileDescriptor(MemoryFileDescriptor&& other) noexcept : fd(other.fd)
-    {
-        other.fd = -1;
-    }
-    MemoryFileDescriptor& operator=(const MemoryFileDescriptor&) = delete;
-    MemoryFileDescriptor& operator=(MemoryFileDescriptor&&) = default;
-
-    ~MemoryFileDescriptor()
-    {
-        if (fd != -1)
-        {
-            close(fd);
-        }
-    }
-
-    bool rewind() const
-    {
-        if (lseek(fd, 0, SEEK_SET) == -1)
-        {
-            BMCWEB_LOG_ERROR("Failed to seek to beginning of image memfd");
-            return false;
-        }
-        return true;
-    }
-};
-
 inline void cleanUp()
 {
     fwUpdateInProgress = false;

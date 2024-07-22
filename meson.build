@@ -157,6 +157,7 @@ feature_map = {
     'command-smbpbi-oob'                          : '-DBMCWEB_COMMAND_SMBPBI_OOB',
     'redfish-leak-detect'                         : '-DBMCWEB_ENABLE_REDFISH_LEAK_DETECT',
     'profile-configuration'                       : '-DBMCWEB_ENABLE_PROFILES',
+    'command-nsm-command-raw'                     : '-DBMCWEB_NSM_COMMAND_RAW',
 }
 
 if (get_option('tls-auth-opt-in').enabled())

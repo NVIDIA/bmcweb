@@ -1,4 +1,5 @@
 #include "utils/time_utils.hpp"
+#include "nsm_cmd_support.hpp"
 
 #include <async_resp.hpp>
 #include <sdbusplus/asio/connection.hpp>
@@ -368,6 +369,184 @@ inline void
     },
         connectionName, path, "org.freedesktop.DBus.Properties", "GetAll",
         "com.nvidia.State.FabricManager");
+}
+
+inline void requestRouteNSMRawCommand(App& app)
+{
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Managers/<str>/Actions/Oem/NvidiaManager.NSMRawCommand/")
+        .privileges(redfish::privileges::postManager)
+        .methods(boost::beast::http::verb::post)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& bmcId) {
+        uint8_t deviceIdentificationId = 0;
+        uint8_t deviceInstanceId = 0;
+        bool isLongRunning = false;
+        uint8_t messageType = 0;
+        uint8_t commandCode = 0;
+        uint16_t dataSizeInBytes = 0;
+        std::vector<uint8_t> data;
+        std::optional<bool> optionalIsLongRunning = false;
+        std::optional<std::vector<uint8_t>> optionalData =
+            std::vector<uint8_t>();
+
+        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        {
+            BMCWEB_LOG_ERROR("Failed to set up Redfish route.");
+            return;
+        }
+
+        if (bmcId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+        {
+            BMCWEB_LOG_ERROR("Invalid BMC ID '{}'", bmcId);
+            messages::resourceNotFound(
+                asyncResp->res, "#NvidiaManager.v1_2_0.NvidiaManager", bmcId);
+            return;
+        }
+
+        // clang-format off
+        if (!redfish::json_util::readJsonAction(
+                req, asyncResp->res,
+                "CommandCode", commandCode,
+                "Data", optionalData,
+                "DataSizeBytes", dataSizeInBytes,
+                "DeviceIdentificationId", deviceIdentificationId,
+                "DeviceInstanceId", deviceInstanceId,
+                "IsLongRunning", optionalIsLongRunning,
+                "MessageType", messageType
+                ))
+        {
+            BMCWEB_LOG_ERROR("Failed to parse JSON body.");
+            return;
+        }
+        // clang-format on
+
+        isLongRunning = optionalIsLongRunning.value_or(false);
+        data = optionalData.value_or(std::vector<uint8_t>());
+
+        getMatchingFruDeviceObjectPath(
+            deviceIdentificationId, deviceInstanceId, asyncResp,
+            [asyncResp, isLongRunning, messageType, commandCode,
+             data](std::string objectPath) mutable {
+            if (objectPath.empty())
+            {
+                BMCWEB_LOG_ERROR("No matching FruDevice found.");
+                messages::resourceTypeIncompatible(
+                    asyncResp->res, "#NvidiaManager.v1_2_0.NvidiaManager",
+                    "deviceIdentificationId");
+                return;
+            }
+
+            BMCWEB_LOG_DEBUG("Found FruDevice objectPath='{}'", objectPath);
+
+            MemoryFileDescriptor memfd("nsm_command_data");
+            if (memfd.fd == -1)
+            {
+                BMCWEB_LOG_ERROR("Failed to create NSM req memfd");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            if (write(memfd.fd, data.data(), data.size()) !=
+                static_cast<ssize_t>(data.size()))
+            {
+                BMCWEB_LOG_ERROR("Failed to write to NSM req memfd");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            if (!memfd.rewind())
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            callSendNSMRawCommand(asyncResp, memfd, objectPath, messageType,
+                                  commandCode, isLongRunning);
+        });
+    });
+}
+
+inline void requestRouteNSMRawCommandActionInfo(App& app)
+{
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Managers/<str>/Oem/Nvidia/NSMRawCommandActionInfo/")
+        .privileges(redfish::privileges::getManager)
+        .methods(boost::beast::http::verb::get)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& bmcId) {
+        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        {
+            return;
+        }
+        // Process non-BMC service manager
+        if (bmcId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res,
+                                       "#Manager.v1_11_0.Manager", bmcId);
+            return;
+        }
+        asyncResp->res.jsonValue["@odata.type"] =
+            "#ActionInfo.v1_1_2.ActionInfo";
+        asyncResp->res.jsonValue["@odata.id"] =
+            "/redfish/v1/Managers/" + bmcId +
+            "/Oem/Nvidia/NSMRawCommandActionInfo";
+        asyncResp->res.jsonValue["Name"] = "NSMRawCommand Action Info";
+        asyncResp->res.jsonValue["Id"] = "NSMRawCommandActionInfo";
+
+        nlohmann::json parameters = nlohmann::json::array();
+
+        nlohmann::json param1;
+        param1["Name"] = "DeviceIdentificationId";
+        param1["Required"] = true;
+        param1["DataType"] = "Number";
+        param1["AllowableValues"] = {0, 1, 2, 3, 4};
+        parameters.push_back(param1);
+
+        nlohmann::json param2;
+        param2["Name"] = "DeviceInstanceId";
+        param2["Required"] = true;
+        param2["DataType"] = "Number";
+        parameters.push_back(param2);
+
+        nlohmann::json param3;
+        param3["Name"] = "IsLongRunning";
+        param3["Required"] = false;
+        param3["DataType"] = "Boolean";
+        parameters.push_back(param3);
+
+        nlohmann::json param4;
+        param4["Name"] = "MessageType";
+        param4["Required"] = true;
+        param4["DataType"] = "Number";
+        parameters.push_back(param4);
+
+        nlohmann::json param5;
+        param5["Name"] = "CommandCode";
+        param5["Required"] = true;
+        param5["DataType"] = "Number";
+        parameters.push_back(param5);
+
+        nlohmann::json param6;
+        param6["Name"] = "DataSizeBytes";
+        param6["Required"] = true;
+        param6["DataType"] = "Number";
+        param6["MinimumValue"] = 0;
+        param6["MaximumValue"] = 255;
+        parameters.push_back(param6);
+
+        nlohmann::json param7;
+        param7["Name"] = "Data";
+        param7["Required"] = false;
+        param7["DataType"] = "NumberArray";
+        param7["MinimumValue"] = 0;
+        param7["MaximumValue"] = 255;
+        parameters.push_back(param7);
+
+        // Assign the constructed parameters to the response
+        asyncResp->res.jsonValue["Parameters"] = parameters;
+    });
 }
 
 } // namespace nvidia_manager_util

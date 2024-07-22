@@ -1018,3 +1018,10 @@ option(
     value: 'enabled',
     description: 'Enable LastResetTime property on ComputerSystem objects (/redfish/v1/Systems/<str>).',
 )
+
+option(
+    'command-nsm-command-raw',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable/Disable NSM raw command'
+)
