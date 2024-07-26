@@ -131,5 +131,89 @@ inline void
                                    "FeatureReady"});
 }
 
+template <typename Callback>
+inline void isServiceActive(boost::system::error_code& ec1,
+                            std::variant<std::string>& property1,
+                            const std::string_view& unit, Callback&& callbackIn)
+{
+    if (ec1)
+    {
+        BMCWEB_LOG_WARNING("No OpenOCD service");
+        return;
+    }
+    std::string* loadState = std::get_if<std::string>(&property1);
+    if (*loadState == "loaded")
+    {
+        crow::connections::systemBus->async_method_call(
+            [callback{std::forward<Callback>(callbackIn)}](
+                boost::system::error_code& ec2,
+                std::variant<std::string>& property2) {
+            callback(ec2, property2);
+        },
+            "org.freedesktop.systemd1",
+            sdbusplus::message::object_path("/org/freedesktop/systemd1/unit") /=
+            unit,
+            "org.freedesktop.DBus.Properties", "Get",
+            "org.freedesktop.systemd1.Unit", "ActiveState");
+    }
+}
+
+template <typename Callback>
+inline void isLoaded(const std::string_view& unit, Callback&& callbackIn)
+{
+    crow::connections::systemBus->async_method_call(
+        [unit, callback{std::forward<Callback>(callbackIn)}](
+            boost::system::error_code& ec,
+            std::variant<std::string>& property) {
+        isServiceActive(ec, property, unit, callback);
+    },
+        "org.freedesktop.systemd1",
+        sdbusplus::message::object_path("/org/freedesktop/systemd1/unit") /=
+        unit,
+        "org.freedesktop.DBus.Properties", "Get",
+        "org.freedesktop.systemd1.Unit", "LoadState");
+}
+
+inline void
+    getOemNvidiaOpenOCD(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    isLoaded("openocdon_2eservice",
+             [asyncResp](boost::system::error_code& ec,
+                         std::variant<std::string>& property) {
+        if (ec)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        std::string* serviceStatus = std::get_if<std::string>(&property);
+        if (*serviceStatus == "active")
+        {
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Status"]
+                                    ["State"] = "Enabled";
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Enable"] =
+                true;
+        }
+        else
+        {
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Status"]
+                                    ["State"] = "Disabled";
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Enable"] =
+                false;
+        }
+    });
+}
+
+inline void setOemNvidiaOpenOCD(const bool value)
+{
+    if (value)
+    {
+        dbus::utility::systemdRestartUnit("openocdon_2eservice", "replace");
+    }
+    else
+    {
+        dbus::utility::systemdRestartUnit("openocdoff_2etarget", "replace");
+    }
+}
+
 } // namespace nvidia_manager_util
 } // namespace redfish

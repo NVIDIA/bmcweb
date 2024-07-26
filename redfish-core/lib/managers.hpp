@@ -3474,9 +3474,14 @@ inline void requestRoutesManager(App& app)
         }();
 #endif // BMCWEB_ENABLE_NVIDIA_OEM_OBERON_PROPERTIES
 
+        if constexpr (BMCWEB_ENABLE_DEBUG_INTERFACE)
+        {
+            nvidia_manager_util::getOemNvidiaOpenOCD(asyncResp);
+        }
+
         // NvidiaManager
         nlohmann::json& oemNvidia = oem["Nvidia"];
-        oemNvidia["@odata.type"] = "#NvidiaManager.v1_2_0.NvidiaManager";
+        oemNvidia["@odata.type"] = "#NvidiaManager.v1_4_0.NvidiaManager";
         nlohmann::json& oemResetToDefaults =
             asyncResp->res
                 .jsonValue["Actions"]["Oem"]["#NvidiaManager.ResetToDefaults"];
@@ -3974,6 +3979,7 @@ inline void requestRoutesManager(App& app)
 #ifdef BMCWEB_ENABLE_TLS_AUTH_OPT_IN
         std::optional<bool> tlsAuth;
 #endif  // BMCWEB_ENABLE_TLS_AUTH_OPT_IN
+        std::optional<bool> openocdValue;
 #endif  // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
         // clang-format off
@@ -3992,6 +3998,7 @@ inline void requestRoutesManager(App& app)
 #ifdef BMCWEB_ENABLE_TLS_AUTH_OPT_IN
               "Oem/Nvidia/AuthenticationTLSRequired", tlsAuth,
 #endif // BMCWEB_ENABLE_TLS_AUTH_OPT_IN
+              "Oem/Nvidia/OpenOCD/Enable", openocdValue,
 #endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
               "Links/ActiveSoftwareImage/@odata.id", activeSoftwareImageOdataId,
               "DateTime", datetime,
@@ -4114,6 +4121,13 @@ inline void requestRoutesManager(App& app)
             }
         }
 #endif // BMCWEB_ENABLE_TLS_AUTH_OPT_IN
+        if constexpr (BMCWEB_ENABLE_DEBUG_INTERFACE)
+        {
+            if (openocdValue)
+            {
+                nvidia_manager_util::setOemNvidiaOpenOCD(*openocdValue);
+            }
+        }
 #endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
     });
 }

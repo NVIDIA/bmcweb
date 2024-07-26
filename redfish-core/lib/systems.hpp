@@ -4266,9 +4266,10 @@ inline void
 #endif // BMCWEB_ENABLE_HOST_OS_FEATURE
     getPowerMode(asyncResp);
     getIdlePowerSaver(asyncResp);
-#ifdef BMCWEB_ENABLE_DEBUG_INTERFACE
-    handleDebugPolicyGet(asyncResp);
-#endif
+    if constexpr (BMCWEB_ENABLE_DEBUG_INTERFACE)
+    {
+        handleDebugPolicyGet(asyncResp);
+    }
 
 #ifdef BMCWEB_ENABLE_CPU_DIAG_FEATURE
     asyncResp->res
@@ -4371,9 +4372,7 @@ inline void handleComputerSystemPatch(
     std::optional<std::string> bootNext;
     std::optional<std::string> bootOrderPropertySelection;
     std::optional<std::string> httpBootUri;
-#ifdef BMCWEB_ENABLE_DEBUG_INTERFACE
     std::optional<nlohmann::json> processorDebugCapabilities;
-#endif
 
     // clang-format off
                 if (!json_util::readJsonPatch(
@@ -4410,9 +4409,7 @@ inline void handleComputerSystemPatch(
                         "Boot/BootNext", bootNext,
                         "Boot/BootOrderPropertySelection", bootOrderPropertySelection,
                         "Boot/HttpBootUri", httpBootUri,
-#ifdef BMCWEB_ENABLE_DEBUG_INTERFACE
                         "Oem/Nvidia/ProcessorDebugCapabilities", processorDebugCapabilities,
-#endif
                         "Oem/Nvidia/ISTModeEnabled", istModeEnabled
                         ))
                 {
@@ -4573,12 +4570,13 @@ inline void handleComputerSystemPatch(
                                 "TargetURI", *httpBootUri);
     }
 
-#ifdef BMCWEB_ENABLE_DEBUG_INTERFACE
-    if (processorDebugCapabilities)
+    if constexpr (BMCWEB_ENABLE_DEBUG_INTERFACE)
     {
-        handleDebugPolicyPatchReq(asyncResp, *processorDebugCapabilities);
+        if (processorDebugCapabilities)
+        {
+            handleDebugPolicyPatchReq(asyncResp, *processorDebugCapabilities);
+        }
     }
-#endif
 }
 
 inline void handleSystemCollectionResetActionHead(

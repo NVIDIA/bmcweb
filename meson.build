@@ -134,7 +134,6 @@ feature_map = {
   'redfish-system-faultlog-dump-log'            : '-DBMCWEB_ENABLE_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG',
   'reset-bios-by-clear-nonvolatile'             : '-DBMCWEB_RESET_BIOS_BY_CLEAR_NONVOLATILE',
   'dot-support'                                 : '-DBMCWEB_ENABLE_DOT',
-  'debug-interface-support'                     : '-DBMCWEB_ENABLE_DEBUG_INTERFACE',
   'manual-boot-mode-support'                    : '-DBMCWEB_ENABLE_MANUAL_BOOT_MODE',
   'force-insecure-event-notification'           : '-DBMCWEB_FORCE_INSECURE_EVENT_NOTIFICATION',
   'use-efficient-expand-on-sensors'             : '-DBMCWEB_ENABLE_EFFICIENT_EXPAND',

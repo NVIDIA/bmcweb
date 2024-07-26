@@ -86,6 +86,7 @@ feature_options = [
     'tests',
     'vm-websocket',
     'xtoken-auth',
+    'enable-debug-interface',
 ]
 
 string_options = [

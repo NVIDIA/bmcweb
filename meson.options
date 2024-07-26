@@ -430,7 +430,7 @@ option ('redfish-system-faultlog-dump-log', type : 'feature', value : 'disabled'
 option ('reset-bios-by-clear-nonvolatile', type : 'feature', value : 'disabled', description : 'Enable using DBUS xyz.openbmc_project.Control.Boot.ClearNonVolatileVariables for Bios.ResetBios action.')
 option ('fencing-privilege', type : 'feature', value : 'disabled', description : 'Enables feature to set/unset the fencing privilege to satelite BMC.')
 option ('dot-support', type : 'feature', value : 'disabled', description : 'Enables DOT token support.')
-option ('debug-interface-support', type : 'feature', value : 'disabled', description : 'Enables debug interface support.')
+option ('enable-debug-interface', type : 'feature', value : 'disabled', description : 'Enables debug interface support.')
 option(
     'experimental-redfish-multi-computer-system',
     type: 'feature',
