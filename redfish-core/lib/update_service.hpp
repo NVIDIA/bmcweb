@@ -1202,8 +1202,7 @@ inline void processUpdateRequest(
 }
 
 inline void updateMultipartContext(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const MultipartParser& parser)
 {
     std::optional<MultiPartUpdate> multipart =
@@ -1313,7 +1312,7 @@ inline void updateMultipartContext(
                     // All URIs in Target has the prepended prefix
                     BMCWEB_LOG_ERROR("forward image {}", uriTargets[0]);
                     auto sharedReq =
-                        std::make_shared<crow::Request>(req.copy());
+                        std::make_shared<crow::Request>(std::move(req));
                     RedfishAggregator::getSatelliteConfigs(std::bind_front(
                         forwardImage, sharedReq, updateAll, asyncResp));
                 }
@@ -1385,7 +1384,7 @@ inline void doHTTPUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 }
 
 inline void handleUpdateServicePost(
-    App& app, const crow::Request& req,
+    App& app, crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -1409,7 +1408,7 @@ inline void handleUpdateServicePost(
 }
 
 inline void handleUpdateServiceMultipartUpdatePost(
-    App& app, const crow::Request& req,
+    App& app, crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -1449,7 +1448,6 @@ inline void handleUpdateServiceMultipartUpdatePost(
             messages::internalError(asyncResp->res);
             return;
         }
-
         updateMultipartContext(req, asyncResp, parser);
     }
     else
