@@ -301,27 +301,23 @@ static inline void addAggregatedHeaders(crow::Response& asyncResp,
                                         const crow::Response& resp,
                                         std::string_view prefix)
 {
-    if (!resp.getHeaderValue("Content-Type").empty())
+    using boost::beast::http::field;
+
+    for (const field fieldName : {field::content_type, field::allow,
+                                  field::location, field::retry_after})
     {
-        asyncResp.addHeader(boost::beast::http::field::content_type,
-                            resp.getHeaderValue("Content-Type"));
-    }
-    if (!resp.getHeaderValue("Allow").empty())
-    {
-        asyncResp.addHeader(boost::beast::http::field::allow,
-                            resp.getHeaderValue("Allow"));
-    }
-    std::string_view header = resp.getHeaderValue("Location");
-    if (!header.empty())
-    {
-        std::string location(header);
-        addPrefixToStringItem(location, prefix);
-        asyncResp.addHeader(boost::beast::http::field::location, location);
-    }
-    if (!resp.getHeaderValue("Retry-After").empty())
-    {
-        asyncResp.addHeader(boost::beast::http::field::retry_after,
-                            resp.getHeaderValue("Retry-After"));
+        std::string_view ct = resp.getHeaderValue(fieldName);
+        if (!ct.empty())
+        {
+            if (fieldName == field::location)
+            {
+                std::string location(ct);
+                addPrefixToStringItem(location, prefix);
+                asyncResp.setHeader(fieldName, location);
+                continue;
+            }
+            asyncResp.setHeader(fieldName, ct);
+        }
     }
     // TODO: we need special handling for Link Header Value
 }

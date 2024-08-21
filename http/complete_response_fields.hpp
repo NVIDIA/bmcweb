@@ -52,7 +52,7 @@ inline void completeResponseFields(const Request& req, Response& res)
             // Technically preferred could also be NoMatch here, but we'd
             // like to default to something rather than return 400 for
             // backward compatibility.
-            res.addHeader(boost::beast::http::field::content_type,
+            res.setHeader(boost::beast::http::field::content_type,
                           "application/json");
             res.write(res.jsonValue.dump(
                 2, ' ', true, nlohmann::json::error_handler_t::replace));

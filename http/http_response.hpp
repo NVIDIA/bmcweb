@@ -50,14 +50,22 @@ struct Response
         return response.base();
     }
 
+    // Adds a header, allowing duplicates
     void addHeader(std::string_view key, std::string_view value)
     {
         fields().insert(key, value);
     }
 
+    // Adds a header, allowing duplicates
     void addHeader(http::field key, std::string_view value)
     {
         fields().insert(key, value);
+    }
+
+    // Adds a header, replacing an existing header
+    void setHeader(http::field key, std::string_view value)
+    {
+        fields().set(key, value);
     }
 
     void clearHeader(http::field key)
