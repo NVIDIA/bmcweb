@@ -33,6 +33,7 @@
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_protected_component.hpp"
 #include "pcie.hpp"
+#include "policy.hpp"
 #include "power.hpp"
 #include "power_subsystem.hpp"
 #include "power_supply.hpp"
@@ -475,6 +476,8 @@ RedfishService::RedfishService(App& app)
 #ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
     requestRoutesLeakDetection(app);
     requestRoutesLeakDetector(app);
+    requestRoutesLeakDetectionPolicy(app);
+    requestPolicyCollection(app);
 #endif
     // Note, this must be the last route registered
     requestRoutesRedfish(app);

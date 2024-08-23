@@ -450,6 +450,12 @@ inline void handleDecoratorAssetProperties(
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
 
+#ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
+    // PolicyCollection
+    asyncResp->res.jsonValue["Policies"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/Policies", chassisId);
+#endif
+
     nlohmann::json::array_t computerSystems;
     nlohmann::json::object_t system;
     system["@odata.id"] = std::format("/redfish/v1/Systems/{}",
