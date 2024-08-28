@@ -99,7 +99,7 @@ class AdditionalData
         return data[key];
     }
 
-    std::size_t count(const std::string& key)
+    std::size_t count(const std::string& key) const
     {
         return data.count(key);
     }

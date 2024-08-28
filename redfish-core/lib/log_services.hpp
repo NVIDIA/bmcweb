@@ -74,6 +74,7 @@
 #include <chrono>
 #include <cstddef>
 #include <filesystem>
+#include <fstream>
 #include <iterator>
 #include <optional>
 #include <ranges>
@@ -2661,64 +2662,78 @@ inline void parseAdditionalDataForCPER(nlohmann::json::object_t& entry,
                                        const nlohmann::json::object_t& oem,
                                        const AdditionalData& additional)
 {
-    const auto& type = additional.find("DiagnosticDataType");
+    const auto& type = additional.find("diagnosticDataType");
     if (additional.end() == type ||
         ("CPER" != type->second && "CPERSection" != type->second))
         return;
 
     BMCWEB_LOG_DEBUG("Got {}", type->second);
 
-    entry = oem;
-    entry["DiagnosticDataType"] = type->second;
-
-    for (const auto& iter : additional)
+    const char* configFile = "/etc/cper-logger.json";
+    const auto& config = nlohmann::ordered_json::parse(
+        std::ifstream(configFile), nullptr, false);
+    if (config.is_discarded())
     {
-        if ("DiagnosticData" == iter.first)
-            entry["DiagnosticData"] = iter.second;
-
-        if ("NotificationTypeGUID" == iter.first && "CPER" == type->second)
-            entry["CPER"]["NotificationType"] = iter.second;
-
-        if ("SectionTypeGUID" == iter.first && "CPERSection" == type->second)
-            entry["CPER"]["SectionType"] = iter.second;
-
-        // Common
-        if ("SectionTypeGUID" == iter.first)
-            entry["CPER"]["Oem"]["Nvidia"]["SectionGUID"] = iter.second;
-        if ("SectionType" == iter.first)
-            entry["CPER"]["Oem"]["Nvidia"]["SectionType"] = iter.second;
-        if ("SectionSeverity" == iter.first)
-            entry["CPER"]["Oem"]["Nvidia"]["Severity"] = iter.second;
-        if ("FruID" == iter.first)
-            entry["CPER"]["Oem"]["Nvidia"]["FruID"] = iter.second;
-        // NVIDIA
-        if ("NvSignature" == iter.first)
-            entry["CPER"]["Oem"]["Nvidia"]["NvIpSignature"] = iter.second;
-        if ("NvSeverity" == iter.first)
-            entry["CPER"]["Oem"]["Nvidia"]["NvSeverity"] = iter.second;
-        if ("NvSocket" == iter.first)
-            entry["CPER"]["Oem"]["Nvidia"]["NvSocket"] = iter.second;
-        //  PCIe
-        if ("PCIeVendorId" == iter.first)
-            entry["CPER"]["Oem"]["Nvidia"]["PCIeVendorId"] = iter.second;
-        if ("PCIeDeviceId" == iter.first)
-            entry["CPER"]["Oem"]["Nvidia"]["PCIeDeviceId"] = iter.second;
-        if ("PCIeClassCode" == iter.first)
-            entry["CPER"]["Oem"]["Nvidia"]["PCIeClassCode"] = iter.second;
-        if ("PCIeFunctionNumber" == iter.first)
-            entry["CPER"]["Oem"]["Nvidia"]["PCIeFunctionNumber"] = iter.second;
-        if ("PCIeDeviceNumber" == iter.first)
-            entry["CPER"]["Oem"]["Nvidia"]["PCIeDeviceNumber"] = iter.second;
-        if ("PCIeSegmentNumber" == iter.first)
-            entry["CPER"]["Oem"]["Nvidia"]["PCIeSegmentNumber"] = iter.second;
-        if ("PCIeDeviceBusNumber" == iter.first)
-            entry["CPER"]["Oem"]["Nvidia"]["PCIeDeviceBusNumber"] = iter.second;
-        if ("PCIeSecondaryBusNumber" == iter.first)
-            entry["CPER"]["Oem"]["Nvidia"]["PCIeSecondaryBusNumber"] =
-                iter.second;
-        if ("PCIeSlotNumber" == iter.first)
-            entry["CPER"]["Oem"]["Nvidia"]["PCIeSlotNumber"] = iter.second;
+        BMCWEB_LOG_ERROR("Failed reading {}", configFile);
+        return;
     }
+
+    const auto& redfishConfig = config.find("redfishProperties");
+    if (redfishConfig == config.end())
+    {
+        BMCWEB_LOG_ERROR("Invalid config {}", configFile);
+        return;
+    }
+
+    nlohmann::json jFlat = oem;
+    jFlat = jFlat.flatten();
+    jFlat["/CPER/Oem/Nvidia/@odata.type"] = "#NvidiaCPER.v1_0_0.NvidiaCPER";
+
+    for (const auto& item : *redfishConfig)
+    {
+        const auto& cf = item.find("from");
+        const auto& ct = item.find("to");
+        if (item.end() == cf || item.end() == ct)
+            continue;
+
+        const auto& f = additional.find(*cf);
+        if (additional.end() == f)
+            continue;
+
+        const auto& cj = item.find("json");
+        if (item.end() == cj || cj->get<bool>() == false)
+        {
+            jFlat[*ct] = f->second;
+            continue;
+        }
+
+        auto prefix = ct->dump();
+        prefix.erase(std::remove(prefix.begin(), prefix.end(), '\"'),
+                     prefix.end());
+
+        auto jj = nlohmann::ordered_json::parse(f->second, nullptr, false);
+        if (jj.is_discarded())
+        {
+            BMCWEB_LOG_ERROR("Failed to parse {}", f->second);
+            continue;
+        }
+
+        for (auto& [key, value] : jj.items())
+        {
+            std::string copy(key);
+            for (char& ch : copy)
+            {
+                if (ch == '/')
+                {
+                    char* c = &ch + 1;
+                    *c = static_cast<char>(
+                        std::toupper(static_cast<unsigned char>(*c)));
+                }
+            }
+            jFlat[prefix + copy] = value;
+        }
+    }
+    entry = jFlat.unflatten();
 
     BMCWEB_LOG_DEBUG("Done {}", type->second);
 }
