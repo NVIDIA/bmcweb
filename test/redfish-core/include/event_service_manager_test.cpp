@@ -1,5 +1,8 @@
 #include "event_service_manager.hpp"
+#include "filter_expr_printer.hpp"
 
+#include <boost/asio/io_context.hpp>
+#include <boost/url/url.hpp>
 #include <nlohmann/json.hpp>
 
 #include <optional>
@@ -69,7 +72,7 @@ TEST(EventServiceManager, eventMatchesFilter)
         event["MessageId"] = "OpenBMC.0.1.PostComplete";
 
         // Correct message registry
-        sub.registryPrefixes.push_back("OpenBMC");
+        sub.registryPrefixes.emplace_back("OpenBMC");
         EXPECT_TRUE(sub.eventMatchesFilter(event, "Event"));
 
         // Different message registry
@@ -84,14 +87,14 @@ TEST(EventServiceManager, eventMatchesFilter)
             event["OriginOfCondition"] = "/redfish/v1/Managers/bmc";
 
             // Correct origin
-            sub.originResources.push_back("/redfish/v1/Managers/bmc");
+            sub.originResources.emplace_back("/redfish/v1/Managers/bmc");
             EXPECT_TRUE(sub.eventMatchesFilter(event, "Event"));
         }
         {
             Subscription sub(url, io);
             // Incorrect origin
             sub.originResources.clear();
-            sub.originResources.push_back("/redfish/v1/Managers/bmc_not");
+            sub.originResources.emplace_back("/redfish/v1/Managers/bmc_not");
             EXPECT_FALSE(sub.eventMatchesFilter(event, "Event"));
         }
     }
