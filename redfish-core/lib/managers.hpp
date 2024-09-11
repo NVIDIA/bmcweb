@@ -415,14 +415,14 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
                     // is running on
                     doBMCGracefulRestart(asyncResp);
                 },
-                    object.first, "/xyz/openbmc_project/software",
+                    object.first, "/xyz/openbmc_project/software/bmc",
                     ifnameFactoryReset, "Reset");
             }
         },
             "xyz.openbmc_project.ObjectMapper",
             "/xyz/openbmc_project/object_mapper",
             "xyz.openbmc_project.ObjectMapper", "GetObject",
-            "/xyz/openbmc_project/software",
+            "/xyz/openbmc_project/software/bmc",
             std::array<const char*, 1>{ifnameFactoryReset.c_str()});
     });
 }
