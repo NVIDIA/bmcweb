@@ -126,6 +126,7 @@ static std::string networkAdapterLink(NETWORKADAPTERLINKPREFIX);
 static std::string gpmInstances = "UtilizationPercent/";
 static std::string nvLinkManagementNIC = "NIC_";
 static std::string nvLinkManagementNICPort = "Port_";
+static std::string retimer = "PCIeRetimer_";
 
 inline std::string getSwitchId(const std::string& key)
 {
@@ -183,6 +184,9 @@ inline void metricsReplacementsNonPlatformMetrics(
     std::set<int> gpmInstance;
     std::set<int> networkAdapterNId;
     std::set<int> nvLinkManagementId;
+    std::set<int> retimerId;
+    std::set<std::string> portTypes;
+    std::set<int> portIds;
     std::set<int> cpuId;
     std::set<int> processorId;
     std::set<int> coreId;
@@ -234,6 +238,15 @@ inline void metricsReplacementsNonPlatformMetrics(
                 nvSwitchId_Type_1.insert(number);
             }
         }
+        if (deviceType == "PCIeRetimerMetrics")
+        {
+            std::regex retimerPattern(retimer + "(\\d+)");
+            if (std::regex_search(e, match, retimerPattern))
+            {
+                int number = std::stoi(match[1].str());
+                retimerId.insert(number);
+            }
+        }
         if (deviceType == "MemoryMetrics" || deviceType == "ProcessorMetrics" ||
             deviceType == "ProcessorGPMMetrics" ||
             deviceType == "ProcessorPortMetrics" ||
@@ -278,6 +291,25 @@ inline void metricsReplacementsNonPlatformMetrics(
             {
                 int number = std::stoi(match[1].str());
                 nvLinkManagementId.insert(number);
+            }
+        }
+        if (deviceType == "PCIeRetimerPortMetrics")
+        {
+            std::regex pcieRetimerPattern(retimer + "(\\d+)");
+            if (std::regex_search(e, match, pcieRetimerPattern))
+            {
+                int number = std::stoi(match[1].str());
+                retimerId.insert(number);
+            }
+            std::regex retimerPortPattern("/Ports/(\\w+)_(\\d+)");
+            if (std::regex_search(e, match, retimerPortPattern) &&
+                match.size() > 2)
+            {
+                std::string portType = match[1].str();
+                int portId = std::stoi(match[2].str());
+
+                portTypes.insert(portType);
+                portIds.insert(portId);
             }
         }
         if (deviceType == "CpuProcessorMetrics")
@@ -374,6 +406,50 @@ inline void metricsReplacementsNonPlatformMetrics(
         wildCards.push_back({
             {"Name", "NvlinkId"},
             {"Values", devCountNVLinkManagementId},
+        });
+    }
+    if (deviceType == "PCIeRetimerPortMetrics")
+    {
+        nlohmann::json devCountRetimerId = nlohmann::json::array();
+        for (const auto& e : retimerId)
+        {
+            devCountRetimerId.push_back(std::to_string(e));
+        }
+        wildCards.push_back({
+            {"Name", "RetimerId"},
+            {"Values", devCountRetimerId},
+        });
+
+        nlohmann::json devCountRetimerPortType = nlohmann::json::array();
+        for (const auto& e : portTypes)
+        {
+            devCountRetimerPortType.push_back(e);
+        }
+        wildCards.push_back({
+            {"Name", "PortType"},
+            {"Values", devCountRetimerPortType},
+        });
+
+        nlohmann::json devCountRetimerPortId = nlohmann::json::array();
+        for (const auto& e : portIds)
+        {
+            devCountRetimerPortId.push_back(std::to_string(e));
+        }
+        wildCards.push_back({
+            {"Name", "PortId"},
+            {"Values", devCountRetimerPortId},
+        });
+    }
+    if (deviceType == "PCIeRetimerMetrics")
+    {
+        nlohmann::json devCountRetimerId = nlohmann::json::array();
+        for (const auto& e : retimerId)
+        {
+            devCountRetimerId.push_back(std::to_string(e));
+        }
+        wildCards.push_back({
+            {"Name", "RetimerId"},
+            {"Values", devCountRetimerId},
         });
     }
     if (deviceType == "NVSwitchMetrics")
@@ -544,6 +620,7 @@ inline void getShmemMetricsDefinitionWildCard(
             if (deviceType == "NVSwitchPortMetrics" ||
                 deviceType == "ProcessorPortMetrics" ||
                 deviceType == "NetworkAdapterPortMetrics" ||
+                deviceType == "PCIeRetimerPortMetrics" ||
                 deviceType == "ProcessorPortGPMMetrics")
             {
                 std::string result = e.metricProperty;
@@ -562,6 +639,7 @@ inline void getShmemMetricsDefinitionWildCard(
         if (deviceType == "NVSwitchPortMetrics" ||
             deviceType == "ProcessorPortMetrics" ||
             deviceType == "NetworkAdapterPortMetrics" ||
+            deviceType == "PCIeRetimerPortMetrics" ||
             deviceType == "ProcessorPortGPMMetrics")
         {
             for (const auto& e : inputMetricPropertiesSet)
