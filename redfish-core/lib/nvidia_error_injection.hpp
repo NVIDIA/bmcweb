@@ -332,7 +332,6 @@ inline void
                                    std::shared_ptr<bmcweb::AsyncResp> aResp,
                                    const std::string& processorId)
 {
-    BMCWEB_LOG_DEBUG("Get available system processor resource");
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
         return;
@@ -349,7 +348,6 @@ inline void
                                      std::shared_ptr<bmcweb::AsyncResp> aResp,
                                      const std::string& processorId)
 {
-    BMCWEB_LOG_DEBUG("Get available system processor resource");
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
         return;
@@ -417,7 +415,6 @@ inline void getNetworkAdapterErrorInjectionData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const std::string& chassisId, const std::string& networkAdapterId)
 {
-    BMCWEB_LOG_DEBUG("Get available system network adapters resource");
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
         return;
@@ -434,7 +431,6 @@ inline void patchNetworkAdapterErrorInjectionData(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& chassisId,
     const std::string& networkAdapterId)
 {
-    BMCWEB_LOG_DEBUG("Get available system processor resource");
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
         return;
@@ -501,7 +497,6 @@ inline void
                                 const std::string& fabricId,
                                 const std::string& switchId)
 {
-    BMCWEB_LOG_DEBUG("Get available system switches resource");
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
         return;
@@ -518,7 +513,6 @@ inline void
                                   const std::string& fabricId,
                                   const std::string& switchId)
 {
-    BMCWEB_LOG_DEBUG("Get available system switches resource");
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
         return;
