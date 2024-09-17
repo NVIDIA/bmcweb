@@ -195,40 +195,72 @@ inline void patchCCMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
         return;
     }
 
-    // Set the property, with handler to check error responses
-    crow::connections::systemBus->async_method_call(
-        [resp, processorId](boost::system::error_code ec,
-                            sdbusplus::message::message& msg) {
+    dbus::utility::getDbusObject(
+        cpuObjectPath,
+        std::array<std::string_view, 1>{
+            nvidia_async_operation_utils::setAsyncInterfaceName},
+        [resp, ccMode, processorId, cpuObjectPath, service = *inventoryService](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetObject& object) {
         if (!ec)
         {
-            BMCWEB_LOG_DEBUG("Set CC Mode property succeeded");
-            return;
-        }
-        BMCWEB_LOG_DEBUG("CPU:{} set CC Mode  property failed: {}", processorId,
-                         ec);
+            for (const auto& [serv, _] : object)
+            {
+                if (serv != service)
+                {
+                    continue;
+                }
 
-        // Read and convert dbus error message to redfish error
-        const sd_bus_error* dbusError = msg.get_error();
-        if (dbusError == nullptr)
-        {
-            messages::internalError(resp->res);
-            return;
+                BMCWEB_LOG_DEBUG(
+                    "Performing Patch using Set Async Method Call");
+
+                nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+                    resp, std::chrono::seconds(60), service, cpuObjectPath,
+                    "com.nvidia.CCMode", "CCModeEnabled",
+                    std::variant<bool>(ccMode),
+                    nvidia_async_operation_utils::PatchCCModeCallback{resp});
+
+                return;
+            }
         }
 
-        if (strcmp(dbusError->name, "xyz.openbmc_project.Common."
-                                    "Device.Error.WriteFailure") == 0)
-        {
-            // Service failed to change the config
-            messages::operationFailed(resp->res);
-        }
-        else
-        {
-            messages::internalError(resp->res);
-        }
-    },
-        *inventoryService, cpuObjectPath, "org.freedesktop.DBus.Properties",
-        "Set", "com.nvidia.CCMode", "CCModeEnabled",
-        std::variant<bool>(ccMode));
+        // Set the property, with handler to check error responses
+        crow::connections::systemBus->async_method_call(
+            [resp, processorId](boost::system::error_code ec,
+                                sdbusplus::message::message& msg) {
+            if (!ec)
+            {
+                BMCWEB_LOG_DEBUG("Set CC Mode property succeeded");
+                return;
+            }
+            BMCWEB_LOG_DEBUG("CPU:{} set CC Mode  property failed: {}",
+                             processorId, ec);
+
+            // Read and convert dbus error message to redfish error
+            const sd_bus_error* dbusError = msg.get_error();
+            if (dbusError == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Error While Doing Patch on CCMode");
+                messages::internalError(resp->res);
+                return;
+            }
+
+            if (strcmp(dbusError->name, "xyz.openbmc_project.Common."
+                                        "Device.Error.WriteFailure") == 0)
+            {
+                // Service failed to change the config
+                BMCWEB_LOG_ERROR("WriteFailure While Doing Patch on CCMode");
+                messages::operationFailed(resp->res);
+            }
+            else
+            {
+                BMCWEB_LOG_ERROR("UnknownError While Doing Patch on CCMode");
+                messages::internalError(resp->res);
+            }
+        },
+            service, cpuObjectPath, "org.freedesktop.DBus.Properties", "Set",
+            "com.nvidia.CCMode", "CCModeEnabled", std::variant<bool>(ccMode));
+    });
 }
 
 /**
@@ -264,40 +296,74 @@ inline void patchCCDevMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
         return;
     }
 
-    // Set the property, with handler to check error responses
-    crow::connections::systemBus->async_method_call(
-        [resp, processorId](boost::system::error_code ec,
-                            sdbusplus::message::message& msg) {
+    dbus::utility::getDbusObject(
+        cpuObjectPath,
+        std::array<std::string_view, 1>{
+            nvidia_async_operation_utils::setAsyncInterfaceName},
+        [resp, ccDevMode, processorId, cpuObjectPath,
+         service = *inventoryService](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetObject& object) {
         if (!ec)
         {
-            BMCWEB_LOG_DEBUG("Set CC Dev Mode property succeeded");
-            return;
+            for (const auto& [serv, _] : object)
+            {
+                if (serv != service)
+                {
+                    continue;
+                }
+
+                BMCWEB_LOG_DEBUG(
+                    "Performing Patch using Set Async Method Call");
+
+                nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+                    resp, std::chrono::seconds(60), service, cpuObjectPath,
+                    "com.nvidia.CCMode", "CCDevModeEnabled",
+                    std::variant<bool>(ccDevMode),
+                    nvidia_async_operation_utils::PatchCCModeCallback{resp});
+
+                return;
+            }
         }
 
-        BMCWEB_LOG_DEBUG("CPU:{} set CC Dev Mode  property failed: {}",
-                         processorId, ec);
-        // Read and convert dbus error message to redfish error
-        const sd_bus_error* dbusError = msg.get_error();
-        if (dbusError == nullptr)
-        {
-            messages::internalError(resp->res);
-            return;
-        }
+        // Set the property, with handler to check error responses
+        crow::connections::systemBus->async_method_call(
+            [resp, processorId](boost::system::error_code ec,
+                                sdbusplus::message::message& msg) {
+            if (!ec)
+            {
+                BMCWEB_LOG_DEBUG("Set CC Dev Mode property succeeded");
+                return;
+            }
 
-        if (strcmp(dbusError->name, "xyz.openbmc_project.Common."
-                                    "Device.Error.WriteFailure") == 0)
-        {
-            // Service failed to change the config
-            messages::operationFailed(resp->res);
-        }
-        else
-        {
-            messages::internalError(resp->res);
-        }
-    },
-        *inventoryService, cpuObjectPath, "org.freedesktop.DBus.Properties",
-        "Set", "com.nvidia.CCMode", "CCDevModeEnabled",
-        std::variant<bool>(ccDevMode));
+            BMCWEB_LOG_DEBUG("CPU:{} set CC Dev Mode  property failed: {}",
+                             processorId, ec);
+            // Read and convert dbus error message to redfish error
+            const sd_bus_error* dbusError = msg.get_error();
+            if (dbusError == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Error While Doing Patch on CCDevMode");
+                messages::internalError(resp->res);
+                return;
+            }
+
+            if (strcmp(dbusError->name, "xyz.openbmc_project.Common."
+                                        "Device.Error.WriteFailure") == 0)
+            {
+                // Service failed to change the config
+                BMCWEB_LOG_ERROR("WriteFailure While Doing Patch on CCDevMode");
+                messages::operationFailed(resp->res);
+            }
+            else
+            {
+                BMCWEB_LOG_ERROR("UnknownError While Doing Patch on CCDevMode");
+                messages::internalError(resp->res);
+            }
+        },
+            service, cpuObjectPath, "org.freedesktop.DBus.Properties", "Set",
+            "com.nvidia.CCMode", "CCDevModeEnabled",
+            std::variant<bool>(ccDevMode));
+    });
 }
 
 /*
