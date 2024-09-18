@@ -504,7 +504,6 @@ static void
                     };
                     createTask(asyncResp, std::move(payload), objPath);
                 }
-                fwUpdateInProgress = false;
                 activateImage(objPath.str, objInfo[0].first);
             });
             break;
