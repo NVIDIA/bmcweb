@@ -66,7 +66,7 @@ inline void handleCollectionMembers(
     }
 
     nlohmann::json& members = asyncResp->res.jsonValue[jsonKeyName];
-
+    members = nlohmann::json::array();
     for (const std::string& leaf : pathNames)
     {
         boost::urls::url url = collectionPath;
