@@ -5518,6 +5518,11 @@ inline void
         {"target", "/redfish/v1/Systems/" +
                        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                        "/LogServices/FDR/Actions/LogService.ClearLog"}};
+    asyncResp->res
+        .jsonValue["Actions"]["Oem"]["#NvidiaLogService.GenerateBirthCert"] = {
+        {"target",
+         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+             "/LogServices/FDR/Actions/Oem/NvidiaLogService.GenerateBirthCert"}};
     asyncResp->res.jsonValue["Actions"]["#LogService.CollectDiagnosticData"] = {
         {"target",
          "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -5791,6 +5796,45 @@ void inline requestRoutesSystemFDRClear(App& app)
             (void)msg;
             (void)objPath;
 
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            messages::success(asyncResp->res);
+        },
+            "xyz.openbmc_project.Dump.Manager", "/xyz/openbmc_project/dump/fdr",
+            "xyz.openbmc_project.Dump.Create", "CreateDump",
+            createDumpParamVec);
+    });
+}
+
+void inline requestRoutesSystemFDRGenBirthCert(App& app)
+{
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/LogServices/FDR/Actions/Oem/NvidiaLogService.GenerateBirthCert/")
+        .privileges(redfish::privileges::postLogService)
+        .methods(boost::beast::http::verb::post)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   [[maybe_unused]] const std::string& systemName) {
+        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        {
+            return;
+        }
+
+        std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
+            createDumpParamVec;
+
+        createDumpParamVec.emplace_back("DiagnosticType", "FDR");
+        createDumpParamVec.emplace_back("Action", "GenBirthCert");
+
+        crow::connections::systemBus->async_method_call(
+            [asyncResp](const boost::system::error_code ec,
+                        [[maybe_unused]] const sdbusplus::message::message& msg,
+                        [[maybe_unused]] const sdbusplus::message::object_path&
+                            objPath) mutable {
             if (ec)
             {
                 messages::internalError(asyncResp->res);

@@ -254,6 +254,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesSystemFDREntryDownload(app);
     requestRoutesSystemFDRCreate(app);
     requestRoutesSystemFDRClear(app);
+    requestRoutesSystemFDRGenBirthCert(app);
 #endif
 
 #ifdef BMCWEB_ENABLE_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
