@@ -463,29 +463,218 @@ inline void getProcessorWorkloadPowerProfileCollectionData(
             "xyz.openbmc_project.Inventory.Item.Cpu"});
 }
 
-inline void enableWorkLoadPowerProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                       const std::string& processorId,
-                                       std::vector<uint8_t>& profileMask)
+inline void enableWorkLoadPowerProfile(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& connection, const std::string& path,
+    const std::vector<uint8_t>& profileMask)
 {
-    BMCWEB_LOG_DEBUG("Get available system processor resource");
-    for (auto byte : profileMask)
-    {
-        aResp->res.jsonValue["byte"] = byte;
-        BMCWEB_LOG_DEBUG("processorId: {},Byte: {} ", processorId, byte);
-    }
+    dbus::utility::getDbusObject(
+        path,
+        std::array<std::string_view, 1>{
+            "com.nvidia.PowerProfile.ProfileInfoAsync"},
+        [asyncResp, path, profileMask,
+         connection](const boost::system::error_code& ec,
+                     const dbus::utility::MapperGetObject& object) {
+        if (!ec)
+        {
+            for (const auto& [serv, _] : object)
+            {
+                if (serv != connection)
+                {
+                    continue;
+                }
+
+                BMCWEB_LOG_DEBUG("Performing Post using Async Method Call");
+
+                nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+                    int>(
+                    asyncResp, std::chrono::seconds(60), connection, path,
+                    "com.nvidia.PowerProfile.ProfileInfoAsync",
+                    "EnablePresetProfile",
+                    [asyncResp,
+                     profileMask](const std::string& status,
+                                  [[maybe_unused]] const int* retValue) {
+                    if (status ==
+                        nvidia_async_operation_utils::asyncStatusValueSuccess)
+                    {
+                        BMCWEB_LOG_DEBUG("EnablePresetProfile Succeeded");
+                        messages::success(asyncResp->res);
+                        return;
+                    }
+                    BMCWEB_LOG_ERROR("EnablePresetProfile Throws error {}",
+                                     status);
+                    messages::internalError(asyncResp->res);
+                },
+                    profileMask);
+                return;
+            }
+        }
+    });
 }
 
 inline void
-    disableWorkLoadPowerProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                const std::string& processorId,
-                                std::vector<uint8_t>& profileMask)
+    postEnableWorkLoadPowerProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
+                                   const std::string& processorId,
+                                   std::vector<uint8_t>& profileMask)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    for (auto byte : profileMask)
-    {
-        aResp->res.jsonValue["byte"] = byte;
-        BMCWEB_LOG_DEBUG("processorId: {},Byte: {} ", processorId, byte);
-    }
+    crow::connections::systemBus->async_method_call(
+        [processorId, aResp{std::move(aResp)}, profileMask](
+            const boost::system::error_code ec,
+            const boost::container::flat_map<
+                std::string, boost::container::flat_map<
+                                 std::string, std::vector<std::string>>>&
+                subtree) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("DBUS response error");
+            messages::internalError(aResp->res);
+
+            return;
+        }
+        for (const auto& [path, object] : subtree)
+        {
+            if (!boost::ends_with(path, processorId))
+            {
+                continue;
+            }
+            for (const auto& [service, interfaces] : object)
+            {
+                if (std::find(interfaces.begin(), interfaces.end(),
+                              "com.nvidia.PowerProfile.ProfileInfoAsync") ==
+                    interfaces.end())
+                {
+                    // Object not found
+                    messages::resourceNotFound(
+                        aResp->res,
+                        "#NvidiaWorkloadPower.v1_0_0.NvidiaWorkloadPower",
+                        processorId);
+                    return;
+                }
+                enableWorkLoadPowerProfile(aResp, service, path, profileMask);
+            }
+
+            return;
+        }
+        // Object not found
+        messages::resourceNotFound(
+            aResp->res, "#NvidiaWorkloadPower.v1_0_0.NvidiaWorkloadPower",
+            processorId);
+    },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<const char*, 2>{
+            "xyz.openbmc_project.Inventory.Item.Accelerator",
+            "xyz.openbmc_project.Inventory.Item.Cpu"});
+}
+
+inline void disableWorkLoadPowerProfile(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& connection, const std::string& path,
+    const std::vector<uint8_t>& profileMask)
+{
+    dbus::utility::getDbusObject(
+        path,
+        std::array<std::string_view, 1>{
+            "com.nvidia.PowerProfile.ProfileInfoAsync"},
+        [asyncResp, path, profileMask,
+         connection](const boost::system::error_code& ec,
+                     const dbus::utility::MapperGetObject& object) {
+        if (!ec)
+        {
+            for (const auto& [serv, _] : object)
+            {
+                if (serv != connection)
+                {
+                    continue;
+                }
+
+                BMCWEB_LOG_DEBUG("Performing Post using Async Method Call");
+
+                nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+                    int>(
+                    asyncResp, std::chrono::seconds(60), connection, path,
+                    "com.nvidia.PowerProfile.ProfileInfoAsync",
+                    "DisablePresetProfile",
+                    [asyncResp,
+                     profileMask](const std::string& status,
+                                  [[maybe_unused]] const int* retValue) {
+                    if (status ==
+                        nvidia_async_operation_utils::asyncStatusValueSuccess)
+                    {
+                        BMCWEB_LOG_DEBUG("DisablePresetProfile Succeeded");
+                        messages::success(asyncResp->res);
+                        return;
+                    }
+                    BMCWEB_LOG_ERROR("DisablePresetProfile Throws error {}",
+                                     status);
+                    messages::internalError(asyncResp->res);
+                },
+                    profileMask);
+                return;
+            }
+        }
+    });
+}
+
+inline void
+    postDisableWorkLoadPowerProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
+                                    const std::string& processorId,
+                                    std::vector<uint8_t>& profileMask)
+{
+    BMCWEB_LOG_DEBUG("Get available system processor resource");
+    crow::connections::systemBus->async_method_call(
+        [processorId, aResp{std::move(aResp)}, profileMask](
+            const boost::system::error_code ec,
+            const boost::container::flat_map<
+                std::string, boost::container::flat_map<
+                                 std::string, std::vector<std::string>>>&
+                subtree) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("DBUS response error");
+            messages::internalError(aResp->res);
+
+            return;
+        }
+        for (const auto& [path, object] : subtree)
+        {
+            if (!boost::ends_with(path, processorId))
+            {
+                continue;
+            }
+            for (const auto& [service, interfaces] : object)
+            {
+                if (std::find(interfaces.begin(), interfaces.end(),
+                              "com.nvidia.PowerProfile.ProfileInfoAsync") ==
+                    interfaces.end())
+                {
+                    // Object not found
+                    messages::resourceNotFound(
+                        aResp->res,
+                        "#NvidiaWorkloadPower.v1_0_0.NvidiaWorkloadPower",
+                        processorId);
+                    return;
+                }
+                disableWorkLoadPowerProfile(aResp, service, path, profileMask);
+            }
+
+            return;
+        }
+        // Object not found
+        messages::resourceNotFound(
+            aResp->res, "#NvidiaWorkloadPower.v1_0_0.NvidiaWorkloadPower",
+            processorId);
+    },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<const char*, 2>{
+            "xyz.openbmc_project.Inventory.Item.Accelerator",
+            "xyz.openbmc_project.Inventory.Item.Cpu"});
 }
 
 inline void requestRoutesProcessorWorkloadPower(App& app)
@@ -511,7 +700,7 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/Actions/NvidiaWorkloadPower.EnableProfiles/")
+            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/Actions/NvidiaWorkloadPower.EnableProfiles")
         .privileges(redfish::privileges::postProcessor)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
@@ -530,7 +719,8 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
         }
         if (profileMask)
         {
-            enableWorkLoadPowerProfile(asyncResp, processorId, *profileMask);
+            postEnableWorkLoadPowerProfile(asyncResp, processorId,
+                                           *profileMask);
         }
     });
 
@@ -571,7 +761,7 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/Actions/NvidiaWorkloadPower.DisableProfiles/")
+            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/Actions/NvidiaWorkloadPower.DisableProfiles")
         .privileges(redfish::privileges::postProcessor)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
@@ -584,13 +774,14 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
         std::optional<std::vector<uint8_t>> profileMask;
 
         if (!redfish::json_util::readJsonAction(req, asyncResp->res,
-                                                "ProfileId", profileMask))
+                                                "ProfileMask", profileMask))
         {
             return;
         }
         if (profileMask)
         {
-            disableWorkLoadPowerProfile(asyncResp, processorId, *profileMask);
+            postDisableWorkLoadPowerProfile(asyncResp, processorId,
+                                            *profileMask);
         }
     });
 

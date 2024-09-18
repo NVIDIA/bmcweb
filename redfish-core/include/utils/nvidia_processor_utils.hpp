@@ -6,7 +6,8 @@ namespace redfish
 {
 namespace nvidia_processor_utils
 {
-
+using DbusProperties =
+    std::vector<std::pair<std::string, dbus::utility::DbusVariantType>>;
 using OperatingConfigProperties =
     std::vector<std::pair<std::string, dbus::utility::DbusVariantType>>;
 
