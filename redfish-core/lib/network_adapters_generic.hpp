@@ -522,6 +522,14 @@ inline void
     asyncResp->res.jsonValue["Ports"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters/{}/Ports",
                             chassisId, networkAdapterId);
+
+    asyncResp->res.jsonValue["Actions"]["#NetworkAdapter.Reset"] = {
+        {"target",
+         boost::urls::format(
+             "/redfish/v1/Chassis/{}/NetworkAdapters/{}/Actions/NetworkAdapter.Reset",
+             chassisId, networkAdapterId)},
+        {"ResetType@Redfish.AllowableValues", {"ForceRestart"}}};
+
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
 
 #ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
@@ -1569,6 +1577,182 @@ inline void
                         networkAdapterId, portId));
 }
 
+inline std::string getNetworkAdapterResetType(const std::string& type)
+{
+    if (type == "xyz.openbmc_project.Control.Reset.ResetTypes.ForceOff")
+    {
+        return "ForceOff";
+    }
+    if (type == "xyz.openbmc_project.Control.Reset.ResetTypes.ForceOn")
+    {
+        return "ForceOn";
+    }
+    if (type == "xyz.openbmc_project.Control.Reset.ResetTypes.ForceRestart")
+    {
+        return "ForceRestart";
+    }
+    if (type == "xyz.openbmc_project.Control.Reset.ResetTypes.GracefulRestart")
+    {
+        return "GracefulRestart";
+    }
+    if (type == "xyz.openbmc_project.Control.Reset.ResetTypes.GracefulShutdown")
+    {
+        return "GracefulShutdown";
+    }
+    // Unknown or others
+    return "";
+}
+
+inline void networkAdapterPostResetType(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& networkAdapterId, const std::string& objectPath,
+    const std::string& resetType,
+    const std::vector<std::pair<std::string, std::vector<std::string>>>&
+        serviceMap)
+{
+    // Check that the property even exists by checking for the interface
+    const std::string* inventoryService = nullptr;
+    for (const auto& [serviceName, interfaceList] : serviceMap)
+    {
+        if (std::find(interfaceList.begin(), interfaceList.end(),
+                      "xyz.openbmc_project.Control.ResetAsync") !=
+            interfaceList.end())
+        {
+            inventoryService = &serviceName;
+            break;
+        }
+    }
+
+    if (inventoryService == nullptr)
+    {
+        BMCWEB_LOG_ERROR(
+            "networkAdapterPostResetType error service not implementing reset interface");
+        messages::internalError(resp->res);
+        return;
+    }
+
+    const std::string conName = *inventoryService;
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus, conName, objectPath,
+        "xyz.openbmc_project.Control.Reset", "ResetType",
+        [resp, resetType, networkAdapterId, conName, objectPath](
+            const boost::system::error_code ec, const std::string& property) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("DBus response, error for ResetType ");
+            BMCWEB_LOG_ERROR("{}", ec.message());
+            messages::internalError(resp->res);
+            return;
+        }
+
+        const std::string ntwAdpResetType =
+            getNetworkAdapterResetType(property);
+        if (ntwAdpResetType != resetType)
+        {
+            BMCWEB_LOG_DEBUG("Property Value Incorrect {} while allowed is {}",
+                             resetType, ntwAdpResetType);
+            messages::actionParameterNotSupported(resp->res, "ResetType",
+                                                  resetType);
+            return;
+        }
+
+        nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<int>(
+            resp, std::chrono::seconds(60), conName, objectPath,
+            "xyz.openbmc_project.Control.ResetAsync", "Reset",
+            [resp](const std::string& status,
+                   [[maybe_unused]] const int* retValue) {
+            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+            {
+                BMCWEB_LOG_DEBUG("Network adapter Reset Succeeded");
+                messages::success(resp->res);
+                return;
+            }
+            BMCWEB_LOG_ERROR("Network adapter reset error {}", status);
+            messages::internalError(resp->res);
+        });
+    });
+}
+
+inline void doNetworkAdapterReset(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& networkAdapterId, const std::string& resetType,
+    const std::optional<std::string>& validNetworkAdapterPath)
+{
+    if (!validNetworkAdapterPath)
+    {
+        BMCWEB_LOG_ERROR("Not a valid networkAdapter ID{}", networkAdapterId);
+        messages::resourceNotFound(asyncResp->res, "NetworkAdapter",
+                                   networkAdapterId);
+        return;
+    }
+
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, networkAdapterId, resetType, validNetworkAdapterPath](
+            const boost::system::error_code ec,
+            const std::vector<std::pair<std::string, std::vector<std::string>>>&
+                obj) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("DBUS response error while getting service");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        networkAdapterPostResetType(asyncResp, networkAdapterId,
+                                    *validNetworkAdapterPath, resetType, obj);
+    },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetObject",
+        *validNetworkAdapterPath, std::array<const char*, 0>());
+}
+
+inline void handleNetworkAdapterResetNext(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId,
+    const std::string& resetType,
+    const std::vector<std::string>& chassisIntfList,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        BMCWEB_LOG_ERROR("Not a valid chassis ID{}", chassisId);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    getValidNetworkAdapterPath(asyncResp, networkAdapterId, chassisIntfList,
+                               *validChassisPath,
+                               std::bind_front(doNetworkAdapterReset, asyncResp,
+                                               networkAdapterId, resetType));
+}
+
+inline void handleNetworkAdapterReset(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    std::optional<std::string> resetType;
+    if (!redfish::json_util::readJsonAction(req, asyncResp->res, "ResetType",
+                                            resetType))
+    {
+        return;
+    }
+
+    if (resetType)
+    {
+        redfish::chassis_utils::getValidChassisPathAndInterfaces(
+            asyncResp, chassisId,
+            std::bind_front(handleNetworkAdapterResetNext, asyncResp, chassisId,
+                            networkAdapterId, *resetType));
+    }
+}
+
 inline void requestRoutesNetworkAdapters(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/")
@@ -1579,6 +1763,12 @@ inline void requestRoutesNetworkAdapters(App& app)
         .privileges(redfish::privileges::getNetworkAdapter)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleNetworkAdapterGet, std::ref(app)));
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Actions/NetworkAdapter.Reset/")
+        .privileges(redfish::privileges::getNetworkAdapter)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleNetworkAdapterReset, std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Ports/")
         .privileges(redfish::privileges::getPortCollection)
         .methods(boost::beast::http::verb::get)(

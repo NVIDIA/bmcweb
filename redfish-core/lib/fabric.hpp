@@ -1869,6 +1869,36 @@ inline std::string getNVSwitchResetType(const std::string& processorType)
     return "";
 }
 
+inline std::string getSwitchResetType(const std::string& processorType)
+{
+    if (processorType ==
+        "xyz.openbmc_project.Control.Reset.ResetTypes.ForceOff")
+    {
+        return "ForceOff";
+    }
+    if (processorType == "xyz.openbmc_project.Control.Reset.ResetTypes.ForceOn")
+    {
+        return "ForceOn";
+    }
+    if (processorType ==
+        "xyz.openbmc_project.Control.Reset.ResetTypes.ForceRestart")
+    {
+        return "ForceRestart";
+    }
+    if (processorType ==
+        "xyz.openbmc_project.Control.Reset.ResetTypes.GracefulRestart")
+    {
+        return "GracefulRestart";
+    }
+    if (processorType ==
+        "xyz.openbmc_project.Control.Reset.ResetTypes.GracefulShutdown")
+    {
+        return "GracefulShutdown";
+    }
+    // Unknown or others
+    return "";
+}
+
 inline void switchPostResetType(
     const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& switchId,
     const std::string& objectPath, const std::string& resetType,
@@ -1876,7 +1906,7 @@ inline void switchPostResetType(
         serviceMap)
 {
     std::vector<std::string> resetInterfaces = {
-        "xyz.openbmc_project.Control.Processor.ResetAsync",
+        "xyz.openbmc_project.Control.ResetAsync",
         "xyz.openbmc_project.Control.Processor.Reset"};
 
     // Check that the property even exists by checking for the interface
@@ -1892,7 +1922,7 @@ inline void switchPostResetType(
             if (it != interfaceList.end())
             {
                 inventoryService = &serviceName;
-                if (iface == "xyz.openbmc_project.Control.Processor.ResetAsync")
+                if (iface == "xyz.openbmc_project.Control.ResetAsync")
                     resetAsyncIntfImp = true;
                 if (iface == "xyz.openbmc_project.Control.Processor.Reset")
                     resetIntfImp = true;
@@ -1910,38 +1940,38 @@ inline void switchPostResetType(
     }
 
     const std::string conName = *inventoryService;
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, conName, objectPath,
-        "xyz.openbmc_project.Control.Processor.Reset", "ResetType",
-        [resp, resetType, switchId, conName, objectPath, resetIntfImp,
-         resetAsyncIntfImp](const boost::system::error_code ec,
-                            const std::string& property) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBus response, error for ResetType ");
-            BMCWEB_LOG_ERROR("{}", ec.message());
-            messages::internalError(resp->res);
-            return;
-        }
+    if (resetAsyncIntfImp)
+    {
+        sdbusplus::asio::getProperty<std::string>(
+            *crow::connections::systemBus, conName, objectPath,
+            "xyz.openbmc_project.Control.Reset", "ResetType",
+            [resp, resetType, switchId, conName,
+             objectPath](const boost::system::error_code ec,
+                         const std::string& property) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBus response, error for ResetType ");
+                BMCWEB_LOG_ERROR("{}", ec.message());
+                messages::internalError(resp->res);
+                return;
+            }
 
-        const std::string switchResetType = getNVSwitchResetType(property);
-        if (switchResetType != resetType)
-        {
-            BMCWEB_LOG_DEBUG("Property Value Incorrect {} while allowed is {}",
-                             resetType, switchResetType);
-            messages::actionParameterNotSupported(resp->res, "ResetType",
-                                                  resetType);
-            return;
-        }
+            const std::string switchResetType = getSwitchResetType(property);
+            if (switchResetType != resetType)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "Property Value Incorrect {} while allowed is {}",
+                    resetType, switchResetType);
+                messages::actionParameterNotSupported(resp->res, "ResetType",
+                                                      resetType);
+                return;
+            }
 
-        if (resetAsyncIntfImp)
-        {
             BMCWEB_LOG_DEBUG("Performing Post using Async Method Call");
 
             nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
                 int>(resp, std::chrono::seconds(60), conName, objectPath,
-                     "xyz.openbmc_project.Control.Processor.ResetAsync",
-                     "Reset",
+                     "xyz.openbmc_project.Control.ResetAsync", "Reset",
                      [resp](const std::string& status,
                             [[maybe_unused]] const int* retValue) {
                 if (status ==
@@ -1954,9 +1984,35 @@ inline void switchPostResetType(
                 BMCWEB_LOG_ERROR("Switch reset error {}", status);
                 messages::internalError(resp->res);
             });
-        }
-        else if (resetIntfImp)
-        {
+        });
+    }
+    else if (resetIntfImp)
+    {
+        sdbusplus::asio::getProperty<std::string>(
+            *crow::connections::systemBus, conName, objectPath,
+            "xyz.openbmc_project.Control.Processor.Reset", "ResetType",
+            [resp, resetType, switchId, conName,
+             objectPath](const boost::system::error_code ec,
+                         const std::string& property) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBus response, error for ResetType ");
+                BMCWEB_LOG_ERROR("{}", ec.message());
+                messages::internalError(resp->res);
+                return;
+            }
+
+            const std::string switchResetType = getNVSwitchResetType(property);
+            if (switchResetType != resetType)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "Property Value Incorrect {} while allowed is {}",
+                    resetType, switchResetType);
+                messages::actionParameterNotSupported(resp->res, "ResetType",
+                                                      resetType);
+                return;
+            }
+
             BMCWEB_LOG_DEBUG("Performing Post using Sync Method Call");
 
             // Set the property, with handler to check error responses
@@ -1980,14 +2036,14 @@ inline void switchPostResetType(
             },
                 conName, objectPath,
                 "xyz.openbmc_project.Control.Processor.Reset", "Reset");
-        }
-        else
-        {
-            BMCWEB_LOG_ERROR("No reset interface implemented.");
-            messages::internalError(resp->res);
-            return;
-        }
-    });
+        });
+    }
+    else
+    {
+        BMCWEB_LOG_ERROR("No reset interface implemented.");
+        messages::internalError(resp->res);
+        return;
+    }
 }
 
 /**
