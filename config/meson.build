@@ -154,6 +154,7 @@ feature_options = [
     'static-hosting',
     'tests',
     'vm-websocket',
+    'vm-nbdproxy',
     'xtoken-auth',
 ]
 
@@ -199,9 +200,6 @@ if get_option('buildtype').startswith('debug') and loglvlopt == 'disabled'
 endif
 loglvlopt = loglvlopt.to_upper()
 string_options_string += 'constexpr std::string_view  BMCWEB_LOGGING_LEVEL' + ' = "' + loglvlopt + '";\n'
-
-# NBD proxy is disabled due to lack of maintenance.  See meson_options.txt
-feature_options_string += 'constexpr const bool        BMCWEB_VM_NBDPROXY = false;\n'
 
 conf_data.set(
     'BMCWEB_OPTIONS',
