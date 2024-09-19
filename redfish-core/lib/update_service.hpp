@@ -4338,7 +4338,6 @@ inline void requestRoutesSoftwareInventory(App& app)
             asyncResp->res.jsonValue["Name"] = "Software Inventory";
 
 #ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
-            BMCWEB_LOG_ERROR("updateOemActionComputeDigest function is called");
             updateOemActionComputeDigest(asyncResp, *swId);
 #endif
         });
