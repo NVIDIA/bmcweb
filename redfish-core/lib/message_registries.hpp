@@ -56,6 +56,12 @@ inline void handleMessageRegistryFileCollectionGet(
              {"Base", "TaskEvent", "ResourceEvent", "OpenBMC", "Telemetry",
               "Platform", "Update", "BiosAttributeRegistry"}))
     {
+#ifndef BMCWEB_ENABLE_BIOS
+        if (std::string(memberName) == "BiosAttributeRegistry")
+        {
+            continue;
+        }
+#endif
         nlohmann::json::object_t member;
         member["@odata.id"] = boost::urls::format("/redfish/v1/Registries/{}",
                                                   memberName);
@@ -112,11 +118,13 @@ inline void handleMessageRoutesMessageRegistryFileGet(
         header = &registries::update::header;
         url = registries::update::url;
     }
+#ifdef BMCWEB_ENABLE_BIOS
     else if (registry == "BiosAttributeRegistry")
     {
         header = &registries::bios::header;
         dmtf.clear();
     }
+#endif
     else if (registry == "Platform")
     {
         header = &registries::platform::header;
