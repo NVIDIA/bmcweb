@@ -1170,7 +1170,7 @@ class EventServiceManager
             subValue->updateRetryConfig(retryAttempts, retryTimeoutInterval);
         }
 #ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
-        createSubscribeTimer();
+        redfish::subscribeSatBmc::getInstance().createSubscribeTimer();
 
         if (getNumberOfSubscriptions() > 0)
         {

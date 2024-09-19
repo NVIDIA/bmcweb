@@ -30,6 +30,37 @@ constexpr unsigned int subscribeBodyLimit = 5 * 1024 * 1024; // 5MB
 namespace redfish
 {
 #ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
+class subscribeSatBmc
+{
+  public:
+    subscribeSatBmc(const subscribeSatBmc&) = delete;
+    subscribeSatBmc& operator=(const subscribeSatBmc&) = delete;
+    subscribeSatBmc(subscribeSatBmc&&) = delete;
+    subscribeSatBmc& operator=(subscribeSatBmc&&) = delete;
+    ~subscribeSatBmc() = default;
+    static subscribeSatBmc& getInstance()
+    {
+        static subscribeSatBmc handler;
+        return handler;
+    }
+
+    void createSubscribeTimer()
+    {
+        subscribeTimer = std::make_shared<boost::asio::steady_timer>(
+            crow::connections::systemBus->get_io_context(),
+            std::chrono::seconds(rfaDeferSubscribeTime));
+    }
+
+    std::shared_ptr<boost::asio::steady_timer> getTimer()
+    {
+        return subscribeTimer;
+    }
+
+  private:
+    std::shared_ptr<boost::asio::steady_timer> subscribeTimer;
+    subscribeSatBmc() = default;
+};
+
 // this is common function for http client retry
 inline boost::system::error_code subscriptionRetryHandler(unsigned int respCode)
 {
@@ -166,15 +197,6 @@ inline void invokeRedfishEventListener()
         listenerServiceName, mode);
 }
 
-static std::unique_ptr<boost::asio::steady_timer> subscribeTimer;
-
-inline void createSubscribeTimer()
-{
-    subscribeTimer = std::make_unique<boost::asio::steady_timer>(
-        crow::connections::systemBus->get_io_context(),
-        std::chrono::seconds(rfaDeferSubscribeTime));
-}
-
 inline void querySubscriptionList(std::shared_ptr<crow::HttpClient> client,
                                   boost::urls::url url,
                                   const boost::system::error_code& ec)
@@ -194,6 +216,7 @@ inline void querySubscriptionList(std::shared_ptr<crow::HttpClient> client,
     url.set_path(path);
     client->sendDataWithCallback(std::move(data), url, httpHeader,
                                  boost::beast::http::verb::get, cb);
+    auto subscribeTimer = subscribeSatBmc::getInstance().getTimer();
     // check HMC subscription periodically in case of HMC
     // reset-to-default
     subscribeTimer->expires_after(std::chrono::seconds(rfaDeferSubscribeTime));
@@ -226,6 +249,7 @@ inline void getSatBMCInfo(
 
     boost::urls::url url(sat->second);
 
+    auto subscribeTimer = subscribeSatBmc::getInstance().getTimer();
     subscribeTimer->expires_after(std::chrono::seconds(deferTime));
     subscribeTimer->async_wait(
         std::bind_front(querySubscriptionList, client, url));
@@ -285,6 +309,7 @@ inline void unSubscribe(
 
 inline int stopRedfishEventListener(boost::asio::io_context& ioc)
 {
+    auto subscribeTimer = subscribeSatBmc::getInstance().getTimer();
     // stop the timer.
     subscribeTimer->cancel();
 
@@ -304,5 +329,6 @@ inline int stopRedfishEventListener(boost::asio::io_context& ioc)
         listenerServiceName, mode);
     return 0;
 }
+
 #endif
 } // namespace redfish
