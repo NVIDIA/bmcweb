@@ -95,7 +95,7 @@ constexpr const char* crashdumpOnDemandInterface =
     "com.intel.crashdump.OnDemand";
 constexpr const char* crashdumpTelemetryInterface =
     "com.intel.crashdump.Telemetry";
-constexpr const char* logEntryVersion = "#LogEntry.v1_13_0.LogEntry";
+constexpr const char* logEntryVersion = "#LogEntry.v1_15_0.LogEntry";
 
 enum class DumpCreationProgress
 {
@@ -111,7 +111,7 @@ static void generateMessageRegistry(
     nlohmann::json& logEntry,
     const std::string& odataId, /* e.g. /redfish/v1/Systems/system/LogServices/"
                                   "EventLog/Entries/ */
-    const std::string& odataTypeVer /* e.g. v1_13_0 */, const std::string& id,
+    const std::string& odataTypeVer /* e.g. v1_15_0 */, const std::string& id,
     const std::string& name, const std::string& timestamp,
     const std::string& messageId, const std::string& messageArgs,
     const std::string& resolution, const bool& resolved,
@@ -2939,7 +2939,7 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                             "/LogServices/"
                             "EventLog/Entries/",
-                        "v1_13_0", std::to_string(*id),
+                        "v1_15_0", std::to_string(*id),
                         "System Event Log Entry",
                         redfish::time_utils::getDateTimeStdtime(timestamp),
                         messageId, messageArgs, *resolution, resolved,
@@ -2957,7 +2957,7 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                 // So check the entry 'Id' anyway to cover that case.
                 if (thisEntry["Id"].size() == 0)
                 {
-                    thisEntry["@odata.type"] = "#LogEntry.v1_13_0.LogEntry";
+                    thisEntry["@odata.type"] = "#LogEntry.v1_15_0.LogEntry";
                     thisEntry["@odata.id"] =
                         getLogEntryDataId(std::to_string(*id));
                     thisEntry["Name"] = "System Event Log Entry";
@@ -3141,7 +3141,7 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                         std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                         "/LogServices/"
                         "EventLog/Entries/",
-                    "v1_13_0", std::to_string(*id), "System Event Log Entry",
+                    "v1_15_0", std::to_string(*id), "System Event Log Entry",
                     redfish::time_utils::getDateTimeStdtime(
                         redfish::time_utils::getTimestamp(*timestamp)),
                     messageId, messageArgs, *resolution, resolved,
@@ -3168,7 +3168,7 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                 }
 
                 asyncResp->res.jsonValue["@odata.type"] =
-                    "#LogEntry.v1_13_0.LogEntry";
+                    "#LogEntry.v1_15_0.LogEntry";
                 asyncResp->res.jsonValue["@odata.id"] =
                     "/redfish/v1/Systems/" +
                     std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -3514,7 +3514,7 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
                 std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                 "/LogServices/"
                 "SEL/Entries/",
-            "v1_13_0", std::to_string(*id), "System Event Log Entry",
+            "v1_15_0", std::to_string(*id), "System Event Log Entry",
             redfish::time_utils::getDateTimeStdtime(timestamp), messageId,
             messageArgs, *resolution, resolved,
             (eventId == nullptr) ? "" : *eventId, deviceName, *severity);
@@ -5544,7 +5544,7 @@ static void
                                    "/LogServices/Crashdump/Entries/" + logID +
                                    "/" + filename;
         nlohmann::json::object_t logEntry;
-        logEntry["@odata.type"] = "#LogEntry.v1_13_0.LogEntry";
+        logEntry["@odata.type"] = "#LogEntry.v1_15_0.LogEntry";
         logEntry["@odata.id"] = "/redfish/v1/Systems/" +
                                 std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                                 "/LogServices/Crashdump/Entries/" + logID;
@@ -7332,7 +7332,7 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                             BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                                                         "/LogServices/"
                                                         "EventLog/Entries/",
-                                                    "v1_13_0",
+                                                    "v1_15_0",
                                                     std::to_string(*id),
                                                     "System Event Log Entry",
                                                     redfish::time_utils::
@@ -7372,7 +7372,7 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                         if (thisEntry["Id"].size() == 0)
                                         {
                                             thisEntry["@odata.type"] =
-                                                "#LogEntry.v1_13_0.LogEntry";
+                                                "#LogEntry.v1_15_0.LogEntry";
                                             thisEntry["@odata.id"] =
                                                 "/redfish/v1/Systems/" +
                                                 std::string(
