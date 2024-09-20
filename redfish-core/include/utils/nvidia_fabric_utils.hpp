@@ -475,5 +475,118 @@ inline void
     }
 }
 
+/**
+ * Handle the PATCH operation of the L1 Power Mode Boolean Property. Do basic
+ * validation of the input data, and then update using async way.
+ *
+ * @param[in,out]   resp            Async HTTP response.
+ * @param[in]       fabricId        Fabric's Id.
+ * @param[in]       switchId        Switch's Id.
+ * @param[in]       propertyValue   New property value to apply.
+ * @param[in]       ObjectPath      Path of object to modify.
+ * @param[in]       serviceMap      Service map for CPU object.
+ */
+inline void patchSwitchIsolationMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& fabricId,
+    const std::string& switchId, const std::string& propertyValue,
+    const std::string& objectPath, const MapperServiceMap& serviceMap)
+{
+    // Check that the property even exists by checking for the interface
+    const std::string* inventoryService = nullptr;
+    for (const auto& [serviceName, interfaceList] : serviceMap)
+    {
+        if (std::find(interfaceList.begin(), interfaceList.end(),
+                      "com.nvidia.SwitchIsolation") != interfaceList.end())
+        {
+            inventoryService = &serviceName;
+            break;
+        }
+    }
+    if (inventoryService == nullptr)
+    {
+        BMCWEB_LOG_ERROR(
+            "Switch Isolation Mode interface not found while patch");
+        messages::internalError(resp->res);
+        return;
+    }
+
+    dbus::utility::getDbusObject(
+        objectPath,
+        std::array<std::string_view, 1>{
+            nvidia_async_operation_utils::setAsyncInterfaceName},
+        [resp, propertyValue, fabricId, switchId, objectPath,
+         service = *inventoryService](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetObject& object) {
+        if (!ec)
+        {
+            for (const auto& [serv, _] : object)
+            {
+                if (serv != service)
+                {
+                    continue;
+                }
+
+                BMCWEB_LOG_DEBUG(
+                    "Performing Patch using Set Async Method Call for Switch Isolation Mode");
+
+                nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+                    resp, std::chrono::seconds(60), service, objectPath,
+                    "com.nvidia.SwitchIsolation", "IsolationMode",
+                    std::variant<std::string>(propertyValue),
+                    nvidia_async_operation_utils::PatchIsolationModeCallback{
+                        resp});
+
+                return;
+            }
+        }
+        else
+        {
+            messages::internalError(resp->res);
+            return;
+        }
+    });
+}
+
+inline void
+    getSwitchIsolationMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& serv, const std::string& objPath,
+                           const std::string& interface)
+{
+    using PropertiesMap =
+        boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code ec,
+                    const PropertiesMap& properties) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("DBUS response error");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        nlohmann::json& json = asyncResp->res.jsonValue;
+        for (const auto& property : properties)
+        {
+            if (property.first == "IsolationMode")
+            {
+                const std::string* isolationMode =
+                    std::get_if<std::string>(&property.second);
+                if (isolationMode == nullptr)
+                {
+                    messages::internalError(asyncResp->res);
+                    BMCWEB_LOG_ERROR("Invalid Data Type");
+                    return;
+                }
+                auto itr = (*isolationMode).find_last_of('.');
+                json["Oem"]["Nvidia"]["SwitchIsolationMode"] =
+                    (itr != std::string::npos)
+                        ? (*isolationMode).substr(itr + 1)
+                        : "Unknown";
+            }
+        }
+    },
+        serv, objPath, "org.freedesktop.DBus.Properties", "GetAll", interface);
+}
+
 } // namespace nvidia_fabric_utils
 } // namespace redfish

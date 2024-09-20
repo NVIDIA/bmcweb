@@ -1536,6 +1536,16 @@ inline void requestRoutesSwitch(App& app)
                                     getSwitchPowerModeLink(
                                         asyncResp, object.front().second,
                                         switchURI);
+                                if (std::find(object.front().second.begin(),
+                                              object.front().second.end(),
+                                              "com.nvidia.SwitchIsolation") !=
+                                    object.front().second.end())
+                                {
+                                    redfish::nvidia_fabric_utils::
+                                        getSwitchIsolationMode(
+                                            asyncResp, object.front().first,
+                                            path, "com.nvidia.SwitchIsolation");
+                                }
                             }
                             updateSwitchData(asyncResp, object.front().first,
                                              path);
@@ -1588,6 +1598,55 @@ inline void requestRoutesSwitch(App& app)
             "/xyz/openbmc_project/inventory", 0,
             std::array<const char*, 1>{
                 "xyz.openbmc_project.Inventory.Item.Fabric"});
+    });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Fabrics/<str>/Switches/<str>/")
+        .privileges({{"Login"}})
+        .methods(boost::beast::http::verb::patch)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   [[maybe_unused]] const std::string& fabricId,
+                   [[maybe_unused]] const std::string& switchId) {
+        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        {
+            return;
+        }
+        std::optional<nlohmann::json> oemObject;
+        if (!redfish::json_util::readJsonAction(req, asyncResp->res, "Oem",
+                                                oemObject))
+        {
+            return;
+        }
+        if (std::optional<nlohmann::json> oemNvidiaObject;
+            oemObject &&
+            redfish::json_util::readJson(*oemObject, asyncResp->res, "Nvidia",
+                                         oemNvidiaObject))
+        {
+            std::optional<std::string> isolationMode;
+            if (oemNvidiaObject && redfish::json_util::readJson(
+                                       *oemNvidiaObject, asyncResp->res,
+                                       "SwitchIsolationMode", isolationMode))
+            {
+                if (isolationMode)
+                {
+#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+                    redfish::nvidia_fabric_utils::getSwitchObject(
+                        asyncResp, fabricId, switchId,
+                        [isolationMode](
+                            const std::shared_ptr<bmcweb::AsyncResp>&
+                                asyncResp1,
+                            const std::string& fabricId1,
+                            const std::string& switchId1,
+                            const std::string& objectPath,
+                            const MapperServiceMap& serviceMap) {
+                        redfish::nvidia_fabric_utils::patchSwitchIsolationMode(
+                            asyncResp1, fabricId1, switchId1, *isolationMode,
+                            objectPath, serviceMap);
+                    });
+#endif
+                }
+            }
+        }
     });
 }
 
