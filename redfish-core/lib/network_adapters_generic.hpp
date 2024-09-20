@@ -535,8 +535,10 @@ inline void
         nlohmann::json::array();
 
     getAssetData(asyncResp, *validNetworkAdapterPath, networkAdapterId);
+#ifdef BMCWEB_ENABLE_DEVICE_STATUS_FROM_ASSOCIATION
     getHealthByAssociation(asyncResp, *validNetworkAdapterPath,
                            networkAdapterId);
+#endif // BMCWEB_ENABLE_DEVICE_STATUS_FROM_ASSOCIATION
 #ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
     auto& nvidiaJson = asyncResp->res.jsonValue["Oem"]["Nvidia"];
     nvidiaJson["@odata.type"] =

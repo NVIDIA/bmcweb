@@ -405,6 +405,7 @@ option('nvidia-retimer-debugmode', type : 'feature', value : 'disabled', descrip
 option ('nvidia-network-adapter-prefix', type : 'string', value : 'NIC_', description : 'Prefix used for network adapter name')
 option ('nvidia-network-adapter-link-prefix', type : 'string', value : 'Port_', description : 'Prefix used for links name on network adapter')
 option('nvidia-oem-device-status-from-file', type : 'feature', value : 'disabled', description : 'Enable OEM Nvidia device status properties from file.')
+option('nvidia-device-status-from-association', type : 'feature', value : 'disabled', description : 'Enable OEM Nvidia device status properties from associations.')
 option('nvidia-uuid-from-platform-chassis-name', type : 'feature', value : 'disabled', description : 'Enable UUID properties from platform chassis name.')
 option('nvidia-bootentryid', type : 'feature', value : 'disabled', description : 'Enable OEM Nvidia BootEntryID for phosphor-logging based logs.')
 option ('stalesensor-upper-limit-milisecond', type : 'integer', min : 1, max : 65535, value : 750, description : 'Upper limit in miliseconds to determine the staleness of sensor reading')

@@ -63,7 +63,7 @@ incdir = include_directories('include', 'redfish-core/include', 'redfish-core/li
 ## create a MAP of  "options : feature_flag"
 
 feature_map = {
-  'lldp-dedicated-ports'                        : '-DBMCWEB_ENABLE_LLDP_DEDICATED_PORTS', 
+  'lldp-dedicated-ports'                        : '-DBMCWEB_ENABLE_LLDP_DEDICATED_PORTS',
   'enforce_sensor_name_format'                  : '-DBMCWEB_ENFORCE_SENSOR_NAME_FORMAT',
   'power-control-type-percentage'               : '-DBMCWEB_CONTROL_SETPOINT_UNITS_PERCENTAGE',
   'platform-metrics'                            : '-DBMCWEB_ENABLE_PLATFORM_METRICS',
@@ -93,6 +93,7 @@ feature_map = {
   'nvidia-oem-oberon-properties'                : '-DBMCWEB_ENABLE_NVIDIA_OEM_OBERON_PROPERTIES',
   'nvidia-retimer-debugmode'                    : '-DBMCWEB_ENABLE_NVIDIA_RETIMER_DEBUGMODE',
   'nvidia-oem-device-status-from-file'          : '-DBMCWEB_ENABLE_DEVICE_STATUS_FROM_FILE',
+  'nvidia-device-status-from-association'       : '-DBMCWEB_ENABLE_DEVICE_STATUS_FROM_ASSOCIATION',
   'nvidia-uuid-from-platform-chassis-name'      : '-DBMCWEB_ENABLE_UUID_FROM_PLATFORM_CHASSIS_NAME',
   'network-adapters'                            : '-DBMCWEB_ENABLE_NETWORK_ADAPTERS',
   'host-eth-iface'                              : '-DBMCWEB_ENABLE_HOST_ETH_IFACE',
@@ -239,7 +240,7 @@ if (cxx.get_id() == 'gcc')
     #'-Wshadow',
     #'-Wno-psabi',
     '-Wno-attributes',
-    '-Wno-error=deprecated-declarations',      
+    '-Wno-error=deprecated-declarations',
     '-Wno-comment',
     language:'cpp')
 endif

@@ -1546,8 +1546,10 @@ inline void requestRoutesSwitch(App& app)
                         getSwitchEndpointsLink(asyncResp, path, fabricId);
                         // Link association to manager
                         getManagerLink(asyncResp, path);
+#ifdef BMCWEB_ENABLE_DEVICE_STATUS_FROM_ASSOCIATION
                         // get health by association
                         getHealthByAssociatedChassis(asyncResp, path, switchId);
+#endif // BMCWEB_ENABLE_DEVICE_STATUS_FROM_ASSOCIATION
 
 #ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
                         redfish::conditions_utils::populateServiceConditions(

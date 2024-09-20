@@ -778,10 +778,12 @@ inline void handleChassisGetSubTree(
             // get network adapter
             redfish::nvidia_chassis_utils::getNetworkAdapters(
                 asyncResp, path, interfaces2, chassisId);
+#ifdef BMCWEB_ENABLE_DEVICE_STATUS_FROM_ASSOCIATION
             // get health for network adapter and nvswitches chassis by
             // association
             redfish::nvidia_chassis_utils::getHealthByAssociation(
                 asyncResp, path, "all_states", chassisId);
+#endif // BMCWEB_ENABLE_DEVICE_STATUS_FROM_ASSOCIATION
         }
         isFoundChassisObject = true;
         // need to check all objpath because a few configs are set by another
