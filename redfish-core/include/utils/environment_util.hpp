@@ -1059,19 +1059,34 @@ inline void patchPowerLimit(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                         std::tuple<bool, uint32_t> reqPowerLimit(
                             persistency, static_cast<uint32_t>(powerLimit));
 
-                        BMCWEB_LOG_DEBUG(
-                            "Performing Patch using Set Async Method Call");
-
-                        nvidia_async_operation_utils::
-                            doGenericSetAsyncAndGatherResult(
-                                resp, std::chrono::seconds(60), element.first,
-                                objectPath,
-                                "xyz.openbmc_project.Control.Power.Cap",
-                                "PowerCap",
-                                std::variant<std::tuple<bool, uint32_t>>(
-                                    reqPowerLimit),
-                                nvidia_async_operation_utils::
-                                    PatchPowerCapCallback{resp, powerLimit});
+                        if (resourceType == "Processors")
+                        {
+                            nvidia_async_operation_utils::
+                                doGenericSetAsyncAndGatherResult(
+                                    resp, std::chrono::seconds(60),
+                                    element.first, objectPath,
+                                    "xyz.openbmc_project.Control.Power.Cap",
+                                    "PowerCap",
+                                    std::variant<std::tuple<bool, uint32_t>>(
+                                        reqPowerLimit),
+                                    nvidia_async_operation_utils::
+                                        PatchPowerCapCallback{resp,
+                                                              powerLimit});
+                        }
+                        else
+                        {
+                            nvidia_async_operation_utils::
+                                doGenericSetAsyncAndGatherResult(
+                                    resp, std::chrono::seconds(60),
+                                    element.first, objectPath,
+                                    "xyz.openbmc_project.Control.Power.Cap",
+                                    "PowerCap",
+                                    std::variant<uint32_t>(
+                                        static_cast<uint32_t>(powerLimit)),
+                                    nvidia_async_operation_utils::
+                                        PatchPowerCapCallback{resp,
+                                                              powerLimit});
+                        }
 
                         return;
                     }
