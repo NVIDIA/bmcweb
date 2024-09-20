@@ -1272,82 +1272,6 @@ inline void getChassisDimensions(std::shared_ptr<bmcweb::AsyncResp> aResp,
         "xyz.openbmc_project.Inventory.Decorator.Dimension");
 }
 
-inline void getChassisWriteProtectProtectEnable(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec1, const std::string& chassisId,
-    const dbus::utility::MapperGetObject& object)
-{
-    if (ec1)
-    {
-        BMCWEB_LOG_INFO(
-            "No ChassisWP Dbus Object, Skip 'HardwareWriteProtectEnable'");
-        return;
-    }
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, object[0].first,
-        sdbusplus::message::object_path("/xyz/openbmc_project/software") /=
-        chassisId,
-        object[0].second[0], "WriteProtected",
-        [asyncResp](const boost::system::error_code& ec2,
-                    const bool& property) {
-        if (ec2.value() == boost::system::linux_error::bad_request_descriptor)
-        {
-            BMCWEB_LOG_ERROR("WriteProtected property is not found");
-            messages::resourceNotFound(
-                asyncResp->res, "WriteProtected property is not found", "");
-            return;
-        }
-        if (ec2)
-        {
-            BMCWEB_LOG_ERROR("getProperty WriteProtected error");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                ["HardwareWriteProtectEnable"] = property;
-    });
-}
-
-inline void setChassisWriteProtectProtectEnable(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec1, const std::string& chassisId,
-    const dbus::utility::MapperGetObject& object, const bool value)
-{
-    if (ec1 == boost::system::errc::io_error)
-    {
-        BMCWEB_LOG_ERROR("ChassisWP: {}, Interface is not found", chassisId);
-        messages::resourceNotFound(asyncResp->res, chassisId,
-                                   "Interface is not found");
-        return;
-    }
-    if (ec1)
-    {
-        BMCWEB_LOG_ERROR("getDbusObject: {}, error: {}", chassisId, ec1);
-        messages::internalError(asyncResp->res);
-        return;
-    }
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, object[0].first,
-        sdbusplus::message::object_path("/xyz/openbmc_project/software") /=
-        chassisId,
-        object[0].second[0], "WriteProtected", value,
-        [asyncResp](const boost::system::error_code& ec2) {
-        if (ec2.value() == boost::system::linux_error::bad_request_descriptor)
-        {
-            BMCWEB_LOG_ERROR("WriteProtected property is not found");
-            messages::resourceNotFound(
-                asyncResp->res, "WriteProtected property is not found", "");
-            return;
-        }
-        if (ec2)
-        {
-            BMCWEB_LOG_ERROR("setProperty WriteProtected error");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-    });
-}
-
 inline void handleChassisGetAllProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& /*path*/,
@@ -1488,7 +1412,7 @@ inline void handleChassisGetAllProperties(
 #ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
     // default oem data
     nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
-    oem["@odata.type"] = "#NvidiaChassis.v1_4_0.NvidiaChassis";
+    oem["@odata.type"] = "#NvidiaChassis.v1_1_0.NvidiaChassis";
 
     if (writeProtected != nullptr)
     {
@@ -1502,16 +1426,6 @@ inline void handleChassisGetAllProperties(
             .jsonValue["Oem"]["Nvidia"]["HardwareWriteProtectedControl"] =
             *writeProtectedControl;
     }
-
-    dbus::utility::getDbusObject(
-        sdbusplus::message::object_path("/xyz/openbmc_project/software") /=
-        chassisId,
-        std::array<std::string_view, 1>{
-            "xyz.openbmc_project.Software.Settings"},
-        [asyncResp, chassisId](const boost::system::error_code& ec,
-                               const dbus::utility::MapperGetObject& object) {
-        getChassisWriteProtectProtectEnable(asyncResp, ec, chassisId, object);
-    });
 
     if (pCIeReferenceClockCount != nullptr)
     {
@@ -1592,23 +1506,6 @@ inline void handleChassisGetAllProperties(
                            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME);
     managedBy.emplace_back(std::move(manager));
     asyncResp->res.jsonValue["Links"]["ManagedBy"] = std::move(managedBy);
-}
-
-inline void OemChassisHardwareWriteProtectEnable(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const bool value)
-{
-    dbus::utility::getDbusObject(
-        sdbusplus::message::object_path("/xyz/openbmc_project/software") /=
-        chassisId,
-        std::array<std::string_view, 1>{
-            "xyz.openbmc_project.Software.Settings"},
-        [asyncResp, chassisId,
-         value](const boost::system::error_code& ec,
-                const dbus::utility::MapperGetObject& object) {
-        setChassisWriteProtectProtectEnable(asyncResp, ec, chassisId, object,
-                                            value);
-    });
 }
 
 inline void getChassisAssetData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
