@@ -155,6 +155,11 @@ inline void
             // shouldn't be possible to be nullptr
             *procCountPtr += 1;
         }
+        else
+        {
+            asyncResp->res.jsonValue["ProcessorSummary"]["Count"] =
+                static_cast<int>(1);
+        }
     }
 }
 
@@ -276,26 +281,30 @@ inline void
         return;
     }
 
+    nlohmann::json& totalMemory =
+        asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"];
+    const int64_t* preValue = totalMemory.get_ptr<int64_t*>();
     if (memorySizeInKB != nullptr)
     {
-        nlohmann::json& totalMemory =
-            asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"];
-        const double* preValue = totalMemory.get_ptr<const double*>();
         if (preValue == nullptr)
         {
             asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"] =
-                static_cast<int>(*memorySizeInKB) / (1024 * 1024);
+                static_cast<int64_t>(*memorySizeInKB) / (1024 * 1024);
         }
         else
         {
             asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"] =
-                static_cast<int>(*memorySizeInKB) / (1024 * 1024) +
-                static_cast<int>(*preValue);
+                static_cast<int64_t>(*memorySizeInKB) / (1024 * 1024) +
+                static_cast<int64_t>(*preValue);
         }
     }
     else
     {
-        asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"] = 0;
+        if (preValue == nullptr)
+        {
+            asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"] =
+                static_cast<int64_t>(0);
+        }
     }
 }
 
