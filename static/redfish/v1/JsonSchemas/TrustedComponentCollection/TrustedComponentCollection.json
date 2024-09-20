@@ -89,9 +89,7 @@
             "deletable": false,
             "insertable": false,
             "updatable": false,
-            "uris": [
-                "/redfish/v1/Chassis/{ChassisId}/TrustedComponents"
-            ]
+            "uris": ["/redfish/v1/Chassis/{ChassisId}/TrustedComponents"]
         }
     },
     "owningEntity": "DMTF",

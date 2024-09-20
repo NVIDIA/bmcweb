@@ -91,10 +91,7 @@
             "Message": "Device %1 successfully staged with image %2.",
             "MessageSeverity": "OK",
             "NumberOfArgs": 2,
-            "ParamTypes": [
-                "string",
-                "string"
-            ],
+            "ParamTypes": ["string", "string"],
             "Resolution": "None.",
             "Severity": "OK"
         }

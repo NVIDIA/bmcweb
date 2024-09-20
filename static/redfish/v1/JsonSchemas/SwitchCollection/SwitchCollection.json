@@ -89,9 +89,7 @@
             "deletable": false,
             "insertable": false,
             "updatable": false,
-            "uris": [
-                "/redfish/v1/Fabrics/{FabricId}/Switches"
-            ]
+            "uris": ["/redfish/v1/Fabrics/{FabricId}/Switches"]
         }
     },
     "owningEntity": "DMTF",

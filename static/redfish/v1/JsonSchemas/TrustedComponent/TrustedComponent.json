@@ -174,10 +174,7 @@
                     "description": "The capabilities vendor ID for this trusted component.",
                     "longDescription": "This property shall contain an ASCII string of the 4-byte TCG-defined 'TPM Capabilities Vendor ID' for this trusted component.",
                     "readonly": true,
-                    "type": [
-                        "string",
-                        "null"
-                    ],
+                    "type": ["string", "null"],
                     "versionAdded": "v1_1_0"
                 },
                 "HardwareInterfaceVendorID": {
@@ -185,10 +182,7 @@
                     "longDescription": "This property shall contain the TCG-defined 'TPM Hardware Interface Vendor ID' for this trusted component with the most significant byte shown first.",
                     "pattern": "^0[xX]([0-9A-Fa-f]{2}){2}$",
                     "readonly": true,
-                    "type": [
-                        "string",
-                        "null"
-                    ],
+                    "type": ["string", "null"],
                     "versionAdded": "v1_1_0"
                 }
             },
@@ -263,9 +257,7 @@
                     "versionAdded": "v1_3_0"
                 }
             },
-            "required": [
-                "EventLog"
-            ],
+            "required": ["EventLog"],
             "type": "object"
         },
         "TrustedComponent": {
@@ -325,10 +317,7 @@
                     "description": "The software version of the active software image on the trusted component.",
                     "longDescription": "This property shall contain a version number associated with the active software image on the trusted component.",
                     "readonly": true,
-                    "type": [
-                        "string",
-                        "null"
-                    ]
+                    "type": ["string", "null"]
                 },
                 "Id": {
                     "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Id",
@@ -343,19 +332,13 @@
                     "description": "The manufacturer of this trusted component.",
                     "longDescription": "This property shall contain the name of the organization responsible for producing the trusted component.  This organization may be the entity from whom the trusted component is purchased, but this is not necessarily true.",
                     "readonly": true,
-                    "type": [
-                        "string",
-                        "null"
-                    ]
+                    "type": ["string", "null"]
                 },
                 "Model": {
                     "description": "The model number of the trusted component.",
                     "longDescription": "This property shall contain the name by which the manufacturer generally refers to the trusted component.",
                     "readonly": true,
-                    "type": [
-                        "string",
-                        "null"
-                    ]
+                    "type": ["string", "null"]
                 },
                 "Name": {
                     "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Name",
@@ -370,28 +353,19 @@
                     "description": "The part number of the trusted component.",
                     "longDescription": "This property shall contain a part number assigned by the organization that is responsible for producing or manufacturing the trusted component.",
                     "readonly": true,
-                    "type": [
-                        "string",
-                        "null"
-                    ]
+                    "type": ["string", "null"]
                 },
                 "SKU": {
                     "description": "The SKU of the trusted component.",
                     "longDescription": "This property shall contain the stock-keeping unit number for this trusted component.",
                     "readonly": true,
-                    "type": [
-                        "string",
-                        "null"
-                    ]
+                    "type": ["string", "null"]
                 },
                 "SerialNumber": {
                     "description": "The serial number of the trusted component.",
                     "longDescription": "This property shall contain a manufacturer-allocated number that identifies the trusted component.",
                     "readonly": true,
-                    "type": [
-                        "string",
-                        "null"
-                    ]
+                    "type": ["string", "null"]
                 },
                 "Status": {
                     "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Status",
@@ -434,10 +408,7 @@
             "type": "object"
         },
         "TrustedComponentType": {
-            "enum": [
-                "Discrete",
-                "Integrated"
-            ],
+            "enum": ["Discrete", "Integrated"],
             "enumDescriptions": {
                 "Discrete": "A discrete trusted component.",
                 "Integrated": "An integrated trusted component."

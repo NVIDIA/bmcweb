@@ -76,20 +76,14 @@
                     "description": "An indication of whether this VLAN is tagged or untagged for this interface.",
                     "longDescription": "This property shall indicate whether this VLAN is tagged or untagged for this interface.",
                     "readonly": false,
-                    "type": [
-                        "boolean",
-                        "null"
-                    ],
+                    "type": ["boolean", "null"],
                     "versionAdded": "v1_3_0"
                 },
                 "VLANEnable": {
                     "description": "An indication of whether this VLAN is enabled for this VLAN network interface.",
                     "longDescription": "This property shall indicate whether this VLAN is enabled for this VLAN network interface.",
                     "readonly": false,
-                    "type": [
-                        "boolean",
-                        "null"
-                    ]
+                    "type": ["boolean", "null"]
                 },
                 "VLANId": {
                     "anyOf": [
@@ -119,10 +113,7 @@
                     "versionAdded": "v1_2_0"
                 }
             },
-            "requiredOnCreate": [
-                "VLANEnable",
-                "VLANId"
-            ],
+            "requiredOnCreate": ["VLANEnable", "VLANId"],
             "type": "object"
         },
         "VLANId": {
@@ -201,10 +192,7 @@
                     "description": "An indication of whether this VLAN is enabled for this interface.",
                     "longDescription": "This property shall indicate whether this VLAN is enabled for this interface.",
                     "readonly": false,
-                    "type": [
-                        "boolean",
-                        "null"
-                    ]
+                    "type": ["boolean", "null"]
                 },
                 "VLANId": {
                     "anyOf": [
@@ -234,16 +222,8 @@
                     "versionAdded": "v1_2_0"
                 }
             },
-            "required": [
-                "@odata.id",
-                "@odata.type",
-                "Id",
-                "Name"
-            ],
-            "requiredOnCreate": [
-                "VLANEnable",
-                "VLANId"
-            ],
+            "required": ["@odata.id", "@odata.type", "Id", "Name"],
+            "requiredOnCreate": ["VLANEnable", "VLANId"],
             "type": "object",
             "versionDeprecated": "v1_3_0"
         }

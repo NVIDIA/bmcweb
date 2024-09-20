@@ -95,10 +95,7 @@
             "type": "object"
         },
         "ResetKeysType": {
-            "enum": [
-                "ResetAllKeysToDefault",
-                "DeleteAllKeys"
-            ],
+            "enum": ["ResetAllKeysToDefault", "DeleteAllKeys"],
             "enumDescriptions": {
                 "DeleteAllKeys": "Delete the contents of this UEFI Secure Boot key database.",
                 "ResetAllKeysToDefault": "Reset the contents of this UEFI Secure Boot key database to the default values."
@@ -184,12 +181,7 @@
                     "readonly": true
                 }
             },
-            "required": [
-                "@odata.id",
-                "@odata.type",
-                "Id",
-                "Name"
-            ],
+            "required": ["@odata.id", "@odata.type", "Id", "Name"],
             "type": "object"
         }
     },

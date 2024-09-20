@@ -57,46 +57,31 @@
                     "description": "An indication of whether an address parity error was detected that a retry could not correct.",
                     "longDescription": "This property shall indicate whether an address parity error was detected that a retry could not correct.",
                     "readonly": true,
-                    "type": [
-                        "boolean",
-                        "null"
-                    ]
+                    "type": ["boolean", "null"]
                 },
                 "CorrectableECCError": {
                     "description": "An indication of whether the correctable error threshold crossing alarm trip was detected.",
                     "longDescription": "This property shall indicate whether the correctable error threshold crossing alarm trip was detected.",
                     "readonly": true,
-                    "type": [
-                        "boolean",
-                        "null"
-                    ]
+                    "type": ["boolean", "null"]
                 },
                 "SpareBlock": {
                     "description": "An indication of whether the spare block capacity crossing alarm trip was detected.",
                     "longDescription": "This property shall indicate whether the spare block capacity crossing alarm trip was detected.",
                     "readonly": true,
-                    "type": [
-                        "boolean",
-                        "null"
-                    ]
+                    "type": ["boolean", "null"]
                 },
                 "Temperature": {
                     "description": "An indication of whether a temperature threshold alarm trip was detected.",
                     "longDescription": "This property shall indicate whether a temperature threshold alarm trip was detected.",
                     "readonly": true,
-                    "type": [
-                        "boolean",
-                        "null"
-                    ]
+                    "type": ["boolean", "null"]
                 },
                 "UncorrectableECCError": {
                     "description": "An indication of whether the uncorrectable error threshold alarm trip was detected.",
                     "longDescription": "This property shall indicate whether the uncorrectable error threshold alarm trip was detected.",
                     "readonly": true,
-                    "type": [
-                        "boolean",
-                        "null"
-                    ]
+                    "type": ["boolean", "null"]
                 }
             },
             "type": "object"
@@ -124,40 +109,28 @@
                     "description": "Indicates whether correctable ECC errors generate an alert to the CXL Fabric Manager or host.",
                     "longDescription": "This property shall indicate whether correctable ECC errors generate an alert to the CXL Fabric Manager or host.",
                     "readonly": true,
-                    "type": [
-                        "boolean",
-                        "null"
-                    ],
+                    "type": ["boolean", "null"],
                     "versionAdded": "v1_6_0"
                 },
                 "SpareBlock": {
                     "description": "Indicates whether spare block conditions generate an alert to the CXL Fabric Manager or host.",
                     "longDescription": "This property shall indicate whether spare block conditions generate an alert to the CXL Fabric Manager or host.",
                     "readonly": true,
-                    "type": [
-                        "boolean",
-                        "null"
-                    ],
+                    "type": ["boolean", "null"],
                     "versionAdded": "v1_6_0"
                 },
                 "Temperature": {
                     "description": "Indicates whether temperature conditions generate an alert to the CXL Fabric Manager or host.",
                     "longDescription": "This property shall indicate whether temperature conditions generate an alert to the CXL Fabric Manager or host.",
                     "readonly": true,
-                    "type": [
-                        "boolean",
-                        "null"
-                    ],
+                    "type": ["boolean", "null"],
                     "versionAdded": "v1_6_0"
                 },
                 "UncorrectableECCError": {
                     "description": "Indicates whether uncorrectable ECC errors generate an alert to the CXL Fabric Manager or host.",
                     "longDescription": "This property shall indicate whether uncorrectable ECC errors generate an alert to the CXL Fabric Manager or host.",
                     "readonly": true,
-                    "type": [
-                        "boolean",
-                        "null"
-                    ],
+                    "type": ["boolean", "null"],
                     "versionAdded": "v1_6_0"
                 }
             },
@@ -253,58 +226,40 @@
                     "description": "The number of blocks read since reset.",
                     "longDescription": "This property shall contain the number of blocks read since reset.  When this resource is subordinate to the MemorySummary object, this property shall be the sum of BlocksRead over all memory.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ]
+                    "type": ["integer", "null"]
                 },
                 "BlocksWritten": {
                     "description": "The number of blocks written since reset.",
                     "longDescription": "This property shall contain the number of blocks written since reset.  When this resource is subordinate to the MemorySummary object, this property shall be the sum of BlocksWritten over all memory.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ]
+                    "type": ["integer", "null"]
                 },
                 "CorrectableECCErrorCount": {
                     "description": "The number of correctable errors since reset.",
                     "longDescription": "This property shall contain the number of correctable errors since reset.  When this resource is subordinate to the MemorySummary object, this property shall be the sum of CorrectableECCErrorCount over all memory.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ],
+                    "type": ["integer", "null"],
                     "versionAdded": "v1_4_0"
                 },
                 "IndeterminateCorrectableErrorCount": {
                     "description": "The number of indeterminate correctable errors since reset.",
                     "longDescription": "This property shall contain the number of indeterminate correctable errors since reset.  Since the error origin is indeterminate, the same error can be duplicated across multiple MemoryMetrics resources.  When this resource is subordinate to the MemorySummary object, this property shall be the sum of indeterminate correctable errors across all memory without duplication, which may not be the sum of all IndeterminateCorrectableErrorCount properties over all memory.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ],
+                    "type": ["integer", "null"],
                     "versionAdded": "v1_5_0"
                 },
                 "IndeterminateUncorrectableErrorCount": {
                     "description": "The number of indeterminate uncorrectable errors since reset.",
                     "longDescription": "This property shall contain the number of indeterminate uncorrectable errors since reset.  Since the error origin is indeterminate, the same error can be duplicated across multiple MemoryMetrics resources.  When this resource is subordinate to the MemorySummary object, this property shall be the sum of indeterminate uncorrectable errors across all memory without duplication, which may not be the sum of all IndeterminateUncorrectableErrorCount properties over all memory.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ],
+                    "type": ["integer", "null"],
                     "versionAdded": "v1_5_0"
                 },
                 "UncorrectableECCErrorCount": {
                     "description": "The number of uncorrectable errors since reset.",
                     "longDescription": "This property shall contain the number of uncorrectable errors since reset.  When this resource is subordinate to the MemorySummary object, this property shall be the sum of UncorrectableECCErrorCount over all memory.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ],
+                    "type": ["integer", "null"],
                     "versionAdded": "v1_4_0"
                 }
             },
@@ -338,28 +293,19 @@
                     "description": "An indication of whether data loss was detected.",
                     "longDescription": "This property shall indicate whether data loss was detected.  When this resource is subordinate to the MemorySummary object, this property shall indicate whether any data loss was detected in any area of memory.",
                     "readonly": true,
-                    "type": [
-                        "boolean",
-                        "null"
-                    ]
+                    "type": ["boolean", "null"]
                 },
                 "LastShutdownSuccess": {
                     "description": "An indication of whether the last shutdown succeeded.",
                     "longDescription": "This property shall indicate whether the last shutdown succeeded.",
                     "readonly": true,
-                    "type": [
-                        "boolean",
-                        "null"
-                    ]
+                    "type": ["boolean", "null"]
                 },
                 "PerformanceDegraded": {
                     "description": "An indication of whether performance has degraded.",
                     "longDescription": "This property shall indicate whether performance has degraded.  When this resource is subordinate to the MemorySummary object, this property shall indicate whether degraded performance mode status is detected in any area of memory.",
                     "readonly": true,
-                    "type": [
-                        "boolean",
-                        "null"
-                    ]
+                    "type": ["boolean", "null"]
                 },
                 "PredictedMediaLifeLeftPercent": {
                     "description": "The percentage of reads and writes that are predicted to still be available for the media.",
@@ -367,10 +313,7 @@
                     "maximum": 100,
                     "minimum": 0,
                     "readonly": true,
-                    "type": [
-                        "number",
-                        "null"
-                    ],
+                    "type": ["number", "null"],
                     "units": "%",
                     "versionAdded": "v1_1_0"
                 },
@@ -378,10 +321,7 @@
                     "description": "The remaining spare blocks, as a percentage.",
                     "longDescription": "This property shall contain the remaining spare blocks as a percentage, `0` to `100`.  When this resource is subordinate to the MemorySummary object, this property shall be the RemainingSpareBlockPercentage over all memory.",
                     "readonly": true,
-                    "type": [
-                        "number",
-                        "null"
-                    ],
+                    "type": ["number", "null"],
                     "units": "%"
                 }
             },
@@ -410,58 +350,40 @@
                     "description": "The number of blocks read for the lifetime of the memory.",
                     "longDescription": "This property shall contain the number of blocks read for the lifetime of the memory.  When this resource is subordinate to the MemorySummary object, this property shall be the sum of BlocksRead over all memory.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ]
+                    "type": ["integer", "null"]
                 },
                 "BlocksWritten": {
                     "description": "The number of blocks written for the lifetime of the memory.",
                     "longDescription": "This property shall contain the number of blocks written for the lifetime of the memory.  When this resource is subordinate to the MemorySummary object, this property shall be the sum of BlocksWritten over all memory.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ]
+                    "type": ["integer", "null"]
                 },
                 "CorrectableECCErrorCount": {
                     "description": "The number of correctable errors for the lifetime of the memory.",
                     "longDescription": "This property shall contain the number of correctable errors for the lifetime of the memory.  When this resource is subordinate to the MemorySummary object, this property shall be the sum of CorrectableECCErrorCount over all memory.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ],
+                    "type": ["integer", "null"],
                     "versionAdded": "v1_4_0"
                 },
                 "IndeterminateCorrectableErrorCount": {
                     "description": "The number of indeterminate correctable errors for the lifetime of the memory.",
                     "longDescription": "This property shall contain the number of indeterminate correctable errors for the lifetime of the memory.  Since the error origin is indeterminate, the same error can be duplicated across multiple MemoryMetrics resources.  When this resource is subordinate to the MemorySummary object, this property shall be the sum of indeterminate correctable errors across all memory without duplication, which may not be the sum of all IndeterminateCorrectableErrorCount properties over all memory.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ],
+                    "type": ["integer", "null"],
                     "versionAdded": "v1_5_0"
                 },
                 "IndeterminateUncorrectableErrorCount": {
                     "description": "The number of indeterminate uncorrectable errors for the lifetime of the memory.",
                     "longDescription": "This property shall contain the number of indeterminate uncorrectable errors for the lifetime of the memory.  Since the error origin is indeterminate, the same error can be duplicated across multiple MemoryMetrics resources.  When this resource is subordinate to the MemorySummary object, this property shall be the sum of indeterminate uncorrectable errors across all memory without duplication, which may not be the sum of all IndeterminateUncorrectableErrorCount properties over all memory.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ],
+                    "type": ["integer", "null"],
                     "versionAdded": "v1_5_0"
                 },
                 "UncorrectableECCErrorCount": {
                     "description": "The number of uncorrectable errors for the lifetime of the memory.",
                     "longDescription": "This property shall contain the number of uncorrectable errors for the lifetime of the memory.  When this resource is subordinate to the MemorySummary object, this property shall be the sum of UncorrectableECCErrorCount over all memory.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ],
+                    "type": ["integer", "null"],
                     "versionAdded": "v1_4_0"
                 }
             },
@@ -508,10 +430,7 @@
                     "longDescription": "This property shall contain memory bandwidth utilization as a percentage.  When this resource is subordinate to the MemorySummary object, this property shall be the memory bandwidth utilization over all memory as a percentage, typically `0` to `100`.",
                     "minimum": 0,
                     "readonly": true,
-                    "type": [
-                        "number",
-                        "null"
-                    ],
+                    "type": ["number", "null"],
                     "units": "%",
                     "versionAdded": "v1_2_0"
                 },
@@ -519,10 +438,7 @@
                     "description": "The block size, in bytes.",
                     "longDescription": "This property shall contain the block size, in bytes, of all structure elements.  When this resource is subordinate to the MemorySummary object, this property is not applicable.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ],
+                    "type": ["integer", "null"],
                     "units": "By"
                 },
                 "CXL": {
@@ -543,10 +459,7 @@
                     "longDescription": "This property shall contain the memory capacity utilization as a percentage, typically `0` to `100`.  When this resource is subordinate to the MemorySummary object, this property shall be the memory capacity utilization over all memory as a percentage.",
                     "minimum": 0,
                     "readonly": true,
-                    "type": [
-                        "number",
-                        "null"
-                    ],
+                    "type": ["number", "null"],
                     "units": "%",
                     "versionAdded": "v1_7_0"
                 },
@@ -554,20 +467,14 @@
                     "description": "The number of corrected errors in persistent memory.",
                     "longDescription": "This property shall contain the number of corrected errors in persistent memory.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ],
+                    "type": ["integer", "null"],
                     "versionAdded": "v1_6_0"
                 },
                 "CorrectedVolatileErrorCount": {
                     "description": "The number of corrected errors in volatile memory.",
                     "longDescription": "This property shall contain the number of corrected errors in volatile memory.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ],
+                    "type": ["integer", "null"],
                     "versionAdded": "v1_6_0"
                 },
                 "CurrentPeriod": {
@@ -590,10 +497,7 @@
                     "description": "The number of shutdowns while outstanding writes have not completed to persistent memory.",
                     "longDescription": "This property shall contain the number of shutdowns while outstanding writes have not completed to persistent memory.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ],
+                    "type": ["integer", "null"],
                     "versionAdded": "v1_6_0"
                 },
                 "HealthData": {
@@ -623,20 +527,12 @@
                     "description": "Operating speed of memory in MHz or MT/s as appropriate.",
                     "longDescription": "This property shall contain the operating speed of memory in MHz or MT/s (mega-transfers per second) as reported by the memory device.  Memory devices that operate at their bus speed shall report the operating speed in MHz (bus speed), while memory devices that transfer data faster than their bus speed, such as DDR memory, shall report the operating speed in MT/s (mega-transfers/second).  The reported value shall match the conventionally reported values for the technology used by the memory device.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ],
+                    "type": ["integer", "null"],
                     "units": "MHz",
                     "versionAdded": "v1_3_0"
                 }
             },
-            "required": [
-                "@odata.id",
-                "@odata.type",
-                "Id",
-                "Name"
-            ],
+            "required": ["@odata.id", "@odata.type", "Id", "Name"],
             "type": "object"
         },
         "OemActions": {

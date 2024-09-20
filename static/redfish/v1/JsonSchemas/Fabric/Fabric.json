@@ -131,10 +131,7 @@
                     "description": "The maximum number of zones the switch can currently configure.",
                     "longDescription": "This property shall contain the maximum number of zones the switch can currently configure.  Changes in the logical or physical configuration of the system can change this value.",
                     "readonly": true,
-                    "type": [
-                        "integer",
-                        "null"
-                    ]
+                    "type": ["integer", "null"]
                 },
                 "Name": {
                     "$ref": "http://redfish.dmtf.org/schemas/v1/Resource.json#/definitions/Name",
@@ -177,12 +174,7 @@
                     "readonly": true
                 }
             },
-            "required": [
-                "@odata.id",
-                "@odata.type",
-                "Id",
-                "Name"
-            ],
+            "required": ["@odata.id", "@odata.type", "Id", "Name"],
             "type": "object"
         },
         "Links": {

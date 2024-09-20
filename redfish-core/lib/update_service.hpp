@@ -380,6 +380,30 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
     return !task::completed;
 }
 
+/**
+ * @brief Retrieve the task message in JSON format for a given task state and
+ * index.
+ *
+ * This function overrides the base function to handle firmware update state
+ * management. It is designed to manage the "Aborted" state and reset the global
+ * fwUpdateInProgress flag to false.
+ *
+ * @param state A string representing the task state
+ * @param index The index to identify the specific task message
+ *
+ * @return nlohmann::json The task message corresponding to the given state and
+ * index
+ */
+inline nlohmann::json getTaskMessage(const std::string_view state, size_t index)
+{
+    if (state == "Aborted")
+    {
+        fwUpdateInProgress = false;
+    }
+
+    return redfish::task::getMessage(state, index);
+}
+
 inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        task::Payload&& payload,
                        const sdbusplus::message::object_path& objPath)
@@ -388,7 +412,8 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         std::bind_front(handleCreateTask),
         "type='signal',interface='org.freedesktop.DBus.Properties',"
         "member='PropertiesChanged',path='" +
-            objPath.str + "'");
+            objPath.str + "'",
+        std::bind_front(getTaskMessage));
 
     task->startTimer(std::chrono::minutes(updateServiceTaskTimeout));
     task->populateResp(asyncResp->res);
@@ -475,33 +500,6 @@ static void
 
                 if (asyncResp)
                 {
-                    auto messageCallback =
-                        [swID, objPath](const std::string_view state,
-                                        [[maybe_unused]] size_t index) {
-                        nlohmann::json message{};
-                        if (state == "Started")
-                        {
-                            message =
-                                messages::taskStarted(std::to_string(index));
-                        }
-                        else if (state == "Aborted")
-                        {
-                            fwUpdateInProgress = false;
-                            message =
-                                messages::taskAborted(std::to_string(index));
-                        }
-                        else if (state == "Completed")
-                        {
-                            message = messages::taskCompletedOK(
-                                std::to_string(index));
-                            // fwupdate status is set in task callback
-                        }
-                        else
-                        {
-                            BMCWEB_LOG_INFO("State not good");
-                        }
-                        return message;
-                    };
                     createTask(asyncResp, std::move(payload), objPath);
                 }
                 activateImage(objPath.str, objInfo[0].first);

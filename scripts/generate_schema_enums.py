@@ -92,7 +92,9 @@ def write_enum_list(redfish_defs_file, enum_list, snake_case_namespace):
             values.insert(0, "Invalid")
 
         for value in values:
-            redfish_defs_file.write("    {},\n".format(re.sub(r"[^0-9_a-zA-Z]", "", value)))
+            redfish_defs_file.write(
+                "    {},\n".format(re.sub(r"[^0-9_a-zA-Z]", "", value))
+            )
 
         redfish_defs_file.write("};\n\n")
 
@@ -109,9 +111,9 @@ def write_enum_list(redfish_defs_file, enum_list, snake_case_namespace):
         )
         for value in values:
             redfish_defs_file.write(
-                '    {{{}::{}, "{}"}},\n'.format(element.name,
-                                                 re.sub(r"[^0-9_a-zA-Z]", "", value),
-                                                 value)
+                '    {{{}::{}, "{}"}},\n'.format(
+                    element.name, re.sub(r"[^0-9_a-zA-Z]", "", value), value
+                )
             )
 
         redfish_defs_file.write("});\n\n")
