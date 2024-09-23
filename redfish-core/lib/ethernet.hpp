@@ -1562,6 +1562,7 @@ inline void handleIPv4StaticPatch(
         activeGateway = ethData.defaultGateway;
         activePath = "IPv4StaticAddresses/1";
         gatewayValueAssigned = true;
+        updateIPv4DefaultGateway(ifaceId, activeGateway, asyncResp);
     }
 
     for (std::variant<nlohmann::json::object_t, std::nullptr_t>& thisJson :
