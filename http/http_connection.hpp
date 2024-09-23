@@ -418,19 +418,12 @@ class Connection :
     void gracefulClose()
     {
         BMCWEB_LOG_DEBUG("{} Socket close requested", logPtr(this));
-        if constexpr (BMCWEB_MUTUAL_TLS_AUTH)
+        if constexpr (IsTls<Adaptor>::value)
         {
-            if (persistent_data::getConfig().isTLSAuthEnabled() &&
-                userSession != nullptr)
-            {
-                BMCWEB_LOG_DEBUG("{} Removing TLS session: {}", logPtr(this),
-                                 mtlsSession->uniqueId);
-                persistent_data::SessionStore::getInstance().removeSession(
-                    mtlsSession);
-            }
-        }
-        else
-        {
+            BMCWEB_LOG_DEBUG("{} Shutting down TLS", logPtr(this));
+            adaptor.async_shutdown(std::bind_front(
+                &self_type::tlsShutdownComplete, this, shared_from_this()));
+
             if (mtlsSession != nullptr)
             {
                 BMCWEB_LOG_DEBUG("{} Removing TLS session: {}", logPtr(this),
@@ -438,11 +431,6 @@ class Connection :
                 persistent_data::SessionStore::getInstance().removeSession(
                     mtlsSession);
             }
-        }
-        if constexpr (IsTls<Adaptor>::value)
-        {
-            adaptor.async_shutdown(std::bind_front(
-                &self_type::tlsShutdownComplete, this, shared_from_this()));
         }
         else
         {
