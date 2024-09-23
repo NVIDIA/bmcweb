@@ -636,6 +636,21 @@ class RedfishAggregator
             return;
         }
 
+        // Only allow Host,Accept and ContentType from the request's header
+        auto fields = localReq->fields();
+        for (const auto& it : fields)
+        {
+            auto h = it.name();
+            if (h == boost::beast::http::field::content_type ||
+                h == boost::beast::http::field::host)
+            {
+                continue;
+            }
+            localReq->clearHeader(h);
+        }
+        localReq->addHeader(boost::beast::http::field::accept,
+                            "application/json, application/octet-stream");
+
         getSatelliteConfigs(
             std::bind_front(aggregateAndHandle, aggType, localReq, asyncResp));
     }
@@ -800,7 +815,7 @@ class RedfishAggregator
             path.erase(pos, prefix.size() + 1);
         }
 
-        BMCWEB_LOG_ERROR("forward: ", targetURI);
+        BMCWEB_LOG_ERROR("forward: {}", targetURI);
 
         std::function<void(crow::Response&)> cb =
             std::bind_front(processResponse, prefix, asyncResp);
