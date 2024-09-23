@@ -861,6 +861,8 @@ inline void
     std::optional<double> cpuClockFrequency;
     std::optional<double> workloadFactor;
     std::optional<double> temperature;
+    std::optional<bool> hardwareWriteProtectEnable;
+
 #endif
 
     if (param.empty())
@@ -886,7 +888,9 @@ inline void
             std::optional<nlohmann::json> staticPowerHintJsonObj;
             json_util::readJson(*nvidiaJsonObj, asyncResp->res, "PartNumber",
                                 partNumber, "SerialNumber", serialNumber,
-                                "StaticPowerHint", staticPowerHintJsonObj);
+                                "StaticPowerHint", staticPowerHintJsonObj,
+                                "HardwareWriteProtectEnable",
+                                hardwareWriteProtectEnable);
 
             if (staticPowerHintJsonObj)
             {
@@ -938,7 +942,7 @@ inline void
 #ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
         [asyncResp, chassisId, locationIndicatorActive, indicatorLed,
          partNumber, serialNumber, cpuClockFrequency, workloadFactor,
-         temperature]
+         temperature, hardwareWriteProtectEnable]
 #else
         [asyncResp, chassisId, locationIndicatorActive, indicatorLed]
 #endif
@@ -1015,6 +1019,12 @@ inline void
                 }
             }
 #ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+            if (hardwareWriteProtectEnable)
+            {
+                redfish::nvidia_chassis_utils::
+                    OemChassisHardwareWriteProtectEnable(
+                        asyncResp, chassisId, *hardwareWriteProtectEnable);
+            }
             if (partNumber)
             {
                 redfish::nvidia_chassis_utils::setOemBaseboardChassisAssert(
