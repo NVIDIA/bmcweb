@@ -196,7 +196,7 @@ class StatusQueryHandler : public OperationHandler
             BMCWEB_LOG_DEBUG("{}", desc);
             if (!mctpEndpoints || mctpEndpoints->size() == 0)
             {
-                errCallback(false, desc, "no endpoints found");
+                BMCWEB_LOG_ERROR("{}: {}", desc, "no endpoints found");
                 finalize();
                 return;
             }
@@ -244,13 +244,12 @@ class StatusQueryHandler : public OperationHandler
             if (ec)
             {
                 BMCWEB_LOG_ERROR("{}: {}", desc, ec.message());
-                errCallback(false, desc, ec.message());
                 finalize();
                 return;
             }
             if (paths.size() == 0)
             {
-                errCallback(false, desc, "no endpoints found");
+                BMCWEB_LOG_ERROR("{}: {}", desc, "no endpoints found");
                 finalize();
                 return;
             }

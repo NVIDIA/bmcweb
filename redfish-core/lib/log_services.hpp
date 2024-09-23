@@ -8178,27 +8178,19 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
                 for (const auto& ep : *endpoints)
                 {
                     const auto& state = ep->getState();
-                    if (oemDiagnosticDataType == "DebugTokenStatus")
+                    BMCWEB_LOG_DEBUG(
+                        "endpoint object:{} ",
+                        sdbusplus::message::object_path(ep->getObject())
+                            .filename());
+                    BMCWEB_LOG_DEBUG("oemDiagnosticDataType:{}",
+                                     oemDiagnosticDataType);
+                    if (state == debug_token::EndpointState::RequestAcquired ||
+                        state == debug_token::EndpointState::TokenInstalled ||
+                        state ==
+                            debug_token::EndpointState::DebugTokenUnsupported ||
+                        state == debug_token::EndpointState::StatusAcquired)
                     {
-                        if (state ==
-                                debug_token::EndpointState::StatusAcquired ||
-                            state == debug_token::EndpointState::
-                                         DebugTokenUnsupported)
-                        {
-                            ++validEpCount;
-                        }
-                    }
-                    else
-                    {
-                        if (state ==
-                                debug_token::EndpointState::RequestAcquired ||
-                            state ==
-                                debug_token::EndpointState::TokenInstalled ||
-                            state == debug_token::EndpointState::
-                                         DebugTokenUnsupported)
-                        {
-                            ++validEpCount;
-                        }
+                        ++validEpCount;
                     }
                     const auto& objectName = ep->getObject();
                     const auto deviceName =
