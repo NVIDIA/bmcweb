@@ -3715,6 +3715,8 @@ inline void requestRoutesProcessorCollection(App& app)
             "/redfish/v1/Systems/" +
             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Processors";
 
+        asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
+
         collection_util::getCollectionMembers(
             asyncResp,
             boost::urls::url("/redfish/v1/Systems/" +

@@ -931,6 +931,7 @@ inline void requestRoutesFabricCollection(App& app)
         asyncResp->res.jsonValue["@odata.type"] =
             "#FabricCollection.FabricCollection";
         asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Fabrics";
+        asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
         asyncResp->res.jsonValue["Name"] = "Fabric Collection";
         constexpr std::array<std::string_view, 1> interface{
             "xyz.openbmc_project.Inventory.Item.Fabric"};
