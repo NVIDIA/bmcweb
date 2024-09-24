@@ -3476,7 +3476,7 @@ inline void requestRoutesManager(App& app)
         }();
 #endif // BMCWEB_ENABLE_NVIDIA_OEM_GB200NVL_PROPERTIES
 
-        if constexpr (BMCWEB_ENABLE_DEBUG_INTERFACE)
+        if constexpr (BMCWEB_NVIDIA_OEM_OPENOCD)
         {
             nvidia_manager_util::getOemNvidiaOpenOCD(asyncResp);
         }
@@ -4123,7 +4123,7 @@ inline void requestRoutesManager(App& app)
             }
         }
 #endif // BMCWEB_ENABLE_TLS_AUTH_OPT_IN
-        if constexpr (BMCWEB_ENABLE_DEBUG_INTERFACE)
+        if constexpr (BMCWEB_NVIDIA_OEM_OPENOCD)
         {
             if (openocdValue)
             {

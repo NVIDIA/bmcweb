@@ -120,6 +120,7 @@ conf_data.set10('BMCWEB_ENABLE_NVIDIA_BOOTENTRYID', nvidia_bootentryid.enabled()
 feature_options = [
     'basic-auth',
     'cookie-auth',
+    'enable-debug-interface',
     'experimental-http2',
     'experimental-redfish-multi-computer-system',
     'google-api',
@@ -135,6 +136,7 @@ feature_options = [
     'kvm',
     'meta-tls-common-name-parsing',
     'mutual-tls-auth',
+    'nvidia-oem-openocd',
     'redfish-aggregation',
     'redfish-allow-deprecated-power-thermal',
     'redfish-bmc-journal',
@@ -153,7 +155,6 @@ feature_options = [
     'tests',
     'vm-websocket',
     'xtoken-auth',
-    'enable-debug-interface',
 ]
 
 string_options = [

@@ -708,6 +708,12 @@ option(
     description: 'Enables debug interface support.',
 )
 option(
+    'nvidia-oem-openocd',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable OpenOCD service.',
+)
+option(
     'experimental-redfish-multi-computer-system',
     type: 'feature',
     value: 'disabled',
