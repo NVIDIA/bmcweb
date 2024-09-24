@@ -527,12 +527,14 @@ inline void
     asyncResp->res.jsonValue["Status"]["Conditions"] = nlohmann::json::array();
 #endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
 
-    asyncResp->res.jsonValue["Controllers"]["PCIeInterface"] =
-        nlohmann::json::array();
-    asyncResp->res.jsonValue["Controllers"]["Links"]["PCIeDevices"] =
-        nlohmann::json::array();
-    asyncResp->res.jsonValue["Controllers"]["Links"]["Ports"] =
-        nlohmann::json::array();
+    asyncResp->res.jsonValue["Controllers"] = nlohmann::json::array();
+
+    nlohmann::json controllerObject;
+    controllerObject["Links"]["PCIeDevices"] = nlohmann::json::array();
+    controllerObject["Links"]["Ports"] = nlohmann::json::array();
+    controllerObject["PCIeInterface"] = nlohmann::json::object();
+
+    asyncResp->res.jsonValue["Controllers"].emplace_back(controllerObject);
 
     getAssetData(asyncResp, *validNetworkAdapterPath, networkAdapterId);
 #ifdef BMCWEB_ENABLE_DEVICE_STATUS_FROM_ASSOCIATION
