@@ -1,1 +1,3 @@
 subdir('openbmc')
+
+subdir('nvidia')
