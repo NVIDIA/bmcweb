@@ -1090,20 +1090,6 @@ inline void
 
         BMCWEB_LOG_DEBUG("Boot mode: {}", bootModeStr);
 
-        nlohmann::json::array_t allowed;
-        allowed.emplace_back("None");
-        allowed.emplace_back("Pxe");
-        allowed.emplace_back("Hdd");
-        allowed.emplace_back("Cd");
-        allowed.emplace_back("Diags");
-        allowed.emplace_back("BiosSetup");
-        allowed.emplace_back("Usb");
-
-        asyncResp->res
-            .jsonValue["Boot"]
-                      ["BootSourceOverrideTarget@Redfish.AllowableValues"] =
-            std::move(allowed);
-
         if (bootModeStr !=
             "xyz.openbmc_project.Control.Boot.Mode.Modes.Regular")
         {
@@ -1128,6 +1114,18 @@ inline void
 inline void
     getBootOverrideSource(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    nlohmann::json::array_t allowed;
+    allowed.emplace_back("None");
+    allowed.emplace_back("Pxe");
+    allowed.emplace_back("Hdd");
+    allowed.emplace_back("Cd");
+    allowed.emplace_back("Diags");
+    allowed.emplace_back("BiosSetup");
+    allowed.emplace_back("Usb");
+
+    asyncResp->res
+        .jsonValue["Boot"]["BootSourceOverrideTarget@Redfish.AllowableValues"] =
+        std::move(allowed);
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/control/host0/boot",
