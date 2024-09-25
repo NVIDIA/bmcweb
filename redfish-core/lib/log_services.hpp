@@ -151,6 +151,7 @@ static void generateMessageRegistry(
 
     // Convert messageArgs string for its json format used later.
     std::vector<std::string> fields;
+    std::vector<std::string> field_proc;
     fields.reserve(msg->numberOfArgs);
     boost::split(fields, messageArgs, boost::is_any_of(","));
 
@@ -158,9 +159,14 @@ static void generateMessageRegistry(
     for (auto& f : fields)
     {
         boost::trim(f);
+        if (f.length())
+        {
+            field_proc.push_back(f);
+        }
     }
+
     std::span<std::string> msgArgs;
-    msgArgs = {&fields[0], fields.size()};
+    msgArgs = {&field_proc[0], field_proc.size()};
 
     std::string message = msg->message;
     int i = 0;
@@ -2658,6 +2664,80 @@ inline void requestRoutesJournalEventLogEntry(App& app)
     });
 }
 
+inline bool filterCperSection(std::string& key,
+                              std::vector<std::string>& skip_prop)
+{
+    unsigned int index;
+
+    for (std::string& sub_str : skip_prop)
+    {
+        index = static_cast<unsigned int>(key.find(sub_str));
+        if (index != std::string::npos)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+inline bool validateCperSectionArray(std::string& key, std::string& sub_string,
+                                     bool replace_sections = true)
+{
+    // Check if descriptors/sections is an array
+    // Replace the index if it is
+    unsigned int sec_start = static_cast<unsigned int>(key.find(sub_string));
+    if (sec_start != std::string::npos)
+    {
+        unsigned int index = sec_start + static_cast<unsigned int>(sub_string.length());
+        unsigned int end_index = static_cast<unsigned int>(key.find("/", index));
+
+        if (end_index != std::string::npos)
+        {
+            std::string arr_ind = key.substr(index, end_index - index);
+            int value;
+            if (std::from_chars(arr_ind.data(), arr_ind.data() + arr_ind.size(),
+                                value)
+                    .ec != std::errc{})
+            {
+                BMCWEB_LOG_DEBUG(
+                    "Sections property found on dbus is not an array: ",
+                    sub_string);
+                key.replace(sec_start, end_index - sec_start + 1, "");
+                return true;
+            }
+
+            if (value == 0)
+            {
+                if (replace_sections)
+                {
+                    key.replace(sec_start, end_index - sec_start + 1, "");
+                }
+                else
+                {
+                    key.replace(index, arr_ind.length() + 1, "");
+                }
+                return true;
+            }
+
+            // Not 0th index section
+            return false;
+        }
+    }
+    return true;
+}
+
+inline void skipKeys(std::string& key, std::vector<std::string>& keyFilters)
+{
+    for (std::string& sub_string : keyFilters)
+    {
+        unsigned int start = static_cast<unsigned int>(key.find(sub_string));
+        if (start != std::string::npos)
+        {
+            key.replace(start, sub_string.length(), "");
+        }
+    }
+}
+
 inline void parseAdditionalDataForCPER(nlohmann::json::object_t& entry,
                                        const nlohmann::json::object_t& oem,
                                        const AdditionalData& additional)
@@ -2665,7 +2745,9 @@ inline void parseAdditionalDataForCPER(nlohmann::json::object_t& entry,
     const auto& type = additional.find("diagnosticDataType");
     if (additional.end() == type ||
         ("CPER" != type->second && "CPERSection" != type->second))
+    {
         return;
+    }
 
     BMCWEB_LOG_DEBUG("Got {}", type->second);
 
@@ -2691,48 +2773,61 @@ inline void parseAdditionalDataForCPER(nlohmann::json::object_t& entry,
 
     for (const auto& item : *redfishConfig)
     {
-        const auto& cf = item.find("from");
-        const auto& ct = item.find("to");
-        if (item.end() == cf || item.end() == ct)
+        const auto& jconfigFrom = item.find("from");
+        const auto& jconfigTo = item.find("to");
+        if (item.end() == jconfigFrom || item.end() == jconfigTo)
             continue;
 
-        const auto& f = additional.find(*cf);
-        if (additional.end() == f)
+        const auto& cperField = additional.find(*jconfigFrom);
+        if (additional.end() == cperField)
             continue;
 
-        const auto& cj = item.find("json");
-        if (item.end() == cj || cj->get<bool>() == false)
+        const auto& jconfigJson = item.find("json");
+        if (item.end() == jconfigJson || jconfigJson->get<bool>() == false)
         {
-            jFlat[*ct] = f->second;
+            jFlat[*jconfigTo] = cperField->second;
             continue;
         }
 
-        auto prefix = ct->dump();
+        auto prefix = jconfigTo->dump();
         prefix.erase(std::remove(prefix.begin(), prefix.end(), '\"'),
                      prefix.end());
 
-        auto jj = nlohmann::ordered_json::parse(f->second, nullptr, false);
-        if (jj.is_discarded())
+        auto cperMain = nlohmann::ordered_json::parse(cperField->second,
+                                                      nullptr, false);
+        if (cperMain.is_discarded())
         {
-            BMCWEB_LOG_ERROR("Failed to parse {}", f->second);
+            BMCWEB_LOG_ERROR("Failed to parse {}", cperField->second);
             continue;
         }
 
-        for (auto& [key, value] : jj.items())
+        std::vector<std::string> secD = {"header/", "sectionDescriptors/"};
+        std::string sections = "sections/";
+        std::vector<std::string> keyFilter = {"errorInformation/"};
+        for (auto& [key, value] : cperMain.items())
         {
             std::string copy(key);
-            for (char& ch : copy)
+            if (filterCperSection(copy, secD) &&
+                validateCperSectionArray(copy, sections))
             {
-                if (ch == '/')
+                skipKeys(copy, keyFilter);
+                // If they're an array, pick only the first entry (each event
+                // log should only contain a single section)
+                for (char& ch : copy)
                 {
-                    char* c = &ch + 1;
-                    *c = static_cast<char>(
-                        std::toupper(static_cast<unsigned char>(*c)));
+                    if (ch == '/')
+                    {
+                        char* c = &ch + 1;
+                        *c = static_cast<char>(
+                            std::toupper(static_cast<unsigned char>(*c)));
+                    }
                 }
+                jFlat[prefix + copy] = value;
             }
-            jFlat[prefix + copy] = value;
         }
     }
+    jFlat["/DiagnosticDataType"] = "CPERSection";
+
     entry = jFlat.unflatten();
 
     BMCWEB_LOG_DEBUG("Done {}", type->second);
