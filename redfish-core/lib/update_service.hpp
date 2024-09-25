@@ -765,14 +765,23 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
             return;
         }
 
-        if (((*transferProtocol == "SCP") || (*transferProtocol == "HTTP") ||
-             (*transferProtocol == "HTTPS")) &&
-            (!targets))
+        if ((*transferProtocol == "SCP") || (*transferProtocol == "HTTP") ||
+            (*transferProtocol == "HTTPS"))
         {
-            messages::createFailedMissingReqProperties(asyncResp->res,
-                                                       "Targets");
-            BMCWEB_LOG_DEBUG("Missing Target URI");
-            return;
+            if (!targets.has_value())
+            {
+                messages::createFailedMissingReqProperties(asyncResp->res,
+                                                           "Targets");
+                BMCWEB_LOG_DEBUG("Missing Target URI");
+                return;
+            }
+            else if (targets->empty())
+            {
+                messages::propertyValueIncorrect(asyncResp->res, "Targets",
+                                                 targets.value());
+                BMCWEB_LOG_DEBUG("Invalid Targets parameter: []");
+                return;
+            }
         }
 
         if ((*transferProtocol == "SCP") && (!username))
