@@ -1639,6 +1639,11 @@ class EventServiceManager
         for (const auto& it : this->subscriptionsMap)
         {
             std::shared_ptr<Subscription> entry = it.second;
+            if (!entry->eventMatchesFilter(msg, "Event"))
+            {
+                BMCWEB_LOG_DEBUG("Filter didn't match");
+                continue;
+            }
             std::string strMsg =
                 nlohmann::json(std::move(msg))
                     .dump(2, ' ', true,

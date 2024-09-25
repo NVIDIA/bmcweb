@@ -25,23 +25,20 @@ inline void createSubscription(crow::sse_socket::Connection& conn,
         conn.close("Max SSE subscriptions reached");
         return;
     }
-
     std::optional<filter_ast::LogicalAnd> filter;
-
-    boost::urls::params_base::iterator filterIt =
-        req.url().params().find("$filter");
-
-    if (filterIt != req.url().params().end())
+    for (const auto& param : req.url().params())
     {
-        std::string_view filterValue = (*filterIt).value;
-        filter = parseFilter(filterValue);
-        if (!filter)
+        if (param.key == "$filter")
         {
-            conn.close(std::format("Bad $filter param: {}", filterValue));
-            return;
+            std::string_view filterValue = param.value;
+            filter = parseFilter(filterValue);
+            if (!filter)
+            {
+                conn.close(std::format("Bad $filter param: {}", filterValue));
+                return;
+            }
         }
     }
-
     std::string lastEventId(req.getHeaderValue("Last-Event-Id"));
 
     std::shared_ptr<redfish::Subscription> subValue =
