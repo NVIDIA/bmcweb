@@ -595,31 +595,6 @@ class StatusQueryHandler : public OperationHandler
     }
 };
 
-enum class TokenFileType
-{
-    TokenRequest = 1,
-    DebugToken = 2
-};
-
-#pragma pack(1)
-struct FileHeader
-{
-    /* Set to 0x01 */
-    uint8_t version;
-    /* Either 1 for token request or 2 for token data */
-    uint8_t type;
-    /* Count of stored debug tokens / requests */
-    uint16_t numberOfRecords;
-    /* Equal to sizeof(struct FileHeader) for version 0x01. */
-    uint16_t offsetToListOfStructs;
-    /* Equal to sum of sizes of a given structure type +
-     * sizeof(struct FileHeader) */
-    uint32_t fileSize;
-    /* Padding */
-    std::array<uint8_t, 6> reserved;
-};
-
-#pragma pack()
 class RequestHandler : public OperationHandler
 {
   public:
@@ -666,44 +641,20 @@ class RequestHandler : public OperationHandler
 
     void getResult(std::string& result) const override
     {
-        size_t size = 0;
-        uint16_t recordCount = 0;
-        if (endpoints)
+        if (!endpoints)
         {
-            for (const auto& ep : *endpoints)
+            return;
+        }
+        std::vector<std::vector<uint8_t>> requests;
+        for (const auto& ep : *endpoints)
+        {
+            if (ep->getState() == EndpointState::RequestAcquired)
             {
-                if (ep->getState() == EndpointState::RequestAcquired)
-                {
-                    size += ep->getRequest().size();
-                    ++recordCount;
-                }
+                requests.emplace_back(std::move(ep->getRequest()));
             }
         }
-
-        if (size != 0)
-        {
-            size += sizeof(FileHeader);
-            auto header = std::make_unique<FileHeader>();
-            header->version = 0x01;
-            header->type = static_cast<uint8_t>(TokenFileType::TokenRequest);
-            header->numberOfRecords = recordCount;
-            header->offsetToListOfStructs = sizeof(FileHeader);
-            header->fileSize = static_cast<uint32_t>(size);
-
-            std::vector<uint8_t> output;
-            output.reserve(size);
-            output.resize(sizeof(FileHeader));
-            std::memcpy(output.data(), header.get(), sizeof(FileHeader));
-            for (const auto& ep : *endpoints)
-            {
-                if (ep->getState() == EndpointState::RequestAcquired)
-                {
-                    const auto& request = ep->getRequest();
-                    output.insert(output.end(), request.begin(), request.end());
-                }
-            }
-            result = std::string(output.begin(), output.end());
-        }
+        auto file = generateTokenRequestFile(requests);
+        result = std::string(file.begin(), file.end());
     }
 
   private:

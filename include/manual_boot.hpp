@@ -33,7 +33,7 @@ inline void bootModeQuery(const crow::Request& req,
         MctpVdmUtil mctpVdmUtilWrapper(eid);
         MctpVdmUtilCommand cmd = MctpVdmUtilCommand::BOOTMODE_QUERY;
         mctpVdmUtilWrapper.run(
-            cmd, req, asyncResp,
+            cmd, std::monostate(), req, asyncResp,
             [chassisId](const crow::Request&,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         uint32_t, const std::string& stdOut, const std::string&,
@@ -102,7 +102,7 @@ inline void bootModeSet(const crow::Request& req,
         MctpVdmUtilCommand cmd = enabled ? MctpVdmUtilCommand::BOOTMODE_ENABLE
                                          : MctpVdmUtilCommand::BOOTMODE_DISABLE;
         mctpVdmUtilWrapper.run(
-            cmd, req, asyncResp,
+            cmd, std::monostate(), req, asyncResp,
             [chassisId](const crow::Request&,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         uint32_t, const std::string& stdOut, const std::string&,
@@ -162,7 +162,7 @@ inline void bootAp(const crow::Request& req,
         uint32_t eid = static_cast<uint32_t>(endpoints->begin()->getMctpEid());
         MctpVdmUtil mctpVdmUtilWrapper(eid);
         mctpVdmUtilWrapper.run(
-            MctpVdmUtilCommand::BOOT_AP, req, asyncResp,
+            MctpVdmUtilCommand::BOOT_AP, std::monostate(), req, asyncResp,
             [chassisId](const crow::Request&,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         uint32_t, const std::string& stdOut, const std::string&,

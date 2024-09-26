@@ -26,6 +26,7 @@
 #include "generated/enums/resource.hpp"
 #include "hypervisor_system.hpp"
 #include "led.hpp"
+#include "nvidia_cpu_debug_token.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
@@ -4058,6 +4059,7 @@ inline void
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             "#NvidiaComputerSystem.v1_1_0.NvidiaComputerSystem";
         ist_mode_utils::getIstMode(asyncResp);
+        getSystemsCpuDebugToken(asyncResp, systemName);
     }
 
 #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE

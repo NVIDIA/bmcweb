@@ -70,8 +70,8 @@ inline void updateBackgroundCopyEnabled(
         return;
     };
 
-    mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_STATUS, req,
-                           asyncResp, responseCallback);
+    mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_STATUS,
+                           std::monostate(), req, asyncResp, responseCallback);
 }
 
 /**
@@ -123,7 +123,7 @@ inline void updateBackgroundCopyStatusPending(
     };
 
     mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_QUERY_PENDING,
-                           req, asyncResp,
+                           std::monostate(), req, asyncResp,
                            std::move(bgCopyQueryResponseCallback));
     return;
 }
@@ -185,7 +185,8 @@ inline void updateBackgroundCopyStatus(
     };
 
     mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_QUERY_PROGRESS,
-                           req, asyncResp, bgCopyQueryResponseCallback);
+                           std::monostate(), req, asyncResp,
+                           bgCopyQueryResponseCallback);
     return;
 }
 
@@ -237,13 +238,15 @@ inline void
 
     if (enabled)
     {
-        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_ENABLE, req,
-                               asyncResp, responseCallback);
+        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_ENABLE,
+                               std::monostate(), req, asyncResp,
+                               responseCallback);
     }
     else
     {
-        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_DISABLE, req,
-                               asyncResp, responseCallback);
+        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_DISABLE,
+                               std::monostate(), req, asyncResp,
+                               responseCallback);
     }
     return;
 }
@@ -294,7 +297,7 @@ inline void
     };
     BMCWEB_LOG_INFO("Initializing background init for inventoryURI:{}",
                     inventoryURI);
-    mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_INIT, req,
-                           asyncResp, responseCallback);
+    mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_INIT,
+                           std::monostate(), req, asyncResp, responseCallback);
     return;
 }
