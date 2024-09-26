@@ -1830,6 +1830,12 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                             connectionNames[0].second;
                         getPCIeDevice(asyncResp, device, chassisPCIePath,
                                       connectionName, interface[0]);
+
+                        // get health by association
+                        redfish::nvidia_chassis_utils::getHealthByAssociation(
+                            asyncResp, chassisPCIePath + "/" + device,
+                            "chassis", device);
+
                         // Get asset properties
                         if (std::find(interfaces2.begin(), interfaces2.end(),
                                       assetInterface) != interfaces2.end())
