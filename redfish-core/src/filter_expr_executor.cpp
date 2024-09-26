@@ -116,34 +116,12 @@ ValueVisitor::result_type
 {
     // Future, handle paths with / in them
     nlohmann::json::const_iterator entry = body.find(x);
-    bool keyFound = false;
     if (entry == body.end())
     {
-        auto events = body.find("Events");
-        if (events != body.end())
-        {
-            const nlohmann::json::array_t* arr =
-                events->get_ptr<const nlohmann::json::array_t*>();
-            if (arr != nullptr)
-            {
-                for (const auto& event : *arr)
-                {
-                    entry = event.find(x);
-                    if (entry != event.end())
-                    {
-                        keyFound = true;
-                        break;
-                    }
-                }
-            }
-        }
-        if (keyFound == false)
-        {
-            BMCWEB_LOG_ERROR("Key {} doesn't exist in output, cannot filter",
-                             static_cast<std::string>(x));
-            BMCWEB_LOG_DEBUG("Output {}", body.dump());
-            return {};
-        }
+        BMCWEB_LOG_ERROR("Key {} doesn't exist in output, cannot filter",
+                         static_cast<std::string>(x));
+        BMCWEB_LOG_DEBUG("Output {}", body.dump());
+        return {};
     }
     const double* dValue = entry->get_ptr<const double*>();
     if (dValue != nullptr)
