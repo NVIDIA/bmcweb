@@ -3472,7 +3472,7 @@ inline void getFabricsPortMetricsData(
         }
 #ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaPortMetrics.v1_3_0.NvidiaPortMetrics";
+            "#NvidiaPortMetrics.v1_3_0.NvidiaNVLinkPortMetrics";
 #endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
         for (const auto& property : properties)
         {
