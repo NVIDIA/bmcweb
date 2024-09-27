@@ -1,10 +1,4 @@
-sdbusplus = dependency(
-    'sdbusplus',
-    fallback: [
-        'sdbusplus',
-        'sdbusplus_dep'
-    ],
-)
+sdbusplus = dependency('sdbusplus', fallback: ['sdbusplus', 'sdbusplus_dep'])
 
 phosphor_logging_dep = dependency(
     'phosphor-logging',
@@ -21,25 +15,15 @@ else
         include_directories: include_directories(
             'subprojects/nlohmann-json/single_include',
             'subprojects/nlohmann-json/single_include/nlohmann',
-        )
+        ),
     )
 endif
 
-inc = include_directories(
-  'include'
-)
+inc = include_directories('include')
 
-listener_incs = [
-    incdir,
-    inc
-]
+listener_incs = [incdir, inc]
 
-default_deps = [
-    nlohmann_json,
-    sdbusplus,
-    phosphor_logging_dep,
-    boost
-]
+default_deps = [nlohmann_json, sdbusplus, phosphor_logging_dep, boost]
 
 subdir('src')
 subdir('service_file')

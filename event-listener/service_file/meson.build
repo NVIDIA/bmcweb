@@ -1,6 +1,4 @@
-unit_files = [
-    ['redfishevent-listener.service'],
-]
+unit_files = [['redfishevent-listener.service']]
 
 foreach tuple : unit_files
     configure_file(

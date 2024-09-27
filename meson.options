@@ -24,26 +24,23 @@ option(
 
 option(
     'platform-metrics',
-    type : 'feature',
-    value : 'enabled',
-    description :
-    'Enable/disable the platform metrics to collect all sensors reading'
+    type: 'feature',
+    value: 'enabled',
+    description: 'Enable/disable the platform metrics to collect all sensors reading',
 )
 
 option(
     'shmem-platform-metrics',
-    type : 'feature',
-    value : 'disabled',
-    description :
-    'Enable/disable the platform metrics to collect all sensors reading over shared memory'
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable/disable the platform metrics to collect all sensors reading over shared memory',
 )
 
 option(
     'erot-reset',
-    type : 'feature',
-    value : 'disabled',
-    description :
-    'Enable/disable ERoT reset option'
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable/disable ERoT reset option',
 )
 
 # if you use this option and are seeing this comment, please comment here:
@@ -59,7 +56,12 @@ option(
 #    description: 'Enable the Virtual Media WebSocket.'
 #)
 
-option('rmedia', type: 'feature', value : 'enabled', description : 'Enable the Rmedia Redfish API.')
+option(
+    'rmedia',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Enable the Rmedia Redfish API.',
+)
 option(
     'rest',
     type: 'feature',
@@ -115,7 +117,7 @@ option(
     type: 'feature',
     value: 'disabled',
     description: '''Enable LLDP information under the path of dedicated ports:
-                    /v1/Managers/bmc/DedicatedNetworkPorts/1'''
+                    /v1/Managers/bmc/DedicatedNetworkPorts/1''',
 )
 
 option(
@@ -132,7 +134,7 @@ option(
     type: 'feature',
     value: 'disabled',
     description: '''Enable FDR log service transactions through Redfish. Paths
-                   are under /redfish/v1/Systems/bmc/LogServices/FDR'''
+                   are under /redfish/v1/Systems/bmc/LogServices/FDR''',
 )
 
 option(
@@ -152,7 +154,12 @@ option(
                     phosphor-hostlogger through Redfish.  Paths are under
                     /redfish/v1/Systems/system/LogServices/HostLogger''',
 )
-option('redfish-dbus-event', type : 'feature', value : 'disabled', description : 'Enable Redfish event service pushes based on DBUS signals of DBUS log service transactions.')
+option(
+    'redfish-dbus-event',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable Redfish event service pushes based on DBUS signals of DBUS log service transactions.',
+)
 option(
     'redfish-enable-proccessor-memory-status',
     type: 'feature',
@@ -160,7 +167,7 @@ option(
     description: '''Enable/disable the deprecated processor and memory summary
                     status. The default condition is disabling the processor
                     and memory summary status. This option will be removed in
-                    1Q 2024.'''
+                    1Q 2024.''',
 )
 
 option(
@@ -196,7 +203,15 @@ option(
 option(
     'bmcweb-logging',
     type: 'combo',
-    choices : [ 'disabled', 'enabled', 'debug', 'info', 'warning', 'error', 'critical' ],
+    choices: [
+        'disabled',
+        'enabled',
+        'debug',
+        'info',
+        'warning',
+        'error',
+        'critical',
+    ],
     value: 'error',
     description: '''Enable output the extended logging level.
                     - disabled: disable bmcweb log traces.
@@ -207,15 +222,15 @@ option(
 option(
     'bmcweb-chunking',
     type: 'feature',
-    value:  'disabled',
-    description: '''Enable bmcweb chunking.'''
+    value: 'disabled',
+    description: 'Enable bmcweb chunking.',
 )
 
 option(
     'bmcweb-response-timeout',
     type: 'integer',
     value: 60,
-    description: '''The bmcweb response timeout in seconds.'''
+    description: 'The bmcweb response timeout in seconds.',
 )
 
 option(
@@ -246,8 +261,20 @@ option(
     description: 'Enable cookie authentication',
 )
 
-option('array-bootprogress', type : 'feature', value : 'disabled', description : '''Enable array of bootprogress to take the post events as 9-byte number''')
-option ('bmcweb-logging-log-level', type : 'integer', min : 0, max : 4, value : 3, description : 'log level for bmcweb logging. Default is 3(Error and above). Enum Mapping Debug = 0, Info = 1, Warning = 2, Error = 3, Critical =4.')
+option(
+    'array-bootprogress',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable array of bootprogress to take the post events as 9-byte number',
+)
+option(
+    'bmcweb-logging-log-level',
+    type: 'integer',
+    min: 0,
+    max: 4,
+    value: 3,
+    description: 'log level for bmcweb logging. Default is 3(Error and above). Enum Mapping Debug = 0, Info = 1, Warning = 2, Error = 3, Critical =4.',
+)
 option(
     'mutual-tls-auth',
     type: 'feature',
@@ -296,7 +323,14 @@ option(
     description: 'Specifies the http request body length limit',
 )
 
-option('firmware-image-limit', type: 'integer', min : 0, max : 512, value : 30, description : 'Specifies the firmware image size limit')
+option(
+    'firmware-image-limit',
+    type: 'integer',
+    min: 0,
+    max: 512,
+    value: 30,
+    description: 'Specifies the firmware image size limit',
+)
 
 option(
     'redfish-new-powersubsystem-thermalsubsystem',
@@ -323,7 +357,7 @@ option(
     description: '''Allows POST to /redfish/v1/UpdateService, counter to
                     the redfish specification.  Option provided to allow
                     potential users to move away from using this endpoint.
-                    Option will be removed Q4 2022.'''
+                    Option will be removed Q4 2022.''',
 )
 
 option(
@@ -354,7 +388,7 @@ option(
     type: 'feature',
     value: 'enabled',
     description: '''Enables HealthPopulate and generate the Status property for
-                    the resource. This option will be removed Q1 2024'''
+                    the resource. This option will be removed Q1 2024''',
 )
 
 option(
@@ -384,54 +418,290 @@ option(
     description: 'Allows this BMC to aggregate resources from satellite BMCs',
 )
 
-option('enforce_sensor_name_format',type: 'feature', value: 'enabled', description: 'Enable or disable enforcement of sensor name format')
+option(
+    'enforce_sensor_name_format',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Enable or disable enforcement of sensor name format',
+)
 
-option('power-control-type-percentage', type : 'feature', value : 'disabled', description : 'set power control SetPointUnits to percentage.')
-option ('redfish-aggregation-prefix', type : 'string', value : '5B247A', description : 'redfish aggregation prefix')
-option ('rfa-hmc-update-target', type : 'string', value : 'HGX_Chassis_0', description : 'the update target to update all HMC components')
-option ('rfa-bmc-host-url', type : 'string', value : 'http://bmc_ip:8080/', description : 'BMC url to receive redfish events from satellite BMC')
-option ('rfa-delay-subscribe-time', type : 'integer', min : 5, max : 300, value: 60, description : 'the deferred time to subscribe HMC EventService')
-option('health-rollup-alternative', type : 'feature', value : 'disabled', description : 'Enable health rollup alternative with support of xyz.openbmc_project.State.Decorator.Health interface and health_rollup association.')
-option('disable-health-rollup', type : 'feature', value : 'disabled', description : 'Disable health rollup.')
-option('disable-conditions-array', type : 'feature', value : 'disabled', description : 'Disable conditions array.')
-option('nvidia-oem-properties', type : 'feature', value : 'disabled', description : 'Enable OEM properties.')
-option('nvidia-oem-fw-update-staging', type : 'feature', value : 'disabled', description : 'Enable Stage and Activate later Update.')
-option('nvidia-oem-logservices', type : 'feature', value : 'disabled', description : 'Enable OEM log services.')
-option('nvidia-oem-bf-properties', type : 'feature', value : 'disabled', description : 'Enable OEM Bluefield properties')
-option('nvidia-oem-bf3-properties', type : 'feature', value : 'disabled', description : 'Enable OEM Bluefield 3 properties')
-option('nvidia-oem-gb200nvl-properties', type : 'feature', value : 'disabled', description : 'Enable OEM GB200Nvl properties')
-option('nvidia-oem-common-properties', type : 'feature', value : 'disabled', description : 'Enable OEM Nvidia common properties.')
-option('nvidia-retimer-debugmode', type : 'feature', value : 'disabled', description : 'Enable Nvidia retimer debug mode.')
-option ('nvidia-network-adapter-prefix', type : 'string', value : 'NIC_', description : 'Prefix used for network adapter name')
-option ('nvidia-network-adapter-link-prefix', type : 'string', value : 'Port_', description : 'Prefix used for links name on network adapter')
-option('nvidia-oem-device-status-from-file', type : 'feature', value : 'disabled', description : 'Enable OEM Nvidia device status properties from file.')
-option('nvidia-device-status-from-association', type : 'feature', value : 'disabled', description : 'Enable OEM Nvidia device status properties from associations.')
-option('nvidia-uuid-from-platform-chassis-name', type : 'feature', value : 'disabled', description : 'Enable UUID properties from platform chassis name.')
-option('nvidia-bootentryid', type : 'feature', value : 'disabled', description : 'Enable OEM Nvidia BootEntryID for phosphor-logging based logs.')
-option ('stalesensor-upper-limit-milisecond', type : 'integer', min : 1, max : 65535, value : 750, description : 'Upper limit in miliseconds to determine the staleness of sensor reading')
-option ('platform-metrics-sensing-interval', type : 'integer', min : 1, max : 65535, value : 250, description : 'Platform metrics telemetry sensor refresh interval in milliseconds')
-option ('platform-system-id', type : 'string', value : 'system', description : 'Platform specific computer system id')
-option ('platform-system-description', type : 'string', value : 'Computer System', description : 'Platform specific computer system description')
-option ('platform-bmc-id', type : 'string', value : 'bmc', description : 'Platform specific managers bmc id')
-option ('platform-network-adapter', type : 'string', value : 'networkadapter', description : 'Platform network adapter')
-option ('host-eth-iface', type : 'feature', value : 'disabled', description : 'Enable Host Ethernet Interface')
-option ('network-adapters', type : 'feature', value : 'disabled', description : 'Enable NetworkAdapters')
-option ('network-adapters-generic', type : 'feature', value : 'disabled', description : 'Enable Generic NetworkAdapters')
-option ('platform-total-power-sensor-name', type : 'string', value : 'TotalHSC_Power', description : 'Platform specific total power sensor name, which has system power watts readings')
-option ('platform-power-control-sensor-name', type : 'string', value : 'total_power', description : 'Platform specific total power control sensor name, which has system current power watts readings')
-option ('platform-metrics-id', type : 'string', value : 'PlatformMetrics', description : 'Platform specific telemetry service metric reports id')
-option ('platform-device-prefix', type : 'string', value : '', description : 'Platform specific device name prefix')
-option ('platform-gpu-name-prefix', type : 'string', value : 'GPU_SXM_', description : 'Platform specific GPU name prefix')
-option ('platform-chassis-name', type : 'string', value : 'HGX_Chassis_0', description : 'Platform specific chassis name')
+option(
+    'power-control-type-percentage',
+    type: 'feature',
+    value: 'disabled',
+    description: 'set power control SetPointUnits to percentage.',
+)
+option(
+    'redfish-aggregation-prefix',
+    type: 'string',
+    value: '5B247A',
+    description: 'redfish aggregation prefix',
+)
+option(
+    'rfa-hmc-update-target',
+    type: 'string',
+    value: 'HGX_Chassis_0',
+    description: 'the update target to update all HMC components',
+)
+option(
+    'rfa-bmc-host-url',
+    type: 'string',
+    value: 'http://bmc_ip:8080/',
+    description: 'BMC url to receive redfish events from satellite BMC',
+)
+option(
+    'rfa-delay-subscribe-time',
+    type: 'integer',
+    min: 5,
+    max: 300,
+    value: 60,
+    description: 'the deferred time to subscribe HMC EventService',
+)
+option(
+    'health-rollup-alternative',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable health rollup alternative with support of xyz.openbmc_project.State.Decorator.Health interface and health_rollup association.',
+)
+option(
+    'disable-health-rollup',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Disable health rollup.',
+)
+option(
+    'disable-conditions-array',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Disable conditions array.',
+)
+option(
+    'nvidia-oem-properties',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable OEM properties.',
+)
+option(
+    'nvidia-oem-fw-update-staging',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable Stage and Activate later Update.',
+)
+option(
+    'nvidia-oem-logservices',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable OEM log services.',
+)
+option(
+    'nvidia-oem-bf-properties',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable OEM Bluefield properties',
+)
+option(
+    'nvidia-oem-bf3-properties',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable OEM Bluefield 3 properties',
+)
+option(
+    'nvidia-oem-gb200nvl-properties',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable OEM GB200Nvl properties',
+)
+option(
+    'nvidia-oem-common-properties',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable OEM Nvidia common properties.',
+)
+option(
+    'nvidia-retimer-debugmode',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable Nvidia retimer debug mode.',
+)
+option(
+    'nvidia-network-adapter-prefix',
+    type: 'string',
+    value: 'NIC_',
+    description: 'Prefix used for network adapter name',
+)
+option(
+    'nvidia-network-adapter-link-prefix',
+    type: 'string',
+    value: 'Port_',
+    description: 'Prefix used for links name on network adapter',
+)
+option(
+    'nvidia-oem-device-status-from-file',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable OEM Nvidia device status properties from file.',
+)
+option(
+    'nvidia-device-status-from-association',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable OEM Nvidia device status properties from associations.',
+)
+option(
+    'nvidia-uuid-from-platform-chassis-name',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable UUID properties from platform chassis name.',
+)
+option(
+    'nvidia-bootentryid',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable OEM Nvidia BootEntryID for phosphor-logging based logs.',
+)
+option(
+    'stalesensor-upper-limit-milisecond',
+    type: 'integer',
+    min: 1,
+    max: 65535,
+    value: 750,
+    description: 'Upper limit in miliseconds to determine the staleness of sensor reading',
+)
+option(
+    'platform-metrics-sensing-interval',
+    type: 'integer',
+    min: 1,
+    max: 65535,
+    value: 250,
+    description: 'Platform metrics telemetry sensor refresh interval in milliseconds',
+)
+option(
+    'platform-system-id',
+    type: 'string',
+    value: 'system',
+    description: 'Platform specific computer system id',
+)
+option(
+    'platform-system-description',
+    type: 'string',
+    value: 'Computer System',
+    description: 'Platform specific computer system description',
+)
+option(
+    'platform-bmc-id',
+    type: 'string',
+    value: 'bmc',
+    description: 'Platform specific managers bmc id',
+)
+option(
+    'platform-network-adapter',
+    type: 'string',
+    value: 'networkadapter',
+    description: 'Platform network adapter',
+)
+option(
+    'host-eth-iface',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable Host Ethernet Interface',
+)
+option(
+    'network-adapters',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable NetworkAdapters',
+)
+option(
+    'network-adapters-generic',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable Generic NetworkAdapters',
+)
+option(
+    'platform-total-power-sensor-name',
+    type: 'string',
+    value: 'TotalHSC_Power',
+    description: 'Platform specific total power sensor name, which has system power watts readings',
+)
+option(
+    'platform-power-control-sensor-name',
+    type: 'string',
+    value: 'total_power',
+    description: 'Platform specific total power control sensor name, which has system current power watts readings',
+)
+option(
+    'platform-metrics-id',
+    type: 'string',
+    value: 'PlatformMetrics',
+    description: 'Platform specific telemetry service metric reports id',
+)
+option(
+    'platform-device-prefix',
+    type: 'string',
+    value: '',
+    description: 'Platform specific device name prefix',
+)
+option(
+    'platform-gpu-name-prefix',
+    type: 'string',
+    value: 'GPU_SXM_',
+    description: 'Platform specific GPU name prefix',
+)
+option(
+    'platform-chassis-name',
+    type: 'string',
+    value: 'HGX_Chassis_0',
+    description: 'Platform specific chassis name',
+)
 
-option ('tls-auth-opt-in', type : 'feature', value : 'disabled', description : 'Enables feature to opt-in to TLS-Authentication at runtime.')
-option ('host-os-features', type : 'feature', value : 'enabled', description : 'Enables feature specific to host os.')
-option ('host-auxpower-features', type : 'feature', value : 'disabled', description : 'disabled feature specific to host aux power.')
-option ('redfish-system-faultlog-dump-log', type : 'feature', value : 'disabled', description : 'Enable Redfish System faultlog dump log services.')
-option ('reset-bios-by-clear-nonvolatile', type : 'feature', value : 'disabled', description : 'Enable using DBUS xyz.openbmc_project.Control.Boot.ClearNonVolatileVariables for Bios.ResetBios action.')
-option ('fencing-privilege', type : 'feature', value : 'disabled', description : 'Enables feature to set/unset the fencing privilege to satelite BMC.')
-option ('dot-support', type : 'feature', value : 'disabled', description : 'Enables DOT token support.')
-option ('enable-debug-interface', type : 'feature', value : 'disabled', description : 'Enables debug interface support.')
+option(
+    'tls-auth-opt-in',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enables feature to opt-in to TLS-Authentication at runtime.',
+)
+option(
+    'host-os-features',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Enables feature specific to host os.',
+)
+option(
+    'host-auxpower-features',
+    type: 'feature',
+    value: 'disabled',
+    description: 'disabled feature specific to host aux power.',
+)
+option(
+    'redfish-system-faultlog-dump-log',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable Redfish System faultlog dump log services.',
+)
+option(
+    'reset-bios-by-clear-nonvolatile',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable using DBUS xyz.openbmc_project.Control.Boot.ClearNonVolatileVariables for Bios.ResetBios action.',
+)
+option(
+    'fencing-privilege',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enables feature to set/unset the fencing privilege to satelite BMC.',
+)
+option(
+    'dot-support',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enables DOT token support.',
+)
+option(
+    'enable-debug-interface',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enables debug interface support.',
+)
 option(
     'experimental-redfish-multi-computer-system',
     type: 'feature',
@@ -450,7 +720,12 @@ option(
                     on this option for any production systems.  It may have
                     behavior changes or be removed at any time.''',
 )
-option ('manual-boot-mode-support', type : 'feature', value : 'disabled', description : 'Enables support for ERoT manual boot mode')
+option(
+    'manual-boot-mode-support',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enables support for ERoT manual boot mode',
+)
 
 # Insecure options. Every option that starts with a `insecure` flag should
 # not be enabled by default for any platform, unless the author fully comprehends
@@ -492,7 +767,7 @@ option(
     'profile-configuration',
     type: 'feature',
     value: 'disabled',
-    description: '''Enable profile configuration.'''
+    description: 'Enable profile configuration.',
 )
 
 option(
@@ -500,7 +775,7 @@ option(
     type: 'feature',
     value: 'disabled',
     description: '''Enable SCP based firmware update transactions through
-                    Redfish UpdateService.SimpleUpdate.'''
+                    Redfish UpdateService.SimpleUpdate.''',
 )
 
 option(
@@ -508,7 +783,7 @@ option(
     type: 'feature',
     value: 'disabled',
     description: '''Enable HTTP/HTTPS based firmware update transactions through
-                    Redfish UpdateService.SimpleUpdate.'''
+                    Redfish UpdateService.SimpleUpdate.''',
 )
 
 option(
@@ -533,7 +808,7 @@ option(
     'force-insecure-event-notification',
     type: 'feature',
     value: 'disabled',
-    description: 'Event notification is performed only by http insecure protol regardless the subscription either http or https'
+    description: 'Event notification is performed only by http insecure protol regardless the subscription either http or https',
 )
 
 option(
@@ -547,55 +822,159 @@ option(
                     parameters such as only are not controlled by this option.''',
 )
 
-option ('update-service-task-timeout', type : 'integer', min : 5, max : 300, value : 60, description : 'Update service task timeout')
-option ('update-service-image-location', type : 'string', value : '/tmp/images/', description : 'Update service image location')
-option ('update-service-stage-location', type : 'string', value : '', description : 'Update service stage location')
+option(
+    'update-service-task-timeout',
+    type: 'integer',
+    min: 5,
+    max: 300,
+    value: 60,
+    description: 'Update service task timeout',
+)
+option(
+    'update-service-image-location',
+    type: 'string',
+    value: '/tmp/images/',
+    description: 'Update service image location',
+)
+option(
+    'update-service-stage-location',
+    type: 'string',
+    value: '',
+    description: 'Update service stage location',
+)
 
-option('redfish-new-powersubsystem', type : 'feature', value : 'enabled', description : 'Enable/disable the new Power sub system.')
+option(
+    'redfish-new-powersubsystem',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Enable/disable the new Power sub system.',
+)
 
-option ('build-description-file-path', type : 'string', value : '/etc/os-release', description : 'Path to file containing build description BUILD_DESC=... data.')
-option ('otp-provisioning-status-file-path', type : 'string', value : '/var/lib/otp-provisioning/status', description : 'Path to file containing OTP provisioning status.')
+option(
+    'build-description-file-path',
+    type: 'string',
+    value: '/etc/os-release',
+    description: 'Path to file containing build description BUILD_DESC=... data.',
+)
+option(
+    'otp-provisioning-status-file-path',
+    type: 'string',
+    value: '/var/lib/otp-provisioning/status',
+    description: 'Path to file containing OTP provisioning status.',
+)
 
-option('manufacturing-test', type : 'feature', value : 'disabled', description : 'Enable manufacturing test API.')
-option('manufacturing-test-timeout', type : 'integer', min : 60, max : 3600, value : 300, description : 'Time limit in seconds for the manufacturing test execution')
+option(
+    'manufacturing-test',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable manufacturing test API.',
+)
+option(
+    'manufacturing-test-timeout',
+    type: 'integer',
+    min: 60,
+    max: 3600,
+    value: 300,
+    description: 'Time limit in seconds for the manufacturing test execution',
+)
 
-option('host-iface', type : 'feature', value : 'disabled', description : 'Enable Host Interface schema.')
-option ('host-iface-channel', type : 'string', value : 'usb0', description : 'Host interface channel name')
+option(
+    'host-iface',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable Host Interface schema.',
+)
+option(
+    'host-iface-channel',
+    type: 'string',
+    value: 'usb0',
+    description: 'Host interface channel name',
+)
 
-option ('computer-system-inventory-path', type : 'string', value : '/xyz/openbmc_project/inventory', description : 'Path to search object under inventory')
-option('bios', type: 'feature', value : 'enabled', description : 'Enable the BIOS Redfish API.')
-option('dpu-bios', type: 'feature', value : 'disabled', description : 'Enable the DPU BIOS Redfish API.')
-option('ipmi', type : 'feature', value : 'enabled', description : 'Enable/disable ipmi feature.')
-option('ntp', type : 'feature', value : 'enabled', description : 'Enable/disable ntp feature.')
-option('patch-ssh', type : 'feature', value : 'enabled', description : 'Enable/disable ssh service support')
-option('dhcp-configuration-update', type : 'feature', value : 'enabled', description : 'Enable/disable dhcp configuration support.')
-option('nic-configuration-update', type : 'feature', value : 'enabled', description : 'Enable/disable nic configuration support.')
-option('command-shell', type : 'feature', value : 'disabled', description : 'Enable/disable IPMI SOL.')
-option('min-ucase-characters',
+option(
+    'computer-system-inventory-path',
+    type: 'string',
+    value: '/xyz/openbmc_project/inventory',
+    description: 'Path to search object under inventory',
+)
+option(
+    'bios',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Enable the BIOS Redfish API.',
+)
+option(
+    'dpu-bios',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable the DPU BIOS Redfish API.',
+)
+option(
+    'ipmi',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Enable/disable ipmi feature.',
+)
+option(
+    'ntp',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Enable/disable ntp feature.',
+)
+option(
+    'patch-ssh',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Enable/disable ssh service support',
+)
+option(
+    'dhcp-configuration-update',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Enable/disable dhcp configuration support.',
+)
+option(
+    'nic-configuration-update',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Enable/disable nic configuration support.',
+)
+option(
+    'command-shell',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable/disable IPMI SOL.',
+)
+option(
+    'min-ucase-characters',
     type: 'integer',
     value: 1,
     description: 'Minimum number of upper case characters in the password',
 )
 
-option('min-lcase-characters',
+option(
+    'min-lcase-characters',
     type: 'integer',
     value: 1,
     description: 'Minimum number of lower case characters in the password',
 )
 
-option('min-digits',
+option(
+    'min-digits',
     type: 'integer',
     value: 1,
     description: 'Minimum number of digits in the password',
 )
 
-option('min-special-characters',
+option(
+    'min-special-characters',
     type: 'integer',
     value: 0,
     description: 'Minimum number of special characters in the password',
 )
 
-option('min-password-length',
+option(
+    'min-password-length',
     type: 'integer',
     value: 7,
     description: 'Min password Length',
@@ -605,25 +984,50 @@ option(
     'use-efficient-expand-on-sensors',
     type: 'feature',
     value: 'disabled',
-    description: 'Enable/Disable use of efficient expand on sensors collection'
+    description: 'Enable/Disable use of efficient expand on sensors collection',
 )
 
-option('gpu-index-start', type : 'integer', value : 1, description : 'The index to start GPUs from')
-option ('enable-fabric-adapter', type : 'feature', value : 'disabled', description : 'Enables fabric adapter schema.')
-option ('enable-sse', type : 'feature', value : 'enabled', description : 'Enables Event SSE.')
-option('tls-cacert-path', type : 'string', value : '/etc/ssl/certs/authority/', description : 'CA certificate path truststore')
-option ('cpu-diag-support', type : 'feature', value : 'disabled', description : 'Enables cpu diag support.')
+option(
+    'gpu-index-start',
+    type: 'integer',
+    value: 1,
+    description: 'The index to start GPUs from',
+)
+option(
+    'enable-fabric-adapter',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enables fabric adapter schema.',
+)
+option(
+    'enable-sse',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Enables Event SSE.',
+)
+option(
+    'tls-cacert-path',
+    type: 'string',
+    value: '/etc/ssl/certs/authority/',
+    description: 'CA certificate path truststore',
+)
+option(
+    'cpu-diag-support',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enables cpu diag support.',
+)
 
 option(
     'command-smbpbi-oob',
     type: 'feature',
     value: 'enabled',
-    description: 'Enable/Disable SMBPBI out of band raw command'
+    description: 'Enable/Disable SMBPBI out of band raw command',
 )
 
 option(
     'redfish-leak-detect',
     type: 'feature',
     value: 'disabled',
-    description: 'Enable/Disable Leak Detection related redfish schema'
+    description: 'Enable/Disable Leak Detection related redfish schema',
 )
