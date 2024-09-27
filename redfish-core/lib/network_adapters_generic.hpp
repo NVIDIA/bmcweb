@@ -25,6 +25,10 @@
 #include <utils/json_utils.hpp>
 #include <utils/port_utils.hpp>
 
+#include <map>
+#include <optional>
+#include <string>
+
 namespace redfish
 {
 
@@ -743,6 +747,19 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 }
                 asyncResp->res.jsonValue["MaxSpeedGbps"] = *value;
             }
+            else if ((propertyName == "Width") ||
+                     (propertyName == "ActiveWidth"))
+            {
+                const auto* value = std::get_if<size_t>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for Width or ActiveWidth");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                asyncResp->res.jsonValue[propertyName] = *value;
+            }
             else if (propertyName == "Protocol")
             {
                 const std::string* value =
@@ -1173,9 +1190,20 @@ inline void
         }
 
 #ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
-        asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaPortMetrics.v1_3_0.NvidiaPortMetrics";
+        auto addNvidiaType = false;
 #endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+        static const std::map<std::string, std::optional<std::string>>
+            pcieErrorsProperties{
+                {"ceCount", "CorrectableErrorCount"},
+                {"feCount", "FatalErrorCount"},
+                {"nonfeCount", "NonFatalErrorCount"},
+                {"UnsupportedRequestCount", std::nullopt},
+                {"L0ToRecoveryCount", std::nullopt},
+                {"ReplayCount", std::nullopt},
+                {"ReplayRolloverCount", std::nullopt},
+                {"NAKSentCount", std::nullopt},
+                {"NAKReceivedCount", std::nullopt},
+            };
         for (const auto& property : properties)
         {
             if ((property.first == "TXBytes") || (property.first == "RXBytes"))
@@ -1303,6 +1331,7 @@ inline void
                 }
                 asyncResp->res.jsonValue["Oem"]["Nvidia"]["VL15Dropped"] =
                     *value;
+                addNvidiaType = true;
             }
             else if (property.first == "SymbolError")
             {
@@ -1316,6 +1345,7 @@ inline void
                 }
                 asyncResp->res.jsonValue["Oem"]["Nvidia"]["SymbolErrors"] =
                     *value;
+                addNvidiaType = true;
             }
             else if (property.first == "LinkErrorRecoveryCounter")
             {
@@ -1329,6 +1359,7 @@ inline void
                 }
                 asyncResp->res.jsonValue["Oem"]["Nvidia"]
                                         ["LinkErrorRecoveryCount"] = *value;
+                addNvidiaType = true;
             }
             else if (property.first == "RXRemotePhysicalErrorPkts")
             {
@@ -1342,6 +1373,7 @@ inline void
                 }
                 asyncResp->res.jsonValue["Oem"]["Nvidia"]
                                         ["RXRemotePhysicalErrors"] = *value;
+                addNvidiaType = true;
             }
             else if (property.first == "RXSwitchRelayErrorPkts")
             {
@@ -1355,6 +1387,7 @@ inline void
                 }
                 asyncResp->res
                     .jsonValue["Oem"]["Nvidia"]["RXSwitchRelayErrors"] = *value;
+                addNvidiaType = true;
             }
             else if (property.first == "LinkDownCount")
             {
@@ -1368,9 +1401,37 @@ inline void
                 }
                 asyncResp->res.jsonValue["Oem"]["Nvidia"]["LinkDownedCount"] =
                     *value;
+                addNvidiaType = true;
             }
 #endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+            for (const auto& [pdiPropertyName, fixedPropertyName] :
+                 pcieErrorsProperties)
+            {
+                if (property.first == pdiPropertyName)
+                {
+                    const auto propertyName = fixedPropertyName
+                                                  ? *fixedPropertyName
+                                                  : pdiPropertyName;
+                    const auto* value = std::get_if<int64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned for {}",
+                                         propertyName);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["PCIeErrors"][propertyName] =
+                        *value;
+                }
+            }
         }
+#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+        if (addNvidiaType)
+        {
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaPortMetrics.v1_3_0.NvidiaPortMetrics";
+        }
+#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
     },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
 }

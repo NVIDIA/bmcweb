@@ -400,6 +400,143 @@ inline void updatePCIeSlotsSwitchLinks(
 }
 
 /**
+ * @brief Get all pcieslot networkAdapter links info by requesting data
+ * from the given D-Bus object.
+ *
+ * @param[in,out]   asyncResp   Async HTTP response.
+ * @param[in]       service     D-Bus service to query.
+ * @param[in]       objPath     D-Bus object to query.
+ * @param[in]       chassisId   Chassis that contains the pcieslot.
+ */
+inline void updatePCIeSlotsNetworkAdapterLinks(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::map<std::string, propertyTypes>& dbusProperties,
+    const std::string& objPath)
+{
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, objPath,
+         dbusProperties](const boost::system::error_code ec,
+                         std::variant<std::vector<std::string>>& resp) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("chassis data not found for pcieslot");
+            return;
+        }
+        // chassis identified for pcieslot
+        std::vector<std::string>* data =
+            std::get_if<std::vector<std::string>>(&resp);
+        if (data == nullptr)
+        {
+            BMCWEB_LOG_ERROR("chassis data null for pcieslot");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        std::string chassisId; // pcieslot chassis id
+        for (const std::string& chassisPath : *data)
+        {
+            sdbusplus::message::object_path dbusObjPath(chassisPath);
+            chassisId = dbusObjPath.filename();
+
+            // Get NetworkAdapter links using associtaions
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, objPath, dbusProperties,
+                 chassisId](const boost::system::error_code ec,
+                            std::variant<std::vector<std::string>>& resp) {
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("network adapter not found for pcieslot");
+                    return;
+                }
+
+                std::vector<std::string>* data =
+                    std::get_if<std::vector<std::string>>(&resp);
+
+                if (data == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("network adapter data null for pcieslot");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+
+                for (const std::string& networkAdapterPath : *data)
+                {
+                    sdbusplus::message::object_path dbusObjPath(
+                        networkAdapterPath);
+                    const std::string& networkAdapterId =
+                        dbusObjPath.filename();
+
+                    // Get Port links using associtaions
+                    crow::connections::systemBus->async_method_call(
+                        [asyncResp, dbusProperties, chassisId,
+                         networkAdapterId](
+                            const boost::system::error_code ec,
+                            std::variant<std::vector<std::string>>& resp) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR("port not found for pcieslot");
+                            return;
+                        }
+
+                        std::vector<std::string>* data =
+                            std::get_if<std::vector<std::string>>(&resp);
+                        nlohmann::json pcieSlotRes;
+
+                        if (data == nullptr)
+                        {
+                            BMCWEB_LOG_ERROR("port data null for pcieslot");
+                            return;
+                        }
+
+                        // update dbus properties to json object
+                        fillProperties(pcieSlotRes, dbusProperties);
+
+                        pcieSlotRes["Links"]["Oem"]["Nvidia"]["@odata.type"] =
+                            "#NvidiaPCIeSlots.v1_0_0.NvidiaPCIeSlots";
+
+                        // declaring connected ports array
+                        nlohmann::json& connectedPortsLinkArray =
+                            pcieSlotRes["Links"]["Oem"]["Nvidia"]
+                                       ["ConnectedPorts"];
+                        connectedPortsLinkArray = nlohmann::json::array();
+                        std::string connectedPortsURI;
+
+                        for (const std::string& portPath : *data)
+                        {
+                            sdbusplus::message::object_path dbusObjPath(
+                                portPath);
+                            const std::string& portId = dbusObjPath.filename();
+
+                            connectedPortsURI = "/redfish/v1/Chassis/" +
+                                                chassisId + "/NetworkAdapters/";
+                            connectedPortsURI += networkAdapterId;
+                            connectedPortsURI += "/Ports/";
+                            connectedPortsURI += portId;
+                            connectedPortsLinkArray.push_back(
+                                {{"@odata.id", connectedPortsURI}});
+                        }
+                        // sending response
+                        nlohmann::json& jResp =
+                            asyncResp->res.jsonValue["Slots"];
+                        jResp.push_back(pcieSlotRes);
+                    },
+                        "xyz.openbmc_project.ObjectMapper",
+                        objPath + "/port_link",
+                        "org.freedesktop.DBus.Properties", "Get",
+                        "xyz.openbmc_project.Association", "endpoints");
+                }
+            },
+                "xyz.openbmc_project.ObjectMapper",
+                objPath + "/network_adapter_link",
+                "org.freedesktop.DBus.Properties", "Get",
+                "xyz.openbmc_project.Association", "endpoints");
+        }
+    },
+        "xyz.openbmc_project.ObjectMapper", objPath + "/chassis_link",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
+}
+
+/**
  * @brief Add Slot without links into Slots array of Resp
  *
  * @param[in,out]   asyncResp      Async HTTP response.
@@ -566,6 +703,13 @@ inline void updatePCIeSlots(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     // Update switch links
                     updatePCIeSlotsSwitchLinks(asyncResp, dbusProperties,
                                                objPath);
+                    return;
+                }
+                if (linkPash == (objPath + "/chassis_link"))
+                {
+                    // Update chassis links
+                    updatePCIeSlotsNetworkAdapterLinks(asyncResp,
+                                                       dbusProperties, objPath);
                     return;
                 }
             }
