@@ -840,10 +840,11 @@ inline void objectPropertiesToJson(
     }
 
     const bool* checkAvailable = nullptr;
+    const bool* functional = nullptr;
     bool available = true;
     const bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), propertiesDict, "Available",
-        checkAvailable);
+        checkAvailable, "Functional", functional);
     if (!success)
     {
         messages::internalError();
@@ -856,6 +857,16 @@ inline void objectPropertiesToJson(
     sensorJson["Status"]["State"] = getState(inventoryItem, available);
     sensorJson["Status"]["Health"] = getHealth(sensorJson, propertiesDict,
                                                inventoryItem);
+
+    if (success)
+    {
+        // Check if sensor is functional
+        if (functional != nullptr && *functional == false)
+        {
+            sensorJson["Status"]["State"] = resource::State::Absent;
+            sensorJson["Status"]["Health"] = "Critical";
+        }
+    }
 
     // Parameter to set to override the type we get from dbus, and force it to
     // int, regardless of what is available.  This is used for schemas like fan,
