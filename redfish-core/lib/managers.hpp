@@ -3075,7 +3075,8 @@ inline void getLinkManagerForSwitches(
                 "xyz.openbmc_project.ObjectMapper",
                 "/xyz/openbmc_project/object_mapper",
                 "xyz.openbmc_project.ObjectMapper", "GetSubTree", fabric, 0,
-                std::array<const char*, 1>{
+                std::array<const char*, 2>{
+                    "xyz.openbmc_project.Inventory.Item.NvSwitch",
                     "xyz.openbmc_project.Inventory.Item.Switch"});
         }
     },
@@ -3214,6 +3215,19 @@ inline void
         std::variant<uint8_t>(privilege));
 }
 
+inline void getFabricManagerInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& connectionName, const std::string& path,
+    const std::string& interfaceName, const std::string& managerId)
+{
+    if (interfaceName == "com.nvidia.State.FabricManager")
+    {
+        aResp->res.jsonValue["Name"] = managerId;
+        nvidia_manager_util::getFabricManagerInformation(aResp, connectionName,
+                                                         path);
+    }
+}
+
 inline void
     getIsCommandShellEnable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -3313,7 +3327,7 @@ inline void requestRoutesManager(App& app)
                     asyncResp->res.jsonValue["@odata.id"] =
                         "/redfish/v1/Managers/" + managerId;
                     asyncResp->res.jsonValue["@odata.type"] =
-                        "#Manager.v1_11_0.Manager";
+                        "#Manager.v1_13_0.Manager";
                     asyncResp->res.jsonValue["Id"] = managerId;
                     asyncResp->res.jsonValue["Name"] =
                         "OpenBmc Manager Service";
@@ -3339,6 +3353,8 @@ inline void requestRoutesManager(App& app)
                         {
                             getManagerState(asyncResp, connectionName, path);
                         }
+                        getFabricManagerInfo(asyncResp, connectionName, path,
+                                             interfaceName, managerId);
                     }
                     getLinkManagerForSwitches(asyncResp, path);
 

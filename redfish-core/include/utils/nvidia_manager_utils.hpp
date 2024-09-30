@@ -1,3 +1,4 @@
+#include "utils/time_utils.hpp"
 
 #include <async_resp.hpp>
 #include <sdbusplus/asio/connection.hpp>
@@ -213,6 +214,154 @@ inline void setOemNvidiaOpenOCD(const bool value)
     {
         dbus::utility::systemdRestartUnit("openocdoff_2etarget", "replace");
     }
+}
+
+inline std::string getFMState(const std::string& fmStateType)
+{
+    if (fmStateType ==
+        "com.nvidia.State.FabricManager.FabricManagerState.Offline")
+    {
+        return "Offline";
+    }
+    if (fmStateType ==
+        "com.nvidia.State.FabricManager.FabricManagerState.Standby")
+    {
+        return "Standby";
+    }
+    if (fmStateType ==
+        "com.nvidia.State.FabricManager.FabricManagerState.Configured")
+    {
+        return "Configured";
+    }
+    if (fmStateType ==
+        "com.nvidia.State.FabricManager.FabricManagerState.Error")
+    {
+        return "Error";
+    }
+    // Unknown or others
+    return "Unknown";
+}
+
+inline std::string getFMReportStatus(const std::string& fmReportStatusType)
+{
+    if (fmReportStatusType ==
+        "com.nvidia.State.FabricManager.FabricManagerReportStatus.NotReceived")
+    {
+        return "Pending";
+    }
+    if (fmReportStatusType ==
+        "com.nvidia.State.FabricManager.FabricManagerReportStatus.Received")
+    {
+        return "Received";
+    }
+    if (fmReportStatusType ==
+        "com.nvidia.State.FabricManager.FabricManagerReportStatus.Timeout")
+    {
+        return "Timeout";
+    }
+    // Unknown or others
+    return "Unknown";
+}
+
+/**
+ * @brief Retrieves fabric manager state info from DBus
+ *
+ * @param[in] aResp Shared pointer for completing asynchronous calls
+ * @param[in] connectionName - service name
+ * @param[in] path - object path
+ * @return none
+ */
+inline void
+    getFabricManagerInformation(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                                const std::string& connectionName,
+                                const std::string& path)
+{
+    BMCWEB_LOG_DEBUG("Get fabric manager state information.");
+
+    crow::connections::systemBus->async_method_call(
+        [aResp](
+            const boost::system::error_code ec,
+            const std::vector<
+                std::pair<std::string, std::variant<std::string, uint64_t>>>&
+                propertiesList) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Error in getting fabric manager state info");
+            messages::internalError(aResp->res);
+            return;
+        }
+
+        auto addOemNvidiaOdataType = false;
+        for (const std::pair<std::string, std::variant<std::string, uint64_t>>&
+                 property : propertiesList)
+        {
+            if (property.first == "FMState")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for FM state");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["Oem"]["Nvidia"]["FabricManagerState"] =
+                    getFMState(*value);
+                addOemNvidiaOdataType = true;
+            }
+            else if (property.first == "ReportStatus")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for Report Status");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["Oem"]["Nvidia"]["ReportStatus"] =
+                    getFMReportStatus(*value);
+                addOemNvidiaOdataType = true;
+            }
+            else if (property.first == "LastRestartDuration")
+            {
+                const uint64_t* value = std::get_if<uint64_t>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for Duration Since LastRestart");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["Oem"]["Nvidia"]
+                                    ["DurationSinceLastRestartSeconds"] =
+                    *value;
+                addOemNvidiaOdataType = true;
+            }
+            else if (property.first == "LastRestartTime")
+            {
+                const uint64_t* value = std::get_if<uint64_t>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for Time Since LastRestart");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["LastResetTime"] =
+                    redfish::time_utils::getDateTimeUint(*value);
+            }
+        }
+        if (addOemNvidiaOdataType)
+        {
+            aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaManager.v1_4_0.NvidiaFabricManager";
+        }
+    },
+        connectionName, path, "org.freedesktop.DBus.Properties", "GetAll",
+        "com.nvidia.State.FabricManager");
 }
 
 } // namespace nvidia_manager_util
