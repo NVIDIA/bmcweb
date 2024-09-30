@@ -345,6 +345,29 @@ inline void metricsReplacementsNonPlatformMetrics(
                 pcieLinkId.insert(number);
             }
         }
+        if (deviceType == "HealthMetrics")
+        {
+            std::regex gpuPattern(gpuPrefix + "(\\d+)");
+            if (std::regex_search(e, match, gpuPattern))
+            {
+                int number = std::stoi(match[1].str());
+                gpuId.insert(number);
+            }
+
+            std::regex pcieRetimerPattern(retimer + "(\\d+)");
+            if (std::regex_search(e, match, pcieRetimerPattern))
+            {
+                int number = std::stoi(match[1].str());
+                retimerId.insert(number);
+            }
+
+            std::regex switchPattern(nvSwitch + "(\\d+)");
+            if (std::regex_search(e, match, switchPattern))
+            {
+                int number = std::stoi(match[1].str());
+                nvSwitchId_Type_1.insert(number);
+            }
+        }
     }
     if (deviceType == "NVSwitchPortMetrics")
     {
@@ -440,7 +463,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             {"Values", devCountRetimerPortId},
         });
     }
-    if (deviceType == "PCIeRetimerMetrics")
+    if (deviceType == "PCIeRetimerMetrics" || deviceType == "HealthMetrics")
     {
         nlohmann::json devCountRetimerId = nlohmann::json::array();
         for (const auto& e : retimerId)
@@ -452,7 +475,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             {"Values", devCountRetimerId},
         });
     }
-    if (deviceType == "NVSwitchMetrics")
+    if (deviceType == "NVSwitchMetrics" || deviceType == "HealthMetrics")
     {
         nlohmann::json devCountNVSwitchId = nlohmann::json::array();
         for (const auto& e : nvSwitchId_Type_1)
@@ -467,7 +490,8 @@ inline void metricsReplacementsNonPlatformMetrics(
     if (deviceType == "MemoryMetrics" || deviceType == "ProcessorMetrics" ||
         deviceType == "ProcessorGPMMetrics" ||
         deviceType == "ProcessorPortMetrics" ||
-        deviceType == "ProcessorPortGPMMetrics")
+        deviceType == "ProcessorPortGPMMetrics" ||
+        deviceType == "HealthMetrics")
     {
         nlohmann::json devCountGpuId = nlohmann::json::array();
         for (const auto& e : gpuId)
@@ -641,6 +665,14 @@ inline void getShmemMetricsDefinitionWildCard(
             deviceType == "NetworkAdapterPortMetrics" ||
             deviceType == "PCIeRetimerPortMetrics" ||
             deviceType == "ProcessorPortGPMMetrics")
+        {
+            for (const auto& e : inputMetricPropertiesSet)
+            {
+                inputMetricProperties.push_back(e);
+            }
+        }
+
+        if (deviceType == "HealthMetrics")
         {
             for (const auto& e : inputMetricPropertiesSet)
             {
