@@ -3459,7 +3459,7 @@ inline void requestRoutesManager(App& app)
 
 #endif // BMCWEB_ENABLE_HOST_OS_FEATURE
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_OBERON_PROPERTIES
+#ifdef BMCWEB_ENABLE_NVIDIA_OEM_GB200NVL_PROPERTIES
         oem["Nvidia"]["UptimeSeconds"] = [asyncResp]() -> double {
             double uptime = 0;
             auto ifs = std::ifstream("/proc/uptime", std::ifstream::in);
@@ -3474,7 +3474,7 @@ inline void requestRoutesManager(App& app)
             }
             return uptime;
         }();
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_OBERON_PROPERTIES
+#endif // BMCWEB_ENABLE_NVIDIA_OEM_GB200NVL_PROPERTIES
 
         if constexpr (BMCWEB_ENABLE_DEBUG_INTERFACE)
         {

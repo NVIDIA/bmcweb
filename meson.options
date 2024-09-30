@@ -399,7 +399,7 @@ option('nvidia-oem-fw-update-staging', type : 'feature', value : 'disabled', des
 option('nvidia-oem-logservices', type : 'feature', value : 'disabled', description : 'Enable OEM log services.')
 option('nvidia-oem-bf-properties', type : 'feature', value : 'disabled', description : 'Enable OEM Bluefield properties')
 option('nvidia-oem-bf3-properties', type : 'feature', value : 'disabled', description : 'Enable OEM Bluefield 3 properties')
-option('nvidia-oem-oberon-properties', type : 'feature', value : 'disabled', description : 'Enable OEM Oberon properties')
+option('nvidia-oem-gb200nvl-properties', type : 'feature', value : 'disabled', description : 'Enable OEM GB200Nvl properties')
 option('nvidia-oem-common-properties', type : 'feature', value : 'disabled', description : 'Enable OEM Nvidia common properties.')
 option('nvidia-retimer-debugmode', type : 'feature', value : 'disabled', description : 'Enable Nvidia retimer debug mode.')
 option ('nvidia-network-adapter-prefix', type : 'string', value : 'NIC_', description : 'Prefix used for network adapter name')

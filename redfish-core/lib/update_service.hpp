@@ -2035,7 +2035,7 @@ inline void forwardImage(
 
                     for (auto& uri : *targets)
                     {
-                        // the special handling for Oberon System.
+                        // the special handling for Gb200Nvl System.
                         // we don't remove the prefix if the resource's prefix
                         // from FirmwareInventory is the same with RFA prefix.
 #ifdef RAF_PREFIX_REMOVAL

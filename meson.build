@@ -90,7 +90,7 @@ feature_map = {
   'nvidia-oem-common-properties'                : '-DBMCWEB_ENABLE_NVIDIA_OEM_COMMON_PROPERTIES',
   'nvidia-oem-bf-properties'                    : '-DBMCWEB_ENABLE_NVIDIA_OEM_BF_PROPERTIES',
   'nvidia-oem-bf3-properties'                   : '-DBMCWEB_ENABLE_NVIDIA_OEM_BF3_PROPERTIES',
-  'nvidia-oem-oberon-properties'                : '-DBMCWEB_ENABLE_NVIDIA_OEM_OBERON_PROPERTIES',
+  'nvidia-oem-gb200nvl-properties'              : '-DBMCWEB_ENABLE_NVIDIA_OEM_GB200NVL_PROPERTIES',
   'nvidia-retimer-debugmode'                    : '-DBMCWEB_ENABLE_NVIDIA_RETIMER_DEBUGMODE',
   'nvidia-oem-device-status-from-file'          : '-DBMCWEB_ENABLE_DEVICE_STATUS_FROM_FILE',
   'nvidia-device-status-from-association'       : '-DBMCWEB_ENABLE_DEVICE_STATUS_FROM_ASSOCIATION',
