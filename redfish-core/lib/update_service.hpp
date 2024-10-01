@@ -20,9 +20,7 @@
 #include "background_copy.hpp"
 #include "commit_image.hpp"
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 #include "persistentstorage_util.hpp"
-#endif
 #include <http_client.hpp>
 #include <http_connection.hpp>
 #ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
@@ -77,7 +75,6 @@ static std::unique_ptr<sdbusplus::bus::match_t> fwUpdateMatcher;
 // Only allow one update at a time
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static bool fwUpdateInProgress = false;
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 // Match signals added on software path for staging fw package
 static std::unique_ptr<sdbusplus::bus::match_t> fwStageImageMatcher;
 // Allow staging, deleting or initializing firmware
@@ -94,7 +91,6 @@ static uint8_t stagedUpdateCount = 0;
 static std::chrono::time_point<std::chrono::steady_clock> stagedUpdateTimeStamp;
 // Timer for staging software available
 static std::unique_ptr<boost::asio::steady_timer> fwStageAvailableTimer;
-#endif
 // Timer for software available
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::unique_ptr<boost::asio::steady_timer> fwAvailableTimer;
@@ -102,14 +98,12 @@ static std::unique_ptr<boost::asio::steady_timer> fwAvailableTimer;
 constexpr auto fwObjectCreationDefaultTimeout = 40;
 static std::unique_ptr<sdbusplus::bus::match::match> loggingMatch = nullptr;
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 #define SUPPORTED_RETIMERS 8
 /* holds compute digest operation state to allow one operation at a time */
 static bool computeDigestInProgress = false;
 const std::string hashComputeInterface = "com.Nvidia.ComputeHash";
 constexpr auto retimerHashMaxTimeSec =
     180; // 2 mins for 2 attempts and 1 addional min as buffer
-#endif
 const std::string firmwarePrefix =
     "redfish/v1/UpdateService/FirmwareInventory/";
 
@@ -154,12 +148,10 @@ inline void cleanUp()
     fwUpdateMatcher = nullptr;
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 inline void cleanUpStageObjects()
 {
     fwImageIsStaging = false;
 }
-#endif
 
 inline void activateImage(const std::string& objPath,
                           const std::string& service)
@@ -2574,7 +2566,7 @@ inline void requestRoutesUpdateService(App& app){
         {"target",
          "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.RevokeAllRemoteServerPublicKeys"}};
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     asyncResp->res.jsonValue["Oem"]["Nvidia"] = {
         {"@odata.type", "#NvidiaUpdateService.v1_2_0.NvidiaUpdateService"},
         {"PersistentStorage",
@@ -2589,7 +2581,7 @@ inline void requestRoutesUpdateService(App& app){
 #endif
         }
     };
-#endif
+}
 
 #if defined(BMCWEB_INSECURE_ENABLE_REDFISH_FW_TFTP_UPDATE) ||                  \
     defined(BMCWEB_ENABLE_REDFISH_FW_SCP_UPDATE) ||                            \
@@ -3695,7 +3687,7 @@ inline void
     });
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
 
 /**
  * @brief compute digest method handler invoke retimer hash computation
@@ -4039,7 +4031,7 @@ inline void updateOemActionComputeDigest(
         std::array<const char*, 1>{hashComputeInterface.c_str()});
 }
 
-#endif
+}
 
 inline void requestRoutesSoftwareInventory(App& app)
 {
@@ -4309,11 +4301,11 @@ inline void requestRoutesSoftwareInventory(App& app)
                     nlohmann::json::array();
 #endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
 #ifdef BMCWEB_ENABLE_NVIDIA_UPDATE_STAGING
                 redfish::fw_util::getFWSlotInformation(asyncResp, obj.first);
 #endif
-#endif
+}
                 if (!statusService.empty())
                 {
                     fw_util::getFwRecoveryStatus(asyncResp, swId,
@@ -4346,9 +4338,9 @@ inline void requestRoutesSoftwareInventory(App& app)
                 "#SoftwareInventory.v1_4_0.SoftwareInventory";
             asyncResp->res.jsonValue["Name"] = "Software Inventory";
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
             updateOemActionComputeDigest(asyncResp, *swId);
-#endif
+}
         });
     });
 }
@@ -5035,7 +5027,7 @@ inline void requestRoutesUpdateServiceRevokeAllRemoteServerPublicKeys(App& app)
     });
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
 /**
  * @brief Create task for tracking firmware package staging.
  *
@@ -6714,6 +6706,6 @@ inline void requestRoutesSplitUpdateService(App& app)
             handleUpdateServiceDeleteFirmwarePackage, std::ref(app)));
 }
 
-#endif
+}
 
 } // namespace redfish

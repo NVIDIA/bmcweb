@@ -26,7 +26,6 @@ using SetPointProperties =
 // Map of service name to list of interfaces
 using MapperServiceMap =
     std::vector<std::pair<std::string, std::vector<std::string>>>;
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 /**
  * Handle the PATCH operation of the Edpp Scale limit property. Do basic
@@ -210,7 +209,6 @@ inline void getPowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "xyz.openbmc_project.Control.Power.Mode");
 }
 
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 inline void getPowerWattsBySensorName(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -719,7 +717,6 @@ inline void getPowerCap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     getDefaultPowerCap(asyncResp, objPath);
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 inline void getEDPpData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& connectionName,
@@ -812,7 +809,6 @@ inline void getPowerLimitPersistency(
         "xyz.openbmc_project.Control.Power.Persistency");
 }
 
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 inline void getPowerLimits(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& connectionName,
@@ -987,7 +983,7 @@ inline void
                     {
                         getControlMode(asyncResp, connectionName, ctrlPath);
                     }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                     getPowerMode(asyncResp, connectionName, ctrlPath);
                     asyncResp->res.jsonValue
                         ["Actions"]["Oem"]
@@ -995,7 +991,7 @@ inline void
                         {"target",
                          "/redfish/v1/Chassis/" + resourceId +
                              "/EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ClearOOBSetPoint"}};
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
                     getPowerReadings(asyncResp, connectionName, ctrlPath,
                                      resourceId);
                 }
@@ -1592,7 +1588,7 @@ inline void
                     getControlMode(aResp, service, path);
                 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
 
                 if (std::find(interfaces.begin(), interfaces.end(),
                               "com.nvidia.Edpp") != interfaces.end())
@@ -1633,7 +1629,7 @@ inline void
                     aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                         "#NvidiaEnvironmentMetrics.v1_2_0.NvidiaEnvironmentMetrics";
                 }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
 
                 if (std::find(
                         interfaces.begin(), interfaces.end(),
@@ -1711,7 +1707,6 @@ inline void
         std::array<const char*, 1>{"xyz.openbmc_project.Inventory.Item.Dimm"});
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 inline void postEdppReset(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                           const std::string& processorId,
@@ -1796,7 +1791,6 @@ inline void postEdppReset(const std::shared_ptr<bmcweb::AsyncResp>& resp,
             conName, cpuObjectPath, "com.nvidia.Edpp", "Reset");
     });
 }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 } // namespace nvidia_env_utils
 } // namespace redfish

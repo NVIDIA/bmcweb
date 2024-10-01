@@ -626,7 +626,7 @@ inline void
         asyncResp->res.jsonValue[jsonPtr]["Location"]["PartLocationContext"] =
             *locationContext;
     }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     if (rowMappingFailureState != nullptr)
     {
         asyncResp->res
@@ -641,7 +641,7 @@ inline void
     }
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
         "#NvidiaMemory.v1_0_0.NvidiaMemory";
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
 
     getPersistentMemoryProperties(asyncResp, properties, jsonPtr);
 }
@@ -1132,7 +1132,6 @@ inline void getMemoryECCData(std::shared_ptr<bmcweb::AsyncResp> aResp,
         "xyz.openbmc_project.Memory.MemoryECC");
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                    const std::string& service,
                                    const std::string& objPath)
@@ -1246,7 +1245,6 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
         "com.nvidia.MemoryRowRemapping");
 }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                  const std::string& dimmId)
@@ -1282,10 +1280,10 @@ inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
             aResp->res.jsonValue["@odata.id"] = memoryMetricsURI;
             aResp->res.jsonValue["Id"] = "MemoryMetrics";
             aResp->res.jsonValue["Name"] = dimmId + " Memory Metrics";
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
             aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                 "#NvidiaMemoryMetrics.v1_0_0.NvidiaMemoryMetrics";
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
             for (const auto& [service, interfaces] : object)
             {
                 if (std::find(interfaces.begin(), interfaces.end(),
@@ -1310,7 +1308,7 @@ inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         "xyz.openbmc_project.Inventory.Item.Dimm.MemoryMetrics");
                 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                 if (std::find(interfaces.begin(), interfaces.end(),
                               "com.nvidia.MemoryRowRemapping") !=
                     interfaces.end())
@@ -1319,7 +1317,7 @@ inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         "#NvidiaMemoryMetrics.v1_1_0.NvidiaGPUMemoryMetrics";
                     getMemoryRowRemappings(aResp, service, path);
                 }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
             }
             return;
         }

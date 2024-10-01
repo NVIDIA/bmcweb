@@ -332,7 +332,6 @@ inline void getChassisFabricSwitchesLinks(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 /**
  * @brief Fill out chassis nvidia specific info by
  * requesting data from the associated D-Bus object.
@@ -813,7 +812,6 @@ inline void
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
         "xyz.openbmc_project.Inventory.Decorator.PCIeRefClock");
 }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 /**
  * @brief Fill out chassis power limits info of a chassis by
@@ -1482,7 +1480,7 @@ inline void handleChassisGetAllProperties(
     {
         asyncResp->res.jsonValue["AssetTag"] = *assetTag;
     }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     // default oem data
     nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
     oem["@odata.type"] = "#NvidiaChassis.v1_4_0.NvidiaChassis";
@@ -1520,7 +1518,7 @@ inline void handleChassisGetAllProperties(
         asyncResp->res.jsonValue["Status"]["State"] =
             redfish::chassis_utils::getPowerStateType(*state);
     }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
     asyncResp->res.jsonValue["Name"] = chassisId;
     asyncResp->res.jsonValue["Id"] = chassisId;
 #ifdef BMCWEB_ALLOW_DEPRECATED_POWER_THERMAL

@@ -40,9 +40,7 @@
 #include <utils/conditions_utils.hpp>
 #include <utils/nvidia_chassis_util.hpp>
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 #include "nvidia_debug_token.hpp"
-#endif
 
 #include <array>
 #include <ranges>
@@ -506,10 +504,10 @@ inline void handleChassisGetSubTree(
             asyncResp, chassisId, path);
         getChassisConnectivity(asyncResp, chassisId, path);
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         // get debug token resource
         redfish::getChassisDebugToken(asyncResp, chassisId);
-#endif
+}
 #ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
         std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
             objPath, [asyncResp](const std::string& rootHealth,
@@ -694,7 +692,7 @@ inline void handleChassisGetSubTree(
                 }
             }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
             const std::string itemSystemInterface =
                 "xyz.openbmc_project.Inventory.Item.System";
 
@@ -705,7 +703,7 @@ inline void handleChassisGetSubTree(
                 redfish::nvidia_chassis_utils::getStaticPowerHintByChassis(
                     asyncResp, path);
             }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
 
             sdbusplus::asio::getAllProperties(
                 *crow::connections::systemBus, connectionName, path, "",
@@ -740,7 +738,7 @@ inline void handleChassisGetSubTree(
                     redfish::chassis_utils::getChassisLocationContext(
                         asyncResp, connectionName, path);
                 }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                 else if (
                     interface ==
                     "xyz.openbmc_project.Inventory.Decorator.VendorInformation")
@@ -749,18 +747,18 @@ inline void handleChassisGetSubTree(
                     redfish::nvidia_chassis_utils::getOemCBCChassisAsset(
                         asyncResp, connectionName, path);
                 }
-#endif
+}
             }
 
 #ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
             redfish::conditions_utils::populateServiceConditions(asyncResp,
                                                                  chassisId);
 #endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
             // Baseboard Chassis OEM properties if exist, search by association
             redfish::nvidia_chassis_utils::getOemBaseboardChassisAssert(
                 asyncResp, objPath);
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
 
             // Links association to underneath chassis
             redfish::nvidia_chassis_utils::getChassisLinksContains(asyncResp,
@@ -854,7 +852,7 @@ inline void
     std::optional<std::string> indicatorLed;
     std::optional<nlohmann::json> oemJsonObj;
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     std::optional<std::string> partNumber;
     std::optional<std::string> serialNumber;
 
@@ -863,7 +861,7 @@ inline void
     std::optional<double> temperature;
     std::optional<bool> hardwareWriteProtectEnable;
 
-#endif
+}
 
     if (param.empty())
     {
@@ -878,7 +876,7 @@ inline void
         return;
     }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     if (oemJsonObj)
     {
         std::optional<nlohmann::json> nvidiaJsonObj;
@@ -922,7 +920,7 @@ inline void
             }
         }
     }
-#endif
+}
 
     if (indicatorLed)
     {
@@ -939,13 +937,13 @@ inline void
 
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/inventory", 0, interfaces,
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         [asyncResp, chassisId, locationIndicatorActive, indicatorLed,
          partNumber, serialNumber, cpuClockFrequency, workloadFactor,
          temperature, hardwareWriteProtectEnable]
-#else
+} else {
         [asyncResp, chassisId, locationIndicatorActive, indicatorLed]
-#endif
+}
         (const boost::system::error_code& ec,
          const dbus::utility::MapperGetSubTreeResponse& subtree) {
         if (ec)
@@ -1018,7 +1016,7 @@ inline void
                     messages::propertyUnknown(asyncResp->res, "IndicatorLED");
                 }
             }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
             if (hardwareWriteProtectEnable)
             {
                 redfish::nvidia_chassis_utils::
@@ -1062,7 +1060,7 @@ inline void
                     }
                 }
             }
-#endif
+}
 
             return;
         }

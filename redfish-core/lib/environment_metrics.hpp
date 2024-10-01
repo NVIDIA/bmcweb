@@ -376,10 +376,10 @@ inline void handleEnvironmentMetricsGet(
         asyncResp->res.jsonValue["Id"] = "EnvironmentMetrics";
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
             "/redfish/v1/Chassis/{}/EnvironmentMetrics", chassisId);
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             "#NvidiaEnvironmentMetrics.v1_2_0.NvidiaEnvironmentMetrics";
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
         getfanSpeedsPercent(asyncResp, chassisId);
         redfish::nvidia_env_utils::getPowerWattsEnergyJoules(
             asyncResp, chassisId, *validChassisPath);
@@ -512,7 +512,7 @@ inline void requestRoutesEnvironmentMetrics(App& app)
                     "/xyz/openbmc_project/inventory", 0, interfaces);
             }
         }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
 
         if (oem)
         {
@@ -530,7 +530,7 @@ inline void requestRoutesEnvironmentMetrics(App& app)
                 }
             }
         }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
     });
 }
 
@@ -586,7 +586,7 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
             return;
         }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
 
         // update Edpp Setpoint
         if (std::optional<nlohmann::json> oemNvidiaObject;
@@ -649,7 +649,7 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
             }
         }
 
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
 
         // Update power limit
         if (powerLimit)
@@ -761,7 +761,6 @@ inline void requestRoutesMemoryEnvironmentMetrics(App& app)
     });
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 inline void requestRoutesEdppReset(App& app)
 {
     /**
@@ -793,5 +792,4 @@ inline void requestRoutesEdppReset(App& app)
     });
 }
 
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 } // namespace redfish

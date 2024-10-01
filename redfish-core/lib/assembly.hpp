@@ -208,11 +208,11 @@ inline void
         std::string sortField = "MemberId";
         redfish::nvidia_chassis_utils::insertSorted(jResp, assemblyRes,
                                                     sortField);
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         // Assembly OEM properties if exist, search by association
         redfish::nvidia_chassis_utils::getOemAssemblyAssert(asyncResp, id,
                                                             objPath);
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
     },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
 }

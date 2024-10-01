@@ -29,7 +29,6 @@
 namespace redfish
 {
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 static std::map<std::string,
                 std::unique_ptr<debug_token::TargetedOperationHandler>>
     tokenOpMap;
@@ -380,6 +379,5 @@ inline void requestRoutesChassisDebugToken(App& app)
             handleTargetedTokenOp<TargetedOperation::InstallToken>,
             std::ref(app)));
 }
-#endif
 
 } // namespace redfish

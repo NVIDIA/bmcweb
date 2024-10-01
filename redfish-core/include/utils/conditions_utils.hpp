@@ -368,7 +368,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
             }
         }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         auto jDevice = j.find("Device");
         if (jDevice != j.end())
         {
@@ -390,7 +390,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
             conditionResp["Oem"]["Nvidia"]["@odata.type"] =
                 "#NvidiaLogEntry.v1_1_0.NvidiaLogEntry";
         }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
         auto jResolution = j.find("Resolution");
         if (jResolution != j.end())
         {

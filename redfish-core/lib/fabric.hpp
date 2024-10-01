@@ -680,7 +680,7 @@ inline void
                 asyncResp->res.jsonValue["SwitchType"] = getSwitchType(*value);
             }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
             else if (propertyName == "DeviceId")
             {
                 const std::string* value =
@@ -722,7 +722,7 @@ inline void
                 asyncResp->res.jsonValue["Oem"]["Nvidia"]
                                         ["PCIeReferenceClockEnabled"] = *value;
             }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
 
             else if (propertyName == "SupportedProtocols")
             {
@@ -1526,12 +1526,12 @@ inline void requestRoutesSwitch(App& app)
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                             redfish::nvidia_fabric_utils::
                                 getSwitchPowerModeLink(asyncResp,
                                                        object.front().second,
                                                        switchURI);
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
                             updateSwitchData(asyncResp, object.front().first,
                                              path);
                         },
@@ -1555,11 +1555,11 @@ inline void requestRoutesSwitch(App& app)
                         redfish::conditions_utils::populateServiceConditions(
                             asyncResp, switchId);
 #endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                         redfish::nvidia_fabric_utils::
                             populateErrorInjectionData(asyncResp, fabricId,
                                                        switchId);
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
                         return;
                     }
                     // Couldn't find an object with that name.
@@ -3470,10 +3470,10 @@ inline void getFabricsPortMetricsData(
             messages::internalError(asyncResp->res);
             return;
         }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             "#NvidiaPortMetrics.v1_3_0.NvidiaNVLinkPortMetrics";
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
         for (const auto& property : properties)
         {
             if ((property.first == "TXBytes") || (property.first == "RXBytes"))
@@ -3588,7 +3588,7 @@ inline void getFabricsPortMetricsData(
                 }
                 asyncResp->res.jsonValue["Networking"]["TXDiscards"] = *value;
             }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
             else if (property.first == "RXNoProtocolBytes")
             {
                 const uint64_t* value = std::get_if<uint64_t>(&property.second);
@@ -3866,7 +3866,7 @@ inline void getFabricsPortMetricsData(
                 }
                 asyncResp->res.jsonValue["Oem"]["Nvidia"]["TXWait"] = *value;
             }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
             else if (property.first == "ceCount")
             {
                 const int64_t* value = std::get_if<int64_t>(&property.second);
@@ -4126,7 +4126,6 @@ inline void requestRoutesPortMetrics(App& app)
     });
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 inline void requestRoutesSwitchPowerMode(App& app)
 {
     /**
@@ -4390,6 +4389,5 @@ inline void requestRoutesSwitchPowerMode(App& app)
         }
     });
 }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 } // namespace redfish

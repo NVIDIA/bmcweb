@@ -715,7 +715,6 @@ inline void requestRoutesNvidiaManagerGetSelCapacity(App& app)
     });
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 /**
  * SyncOOBRawCommandActionInfo derived class for delivering Managers
@@ -1262,7 +1261,6 @@ inline void requestRouteAsyncRawOobCommand(App& app)
             std::array<const char*, 1>{"com.nvidia.Protocol.SMBPBI.Raw"});
     });
 }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 static constexpr const char* objectManagerIface =
     "org.freedesktop.DBus.ObjectManager";
@@ -3087,7 +3085,6 @@ inline void getLinkManagerForSwitches(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 inline void
     getFencingPrivilege(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -3217,7 +3214,6 @@ inline void
         "xyz.openbmc_project.GpuOobRecovery.Server", "SMBPBIFencingState",
         std::variant<uint8_t>(privilege));
 }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 inline void
     getIsCommandShellEnable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -3435,7 +3431,7 @@ inline void requestRoutesManager(App& app)
                                     BMCWEB_REDFISH_MANAGER_URI_NAME);
         }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         // default oem data
         nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
 #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
@@ -3572,7 +3568,7 @@ inline void requestRoutesManager(App& app)
 #endif
 
         populatePersistentStorageSettingStatus(asyncResp);
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
 
         // Manager.Reset (an action) can be many values, OpenBMC only
         // supports BMC reboot.
@@ -3597,7 +3593,7 @@ inline void requestRoutesManager(App& app)
         resetToDefaults["ResetType@Redfish.AllowableValues"] =
             nlohmann::json::array_t({"ResetAll"});
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
 
         nlohmann::json& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
 
@@ -3633,7 +3629,7 @@ inline void requestRoutesManager(App& app)
             "/redfish/v1/Managers/" +
             std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
             "/Oem/EmmcSecureEraseActionInfo";
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
 
         std::pair<std::string, std::string> redfishDateTimeOffset =
             redfish::time_utils::getDateTimeOffsetNow();
@@ -3974,7 +3970,7 @@ inline void requestRoutesManager(App& app)
         std::optional<std::string> profile;
         std::optional<nlohmann::json::object_t> stepwiseControllers;
 #endif // BMCWEB_ENABLE_REDFISH_OEM_MANAGER_FAN_DATA
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
 #ifdef BMCWEB_ENABLE_FENCING_PRIVILEGE
         std::optional<std::string> privilege;
 #endif // BMCWEB_ENABLE_FENCING_PRIVILEGE
@@ -3982,7 +3978,7 @@ inline void requestRoutesManager(App& app)
         std::optional<bool> tlsAuth;
 #endif  // BMCWEB_ENABLE_TLS_AUTH_OPT_IN
         std::optional<bool> openocdValue;
-#endif  // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
 
         // clang-format off
         if (!json_util::readJsonPatch(req, asyncResp->res,
@@ -3993,7 +3989,7 @@ inline void requestRoutesManager(App& app)
               "Oem/OpenBmc/Fan/Profile", profile,
               "Oem/OpenBmc/Fan/StepwiseControllers", stepwiseControllers,
 #endif // BMCWEB_ENABLE_REDFISH_OEM_MANAGER_FAN_DATA
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
 #ifdef BMCWEB_ENABLE_FENCING_PRIVILEGE
               "Oem/Nvidia/SMBPBIFencingPrivilege", privilege,
 #endif // BMCWEB_ENABLE_FENCING_PRIVILEGE
@@ -4001,7 +3997,7 @@ inline void requestRoutesManager(App& app)
               "Oem/Nvidia/AuthenticationTLSRequired", tlsAuth,
 #endif // BMCWEB_ENABLE_TLS_AUTH_OPT_IN
               "Oem/Nvidia/OpenOCD/Enable", openocdValue,
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
               "Links/ActiveSoftwareImage/@odata.id", activeSoftwareImageOdataId,
               "DateTime", datetime,
               "ServiceIdentification", serviceIdentification
@@ -4065,7 +4061,7 @@ inline void requestRoutesManager(App& app)
             setServiceIdentification(asyncResp,
                                      std::move(*serviceIdentification));
         }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
 #ifdef BMCWEB_ENABLE_FENCING_PRIVILEGE
         if (privilege)
         {
@@ -4130,7 +4126,7 @@ inline void requestRoutesManager(App& app)
                 nvidia_manager_util::setOemNvidiaOpenOCD(*openocdValue);
             }
         }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
     });
 }
 

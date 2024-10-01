@@ -11,7 +11,6 @@ using DbusProperties =
 using OperatingConfigProperties =
     std::vector<std::pair<std::string, dbus::utility::DbusVariantType>>;
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 using InbandReconfigPermission = std::tuple<std::string, std::string, bool>;
 
 /**
@@ -1453,7 +1452,6 @@ inline void
             "xyz.openbmc_project.Inventory.Item.Accelerator"});
 }
 
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 inline void
     setOperatingSpeedRange(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

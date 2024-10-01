@@ -1735,14 +1735,14 @@ inline void getOperatingConfigData(
                 baseSpeedArray.push_back(std::move(speed));
             }
         }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         if (defaultBoostClockSpeedMHz != nullptr)
         {
             json["Oem"]["Nvidia"]["DefaultBoostClockSpeedMHz"] =
                 *defaultBoostClockSpeedMHz;
         }
 
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
     });
 }
 
@@ -1924,7 +1924,6 @@ inline void getProcessorResetTypeData(
         "xyz.openbmc_project.Control.Processor.Reset");
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 inline void getPowerBreakThrottleData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
@@ -2810,7 +2809,6 @@ inline void getGPMMetricsData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     });
 }
 
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                              const std::string& processorId,
@@ -2835,9 +2833,9 @@ inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             {
                 getCpuDataByService(aResp, processorId, serviceName,
                                     objectPath);
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                 getRemoteDebugState(aResp, serviceName, objectPath);
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
             }
             else if (interface ==
                      "xyz.openbmc_project.Inventory.Item.Accelerator")
@@ -2908,7 +2906,7 @@ inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 getProcessorReplaceable(aResp, serviceName, objectPath);
             }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
             else if (interface == "com.nvidia.MigMode")
             {
                 getProcessorMigModeData(aResp, processorId, serviceName,
@@ -2937,7 +2935,7 @@ inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             {
                 getProcessorSystemGUID(aResp, serviceName, objectPath);
             }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
         }
     }
 
@@ -2970,14 +2968,13 @@ inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     getProcessorSystemPCIeInterface(aResp, objectPath);
     getProcessorFPGAPCIeInterface(aResp, objectPath);
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     nvidia_processor_utils::getInbandReconfigPermissionsData(aResp, processorId,
                                                              objectPath);
     nvidia_processor_utils::populateErrorInjectionData(aResp, processorId);
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 /**
  * Handle the PATCH operation of the MIG Mode Property. Do basic
@@ -3229,7 +3226,6 @@ inline void patchRemoteDebug(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
 }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 /**
  * Handle the PATCH operation of the speed config property. Do basic
@@ -3915,7 +3911,7 @@ inline void requestRoutesProcessor(App& app)
             });
         }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         // Update migMode
         if (std::optional<nlohmann::json> oemNvidiaObject;
             oemObject &&
@@ -3970,7 +3966,7 @@ inline void requestRoutesProcessor(App& app)
                 }
             }
         }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
 
         if (appliedConfigUri)
         {
@@ -4074,7 +4070,7 @@ inline void getProcessorMemoryECCData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                 aResp->res.jsonValue["CacheMetricsTotal"]["LifeTime"]
                                     ["UncorrectableECCErrorCount"] = *value;
             }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
             else if (property.first == "isThresholdExceeded")
             {
                 const bool* value = std::get_if<bool>(&property.second);
@@ -4088,7 +4084,7 @@ inline void getProcessorMemoryECCData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                 aResp->res.jsonValue["Oem"]["Nvidia"]
                                     ["SRAMECCErrorThresholdExceeded"] = *value;
             }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
         }
     },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
@@ -4211,7 +4207,6 @@ inline void getSensorMetric(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 inline void
     getPowerBreakThrottle(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
@@ -4480,7 +4475,6 @@ inline void getNumericSensorMetric(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 inline void getProcessorMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                     const std::string& processorId)
@@ -4551,7 +4545,7 @@ inline void getProcessorMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     redfish::processor_utils::getPCIeErrorData(aResp, service,
                                                                path);
                 }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                 if (std::find(
                         interfaces.begin(), interfaces.end(),
                         "xyz.openbmc_project.State.ProcessorPerformance") !=
@@ -4583,13 +4577,13 @@ inline void getProcessorMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                                                  path);
                 }
 
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
                 getSensorMetric(aResp, service, path);
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                 getStateSensorMetric(aResp, service, path, deviceType);
                 getNumericSensorMetric(aResp, service, path, deviceType);
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
             }
             return;
         }
@@ -4988,14 +4982,14 @@ inline void
                 {
                     getEccPendingData(aResp, processorId, service, path);
                 }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                 if (std::find(interfaces.begin(), interfaces.end(),
                               "com.nvidia.CCMode") != interfaces.end())
                 {
                     redfish::nvidia_processor_utils::getCCModePendingData(
                         aResp, processorId, service, path);
                 }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
                 if (std::find(interfaces.begin(), interfaces.end(),
                               "xyz.openbmc_project.Software.ApplyTime") !=
                     interfaces.end())
@@ -5219,7 +5213,7 @@ inline void requestRoutesProcessorSettings(App& app)
                 });
             }
         }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         // Update ccMode
         std::optional<nlohmann::json> oemNvidiaObject;
 
@@ -5274,7 +5268,7 @@ inline void requestRoutesProcessorSettings(App& app)
                 }
             }
         }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
     });
 }
 
@@ -6091,7 +6085,7 @@ inline void getProcessorPortMetricsData(
                 }
                 asyncResp->res.jsonValue["Networking"]["TXDiscards"] = *value;
             }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
             else if (property.first == "MalformedPkts")
             {
                 const uint64_t* value = std::get_if<uint64_t>(&property.second);
@@ -6394,7 +6388,7 @@ inline void getProcessorPortMetricsData(
                 }
             }
 
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
             else if (property.first == "ceCount")
             {
                 const int64_t* value = std::get_if<int64_t>(&property.second);
@@ -6602,7 +6596,7 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                             {
                                 getProcessorPortMetricsData(asyncResp, service,
                                                             sensorpath);
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                                 if (std::find(
                                         interfaces.begin(), interfaces.end(),
                                         "xyz.openbmc_project.PCIe.ClearPCIeCounters") !=
@@ -6621,7 +6615,7 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                                         portMetricUri +
                                         "/Oem/Nvidia/ClearPCIeCountersActionInfo";
                                 }
-#endif
+}
                             }
                         },
                             "xyz.openbmc_project.ObjectMapper",
@@ -6651,7 +6645,6 @@ inline void requestRoutesProcessorPortMetrics(App& app)
     });
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 inline void requestRoutesClearPCIeCountersActionInfo(App& app)
 {
@@ -6709,7 +6702,6 @@ inline void requestRoutesPCIeClearCounter(App& app)
     });
 }
 
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 inline void requestRoutesProcessorPortSettings(App& app)
 {
@@ -6743,7 +6735,7 @@ inline void requestRoutesProcessorPortSettings(App& app)
         asyncResp->res.jsonValue["Name"] = processorId + " " + portId +
                                            " Pending Settings";
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         redfish::processor_utils::getProcessorObject(
             asyncResp, processorId,
             [portId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
@@ -6754,7 +6746,7 @@ inline void requestRoutesProcessorPortSettings(App& app)
             getPortDisableFutureStatus(asyncResp1, processorId1, objectPath,
                                        serviceMap, portId);
         });
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
     });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
@@ -6779,7 +6771,7 @@ inline void requestRoutesProcessorPortSettings(App& app)
             return;
         }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         if (linkState)
         {
             redfish::processor_utils::getProcessorObject(
@@ -6795,7 +6787,7 @@ inline void requestRoutesProcessorPortSettings(App& app)
                     "PortDisableFuture", objectPath, serviceMap);
             });
         }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
     });
 }
 

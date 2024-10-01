@@ -2,9 +2,7 @@
 
 #include "app.hpp"
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 #include "nvidia_debug_token.hpp"
-#endif
 
 namespace redfish
 {

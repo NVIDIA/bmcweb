@@ -4049,9 +4049,9 @@ inline void
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
         "/Memory";
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     ist_mode_utils::getIstMode(asyncResp);
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
 
 #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
     asyncResp->res.jsonValue["Storage"]["@odata.id"] =
@@ -4417,13 +4417,13 @@ inline void handleComputerSystemPatch(
 
     asyncResp->res.result(boost::beast::http::status::no_content);
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     // Update istMode
     if (istModeEnabled)
     {
         ist_mode_utils::setIstMode(asyncResp, req, *istModeEnabled);
     }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
 
     if (assetTag)
     {

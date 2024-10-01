@@ -457,7 +457,6 @@ inline auto deferTask(Callback&& callback)
     return std::make_shared<DeferTaskStruct>(std::forward<Callback>(callback));
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 inline std::string toSMPBIPrivilegeString(uint8_t privilege)
 {
     if (privilege == 0x01)
@@ -489,7 +488,6 @@ inline uint8_t toSMPBIPrivilegeType(const std::string& privilegeType)
         return 0x00;
     }
 }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 } // namespace dbus_utils
 

@@ -65,7 +65,6 @@ inline void
         std::string(path) + "/", 1, std::array<std::string, 0>());
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 static inline void
     getAerErrorStatusOem(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -252,7 +251,6 @@ inline void
             "xyz.openbmc_project.Inventory.Item.Chassis"});
 };
 
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 inline void getFabricSwitchLink(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                 const std::string& objPath)

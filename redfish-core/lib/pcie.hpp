@@ -273,7 +273,6 @@ static inline void
         "org.freedesktop.DBus.Properties", "Get", uuidInterface, "UUID");
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 // PCIeDevice getPCIeDeviceClkRefOem
 static inline void
     getPCIeDeviceClkRefOem(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -435,7 +434,6 @@ static inline void
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 // PCIeDevice State
 static inline void
@@ -1864,7 +1862,7 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                         redfish::conditions_utils::populateServiceConditions(
                             asyncResp, device);
 #endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                         nlohmann::json& oem =
                             asyncResp->res.jsonValue["Oem"]["Nvidia"];
                         oem["@odata.type"] =
@@ -1908,7 +1906,7 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                                                          connectionName);
                         }
 
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
                         return;
                     }
                     messages::resourceNotFound(asyncResp->res,
@@ -2151,7 +2149,6 @@ inline void requestRoutesChassisPCIeFunction(App& app)
     //         std::bind_front(handlePCIeFunctionGet, std::ref(app)));
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 inline void requestRoutesClearPCIeAerErrorStatus(App& app)
 {
@@ -2173,6 +2170,5 @@ inline void requestRoutesClearPCIeAerErrorStatus(App& app)
     });
 }
 
-#endif
 
 } // namespace redfish

@@ -193,7 +193,7 @@ static void generateMessageRegistry(
                 {"MessageArgs", msgArgs},
                 {"Resolution", res},
                 {"Resolved", resolved}};
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     if (!eventId.empty() || !deviceName.empty())
     {
         nlohmann::json oem = {
@@ -210,7 +210,7 @@ static void generateMessageRegistry(
         }
         logEntry.update(oem);
     }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
 }
 
 } // namespace message_registries
@@ -2198,10 +2198,10 @@ inline void requestRoutesEventLogService(App& app)
             }
             auto lastTimeStamp =
                 redfish::time_utils::getTimestamp(std::get<1>(reqData));
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                 "#NvidiaLogService.v1_3_0.NvidiaLogService";
-#endif /* BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES */
+}
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["LatestEntryID"] =
                 std::to_string(std::get<0>(reqData));
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["LatestEntryTimeStamp"] =
@@ -2210,7 +2210,7 @@ inline void requestRoutesEventLogService(App& app)
             "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
             "xyz.openbmc_project.Logging.Namespace", "GetStats", "all");
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         if (bmcwebEnableNvidiaBootEntryId)
         {
             populateBootEntryId(asyncResp->res);
@@ -2235,7 +2235,7 @@ inline void requestRoutesEventLogService(App& app)
             "org.freedesktop.DBus.Properties", "Get",
             "xyz.openbmc_project.Logging.Namespace",
             "AutoClearResolvedLogEnabled");
-#endif /* BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES */
+}
 
         asyncResp->res.jsonValue["Entries"] = {
             {"@odata.id", "/redfish/v1/Systems/" +
@@ -2249,7 +2249,6 @@ inline void requestRoutesEventLogService(App& app)
                  "/LogServices/EventLog/Actions/LogService.ClearLog"}};
     });
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
                           std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                           "/LogServices/EventLog/")
@@ -2304,7 +2303,6 @@ inline void requestRoutesEventLogService(App& app)
                 dbus::utility::DbusVariantType(*autoClearResolvedLogEnabled));
         }
     });
-#endif /* BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES */
 }
 
 inline void requestRoutesSELLogService(App& app)
@@ -3098,7 +3096,7 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                     thisEntry["Modified"] =
                         redfish::time_utils::getDateTimeStdtime(
                             updateTimestamp);
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                     if ((eventId != nullptr && !eventId->empty()) ||
                         !deviceName.empty())
                     {
@@ -3118,7 +3116,7 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                         }
                         thisEntry.update(oem);
                     }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
                     std::optional<bool> notifyAction =
                         getProviderNotifyAction(*notify);
                     if (notifyAction)
@@ -3324,7 +3322,7 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                     redfish::time_utils::getDateTimeUintMs(*timestamp);
                 asyncResp->res.jsonValue["Modified"] =
                     redfish::time_utils::getDateTimeUintMs(*updateTimestamp);
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                 if ((eventId != nullptr && !eventId->empty()) ||
                     !deviceName.empty())
                 {
@@ -3343,7 +3341,7 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                     }
                     asyncResp->res.jsonValue.update(oem);
                 }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
                 if (filePath != nullptr)
                 {
                     getLogEntryAdditionalDataURI(std::to_string(*id));
@@ -3676,7 +3674,7 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
             redfish::time_utils::getDateTimeStdtime(timestamp);
         thisEntry["Modified"] =
             redfish::time_utils::getDateTimeStdtime(updateTimestamp);
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         if ((eventId != nullptr && !eventId->empty()) || !deviceName.empty())
         {
             nlohmann::json oem = {
@@ -3694,7 +3692,7 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
             }
             thisEntry.update(oem);
         }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
     }
     if (log_entry::SensorType::Invalid != sensorType)
     {
@@ -7150,12 +7148,12 @@ inline void requestRoutesChassisXIDLogService(App& app)
                         "xyz.openbmc_project.Logging.Namespace", "GetStats",
                         chassisName + "_XID");
                 });
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                 if (bmcwebEnableNvidiaBootEntryId)
                 {
                     populateBootEntryId(asyncResp->res);
                 }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
                 asyncResp->res.jsonValue["Entries"] = {
                     {"@odata.id", "/redfish/v1/Chassis/" + chassisId +
                                       "/LogServices/XID/Entries"}};
@@ -7524,7 +7522,7 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                 time_utils::getDateTimeStdtime(
                                                     updateTimestamp);
                                         }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                                         if ((eventId != nullptr &&
                                              !eventId->empty()) ||
                                             !deviceName.empty())
@@ -7548,7 +7546,7 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                             }
                                             thisEntry.update(oem);
                                         }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
                                         if (filePath != nullptr)
                                         {
                                             thisEntry["AdditionalDataURI"] =

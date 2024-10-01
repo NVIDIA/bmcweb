@@ -543,14 +543,14 @@ inline void
     getAssetData(asyncResp, *validNetworkAdapterPath, networkAdapterId);
     getHealthByAssociation(asyncResp, *validNetworkAdapterPath,
                            networkAdapterId);
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     auto& nvidiaJson = asyncResp->res.jsonValue["Oem"]["Nvidia"];
     nvidiaJson["@odata.type"] =
         "#NvidiaNetworkAdapter.v1_0_0.NvidiaNetworkAdapter";
     nvidiaJson["ErrorInjection"] = {
         {"@odata.id", "/redfish/v1/Chassis/" + chassisId + "/NetworkAdapters/" +
                           networkAdapterId + "/Oem/Nvidia/ErrorInjection"}};
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
 }
 
 inline void
@@ -1187,9 +1187,9 @@ inline void
             return;
         }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         auto addNvidiaType = false;
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
         static const std::map<std::string, std::optional<std::string>>
             pcieErrorsProperties{
                 {"ceCount", "CorrectableErrorCount"},
@@ -1316,7 +1316,7 @@ inline void
                 }
                 asyncResp->res.jsonValue["Networking"]["TXDiscards"] = *value;
             }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
             else if (property.first == "VL15DroppedPkts")
             {
                 const uint64_t* value = std::get_if<uint64_t>(&property.second);
@@ -1401,7 +1401,7 @@ inline void
                     *value;
                 addNvidiaType = true;
             }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
             for (const auto& [pdiPropertyName, fixedPropertyName] :
                  pcieErrorsProperties)
             {
@@ -1423,13 +1423,13 @@ inline void
                 }
             }
         }
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         if (addNvidiaType)
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                 "#NvidiaPortMetrics.v1_3_0.NvidiaNVLinkPortMetrics";
         }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
     },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
 }

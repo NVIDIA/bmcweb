@@ -2505,14 +2505,14 @@ class EventServiceManager
                 event.eventTimestamp = timestamp;
                 event.setRegistryMsg(messageArgs);
                 event.messageArgs = messageArgs;
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                 event.oem = {
                     {"Oem",
                      {{"Nvidia",
                        {{"@odata.type", "#NvidiaEvent.v1_0_0.EventRecord"},
                         {"Device", deviceName},
                         {"ErrorId", eventId}}}}}};
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+}
                 if (!cper.empty())
                 {
                     event.cper = cper;

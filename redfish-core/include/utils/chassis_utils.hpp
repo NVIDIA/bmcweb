@@ -557,7 +557,6 @@ inline void
     });
 }
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 /**
  * @brief Translates PowerMode DBUS property value to redfish.
  *
@@ -586,7 +585,6 @@ inline std::string getPowerModeType(const std::string& dbusAction)
     return "";
 }
 
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 enum class InBandOption
 {

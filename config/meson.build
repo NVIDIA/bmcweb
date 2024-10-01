@@ -151,6 +151,7 @@ feature_options = [
     'redfish',
     'rest',
     'session-auth',
+    'nvidia-oem-properties',
     'static-hosting',
     'tests',
     'vm-websocket',

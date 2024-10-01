@@ -43,7 +43,6 @@ namespace redfish
 using OperatingConfigProperties =
     std::vector<std::pair<std::string, dbus::utility::DbusVariantType>>;
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 using ErrorInjectionPatchMap = std::map<std::string, bool>;
 
@@ -567,6 +566,5 @@ inline void requestRoutesErrorInjection(App& app)
             std::bind_front(patchSwitchErrorInjectionData, std::ref(app)));
 }
 
-#endif
 
 } // namespace redfish

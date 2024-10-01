@@ -30,7 +30,6 @@ using MapperServiceMap =
 // Map of object paths to MapperServiceMaps
 using MapperGetSubTreeResponse =
     std::vector<std::pair<std::string, MapperServiceMap>>;
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 /**
  * Handle the PATCH operation of the L1 Power Mode Boolean Property. Do basic
@@ -475,7 +474,6 @@ inline void
         return;
     }
 }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
 } // namespace nvidia_fabric_utils
 } // namespace redfish
