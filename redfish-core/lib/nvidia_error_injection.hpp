@@ -43,7 +43,6 @@ namespace redfish
 using OperatingConfigProperties =
     std::vector<std::pair<std::string, dbus::utility::DbusVariantType>>;
 
-
 using ErrorInjectionPatchMap = std::map<std::string, bool>;
 
 inline ErrorInjectionPatchMap
@@ -565,6 +564,5 @@ inline void requestRoutesErrorInjection(App& app)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(patchSwitchErrorInjectionData, std::ref(app)));
 }
-
 
 } // namespace redfish

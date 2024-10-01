@@ -65,7 +65,6 @@ inline void
         std::string(path) + "/", 1, std::array<std::string, 0>());
 }
 
-
 static inline void
     getAerErrorStatusOem(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const std::string& device, const std::string& path,
@@ -250,7 +249,6 @@ inline void
         std::array<const char*, 1>{
             "xyz.openbmc_project.Inventory.Item.Chassis"});
 };
-
 
 inline void getFabricSwitchLink(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                 const std::string& objPath)

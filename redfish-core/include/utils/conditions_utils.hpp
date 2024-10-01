@@ -368,29 +368,30 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
             }
         }
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-        auto jDevice = j.find("Device");
-        if (jDevice != j.end())
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
-            std::string device = *jDevice;
-            conditionResp["Oem"]["Nvidia"]["Device"] = device;
-        }
+            auto jDevice = j.find("Device");
+            if (jDevice != j.end())
+            {
+                std::string device = *jDevice;
+                conditionResp["Oem"]["Nvidia"]["Device"] = device;
+            }
 
-        auto jErrorId = j.find("ErrorId");
-        if (jErrorId != j.end())
-        {
-            std::string errorId = *jErrorId;
-            conditionResp["Oem"]["Nvidia"]["ErrorId"] = errorId;
-        }
+            auto jErrorId = j.find("ErrorId");
+            if (jErrorId != j.end())
+            {
+                std::string errorId = *jErrorId;
+                conditionResp["Oem"]["Nvidia"]["ErrorId"] = errorId;
+            }
 
-        // If Device or ErrorId exists,
-        if (conditionResp.contains("Oem") &&
-            conditionResp["Oem"].contains("Nvidia"))
-        {
-            conditionResp["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaLogEntry.v1_1_0.NvidiaLogEntry";
+            // If Device or ErrorId exists,
+            if (conditionResp.contains("Oem") &&
+                conditionResp["Oem"].contains("Nvidia"))
+            {
+                conditionResp["Oem"]["Nvidia"]["@odata.type"] =
+                    "#NvidiaLogEntry.v1_1_0.NvidiaLogEntry";
+            }
         }
-}
         auto jResolution = j.find("Resolution");
         if (jResolution != j.end())
         {

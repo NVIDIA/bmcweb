@@ -18,6 +18,7 @@
 #include "app.hpp"
 #include "dbus_utility.hpp"
 #include "led.hpp"
+#include "nvidia_debug_token.hpp"
 #include "nvidia_protected_component.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
@@ -39,8 +40,6 @@
 #include <utils/chassis_utils.hpp>
 #include <utils/conditions_utils.hpp>
 #include <utils/nvidia_chassis_util.hpp>
-
-#include "nvidia_debug_token.hpp"
 
 #include <array>
 #include <ranges>
@@ -504,10 +503,11 @@ inline void handleChassisGetSubTree(
             asyncResp, chassisId, path);
         getChassisConnectivity(asyncResp, chassisId, path);
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-        // get debug token resource
-        redfish::getChassisDebugToken(asyncResp, chassisId);
-}
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+        {
+            // get debug token resource
+            redfish::getChassisDebugToken(asyncResp, chassisId);
+        }
 #ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
         std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
             objPath, [asyncResp](const std::string& rootHealth,
@@ -692,18 +692,19 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                 }
             }
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-            const std::string itemSystemInterface =
-                "xyz.openbmc_project.Inventory.Item.System";
-
-            if (std::find(interfaces2.begin(), interfaces2.end(),
-                          itemSystemInterface) != interfaces2.end())
+            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
-                // static power hint
-                redfish::nvidia_chassis_utils::getStaticPowerHintByChassis(
-                    asyncResp, path);
+                const std::string itemSystemInterface =
+                    "xyz.openbmc_project.Inventory.Item.System";
+
+                if (std::find(interfaces2.begin(), interfaces2.end(),
+                              itemSystemInterface) != interfaces2.end())
+                {
+                    // static power hint
+                    redfish::nvidia_chassis_utils::getStaticPowerHintByChassis(
+                        asyncResp, path);
+                }
             }
-}
 
             sdbusplus::asio::getAllProperties(
                 *crow::connections::systemBus, connectionName, path, "",
@@ -738,27 +739,29 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                     redfish::chassis_utils::getChassisLocationContext(
                         asyncResp, connectionName, path);
                 }
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-                if (
-                    interface ==
-                    "xyz.openbmc_project.Inventory.Decorator.VendorInformation")
+                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                 {
-                    // CBC chassis extention
-                    redfish::nvidia_chassis_utils::getOemCBCChassisAsset(
-                        asyncResp, connectionName, path);
+                    if (interface ==
+                        "xyz.openbmc_project.Inventory.Decorator.VendorInformation")
+                    {
+                        // CBC chassis extention
+                        redfish::nvidia_chassis_utils::getOemCBCChassisAsset(
+                            asyncResp, connectionName, path);
+                    }
                 }
-}
             }
 
 #ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
             redfish::conditions_utils::populateServiceConditions(asyncResp,
                                                                  chassisId);
 #endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-            // Baseboard Chassis OEM properties if exist, search by association
-            redfish::nvidia_chassis_utils::getOemBaseboardChassisAssert(
-                asyncResp, objPath);
-}
+            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+            {
+                // Baseboard Chassis OEM properties if exist, search by
+                // association
+                redfish::nvidia_chassis_utils::getOemBaseboardChassisAssert(
+                    asyncResp, objPath);
+            }
 
             // Links association to underneath chassis
             redfish::nvidia_chassis_utils::getChassisLinksContains(asyncResp,
@@ -860,7 +863,6 @@ inline void
     std::optional<double> temperature;
     std::optional<bool> hardwareWriteProtectEnable;
 
-
     if (param.empty())
     {
         return;
@@ -874,52 +876,53 @@ inline void
         return;
     }
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-    if (oemJsonObj)
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-
-        std::optional<nlohmann::json> nvidiaJsonObj;
-        if (json_util::readJson(*oemJsonObj, asyncResp->res, "Nvidia",
-                                nvidiaJsonObj))
+        if (oemJsonObj)
         {
-            std::optional<nlohmann::json> staticPowerHintJsonObj;
-            json_util::readJson(*nvidiaJsonObj, asyncResp->res, "PartNumber",
-                                partNumber, "SerialNumber", serialNumber,
-                                "StaticPowerHint", staticPowerHintJsonObj,
-                                "HardwareWriteProtectEnable",
-                                hardwareWriteProtectEnable);
-
-            if (staticPowerHintJsonObj)
+            std::optional<nlohmann::json> nvidiaJsonObj;
+            if (json_util::readJson(*oemJsonObj, asyncResp->res, "Nvidia",
+                                    nvidiaJsonObj))
             {
-                std::optional<nlohmann::json> cpuClockFrequencyHzJsonObj;
-                std::optional<nlohmann::json> temperatureCelsiusJsonObj;
-                std::optional<nlohmann::json> workloadFactorJsonObj;
+                std::optional<nlohmann::json> staticPowerHintJsonObj;
                 json_util::readJson(
-                    *staticPowerHintJsonObj, asyncResp->res,
-                    "CpuClockFrequencyHz", cpuClockFrequencyHzJsonObj,
-                    "TemperatureCelsius", temperatureCelsiusJsonObj,
-                    "WorkloadFactor", workloadFactorJsonObj);
-                if (cpuClockFrequencyHzJsonObj)
+                    *nvidiaJsonObj, asyncResp->res, "PartNumber", partNumber,
+                    "SerialNumber", serialNumber, "StaticPowerHint",
+                    staticPowerHintJsonObj, "HardwareWriteProtectEnable",
+                    hardwareWriteProtectEnable);
+
+                if (staticPowerHintJsonObj)
                 {
-                    json_util::readJson(*cpuClockFrequencyHzJsonObj,
-                                        asyncResp->res, "SetPoint",
-                                        cpuClockFrequency);
-                }
-                if (temperatureCelsiusJsonObj)
-                {
-                    json_util::readJson(*temperatureCelsiusJsonObj,
-                                        asyncResp->res, "SetPoint",
-                                        temperature);
-                }
-                if (workloadFactorJsonObj)
-                {
-                    json_util::readJson(*workloadFactorJsonObj, asyncResp->res,
-                                        "SetPoint", workloadFactor);
+                    std::optional<nlohmann::json> cpuClockFrequencyHzJsonObj;
+                    std::optional<nlohmann::json> temperatureCelsiusJsonObj;
+                    std::optional<nlohmann::json> workloadFactorJsonObj;
+                    json_util::readJson(
+                        *staticPowerHintJsonObj, asyncResp->res,
+                        "CpuClockFrequencyHz", cpuClockFrequencyHzJsonObj,
+                        "TemperatureCelsius", temperatureCelsiusJsonObj,
+                        "WorkloadFactor", workloadFactorJsonObj);
+                    if (cpuClockFrequencyHzJsonObj)
+                    {
+                        json_util::readJson(*cpuClockFrequencyHzJsonObj,
+                                            asyncResp->res, "SetPoint",
+                                            cpuClockFrequency);
+                    }
+                    if (temperatureCelsiusJsonObj)
+                    {
+                        json_util::readJson(*temperatureCelsiusJsonObj,
+                                            asyncResp->res, "SetPoint",
+                                            temperature);
+                    }
+                    if (workloadFactorJsonObj)
+                    {
+                        json_util::readJson(*workloadFactorJsonObj,
+                                            asyncResp->res, "SetPoint",
+                                            workloadFactor);
+                    }
                 }
             }
         }
     }
-}
 
     if (indicatorLed)
     {
@@ -938,9 +941,9 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         "/xyz/openbmc_project/inventory", 0, interfaces,
         [asyncResp, chassisId, locationIndicatorActive, indicatorLed,
          partNumber, serialNumber, cpuClockFrequency, workloadFactor,
-         temperature, hardwareWriteProtectEnable]
-        (const boost::system::error_code& ec,
-         const dbus::utility::MapperGetSubTreeResponse& subtree) {
+         temperature, hardwareWriteProtectEnable](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("DBUS response error {}", ec);
@@ -1011,51 +1014,53 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                     messages::propertyUnknown(asyncResp->res, "IndicatorLED");
                 }
             }
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-            if (hardwareWriteProtectEnable)
+            if (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
-                redfish::nvidia_chassis_utils::
-                    OemChassisHardwareWriteProtectEnable(
-                        asyncResp, chassisId, *hardwareWriteProtectEnable);
-            }
-            if (partNumber)
-            {
-                redfish::nvidia_chassis_utils::setOemBaseboardChassisAssert(
-                    asyncResp, path, "PartNumber", *partNumber);
-            }
-            if (serialNumber)
-            {
-                redfish::nvidia_chassis_utils::setOemBaseboardChassisAssert(
-                    asyncResp, path, "SerialNumber", *serialNumber);
-            }
-            if (cpuClockFrequency || workloadFactor || temperature)
-            {
-                if (cpuClockFrequency && workloadFactor && temperature)
+                if (hardwareWriteProtectEnable)
                 {
-                    redfish::nvidia_chassis_utils::setStaticPowerHintByChassis(
-                        asyncResp, path, *cpuClockFrequency, *workloadFactor,
-                        *temperature);
+                    redfish::nvidia_chassis_utils::
+                        OemChassisHardwareWriteProtectEnable(
+                            asyncResp, chassisId, *hardwareWriteProtectEnable);
                 }
-                else
+                if (partNumber)
                 {
-                    if (!cpuClockFrequency)
+                    redfish::nvidia_chassis_utils::setOemBaseboardChassisAssert(
+                        asyncResp, path, "PartNumber", *partNumber);
+                }
+                if (serialNumber)
+                {
+                    redfish::nvidia_chassis_utils::setOemBaseboardChassisAssert(
+                        asyncResp, path, "SerialNumber", *serialNumber);
+                }
+                if (cpuClockFrequency || workloadFactor || temperature)
+                {
+                    if (cpuClockFrequency && workloadFactor && temperature)
                     {
-                        messages::propertyMissing(asyncResp->res,
-                                                  "CpuClockFrequencyHz");
+                        redfish::nvidia_chassis_utils::
+                            setStaticPowerHintByChassis(
+                                asyncResp, path, *cpuClockFrequency,
+                                *workloadFactor, *temperature);
                     }
-                    if (!workloadFactor)
+                    else
                     {
-                        messages::propertyMissing(asyncResp->res,
-                                                  "WorkloadFactor");
-                    }
-                    if (!temperature)
-                    {
-                        messages::propertyMissing(asyncResp->res,
-                                                  "TemperatureCelsius");
+                        if (!cpuClockFrequency)
+                        {
+                            messages::propertyMissing(asyncResp->res,
+                                                      "CpuClockFrequencyHz");
+                        }
+                        if (!workloadFactor)
+                        {
+                            messages::propertyMissing(asyncResp->res,
+                                                      "WorkloadFactor");
+                        }
+                        if (!temperature)
+                        {
+                            messages::propertyMissing(asyncResp->res,
+                                                      "TemperatureCelsius");
+                        }
                     }
                 }
             }
-}
 
             return;
         }

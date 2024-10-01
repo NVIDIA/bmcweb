@@ -585,7 +585,6 @@ inline std::string getPowerModeType(const std::string& dbusAction)
     return "";
 }
 
-
 enum class InBandOption
 {
     BackgroundCopyStatus,

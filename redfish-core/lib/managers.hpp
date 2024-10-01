@@ -715,7 +715,6 @@ inline void requestRoutesNvidiaManagerGetSelCapacity(App& app)
     });
 }
 
-
 /**
  * SyncOOBRawCommandActionInfo derived class for delivering Managers
  * RawOOBCommands AllowableValues using NvidiaSyncOOBRawCommandAction schema.
@@ -871,10 +870,11 @@ inline uint32_t formatSyncDataIn(std::vector<std::string>& data)
 }
 
 inline void executeRawSynCommand(const std::shared_ptr<bmcweb::AsyncResp>& resp,
-                          const std::string& serviceName,
-                          const std::string& objPath, const std::string& Type,
-                          uint8_t id, uint8_t opCode, uint8_t arg1,
-                          uint8_t arg2, uint32_t dataIn, uint32_t extDataIn)
+                                 const std::string& serviceName,
+                                 const std::string& objPath,
+                                 const std::string& Type, uint8_t id,
+                                 uint8_t opCode, uint8_t arg1, uint8_t arg2,
+                                 uint32_t dataIn, uint32_t extDataIn)
 {
     BMCWEB_LOG_DEBUG("executeRawSynCommand fn");
     crow::connections::systemBus->async_method_call(
@@ -1095,12 +1095,11 @@ inline std::vector<std::uint32_t>
     return asyncDataIn;
 }
 
-inline void executeRawAsynCommand(const std::shared_ptr<bmcweb::AsyncResp>& resp,
-                           const std::string& serviceName,
-                           const std::string& objPath, const std::string& Type,
-                           uint8_t id, uint8_t argRaw,
-                           const std::vector<uint32_t>& asyncDataInRaw,
-                           uint32_t requestedDataOutBytes)
+inline void executeRawAsynCommand(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& serviceName, const std::string& objPath,
+    const std::string& Type, uint8_t id, uint8_t argRaw,
+    const std::vector<uint32_t>& asyncDataInRaw, uint32_t requestedDataOutBytes)
 {
     BMCWEB_LOG_DEBUG("executeRawAsynCommand fn");
     crow::connections::systemBus->async_method_call(
@@ -3177,7 +3176,7 @@ inline void
     // Set the property, with handler to check error responses
     crow::connections::systemBus->async_method_call(
         [resp, privilegeType](boost::system::error_code ec,
-                                         sdbusplus::message::message& msg) {
+                              sdbusplus::message::message& msg) {
         if (!ec)
         {
             BMCWEB_LOG_DEBUG("Set SMBPBI privilege  property succeeded");
@@ -3431,144 +3430,145 @@ inline void requestRoutesManager(App& app)
                                     BMCWEB_REDFISH_MANAGER_URI_NAME);
         }
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-        // default oem data
-        nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+        {
+            // default oem data
+            nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
 #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
-        nlohmann::json& oemOpenbmc = oem["OpenBmc"];
+            nlohmann::json& oemOpenbmc = oem["OpenBmc"];
 
-        oemOpenbmc["@odata.type"] = "#OpenBMCManager.OpenBmc";
-        oemOpenbmc["@odata.id"] = "/redfish/v1/Managers/" +
+            oemOpenbmc["@odata.type"] = "#OpenBMCManager.OpenBmc";
+            oemOpenbmc["@odata.id"] =
+                "/redfish/v1/Managers/" +
+                std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) + "#/Oem/OpenBmc";
+
+            oemOpenbmc["Certificates"] = {
+                {"@odata.id", "/redfish/v1/Managers/" +
                                   std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                                  "#/Oem/OpenBmc";
-
-        oemOpenbmc["Certificates"] = {
-            {"@odata.id", "/redfish/v1/Managers/" +
-                              std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                              "/Truststore/Certificates"}};
+                                  "/Truststore/Certificates"}};
 
 #ifdef BMCWEB_ENABLE_NVIDIA_OEM_COMMON_PROPERTIES
-        oem["Nvidia"]["@odata.id"] =
-            "/redfish/v1/Managers/" +
-            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) + "/Oem/Nvidia";
+            oem["Nvidia"]["@odata.id"] =
+                "/redfish/v1/Managers/" +
+                std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) + "/Oem/Nvidia";
 #endif // BMCWEB_ENABLE_NVIDIA_OEM_COMMON_PROPERTIES
 
 #endif // BMCWEB_ENABLE_HOST_OS_FEATURE
 
 #ifdef BMCWEB_ENABLE_NVIDIA_OEM_GB200NVL_PROPERTIES
-        oem["Nvidia"]["UptimeSeconds"] = [asyncResp]() -> double {
-            double uptime = 0;
-            auto ifs = std::ifstream("/proc/uptime", std::ifstream::in);
-            if (ifs.good())
-            {
-                ifs >> uptime;
-            }
-            else
-            {
-                BMCWEB_LOG_ERROR("Failed to get uptime from /proc/uptime.");
-                messages::internalError(asyncResp->res);
-            }
-            return uptime;
-        }();
+            oem["Nvidia"]["UptimeSeconds"] = [asyncResp]() -> double {
+                double uptime = 0;
+                auto ifs = std::ifstream("/proc/uptime", std::ifstream::in);
+                if (ifs.good())
+                {
+                    ifs >> uptime;
+                }
+                else
+                {
+                    BMCWEB_LOG_ERROR("Failed to get uptime from /proc/uptime.");
+                    messages::internalError(asyncResp->res);
+                }
+                return uptime;
+            }();
 #endif // BMCWEB_ENABLE_NVIDIA_OEM_GB200NVL_PROPERTIES
 
-        if constexpr (BMCWEB_NVIDIA_OEM_OPENOCD)
-        {
-            nvidia_manager_util::getOemNvidiaOpenOCD(asyncResp);
-        }
-
-        // NvidiaManager
-        nlohmann::json& oemNvidia = oem["Nvidia"];
-        oemNvidia["@odata.type"] = "#NvidiaManager.v1_4_0.NvidiaManager";
-        nlohmann::json& oemResetToDefaults =
-            asyncResp->res
-                .jsonValue["Actions"]["Oem"]["#NvidiaManager.ResetToDefaults"];
-        oemResetToDefaults["target"] =
-            "/redfish/v1/Managers/" +
-            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-            "/Actions/Oem/NvidiaManager.ResetToDefaults";
-
-        // build type
-        nlohmann::json& buildType = oemNvidia["FirmwareBuildType"];
-        std::ifstream buildDescriptionFile(buildDescriptionFilePath);
-        if (buildDescriptionFile.good())
-        {
-            std::string line;
-            const std::string prefix = "BUILD_DESC=";
-            std::string descriptionContent;
-            while (getline(buildDescriptionFile, line) &&
-                   descriptionContent.size() == 0)
+            if constexpr (BMCWEB_NVIDIA_OEM_OPENOCD)
             {
-                if (line.rfind(prefix, 0) == 0)
+                nvidia_manager_util::getOemNvidiaOpenOCD(asyncResp);
+            }
+
+            // NvidiaManager
+            nlohmann::json& oemNvidia = oem["Nvidia"];
+            oemNvidia["@odata.type"] = "#NvidiaManager.v1_4_0.NvidiaManager";
+            nlohmann::json& oemResetToDefaults =
+                asyncResp->res.jsonValue["Actions"]["Oem"]
+                                        ["#NvidiaManager.ResetToDefaults"];
+            oemResetToDefaults["target"] =
+                "/redfish/v1/Managers/" +
+                std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                "/Actions/Oem/NvidiaManager.ResetToDefaults";
+
+            // build type
+            nlohmann::json& buildType = oemNvidia["FirmwareBuildType"];
+            std::ifstream buildDescriptionFile(buildDescriptionFilePath);
+            if (buildDescriptionFile.good())
+            {
+                std::string line;
+                const std::string prefix = "BUILD_DESC=";
+                std::string descriptionContent;
+                while (getline(buildDescriptionFile, line) &&
+                       descriptionContent.size() == 0)
                 {
-                    descriptionContent = line.substr(prefix.size());
-                    descriptionContent.erase(
-                        std::remove(descriptionContent.begin(),
-                                    descriptionContent.end(), '"'),
-                        descriptionContent.end());
+                    if (line.rfind(prefix, 0) == 0)
+                    {
+                        descriptionContent = line.substr(prefix.size());
+                        descriptionContent.erase(
+                            std::remove(descriptionContent.begin(),
+                                        descriptionContent.end(), '"'),
+                            descriptionContent.end());
+                    }
+                }
+                if (descriptionContent.rfind("debug-prov", 0) == 0)
+                {
+                    buildType = "ProvisioningDebug";
+                }
+                else if (descriptionContent.rfind("prod-prov", 0) == 0)
+                {
+                    buildType = "ProvisioningProduction";
+                }
+                else if (descriptionContent.rfind("dev-prov", 0) == 0)
+                {
+                    buildType = "ProvisioningDevelopment";
+                }
+                else if (descriptionContent.rfind("debug-platform", 0) == 0)
+                {
+                    buildType = "PlatformDebug";
+                }
+                else if (descriptionContent.rfind("prod-platform", 0) == 0)
+                {
+                    buildType = "PlatformProduction";
+                }
+                else if (descriptionContent.rfind("dev-platform", 0) == 0)
+                {
+                    buildType = "PlatformDevelopment";
                 }
             }
-            if (descriptionContent.rfind("debug-prov", 0) == 0)
-            {
-                buildType = "ProvisioningDebug";
-            }
-            else if (descriptionContent.rfind("prod-prov", 0) == 0)
-            {
-                buildType = "ProvisioningProduction";
-            }
-            else if (descriptionContent.rfind("dev-prov", 0) == 0)
-            {
-                buildType = "ProvisioningDevelopment";
-            }
-            else if (descriptionContent.rfind("debug-platform", 0) == 0)
-            {
-                buildType = "PlatformDebug";
-            }
-            else if (descriptionContent.rfind("prod-platform", 0) == 0)
-            {
-                buildType = "PlatformProduction";
-            }
-            else if (descriptionContent.rfind("dev-platform", 0) == 0)
-            {
-                buildType = "PlatformDevelopment";
-            }
-        }
 
-        // OTP provisioning status
-        nlohmann::json& otpProvisioned = oemNvidia["OTPProvisioned"];
-        std::ifstream otpStatusFile(otpProvisioningStatusFilePath);
-        if (otpStatusFile.good())
-        {
-            std::string statusLine;
-            if (getline(otpStatusFile, statusLine))
+            // OTP provisioning status
+            nlohmann::json& otpProvisioned = oemNvidia["OTPProvisioned"];
+            std::ifstream otpStatusFile(otpProvisioningStatusFilePath);
+            if (otpStatusFile.good())
             {
-                if (statusLine != "0" && statusLine != "1")
+                std::string statusLine;
+                if (getline(otpStatusFile, statusLine))
                 {
-                    BMCWEB_LOG_ERROR("Invalid OTP provisioning status - {}",
-                                     statusLine);
+                    if (statusLine != "0" && statusLine != "1")
+                    {
+                        BMCWEB_LOG_ERROR("Invalid OTP provisioning status - {}",
+                                         statusLine);
+                    }
+                    otpProvisioned = (statusLine == "1");
                 }
-                otpProvisioned = (statusLine == "1");
+                else
+                {
+                    BMCWEB_LOG_ERROR("Failed to read OTP provisioning status");
+                    otpProvisioned = false;
+                }
             }
             else
             {
-                BMCWEB_LOG_ERROR("Failed to read OTP provisioning status");
+                BMCWEB_LOG_ERROR("Failed to open OTP provisioning status file");
                 otpProvisioned = false;
             }
-        }
-        else
-        {
-            BMCWEB_LOG_ERROR("Failed to open OTP provisioning status file");
-            otpProvisioned = false;
-        }
-        getFencingPrivilege(asyncResp);
+            getFencingPrivilege(asyncResp);
 
 #ifdef BMCWEB_ENABLE_TLS_AUTH_OPT_IN
-        oemNvidia["AuthenticationTLSRequired"] =
-            persistent_data::getConfig().isTLSAuthEnabled();
+            oemNvidia["AuthenticationTLSRequired"] =
+                persistent_data::getConfig().isTLSAuthEnabled();
 #endif
 
-        populatePersistentStorageSettingStatus(asyncResp);
-}
+            populatePersistentStorageSettingStatus(asyncResp);
+        }
 
         // Manager.Reset (an action) can be many values, OpenBMC only
         // supports BMC reboot.
@@ -3593,43 +3593,44 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         resetToDefaults["ResetType@Redfish.AllowableValues"] =
             nlohmann::json::array_t({"ResetAll"});
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-
-        nlohmann::json& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+        {
+            nlohmann::json& oemActions =
+                asyncResp->res.jsonValue["Actions"]["Oem"];
 
 #ifdef BMCWEB_COMMAND_SMBPBI_OOB
-        nlohmann::json& oemActionsNvidia = oemActions["Nvidia"];
+            nlohmann::json& oemActionsNvidia = oemActions["Nvidia"];
 
-        oemActionsNvidia["#NvidiaManager.SyncOOBRawCommand"]["target"] =
-            "/redfish/v1/Managers/" +
-            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-            "/Actions/Oem/NvidiaManager.SyncOOBRawCommand";
-        oemActionsNvidia["#NvidiaManager.SyncOOBRawCommand"]
-                        ["@Redfish.ActionInfo"] =
-                            "/redfish/v1/Managers/" +
-                            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                            "/Oem/Nvidia/SyncOOBRawCommandActionInfo";
+            oemActionsNvidia["#NvidiaManager.SyncOOBRawCommand"]["target"] =
+                "/redfish/v1/Managers/" +
+                std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                "/Actions/Oem/NvidiaManager.SyncOOBRawCommand";
+            oemActionsNvidia["#NvidiaManager.SyncOOBRawCommand"]
+                            ["@Redfish.ActionInfo"] =
+                                "/redfish/v1/Managers/" +
+                                std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                                "/Oem/Nvidia/SyncOOBRawCommandActionInfo";
 
-        oemActionsNvidia["#NvidiaManager.AsyncOOBRawCommand"]["target"] =
-            "/redfish/v1/Managers/" +
-            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-            "/Actions/Oem/NvidiaManager.AsyncOOBRawCommand";
-        oemActionsNvidia["#NvidiaManager.AsyncOOBRawCommand"]
-                        ["@Redfish.ActionInfo"] =
-                            "/redfish/v1/Managers/" +
-                            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                            "/Oem/Nvidia/AsyncOOBRawCommandActionInfo";
+            oemActionsNvidia["#NvidiaManager.AsyncOOBRawCommand"]["target"] =
+                "/redfish/v1/Managers/" +
+                std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                "/Actions/Oem/NvidiaManager.AsyncOOBRawCommand";
+            oemActionsNvidia["#NvidiaManager.AsyncOOBRawCommand"]
+                            ["@Redfish.ActionInfo"] =
+                                "/redfish/v1/Managers/" +
+                                std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                                "/Oem/Nvidia/AsyncOOBRawCommandActionInfo";
 #endif // BMCWEB_COMMAND_SMBPBI_OOB
 
-        oemActions["#eMMC.SecureErase"]["target"] =
-            "/redfish/v1/Managers/" +
-            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-            "/Actions/Oem/eMMC.SecureErase";
-        oemActions["#eMMC.SecureErase"]["@Redfish.ActionInfo"] =
-            "/redfish/v1/Managers/" +
-            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-            "/Oem/EmmcSecureEraseActionInfo";
-}
+            oemActions["#eMMC.SecureErase"]["target"] =
+                "/redfish/v1/Managers/" +
+                std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                "/Actions/Oem/eMMC.SecureErase";
+            oemActions["#eMMC.SecureErase"]["@Redfish.ActionInfo"] =
+                "/redfish/v1/Managers/" +
+                std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                "/Oem/EmmcSecureEraseActionInfo";
+        }
 
         std::pair<std::string, std::string> redfishDateTimeOffset =
             redfish::time_utils::getDateTimeOffsetNow();
@@ -3976,9 +3977,8 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
 #endif // BMCWEB_ENABLE_FENCING_PRIVILEGE
 #ifdef BMCWEB_ENABLE_TLS_AUTH_OPT_IN
         std::optional<bool> tlsAuth;
-#endif  // BMCWEB_ENABLE_TLS_AUTH_OPT_IN
+#endif // BMCWEB_ENABLE_TLS_AUTH_OPT_IN
         std::optional<bool> openocdValue;
-
 
         // clang-format off
         if (!json_util::readJsonPatch(req, asyncResp->res,
@@ -4060,72 +4060,73 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
             setServiceIdentification(asyncResp,
                                      std::move(*serviceIdentification));
         }
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-#ifdef BMCWEB_ENABLE_FENCING_PRIVILEGE
-        if (privilege)
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
-            crow::connections::systemBus->async_method_call(
-                [asyncResp,
-                 privilege](const boost::system::error_code ec,
-                            const MapperGetSubTreeResponse& subtree) {
-                if (ec)
-                {
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                for (const auto& [objectPath, serviceMap] : subtree)
-                {
-                    if (serviceMap.size() < 1)
+#ifdef BMCWEB_ENABLE_FENCING_PRIVILEGE
+            if (privilege)
+            {
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp,
+                     privilege](const boost::system::error_code ec,
+                                const MapperGetSubTreeResponse& subtree) {
+                    if (ec)
                     {
-                        BMCWEB_LOG_ERROR("Got 0 service "
-                                         "names");
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    const std::string& serviceName = serviceMap[0].first;
-                    // Patch SMBPBI Fencing Privilege
-                    patchFencingPrivilege(asyncResp, *privilege, serviceName,
-                                          objectPath);
-                }
-            },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/",
-                int32_t(0),
-                std::array<const char*, 1>{
-                    "xyz.openbmc_project.GpuOobRecovery.Server"});
-        }
+                    for (const auto& [objectPath, serviceMap] : subtree)
+                    {
+                        if (serviceMap.size() < 1)
+                        {
+                            BMCWEB_LOG_ERROR("Got 0 service "
+                                             "names");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        const std::string& serviceName = serviceMap[0].first;
+                        // Patch SMBPBI Fencing Privilege
+                        patchFencingPrivilege(asyncResp, *privilege,
+                                              serviceName, objectPath);
+                    }
+                },
+                    "xyz.openbmc_project.ObjectMapper",
+                    "/xyz/openbmc_project/object_mapper",
+                    "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/",
+                    int32_t(0),
+                    std::array<const char*, 1>{
+                        "xyz.openbmc_project.GpuOobRecovery.Server"});
+            }
 #endif // BMCWEB_ENABLE_FENCING_PRIVILEGE
 #ifdef BMCWEB_ENABLE_TLS_AUTH_OPT_IN
-        if (tlsAuth)
-        {
-            if (*tlsAuth == persistent_data::getConfig().isTLSAuthEnabled())
+            if (tlsAuth)
             {
-                BMCWEB_LOG_DEBUG(
-                    "Ignoring redundant patch of AuthenticationTLSRequired.");
+                if (*tlsAuth == persistent_data::getConfig().isTLSAuthEnabled())
+                {
+                    BMCWEB_LOG_DEBUG(
+                        "Ignoring redundant patch of AuthenticationTLSRequired.");
+                }
+                else if (!*tlsAuth)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "Disabling AuthenticationTLSRequired is not allowed.");
+                    messages::propertyValueIncorrect(
+                        asyncResp->res, "AuthenticationTLSRequired", "false");
+                    return;
+                }
+                else
+                {
+                    enableTLSAuth();
+                }
             }
-            else if (!*tlsAuth)
-            {
-                BMCWEB_LOG_ERROR(
-                    "Disabling AuthenticationTLSRequired is not allowed.");
-                messages::propertyValueIncorrect(
-                    asyncResp->res, "AuthenticationTLSRequired", "false");
-                return;
-            }
-            else
-            {
-                enableTLSAuth();
-            }
-        }
 #endif // BMCWEB_ENABLE_TLS_AUTH_OPT_IN
-        if constexpr (BMCWEB_NVIDIA_OEM_OPENOCD)
-        {
-            if (openocdValue)
+            if constexpr (BMCWEB_NVIDIA_OEM_OPENOCD)
             {
-                nvidia_manager_util::setOemNvidiaOpenOCD(*openocdValue);
+                if (openocdValue)
+                {
+                    nvidia_manager_util::setOemNvidiaOpenOCD(*openocdValue);
+                }
             }
         }
-}
     });
 }
 

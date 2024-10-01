@@ -171,10 +171,11 @@ inline std::string LldpToolUtil::translateOperationToCommand(
     return command;
 }
 
-inline void LldpToolUtil::run(const std::string& ifName, LldpTlv lldpTlv,
-                       LldpCommandType lldpCommandType, bool isReceived,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       LldpResponseCallback responseCallback)
+inline void
+    LldpToolUtil::run(const std::string& ifName, LldpTlv lldpTlv,
+                      LldpCommandType lldpCommandType, bool isReceived,
+                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                      LldpResponseCallback responseCallback)
 {
     std::string command = translateOperationToCommand(
         ifName, lldpTlv, lldpCommandType, isReceived);

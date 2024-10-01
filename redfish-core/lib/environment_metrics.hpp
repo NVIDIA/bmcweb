@@ -376,10 +376,11 @@ inline void handleEnvironmentMetricsGet(
         asyncResp->res.jsonValue["Id"] = "EnvironmentMetrics";
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
             "/redfish/v1/Chassis/{}/EnvironmentMetrics", chassisId);
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-        asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaEnvironmentMetrics.v1_2_0.NvidiaEnvironmentMetrics";
-}
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+        {
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaEnvironmentMetrics.v1_2_0.NvidiaEnvironmentMetrics";
+        }
         getfanSpeedsPercent(asyncResp, chassisId);
         redfish::nvidia_env_utils::getPowerWattsEnergyJoules(
             asyncResp, chassisId, *validChassisPath);
@@ -512,25 +513,26 @@ inline void requestRoutesEnvironmentMetrics(App& app)
                     "/xyz/openbmc_project/inventory", 0, interfaces);
             }
         }
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-
-        if (oem)
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
-            std::optional<nlohmann::json> nvidiaObj;
-            redfish::json_util::readJson(*oem, asyncResp->res, "Nvidia",
-                                         nvidiaObj);
-            if (nvidiaObj)
+            if (oem)
             {
-                std::optional<std::string> powerMode;
-                redfish::json_util::readJson(*nvidiaObj, asyncResp->res,
-                                             "PowerMode", powerMode);
-                if (powerMode)
+                std::optional<nlohmann::json> nvidiaObj;
+                redfish::json_util::readJson(*oem, asyncResp->res, "Nvidia",
+                                             nvidiaObj);
+                if (nvidiaObj)
                 {
-                    messages::propertyNotWritable(asyncResp->res, "PowerMode");
+                    std::optional<std::string> powerMode;
+                    redfish::json_util::readJson(*nvidiaObj, asyncResp->res,
+                                                 "PowerMode", powerMode);
+                    if (powerMode)
+                    {
+                        messages::propertyNotWritable(asyncResp->res,
+                                                      "PowerMode");
+                    }
                 }
             }
         }
-}
     });
 }
 
@@ -586,70 +588,72 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
             return;
         }
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-
-        // update Edpp Setpoint
-        if (std::optional<nlohmann::json> oemNvidiaObject;
-            oemObject && json_util::readJson(*oemObject, asyncResp->res,
-                                             "Nvidia", oemNvidiaObject))
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
-            if (std::optional<nlohmann::json> EdppObject;
-                oemNvidiaObject &&
-                json_util::readJson(
-                    *oemNvidiaObject, asyncResp->res, "EDPpPercent", EdppObject,
-                    "PowerLimitPersistency", powerLimitPersistency))
+            // update Edpp Setpoint
+            if (std::optional<nlohmann::json> oemNvidiaObject;
+                oemObject && json_util::readJson(*oemObject, asyncResp->res,
+                                                 "Nvidia", oemNvidiaObject))
             {
-                if (EdppObject)
+                if (std::optional<nlohmann::json> EdppObject;
+                    oemNvidiaObject &&
+                    json_util::readJson(*oemNvidiaObject, asyncResp->res,
+                                        "EDPpPercent", EdppObject,
+                                        "PowerLimitPersistency",
+                                        powerLimitPersistency))
                 {
-                    std::optional<size_t> setPoint;
-                    std::optional<bool> persistency;
+                    if (EdppObject)
+                    {
+                        std::optional<size_t> setPoint;
+                        std::optional<bool> persistency;
 
-                    if (!json_util::readJson(*EdppObject, asyncResp->res,
-                                             "SetPoint", setPoint,
-                                             "Persistency", persistency))
-                    {
-                        BMCWEB_LOG_ERROR("Cannot read values from Edpp tag");
-                        return;
-                    }
+                        if (!json_util::readJson(*EdppObject, asyncResp->res,
+                                                 "SetPoint", setPoint,
+                                                 "Persistency", persistency))
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "Cannot read values from Edpp tag");
+                            return;
+                        }
 
-                    if (setPoint && persistency)
-                    {
-                        redfish::processor_utils::getProcessorObject(
-                            asyncResp, processorId,
-                            [setPoint, persistency](
-                                const std::shared_ptr<bmcweb::AsyncResp>&
-                                    asyncResp,
-                                const std::string& processorId,
-                                const std::string& objectPath,
-                                const MapperServiceMap& serviceMap,
-                                [[maybe_unused]] const std::string&
-                                    deviceType) {
-                            redfish::nvidia_env_utils::patchEdppSetPoint(
-                                asyncResp, processorId, *setPoint, *persistency,
-                                objectPath, serviceMap);
-                        });
-                    }
-                    else if (setPoint)
-                    {
-                        redfish::processor_utils::getProcessorObject(
-                            asyncResp, processorId,
-                            [setPoint](const std::shared_ptr<bmcweb::AsyncResp>&
-                                           asyncResp,
-                                       const std::string& processorId,
-                                       const std::string& objectPath,
-                                       const MapperServiceMap& serviceMap,
-                                       [[maybe_unused]] const std::string&
-                                           deviceType) {
-                            redfish::nvidia_env_utils::patchEdppSetPoint(
-                                asyncResp, processorId, *setPoint, false,
-                                objectPath, serviceMap);
-                        });
+                        if (setPoint && persistency)
+                        {
+                            redfish::processor_utils::getProcessorObject(
+                                asyncResp, processorId,
+                                [setPoint, persistency](
+                                    const std::shared_ptr<bmcweb::AsyncResp>&
+                                        asyncResp,
+                                    const std::string& processorId,
+                                    const std::string& objectPath,
+                                    const MapperServiceMap& serviceMap,
+                                    [[maybe_unused]] const std::string&
+                                        deviceType) {
+                                redfish::nvidia_env_utils::patchEdppSetPoint(
+                                    asyncResp, processorId, *setPoint,
+                                    *persistency, objectPath, serviceMap);
+                            });
+                        }
+                        else if (setPoint)
+                        {
+                            redfish::processor_utils::getProcessorObject(
+                                asyncResp, processorId,
+                                [setPoint](
+                                    const std::shared_ptr<bmcweb::AsyncResp>&
+                                        asyncResp,
+                                    const std::string& processorId,
+                                    const std::string& objectPath,
+                                    const MapperServiceMap& serviceMap,
+                                    [[maybe_unused]] const std::string&
+                                        deviceType) {
+                                redfish::nvidia_env_utils::patchEdppSetPoint(
+                                    asyncResp, processorId, *setPoint, false,
+                                    objectPath, serviceMap);
+                            });
+                        }
                     }
                 }
             }
         }
-
-}
 
         // Update power limit
         if (powerLimit)

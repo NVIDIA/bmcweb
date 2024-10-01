@@ -252,10 +252,11 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             messages::internalError(asyncResp->res);
             return;
         }
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-        asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaPort.v1_0_0.NvidiaPort";
-}
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+        {
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaPort.v1_0_0.NvidiaPort";
+        }
         for (const auto& property : properties)
         {
             const std::string& propertyName = property.first;
@@ -273,33 +274,38 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                 asyncResp->res.jsonValue["PortType"] = getPortType(*value);
             }
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-            if (propertyName == "TXWidth")
+            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
-                const uint16_t* value = std::get_if<uint16_t>(&property.second);
-                if (value == nullptr)
+                if (propertyName == "TXWidth")
                 {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for TXWidth");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
+                    const uint16_t* value =
+                        std::get_if<uint16_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for TXWidth");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
 
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["TXWidth"] = *value;
-            }
-            else if (propertyName == "RXWidth")
-            {
-                const uint16_t* value = std::get_if<uint16_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for RXWidth");
-                    messages::internalError(asyncResp->res);
-                    return;
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["TXWidth"] =
+                        *value;
                 }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["RXWidth"] = *value;
+                else if (propertyName == "RXWidth")
+                {
+                    const uint16_t* value =
+                        std::get_if<uint16_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for RXWidth");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["RXWidth"] =
+                        *value;
+                }
             }
-}
             else if (propertyName == "Protocol")
             {
                 const std::string* value =

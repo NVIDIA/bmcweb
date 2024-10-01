@@ -434,7 +434,6 @@ static inline void
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-
 // PCIeDevice State
 static inline void
     getPCIeDeviceState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1862,51 +1861,55 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                         redfish::conditions_utils::populateServiceConditions(
                             asyncResp, device);
 #endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-                        nlohmann::json& oem =
-                            asyncResp->res.jsonValue["Oem"]["Nvidia"];
-                        oem["@odata.type"] =
-                            "#NvidiaPCIeDevice.v1_2_0.NvidiaPCIeDevice";
-                        // Baseboard PCIeDevices Oem properties
-                        if (std::find(interfaces2.begin(), interfaces2.end(),
-                                      pcieClockReferenceIntf) !=
-                            interfaces2.end())
+                        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                         {
-                            getPCIeDeviceClkRefOem(asyncResp, device,
-                                                   chassisPCIePath,
-                                                   connectionName);
-                        }
+                            nlohmann::json& oem =
+                                asyncResp->res.jsonValue["Oem"]["Nvidia"];
+                            oem["@odata.type"] =
+                                "#NvidiaPCIeDevice.v1_2_0.NvidiaPCIeDevice";
+                            // Baseboard PCIeDevices Oem properties
+                            if (std::find(interfaces2.begin(),
+                                          interfaces2.end(),
+                                          pcieClockReferenceIntf) !=
+                                interfaces2.end())
+                            {
+                                getPCIeDeviceClkRefOem(asyncResp, device,
+                                                       chassisPCIePath,
+                                                       connectionName);
+                            }
 
-                        if (std::find(interfaces2.begin(), interfaces2.end(),
-                                      pcieAerErrorStatusIntf) !=
-                            interfaces2.end())
-                        {
-                            redfish::nvidia_pcie_utils::getAerErrorStatusOem(
-                                asyncResp, device, chassisPCIePath,
-                                connectionName);
-                            asyncResp->res.jsonValue
-                                ["Actions"]["Oem"]
-                                ["#NvidiaPCIeDevice.ClearAERErrorStatus"]
-                                ["target"] =
-                                pcieDeviceURI +
-                                "/Actions/Oem/NvidiaPCIeDevice.ClearAERErrorStatus";
-                        }
-
-                        getPCIeLTssmState(asyncResp, device, chassisPCIePath,
-                                          connectionName);
-
-                        // Baseboard PCIeDevices nvlink Oem
-                        // properties
-                        if (std::find(interfaces2.begin(), interfaces2.end(),
-                                      nvlinkClockReferenceIntf) !=
-                            interfaces2.end())
-                        {
-                            getPCIeDeviceNvLinkClkRefOem(asyncResp, device,
+                            if (std::find(interfaces2.begin(),
+                                          interfaces2.end(),
+                                          pcieAerErrorStatusIntf) !=
+                                interfaces2.end())
+                            {
+                                redfish::nvidia_pcie_utils::
+                                    getAerErrorStatusOem(asyncResp, device,
                                                          chassisPCIePath,
                                                          connectionName);
-                        }
+                                asyncResp->res.jsonValue
+                                    ["Actions"]["Oem"]
+                                    ["#NvidiaPCIeDevice.ClearAERErrorStatus"]
+                                    ["target"] =
+                                    pcieDeviceURI +
+                                    "/Actions/Oem/NvidiaPCIeDevice.ClearAERErrorStatus";
+                            }
 
-}
+                            getPCIeLTssmState(asyncResp, device,
+                                              chassisPCIePath, connectionName);
+
+                            // Baseboard PCIeDevices nvlink Oem
+                            // properties
+                            if (std::find(interfaces2.begin(),
+                                          interfaces2.end(),
+                                          nvlinkClockReferenceIntf) !=
+                                interfaces2.end())
+                            {
+                                getPCIeDeviceNvLinkClkRefOem(asyncResp, device,
+                                                             chassisPCIePath,
+                                                             connectionName);
+                            }
+                        }
                         return;
                     }
                     messages::resourceNotFound(asyncResp->res,
@@ -2149,7 +2152,6 @@ inline void requestRoutesChassisPCIeFunction(App& app)
     //         std::bind_front(handlePCIeFunctionGet, std::ref(app)));
 }
 
-
 inline void requestRoutesClearPCIeAerErrorStatus(App& app)
 {
     BMCWEB_ROUTE(
@@ -2169,6 +2171,5 @@ inline void requestRoutesClearPCIeAerErrorStatus(App& app)
                                                             chassisId, device);
     });
 }
-
 
 } // namespace redfish

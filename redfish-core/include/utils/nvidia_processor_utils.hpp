@@ -198,7 +198,7 @@ inline void patchCCMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
     // Set the property, with handler to check error responses
     crow::connections::systemBus->async_method_call(
         [resp, processorId](boost::system::error_code ec,
-                                    sdbusplus::message::message& msg) {
+                            sdbusplus::message::message& msg) {
         if (!ec)
         {
             BMCWEB_LOG_DEBUG("Set CC Mode property succeeded");
@@ -267,7 +267,7 @@ inline void patchCCDevMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
     // Set the property, with handler to check error responses
     crow::connections::systemBus->async_method_call(
         [resp, processorId](boost::system::error_code ec,
-                                       sdbusplus::message::message& msg) {
+                            sdbusplus::message::message& msg) {
         if (!ec)
         {
             BMCWEB_LOG_DEBUG("Set CC Dev Mode property succeeded");
@@ -1451,7 +1451,6 @@ inline void
             "xyz.openbmc_project.Inventory.Item.Cpu",
             "xyz.openbmc_project.Inventory.Item.Accelerator"});
 }
-
 
 inline void
     setOperatingSpeedRange(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

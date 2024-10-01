@@ -1735,14 +1735,14 @@ inline void getOperatingConfigData(
                 baseSpeedArray.push_back(std::move(speed));
             }
         }
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-        if (defaultBoostClockSpeedMHz != nullptr)
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
-            json["Oem"]["Nvidia"]["DefaultBoostClockSpeedMHz"] =
-                *defaultBoostClockSpeedMHz;
+            if (defaultBoostClockSpeedMHz != nullptr)
+            {
+                json["Oem"]["Nvidia"]["DefaultBoostClockSpeedMHz"] =
+                    *defaultBoostClockSpeedMHz;
+            }
         }
-
-}
     });
 }
 
@@ -1923,7 +1923,6 @@ inline void getProcessorResetTypeData(
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
         "xyz.openbmc_project.Control.Processor.Reset");
 }
-
 
 inline void getPowerBreakThrottleData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
@@ -2809,7 +2808,6 @@ inline void getGPMMetricsData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     });
 }
 
-
 inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                              const std::string& processorId,
                              const std::string& objectPath,
@@ -2833,9 +2831,10 @@ inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             {
                 getCpuDataByService(aResp, processorId, serviceName,
                                     objectPath);
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-                getRemoteDebugState(aResp, serviceName, objectPath);
-}
+                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                {
+                    getRemoteDebugState(aResp, serviceName, objectPath);
+                }
             }
             else if (interface ==
                      "xyz.openbmc_project.Inventory.Item.Accelerator")
@@ -2906,36 +2905,38 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                 getProcessorReplaceable(aResp, serviceName, objectPath);
             }
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-            if (interface == "com.nvidia.MigMode")
+            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
-                getProcessorMigModeData(aResp, processorId, serviceName,
-                                        objectPath);
+                if (interface == "com.nvidia.MigMode")
+                {
+                    getProcessorMigModeData(aResp, processorId, serviceName,
+                                            objectPath);
+                }
+                else if (interface == "com.nvidia.CCMode")
+                {
+                    getProcessorCCModeData(aResp, processorId, serviceName,
+                                           objectPath);
+                }
+                else if (interface ==
+                         "com.nvidia.PowerSmoothing.PowerSmoothing")
+                {
+                    getPowerSmoothingInfo(aResp, processorId, serviceName,
+                                          objectPath);
+                }
+                else if (interface == "com.nvidia.NVLink.NvLinkTotalCount")
+                {
+                    redfish::nvidia_processor_utils::getNvLinkTotalCount(
+                        aResp, processorId, serviceName, objectPath);
+                }
+                else if (interface == "com.nvidia.PowerProfile.ProfileInfo")
+                {
+                    getWorkLoadPowerInfo(aResp, processorId);
+                }
+                else if (interface == "xyz.openbmc_project.NSM.SysGUID")
+                {
+                    getProcessorSystemGUID(aResp, serviceName, objectPath);
+                }
             }
-            else if (interface == "com.nvidia.CCMode")
-            {
-                getProcessorCCModeData(aResp, processorId, serviceName,
-                                       objectPath);
-            }
-            else if (interface == "com.nvidia.PowerSmoothing.PowerSmoothing")
-            {
-                getPowerSmoothingInfo(aResp, processorId, serviceName,
-                                      objectPath);
-            }
-            else if (interface == "com.nvidia.NVLink.NvLinkTotalCount")
-            {
-                redfish::nvidia_processor_utils::getNvLinkTotalCount(
-                    aResp, processorId, serviceName, objectPath);
-            }
-            else if (interface == "com.nvidia.PowerProfile.ProfileInfo")
-            {
-                getWorkLoadPowerInfo(aResp, processorId);
-            }
-            else if (interface == "xyz.openbmc_project.NSM.SysGUID")
-            {
-                getProcessorSystemGUID(aResp, serviceName, objectPath);
-            }
-}
         }
     }
 
@@ -2968,13 +2969,13 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     getProcessorSystemPCIeInterface(aResp, objectPath);
     getProcessorFPGAPCIeInterface(aResp, objectPath);
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-    nvidia_processor_utils::getInbandReconfigPermissionsData(aResp, processorId,
-                                                             objectPath);
-    nvidia_processor_utils::populateErrorInjectionData(aResp, processorId);
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        nvidia_processor_utils::getInbandReconfigPermissionsData(
+            aResp, processorId, objectPath);
+        nvidia_processor_utils::populateErrorInjectionData(aResp, processorId);
+    }
 }
-}
-
 
 /**
  * Handle the PATCH operation of the MIG Mode Property. Do basic
@@ -3044,7 +3045,7 @@ inline void patchMigMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
         // Set the property, with handler to check error responses
         crow::connections::systemBus->async_method_call(
             [resp, processorId](boost::system::error_code ec,
-                                         sdbusplus::message::message& msg) {
+                                sdbusplus::message::message& msg) {
             if (!ec)
             {
                 BMCWEB_LOG_DEBUG("Set MIG Mode property succeeded");
@@ -3115,7 +3116,7 @@ inline void setProcessorRemoteDebugState(
     // Set the property, with handler to check error responses
     crow::connections::systemBus->async_method_call(
         [aResp, objPath](const boost::system::error_code ec,
-                                             sdbusplus::message::message& msg) {
+                         sdbusplus::message::message& msg) {
         if (!ec)
         {
             BMCWEB_LOG_DEBUG("Set Processor Remote Debug successed");
@@ -3911,62 +3912,66 @@ inline void requestRoutesProcessor(App& app)
             });
         }
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-        // Update migMode
-        if (std::optional<nlohmann::json> oemNvidiaObject;
-            oemObject &&
-            redfish::json_util::readJson(*oemObject, asyncResp->res, "Nvidia",
-                                         oemNvidiaObject))
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
-            std::optional<bool> migMode;
-            std::optional<bool> remoteDebugEnabled;
-            std::optional<nlohmann::json> inbandReconfigPermissions;
-
-            if (oemNvidiaObject &&
-                redfish::json_util::readJson(
-                    *oemNvidiaObject, asyncResp->res, "MIGModeEnabled", migMode,
-                    "RemoteDebugEnabled", remoteDebugEnabled,
-                    "InbandReconfigPermissions", inbandReconfigPermissions))
+            // Update migMode
+            if (std::optional<nlohmann::json> oemNvidiaObject;
+                oemObject &&
+                redfish::json_util::readJson(*oemObject, asyncResp->res,
+                                             "Nvidia", oemNvidiaObject))
             {
-                if (migMode)
-                {
-                    redfish::processor_utils::getProcessorObject(
-                        asyncResp, processorId,
-                        [migMode](
-                            const std::shared_ptr<bmcweb::AsyncResp>&
-                                asyncResp1,
-                            const std::string& processorId1,
-                            const std::string& objectPath,
-                            const MapperServiceMap& serviceMap,
-                            [[maybe_unused]] const std::string& deviceType) {
-                        patchMigMode(asyncResp1, processorId1, *migMode,
-                                     objectPath, serviceMap);
-                    });
-                }
+                std::optional<bool> migMode;
+                std::optional<bool> remoteDebugEnabled;
+                std::optional<nlohmann::json> inbandReconfigPermissions;
 
-                if (remoteDebugEnabled)
+                if (oemNvidiaObject &&
+                    redfish::json_util::readJson(
+                        *oemNvidiaObject, asyncResp->res, "MIGModeEnabled",
+                        migMode, "RemoteDebugEnabled", remoteDebugEnabled,
+                        "InbandReconfigPermissions", inbandReconfigPermissions))
                 {
-                    redfish::processor_utils::getProcessorObject(
-                        asyncResp, processorId,
-                        [remoteDebugEnabled](
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& processorId,
-                            const std::string& objectPath,
-                            [[maybe_unused]] const MapperServiceMap& serviceMap,
-                            [[maybe_unused]] const std::string& deviceType) {
-                        patchRemoteDebug(asyncResp, processorId,
-                                         *remoteDebugEnabled, objectPath);
-                    });
-                }
+                    if (migMode)
+                    {
+                        redfish::processor_utils::getProcessorObject(
+                            asyncResp, processorId,
+                            [migMode](const std::shared_ptr<bmcweb::AsyncResp>&
+                                          asyncResp1,
+                                      const std::string& processorId1,
+                                      const std::string& objectPath,
+                                      const MapperServiceMap& serviceMap,
+                                      [[maybe_unused]] const std::string&
+                                          deviceType) {
+                            patchMigMode(asyncResp1, processorId1, *migMode,
+                                         objectPath, serviceMap);
+                        });
+                    }
 
-                if (inbandReconfigPermissions)
-                {
-                    nvidia_processor_utils::patchInbandReconfigPermissions(
-                        asyncResp, processorId, *inbandReconfigPermissions);
+                    if (remoteDebugEnabled)
+                    {
+                        redfish::processor_utils::getProcessorObject(
+                            asyncResp, processorId,
+                            [remoteDebugEnabled](
+                                const std::shared_ptr<bmcweb::AsyncResp>&
+                                    asyncResp,
+                                const std::string& processorId,
+                                const std::string& objectPath,
+                                [[maybe_unused]] const MapperServiceMap&
+                                    serviceMap,
+                                [[maybe_unused]] const std::string&
+                                    deviceType) {
+                            patchRemoteDebug(asyncResp, processorId,
+                                             *remoteDebugEnabled, objectPath);
+                        });
+                    }
+
+                    if (inbandReconfigPermissions)
+                    {
+                        nvidia_processor_utils::patchInbandReconfigPermissions(
+                            asyncResp, processorId, *inbandReconfigPermissions);
+                    }
                 }
             }
         }
-}
 
         if (appliedConfigUri)
         {
@@ -4070,21 +4075,23 @@ inline void getProcessorMemoryECCData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                 aResp->res.jsonValue["CacheMetricsTotal"]["LifeTime"]
                                     ["UncorrectableECCErrorCount"] = *value;
             }
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-            if (property.first == "isThresholdExceeded")
+            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
-                const bool* value = std::get_if<bool>(&property.second);
-                if (value == nullptr)
+                if (property.first == "isThresholdExceeded")
                 {
-                    BMCWEB_LOG_ERROR(
-                        "NULL Value returned for isThresholdExceeded Property");
-                    messages::internalError(aResp->res);
-                    return;
+                    const bool* value = std::get_if<bool>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "NULL Value returned for isThresholdExceeded Property");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    aResp->res.jsonValue["Oem"]["Nvidia"]
+                                        ["SRAMECCErrorThresholdExceeded"] =
+                        *value;
                 }
-                aResp->res.jsonValue["Oem"]["Nvidia"]
-                                    ["SRAMECCErrorThresholdExceeded"] = *value;
             }
-}
         }
     },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
@@ -4206,7 +4213,6 @@ inline void getSensorMetric(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
 }
-
 
 inline void
     getPowerBreakThrottle(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
@@ -4475,7 +4481,6 @@ inline void getNumericSensorMetric(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-
 inline void getProcessorMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                     const std::string& processorId)
 {
@@ -4545,45 +4550,48 @@ inline void getProcessorMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     redfish::processor_utils::getPCIeErrorData(aResp, service,
                                                                path);
                 }
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-                if (std::find(
-                        interfaces.begin(), interfaces.end(),
-                        "xyz.openbmc_project.State.ProcessorPerformance") !=
-                    interfaces.end())
+                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                 {
-                    getProcessorPerformanceData(aResp, service, path,
-                                                deviceType);
-                }
+                    if (std::find(
+                            interfaces.begin(), interfaces.end(),
+                            "xyz.openbmc_project.State.ProcessorPerformance") !=
+                        interfaces.end())
+                    {
+                        getProcessorPerformanceData(aResp, service, path,
+                                                    deviceType);
+                    }
 
-                if (std::find(interfaces.begin(), interfaces.end(),
-                              "com.nvidia.NVLink.NVLinkMetrics") !=
-                    interfaces.end())
-                {
-                    getGPUNvlinkMetricsData(aResp, service, path,
-                                            "com.nvidia.NVLink.NVLinkMetrics");
-                }
+                    if (std::find(interfaces.begin(), interfaces.end(),
+                                  "com.nvidia.NVLink.NVLinkMetrics") !=
+                        interfaces.end())
+                    {
+                        getGPUNvlinkMetricsData(
+                            aResp, service, path,
+                            "com.nvidia.NVLink.NVLinkMetrics");
+                    }
 
-                if (std::find(interfaces.begin(), interfaces.end(),
-                              "com.nvidia.GPMMetrics") != interfaces.end())
-                {
-                    getGPMMetricsData(aResp, service, path,
-                                      "com.nvidia.GPMMetrics");
-                }
+                    if (std::find(interfaces.begin(), interfaces.end(),
+                                  "com.nvidia.GPMMetrics") != interfaces.end())
+                    {
+                        getGPMMetricsData(aResp, service, path,
+                                          "com.nvidia.GPMMetrics");
+                    }
 
-                if (std::find(interfaces.begin(), interfaces.end(),
-                              "com.nvidia.SMUtilization") != interfaces.end())
-                {
-                    nvidia_processor_utils::getSMUtilizationData(aResp, service,
-                                                                 path);
+                    if (std::find(interfaces.begin(), interfaces.end(),
+                                  "com.nvidia.SMUtilization") !=
+                        interfaces.end())
+                    {
+                        nvidia_processor_utils::getSMUtilizationData(
+                            aResp, service, path);
+                    }
                 }
-
-}
                 getSensorMetric(aResp, service, path);
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-                getStateSensorMetric(aResp, service, path, deviceType);
-                getNumericSensorMetric(aResp, service, path, deviceType);
-}
+                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                {
+                    getStateSensorMetric(aResp, service, path, deviceType);
+                    getNumericSensorMetric(aResp, service, path, deviceType);
+                }
             }
             return;
         }
@@ -4982,14 +4990,15 @@ inline void
                 {
                     getEccPendingData(aResp, processorId, service, path);
                 }
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-                if (std::find(interfaces.begin(), interfaces.end(),
-                              "com.nvidia.CCMode") != interfaces.end())
+                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                 {
-                    redfish::nvidia_processor_utils::getCCModePendingData(
-                        aResp, processorId, service, path);
+                    if (std::find(interfaces.begin(), interfaces.end(),
+                                  "com.nvidia.CCMode") != interfaces.end())
+                    {
+                        redfish::nvidia_processor_utils::getCCModePendingData(
+                            aResp, processorId, service, path);
+                    }
                 }
-}
                 if (std::find(interfaces.begin(), interfaces.end(),
                               "xyz.openbmc_project.Software.ApplyTime") !=
                     interfaces.end())
@@ -5213,62 +5222,64 @@ inline void requestRoutesProcessorSettings(App& app)
                 });
             }
         }
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-        // Update ccMode
-        std::optional<nlohmann::json> oemNvidiaObject;
-
-        if (oemObject &&
-            redfish::json_util::readJson(*oemObject, asyncResp->res, "Nvidia",
-                                         oemNvidiaObject))
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
-            std::optional<bool> ccMode;
-            std::optional<bool> ccDevMode;
-            if (oemNvidiaObject &&
-                redfish::json_util::readJson(*oemNvidiaObject, asyncResp->res,
-                                             "CCModeEnabled", ccMode,
-                                             "CCDevModeEnabled", ccDevMode))
-            {
-                if (ccMode && ccDevMode)
-                {
-                    messages::queryCombinationInvalid(asyncResp->res);
-                    return;
-                }
+            // Update ccMode
+            std::optional<nlohmann::json> oemNvidiaObject;
 
-                if (ccMode)
+            if (oemObject &&
+                redfish::json_util::readJson(*oemObject, asyncResp->res,
+                                             "Nvidia", oemNvidiaObject))
+            {
+                std::optional<bool> ccMode;
+                std::optional<bool> ccDevMode;
+                if (oemNvidiaObject &&
+                    redfish::json_util::readJson(
+                        *oemNvidiaObject, asyncResp->res, "CCModeEnabled",
+                        ccMode, "CCDevModeEnabled", ccDevMode))
                 {
-                    redfish::processor_utils::getProcessorObject(
-                        asyncResp, processorId,
-                        [ccMode](
-                            const std::shared_ptr<bmcweb::AsyncResp>&
-                                asyncResp1,
-                            const std::string& processorId1,
-                            const std::string& objectPath,
-                            const MapperServiceMap& serviceMap,
-                            [[maybe_unused]] const std::string& deviceType) {
-                        redfish::nvidia_processor_utils::patchCCMode(
-                            asyncResp1, processorId1, *ccMode, objectPath,
-                            serviceMap);
-                    });
-                }
-                if (ccDevMode)
-                {
-                    redfish::processor_utils::getProcessorObject(
-                        asyncResp, processorId,
-                        [ccDevMode](
-                            const std::shared_ptr<bmcweb::AsyncResp>&
-                                asyncResp1,
-                            const std::string& processorId1,
-                            const std::string& objectPath,
-                            const MapperServiceMap& serviceMap,
-                            [[maybe_unused]] const std::string& deviceType) {
-                        redfish::nvidia_processor_utils::patchCCDevMode(
-                            asyncResp1, processorId1, *ccDevMode, objectPath,
-                            serviceMap);
-                    });
+                    if (ccMode && ccDevMode)
+                    {
+                        messages::queryCombinationInvalid(asyncResp->res);
+                        return;
+                    }
+
+                    if (ccMode)
+                    {
+                        redfish::processor_utils::getProcessorObject(
+                            asyncResp, processorId,
+                            [ccMode](const std::shared_ptr<bmcweb::AsyncResp>&
+                                         asyncResp1,
+                                     const std::string& processorId1,
+                                     const std::string& objectPath,
+                                     const MapperServiceMap& serviceMap,
+                                     [[maybe_unused]] const std::string&
+                                         deviceType) {
+                            redfish::nvidia_processor_utils::patchCCMode(
+                                asyncResp1, processorId1, *ccMode, objectPath,
+                                serviceMap);
+                        });
+                    }
+                    if (ccDevMode)
+                    {
+                        redfish::processor_utils::getProcessorObject(
+                            asyncResp, processorId,
+                            [ccDevMode](
+                                const std::shared_ptr<bmcweb::AsyncResp>&
+                                    asyncResp1,
+                                const std::string& processorId1,
+                                const std::string& objectPath,
+                                const MapperServiceMap& serviceMap,
+                                [[maybe_unused]] const std::string&
+                                    deviceType) {
+                            redfish::nvidia_processor_utils::patchCCDevMode(
+                                asyncResp1, processorId1, *ccDevMode,
+                                objectPath, serviceMap);
+                        });
+                    }
                 }
             }
         }
-}
     });
 }
 
@@ -6085,310 +6096,332 @@ inline void getProcessorPortMetricsData(
                 }
                 asyncResp->res.jsonValue["Networking"]["TXDiscards"] = *value;
             }
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-            if (property.first == "MalformedPkts")
+            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
+                if (property.first == "MalformedPkts")
                 {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for malformed packets");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["MalformedPackets"] =
-                    *value;
-            }
-            else if (property.first == "VL15DroppedPkts")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for VL15 dropped packets");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["VL15Dropped"] =
-                    *value;
-            }
-            else if (property.first == "VL15TXPkts")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for VL15 dropped packets");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["VL15TXPackets"] =
-                    *value;
-            }
-            else if (property.first == "VL15TXData")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for VL15 dropped packets");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["VL15TXBytes"] =
-                    *value;
-            }
-            else if (property.first == "LinkErrorRecoveryCounter")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for link error recovery count");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                        ["LinkErrorRecoveryCount"] = *value;
-            }
-            else if (property.first == "LinkDownCount")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for link down count");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["LinkDownedCount"] =
-                    *value;
-            }
-            else if (property.first == "TXWait")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for transmit wait");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["TXWait"] = *value;
-            }
-            else if (property.first == "RXNoProtocolBytes")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for RXNoProtocolBytes");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaPortMetrics.v1_3_0.NvidiaNVLinkPortMetrics";
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["RXNoProtocolBytes"] =
-                    *value;
-            }
-            else if (property.first == "TXNoProtocolBytes")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for TXNoProtocolBytes");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["TXNoProtocolBytes"] =
-                    *value;
-            }
-            else if (property.first == "BitErrorRate")
-            {
-                const double* value = std::get_if<double>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for bit error rate");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["BitErrorRate"] =
-                    *value;
-            }
-            else if (property.first == "DataCRCCount")
-            {
-                const uint32_t* value = std::get_if<uint32_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for DataCRCCount");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["NVLinkErrors"]
-                                        ["DataCRCCount"] = *value;
-            }
-            else if (property.first == "FlitCRCCount")
-            {
-                const uint32_t* value = std::get_if<uint32_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for FlitCRCCount");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["NVLinkErrors"]
-                                        ["FlitCRCCount"] = *value;
-            }
-            else if (property.first == "RecoveryCount")
-            {
-                const uint32_t* value = std::get_if<uint32_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for RecoveryCount");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["NVLinkErrors"]
-                                        ["RecoveryCount"] = *value;
-            }
-            else if (property.first == "ReplayErrorsCount")
-            {
-                const uint32_t* value = std::get_if<uint32_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for ReplayCount");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["NVLinkErrors"]
-                                        ["ReplayCount"] = *value;
-            }
-            else if (property.first == "RuntimeError")
-            {
-                const uint16_t* value = std::get_if<uint16_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned for RuntimeError");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                if (*value != 0)
-                {
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["NVLinkErrors"]
-                                            ["RuntimeError"] = true;
-                }
-                else
-                {
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["NVLinkErrors"]
-                                            ["RuntimeError"] = false;
-                }
-            }
-            else if (property.first == "TrainingError")
-            {
-                const uint16_t* value = std::get_if<uint16_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned for TrainingError");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                if (*value != 0)
-                {
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["NVLinkErrors"]
-                                            ["TrainingError"] = true;
-                }
-                else
-                {
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["NVLinkErrors"]
-                                            ["TrainingError"] = false;
-                }
-            }
-            else if (property.first == "NVLinkDataRxBandwidthGbps")
-            {
-                const double* value = std::get_if<double>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for NVLinkDataRxBandwidthGbps");
-                }
-                else
-                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for malformed packets");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                            ["NVLinkDataRxBandwidthGbps"] =
+                                            ["MalformedPackets"] = *value;
+                }
+                else if (property.first == "VL15DroppedPkts")
+                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for VL15 dropped packets");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["VL15Dropped"] =
                         *value;
                 }
-            }
-            else if (property.first == "NVLinkDataTxBandwidthGbps")
-            {
-                const double* value = std::get_if<double>(&property.second);
-                if (value == nullptr)
+                else if (property.first == "VL15TXPkts")
                 {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for NVLinkDataTxBandwidthGbps");
-                }
-                else
-                {
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                            ["NVLinkDataTxBandwidthGbps"] =
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for VL15 dropped packets");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["VL15TXPackets"] =
                         *value;
                 }
-            }
-            else if (property.first == "NVLinkRawRxBandwidthGbps")
-            {
-                const double* value = std::get_if<double>(&property.second);
-                if (value == nullptr)
+                else if (property.first == "VL15TXData")
                 {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for NVLinkRawRxBandwidthGbps");
-                }
-                else
-                {
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                            ["NVLinkRawRxBandwidthGbps"] =
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for VL15 dropped packets");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["VL15TXBytes"] =
                         *value;
                 }
-            }
-            else if (property.first == "NVLinkRawTxBandwidthGbps")
-            {
-                const double* value = std::get_if<double>(&property.second);
-                if (value == nullptr)
+                else if (property.first == "LinkErrorRecoveryCounter")
                 {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for NVLinkRawTxBandwidthGbps");
-                }
-                else
-                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for link error recovery count");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                            ["NVLinkRawTxBandwidthGbps"] =
-                        *value;
+                                            ["LinkErrorRecoveryCount"] = *value;
                 }
-            }
-            else if (property.first == "RXErrorsPerLane")
-            {
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaPortMetrics.v1_4_0.NvidiaPortMetrics";
-
-                const std::vector<uint32_t>* value =
-                    std::get_if<std::vector<uint32_t>>(&property.second);
-                if (value == nullptr)
+                else if (property.first == "LinkDownCount")
                 {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for RXErrorsPerLane");
-                }
-                else
-                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for link down count");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
                     asyncResp->res
-                        .jsonValue["Oem"]["Nvidia"]["RXErrorsPerLane"] = *value;
+                        .jsonValue["Oem"]["Nvidia"]["LinkDownedCount"] = *value;
+                }
+                else if (property.first == "TXWait")
+                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for transmit wait");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["TXWait"] =
+                        *value;
+                }
+                else if (property.first == "RXNoProtocolBytes")
+                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for RXNoProtocolBytes");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                        "#NvidiaPortMetrics.v1_3_0.NvidiaNVLinkPortMetrics";
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                            ["RXNoProtocolBytes"] = *value;
+                }
+                else if (property.first == "TXNoProtocolBytes")
+                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for TXNoProtocolBytes");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                            ["TXNoProtocolBytes"] = *value;
+                }
+                else if (property.first == "BitErrorRate")
+                {
+                    const double* value = std::get_if<double>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for bit error rate");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["BitErrorRate"] =
+                        *value;
+                }
+                else if (property.first == "DataCRCCount")
+                {
+                    const uint32_t* value =
+                        std::get_if<uint32_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for DataCRCCount");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["NVLinkErrors"]
+                                            ["DataCRCCount"] = *value;
+                }
+                else if (property.first == "FlitCRCCount")
+                {
+                    const uint32_t* value =
+                        std::get_if<uint32_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for FlitCRCCount");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["NVLinkErrors"]
+                                            ["FlitCRCCount"] = *value;
+                }
+                else if (property.first == "RecoveryCount")
+                {
+                    const uint32_t* value =
+                        std::get_if<uint32_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for RecoveryCount");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["NVLinkErrors"]
+                                            ["RecoveryCount"] = *value;
+                }
+                else if (property.first == "ReplayErrorsCount")
+                {
+                    const uint32_t* value =
+                        std::get_if<uint32_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for ReplayCount");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["NVLinkErrors"]
+                                            ["ReplayCount"] = *value;
+                }
+                else if (property.first == "RuntimeError")
+                {
+                    const uint16_t* value =
+                        std::get_if<uint16_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Null value returned for RuntimeError");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (*value != 0)
+                    {
+                        asyncResp->res
+                            .jsonValue["Oem"]["Nvidia"]["NVLinkErrors"]
+                                      ["RuntimeError"] = true;
+                    }
+                    else
+                    {
+                        asyncResp->res
+                            .jsonValue["Oem"]["Nvidia"]["NVLinkErrors"]
+                                      ["RuntimeError"] = false;
+                    }
+                }
+                else if (property.first == "TrainingError")
+                {
+                    const uint16_t* value =
+                        std::get_if<uint16_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Null value returned for TrainingError");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (*value != 0)
+                    {
+                        asyncResp->res
+                            .jsonValue["Oem"]["Nvidia"]["NVLinkErrors"]
+                                      ["TrainingError"] = true;
+                    }
+                    else
+                    {
+                        asyncResp->res
+                            .jsonValue["Oem"]["Nvidia"]["NVLinkErrors"]
+                                      ["TrainingError"] = false;
+                    }
+                }
+                else if (property.first == "NVLinkDataRxBandwidthGbps")
+                {
+                    const double* value = std::get_if<double>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for NVLinkDataRxBandwidthGbps");
+                    }
+                    else
+                    {
+                        asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                                ["NVLinkDataRxBandwidthGbps"] =
+                            *value;
+                    }
+                }
+                else if (property.first == "NVLinkDataTxBandwidthGbps")
+                {
+                    const double* value = std::get_if<double>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for NVLinkDataTxBandwidthGbps");
+                    }
+                    else
+                    {
+                        asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                                ["NVLinkDataTxBandwidthGbps"] =
+                            *value;
+                    }
+                }
+                else if (property.first == "NVLinkRawRxBandwidthGbps")
+                {
+                    const double* value = std::get_if<double>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for NVLinkRawRxBandwidthGbps");
+                    }
+                    else
+                    {
+                        asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                                ["NVLinkRawRxBandwidthGbps"] =
+                            *value;
+                    }
+                }
+                else if (property.first == "NVLinkRawTxBandwidthGbps")
+                {
+                    const double* value = std::get_if<double>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for NVLinkRawTxBandwidthGbps");
+                    }
+                    else
+                    {
+                        asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                                ["NVLinkRawTxBandwidthGbps"] =
+                            *value;
+                    }
+                }
+                else if (property.first == "RXErrorsPerLane")
+                {
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                        "#NvidiaPortMetrics.v1_4_0.NvidiaPortMetrics";
+
+                    const std::vector<uint32_t>* value =
+                        std::get_if<std::vector<uint32_t>>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for RXErrorsPerLane");
+                    }
+                    else
+                    {
+                        asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                                ["RXErrorsPerLane"] = *value;
+                    }
                 }
             }
-
-}
             else if (property.first == "ceCount")
             {
                 const int64_t* value = std::get_if<int64_t>(&property.second);
@@ -6596,26 +6629,28 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                             {
                                 getProcessorPortMetricsData(asyncResp, service,
                                                             sensorpath);
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-                                if (std::find(
-                                        interfaces.begin(), interfaces.end(),
-                                        "xyz.openbmc_project.PCIe.ClearPCIeCounters") !=
-                                    interfaces.end())
+                                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                                 {
-                                    asyncResp->res.jsonValue
-                                        ["Actions"]["Oem"]
-                                        ["#NvidiaPortMetrics.ClearPCIeCounters"]
-                                        ["target"] =
-                                        portMetricUri +
-                                        "/Actions/Oem/NvidiaPortMetrics.ClearPCIeCounters";
-                                    asyncResp->res.jsonValue
-                                        ["Actions"]["Oem"]
-                                        ["#NvidiaPortMetrics.ClearPCIeCounters"]
-                                        ["@Redfish.ActionInfo"] =
-                                        portMetricUri +
-                                        "/Oem/Nvidia/ClearPCIeCountersActionInfo";
+                                    if (std::find(
+                                            interfaces.begin(),
+                                            interfaces.end(),
+                                            "xyz.openbmc_project.PCIe.ClearPCIeCounters") !=
+                                        interfaces.end())
+                                    {
+                                        asyncResp->res.jsonValue
+                                            ["Actions"]["Oem"]
+                                            ["#NvidiaPortMetrics.ClearPCIeCounters"]
+                                            ["target"] =
+                                            portMetricUri +
+                                            "/Actions/Oem/NvidiaPortMetrics.ClearPCIeCounters";
+                                        asyncResp->res.jsonValue
+                                            ["Actions"]["Oem"]
+                                            ["#NvidiaPortMetrics.ClearPCIeCounters"]
+                                            ["@Redfish.ActionInfo"] =
+                                            portMetricUri +
+                                            "/Oem/Nvidia/ClearPCIeCountersActionInfo";
+                                    }
                                 }
-}
                             }
                         },
                             "xyz.openbmc_project.ObjectMapper",
@@ -6644,7 +6679,6 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                 "xyz.openbmc_project.Inventory.Item.Accelerator"});
     });
 }
-
 
 inline void requestRoutesClearPCIeCountersActionInfo(App& app)
 {
@@ -6702,7 +6736,6 @@ inline void requestRoutesPCIeClearCounter(App& app)
     });
 }
 
-
 inline void requestRoutesProcessorPortSettings(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
@@ -6735,18 +6768,19 @@ inline void requestRoutesProcessorPortSettings(App& app)
         asyncResp->res.jsonValue["Name"] = processorId + " " + portId +
                                            " Pending Settings";
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-        redfish::processor_utils::getProcessorObject(
-            asyncResp, processorId,
-            [portId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
-                     const std::string& processorId1,
-                     const std::string& objectPath,
-                     const MapperServiceMap& serviceMap,
-                     [[maybe_unused]] const std::string& deviceType) {
-            getPortDisableFutureStatus(asyncResp1, processorId1, objectPath,
-                                       serviceMap, portId);
-        });
-}
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+        {
+            redfish::processor_utils::getProcessorObject(
+                asyncResp, processorId,
+                [portId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
+                         const std::string& processorId1,
+                         const std::string& objectPath,
+                         const MapperServiceMap& serviceMap,
+                         [[maybe_unused]] const std::string& deviceType) {
+                getPortDisableFutureStatus(asyncResp1, processorId1, objectPath,
+                                           serviceMap, portId);
+            });
+        }
     });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
@@ -6771,23 +6805,24 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
             return;
         }
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-        if (linkState)
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
-            redfish::processor_utils::getProcessorObject(
-                asyncResp, processorId,
-                [linkState,
-                 portId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
-                         const std::string& processorId1,
-                         const std::string& objectPath,
-                         const MapperServiceMap& serviceMap,
-                         [[maybe_unused]] const std::string& deviceType) {
-                redfish::nvidia_processor_utils::patchPortDisableFuture(
-                    asyncResp1, processorId1, portId, *linkState,
-                    "PortDisableFuture", objectPath, serviceMap);
-            });
+            if (linkState)
+            {
+                redfish::processor_utils::getProcessorObject(
+                    asyncResp, processorId,
+                    [linkState, portId](
+                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
+                        const std::string& processorId1,
+                        const std::string& objectPath,
+                        const MapperServiceMap& serviceMap,
+                        [[maybe_unused]] const std::string& deviceType) {
+                    redfish::nvidia_processor_utils::patchPortDisableFuture(
+                        asyncResp1, processorId1, portId, *linkState,
+                        "PortDisableFuture", objectPath, serviceMap);
+                });
+            }
         }
-}
     });
 }
 

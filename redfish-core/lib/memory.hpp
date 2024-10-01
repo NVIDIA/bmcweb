@@ -626,22 +626,23 @@ inline void
         asyncResp->res.jsonValue[jsonPtr]["Location"]["PartLocationContext"] =
             *locationContext;
     }
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-    if (rowMappingFailureState != nullptr)
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-        asyncResp->res
-            .jsonValue[jsonPtr]["Oem"]["Nvidia"]["RowRemappingFailed"] =
-            *rowMappingFailureState;
+        if (rowMappingFailureState != nullptr)
+        {
+            asyncResp->res
+                .jsonValue[jsonPtr]["Oem"]["Nvidia"]["RowRemappingFailed"] =
+                *rowMappingFailureState;
+        }
+        if (rowMappingPendingState != nullptr)
+        {
+            asyncResp->res
+                .jsonValue[jsonPtr]["Oem"]["Nvidia"]["RowRemappingPending"] =
+                *rowMappingPendingState;
+        }
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+            "#NvidiaMemory.v1_0_0.NvidiaMemory";
     }
-    if (rowMappingPendingState != nullptr)
-    {
-        asyncResp->res
-            .jsonValue[jsonPtr]["Oem"]["Nvidia"]["RowRemappingPending"] =
-            *rowMappingPendingState;
-    }
-    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-        "#NvidiaMemory.v1_0_0.NvidiaMemory";
-}
 
     getPersistentMemoryProperties(asyncResp, properties, jsonPtr);
 }
@@ -1280,10 +1281,11 @@ inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
             aResp->res.jsonValue["@odata.id"] = memoryMetricsURI;
             aResp->res.jsonValue["Id"] = "MemoryMetrics";
             aResp->res.jsonValue["Name"] = dimmId + " Memory Metrics";
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-            aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaMemoryMetrics.v1_0_0.NvidiaMemoryMetrics";
-}
+            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+            {
+                aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                    "#NvidiaMemoryMetrics.v1_0_0.NvidiaMemoryMetrics";
+            }
             for (const auto& [service, interfaces] : object)
             {
                 if (std::find(interfaces.begin(), interfaces.end(),
@@ -1308,16 +1310,17 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                         "xyz.openbmc_project.Inventory.Item.Dimm.MemoryMetrics");
                 }
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-                if (std::find(interfaces.begin(), interfaces.end(),
-                              "com.nvidia.MemoryRowRemapping") !=
-                    interfaces.end())
+                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                 {
-                    aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                        "#NvidiaMemoryMetrics.v1_1_0.NvidiaGPUMemoryMetrics";
-                    getMemoryRowRemappings(aResp, service, path);
+                    if (std::find(interfaces.begin(), interfaces.end(),
+                                  "com.nvidia.MemoryRowRemapping") !=
+                        interfaces.end())
+                    {
+                        aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                            "#NvidiaMemoryMetrics.v1_1_0.NvidiaGPUMemoryMetrics";
+                        getMemoryRowRemappings(aResp, service, path);
+                    }
                 }
-}
             }
             return;
         }

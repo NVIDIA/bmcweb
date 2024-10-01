@@ -360,7 +360,8 @@ inline void getOemCBCChassisAsset(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
         for (unsigned int i = 0; i < property.length(); i += 2)
         {
             std::string byteData = property.substr(i, 2);
-            char byte = static_cast<char>(strtol(byteData.c_str(), nullptr, 16));
+            char byte =
+                static_cast<char>(strtol(byteData.c_str(), nullptr, 16));
             value.push_back(byte);
         }
         // this is CBC byte defintion for rev. 0x2
@@ -1480,45 +1481,50 @@ inline void handleChassisGetAllProperties(
     {
         asyncResp->res.jsonValue["AssetTag"] = *assetTag;
     }
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-    // default oem data
-    nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
-    oem["@odata.type"] = "#NvidiaChassis.v1_4_0.NvidiaChassis";
-
-    if (writeProtected != nullptr)
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-        asyncResp->res.jsonValue["Oem"]["Nvidia"]["HardwareWriteProtected"] =
-            *writeProtected;
-    }
+        // default oem data
+        nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+        oem["@odata.type"] = "#NvidiaChassis.v1_4_0.NvidiaChassis";
 
-    if (writeProtectedControl != nullptr)
-    {
-        asyncResp->res
-            .jsonValue["Oem"]["Nvidia"]["HardwareWriteProtectedControl"] =
-            *writeProtectedControl;
-    }
+        if (writeProtected != nullptr)
+        {
+            asyncResp->res
+                .jsonValue["Oem"]["Nvidia"]["HardwareWriteProtected"] =
+                *writeProtected;
+        }
 
-    dbus::utility::getDbusObject(
-        sdbusplus::message::object_path("/xyz/openbmc_project/software") /=
-        chassisId,
-        std::array<std::string_view, 1>{
-            "xyz.openbmc_project.Software.Settings"},
-        [asyncResp, chassisId](const boost::system::error_code& ec,
-                               const dbus::utility::MapperGetObject& object) {
-        getChassisWriteProtectProtectEnable(asyncResp, ec, chassisId, object);
-    });
+        if (writeProtectedControl != nullptr)
+        {
+            asyncResp->res
+                .jsonValue["Oem"]["Nvidia"]["HardwareWriteProtectedControl"] =
+                *writeProtectedControl;
+        }
 
-    if (pCIeReferenceClockCount != nullptr)
-    {
-        asyncResp->res.jsonValue["Oem"]["Nvidia"]["PCIeReferenceClockCount"] =
-            *pCIeReferenceClockCount;
+        dbus::utility::getDbusObject(
+            sdbusplus::message::object_path("/xyz/openbmc_project/software") /=
+            chassisId,
+            std::array<std::string_view, 1>{
+                "xyz.openbmc_project.Software.Settings"},
+            [asyncResp,
+             chassisId](const boost::system::error_code& ec,
+                        const dbus::utility::MapperGetObject& object) {
+            getChassisWriteProtectProtectEnable(asyncResp, ec, chassisId,
+                                                object);
+        });
+
+        if (pCIeReferenceClockCount != nullptr)
+        {
+            asyncResp->res
+                .jsonValue["Oem"]["Nvidia"]["PCIeReferenceClockCount"] =
+                *pCIeReferenceClockCount;
+        }
+        if (state != nullptr && operationalStatusPresent)
+        {
+            asyncResp->res.jsonValue["Status"]["State"] =
+                redfish::chassis_utils::getPowerStateType(*state);
+        }
     }
-    if (state != nullptr && operationalStatusPresent)
-    {
-        asyncResp->res.jsonValue["Status"]["State"] =
-            redfish::chassis_utils::getPowerStateType(*state);
-    }
-}
     asyncResp->res.jsonValue["Name"] = chassisId;
     asyncResp->res.jsonValue["Id"] = chassisId;
 #ifdef BMCWEB_ALLOW_DEPRECATED_POWER_THERMAL

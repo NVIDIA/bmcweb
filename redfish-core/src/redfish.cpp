@@ -58,15 +58,15 @@
 #ifdef BMCWEB_ENABLE_NETWORK_ADAPTERS_GENERIC
 #include "network_adapters_generic.hpp"
 #endif
-#include "nvidia_debug_token.hpp"
-#include "nvidia_error_injection.hpp"
-#include "nvidia_power_smoothing.hpp"
-#include "nvidia_workload_power_profiles.hpp"
 #include "boot_options.hpp"
 #include "erot_chassis.hpp"
 #include "fabric.hpp"
 #include "fabric_adapters.hpp"
 #include "host_interface.hpp"
+#include "nvidia_debug_token.hpp"
+#include "nvidia_error_injection.hpp"
+#include "nvidia_power_smoothing.hpp"
+#include "nvidia_workload_power_profiles.hpp"
 #ifdef BMCWEB_ENABLE_NETWORK_ADAPTERS
 #include "network_adapters.hpp"
 #endif
@@ -161,22 +161,25 @@ RedfishService::RedfishService(App& app)
     requestRoutesChassisCollection(app);
     requestRoutesChassis(app);
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-    requestRoutesChassisEnvironmentMetricsClearOOBSetPoint(app);
-    requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(app);
-}
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        requestRoutesChassisEnvironmentMetricsClearOOBSetPoint(app);
+        requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(app);
+    }
 
 #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
     requestRoutesChassisResetAction(app);
     requestRoutesChassisResetActionInfo(app);
 #endif
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-    requestRoutesChassisDebugToken(app);
-}
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        requestRoutesChassisDebugToken(app);
+    }
     requestRoutesUpdateService(app);
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-    requestRoutesSplitUpdateService(app);
-}
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        requestRoutesSplitUpdateService(app);
+    }
 
     requestRoutesChassisDrive(app);
     requestRoutesChassisDriveName(app);
@@ -297,20 +300,21 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     requestRoutesProcessorMemoryMetrics(app);
     requestRoutesProcessorSettings(app);
     requestRoutesProcessorReset(app);
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-    requestRoutesEdppReset(app);
-    requestRoutesClearPCIeCountersActionInfo(app);
-    requestRoutesPCIeClearCounter(app);
-    requestRoutesNvidiaManagerResetToDefaultsAction(app);
-    requestRoutesNvidiaManagerEmmcSecureErase(app);
-    requestRoutesManagerEmmcSecureEraseActionInfo(app);
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        requestRoutesEdppReset(app);
+        requestRoutesClearPCIeCountersActionInfo(app);
+        requestRoutesPCIeClearCounter(app);
+        requestRoutesNvidiaManagerResetToDefaultsAction(app);
+        requestRoutesNvidiaManagerEmmcSecureErase(app);
+        requestRoutesManagerEmmcSecureEraseActionInfo(app);
 #ifdef BMCWEB_COMMAND_SMBPBI_OOB
-    requestRouteSyncRawOobCommand(app);
-    requestRouteAsyncRawOobCommand(app);
-    requestRoutesNvidiaAsyncOOBRawCommandActionInfo(app);
-    requestRoutesNvidiaSyncOOBRawCommandActionInfo(app);
+        requestRouteSyncRawOobCommand(app);
+        requestRouteAsyncRawOobCommand(app);
+        requestRoutesNvidiaAsyncOOBRawCommandActionInfo(app);
+        requestRoutesNvidiaSyncOOBRawCommandActionInfo(app);
 #endif // BMCWEB_COMMAND_SMBPBI_OOB
-}
+    }
 
     requestRoutesProcessorPortCollection(app);
     requestRoutesProcessorPort(app);
@@ -382,9 +386,10 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     requestRoutesChassisPCIeFunction(app);
     requestRoutesChassisPCIeDeviceCollection(app);
     requestRoutesChassisPCIeDevice(app);
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-    requestRoutesClearPCIeAerErrorStatus(app);
-}
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        requestRoutesClearPCIeAerErrorStatus(app);
+    }
 
     requestRoutesSensorCollection(app);
     requestRoutesSensor(app);
@@ -425,9 +430,10 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     requestRoutesEndpoint(app);
     requestRoutesZoneCollection(app);
     requestRoutesZone(app);
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-    requestRoutesSwitchPowerMode(app);
-}
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        requestRoutesSwitchPowerMode(app);
+    }
 
 #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
     requestRoutesTriggerCollection(app);
@@ -448,10 +454,11 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     requestRoutesChassisControlsCollection(app);
     requestRoutesUpdateServiceCommitImage(app);
     requestRoutesChassisControlsReset(app);
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-    requestRoutesComputeDigestPost(app);
-    requestRoutesErrorInjection(app);
-}
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        requestRoutesComputeDigestPost(app);
+        requestRoutesErrorInjection(app);
+    }
 
 #ifdef BMCWEB_ENABLE_NVIDIA_OEM_BF_PROPERTIES
     requestRoutesNvidiaOemBf(app);
@@ -464,16 +471,17 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     requestRoutesUpdateServiceRevokeAllRemoteServerPublicKeys(app);
 #endif
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-    requestRoutesChassisFirmwareInfo(app);
-    requestRoutesProcessorPowerSmoothing(app);
-    requestRoutesProcessorPowerSmoothingAdminProfile(app);
-    requestRoutesProcessorPowerSmoothingPresetProfileCollection(app);
-    requestRoutesProcessorPowerSmoothingPresetProfile(app);
-    requestRoutesProcessorWorkloadPower(app);
-    requestRoutesProcessorWorkloadPowerProfileCollection(app);
-    requestRoutesProcessorWorkloadPowerProfile(app);
-}
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        requestRoutesChassisFirmwareInfo(app);
+        requestRoutesProcessorPowerSmoothing(app);
+        requestRoutesProcessorPowerSmoothingAdminProfile(app);
+        requestRoutesProcessorPowerSmoothingPresetProfileCollection(app);
+        requestRoutesProcessorPowerSmoothingPresetProfile(app);
+        requestRoutesProcessorWorkloadPower(app);
+        requestRoutesProcessorWorkloadPowerProfileCollection(app);
+        requestRoutesProcessorWorkloadPowerProfile(app);
+    }
 
 #ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
     requestRoutesLeakDetection(app);
