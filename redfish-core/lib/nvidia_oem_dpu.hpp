@@ -970,6 +970,82 @@ inline void handleTruststoreCertificatesCollectionPost(
     });
 }
 
+inline void populateTruststoreCertificateInfo(
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& propertiesList,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& certId)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+        messages::resourceNotFound(asyncResp->res, "Certificate", certId);
+        return;
+    }
+
+    const std::string* certificateString = nullptr;
+    const std::vector<std::string>* keyUsage = nullptr;
+    const std::string* issuer = nullptr;
+    const std::string* subject = nullptr;
+    const uint64_t* validNotAfter = nullptr;
+    const uint64_t* validNotBefore = nullptr;
+    const std::string* owner = nullptr;
+
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), propertiesList, "CertificateString",
+        certificateString, "KeyUsage", keyUsage, "Issuer", issuer, "Subject",
+        subject, "ValidNotAfter", validNotAfter, "ValidNotBefore",
+        validNotBefore, "UUID", owner);
+
+    if (!success)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    asyncResp->res.jsonValue["CertificateString"] = "";
+    asyncResp->res.jsonValue["KeyUsage"] = nlohmann::json::array();
+
+    if (certificateString != nullptr)
+    {
+        asyncResp->res.jsonValue["CertificateString"] = *certificateString;
+        asyncResp->res.jsonValue["CertificateType"] = "PEM";
+    }
+
+    if (keyUsage != nullptr)
+    {
+        asyncResp->res.jsonValue["KeyUsage"] = *keyUsage;
+    }
+
+    if (issuer != nullptr)
+    {
+        updateCertIssuerOrSubject(asyncResp->res.jsonValue["Issuer"], *issuer);
+    }
+
+    if (subject != nullptr)
+    {
+        updateCertIssuerOrSubject(asyncResp->res.jsonValue["Subject"],
+                                  *subject);
+    }
+
+    if (validNotAfter != nullptr)
+    {
+        asyncResp->res.jsonValue["ValidNotAfter"] =
+            redfish::time_utils::getDateTimeUint(*validNotAfter);
+    }
+
+    if (validNotBefore != nullptr)
+    {
+        asyncResp->res.jsonValue["ValidNotBefore"] =
+            redfish::time_utils::getDateTimeUint(*validNotBefore);
+    }
+
+    if (owner != nullptr)
+    {
+        asyncResp->res.jsonValue["UefiSignatureOwner"] = *owner;
+    }
+}
+
 inline void handleTruststoreCertificatesGet(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -992,75 +1068,8 @@ inline void handleTruststoreCertificatesGet(
         [asyncResp,
          certId](const boost::system::error_code ec,
                  const dbus::utility::DBusPropertiesMap& propertiesList) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-            messages::resourceNotFound(asyncResp->res, "Certificate", certId);
-            return;
-        }
-
-        const std::string* certificateString = nullptr;
-        const std::vector<std::string>* keyUsage = nullptr;
-        const std::string* issuer = nullptr;
-        const std::string* subject = nullptr;
-        const uint64_t* validNotAfter = nullptr;
-        const uint64_t* validNotBefore = nullptr;
-        const std::string* owner = nullptr;
-
-        const bool success = sdbusplus::unpackPropertiesNoThrow(
-            dbus_utils::UnpackErrorPrinter(), propertiesList,
-            "CertificateString", certificateString, "KeyUsage", keyUsage,
-            "Issuer", issuer, "Subject", subject, "ValidNotAfter",
-            validNotAfter, "ValidNotBefore", validNotBefore, "UUID", owner);
-
-        if (!success)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        asyncResp->res.jsonValue["CertificateString"] = "";
-        asyncResp->res.jsonValue["KeyUsage"] = nlohmann::json::array();
-
-        if (certificateString != nullptr)
-        {
-            asyncResp->res.jsonValue["CertificateString"] = *certificateString;
-            asyncResp->res.jsonValue["CertificateType"] = "PEM";
-        }
-
-        if (keyUsage != nullptr)
-        {
-            asyncResp->res.jsonValue["KeyUsage"] = *keyUsage;
-        }
-
-        if (issuer != nullptr)
-        {
-            updateCertIssuerOrSubject(asyncResp->res.jsonValue["Issuer"],
-                                      *issuer);
-        }
-
-        if (subject != nullptr)
-        {
-            updateCertIssuerOrSubject(asyncResp->res.jsonValue["Subject"],
-                                      *subject);
-        }
-
-        if (validNotAfter != nullptr)
-        {
-            asyncResp->res.jsonValue["ValidNotAfter"] =
-                redfish::time_utils::getDateTimeUint(*validNotAfter);
-        }
-
-        if (validNotBefore != nullptr)
-        {
-            asyncResp->res.jsonValue["ValidNotBefore"] =
-                redfish::time_utils::getDateTimeUint(*validNotBefore);
-        }
-
-        if (owner != nullptr)
-        {
-            asyncResp->res.jsonValue["UefiSignatureOwner"] = *owner;
-        }
+        populateTruststoreCertificateInfo(ec, propertiesList, asyncResp,
+                                          certId);
     });
 }
 

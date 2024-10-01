@@ -20,8 +20,13 @@
 #include "nlohmann/json.hpp"
 #include "task.hpp"
 
+#include <openssl/bio.h>
+#include <openssl/pem.h>
+#include <openssl/x509.h>
+
 #include <app.hpp>
 #include <dbus_utility.hpp>
+#include <nvidia_oem_dpu.hpp>
 #include <query.hpp>
 #include <registries/privilege_registry.hpp>
 #include <utils/json_utils.hpp>
@@ -56,6 +61,36 @@ const uint16_t invalidProfileNumber = 0xFFFF;
 // Profile status
 const uint8_t nvidiaIndex = 0;
 const uint8_t oemIndex = 1;
+
+enum ProfileOwner
+{
+    User,
+    Oem,
+    Nvidia,
+    Bios,
+    Invalid,
+};
+
+const std::string defaultProfileTruststorePath =
+    "/xyz/openbmc_project/certs/authority/profileDefault";
+const std::string defaultProfileTruststoreService =
+    "xyz.openbmc_project.Certs.Manager.Authority.ProfileDefault";
+const std::string defaultProfileTruststore = "Default";
+
+const std::string nvidiaProfileTruststore = "NvidiaCertificates";
+const std::string nvidiaProfileTruststoreService =
+    "xyz.openbmc_project.Certs.Manager.Authority.ProfileNvidia";
+const std::string nvidiaProfileTruststorePath =
+    "/xyz/openbmc_project/certs/authority/profileNvidia";
+
+const std::string oemProfileTruststore = "OemCertificates";
+const std::string oemProfileTruststoreService =
+    "xyz.openbmc_project.Certs.Manager.Authority.ProfileOem";
+const std::string oemProfileTruststorePath =
+    "/xyz/openbmc_project/certs/authority/profileOem";
+
+std::array<std::string, 2> profileTruststores = {nvidiaProfileTruststore,
+                                                 oemProfileTruststore};
 
 inline nvidia_system_profile::ActionStatus
     toActionStatus(std::string_view status)
@@ -933,6 +968,14 @@ inline void handleProfilesUrls(crow::App& app, const crow::Request& req,
     aResp->res.jsonValue["Profiles"]["@odata.id"] = boost::urls::format(
         "/redfish/v1/Systems/{}/Oem/Nvidia/SystemConfigProfile/Profiles",
         BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    aResp->res.jsonValue["Truststore"][nvidiaProfileTruststore]
+                        ["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Oem/Nvidia/SystemConfigProfile/Truststore/{}",
+        BMCWEB_REDFISH_SYSTEM_URI_NAME, nvidiaProfileTruststore);
+    aResp->res.jsonValue["Truststore"][oemProfileTruststore]
+                        ["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Oem/Nvidia/SystemConfigProfile/Truststore/{}",
+        BMCWEB_REDFISH_SYSTEM_URI_NAME, oemProfileTruststore);
 }
 
 /**
@@ -1170,17 +1213,9 @@ inline void handleProfileUpdate(crow::App& app, const crow::Request& req,
         messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
-    std::optional<nlohmann::json> profile =
-        json_util::readJsonPatchHelper(req, aResp->res);
-    if (profile == std::nullopt)
-    {
-        BMCWEB_LOG_ERROR("Missing profile file");
-        messages::propertyMissing(aResp->res, "Failed to load profile file");
-        return;
-    }
 
     auto memFd = std::make_shared<MemoryFD>();
-    std::string profileStr = profile->dump();
+    std::string profileStr = req.body();
     std::vector<uint8_t> profileData;
     profileData.assign(profileStr.begin(), profileStr.end());
     memFd->write(profileData);
@@ -1402,6 +1437,367 @@ inline void
                         requestedStatus));
 }
 
+inline std::string getConfigFlashType(std::string truststoreName)
+{
+    if (truststoreName == nvidiaProfileTruststore)
+    {
+        return "xyz.openbmc_project.Profiles.Configurations.Owner.Nvidia";
+    }
+    else if (truststoreName == oemProfileTruststore)
+    {
+        return "xyz.openbmc_project.Profiles.Configurations.Owner.OEM";
+    }
+    else
+    {
+        BMCWEB_LOG_DEBUG("Error flash type name");
+        return "";
+    }
+}
+
+inline std::string getProfileServiceName(std::string truststoreName)
+{
+    if (truststoreName == nvidiaProfileTruststore)
+    {
+        return nvidiaProfileTruststoreService;
+    }
+    else if (truststoreName == oemProfileTruststore)
+    {
+        return oemProfileTruststoreService;
+    }
+
+    BMCWEB_LOG_ERROR("Get service: Error truststore name");
+    return "";
+}
+
+inline std::string getProfileTruststorePath(std::string truststoreName)
+{
+    if (truststoreName == nvidiaProfileTruststore)
+    {
+        return nvidiaProfileTruststorePath;
+    }
+    else if (truststoreName == oemProfileTruststore)
+    {
+        return oemProfileTruststorePath;
+    }
+
+    BMCWEB_LOG_ERROR("Get Path: Error truststore name");
+    return "";
+}
+
+inline bool isTruststoreSupported(const std::string& truststoreName)
+{
+    auto it = std::find(profileTruststores.begin(), profileTruststores.end(),
+                        truststoreName);
+    return it != profileTruststores.end();
+}
+
+inline void handleGetProfileTruststoreCollection(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName, const std::string& truststoreName)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (systemName != std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME))
+    {
+        messages::resourceNotFound(asyncResp->res,
+                                   std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME),
+                                   systemName);
+        return;
+    }
+    if (!isTruststoreSupported(truststoreName))
+    {
+        messages::queryNotSupportedOnResource(asyncResp->res);
+        BMCWEB_LOG_ERROR("ERROR: trust store type is not supported: {}.",
+                         truststoreName);
+        return;
+    }
+    boost::urls::url url(
+        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+        "/Oem/Nvidia/SystemConfigProfile/Truststore/" + truststoreName);
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Oem/Nvidia/SystemConfigProfile/Truststore/{}",
+        BMCWEB_REDFISH_SYSTEM_URI_NAME, truststoreName);
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#CertificateCollection.CertificateCollection";
+    asyncResp->res.jsonValue["Name"] =
+        "Profile Truststore Certificate Collection";
+    asyncResp->res.jsonValue["@Redfish.SupportedCertificates"] = {"PEM"};
+
+    const std::array<std::string_view, 1> interfaces{
+        "xyz.openbmc_project.Certs.Certificate"};
+    std::string path = getProfileTruststorePath(truststoreName);
+    if (path.empty())
+    {
+        messages::unrecognizedRequestBody(asyncResp->res);
+        return;
+    }
+    redfish::collection_util::getCollectionMembers(asyncResp, url, interfaces,
+                                                   path.c_str());
+}
+
+inline void handleGetProfileCaCertificate(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName, const std::string& truststoreName,
+    const std::string& certId)
+{
+    BMCWEB_LOG_DEBUG("Start handleGetProfileCaCertificate");
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (systemName != std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME))
+    {
+        messages::resourceNotFound(asyncResp->res,
+                                   std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME),
+                                   systemName);
+        return;
+    }
+    if (!isTruststoreSupported(truststoreName))
+    {
+        messages::queryNotSupportedOnResource(asyncResp->res);
+        BMCWEB_LOG_ERROR("ERROR: trust store type is not supported {}",
+                         truststoreName);
+        return;
+    }
+
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Oem/Nvidia/SystemConfigProfile/Truststore/{}/{}",
+        BMCWEB_REDFISH_SYSTEM_URI_NAME, truststoreName, certId);
+    asyncResp->res.jsonValue["@odata.type"] = "#Certificate.v1_7_0.Certificate";
+    asyncResp->res.jsonValue["Id"] = certId;
+    asyncResp->res.jsonValue["Name"] = "Profiles Certificate";
+    std::string path = getProfileTruststorePath(truststoreName);
+    if (path.empty())
+    {
+        messages::unrecognizedRequestBody(asyncResp->res);
+        return;
+    }
+    path += ("/" + certId);
+    std::string service = getProfileServiceName(truststoreName);
+    if (service.empty())
+    {
+        messages::unrecognizedRequestBody(asyncResp->res);
+        return;
+    }
+    BMCWEB_LOG_DEBUG("getCertificateProperties Path={} certId={} certURl={}",
+                     path, service, certs::certPropIntf);
+    sdbusplus::asio::getAllProperties(
+        *crow::connections::systemBus, service, path, certs::certPropIntf,
+        [asyncResp,
+         certId](const boost::system::error_code& ec,
+                 const dbus::utility::DBusPropertiesMap& propertiesList) {
+        bluefield::populateTruststoreCertificateInfo(ec, propertiesList,
+                                                     asyncResp, certId);
+    });
+}
+
+static ProfileOwner getOwnerFromIssuer(const std::string& issuer)
+{
+    BMCWEB_LOG_DEBUG("Issuer: {}", issuer);
+    if (issuer.find("NVIDIA") != std::string::npos)
+    {
+        return ProfileOwner::Nvidia;
+    }
+    return ProfileOwner::Invalid;
+}
+
+inline void installCACerthandler(
+    const boost::system::error_code& ec, const std::string& objectPath,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::shared_ptr<CertificateFile>& certFile,
+    const std::string& truststoreName, const std::string& service)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Install cert DBUS response error: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    sdbusplus::message::object_path path(objectPath);
+    std::string certId = path.filename();
+    const boost::urls::url certURL = boost::urls::format(
+        "/redfish/v1/Systems/{}/Oem/Nvidia/SystemConfigProfile/Truststore/{}",
+        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME), truststoreName);
+    getCertificateProperties(asyncResp, objectPath, service, certId, certURL,
+                             "TrustStore Certificate");
+    BMCWEB_LOG_DEBUG("Profile TrustStore certificate install file={}",
+                     certFile->getCertFilePath());
+}
+
+static void installCACert(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const std::string& certHttpBody,
+                          const std::string& truststoreName)
+{
+    std::shared_ptr<CertificateFile> certFile =
+        std::make_shared<CertificateFile>(certHttpBody);
+    std::string service = getProfileServiceName(truststoreName);
+    if (service.empty())
+    {
+        messages::unrecognizedRequestBody(asyncResp->res);
+        return;
+    }
+    std::string path = getProfileTruststorePath(truststoreName);
+    if (path.empty())
+    {
+        messages::unrecognizedRequestBody(asyncResp->res);
+        return;
+    }
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, certFile, truststoreName,
+         service](const boost::system::error_code& ec,
+                  const std::string& objectPath) {
+        installCACerthandler(ec, objectPath, asyncResp, certFile,
+                             truststoreName, service);
+    },
+        service, path, "xyz.openbmc_project.Certs.Install", "Install",
+        certFile->getCertFilePath());
+}
+
+static ProfileOwner getCertOwner(const std::string& certStr)
+{
+    BIO* bio = BIO_new_mem_buf(certStr.data(),
+                               static_cast<int>(certStr.size()));
+    if (!bio)
+    {
+        BMCWEB_LOG_DEBUG("Error creating BIO ");
+        return ProfileOwner::Invalid;
+    }
+    X509* cert = PEM_read_bio_X509(bio, nullptr, nullptr, nullptr);
+
+    if (!cert)
+    {
+        BIO_free(bio);
+        BMCWEB_LOG_ERROR("Error reading certificate from string ");
+        return ProfileOwner::Invalid;
+    }
+    BIO_free(bio);
+    X509_NAME* issuerName = X509_get_issuer_name(cert);
+    if (!issuerName)
+    {
+        X509_free(cert);
+        BMCWEB_LOG_ERROR("Error getting issuer name from certificate");
+        return ProfileOwner::Invalid;
+    }
+    static const int maxKeySize = 4096;
+    char issuerBuffer[maxKeySize] = {0};
+    BIO* issuerBio = BIO_new(BIO_s_mem());
+    X509_NAME_print_ex(issuerBio, issuerName, 0, XN_FLAG_SEP_COMMA_PLUS);
+    BIO_read(issuerBio, issuerBuffer, maxKeySize);
+    X509_free(cert);
+    BIO_free(issuerBio);
+    return getOwnerFromIssuer(std::string(issuerBuffer));
+}
+
+inline void handlePostCertificateProfile(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& truststoreName, const std::string& certHttpBody,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreePathsResponse& objects)
+{
+    if (ec == boost::system::errc::io_error)
+    {
+        BMCWEB_LOG_ERROR("DBUS io error error");
+        asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
+        asyncResp->res.jsonValue["Members@odata.count"] = 0;
+        return;
+    }
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (!isTruststoreSupported(truststoreName))
+    {
+        BMCWEB_LOG_ERROR("ERROR: trust store type is not supported: {}.",
+                         truststoreName);
+        messages::queryNotSupportedOnResource(asyncResp->res);
+        return;
+    }
+
+    if ((objects.size() == 1))
+    {
+        BMCWEB_LOG_ERROR("Max certificate are installed on trust store {}",
+                         objects[0]);
+        messages::actionNotSupported(
+            asyncResp->res, "Max certificate are install on trust store");
+        return;
+    }
+    nlohmann::json& members = asyncResp->res.jsonValue["Members"];
+    members = nlohmann::json::array();
+    std::string path = getProfileTruststorePath(truststoreName);
+    if (path.empty())
+    {
+        messages::unrecognizedRequestBody(asyncResp->res);
+        return;
+    }
+    std::string service = getProfileServiceName(truststoreName);
+    if (service.empty())
+    {
+        messages::unrecognizedRequestBody(asyncResp->res);
+        return;
+    }
+    if (truststoreName == nvidiaProfileTruststore)
+    {
+        ProfileOwner owner = getCertOwner(certHttpBody);
+        if (owner != ProfileOwner::Nvidia)
+        {
+            messages::actionNotSupported(
+                asyncResp->res, "Issuer should be Nvidia on Nvidia truststore");
+            BMCWEB_LOG_ERROR(
+                "ERROR: Issuer should be Nvidia on Nvidia truststore.");
+            return;
+        }
+    }
+    installCACert(asyncResp, certHttpBody, truststoreName);
+}
+
+inline void handleProfileCaCertificatePost(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName, const std::string& truststoreName)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (systemName != std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME))
+    {
+        messages::resourceNotFound(asyncResp->res,
+                                   std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME),
+                                   systemName);
+        return;
+    }
+    BMCWEB_LOG_DEBUG("start handleProfileCaCertificatePost on {} .",
+                     truststoreName);
+    std::string certHttpBody = getCertificateFromReqBody(asyncResp, req);
+
+    if (certHttpBody.empty())
+    {
+        BMCWEB_LOG_ERROR("Cannot get certificate from request body.");
+        messages::unrecognizedRequestBody(asyncResp->res);
+        return;
+    }
+
+    if (!isTruststoreSupported(truststoreName))
+    {
+        messages::queryNotSupportedOnResource(asyncResp->res);
+        BMCWEB_LOG_ERROR("ERROR: trust store type is not supported: {}.",
+                         truststoreName);
+        return;
+    }
+    std::array<std::string_view, 1> interfaces = {certs::certPropIntf};
+    std::span<const std::string_view> spanInterfaces(interfaces);
+    dbus::utility::getSubTreePaths(
+        getProfileTruststorePath(truststoreName), 0, spanInterfaces,
+        std::bind_front(handlePostCertificateProfile, asyncResp, truststoreName,
+                        certHttpBody));
+}
+
 } // namespace profiles
 
 inline void requestRoutesProfiles(App& app)
@@ -1458,5 +1854,26 @@ inline void requestRoutesProfiles(App& app)
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(profiles::handleProfileUpdate, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/Oem/Nvidia/SystemConfigProfile/Truststore/<str>")
+        .privileges(redfish::privileges::getComputerSystem)
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            profiles::handleGetProfileTruststoreCollection, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/Oem/Nvidia/SystemConfigProfile/Truststore/<str>/<str>")
+        .privileges(redfish::privileges::getComputerSystem)
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            profiles::handleGetProfileCaCertificate, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/Oem/Nvidia/SystemConfigProfile/Truststore/<str>")
+        .privileges(redfish::privileges::postComputerSystem)
+        .methods(boost::beast::http::verb::post)(std::bind_front(
+            profiles::handleProfileCaCertificatePost, std::ref(app)));
 }
 } // namespace redfish
