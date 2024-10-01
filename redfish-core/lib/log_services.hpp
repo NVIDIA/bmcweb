@@ -84,6 +84,9 @@
 #include <variant>
 #include <vector>
 
+using json = nlohmann::json;
+using namespace nlohmann::literals;
+
 namespace redfish
 {
 
@@ -2688,8 +2691,10 @@ inline bool validateCperSectionArray(std::string& key, std::string& sub_string,
     unsigned int sec_start = static_cast<unsigned int>(key.find(sub_string));
     if (sec_start != std::string::npos)
     {
-        unsigned int index = sec_start + static_cast<unsigned int>(sub_string.length());
-        unsigned int end_index = static_cast<unsigned int>(key.find("/", index));
+        unsigned int index = sec_start +
+                             static_cast<unsigned int>(sub_string.length());
+        unsigned int end_index =
+            static_cast<unsigned int>(key.find("/", index));
 
         if (end_index != std::string::npos)
         {
@@ -2738,10 +2743,82 @@ inline void skipKeys(std::string& key, std::vector<std::string>& keyFilters)
     }
 }
 
+inline std::string capitalizeProp(const std::string& key)
+{
+    std::string ret = std::string(key);
+    if (ret.length() && isalpha(ret[0]))
+    {
+        ret[0] = static_cast<char>(toupper(ret[0]));
+    }
+    return ret;
+}
+
+template <class UnaryFunction>
+inline void jsonIterate(nlohmann::json& jOut, const nlohmann::json& jIn,
+                        UnaryFunction changeProp, bool debug = 0)
+{
+    if (!jIn.is_structured())
+    {
+        jOut = jIn;
+        return;
+    }
+
+    for (auto it = jIn.begin(); it != jIn.end(); ++it)
+    {
+        std::string kstr;
+
+        kstr = changeProp(it.key());
+
+        // Filter unwanted properties
+        if (kstr == "ErrorInformation")
+        {
+            jsonIterate(jOut, it.value(), changeProp);
+            continue;
+        }
+
+        if (it->is_structured())
+        {
+            if (it.value().is_object())
+            {
+                nlohmann::json jsonVal;
+                jOut[kstr] = jsonVal;
+                jsonIterate(jOut[kstr], it.value(), changeProp);
+            }
+            else if (it.value().is_array())
+            {
+                jOut[kstr] = nlohmann::json::array();
+                for (auto& arr_i : *it)
+                {
+                    jOut[kstr].push_back(nlohmann::json());
+                    jsonIterate(jOut[kstr].back(), arr_i, changeProp);
+                }
+            }
+            else
+            {
+                BMCWEB_LOG_WARNING("Unknown JSON structured type");
+            }
+        }
+        else
+        {
+            jOut[kstr] = it.value();
+        }
+    }
+    if (debug)
+    {
+        BMCWEB_LOG_DEBUG("jIn:\n", jIn.dump());
+        BMCWEB_LOG_DEBUG("jOut:\n", jOut.dump());
+        BMCWEB_LOG_DEBUG(
+            "---------------------------------------------------------------------\n\n\n\n");
+    }
+}
+
 inline void parseAdditionalDataForCPER(nlohmann::json::object_t& entry,
                                        const nlohmann::json::object_t& oem,
                                        const AdditionalData& additional)
 {
+    (void)entry;
+    (void)oem;
+
     const auto& type = additional.find("diagnosticDataType");
     if (additional.end() == type ||
         ("CPER" != type->second && "CPERSection" != type->second))
@@ -2751,84 +2828,77 @@ inline void parseAdditionalDataForCPER(nlohmann::json::object_t& entry,
 
     BMCWEB_LOG_DEBUG("Got {}", type->second);
 
-    const char* configFile = "/etc/cper-logger.json";
-    const auto& config = nlohmann::ordered_json::parse(
-        std::ifstream(configFile), nullptr, false);
-    if (config.is_discarded())
+    nlohmann::json jOut;
+
+    const auto& notifT = additional.find("notificationType");
+    if (additional.end() == notifT)
     {
-        BMCWEB_LOG_ERROR("Failed reading {}", configFile);
+        BMCWEB_LOG_ERROR("notificationType property not found in CPER log");
+    }
+    else
+    {
+        BMCWEB_LOG_ERROR("notif: in else");
+        jOut["CPER"]["NotificationType"] = notifT->second;
+    }
+
+    const auto& secT = additional.find("sectionType");
+    if (additional.end() == secT)
+    {
+        BMCWEB_LOG_WARNING("sectionType property not found in CPER log");
+    }
+    else
+    {
+        jOut["CPER"]["SectionType"] = secT->second;
+    }
+
+    nlohmann::json cperData;
+    const auto& jDiag = additional.find("jsonDiagnosticData");
+    if (additional.end() == jDiag)
+    {
+        BMCWEB_LOG_ERROR("jsonDiagnosticData property not found in CPER log");
+    }
+    else
+    {
+        cperData = nlohmann::json::parse(jDiag->second, nullptr, false);
+        if (cperData.is_discarded())
+        {
+            BMCWEB_LOG_ERROR("Could not parse CPER jsonDiagnosticData");
+            return;
+        }
+    }
+
+    if (cperData.find("sections") == cperData.end())
+    {
+        BMCWEB_LOG_ERROR("Sections property not found in CPER log");
         return;
     }
 
-    const auto& redfishConfig = config.find("redfishProperties");
-    if (redfishConfig == config.end())
+    const nlohmann::json::array_t* sections =
+        cperData["sections"].get_ptr<const nlohmann::json::array_t*>();
+    if (sections == nullptr)
     {
-        BMCWEB_LOG_ERROR("Invalid config {}", configFile);
+        BMCWEB_LOG_ERROR("sections property in CPER is not an array");
         return;
     }
 
-    nlohmann::json jFlat = oem;
-    jFlat = jFlat.flatten();
-    jFlat["/CPER/Oem/Nvidia/@odata.type"] = "#NvidiaCPER.v1_0_0.NvidiaCPER";
-
-    for (const auto& item : *redfishConfig)
+    // Iterate over Sections:
+    for (auto& section : *sections)
     {
-        const auto& jconfigFrom = item.find("from");
-        const auto& jconfigTo = item.find("to");
-        if (item.end() == jconfigFrom || item.end() == jconfigTo)
-            continue;
-
-        const auto& cperField = additional.find(*jconfigFrom);
-        if (additional.end() == cperField)
-            continue;
-
-        const auto& jconfigJson = item.find("json");
-        if (item.end() == jconfigJson || jconfigJson->get<bool>() == false)
-        {
-            jFlat[*jconfigTo] = cperField->second;
-            continue;
-        }
-
-        auto prefix = jconfigTo->dump();
-        prefix.erase(std::remove(prefix.begin(), prefix.end(), '\"'),
-                     prefix.end());
-
-        auto cperMain = nlohmann::ordered_json::parse(cperField->second,
-                                                      nullptr, false);
-        if (cperMain.is_discarded())
-        {
-            BMCWEB_LOG_ERROR("Failed to parse {}", cperField->second);
-            continue;
-        }
-
-        std::vector<std::string> secD = {"header/", "sectionDescriptors/"};
-        std::string sections = "sections/";
-        std::vector<std::string> keyFilter = {"errorInformation/"};
-        for (auto& [key, value] : cperMain.items())
-        {
-            std::string copy(key);
-            if (filterCperSection(copy, secD) &&
-                validateCperSectionArray(copy, sections))
-            {
-                skipKeys(copy, keyFilter);
-                // If they're an array, pick only the first entry (each event
-                // log should only contain a single section)
-                for (char& ch : copy)
-                {
-                    if (ch == '/')
-                    {
-                        char* c = &ch + 1;
-                        *c = static_cast<char>(
-                            std::toupper(static_cast<unsigned char>(*c)));
-                    }
-                }
-                jFlat[prefix + copy] = value;
-            }
-        }
+        jsonIterate(jOut["CPER"]["Oem"]["Nvidia"], section, capitalizeProp);
+        // We only care about the first section
+        break;
     }
-    jFlat["/DiagnosticDataType"] = "CPERSection";
 
-    entry = jFlat.unflatten();
+    // Root
+    jOut["DiagnosticDataType"] = "CPERSection";
+    jOut["MessageId"] = "Platform.1.0.PlatformError";
+
+    // NVIDIA
+    jOut["CPER"]["Oem"]["Nvidia"]["@odata.type"] =
+        "#NvidiaCPER.v1_0_0.NvidiaCPER";
+
+    BMCWEB_LOG_ERROR("dump: \n", jOut.dump());
+    entry = jOut;
 
     BMCWEB_LOG_DEBUG("Done {}", type->second);
 }
