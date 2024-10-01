@@ -194,7 +194,7 @@ inline void
                 "xyz.openbmc_project.Inventory.Item.PCIeDevice"};
             // Get Inventory Service
             crow::connections::systemBus->async_method_call(
-                [asyncResp, device, chassisPCIePath, interface, chassisId,
+                [asyncResp, device, chassisPCIePath, chassisId,
                  chassisPCIeDevicePath,
                  chassisPath](const boost::system::error_code ec,
                               const GetSubTreeType& subtree) {

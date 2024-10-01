@@ -137,7 +137,7 @@ inline std::vector<InbandReconfigPermission> parseInbandReconfigPermissionsJson(
  * @param[in]       json            InbandReconfigPermissions json data to
  * apply.
  */
-void patchInbandReconfigPermissions(
+inline void patchInbandReconfigPermissions(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& processorId, nlohmann::json& json)
 {
@@ -197,7 +197,7 @@ inline void patchCCMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
     // Set the property, with handler to check error responses
     crow::connections::systemBus->async_method_call(
-        [resp, processorId, ccMode](boost::system::error_code ec,
+        [resp, processorId](boost::system::error_code ec,
                                     sdbusplus::message::message& msg) {
         if (!ec)
         {
@@ -266,7 +266,7 @@ inline void patchCCDevMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
     // Set the property, with handler to check error responses
     crow::connections::systemBus->async_method_call(
-        [resp, processorId, ccDevMode](boost::system::error_code ec,
+        [resp, processorId](boost::system::error_code ec,
                                        sdbusplus::message::message& msg) {
         if (!ec)
         {

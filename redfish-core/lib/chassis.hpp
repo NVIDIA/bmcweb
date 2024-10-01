@@ -739,7 +739,7 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                         asyncResp, connectionName, path);
                 }
 if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-                else if (
+                if (
                     interface ==
                     "xyz.openbmc_project.Inventory.Decorator.VendorInformation")
                 {
@@ -852,7 +852,6 @@ inline void
     std::optional<std::string> indicatorLed;
     std::optional<nlohmann::json> oemJsonObj;
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     std::optional<std::string> partNumber;
     std::optional<std::string> serialNumber;
 
@@ -861,7 +860,6 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     std::optional<double> temperature;
     std::optional<bool> hardwareWriteProtectEnable;
 
-}
 
     if (param.empty())
     {
@@ -879,6 +877,7 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
 if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
     if (oemJsonObj)
     {
+
         std::optional<nlohmann::json> nvidiaJsonObj;
         if (json_util::readJson(*oemJsonObj, asyncResp->res, "Nvidia",
                                 nvidiaJsonObj))
@@ -937,13 +936,9 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
 
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/inventory", 0, interfaces,
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         [asyncResp, chassisId, locationIndicatorActive, indicatorLed,
          partNumber, serialNumber, cpuClockFrequency, workloadFactor,
          temperature, hardwareWriteProtectEnable]
-} else {
-        [asyncResp, chassisId, locationIndicatorActive, indicatorLed]
-}
         (const boost::system::error_code& ec,
          const dbus::utility::MapperGetSubTreeResponse& subtree) {
         if (ec)

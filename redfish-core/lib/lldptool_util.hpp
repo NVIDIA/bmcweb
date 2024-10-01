@@ -102,7 +102,7 @@ class LldpToolUtil
  *
  * @return string with the command to be executed.
  */
-std::string LldpToolUtil::translateOperationToCommand(
+inline std::string LldpToolUtil::translateOperationToCommand(
     const std::string& ifName, LldpTlv lldpTlv, LldpCommandType lldpCommandType,
     bool isReceived)
 {
@@ -171,7 +171,7 @@ std::string LldpToolUtil::translateOperationToCommand(
     return command;
 }
 
-void LldpToolUtil::run(const std::string& ifName, LldpTlv lldpTlv,
+inline void LldpToolUtil::run(const std::string& ifName, LldpTlv lldpTlv,
                        LldpCommandType lldpCommandType, bool isReceived,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        LldpResponseCallback responseCallback)

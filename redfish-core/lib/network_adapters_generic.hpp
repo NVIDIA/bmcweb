@@ -1187,9 +1187,8 @@ inline void
             return;
         }
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-        auto addNvidiaType = false;
-}
+        auto addNvidiaType = BMCWEB_NVIDIA_OEM_PROPERTIES;
+
         static const std::map<std::string, std::optional<std::string>>
             pcieErrorsProperties{
                 {"ceCount", "CorrectableErrorCount"},
@@ -1317,7 +1316,7 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                 asyncResp->res.jsonValue["Networking"]["TXDiscards"] = *value;
             }
 if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-            else if (property.first == "VL15DroppedPkts")
+            if (property.first == "VL15DroppedPkts")
             {
                 const uint64_t* value = std::get_if<uint64_t>(&property.second);
                 if (value == nullptr)

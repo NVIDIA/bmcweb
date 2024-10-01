@@ -681,7 +681,7 @@ inline void
             }
 
 if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-            else if (propertyName == "DeviceId")
+            if (propertyName == "DeviceId")
             {
                 const std::string* value =
                     std::get_if<std::string>(&property.second);
@@ -3589,7 +3589,7 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                 asyncResp->res.jsonValue["Networking"]["TXDiscards"] = *value;
             }
 if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-            else if (property.first == "RXNoProtocolBytes")
+            if (property.first == "RXNoProtocolBytes")
             {
                 const uint64_t* value = std::get_if<uint64_t>(&property.second);
                 if (value == nullptr)
@@ -3867,7 +3867,7 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
                 asyncResp->res.jsonValue["Oem"]["Nvidia"]["TXWait"] = *value;
             }
 }
-            else if (property.first == "ceCount")
+            if (property.first == "ceCount")
             {
                 const int64_t* value = std::get_if<int64_t>(&property.second);
                 if (value == nullptr)

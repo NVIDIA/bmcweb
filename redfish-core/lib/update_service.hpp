@@ -3687,8 +3687,6 @@ inline void
     });
 }
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-
 /**
  * @brief compute digest method handler invoke retimer hash computation
  *
@@ -3724,7 +3722,8 @@ inline void computeDigest(const crow::Request& req,
         unsigned retimerId;
         try
         {
-            retimerId = std::stoul(swId.substr(swId.rfind("_") + 1));
+            // TODO this needs moved to from_chars
+            retimerId = static_cast<unsigned>(std::stoul(swId.substr(swId.rfind("_") + 1)));
         }
         catch (const std::exception& e)
         {
@@ -4029,8 +4028,6 @@ inline void updateOemActionComputeDigest(
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/com/Nvidia/ComputeHash", static_cast<int32_t>(0),
         std::array<const char*, 1>{hashComputeInterface.c_str()});
-}
-
 }
 
 inline void requestRoutesSoftwareInventory(App& app)
@@ -5027,7 +5024,6 @@ inline void requestRoutesUpdateServiceRevokeAllRemoteServerPublicKeys(App& app)
     });
 }
 
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
 /**
  * @brief Create task for tracking firmware package staging.
  *
@@ -5756,8 +5752,7 @@ inline void handleUpdateServicePersistentStorageFwPackageGet(
     asyncResp->res.jsonValue["Name"] = "Firmware Package 0 Resource";
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp,
-         &strParam](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code ec,
                     const crow::openbmc_mapper::GetSubTreeType& subtree) {
         BMCWEB_LOG_DEBUG("doGet callback...");
         if (ec)
@@ -6018,7 +6013,7 @@ inline void setTargetsInitiateFirmwarePackage(
                     for (const std::string& path : swInvPaths)
                     {
                         std::size_t idPos = path.rfind(objPath);
-                        if ((idPos == std::string::npos))
+                        if (idPos == std::string::npos)
                         {
                             continue;
                         }
@@ -6706,6 +6701,5 @@ inline void requestRoutesSplitUpdateService(App& app)
             handleUpdateServiceDeleteFirmwarePackage, std::ref(app)));
 }
 
-}
 
 } // namespace redfish

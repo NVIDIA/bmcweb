@@ -1418,8 +1418,7 @@ inline void
                     asyncResp, std::chrono::seconds(60), connection, path,
                     "com.nvidia.PowerSmoothing.ProfileActionAsync",
                     "ActivatePresetProfile",
-                    [asyncResp,
-                     profileId](const std::string& status,
+                    [asyncResp](const std::string& status,
                                 [[maybe_unused]] const int* retValue) {
                     if (status ==
                         nvidia_async_operation_utils::asyncStatusValueSuccess)

@@ -360,7 +360,7 @@ inline void getOemCBCChassisAsset(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
         for (unsigned int i = 0; i < property.length(); i += 2)
         {
             std::string byteData = property.substr(i, 2);
-            char byte = static_cast<char>(strtol(byteData.c_str(), NULL, 16));
+            char byte = static_cast<char>(strtol(byteData.c_str(), nullptr, 16));
             value.push_back(byte);
         }
         // this is CBC byte defintion for rev. 0x2

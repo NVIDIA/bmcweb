@@ -146,7 +146,7 @@ inline void handleDebugTokenResourceInfo(
                                   "/Actions/NvidiaDebugToken.DisableToken"s;
     };
 
-    int timeout;
+    int timeout = 0;
     auto currentOp = tokenOpMap.find(chassisId);
     if (currentOp != tokenOpMap.end() && !currentOp->second->finished(timeout))
     {
@@ -229,7 +229,7 @@ inline void
     {
         return;
     }
-    int timeout;
+    int timeout = 0;
     auto currentOp = tokenOpMap.find(chassisId);
     if (currentOp != tokenOpMap.end() && !currentOp->second->finished(timeout))
     {

@@ -2907,7 +2907,7 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
             }
 
 if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-            else if (interface == "com.nvidia.MigMode")
+            if (interface == "com.nvidia.MigMode")
             {
                 getProcessorMigModeData(aResp, processorId, serviceName,
                                         objectPath);
@@ -3043,7 +3043,7 @@ inline void patchMigMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
         // Set the property, with handler to check error responses
         crow::connections::systemBus->async_method_call(
-            [resp, processorId, migMode](boost::system::error_code ec,
+            [resp, processorId](boost::system::error_code ec,
                                          sdbusplus::message::message& msg) {
             if (!ec)
             {
@@ -3114,7 +3114,7 @@ inline void setProcessorRemoteDebugState(
 {
     // Set the property, with handler to check error responses
     crow::connections::systemBus->async_method_call(
-        [aResp, objPath, remoteDebugEnabled](const boost::system::error_code ec,
+        [aResp, objPath](const boost::system::error_code ec,
                                              sdbusplus::message::message& msg) {
         if (!ec)
         {
@@ -4071,7 +4071,7 @@ inline void getProcessorMemoryECCData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                     ["UncorrectableECCErrorCount"] = *value;
             }
 if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-            else if (property.first == "isThresholdExceeded")
+            if (property.first == "isThresholdExceeded")
             {
                 const bool* value = std::get_if<bool>(&property.second);
                 if (value == nullptr)
@@ -6086,7 +6086,7 @@ inline void getProcessorPortMetricsData(
                 asyncResp->res.jsonValue["Networking"]["TXDiscards"] = *value;
             }
 if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
-            else if (property.first == "MalformedPkts")
+            if (property.first == "MalformedPkts")
             {
                 const uint64_t* value = std::get_if<uint64_t>(&property.second);
                 if (value == nullptr)

@@ -870,7 +870,7 @@ inline uint32_t formatSyncDataIn(std::vector<std::string>& data)
     return dataIn;
 }
 
-void executeRawSynCommand(const std::shared_ptr<bmcweb::AsyncResp>& resp,
+inline void executeRawSynCommand(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                           const std::string& serviceName,
                           const std::string& objPath, const std::string& Type,
                           uint8_t id, uint8_t opCode, uint8_t arg1,
@@ -969,7 +969,7 @@ inline void requestRouteSyncRawOobCommand(App& app)
             {
                 dataInRaw = formatSyncDataIn(*dataIn);
             }
-            catch (const std::runtime_error& e)
+            catch (const std::runtime_error& /*e*/)
             {
                 BMCWEB_LOG_ERROR("formatSyncDataIn failed with runtime error ");
                 messages::internalError(asyncResp->res);
@@ -983,7 +983,7 @@ inline void requestRouteSyncRawOobCommand(App& app)
             {
                 extDataInRaw = formatSyncDataIn(*extDataIn);
             }
-            catch (const std::runtime_error& e)
+            catch (const std::runtime_error& /*e*/)
             {
                 BMCWEB_LOG_ERROR("formatSyncDataIn failed with runtime error ");
                 messages::internalError(asyncResp->res);
@@ -1037,7 +1037,7 @@ inline void requestRouteSyncRawOobCommand(App& app)
 }
 
 // function to convert dataInbyte array to dataIn uint32 vector
-std::vector<std::uint32_t>
+inline std::vector<std::uint32_t>
     formatAsyncDataIn(std::vector<std::string>& asynDataInBytes)
 {
     size_t j;
@@ -1095,7 +1095,7 @@ std::vector<std::uint32_t>
     return asyncDataIn;
 }
 
-void executeRawAsynCommand(const std::shared_ptr<bmcweb::AsyncResp>& resp,
+inline void executeRawAsynCommand(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                            const std::string& serviceName,
                            const std::string& objPath, const std::string& Type,
                            uint8_t id, uint8_t argRaw,
@@ -1211,7 +1211,7 @@ inline void requestRouteAsyncRawOobCommand(App& app)
             {
                 asyncDataInRaw = formatAsyncDataIn(*asynDataIn);
             }
-            catch (const std::runtime_error& e)
+            catch (const std::runtime_error& /*e*/)
             {
                 BMCWEB_LOG_ERROR(
                     "formatAsyncDataIn failed with runtime error ");
@@ -3176,7 +3176,7 @@ inline void
 
     // Set the property, with handler to check error responses
     crow::connections::systemBus->async_method_call(
-        [resp, privilege, privilegeType](boost::system::error_code ec,
+        [resp, privilegeType](boost::system::error_code ec,
                                          sdbusplus::message::message& msg) {
         if (!ec)
         {
@@ -3970,7 +3970,7 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         std::optional<std::string> profile;
         std::optional<nlohmann::json::object_t> stepwiseControllers;
 #endif // BMCWEB_ENABLE_REDFISH_OEM_MANAGER_FAN_DATA
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
+
 #ifdef BMCWEB_ENABLE_FENCING_PRIVILEGE
         std::optional<std::string> privilege;
 #endif // BMCWEB_ENABLE_FENCING_PRIVILEGE
@@ -3978,7 +3978,7 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
         std::optional<bool> tlsAuth;
 #endif  // BMCWEB_ENABLE_TLS_AUTH_OPT_IN
         std::optional<bool> openocdValue;
-}
+
 
         // clang-format off
         if (!json_util::readJsonPatch(req, asyncResp->res,
@@ -3989,7 +3989,7 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
               "Oem/OpenBmc/Fan/Profile", profile,
               "Oem/OpenBmc/Fan/StepwiseControllers", stepwiseControllers,
 #endif // BMCWEB_ENABLE_REDFISH_OEM_MANAGER_FAN_DATA
-if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
+
 #ifdef BMCWEB_ENABLE_FENCING_PRIVILEGE
               "Oem/Nvidia/SMBPBIFencingPrivilege", privilege,
 #endif // BMCWEB_ENABLE_FENCING_PRIVILEGE
@@ -3997,7 +3997,6 @@ if constexpr(BMCWEB_NVIDIA_OEM_PROPERTIES){
               "Oem/Nvidia/AuthenticationTLSRequired", tlsAuth,
 #endif // BMCWEB_ENABLE_TLS_AUTH_OPT_IN
               "Oem/Nvidia/OpenOCD/Enable", openocdValue,
-}
               "Links/ActiveSoftwareImage/@odata.id", activeSoftwareImageOdataId,
               "DateTime", datetime,
               "ServiceIdentification", serviceIdentification
