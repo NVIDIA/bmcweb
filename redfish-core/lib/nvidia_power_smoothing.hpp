@@ -1289,8 +1289,53 @@ inline void patchPresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
             "xyz.openbmc_project.Inventory.Item.Cpu"});
 }
 
-inline void applyAdminOverride(std::shared_ptr<bmcweb::AsyncResp> aResp,
-                               const std::string& processorId)
+inline void
+    applyAdminOverride(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       const std::string& connection, const std::string& path)
+{
+    dbus::utility::getDbusObject(
+        path,
+        std::array<std::string_view, 1>{
+            "com.nvidia.PowerSmoothing.ProfileActionAsync"},
+        [asyncResp, path,
+         connection](const boost::system::error_code& ec,
+                     const dbus::utility::MapperGetObject& object) {
+        if (!ec)
+        {
+            for (const auto& [serv, _] : object)
+            {
+                if (serv != connection)
+                {
+                    continue;
+                }
+
+                BMCWEB_LOG_DEBUG("Performing Post using Async Method Call");
+
+                nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+                    int>(asyncResp, std::chrono::seconds(60), connection, path,
+                         "com.nvidia.PowerSmoothing.ProfileActionAsync",
+                         "ApplyAdminOverride",
+                         [asyncResp](const std::string& status,
+                                     [[maybe_unused]] const int* retValue) {
+                    if (status ==
+                        nvidia_async_operation_utils::asyncStatusValueSuccess)
+                    {
+                        BMCWEB_LOG_DEBUG("ApplyAdminOverride Succeeded");
+                        messages::success(asyncResp->res);
+                        return;
+                    }
+                    BMCWEB_LOG_ERROR("ApplyAdminOverride Throws error {}",
+                                     status);
+                    messages::internalError(asyncResp->res);
+                });
+                return;
+            }
+        }
+    });
+}
+
+inline void postApplyAdminOverride(std::shared_ptr<bmcweb::AsyncResp> aResp,
+                                   const std::string& processorId)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
@@ -1316,48 +1361,18 @@ inline void applyAdminOverride(std::shared_ptr<bmcweb::AsyncResp> aResp,
 
             for (const auto& [service, interfaces] : object)
             {
-                if (std::find(
-                        interfaces.begin(), interfaces.end(),
-                        "com.nvidia.PowerSmoothing.CurrentPowerProfile") !=
+                if (std::find(interfaces.begin(), interfaces.end(),
+                              "com.nvidia.PowerSmoothing.ProfileActionAsync") ==
                     interfaces.end())
                 {
-                    // call method
-                    crow::connections::systemBus->async_method_call(
-                        [aResp, processorId](boost::system::error_code ec,
-                                             sdbusplus::message::message& msg) {
-                        if (!ec)
-                        {
-                            BMCWEB_LOG_DEBUG(
-                                "Apply Admin Override failed succeeded");
-                            return;
-                        }
-
-                        BMCWEB_LOG_DEBUG("Apply Admin Override failed: {}, {}",
-                                         processorId, ec);
-                        // Read and convert dbus error message to redfish error
-                        const sd_bus_error* dbusError = msg.get_error();
-                        if (dbusError == nullptr)
-                        {
-                            messages::internalError(aResp->res);
-                            return;
-                        }
-
-                        if (strcmp(dbusError->name,
-                                   "xyz.openbmc_project.Common."
-                                   "Device.Error.WriteFailure") == 0)
-                        {
-                            // Service failed to change the config
-                            messages::operationFailed(aResp->res);
-                        }
-                        else
-                        {
-                            messages::internalError(aResp->res);
-                        }
-                    },
-                        service, path,
-                        "com.nvidia.PowerSmoothing.CurrentPowerProfile",
-                        "ApplyAdminOverride");
+                    // Object not found
+                    messages::resourceNotFound(
+                        aResp->res,
+                        "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
+                        processorId);
+                    return;
                 }
+                applyAdminOverride(aResp, service, path);
             }
             return;
         }
@@ -1375,9 +1390,58 @@ inline void applyAdminOverride(std::shared_ptr<bmcweb::AsyncResp> aResp,
             "xyz.openbmc_project.Inventory.Item.Cpu"});
 }
 
-inline void activatePresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                  const std::string& processorId,
-                                  const uint16_t profileId)
+inline void
+    activatePresetProfile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const std::string& connection,
+                          const std::string& path, const uint16_t& profileId)
+{
+    dbus::utility::getDbusObject(
+        path,
+        std::array<std::string_view, 1>{
+            "com.nvidia.PowerSmoothing.ProfileActionAsync"},
+        [asyncResp, path, profileId,
+         connection](const boost::system::error_code& ec,
+                     const dbus::utility::MapperGetObject& object) {
+        if (!ec)
+        {
+            for (const auto& [serv, _] : object)
+            {
+                if (serv != connection)
+                {
+                    continue;
+                }
+
+                BMCWEB_LOG_DEBUG("Performing Post using Async Method Call");
+
+                nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+                    int>(
+                    asyncResp, std::chrono::seconds(60), connection, path,
+                    "com.nvidia.PowerSmoothing.ProfileActionAsync",
+                    "ActivatePresetProfile",
+                    [asyncResp,
+                     profileId](const std::string& status,
+                                [[maybe_unused]] const int* retValue) {
+                    if (status ==
+                        nvidia_async_operation_utils::asyncStatusValueSuccess)
+                    {
+                        BMCWEB_LOG_DEBUG("ActivatePresetProfile Succeeded");
+                        messages::success(asyncResp->res);
+                        return;
+                    }
+                    BMCWEB_LOG_ERROR("ActivatePresetProfile Throws error {}",
+                                     status);
+                    messages::internalError(asyncResp->res);
+                },
+                    profileId);
+                return;
+            }
+        }
+    });
+}
+
+inline void postActivatePresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
+                                      const std::string& processorId,
+                                      const uint16_t profileId)
 {
     BMCWEB_LOG_DEBUG(
         "activatePresetProfile: Get available system processor resource");
@@ -1404,30 +1468,18 @@ inline void activatePresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
 
             for (const auto& [service, interfaces] : object)
             {
-                if (std::find(
-                        interfaces.begin(), interfaces.end(),
-                        "com.nvidia.PowerSmoothing.CurrentPowerProfile") !=
+                if (std::find(interfaces.begin(), interfaces.end(),
+                              "com.nvidia.PowerSmoothing.ProfileActionAsync") ==
                     interfaces.end())
                 {
-                    // call method
-                    BMCWEB_LOG_DEBUG(
-                        "activatePresetProfile: ActivatePresetProfile {} {} {}",
-                        profileId, service, path);
-                    crow::connections::systemBus->async_method_call(
-                        [aResp, processorId](boost::system::error_code ec) {
-                        if (ec)
-                        {
-                            BMCWEB_LOG_ERROR(
-                                "activatePresetProfile: ActivatePresetProfile failed");
-                            return;
-                        }
-
-                        messages::internalError(aResp->res);
-                    },
-                        service, path,
-                        "com.nvidia.PowerSmoothing.CurrentPowerProfile",
-                        "ActivatePresetProfile", profileId);
+                    // Object not found
+                    messages::resourceNotFound(
+                        aResp->res,
+                        "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
+                        processorId);
+                    return;
                 }
+                activatePresetProfile(aResp, service, path, profileId);
             }
             return;
         }
@@ -1515,12 +1567,12 @@ inline void requestRoutesProcessorPowerSmoothing(App& app)
             return;
         }
 
-        applyAdminOverride(asyncResp, processorId);
+        postApplyAdminOverride(asyncResp, processorId);
     });
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/Processors/<str>/Oem/Nvidia/PowerSmoothing/Actions/NvidiaPowerSmoothing.ActivatePresetProfile/")
+        "/redfish/v1/Systems/<str>/Processors/<str>/Oem/Nvidia/PowerSmoothing/Actions/NvidiaPowerSmoothing.ActivatePresetProfile")
         .privileges(redfish::privileges::postProcessor)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
@@ -1540,13 +1592,13 @@ inline void requestRoutesProcessorPowerSmoothing(App& app)
         }
         if (profileId)
         {
-            activatePresetProfile(asyncResp, processorId, *profileId);
+            postActivatePresetProfile(asyncResp, processorId, *profileId);
         }
     });
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/Processors/<str>/Oem/Nvidia/PowerSmoothing/ActivatePresetProfileActionInfo/")
+        "/redfish/v1/Systems/<str>/Processors/<str>/Oem/Nvidia/PowerSmoothing/ActivatePresetProfileActionInfo")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
