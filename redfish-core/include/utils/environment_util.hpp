@@ -736,9 +736,6 @@ inline void getEDPpData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             messages::internalError(asyncResp->res);
             return;
         }
-        asyncResp->res
-            .jsonValue["Oem"]["Nvidia"]["EDPpPercent"]["@odata.type"] =
-            "#NvidiaEnvironmentMetrics.v1_0_0.EDPpPercent";
 
         for (const auto& [key, variant] : properties)
         {
