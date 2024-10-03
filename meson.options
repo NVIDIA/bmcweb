@@ -1036,3 +1036,10 @@ option(
     value: 'disabled',
     description: 'Enable/Disable Leak Detection related redfish schema',
 )
+
+option(
+    'systems-lastresettime',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Enable LastResetTime property on ComputerSystem objects (/redfish/v1/Systems/<str>).',
+)

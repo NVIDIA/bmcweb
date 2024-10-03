@@ -1271,6 +1271,10 @@ inline void
 inline void
     getLastResetTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    if constexpr (!BMCWEB_SYSTEMS_LASTRESETTIME)
+    {
+        return;
+    }
     BMCWEB_LOG_DEBUG("Getting System Last Reset Time");
 
     sdbusplus::asio::getProperty<uint64_t>(
@@ -4255,7 +4259,10 @@ inline void
     getStopBootOnFault(asyncResp);
     getAutomaticRetryPolicy(asyncResp);
 #endif // BMCWEB_ENABLE_HOST_OS_FEATURE
-    getLastResetTime(asyncResp);
+    if constexpr (BMCWEB_SYSTEMS_LASTRESETTIME)
+    {
+        getLastResetTime(asyncResp);
+    }
     if constexpr (BMCWEB_REDFISH_PROVISIONING_FEATURE)
     {
         getProvisioningStatus(asyncResp);
