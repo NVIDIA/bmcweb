@@ -1926,14 +1926,14 @@ inline void getProcessorResetTypeData(
 
 #ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
-inline void
-    getPowerBreakThrottleData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                              const std::string& service,
-                              const std::string& objPath)
+inline void getPowerBreakThrottleData(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
+    const std::string& objPath, const std::string& deviceType)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp, objPath](const boost::system::error_code ec,
-                         const OperatingConfigProperties& properties) {
+        [aResp, objPath,
+         deviceType](const boost::system::error_code ec,
+                     const OperatingConfigProperties& properties) {
         if (ec)
         {
             BMCWEB_LOG_DEBUG("DBUS response error");
@@ -1943,8 +1943,16 @@ inline void
         nlohmann::json& json = aResp->res.jsonValue;
         for (const auto& property : properties)
         {
-            json["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics";
+            if (deviceType == "xyz.openbmc_project.Inventory.Item.Accelerator")
+            {
+                json["Oem"]["Nvidia"]["@odata.type"] =
+                    "#NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics";
+            }
+            else
+            {
+                json["Oem"]["Nvidia"]["@odata.type"] =
+                    "#NvidiaProcessorMetrics.v1_2_0.NvidiaProcessorMetrics";
+            }
             if (property.first == "Value")
             {
                 const std::string* state =
@@ -1978,11 +1986,21 @@ inline void getProcessorPerformanceData(
             messages::internalError(aResp->res);
             return;
         }
+
         nlohmann::json& json = aResp->res.jsonValue;
-        for (const auto& property : properties)
+        if (deviceType == "xyz.openbmc_project.Inventory.Item.Accelerator")
         {
             json["Oem"]["Nvidia"]["@odata.type"] =
                 "#NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics";
+        }
+        else
+        {
+            json["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaProcessorMetrics.v1_2_0.NvidiaProcessorMetrics";
+        }
+
+        for (const auto& property : properties)
+        {
             if (property.first == "Value" &&
                 deviceType != "xyz.openbmc_project.Inventory.Item.Accelerator")
             {
@@ -2021,8 +2039,6 @@ inline void getProcessorPerformanceData(
                     }
                 }
 
-                json["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics";
                 json["Oem"]["Nvidia"]["ThrottleReasons"] =
                     formattedThrottleReasons;
             }
@@ -2186,14 +2202,14 @@ inline void getGPUNvlinkMetricsData(
     });
 }
 
-inline void
-    getPowerSystemInputsData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                             const std::string& service,
-                             const std::string& objPath)
+inline void getPowerSystemInputsData(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
+    const std::string& objPath, const std::string& deviceType)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp, objPath](const boost::system::error_code ec,
-                         const OperatingConfigProperties& properties) {
+        [aResp, objPath,
+         deviceType](const boost::system::error_code ec,
+                     const OperatingConfigProperties& properties) {
         if (ec)
         {
             BMCWEB_LOG_DEBUG("DBUS response error");
@@ -2203,8 +2219,16 @@ inline void
         nlohmann::json& json = aResp->res.jsonValue;
         for (const auto& property : properties)
         {
-            json["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics";
+            if (deviceType == "xyz.openbmc_project.Inventory.Item.Accelerator")
+            {
+                json["Oem"]["Nvidia"]["@odata.type"] =
+                    "#NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics";
+            }
+            else
+            {
+                json["Oem"]["Nvidia"]["@odata.type"] =
+                    "#NvidiaProcessorMetrics.v1_2_0.NvidiaProcessorMetrics";
+            }
             if (property.first == "Status")
             {
                 const std::string* state =
@@ -2227,11 +2251,11 @@ inline void
 
 inline void getMemorySpareChannelPresenceData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
-    const std::string& objPath)
+    const std::string& objPath, const std::string& deviceType)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp, objPath](const boost::system::error_code ec,
-                         const std::variant<bool>& property) {
+        [aResp, objPath, deviceType](const boost::system::error_code ec,
+                                     const std::variant<bool>& property) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("DBUS response error");
@@ -2248,8 +2272,16 @@ inline void getMemorySpareChannelPresenceData(
             messages::internalError(aResp->res);
             return;
         }
-        json["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics";
+        if (deviceType == "xyz.openbmc_project.Inventory.Item.Accelerator")
+        {
+            json["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics";
+        }
+        else
+        {
+            json["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaProcessorMetrics.v1_2_0.NvidiaProcessorMetrics";
+        }
         json["Oem"]["Nvidia"]["MemorySpareChannelPresence"] =
             *memorySpareChannelPresence;
     },
@@ -2259,11 +2291,11 @@ inline void getMemorySpareChannelPresenceData(
 
 inline void getMemoryPageRetirementCountData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
-    const std::string& objPath)
+    const std::string& objPath, const std::string& deviceType)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp, objPath](const boost::system::error_code ec,
-                         const std::variant<uint32_t>& property) {
+        [aResp, objPath, deviceType](const boost::system::error_code ec,
+                                     const std::variant<uint32_t>& property) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("DBUS response error");
@@ -2281,8 +2313,16 @@ inline void getMemoryPageRetirementCountData(
             messages::internalError(aResp->res);
             return;
         }
-        json["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics";
+        if (deviceType == "xyz.openbmc_project.Inventory.Item.Accelerator")
+        {
+            json["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics";
+        }
+        else
+        {
+            json["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaProcessorMetrics.v1_2_0.NvidiaProcessorMetrics";
+        }
         json["Oem"]["Nvidia"]["MemoryPageRetirementCount"] =
             *memoryPageRetirementCount;
     },
@@ -4175,11 +4215,12 @@ inline void getSensorMetric(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 
 inline void
     getPowerBreakThrottle(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                          const std::string& service, const std::string objPath)
+                          const std::string& service, const std::string objPath,
+                          const std::string& deviceType)
 {
     BMCWEB_LOG_DEBUG("Get processor module link");
     crow::connections::systemBus->async_method_call(
-        [aResp, objPath,
+        [aResp, objPath, deviceType,
          service](const boost::system::error_code ec,
                   std::variant<std::vector<std::string>>& resp) {
         if (ec)
@@ -4198,7 +4239,7 @@ inline void
 
         BMCWEB_LOG_DEBUG("Get processor module state sensors");
         crow::connections::systemBus->async_method_call(
-            [aResp, service,
+            [aResp, service, deviceType,
              chassisPath](const boost::system::error_code& e,
                           std::variant<std::vector<std::string>>& resp) {
             if (e)
@@ -4222,7 +4263,7 @@ inline void
                     "xyz.openbmc_project.State.ProcessorPerformance"};
                 // process sensor reading
                 crow::connections::systemBus->async_method_call(
-                    [aResp, sensorpath](
+                    [aResp, sensorpath, deviceType](
                         const boost::system::error_code ec,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
@@ -4241,7 +4282,7 @@ inline void
                             interfaces.end())
                         {
                             getPowerBreakThrottleData(aResp, service,
-                                                      sensorpath);
+                                                      sensorpath, deviceType);
                         }
                     }
                 },
@@ -4352,15 +4393,15 @@ inline void
                                 "xyz.openbmc_project.State.Decorator.PowerSystemInputs") !=
                             interfaces.end())
                         {
-                            getPowerSystemInputsData(aResp, service,
-                                                     sensorPath);
+                            getPowerSystemInputsData(aResp, service, sensorPath,
+                                                     deviceType);
                         }
                         if (std::find(interfaces.begin(), interfaces.end(),
                                       "com.nvidia.MemorySpareChannel") !=
                             interfaces.end())
                         {
-                            getMemorySpareChannelPresenceData(aResp, service,
-                                                              sensorPath);
+                            getMemorySpareChannelPresenceData(
+                                aResp, service, sensorPath, deviceType);
                         }
                     }
                 },
@@ -4370,7 +4411,7 @@ inline void
                     sensorInterfaces);
             }
 
-            getPowerBreakThrottle(aResp, service, objPath);
+            getPowerBreakThrottle(aResp, service, objPath, deviceType);
         },
             "xyz.openbmc_project.ObjectMapper", objPath + "/all_states",
             "org.freedesktop.DBus.Properties", "Get",
@@ -4378,13 +4419,12 @@ inline void
     });
 }
 
-inline void
-    getNumericSensorMetric(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                           const std::string& service,
-                           const std::string& objPath)
+inline void getNumericSensorMetric(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
+    const std::string& objPath, const std::string& deviceType)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp, service,
+        [aResp, service, deviceType,
          objPath](const boost::system::error_code& e,
                   std::variant<std::vector<std::string>>& resp) {
         if (e)
@@ -4407,7 +4447,7 @@ inline void
                 "com.nvidia.MemoryPageRetirementCount"};
             // Process sensor reading
             crow::connections::systemBus->async_method_call(
-                [aResp, sensorPath](
+                [aResp, sensorPath, deviceType](
                     const boost::system::error_code ec,
                     const std::vector<std::pair<
                         std::string, std::vector<std::string>>>& object) {
@@ -4424,8 +4464,8 @@ inline void
                                   "com.nvidia.MemoryPageRetirementCount") !=
                         interfaces.end())
                     {
-                        getMemoryPageRetirementCountData(aResp, service,
-                                                         sensorPath);
+                        getMemoryPageRetirementCountData(
+                            aResp, service, sensorPath, deviceType);
                     }
                 }
             },
@@ -4548,7 +4588,7 @@ inline void getProcessorMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
 
 #ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
                 getStateSensorMetric(aResp, service, path, deviceType);
-                getNumericSensorMetric(aResp, service, path);
+                getNumericSensorMetric(aResp, service, path, deviceType);
 #endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
             }
             return;
