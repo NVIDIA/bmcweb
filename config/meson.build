@@ -153,6 +153,7 @@ feature_options = [
     'session-auth',
     'nvidia-oem-properties',
     'static-hosting',
+    'systems-lastresettime',
     'tests',
     'vm-websocket',
     'vm-nbdproxy',
