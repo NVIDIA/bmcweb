@@ -84,9 +84,6 @@
 #include <variant>
 #include <vector>
 
-using json = nlohmann::json;
-using namespace nlohmann::literals;
-
 namespace redfish
 {
 
@@ -2665,82 +2662,6 @@ inline void requestRoutesJournalEventLogEntry(App& app)
                 "/redfish/v1/Systems/{}/LogServices/EventLog/Entries/{}",
                 BMCWEB_REDFISH_SYSTEM_URI_NAME, targetID));
     });
-}
-
-inline bool filterCperSection(std::string& key,
-                              std::vector<std::string>& skip_prop)
-{
-    unsigned int index;
-
-    for (std::string& sub_str : skip_prop)
-    {
-        index = static_cast<unsigned int>(key.find(sub_str));
-        if (index != std::string::npos)
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
-inline bool validateCperSectionArray(std::string& key, std::string& sub_string,
-                                     bool replace_sections = true)
-{
-    // Check if descriptors/sections is an array
-    // Replace the index if it is
-    unsigned int sec_start = static_cast<unsigned int>(key.find(sub_string));
-    if (sec_start != std::string::npos)
-    {
-        unsigned int index = sec_start +
-                             static_cast<unsigned int>(sub_string.length());
-        unsigned int end_index =
-            static_cast<unsigned int>(key.find("/", index));
-
-        if (end_index != std::string::npos)
-        {
-            std::string arr_ind = key.substr(index, end_index - index);
-            int value;
-            if (std::from_chars(arr_ind.data(), arr_ind.data() + arr_ind.size(),
-                                value)
-                    .ec != std::errc{})
-            {
-                BMCWEB_LOG_DEBUG(
-                    "Sections property found on dbus is not an array: ",
-                    sub_string);
-                key.replace(sec_start, end_index - sec_start + 1, "");
-                return true;
-            }
-
-            if (value == 0)
-            {
-                if (replace_sections)
-                {
-                    key.replace(sec_start, end_index - sec_start + 1, "");
-                }
-                else
-                {
-                    key.replace(index, arr_ind.length() + 1, "");
-                }
-                return true;
-            }
-
-            // Not 0th index section
-            return false;
-        }
-    }
-    return true;
-}
-
-inline void skipKeys(std::string& key, std::vector<std::string>& keyFilters)
-{
-    for (std::string& sub_string : keyFilters)
-    {
-        unsigned int start = static_cast<unsigned int>(key.find(sub_string));
-        if (start != std::string::npos)
-        {
-            key.replace(start, sub_string.length(), "");
-        }
-    }
 }
 
 inline std::string capitalizeProp(const std::string& key)
