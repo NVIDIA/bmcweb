@@ -4061,7 +4061,7 @@ inline void
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
         "/Memory";
 
-    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    if constexpr (BMCWEB_ENABLE_IST_MODE)
     {
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             "#NvidiaComputerSystem.v1_1_0.NvidiaComputerSystem";
@@ -4436,7 +4436,7 @@ inline void handleComputerSystemPatch(
 
     asyncResp->res.result(boost::beast::http::status::no_content);
 
-    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    if constexpr (BMCWEB_ENABLE_IST_MODE)
     {
         // Update istMode
         if (istModeEnabled)

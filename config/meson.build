@@ -160,6 +160,7 @@ feature_options = [
     'vm-nbdproxy',
     'xtoken-auth',
     'sort-event-log',
+    'enable-ist-mode',
 ]
 
 string_options = [
