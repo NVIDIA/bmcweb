@@ -2701,8 +2701,6 @@ inline void jsonIterate(nlohmann::json& jOut, const nlohmann::json& jIn,
         {
             if (it.value().is_object())
             {
-                nlohmann::json jsonVal;
-                jOut[kstr] = jsonVal;
                 jsonIterate(jOut[kstr], it.value(), changeProp);
             }
             else if (it.value().is_array())
@@ -2733,13 +2731,11 @@ inline void jsonIterate(nlohmann::json& jOut, const nlohmann::json& jIn,
     }
 }
 
-inline void parseAdditionalDataForCPER(nlohmann::json::object_t& entry,
-                                       const nlohmann::json::object_t& oem,
-                                       const AdditionalData& additional)
+inline void parseAdditionalDataForCPER(
+    nlohmann::json::object_t& entry,
+    [[maybe_unused]] const nlohmann::json::object_t& oem,
+    const AdditionalData& additional)
 {
-    (void)entry;
-    (void)oem;
-
     const auto& type = additional.find("diagnosticDataType");
     if (additional.end() == type ||
         ("CPER" != type->second && "CPERSection" != type->second))
@@ -2755,10 +2751,11 @@ inline void parseAdditionalDataForCPER(nlohmann::json::object_t& entry,
     if (additional.end() == notifT)
     {
         BMCWEB_LOG_ERROR("notificationType property not found in CPER log");
+        return;
     }
     else
     {
-        BMCWEB_LOG_ERROR("notif: in else");
+        BMCWEB_LOG_DEBUG("Adding notificationType");
         jOut["CPER"]["NotificationType"] = notifT->second;
     }
 
@@ -2803,7 +2800,7 @@ inline void parseAdditionalDataForCPER(nlohmann::json::object_t& entry,
     }
 
     // Iterate over Sections:
-    for (auto& section : *sections)
+    for (const auto& section : *sections)
     {
         jsonIterate(jOut["CPER"]["Oem"]["Nvidia"], section, capitalizeProp);
         // We only care about the first section
