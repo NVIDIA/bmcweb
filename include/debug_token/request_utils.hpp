@@ -133,7 +133,7 @@ inline std::vector<uint8_t>
     std::vector<uint8_t> requestWithHeader;
     size_t size = sizeof(ServerRequestHeader) + request.size();
     auto header = std::make_unique<ServerRequestHeader>();
-    header->version = 0x0001;
+    header->version = 0x0002;
     header->size = static_cast<uint16_t>(size);
     requestWithHeader.reserve(size);
     requestWithHeader.resize(sizeof(ServerRequestHeader));
