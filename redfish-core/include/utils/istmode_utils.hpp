@@ -65,7 +65,7 @@ inline void getIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
             bool istModeEnabled = false;
             nlohmann::json& json = aResp->res.jsonValue;
             json["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaComputerSystem.v1_0_0.NvidiaComputerSystem";
+                "#NvidiaComputerSystem.v1_1_0.NvidiaComputerSystem";
             auto mode = dbus_utils::getRedfishIstMode(
                 *std::get_if<std::string>(&istMode));
 
