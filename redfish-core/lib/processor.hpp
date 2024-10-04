@@ -2344,6 +2344,14 @@ inline void getPortDisableFutureStatus(
         aResp, processorId, objectPath, serviceMap, portId);
 }
 
+inline void getProcessorSystemGUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
+                                   const std::string& service,
+                                   const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG("Get System-GUID");
+    redfish::nvidia_processor_utils::getSysGUID(asyncResp, service, objPath);
+}
+
 inline void
     getProcessorCCModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                            const std::string& cpuId, const std::string& service,
@@ -2884,6 +2892,10 @@ inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             else if (interface == "com.nvidia.PowerProfile.ProfileInfo")
             {
                 getWorkLoadPowerInfo(aResp, processorId);
+            }
+            else if (interface == "xyz.openbmc_project.NSM.SysGUID")
+            {
+                getProcessorSystemGUID(aResp, serviceName, objectPath);
             }
 #endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
         }

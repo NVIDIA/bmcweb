@@ -300,6 +300,32 @@ inline void patchCCDevMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
         std::variant<bool>(ccDevMode));
 }
 
+/*
+ * @param[in,out]   asyncResp   Async HTTP response.
+ * @param[in]       service     D-Bus service to query.
+ * @param[in]       objPath     D-Bus object to query.
+ */
+inline void getSysGUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
+                       const std::string& service, const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG("Get System-GUID");
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus, service, objPath,
+        "xyz.openbmc_project.NSM.SysGUID", "SysGUID",
+        [objPath, asyncResp{std::move(asyncResp)}](
+            const boost::system::error_code& ec, const std::string& property) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("DBUS response error");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+            "#NvidiaProcessor.v1_3_0.NvidiaGPU";
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["SystemGUID"] = property;
+    });
+}
+
 /**
  * @brief Fill out processor nvidia specific info by
  * requesting data from the given D-Bus object.
