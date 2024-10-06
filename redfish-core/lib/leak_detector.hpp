@@ -68,7 +68,7 @@ inline void addLeakDetectorCommonProperties(crow::Response& resp,
     resp.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/LeakDetector/LeakDetector.json>; rel=describedby");
-    resp.jsonValue["@odata.type"] = "#LeakDetector.v1_0_1.LeakDetector";
+    resp.jsonValue["@odata.type"] = "#LeakDetector.v1_1_0.LeakDetector";
     resp.jsonValue["Name"] = "Leak Detector";
     resp.jsonValue["Id"] = leakDetectorId;
     resp.jsonValue["@odata.id"] = boost::urls::format(
@@ -143,6 +143,7 @@ inline void
             if (detectorState != nullptr)
             {
                 asyncResp->res.jsonValue["DetectorState"] = *detectorState;
+                asyncResp->res.jsonValue["Status"]["Health"] = *detectorState;
             }
         });
     });
