@@ -58,7 +58,7 @@ inline int mrdConfigRead(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     mrdConfigPath += deviceType;
     mrdConfigPath += std::string(".json");
     nlohmann::json jStatus = nlohmann::json::object();
-    int rc = file_utils::readFile2Json(mrdConfigPath, jStatus);
+    int rc = file_utils::readJsonFromFile(mrdConfigPath, jStatus);
     if (rc == 0)
     {
         auto jMsgNamespace = jStatus.find("Namespace");

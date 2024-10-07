@@ -104,5 +104,49 @@ inline int readFile2Json(const std::string& filePath, nlohmann::json& j)
     return 0;
 }
 
+/**
+ * @brief Read file content
+ * @return 0 - succ; otherwise - fail
+ */
+inline int readJsonFromFile(const std::string& filePath, nlohmann::json& j)
+{
+    try
+    {
+        std::ifstream ifs(filePath);
+
+        if (!ifs.is_open())
+        {
+            BMCWEB_LOG_ERROR("Can't open file {}!\n", filePath);
+            return -1;
+        }
+
+        std::string jsonString((std::istreambuf_iterator<char>(ifs)),
+                               std::istreambuf_iterator<char>());
+
+        ifs.close();
+
+        auto json = nlohmann::json::parse(jsonString, nullptr, false);
+
+        if (json.is_discarded())
+        {
+            BMCWEB_LOG_ERROR("The JSON file could not be parsed.");
+            return -2;
+        }
+
+        j = json;
+    }
+    catch (const std::exception& ex)
+    {
+        BMCWEB_LOG_ERROR("An std::exception error occurred: {}", ex.what());
+        return -3;
+    }
+    catch (...)
+    {
+        BMCWEB_LOG_ERROR("Caught an unknown error");
+        return -4;
+    }
+    return 0;
+}
+
 } // namespace file_utils
 } // namespace redfish
