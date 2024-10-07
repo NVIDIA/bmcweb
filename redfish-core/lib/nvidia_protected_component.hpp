@@ -374,8 +374,8 @@ inline void handleNvidiaRoTImageSlot(
                             "#NvidiaRoTImageSlot.v1_0_0.NvidiaRoTImageSlot";
                         asyncResp->res.jsonValue["@odata.id"] =
                             "/redfish/v1/Chassis/" + chassisId +
-                            "/NvidiaRoT/RoTProtectedComponents/" + fwTypeStr +
-                            "/ImageSlots/" + slotNumStr;
+                            "/Oem/NvidiaRoT/RoTProtectedComponents/" +
+                            fwTypeStr + "/ImageSlots/" + slotNumStr;
                         updateSlotProperties(asyncResp, service, objectPath);
                     }
                 });
