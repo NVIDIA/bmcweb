@@ -59,6 +59,19 @@ constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
+        "DebugTokenEraseFailed",
+        {
+            "Indicates that debug token erase operation has failed for the device.",
+            "The operation to erase a debug token for device '%1' has failed with error '%2'",
+            "OK",
+            2,
+            {
+                "string",
+                "string",
+            },
+            "None.",
+        }},
+    MessageEntry{
         "DebugTokenInstallationSuccess",
         {
             "Signifies the successful completion of debug token installation.",
@@ -162,13 +175,14 @@ enum class Index
 {
     componentUpdateSkipped = 0,
     debugTokenAlreadyInstalled = 1,
-    debugTokenInstallationSuccess = 2,
-    debugTokenRequestSuccess = 3,
-    debugTokenStatusSuccess = 4,
-    debugTokenUnsupported = 5,
-    firmwareNotInRecovery = 6,
-    recoveryStarted = 7,
-    recoverySuccessful = 8,
-    stageSuccessful = 9,
+    debugTokenEraseFailed = 2,
+    debugTokenInstallationSuccess = 3,
+    debugTokenRequestSuccess = 4,
+    debugTokenStatusSuccess = 5,
+    debugTokenUnsupported = 6,
+    firmwareNotInRecovery = 7,
+    recoveryStarted = 8,
+    recoverySuccessful = 9,
+    stageSuccessful = 10,
 };
 } // namespace redfish::registries::nvidia

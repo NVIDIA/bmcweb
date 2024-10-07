@@ -14,6 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
+#include "nvidia_messages.hpp"
+
 namespace redfish
 {
 namespace messages
@@ -370,6 +373,10 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
     if (msgId == "NvidiaUpdate.1.0.StageSuccessful")
     {
         return stageSuccessful(arg0, arg1);
+    }
+    if (msgId == "NvidiaUpdate.1.0.DebugTokenEraseFailed")
+    {
+        return messages::debugTokenEraseFailed(arg0, arg1);
     }
 
     return {};
