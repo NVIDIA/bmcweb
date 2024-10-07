@@ -781,7 +781,7 @@ inline void getParentChassisPCIeDeviceLink(
         }
         std::vector<std::string>* data =
             std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr && data->size() > 1)
+        if (data == nullptr || (data != nullptr && data->size() > 1))
         {
             // Chassis must have single parent chassis
             return;
@@ -1033,7 +1033,7 @@ inline void
         }
         std::vector<std::string>* data =
             std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr && data->size() > 1)
+        if (data == nullptr || (data != nullptr && data->size() > 1))
         {
             // Processor must have single parent chassis
             return;
@@ -1061,7 +1061,7 @@ inline void
             }
             std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr && data->size() > 1)
+            if (data == nullptr || (data != nullptr && data->size() > 1))
             {
                 // Chassis must have single pciedevice
                 BMCWEB_LOG_ERROR("chassis must have single pciedevice");
@@ -4155,7 +4155,7 @@ inline void getSensorMetric(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         }
         std::vector<std::string>* data =
             std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr && data->size() > 1)
+        if (data == nullptr || (data != nullptr && data->size() > 1))
         {
             // Object must have single parent chassis
             return;
@@ -4230,7 +4230,7 @@ inline void
         }
         std::vector<std::string>* data =
             std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr && data->size() > 1)
+        if (data == nullptr || (data != nullptr && data->size() > 1))
         {
             // Processor must have single parent chassis
             return;

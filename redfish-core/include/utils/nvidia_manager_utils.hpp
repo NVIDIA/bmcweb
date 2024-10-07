@@ -37,6 +37,12 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             {
                 const std::string* value =
                     std::get_if<std::string>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("nullptr while reading FeatureType");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
                 if (*value ==
                     "xyz.openbmc_project.State.FeatureReady.FeatureTypes.Manager")
                 {

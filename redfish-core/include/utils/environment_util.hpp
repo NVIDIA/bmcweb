@@ -1323,7 +1323,7 @@ inline void getEnvironmentMetricsDataByService(
         }
         std::vector<std::string>* data =
             std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr && data->size() > 1)
+        if (data == nullptr || (data != nullptr && data->size() > 1))
         {
             // Object must have single parent chassis
             return;

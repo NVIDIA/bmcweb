@@ -814,6 +814,13 @@ inline void
             {
                 const std::string* state =
                     std::get_if<std::string>(&property.second);
+                if (state == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for CurrentPowerState");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
                 if (*state == "xyz.openbmc_project.State.Chassis.PowerState.On")
                 {
                     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
@@ -1137,7 +1144,7 @@ inline void getSwitchParentChassisPCIeDeviceLink(
         }
         std::vector<std::string>* data =
             std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr && data->size() > 1)
+        if (data == nullptr || (data != nullptr && data->size() > 1))
         {
             // Chassis must have single parent chassis
             return;
@@ -1207,7 +1214,7 @@ inline void
         }
         std::vector<std::string>* data =
             std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr && data->size() > 1)
+        if (data == nullptr || (data != nullptr && data->size() > 1))
         {
             // Switch must have single parent chassis
             return;
@@ -1234,7 +1241,7 @@ inline void
             }
             std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr && data->size() > 1)
+            if (data == nullptr || (data != nullptr && data->size() > 1))
             {
                 // Chassis must have single pciedevice
                 BMCWEB_LOG_ERROR("chassis must have single pciedevice");
@@ -2859,7 +2866,7 @@ inline void getProcessorParentEndpointData(
         }
         std::vector<std::string>* data =
             std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr && data->size() > 1)
+        if (data == nullptr || (data != nullptr && data->size() > 1))
         {
             // Chassis must have single parent chassis
             return;
@@ -2938,7 +2945,7 @@ inline void getEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         }
         std::vector<std::string>* data =
             std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr && data->size() > 1)
+        if (data == nullptr || (data != nullptr && data->size() > 1))
         {
             // Processor must have single parent chassis
             return;
@@ -2963,7 +2970,7 @@ inline void getEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             }
             std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr && data->size() > 1)
+            if (data == nullptr || (data != nullptr && data->size() > 1))
             {
                 // Chassis must have single pciedevice
                 BMCWEB_LOG_ERROR("chassis must have single pciedevice");

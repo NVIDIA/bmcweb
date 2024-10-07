@@ -414,8 +414,7 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
                     // until a reboot Can't erase what the BMC
                     // is running on
                     doBMCGracefulRestart(asyncResp);
-                },
-                    object.first, "/xyz/openbmc_project/software/bmc",
+                }, object.first, "/xyz/openbmc_project/software/bmc",
                     ifnameFactoryReset, "Reset");
             }
         },
@@ -481,8 +480,7 @@ inline void requestRoutesNvidiaManagerResetToDefaultsAction(App& app)
                     // until a reboot Can't erase what the BMC
                     // is running on
                     doBMCGracefulRestart(asyncResp);
-                },
-                    object.first, "/xyz/openbmc_project/software",
+                }, object.first, "/xyz/openbmc_project/software",
                     ifnameCompleteReset, "CompleteReset");
             }
         },
@@ -941,14 +939,14 @@ inline void requestRouteSyncRawOobCommand(App& app)
             return;
         }
 
-        uint8_t targetId;
-        std::string targetType;
-        std::string opCode;
-        std::string arg1;
-        std::string arg2;
-        uint8_t opCodeRaw;
-        uint8_t arg1Raw;
-        uint8_t arg2Raw;
+        uint8_t targetId{};
+        std::string targetType{};
+        std::string opCode{};
+        std::string arg1{};
+        std::string arg2{};
+        uint8_t opCodeRaw{};
+        uint8_t arg1Raw{};
+        uint8_t arg2Raw{};
         uint32_t dataInRaw = 0;
         uint32_t extDataInRaw = 0;
         std::optional<std::vector<std::string>> dataIn;
@@ -1186,11 +1184,11 @@ inline void requestRouteAsyncRawOobCommand(App& app)
             return;
         }
 
-        uint8_t targetId;
-        uint8_t argRaw;
-        uint32_t requestedDataOutBytes;
-        std::string targetType;
-        std::string arg;
+        uint8_t targetId{};
+        uint8_t argRaw{};
+        uint32_t requestedDataOutBytes{};
+        std::string targetType{};
+        std::string arg{};
         std::optional<std::vector<std::string>> asynDataIn;
         std::vector<uint32_t> asyncDataInRaw;
 
@@ -1807,8 +1805,7 @@ inline CreatePIDRet createPidInterface(
                 return;
             }
             messages::success(response->res);
-        },
-            "xyz.openbmc_project.EntityManager", path, iface, "Delete");
+        }, "xyz.openbmc_project.EntityManager", path, iface, "Delete");
         return CreatePIDRet::del;
     }
 
@@ -2313,8 +2310,7 @@ struct SetPIDValues : std::enable_shared_from_this<SetPIDValues>
             std::pair<std::string, std::optional<nlohmann::json::object_t>>>&&
             configurationsIn,
         std::optional<std::string>& profileIn) :
-        asyncResp(asyncRespIn),
-        configuration(std::move(configurationsIn)),
+        asyncResp(asyncRespIn), configuration(std::move(configurationsIn)),
         profile(std::move(profileIn))
     {}
 
@@ -2625,8 +2621,7 @@ struct SetPIDValues : std::enable_shared_from_this<SetPIDValues>
                             return;
                         }
                         messages::success(response->res);
-                    },
-                        "xyz.openbmc_project.EntityManager", chassis,
+                    }, "xyz.openbmc_project.EntityManager", chassis,
                         "xyz.openbmc_project.AddObject", "AddObject", output);
                 }
             }

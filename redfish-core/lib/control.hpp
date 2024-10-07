@@ -304,6 +304,12 @@ inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 }
 
                 const auto* value = std::get_if<double>(&totalPower);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Get Sensor value failed: {}", ec);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
                 asyncResp->res.jsonValue["Sensor"]["Reading"] = *value;
                 asyncResp->res.jsonValue["Sensor"]["DataSourceUri"] =
                     ("/redfish/v1/Chassis/" + chassisID + "/Sensors/")

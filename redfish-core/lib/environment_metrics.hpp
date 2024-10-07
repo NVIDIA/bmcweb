@@ -513,23 +513,27 @@ inline void requestRoutesEnvironmentMetrics(App& app)
                     "/xyz/openbmc_project/inventory", 0, interfaces);
             }
         }
-        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+
+        if (oem)
         {
-            if (oem)
+            std::optional<nlohmann::json> nvidiaObj;
+            if (!redfish::json_util::readJson(*oem, asyncResp->res, "Nvidia",
+                                              nvidiaObj))
             {
-                std::optional<nlohmann::json> nvidiaObj;
-                redfish::json_util::readJson(*oem, asyncResp->res, "Nvidia",
-                                             nvidiaObj);
-                if (nvidiaObj)
+                return;
+            }
+            if (nvidiaObj)
+            {
+                std::optional<std::string> powerMode;
+                if (!redfish::json_util::readJson(*nvidiaObj, asyncResp->res,
+                                                  "PowerMode", powerMode))
                 {
-                    std::optional<std::string> powerMode;
-                    redfish::json_util::readJson(*nvidiaObj, asyncResp->res,
-                                                 "PowerMode", powerMode);
-                    if (powerMode)
-                    {
-                        messages::propertyNotWritable(asyncResp->res,
-                                                      "PowerMode");
-                    }
+                    return;
+                }
+                if (powerMode)
+                {
+                    messages::propertyNotWritable(asyncResp->res, "PowerMode");
                 }
             }
         }
