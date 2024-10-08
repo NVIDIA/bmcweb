@@ -66,9 +66,13 @@ inline void getIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
             nlohmann::json& json = aResp->res.jsonValue;
             json["Oem"]["Nvidia"]["@odata.type"] =
                 "#NvidiaComputerSystem.v1_1_0.NvidiaComputerSystem";
-            auto mode = dbus_utils::getRedfishIstMode(
-                *std::get_if<std::string>(&istMode));
-
+            auto modePtr = std::get_if<std::string>(&istMode);
+            if (modePtr == nullptr)
+            {
+                BMCWEB_LOG_ERROR("ISTMode not received");
+                return;
+            }
+            auto mode = dbus_utils::getRedfishIstMode(*modePtr);
             if (mode == "Enabled")
             {
                 istModeEnabled = true;
@@ -134,8 +138,14 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 messages::internalError(aResp->res);
                 return;
             }
-            auto mode = dbus_utils::getRedfishIstMode(
-                *std::get_if<std::string>(&istMode));
+            auto modePtr = std::get_if<std::string>(&istMode);
+            if (modePtr == nullptr)
+            {
+                BMCWEB_LOG_ERROR("ISTMode not received");
+                return;
+            }
+            auto mode = dbus_utils::getRedfishIstMode(*modePtr);
+
             // validate request
             if ((mode == "Enabled") && reqIstModeEnabled)
             {
@@ -159,14 +169,20 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 if (ec1)
                 {
                     BMCWEB_LOG_DEBUG("DBUS response error for "
-                                     "Trying to get ISTManager Sttaus");
+                                     "Trying to get ISTManager Status");
                     messages::internalError(aResp->res);
                     return;
                 }
                 // If ISTMode Setting is already in progress,
                 // return error
-                auto status = dbus_utils::toIstmgrStatus(
-                    *std::get_if<std::string>(&istStatus));
+                auto statusPtr = std::get_if<std::string>(&istStatus);
+                if (statusPtr == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("ISTMode Settings Status not found");
+                    return;
+                }
+                auto status = dbus_utils::toIstmgrStatus(*statusPtr);
+
                 if (status == "InProgress")
                 {
                     BMCWEB_LOG_ERROR("ISTMode Settings In Progress");

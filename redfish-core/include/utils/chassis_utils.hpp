@@ -688,7 +688,8 @@ inline void
                         }
                     }
 
-                    if (uuid && (*uuid) == chassisUUID && supportedMsgTypes)
+                    if (uuid != nullptr && eid != nullptr &&
+                        (uuid && (*uuid) == chassisUUID && supportedMsgTypes))
                     {
                         if (std::find(supportedMsgTypes->begin(),
                                       supportedMsgTypes->end(),

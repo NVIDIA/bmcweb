@@ -431,6 +431,12 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             {
                 const std::string* state =
                     std::get_if<std::string>(&property.second);
+                if (state == nullptr)
+                {
+                    BMCWEB_LOG_DEBUG("Null value returned "
+                                     "for Current Power State");
+                    return;
+                }
                 if (*state == "xyz.openbmc_project.State.Chassis.PowerState.On")
                 {
                     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";

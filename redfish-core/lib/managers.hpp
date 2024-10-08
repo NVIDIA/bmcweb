@@ -414,7 +414,8 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
                     // until a reboot Can't erase what the BMC
                     // is running on
                     doBMCGracefulRestart(asyncResp);
-                }, object.first, "/xyz/openbmc_project/software/bmc",
+                },
+                    object.first, "/xyz/openbmc_project/software/bmc",
                     ifnameFactoryReset, "Reset");
             }
         },
@@ -480,7 +481,8 @@ inline void requestRoutesNvidiaManagerResetToDefaultsAction(App& app)
                     // until a reboot Can't erase what the BMC
                     // is running on
                     doBMCGracefulRestart(asyncResp);
-                }, object.first, "/xyz/openbmc_project/software",
+                },
+                    object.first, "/xyz/openbmc_project/software",
                     ifnameCompleteReset, "CompleteReset");
             }
         },
@@ -1805,7 +1807,8 @@ inline CreatePIDRet createPidInterface(
                 return;
             }
             messages::success(response->res);
-        }, "xyz.openbmc_project.EntityManager", path, iface, "Delete");
+        },
+            "xyz.openbmc_project.EntityManager", path, iface, "Delete");
         return CreatePIDRet::del;
     }
 
@@ -2310,7 +2313,8 @@ struct SetPIDValues : std::enable_shared_from_this<SetPIDValues>
             std::pair<std::string, std::optional<nlohmann::json::object_t>>>&&
             configurationsIn,
         std::optional<std::string>& profileIn) :
-        asyncResp(asyncRespIn), configuration(std::move(configurationsIn)),
+        asyncResp(asyncRespIn),
+        configuration(std::move(configurationsIn)),
         profile(std::move(profileIn))
     {}
 
@@ -2621,7 +2625,8 @@ struct SetPIDValues : std::enable_shared_from_this<SetPIDValues>
                             return;
                         }
                         messages::success(response->res);
-                    }, "xyz.openbmc_project.EntityManager", chassis,
+                    },
+                        "xyz.openbmc_project.EntityManager", chassis,
                         "xyz.openbmc_project.AddObject", "AddObject", output);
                 }
             }

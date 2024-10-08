@@ -537,6 +537,7 @@ inline void requestRoutesEnvironmentMetrics(App& app)
                 }
             }
         }
+#endif
     });
 }
 

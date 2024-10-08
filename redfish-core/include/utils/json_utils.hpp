@@ -712,16 +712,17 @@ bool readJsonPatch(const crow::Request& req, crow::Response& res,
 {
     std::optional<nlohmann::json::object_t> jsonRequest =
         readJsonPatchHelper(req, res);
-    if (!jsonRequest)
+    if (!jsonRequest.has_value())
     {
+        BMCWEB_LOG_DEBUG("JSON object does not exist");
         return false;
     }
+
     if (jsonRequest->empty())
     {
         messages::emptyJSON(res);
         return false;
     }
-
     return readJsonObject(*jsonRequest, res, key,
                           std::forward<UnpackTypes&&>(in)...);
 }

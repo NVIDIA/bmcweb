@@ -40,7 +40,7 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 if (value == nullptr)
                 {
                     BMCWEB_LOG_ERROR("nullptr while reading FeatureType");
-                    messages::internalError(asyncResp->res);
+                    messages::internalError(aResp->res);
                     return;
                 }
                 if (*value ==
