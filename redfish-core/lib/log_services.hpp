@@ -2731,6 +2731,19 @@ inline void jsonIterate(nlohmann::json& jOut, const nlohmann::json& jIn,
     }
 }
 
+inline int severityToStr(const std::string& code, std::string& out)
+{
+    const std::map<std::string, std::string> code_map = {
+        {"0", "Warning"}, {"1", "Critical"}, {"2", "OK"}, {"3", "Warning"}};
+    const auto it = code_map.find(code);
+    if (it != code_map.end())
+    {
+        out = it->second;
+        return 0;
+    }
+    return 1;
+}
+
 inline void parseAdditionalDataForCPER(
     nlohmann::json::object_t& entry,
     [[maybe_unused]] const nlohmann::json::object_t& oem,
@@ -2757,6 +2770,22 @@ inline void parseAdditionalDataForCPER(
     {
         BMCWEB_LOG_DEBUG("Adding notificationType");
         jOut["CPER"]["NotificationType"] = notifT->second;
+    }
+
+    const auto& sevCode = additional.find("cperSeverityCode");
+    if (additional.end() == sevCode)
+    {
+        BMCWEB_LOG_ERROR("severity code property not found in CPER log");
+        return;
+    }
+    else
+    {
+        BMCWEB_LOG_DEBUG("Adding severity code");
+        std::string code_val;
+        if (!severityToStr(sevCode->second, code_val))
+        {
+            jOut["Severity"] = code_val;
+        }
     }
 
     const auto& secT = additional.find("sectionType");
@@ -2815,7 +2844,6 @@ inline void parseAdditionalDataForCPER(
     jOut["CPER"]["Oem"]["Nvidia"]["@odata.type"] =
         "#NvidiaCPER.v1_0_0.NvidiaCPER";
 
-    BMCWEB_LOG_ERROR("dump: \n", jOut.dump());
     entry = jOut;
 
     BMCWEB_LOG_DEBUG("Done {}", type->second);
