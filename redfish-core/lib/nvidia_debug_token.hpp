@@ -56,7 +56,8 @@ inline void
         }
         for (const auto& path : resp)
         {
-            if (path.find(chassisId) != std::string::npos)
+            auto pathChassis = std::filesystem::path(path).filename().string();
+            if (chassisId == pathChassis)
             {
                 int timeout;
                 auto currentOp = tokenOpMap.find(chassisId);

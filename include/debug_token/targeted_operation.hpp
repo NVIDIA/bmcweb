@@ -82,7 +82,9 @@ class TargetedOperationHandler
             std::string service;
             for (const auto& [path, serviceMap] : resp)
             {
-                if (path.find(chassisId) != std::string::npos)
+                auto pathChassis =
+                    std::filesystem::path(path).filename().string();
+                if (chassisId == pathChassis)
                 {
                     objectPath = path;
                     service = serviceMap[0].first;
