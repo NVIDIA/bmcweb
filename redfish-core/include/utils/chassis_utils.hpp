@@ -711,7 +711,7 @@ inline void
                             nlohmann::json& oem =
                                 asyncResp->res.jsonValue["Oem"]["Nvidia"];
                             oem["@odata.type"] =
-                                "#NvidiaChassis.v1_3_0.NvidiaChassis";
+                                "#NvidiaChassis.v1_3_0.NvidiaRoTChassis";
 
                             // Calling the following methods,
                             // updateInBandEnabled, updateBackgroundCopyEnabled,

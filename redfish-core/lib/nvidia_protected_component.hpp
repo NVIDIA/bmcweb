@@ -1090,6 +1090,8 @@ inline void updateIrreversibleConfigEnabled(
                 messages::internalError(asyncResp->res);
                 return;
             }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaChassis.v1_3_0.NvidiaRoTChassis";
             asyncResp->res.jsonValue["Oem"]["Nvidia"]
                                     ["IrreversibleConfigEnabled"] = property;
             auto cfgTarget =
