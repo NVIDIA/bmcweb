@@ -109,9 +109,9 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     crow::connections::systemBus->async_method_call(
                         [asyncResp, path, interface](
                             const boost::system::error_code errorno,
-                            const std::vector<
-                                std::pair<std::string,
-                                          std::variant<size_t, std::string>>>&
+                            const std::vector<std::pair<
+                                std::string,
+                                std::variant<size_t, std::string, bool>>>&
                                 propertiesList) {
                         if (errorno)
                         {
@@ -122,8 +122,9 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             return;
                         }
                         for (const std::pair<std::string,
-                                             std::variant<size_t, std::string>>&
-                                 property : propertiesList)
+                                             std::variant<size_t, std::string,
+                                                          bool>>& property :
+                             propertiesList)
                         {
                             std::string propertyName = property.first;
                             if (propertyName == "MaxPowerCapValue")
@@ -195,23 +196,28 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                         *physicalcontext);
                                 continue;
                             }
-                            else if (propertyName == "PowerMode")
+                            else if (propertyName == "PowerCapEnable")
                             {
-                                propertyName = "ControlMode";
-                                const std::string* mode =
-                                    std::get_if<std::string>(&property.second);
-                                std::map<std::string, std::string>::iterator
-                                    itr;
-                                for (auto& itr : modes)
+                                const bool* value =
+                                    std::get_if<bool>(&property.second);
+                                if (value == nullptr)
                                 {
-                                    if (*mode == itr.first)
-                                    {
-                                        asyncResp->res.jsonValue[propertyName] =
-                                            itr.second;
-                                        break;
-                                    }
+                                    BMCWEB_LOG_ERROR("Null value returned "
+                                                     "for type");
+                                    messages::internalError(asyncResp->res);
+                                    return;
                                 }
 
+                                if (*value)
+                                {
+                                    asyncResp->res.jsonValue["ControlMode"] =
+                                        "Automatic";
+                                }
+                                else
+                                {
+                                    asyncResp->res.jsonValue["ControlMode"] =
+                                        "Disabled";
+                                }
                                 continue;
                             }
                         }
