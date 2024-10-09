@@ -144,6 +144,42 @@ inline void getChassisState(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
 }
 
 /**
+ * @brief Wrapper function to retrieves chassis state properties over dbus
+ *
+ * @param[in] asyncResp - Shared pointer for completing asynchronous calls.
+ * @param[in] propertiesList - D-Bus properties list.
+ * @param[in] service - D-Bus service to query.
+ * @param[in] path - D-Bus object to query.
+ *
+ * @return None.
+ */
+inline void getChassisStateWrapper(
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp,
+    const dbus::utility::DBusPropertiesMap& propertiesList, std::string service,
+    std::string path)
+{
+    const std::string* state = nullptr;
+    const std::string* currentPowerState = nullptr;
+    sdbusplus::unpackPropertiesNoThrow(dbus_utils::UnpackErrorPrinter(),
+                                       propertiesList, "CurrentPowerState",
+                                       currentPowerState, "State", state);
+
+    if ((service == "xyz.openbmc_project.State.Chassis" &&
+         path == "/xyz/openbmc_project/state/chassis0") ||
+        state == nullptr || currentPowerState == nullptr)
+    {
+        getChassisState(asyncResp);
+    }
+    else
+    {
+        asyncResp->res.jsonValue["Status"]["State"] =
+            redfish::chassis_utils::getPowerStateType(*state);
+        asyncResp->res.jsonValue["PowerState"] =
+            currentPowerState->substr(currentPowerState->rfind('.') + 1);
+    }
+}
+
+/**
  * Retrieves physical security properties over dbus
  */
 inline void handlePhysicalSecurityGetSubTree(
@@ -608,15 +644,7 @@ inline void handleChassisGetSubTree(
                 "xyz.openbmc_project.Inventory.Decorator.Replaceable";
             const std::string revisionInterface =
                 "xyz.openbmc_project.Inventory.Decorator.Revision";
-            bool operationalStatusPresent = false;
-            const std::string operationalStatusInterface =
-                "xyz.openbmc_project.State.Decorator.OperationalStatus";
 
-            if (std::find(interfaces2.begin(), interfaces2.end(),
-                          operationalStatusInterface) != interfaces2.end())
-            {
-                operationalStatusPresent = true;
-            }
             for (const auto& interface : interfaces2)
             {
                 if (interface == assetTagInterface)
@@ -708,16 +736,13 @@ inline void handleChassisGetSubTree(
 
             sdbusplus::asio::getAllProperties(
                 *crow::connections::systemBus, connectionName, path, "",
-                [asyncResp, chassisId, path, operationalStatusPresent](
-                    const boost::system::error_code&,
-                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+                [asyncResp, chassisId, connectionName,
+                 path](const boost::system::error_code&,
+                       const dbus::utility::DBusPropertiesMap& propertiesList) {
                 redfish::nvidia_chassis_utils::handleChassisGetAllProperties(
-                    asyncResp, chassisId, path, propertiesList,
-                    operationalStatusPresent);
-                if (!operationalStatusPresent)
-                {
-                    getChassisState(asyncResp);
-                }
+                    asyncResp, chassisId, path, propertiesList);
+                getChassisStateWrapper(asyncResp, propertiesList,
+                                       connectionName, path);
                 getStorageLink(asyncResp, path);
             });
 

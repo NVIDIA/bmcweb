@@ -1349,8 +1349,7 @@ inline void setChassisWriteProtectProtectEnable(
 inline void handleChassisGetAllProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& /*path*/,
-    const dbus::utility::DBusPropertiesMap& propertiesList,
-    [[maybe_unused]] const bool operationalStatusPresent)
+    const dbus::utility::DBusPropertiesMap& propertiesList)
 {
     const std::string* partNumber = nullptr;
     const std::string* serialNumber = nullptr;
@@ -1374,7 +1373,6 @@ inline void handleChassisGetAllProperties(
     const bool* writeProtected = nullptr;
     const bool* writeProtectedControl = nullptr;
     const uint64_t* pCIeReferenceClockCount = nullptr;
-    const std::string* state = nullptr;
 
     const bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), propertiesList, "PartNumber",
@@ -1385,8 +1383,8 @@ inline void handleChassisGetAllProperties(
         width, "Depth", depth, "MinPowerWatts", minPowerWatts, "MaxPowerWatts",
         maxPowerWatts, "AssetTag", assetTag, "WriteProtected", writeProtected,
         "WriteProtectedControl", writeProtectedControl,
-        "PCIeReferenceClockCount", pCIeReferenceClockCount, "State", state,
-        "LocationContext", locationContext);
+        "PCIeReferenceClockCount", pCIeReferenceClockCount, "LocationContext",
+        locationContext);
 
     if (!success)
     {
@@ -1518,11 +1516,6 @@ inline void handleChassisGetAllProperties(
             asyncResp->res
                 .jsonValue["Oem"]["Nvidia"]["PCIeReferenceClockCount"] =
                 *pCIeReferenceClockCount;
-        }
-        if (state != nullptr && operationalStatusPresent)
-        {
-            asyncResp->res.jsonValue["Status"]["State"] =
-                redfish::chassis_utils::getPowerStateType(*state);
         }
     }
     asyncResp->res.jsonValue["Name"] = chassisId;
