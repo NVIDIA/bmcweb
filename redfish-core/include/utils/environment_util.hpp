@@ -1588,28 +1588,10 @@ inline void
 
 #ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
 
-                aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaEnvironmentMetrics.v1_2_0.NvidiaEnvironmentMetrics";
                 if (std::find(interfaces.begin(), interfaces.end(),
                               "com.nvidia.Edpp") != interfaces.end())
                 {
                     getEDPpData(aResp, service, path);
-                }
-                if (std::find(
-                        interfaces.begin(), interfaces.end(),
-                        "xyz.openbmc_project.Control.Power.Persistency") !=
-                    interfaces.end())
-                {
-                    getPowerLimitPersistency(aResp, service, path);
-                }
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
-
-                if (std::find(
-                        interfaces.begin(), interfaces.end(),
-                        "xyz.openbmc_project.Inventory.Item.Accelerator") !=
-                    interfaces.end())
-                {
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
                     aResp->res
                         .jsonValue["Actions"]["Oem"]
                                   ["#NvidiaEnvironmentMetrics.ResetEDPp"] = {
@@ -1618,7 +1600,40 @@ inline void
                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                              "/Processors/" + processorId +
                              "/EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ResetEDPp"}};
+                    aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                        "#NvidiaEnvironmentMetrics.v1_2_0.NvidiaEnvironmentMetrics";
+                }
+
+                if (std::find(interfaces.begin(), interfaces.end(),
+                              "com.nvidia.Common.ClearPowerCap") !=
+                    interfaces.end())
+                {
+                    aResp->res.jsonValue
+                        ["Actions"]["Oem"]
+                        ["#NvidiaEnvironmentMetrics.ClearOOBSetPoint"] = {
+                        {"target",
+                         "/redfish/v1/Systems/" +
+                             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                             "/Processors/" + processorId +
+                             "/EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ClearOOBSetPoint"}};
+                }
+
+                if (std::find(
+                        interfaces.begin(), interfaces.end(),
+                        "xyz.openbmc_project.Control.Power.Persistency") !=
+                    interfaces.end())
+                {
+                    getPowerLimitPersistency(aResp, service, path);
+                    aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                        "#NvidiaEnvironmentMetrics.v1_2_0.NvidiaEnvironmentMetrics";
+                }
 #endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+
+                if (std::find(
+                        interfaces.begin(), interfaces.end(),
+                        "xyz.openbmc_project.Inventory.Item.Accelerator") !=
+                    interfaces.end())
+                {
                     getEnvironmentMetricsDataByService(aResp, service, path,
                                                        resourceType);
                 }
