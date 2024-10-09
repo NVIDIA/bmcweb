@@ -377,12 +377,6 @@ inline void handleEnvironmentMetricsGet(
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
             "/redfish/v1/Chassis/{}/EnvironmentMetrics", chassisId);
 #ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
-        asyncResp->res
-            .jsonValue["Actions"]["Oem"]
-                      ["#NvidiaEnvironmentMetrics.ClearOOBSetPoint"] = {
-            {"target",
-             "/redfish/v1/Chassis/" + chassisId +
-                 "/EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ClearOOBSetPoint"}};
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             "#NvidiaEnvironmentMetrics.v1_2_0.NvidiaEnvironmentMetrics";
 #endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES

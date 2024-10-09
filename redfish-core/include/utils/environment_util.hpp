@@ -989,6 +989,12 @@ inline void
                     }
 #ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
                     getPowerMode(asyncResp, connectionName, ctrlPath);
+                    asyncResp->res.jsonValue
+                        ["Actions"]["Oem"]
+                        ["#NvidiaEnvironmentMetrics.ClearOOBSetPoint"] = {
+                        {"target",
+                         "/redfish/v1/Chassis/" + resourceId +
+                             "/EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ClearOOBSetPoint"}};
 #endif // BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
                     getPowerReadings(asyncResp, connectionName, ctrlPath,
                                      resourceId);
