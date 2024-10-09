@@ -27,7 +27,7 @@ if get_option('nvidia-oem-properties').allowed()
         'NvidiaProcessorMetrics_v1.xml',
         'NvidiaProcessor_v1.xml',
         'NvidiaRoTChassis_v1.xml',
-        'NvidiaRoTImageSlotCollection.xml',
+        'NvidiaRoTImageSlotCollection_v1.xml',
         'NvidiaRoTImageSlot_v1.xml',
         'NvidiaRoTProtectedComponentCollection_v1.xml',
         'NvidiaRoTProtectedComponent_v1.xml',

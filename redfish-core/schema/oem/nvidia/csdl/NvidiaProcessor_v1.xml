@@ -24,13 +24,13 @@
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Processor_v1.xml">
     <edmx:Include Namespace="Processor.v1_1_0"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/schemas/NvidiaPowerSmoothing_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerSmoothing_v1.xml">
     <edmx:Include Namespace="NvidiaPowerSmoothing"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/schemas/NvidiaErrorInjection_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaErrorInjection_v1.xml">
     <edmx:Include Namespace="NvidiaErrorInjection"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/schemas/NvidiaWorkloadPower_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaWorkloadPower_v1.xml">
     <edmx:Include Namespace="NvidiaWorkloadPower"/>
   </edmx:Reference>
   <edmx:DataServices>

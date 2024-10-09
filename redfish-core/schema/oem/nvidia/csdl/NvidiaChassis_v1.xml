@@ -27,7 +27,7 @@
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/PCIeDevice_v1.xml">
     <edmx:Include Namespace="PCIeDevice"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/schemas/NvidiaRoTProtectedComponentCollection_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaRoTProtectedComponentCollection_v1.xml">
     <edmx:Include Namespace="NvidiaRoTProtectedComponentCollection"/>
   </edmx:Reference>
 

@@ -26,7 +26,6 @@ def main():
             [
                 "git",
                 "clone",
-                "--depth=1",
                 "ssh://git@gitlab-master.nvidia.com:12051/dgx/redfish.git",
                 repo_dir_str,
             ]
@@ -49,7 +48,7 @@ def main():
                 content = read_file.read()
             content = content.replace("\r\n", "\n")
 
-            content = content.replace('Uri="/schemas/v1', 'Uri="/schemas')
+            content = content.replace('Uri="/schemas/v1', 'Uri="/redfish/v1/schema')
             with open(dest, "w") as write_file:
                 write_file.write(content)
         

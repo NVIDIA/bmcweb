@@ -23,7 +23,7 @@
     <edmx:Include Namespace="Resource"/>
     <edmx:Include Namespace="Resource.v1_0_0"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/schemas/NvidiaFirmwarePackageCollection_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaFirmwarePackageCollection_v1.xml">
     <edmx:Include Namespace="NvidiaFirmwarePackageCollection"/>
   </edmx:Reference>
 
