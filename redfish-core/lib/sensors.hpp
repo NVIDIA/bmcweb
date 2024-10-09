@@ -44,6 +44,7 @@
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <utils/conditions_utils.hpp>
+#include <utils/nvidia_sensor_utils.hpp>
 #include <utils/query_param.hpp>
 
 #include <array>
@@ -3178,9 +3179,8 @@ inline void
                        const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Sensor get related item");
-    nlohmann::json& itemsArray = asyncResp->res.jsonValue["RelatedItem"];
-    itemsArray = nlohmann::json::array();
-    // Check fabrics switch link
+
+    // Check fabric switch link
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath](const boost::system::error_code ec,
                              std::variant<std::vector<std::string>>& resp) {
@@ -3188,17 +3188,17 @@ inline void
         {
             // Check processor link
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code ec1,
-                            std::variant<std::vector<std::string>>& resp1) {
+                [asyncResp,
+                 objPath](const boost::system::error_code ec1,
+                          std::variant<std::vector<std::string>>& resp1) {
                 nlohmann::json& itemsArray1 =
                     asyncResp->res.jsonValue["RelatedItem"];
                 if (ec1)
                 {
-                    // Default is systems URI
-                    itemsArray1.push_back(
-                        {{"@odata.id",
-                          std::format("/redfish/v1/Systems/{}",
-                                      BMCWEB_REDFISH_SYSTEM_URI_NAME)}});
+                    // Call to network adapter-related items when processor
+                    // check fails
+                    redfish::nvidia_sensor_utils::getRelatedNetworkAdapterData(
+                        asyncResp, objPath);
                     return;
                 }
                 std::vector<std::string>* data =
