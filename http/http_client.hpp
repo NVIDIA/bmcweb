@@ -134,7 +134,6 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
     std::string subId;
     std::shared_ptr<ConnectionPolicy> connPolicy;
     boost::urls::url host;
-    uint16_t port;
     uint32_t connId;
 
     // Data buffers
@@ -547,7 +546,7 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
             if (!sslCtx)
             {
                 BMCWEB_LOG_ERROR("prepareSSLContext failed - {} : {} , id: {}",
-                                 host, port, std::to_string(connId));
+                                 host, host.port(), std::to_string(connId));
                 state = ConnState::sslInitFailed;
                 waitAndRetry();
             }
