@@ -542,7 +542,7 @@ inline void handleChassisGetSubTree(
         if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
             // get debug token resource
-            redfish::getChassisDebugToken(asyncResp, chassisId);
+            redfish::debug_token::getChassisDebugToken(asyncResp, chassisId);
         }
 #ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
         std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
