@@ -2769,11 +2769,8 @@ inline void parseAdditionalDataForCPER(
         BMCWEB_LOG_ERROR("notificationType property not found in CPER log");
         return;
     }
-    else
-    {
-        BMCWEB_LOG_DEBUG("Adding notificationType");
-        jOut["CPER"]["NotificationType"] = notifT->second;
-    }
+    BMCWEB_LOG_DEBUG("Adding notificationType");
+    jOut["CPER"]["NotificationType"] = notifT->second;
 
     const auto& sevCode = additional.find("cperSeverityCode");
     if (additional.end() == sevCode)
@@ -2781,15 +2778,23 @@ inline void parseAdditionalDataForCPER(
         BMCWEB_LOG_ERROR("severity code property not found in CPER log");
         return;
     }
-    else
+
+    std::string code_val;
+    if (!severityToStr(sevCode->second, code_val))
     {
         BMCWEB_LOG_DEBUG("Adding severity code");
-        std::string code_val;
-        if (!severityToStr(sevCode->second, code_val))
-        {
-            jOut["Severity"] = code_val;
-        }
+        jOut["Severity"] = code_val;
     }
+
+    const auto& diagData = additional.find("diagnosticData");
+    if (additional.end() == diagData)
+    {
+        BMCWEB_LOG_ERROR("diagnosticData property not found in CPER log");
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG("Adding diagnosticData");
+    jOut["DiagnosticData"] = diagData->second;
 
     const auto& secT = additional.find("sectionType");
     if (additional.end() == secT)
