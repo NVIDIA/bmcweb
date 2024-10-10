@@ -404,9 +404,9 @@ inline void
     asyncResp->res.jsonValue[jsonPtr]["Id"] = dimmId;
     asyncResp->res.jsonValue[jsonPtr]["Name"] = "DIMM Slot";
     asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] = "Enabled";
-#ifndef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
     asyncResp->res.jsonValue[jsonPtr]["Status"]["Health"] = "OK";
-#endif // ifndef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+    asyncResp->res.jsonValue[jsonPtr]["Status"]["HealthRollup"] = "OK";
+
     std::string dimmIdStr{dimmId};
 #ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
     redfish::conditions_utils::populateServiceConditions(asyncResp, dimmIdStr);
@@ -652,23 +652,6 @@ inline void getDimmDataByService(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                                  const std::string& service,
                                  const std::string& objPath)
 {
-#ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
-    std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
-        objPath, [asyncResp](const std::string& rootHealth,
-                             const std::string& healthRollup) {
-        asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-        asyncResp->res.jsonValue["Status"]["HealthRollup"] = healthRollup;
-#endif //  BMCWEB_DISABLE_HEALTH_ROLLUP
-    });
-    health->start();
-#else  // ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
-
-    auto health = std::make_shared<HealthPopulate>(asyncResp);
-    health->selfPath = objPath;
-    health->populate();
-#endif // ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE*/
-
     BMCWEB_LOG_DEBUG("Get available system components.");
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, service, objPath, "",
