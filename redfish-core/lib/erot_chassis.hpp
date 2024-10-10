@@ -459,7 +459,6 @@ inline void getEROTChassis(const crow::Request& req,
                 manual_boot::bootModeQuery(req, asyncResp, chassisId);
             }
 #endif // BMCWEB_ENABLE_MANUAL_BOOT_MODE
-            redfish::chassis_utils::getOemBootStatus(asyncResp, chassisId);
             return;
         }
 

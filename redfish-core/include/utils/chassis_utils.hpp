@@ -34,6 +34,8 @@ constexpr const char* bmcInvInterf = "xyz.openbmc_project.Inventory.Item.BMC";
 constexpr const char* chassisInvInterf =
     "xyz.openbmc_project.Inventory.Item.Chassis";
 
+constexpr const char* bootStatusIntf = "com.nvidia.RoT.BootStatus";
+
 using Associations =
     std::vector<std::tuple<std::string, std::string, std::string>>;
 
@@ -766,7 +768,7 @@ inline void
                      const std::string chassisObjPath)
 {
     static constexpr std::array<std::string_view, 1> interfaces = {
-        "com.nvidia.RoT.BootStatus"};
+        bootStatusIntf};
 
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/inventory/system/chassis", 0, interfaces,
@@ -838,7 +840,7 @@ inline void
                     << static_cast<int>(byte);
             }
             out = "0x" + oss.str();
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["BootStatus"] = out;
+            asyncResp->res.jsonValue["BootStatus"] = out;
         },
             statusService,
             "/xyz/openbmc_project/inventory/system/chassis/" + chassisObjPath,

@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include "utils/chassis_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/hex_utils.hpp"
 
@@ -1023,6 +1024,7 @@ inline void handleNvidiaRoTProtectedComponent(
         asyncResp->res.jsonValue["@Redfish.Settings"] = {
             {"@odata.type", "#Settings.v1_3_3.Settings"},
             {"SettingsObject", {{"@odata.id", settingsUrl}}}};
+        redfish::chassis_utils::getOemBootStatus(asyncResp, chassisId);
         updateSigningKeyProperties(asyncResp, chassisId, componentId);
         updateSecurityVersionProperties(asyncResp, chassisId, componentId);
     });
