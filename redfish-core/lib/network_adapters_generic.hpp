@@ -150,7 +150,7 @@ void getValidNetworkAdapterPath(
     }
 }
 
-inline void doNetworkAdaptersCollection(
+inline void doNetworkAdaptersCollectionGeneric(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, std::vector<std::string>& chassisIntfList,
     const std::optional<std::string>& validChassisPath)
@@ -497,11 +497,10 @@ inline void getAssetData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             {"xyz.openbmc_project.Inventory.Decorator.Asset"}));
 }
 
-inline void
-    doNetworkAdapter(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& chassisId,
-                     const std::string& networkAdapterId,
-                     const std::optional<std::string>& validNetworkAdapterPath)
+inline void doNetworkAdapterGeneric(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId,
+    const std::optional<std::string>& validNetworkAdapterPath)
 {
     if (!validNetworkAdapterPath)
     {
@@ -596,7 +595,7 @@ inline void
         path + "/all_states", {"xyz.openbmc_project.Inventory.Item.Port"});
 }
 
-inline void handleNetworkAdaptersCollectionGet(
+inline void handleNetworkAdaptersCollectionGetGeneric(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId)
@@ -608,7 +607,8 @@ inline void handleNetworkAdaptersCollectionGet(
 
     redfish::chassis_utils::getValidChassisPathAndInterfaces(
         asyncResp, chassisId,
-        std::bind_front(doNetworkAdaptersCollection, asyncResp, chassisId));
+        std::bind_front(doNetworkAdaptersCollectionGeneric, asyncResp,
+                        chassisId));
 }
 
 inline void handleNetworkAdapterGetNext(
@@ -624,17 +624,16 @@ inline void handleNetworkAdapterGetNext(
         return;
     }
 
-    getValidNetworkAdapterPath(asyncResp, networkAdapterId, chassisIntfList,
-                               *validChassisPath,
-                               std::bind_front(doNetworkAdapter, asyncResp,
-                                               chassisId, networkAdapterId));
+    getValidNetworkAdapterPath(
+        asyncResp, networkAdapterId, chassisIntfList, *validChassisPath,
+        std::bind_front(doNetworkAdapterGeneric, asyncResp, chassisId,
+                        networkAdapterId));
 }
 
-inline void
-    handleNetworkAdapterGet(App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& chassisId,
-                            const std::string& networkAdapterId)
+inline void handleNetworkAdapterGetGeneric(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -666,7 +665,7 @@ inline void doPortCollectionWithValidChassisId(
                                                chassisId, networkAdapterId));
 }
 
-inline void handlePortsCollectionGet(
+inline void handlePortsCollectionGetGeneric(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId,
@@ -1117,11 +1116,12 @@ inline void getPortDataByAssociation(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-inline void doPort(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& chassisId,
-                   const std::string& networkAdapterId,
-                   const std::string& portId,
-                   const std::optional<std::string>& validNetworkAdapterPath)
+inline void
+    doPortGeneric(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                  const std::string& chassisId,
+                  const std::string& networkAdapterId,
+                  const std::string& portId,
+                  const std::optional<std::string>& validNetworkAdapterPath)
 {
     if (!validNetworkAdapterPath)
     {
@@ -1148,17 +1148,18 @@ inline void doPortWithValidChassisId(
         return;
     }
 
-    getValidNetworkAdapterPath(asyncResp, networkAdapterId, chassisIntfList,
-                               *validChassisPath,
-                               std::bind_front(doPort, asyncResp, chassisId,
-                                               networkAdapterId, portId));
+    getValidNetworkAdapterPath(
+        asyncResp, networkAdapterId, chassisIntfList, *validChassisPath,
+        std::bind_front(doPortGeneric, asyncResp, chassisId, networkAdapterId,
+                        portId));
 }
 
-inline void handlePortGet(App& app, const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& chassisId,
-                          const std::string& networkAdapterId,
-                          const std::string& portId)
+inline void
+    handlePortGetGeneric(App& app, const crow::Request& req,
+                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                         const std::string& chassisId,
+                         const std::string& networkAdapterId,
+                         const std::string& portId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -1559,12 +1560,11 @@ inline void doPortMetricsWithValidChassisId(
                         portId));
 }
 
-inline void
-    handlePortMetricsGet(App& app, const crow::Request& req,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& chassisId,
-                         const std::string& networkAdapterId,
-                         const std::string& portId)
+inline void handlePortMetricsGetGeneric(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId,
+    const std::string& portId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -1673,7 +1673,7 @@ inline void networkAdapterPostResetType(
     });
 }
 
-inline void doNetworkAdapterReset(
+inline void doNetworkAdapterResetGeneric(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& networkAdapterId, const std::string& resetType,
     const std::optional<std::string>& validNetworkAdapterPath)
@@ -1721,13 +1721,13 @@ inline void handleNetworkAdapterResetNext(
         return;
     }
 
-    getValidNetworkAdapterPath(asyncResp, networkAdapterId, chassisIntfList,
-                               *validChassisPath,
-                               std::bind_front(doNetworkAdapterReset, asyncResp,
-                                               networkAdapterId, resetType));
+    getValidNetworkAdapterPath(
+        asyncResp, networkAdapterId, chassisIntfList, *validChassisPath,
+        std::bind_front(doNetworkAdapterResetGeneric, asyncResp,
+                        networkAdapterId, resetType));
 }
 
-inline void handleNetworkAdapterReset(
+inline void handleNetworkAdapterResetGeneric(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& networkAdapterId)
@@ -1753,37 +1753,37 @@ inline void handleNetworkAdapterReset(
     }
 }
 
-inline void requestRoutesNetworkAdapters(App& app)
+inline void requestRoutesNetworkAdaptersGeneric(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/")
         .privileges(redfish::privileges::getNetworkAdapterCollection)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleNetworkAdaptersCollectionGet, std::ref(app)));
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            handleNetworkAdaptersCollectionGetGeneric, std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/")
         .privileges(redfish::privileges::getNetworkAdapter)
         .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleNetworkAdapterGet, std::ref(app)));
+            std::bind_front(handleNetworkAdapterGetGeneric, std::ref(app)));
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Actions/NetworkAdapter.Reset/")
         .privileges(redfish::privileges::getNetworkAdapter)
         .methods(boost::beast::http::verb::post)(
-            std::bind_front(handleNetworkAdapterReset, std::ref(app)));
+            std::bind_front(handleNetworkAdapterResetGeneric, std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Ports/")
         .privileges(redfish::privileges::getPortCollection)
         .methods(boost::beast::http::verb::get)(
-            std::bind_front(handlePortsCollectionGet, std::ref(app)));
+            std::bind_front(handlePortsCollectionGetGeneric, std::ref(app)));
     BMCWEB_ROUTE(app,
                  "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Ports/<str>/")
         .privileges(redfish::privileges::getPort)
         .methods(boost::beast::http::verb::get)(
-            std::bind_front(handlePortGet, std::ref(app)));
+            std::bind_front(handlePortGetGeneric, std::ref(app)));
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Ports/<str>/Metrics/")
         .privileges(redfish::privileges::getPortMetrics)
         .methods(boost::beast::http::verb::get)(
-            std::bind_front(handlePortMetricsGet, std::ref(app)));
+            std::bind_front(handlePortMetricsGetGeneric, std::ref(app)));
 }
 
 } // namespace redfish
