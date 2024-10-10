@@ -37,6 +37,7 @@
 #include "nvidia_manager_eventlog.hpp"
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_policy.hpp"
+#include "nvidia_power_reset_metrics.hpp"
 #include "nvidia_protected_component.hpp"
 #include "odata.hpp"
 #include "pcie.hpp"
@@ -497,6 +498,7 @@ RedfishService::RedfishService(App& app)
     {
         requestRoutesChassisFirmwareInfo(app);
         requestRoutesProcessorPowerSmoothing(app);
+        requestRoutesProcessorResetMetrics(app);
         requestRoutesProcessorPowerSmoothingAdminProfile(app);
         requestRoutesProcessorPowerSmoothingPresetProfileCollection(app);
         requestRoutesProcessorPowerSmoothingPresetProfile(app);

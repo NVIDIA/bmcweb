@@ -2355,7 +2355,7 @@ inline void getMigModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     return;
                 }
                 json["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaProcessor.v1_3_0.NvidiaGPU";
+                    "#NvidiaProcessor.v1_4_0.NvidiaGPU";
                 json["Oem"]["Nvidia"]["MIGModeEnabled"] = *migModeEnabled;
             }
         }
@@ -2428,6 +2428,16 @@ inline void
     BMCWEB_LOG_DEBUG(" get getPowerSmoothingInfo data");
     redfish::nvidia_processor_utils::getPowerSmoothingInfo(aResp, processorId,
                                                            service, objPath);
+}
+
+inline void getResetMetricsInfo(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                                std::string processorId,
+                                const std::string& service,
+                                const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG(" get getResetMetricsInfo data");
+    redfish::nvidia_processor_utils::getResetMetricsInfo(aResp, processorId,
+                                                         service, objPath);
 }
 
 inline void
@@ -2966,6 +2976,8 @@ inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     getMNNVLinkTopologyInfo(aResp, processorId, serviceName,
                                             objectPath, interface);
                 }
+                getResetMetricsInfo(aResp, processorId, serviceName,
+                                    objectPath);
             }
         }
     }
