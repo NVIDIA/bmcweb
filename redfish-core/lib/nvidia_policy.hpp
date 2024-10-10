@@ -39,20 +39,54 @@ static inline bool checkChassisId(const std::string& path,
     return (chassisName == chassisId);
 }
 
-inline void handleLeakDetectorPolicyEnabled(
+inline void handleLeakDetectorPolicyProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code ec, const bool shutdownOnLeak)
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& propertiesList)
 {
     if (ec)
     {
-        BMCWEB_LOG_DEBUG("DBUS response error for ShutdownOnLeak");
+        BMCWEB_LOG_DEBUG("DBUS response error: Leak Detect Policy Properties.");
         messages::internalError(asyncResp->res);
         return;
     }
 
-    if (shutdownOnLeak)
+    const bool* shutdownOnLeak = nullptr;
+    const double* shutdownDelaySeconds = nullptr;
+
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), propertiesList, "ShutdownOnLeak",
+        shutdownOnLeak, "ShutdownDelaySeconds", shutdownDelaySeconds);
+
+    if (!success)
     {
-        asyncResp->res.jsonValue["PolicyEnabled"] = true;
+        BMCWEB_LOG_DEBUG("DBUS response error: Unpacking Policy Properties.");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    // Determine the current PolicyEnabled setting. Note that this will be set
+    // by each detector based on current configs. We expect the values to be
+    // same across all detectors and will keep logic simple here.
+    if (shutdownOnLeak != nullptr)
+    {
+        asyncResp->res.jsonValue["PolicyEnabled"] = *shutdownOnLeak;
+    }
+
+    // Indicate the PolicyReactions setting. Note that ReactionDelaySeconds will
+    // be set by each detector. We expect that the values are same across all
+    // detectors and will keep the logic simple here.
+    if (shutdownDelaySeconds != nullptr)
+    {
+        nlohmann::json::array_t reactionsArray;
+
+        nlohmann::json::object_t commonReactionObject;
+        commonReactionObject.emplace("CommonReaction", "HardPowerOff");
+        commonReactionObject.emplace("ReactionDelaySeconds",
+                                     *shutdownDelaySeconds);
+
+        reactionsArray.emplace_back(std::move(commonReactionObject));
+        asyncResp->res.jsonValue["PolicyReactions"] = std::move(reactionsArray);
     }
 }
 
@@ -69,8 +103,6 @@ inline void handleLeakDetectorPolicyPathsGet(
     asyncResp->res.jsonValue["Name"] = "Policy for Leak Detection";
     asyncResp->res.jsonValue["Id"] = "LeakDetectionPolicy";
 
-    asyncResp->res.jsonValue["PolicyEnabled"] = false;
-
     asyncResp->res.jsonValue["PolicyConditionLogic"] = "AnyOf";
 
     // PolicyConditions
@@ -84,15 +116,13 @@ inline void handleLeakDetectorPolicyPathsGet(
             continue;
         }
 
-        // Determine the current PolicyEnabled setting. If setting of any one
-        // detector was enabled, then we will indicate the policy as enabled
-        sdbusplus::asio::getProperty<bool>(
+        sdbusplus::asio::getAllProperties(
             *crow::connections::systemBus, entityMangerServiceName,
             leakDetectorPath, voltageLeakDetectorConfigInterface,
-            "ShutdownOnLeak",
-            [asyncResp](const boost::system::error_code ec,
-                        const bool shutdownOnLeak) {
-            handleLeakDetectorPolicyEnabled(asyncResp, ec, shutdownOnLeak);
+            [asyncResp](
+                const boost::system::error_code& ec,
+                const dbus::utility::DBusPropertiesMap& propertiesList) {
+            handleLeakDetectorPolicyProperties(asyncResp, ec, propertiesList);
         });
 
         // Add the detector as a member of PolicyCondition
@@ -107,16 +137,6 @@ inline void handleLeakDetectorPolicyPathsGet(
 
         conditionsArray.emplace_back(std::move(conditionObject));
     }
-
-    // PolicyReactions
-    nlohmann::json& reactionsArray =
-        asyncResp->res.jsonValue["PolicyReactions"];
-    reactionsArray = nlohmann::json::array();
-
-    nlohmann::json::object_t commonReactionObject;
-    commonReactionObject.emplace("CommonReaction", "HardPowerOff");
-
-    reactionsArray.emplace_back(std::move(commonReactionObject));
 
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
     asyncResp->res.jsonValue["Status"]["Health"] = "OK";
@@ -180,7 +200,7 @@ inline void handleLeakDetectionPolicyGet(
         std::bind_front(doLeakDetectionPolicyGet, asyncResp, chassisId));
 }
 
-inline void handleLeakDetectorPolicyPathsPatch(
+inline void handleLeakDetectorPolicyEnablePatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const bool policyEnabled,
     const dbus::utility::MapperGetSubTreePathsResponse& leakDetectorPaths)
@@ -192,10 +212,9 @@ inline void handleLeakDetectorPolicyPathsPatch(
             continue;
         }
 
-        setDbusProperty(asyncResp, "LeakPolicyReaction",
-                        entityMangerServiceName, leakDetectorPath,
-                        voltageLeakDetectorConfigInterface, "ShutdownOnLeak",
-                        policyEnabled);
+        setDbusProperty(asyncResp, "ShutdownOnLeak", entityMangerServiceName,
+                        leakDetectorPath, voltageLeakDetectorConfigInterface,
+                        "ShutdownOnLeak", policyEnabled);
     }
 }
 
@@ -211,8 +230,43 @@ inline void doLeakDetectionPolicyEnabledPatch(
     }
 
     getLeakDetectorPolicyPaths(
-        asyncResp, std::bind_front(handleLeakDetectorPolicyPathsPatch,
+        asyncResp, std::bind_front(handleLeakDetectorPolicyEnablePatch,
                                    asyncResp, chassisId, policyEnabled));
+}
+
+inline void handleLeakDetectorReactionDelayPatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const double reactionDelaySeconds,
+    const dbus::utility::MapperGetSubTreePathsResponse& leakDetectorPaths)
+{
+    for (const auto& leakDetectorPath : leakDetectorPaths)
+    {
+        if (!checkChassisId(leakDetectorPath, chassisId))
+        {
+            continue;
+        }
+
+        setDbusProperty(asyncResp, "ShutdownDelaySeconds",
+                        entityMangerServiceName, leakDetectorPath,
+                        voltageLeakDetectorConfigInterface,
+                        "ShutdownDelaySeconds", reactionDelaySeconds);
+    }
+}
+
+inline void doLeakDetectionReactionDelayPatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const double reactionDelaySeconds,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    getLeakDetectorPolicyPaths(
+        asyncResp, std::bind_front(handleLeakDetectorReactionDelayPatch,
+                                   asyncResp, chassisId, reactionDelaySeconds));
 }
 
 inline void handleLeakDetectionPolicyPatch(
@@ -226,9 +280,11 @@ inline void handleLeakDetectionPolicyPatch(
     }
 
     std::optional<bool> policyEnabled;
+    std::optional<double> reactionDelaySeconds;
 
     if (!json_util::readJsonPatch(req, asyncResp->res, "PolicyEnabled",
-                                  policyEnabled))
+                                  policyEnabled, "ReactionDelaySeconds",
+                                  reactionDelaySeconds))
     {
         return;
     }
@@ -239,6 +295,14 @@ inline void handleLeakDetectionPolicyPatch(
             asyncResp, chassisId,
             std::bind_front(doLeakDetectionPolicyEnabledPatch, asyncResp,
                             chassisId, *policyEnabled));
+    }
+
+    if (reactionDelaySeconds)
+    {
+        redfish::chassis_utils::getValidChassisPath(
+            asyncResp, chassisId,
+            std::bind_front(doLeakDetectionReactionDelayPatch, asyncResp,
+                            chassisId, *reactionDelaySeconds));
     }
 }
 
