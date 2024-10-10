@@ -541,7 +541,7 @@ inline void getSysGUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
             return;
         }
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaProcessor.v1_3_0.NvidiaGPU";
+            "#NvidiaProcessor.v1_4_0.NvidiaGPU";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["MNNVLinkTopology"]
                                 ["SystemGUID"] = property;
     });
@@ -574,7 +574,7 @@ inline void getCCModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         for (const auto& property : properties)
         {
             json["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaProcessor.v1_3_0.NvidiaGPU";
+                "#NvidiaProcessor.v1_4_0.NvidiaGPU";
             if (property.first == "CCModeEnabled")
             {
                 const bool* ccModeEnabled = std::get_if<bool>(&property.second);
@@ -627,7 +627,7 @@ inline void getInbandReconfigPermissionsData(
         auto reconfigPermissionsName =
             sdbusplus::message::object_path(objPath).filename();
         aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaProcessor.v1_3_0.NvidiaGPU";
+            "#NvidiaProcessor.v1_4_0.NvidiaGPU";
         auto& reconfigPermissionsJson =
             json["Oem"]["Nvidia"]["InbandReconfigPermissions"]
                 [reconfigPermissionsName];
@@ -741,7 +741,7 @@ inline void
                     continue;
                 }
                 aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaProcessor.v1_3_0.NvidiaGPU";
+                    "#NvidiaProcessor.v1_4_0.NvidiaGPU";
                 aResp->res.jsonValue["Oem"]["Nvidia"]["ErrorInjection"] = {
                     {"@odata.id",
                      "/redfish/v1/Systems/" +
@@ -785,7 +785,7 @@ inline void
         }
         nlohmann::json& json = aResp->res.jsonValue;
         json["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaProcessor.v1_3_0.NvidiaGPU";
+            "#NvidiaProcessor.v1_4_0.NvidiaGPU";
         for (const auto& property : properties)
         {
             if (property.first == "PendingCCModeState")
@@ -923,6 +923,59 @@ inline void
     powerSmoothingURI += "/Oem/Nvidia/PowerSmoothing";
     aResp->res.jsonValue["Oem"]["Nvidia"]["PowerSmoothing"]["@odata.id"] =
         powerSmoothingURI;
+}
+
+/**
+ * @brief Fill out processor nvidia specific info by
+ * requesting data from the given D-Bus object.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       cpuId       Processor ID.
+ * @param[in]       service     D-Bus service to query.
+ * @param[in]       objPath     D-Bus object to query.
+ */
+inline void getResetMetricsInfo(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                                const std::string& processorId,
+                                [[maybe_unused]] const std::string& service,
+                                const std::string& objPath)
+{
+    crow::connections::systemBus->async_method_call(
+        [aResp,
+         processorId](const boost::system::error_code& ec,
+                      const std::variant<std::vector<std::string>>& resp) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR(
+                "Failed to get ResetMetrics association endpoints: {}",
+                ec.message());
+            messages::internalError(aResp->res);
+            // No associated ResetMetrics found
+            return;
+        }
+
+        const std::vector<std::string>* data =
+            std::get_if<std::vector<std::string>>(&resp);
+        if (data == nullptr || data->empty())
+        {
+            BMCWEB_LOG_INFO(
+                "No associated ResetMetrics found for processor: {}",
+                processorId);
+            return;
+        }
+
+        // Construct the ResetMetrics URI and add it to the response
+        std::string resetMetricsURI = std::format(
+            "/redfish/v1/Systems/{}/Processors/{}/Oem/Nvidia/ProcessorResetMetrics",
+            BMCWEB_REDFISH_SYSTEM_URI_NAME, processorId);
+
+        aResp->res.jsonValue["Oem"]["Nvidia"]["ProcessorResetMetrics"]
+                            ["@odata.id"] = resetMetricsURI;
+
+        BMCWEB_LOG_DEBUG("Added ResetMetrics URI: {}", resetMetricsURI);
+    },
+        "xyz.openbmc_project.ObjectMapper", objPath + "/reset_statistics",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
 }
 
 inline void getClearablePcieCounters(
@@ -2124,7 +2177,7 @@ static void getEgmModePendingDataHandler(
     }
 
     nlohmann::json& json = aResp->res.jsonValue;
-    json["Oem"]["Nvidia"]["@odata.type"] = "#NvidiaProcessor.v1_3_0.NvidiaGPU";
+    json["Oem"]["Nvidia"]["@odata.type"] = "#NvidiaProcessor.v1_4_0.NvidiaGPU";
     for (const auto& property : properties)
     {
         if (property.first == "PendingEGMModeState")
@@ -2187,7 +2240,7 @@ inline void
     for (const auto& property : properties)
     {
         json["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaProcessor.v1_3_0.NvidiaGPU";
+            "#NvidiaProcessor.v1_4_0.NvidiaGPU";
         if (property.first == "EGMModeEnabled")
         {
             const bool* egmModeEnabled = std::get_if<bool>(&property.second);

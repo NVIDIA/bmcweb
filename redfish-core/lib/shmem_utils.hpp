@@ -216,6 +216,7 @@ inline void metricsReplacementsNonPlatformMetrics(
         if (deviceType == "MemoryMetrics" || deviceType == "ProcessorMetrics" ||
             deviceType == "ProcessorGPMMetrics" ||
             deviceType == "ProcessorPortMetrics" ||
+            deviceType == "ProcessorResetMetrics" ||
             deviceType == "ProcessorPortGPMMetrics")
         {
             std::regex gpuPattern(gpuPrefix + "(\\d+)");
@@ -444,7 +445,7 @@ inline void metricsReplacementsNonPlatformMetrics(
         deviceType == "ProcessorGPMMetrics" ||
         deviceType == "ProcessorPortMetrics" ||
         deviceType == "ProcessorPortGPMMetrics" ||
-        deviceType == "HealthMetrics")
+        deviceType == "ProcessorResetMetrics" || deviceType == "HealthMetrics")
     {
         nlohmann::json devCountGpuId = nlohmann::json::array();
         for (const auto& e : gpuId)
