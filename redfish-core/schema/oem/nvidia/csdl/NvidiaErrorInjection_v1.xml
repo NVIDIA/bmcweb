@@ -8,7 +8,6 @@
 <!--################################################################################       -->
 <!---->
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
-
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
     <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
   </edmx:Reference>
@@ -22,12 +21,9 @@
     <edmx:Include Namespace="Resource"/>
     <edmx:Include Namespace="Resource.v1_0_0"/>
   </edmx:Reference>
-
   <edmx:DataServices>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaErrorInjection">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <EntityType Name="NvidiaErrorInjection" BaseType="Resource.v1_0_0.Resource" Abstract="true">
         <Annotation Term="OData.Description" String="This is the schema definition for the error injection feature."/>
         <Annotation Term="OData.LongDescription" String="This resource shall be used to represent the error injection properties."/>
@@ -56,10 +52,8 @@
         </Annotation>
       </EntityType>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaErrorInjection.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <EntityType Name="NvidiaErrorInjection" BaseType="NvidiaErrorInjection.NvidiaErrorInjection">
         <Property Name="Status" Type="Resource.Status" Nullable="false"/>
         <Property Name="Actions" Type="NvidiaErrorInjection.v1_0_0.Actions" Nullable="false">
@@ -81,7 +75,6 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain the error injection capabilities."/>
         </Property>
       </EntityType>
-
       <ComplexType Name="EIJCapabilities">
         <Property Name="MemoryErrors" Type="NvidiaErrorInjection.v1_0_0.EIJSupport">
           <Annotation Term="OData.Description" String="The error injection support of the memory errors."/>
@@ -100,9 +93,8 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain the error injection support of the thermal errors."/>
         </Property>
       </ComplexType>
-
       <ComplexType Name="EIJSupport">
-       <Property Name="Supported" Type="Edm.Boolean">
+        <Property Name="Supported" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Indicates whether the error injection type is supported."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate whether the error injection type is supported."/>
@@ -113,13 +105,11 @@
           <Annotation Term="OData.LongDescription" String="This property shall indicate whether the error injection type is enabled."/>
         </Property>
       </ComplexType>
-
       <ComplexType Name="Actions">
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="OData.Description" String="The available actions for this resource."/>
         <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
       </ComplexType>
     </Schema>
-
   </edmx:DataServices>
 </edmx:Edmx>

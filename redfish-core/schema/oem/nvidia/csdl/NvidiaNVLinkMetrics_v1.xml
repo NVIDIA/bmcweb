@@ -8,7 +8,6 @@
 <!--################################################################################       -->
 <!---->
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
-
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
     <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
   </edmx:Reference>
@@ -18,12 +17,9 @@
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
     <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
   </edmx:Reference>
-
   <edmx:DataServices>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNVLinkMetrics">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NVLinkErrors">
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="OData.Description" String="The NVLink errors."/>
@@ -59,8 +55,6 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain the total number of NVLink data CRC errors."/>
         </Property>
       </ComplexType>
-
     </Schema>
-
   </edmx:DataServices>
 </edmx:Edmx>

@@ -8,7 +8,6 @@
 <!--################################################################################       -->
 <!---->
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
-
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
     <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
   </edmx:Reference>
@@ -21,16 +20,12 @@
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
     <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
   </edmx:Reference>
-
   <edmx:DataServices>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaPort">
         <Property Name="TXWidth" Type="Edm.Int64">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -44,10 +39,8 @@
         </Property>
       </ComplexType>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaNVLinkPort">
         <Property Name="TXWidth" Type="Edm.Int64">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -91,6 +84,5 @@
         </Property>
       </ComplexType>
     </Schema>
-
   </edmx:DataServices>
 </edmx:Edmx>

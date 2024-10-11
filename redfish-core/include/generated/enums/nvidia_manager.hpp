@@ -29,6 +29,23 @@ enum class OOBRawCommandTargetType{
     Baseboard,
 };
 
+enum class FabricManagerState{
+    Invalid,
+    Offline,
+    Standby,
+    Configured,
+    Error,
+    Unknown,
+};
+
+enum class ReportStatus{
+    Invalid,
+    Pending,
+    Received,
+    Timeout,
+    Unknown,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(FirmwareBuildType, {
     {FirmwareBuildType::Invalid, "Invalid"},
     {FirmwareBuildType::ProvisioningDebug, "ProvisioningDebug"},
@@ -51,6 +68,23 @@ NLOHMANN_JSON_SERIALIZE_ENUM(OOBRawCommandTargetType, {
     {OOBRawCommandTargetType::GPU, "GPU"},
     {OOBRawCommandTargetType::NVSwitch, "NVSwitch"},
     {OOBRawCommandTargetType::Baseboard, "Baseboard"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(FabricManagerState, {
+    {FabricManagerState::Invalid, "Invalid"},
+    {FabricManagerState::Offline, "Offline"},
+    {FabricManagerState::Standby, "Standby"},
+    {FabricManagerState::Configured, "Configured"},
+    {FabricManagerState::Error, "Error"},
+    {FabricManagerState::Unknown, "Unknown"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(ReportStatus, {
+    {ReportStatus::Invalid, "Invalid"},
+    {ReportStatus::Pending, "Pending"},
+    {ReportStatus::Received, "Received"},
+    {ReportStatus::Timeout, "Timeout"},
+    {ReportStatus::Unknown, "Unknown"},
 });
 
 }

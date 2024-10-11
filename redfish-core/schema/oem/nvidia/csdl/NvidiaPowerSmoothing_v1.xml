@@ -8,7 +8,6 @@
 <!--################################################################################       -->
 <!---->
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
-
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
     <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
   </edmx:Reference>
@@ -28,12 +27,9 @@
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerSmoothingPresetProfileCollection_v1.xml">
     <edmx:Include Namespace="NvidiaPowerSmoothingPresetProfileCollection"/>
   </edmx:Reference>
-
   <edmx:DataServices>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerSmoothing">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <EntityType Name="NvidiaPowerSmoothing" BaseType="Resource.v1_0_0.Resource" Abstract="true">
         <Annotation Term="OData.Description" String="This is the schema definition for the power smoothing feature."/>
         <Annotation Term="OData.LongDescription" String="This resource shall be used to represent the power smoothing properties."/>
@@ -59,7 +55,6 @@
           </Collection>
         </Annotation>
       </EntityType>
-
       <Action Name="ActivatePresetProfile" IsBound="true">
         <Annotation Term="OData.Description" String="This action is used to activate one of the preset profiles."/>
         <Annotation Term="OData.LongDescription" String="This action shall activate one of the preset profiles."/>
@@ -69,17 +64,14 @@
           <Annotation Term="OData.LongDescription" String="This parameter shall contain the profile ID to set as active."/>
         </Parameter>
       </Action>
-
       <Action Name="ApplyAdminOverrides" IsBound="true">
         <Annotation Term="OData.Description" String="This action is used to apply all cached admin override values at runtime."/>
         <Annotation Term="OData.LongDescription" String="This action shall apply all cached admin override values at runtime."/>
         <Parameter Name="NvidiaPowerSmoothing" Type="NvidiaPowerSmoothing.v1_0_0.Actions"/>
       </Action>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerSmoothing.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <EntityType Name="NvidiaPowerSmoothing" BaseType="NvidiaPowerSmoothing.NvidiaPowerSmoothing">
         <Property Name="Status" Type="Resource.Status" Nullable="false"/>
         <Property Name="Actions" Type="NvidiaPowerSmoothing.v1_0_0.Actions" Nullable="false">
@@ -159,9 +151,8 @@
           <Annotation Term="OData.AutoExpandReferences"/>
         </NavigationProperty>
       </EntityType>
-
       <ComplexType Name="AdminOverrideActiveMask">
-       <Property Name="TMPFloorPercentApplied" Type="Edm.Boolean">
+        <Property Name="TMPFloorPercentApplied" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Indicates whether administrator overrides of TMPFloorPercent parameter is applied."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate whether administrator overrides of TMPFloorPercent parameter is applied."/>
@@ -182,17 +173,14 @@
           <Annotation Term="OData.LongDescription" String="This property shall indicate whether administrator overrides of RampDownHysteresisSeconds parameter is applied."/>
         </Property>
       </ComplexType>
-
       <ComplexType Name="Actions">
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="OData.Description" String="The available actions for this resource."/>
         <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
       </ComplexType>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerSmoothing.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <EntityType Name="NvidiaPowerSmoothing" BaseType="NvidiaPowerSmoothing.v1_0_0.NvidiaPowerSmoothing">
         <Property Name="PowerSmoothingSupported" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -206,6 +194,5 @@
         </Property>
       </EntityType>
     </Schema>
-
   </edmx:DataServices>
 </edmx:Edmx>

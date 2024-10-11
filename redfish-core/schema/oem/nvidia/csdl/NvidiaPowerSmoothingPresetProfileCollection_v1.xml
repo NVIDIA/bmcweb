@@ -8,7 +8,6 @@
 <!--################################################################################       -->
 <!---->
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
-
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
     <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
   </edmx:Reference>
@@ -24,12 +23,9 @@
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerSmoothingPresetProfile_v1.xml">
     <edmx:Include Namespace="NvidiaPowerSmoothingPresetProfile"/>
   </edmx:Reference>
-
   <edmx:DataServices>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerSmoothingPresetProfileCollection">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <EntityType Name="NvidiaPowerSmoothingPresetProfileCollection" BaseType="Resource.v1_0_0.ResourceCollection">
         <Annotation Term="OData.Description" String="The collection of PowerSmoothingPresetProfile resource instances."/>
         <Annotation Term="OData.LongDescription" String="This resource shall represent a resource collection of PowerSmoothingPresetProfile instances for a Redfish implementation."/>
@@ -62,6 +58,5 @@
         </NavigationProperty>
       </EntityType>
     </Schema>
-
   </edmx:DataServices>
 </edmx:Edmx>

@@ -8,7 +8,6 @@
 <!--################################################################################       -->
 <!---->
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
-
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
     <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
   </edmx:Reference>
@@ -24,22 +23,17 @@
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/PCIeDevice_v1.xml">
     <edmx:Include Namespace="PCIeDevice.v1_0_0"/>
   </edmx:Reference>
-
   <edmx:DataServices>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPCIeDevice">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <Action Name="ClearAERErrorStatus" IsBound="true">
         <Annotation Term="OData.Description" String="This action is used to clear PCI Express Advanced Error Reporting (AER) Error Status."/>
         <Annotation Term="OData.LongDescription" String="This action shall clear PCI Express Advanced Error Reporting (AER) Error Status."/>
         <Parameter Name="PCIeDevice" Type="PCIeDevice.v1_0_0.OemActions"/>
       </Action>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPCIeDevice.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaPCIeDevice">
         <Property Name="NVLinkReferenceClockEnabled" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -52,12 +46,9 @@
           <Annotation Term="OData.LongDescription" String="This property shall indicate whether the PCIe reference clock is enabled for this device."/>
         </Property>
       </ComplexType>
-
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPCIeDevice.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaPCIeDevice" BaseType="NvidiaPCIeDevice.v1_0_0.NvidiaPCIeDevice">
         <Property Name="LTSSMState" Type="NvidiaPCIeDevice.v1_1_0.LTSSMState">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -65,7 +56,6 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain PCIe LTSSM state."/>
         </Property>
       </ComplexType>
-
       <EnumType Name="LTSSMState">
         <Member Name="Detect">
           <Annotation Term="OData.Description" String="This value shall indicate Detect state."/>
@@ -129,10 +119,8 @@
         </Member>
       </EnumType>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPCIeDevice.v1_2_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaPCIeDevice" BaseType="NvidiaPCIeDevice.v1_1_0.NvidiaPCIeDevice">
         <Property Name="AERUncorrectableErrorStatus" Type="Edm.String">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -148,6 +136,5 @@
         </Property>
       </ComplexType>
     </Schema>
-
   </edmx:DataServices>
 </edmx:Edmx>

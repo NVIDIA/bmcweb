@@ -8,7 +8,6 @@
 <!--################################################################################       -->
 <!---->
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
-
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
     <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
   </edmx:Reference>
@@ -22,16 +21,17 @@
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
     <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
   </edmx:Reference>
-
   <edmx:DataServices>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaLogService">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Action Name="GenerateBirthCert" IsBound="true">
+        <Annotation Term="OData.Description" String="Triggers the generation of the birth certificate of the system."/>
+        <Annotation Term="OData.LongDescription" String="The action triggers the generation of birth certificate of the system. Birth certificate includes both the device inventory and firmware inventory information captured at the time action is invoked. Clients can download the dump entry supported by the log service which implements this OEM action to extract the birth certificate. The API is intended to be used by factory or RMA purpose as one time action when there is no birth certificate present. If product already has the birth certification, then invocation of this API has no effect."/>
+        <Parameter Name="LogService" Type="LogService.v1_0_0.OemActions"/>
+      </Action>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaLogService.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaLogService">
         <Property Name="LatestEntryID" Type="Edm.String">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -44,12 +44,9 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain the date and time when the latest log entry was created of this LogSerivce."/>
         </Property>
       </ComplexType>
-
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaLogService.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaLogService" BaseType="NvidiaLogService.v1_0_0.NvidiaLogService">
         <Property Name="AutoClearResolvedLogEnabled" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
@@ -58,10 +55,8 @@
         </Property>
       </ComplexType>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaLogService.v1_2_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaLogService" BaseType="NvidiaLogService.v1_1_0.NvidiaLogService">
         <Property Name="RetimerDebugModeEnabled" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
@@ -70,10 +65,8 @@
         </Property>
       </ComplexType>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaLogService.v1_3_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaLogService" BaseType="NvidiaLogService.v1_2_0.NvidiaLogService">
         <Property Name="BootEntryID" Type="Edm.String">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -82,6 +75,5 @@
         </Property>
       </ComplexType>
     </Schema>
-
   </edmx:DataServices>
 </edmx:Edmx>

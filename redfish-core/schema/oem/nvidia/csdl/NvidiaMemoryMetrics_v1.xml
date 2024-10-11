@@ -8,7 +8,6 @@
 <!--################################################################################       -->
 <!---->
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
-
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
     <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
   </edmx:Reference>
@@ -21,23 +20,18 @@
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
     <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
   </edmx:Reference>
-
   <edmx:DataServices>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaMemoryMetrics">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaMemoryMetrics.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaMemoryMetrics">
         <Property Name="RowRemapping" Type="NvidiaMemoryMetrics.v1_0_0.RowRemapping" Nullable="false">
           <Annotation Term="OData.Description" String="The row remapping statistics associated with this processor."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain properties that describe the row-remapping statistics associated with this processor."/>
         </Property>
       </ComplexType>
-
       <ComplexType Name="RowRemapping">
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="OData.Description" String="The row remapping statistics associated with this processor."/>
@@ -54,17 +48,14 @@
         </Property>
       </ComplexType>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaMemoryMetrics.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaGPUMemoryMetrics">
         <Property Name="RowRemapping" Type="NvidiaMemoryMetrics.v1_1_0.RowRemapping" Nullable="false">
           <Annotation Term="OData.Description" String="The row remapping statistics associated with this processor."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain properties that describe the row-remapping statistics associated with this processor."/>
         </Property>
       </ComplexType>
-
       <ComplexType Name="RowRemapping">
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="OData.Description" String="The row remapping statistics associated with this processor."/>
@@ -106,6 +97,5 @@
         </Property>
       </ComplexType>
     </Schema>
-
   </edmx:DataServices>
 </edmx:Edmx>

@@ -1,4 +1,4 @@
-<?xml version="1.0" ?>
+<?xml version="1.0"?>
 <!---->
 <!--################################################################################       -->
 <!--# Redfish Schema:  NvidiaRoTImageSlotCollection.v1_0_0                                 -->
@@ -60,4 +60,3 @@
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
-

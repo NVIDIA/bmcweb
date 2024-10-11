@@ -8,7 +8,6 @@
 <!--################################################################################       -->
 <!---->
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
-
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
     <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
   </edmx:Reference>
@@ -26,35 +25,26 @@
     <edmx:Include Namespace="ProcessorMetrics"/>
     <edmx:Include Namespace="ProcessorMetrics.v1_0_0"/>
   </edmx:Reference>
-
   <edmx:DataServices>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessorMetrics">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <Action Name="ClearAccumulatedUtilizationCounters" IsBound="true">
         <Annotation Term="OData.Description" String="The action sets the values of AccumulatedGPUContextUtilizationDuration and AccumulatedSMUtilizationDuration properties to zero."/>
         <Annotation Term="OData.LongDescription" String="This action sets the values of AccumulatedGPUContextUtilizationDuration and AccumulatedSMUtilizationDuration properties to zero."/>
         <Parameter Name="ProcessorMetrics" Type="ProcessorMetrics.v1_0_0.OemActions"/>
       </Action>
-
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessorMetrics.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaProcessorMetrics">
         <Property Name="ThrottleReasons" Type="Collection(Edm.String)">
           <Annotation Term="OData.Description" String="The throttle reasons for this processor."/>
           <Annotation Term="OData.LongDescription" String="The property shall contain a list of throttle reasons for this processor."/>
         </Property>
       </ComplexType>
-
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessorMetrics.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaProcessorMetrics" BaseType="NvidiaProcessorMetrics.v1_0_0.NvidiaProcessorMetrics">
         <Property Name="HardwareViolationThrottleDuration" Type="Edm.Duration">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -237,12 +227,9 @@
           <Annotation Term="Measures.Unit" String="By"/>
         </Property>
       </ComplexType>
-
     </Schema>
-
-   <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessorMetrics.v1_2_0">
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessorMetrics.v1_2_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <EnumType Name="PerformanceStateType">
         <Member Name="Normal">
           <Annotation Term="OData.Description" String="The entity is operating at a full functional level at full speed"/>
@@ -254,7 +241,6 @@
           <Annotation Term="OData.Description" String="The entity is operating at a degraded functional level"/>
         </Member>
       </EnumType>
-
       <EnumType Name="EDPViolationStateType">
         <Member Name="Normal">
           <Annotation Term="OData.Description" String="The value is within the range"/>
@@ -263,7 +249,6 @@
           <Annotation Term="OData.Description" String="The value is outside the range"/>
         </Member>
       </EnumType>
-
       <ComplexType Name="NvidiaProcessorMetrics" BaseType="NvidiaProcessorMetrics.v1_1_0.NvidiaProcessorMetrics">
         <Property Name="PerformanceState" Type="NvidiaProcessorMetrics.v1_2_0.PerformanceStateType">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -292,10 +277,8 @@
         </Property>
       </ComplexType>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessorMetrics.v1_3_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaGPUProcessorMetrics">
         <Property Name="SMUtilizationPercent" Type="Edm.Decimal">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -490,10 +473,8 @@
         </Property>
       </ComplexType>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessorMetrics.v1_4_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaGPUProcessorMetrics" BaseType="NvidiaProcessorMetrics.v1_3_0.NvidiaGPUProcessorMetrics">
         <Property Name="SRAMECCErrorThresholdExceeded" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>

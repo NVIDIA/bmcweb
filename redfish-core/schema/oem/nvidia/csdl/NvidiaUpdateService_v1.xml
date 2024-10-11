@@ -8,7 +8,6 @@
 <!--################################################################################       -->
 <!---->
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
-
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
     <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
   </edmx:Reference>
@@ -30,14 +29,10 @@
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaPersistentStorage_v1.xml">
     <edmx:Include Namespace="NvidiaPersistentStorage"/>
   </edmx:Reference>
-
   <edmx:DataServices>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaUpdateService">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="UpdateParameters" Abstract="true"/>
-
       <Action Name="CommitImage" IsBound="true">
         <Annotation Term="OData.Description" String="This action is used to commit all applicable image components into storage."/>
         <Annotation Term="OData.LongDescription" String="This action shall commit all applicable image components into storage.  This action cannot be executed when firmware update or background copy policy is enabled and in progress by ERoTs."/>
@@ -49,20 +44,16 @@
         </Parameter>
       </Action>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaUpdateService.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaUpdateService.v1_0_1">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <Annotation Term="OData.Description" String="This version was created to improve the descriptions of CommitImage action."/>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaUpdateService.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <Annotation Term="OData.Description" String="This version was created to add a link to PersistentStorage resource."/>
-
       <ComplexType Name="NvidiaUpdateService">
         <NavigationProperty Name="PersistentStorage" Type="NvidiaPersistentStorage.NvidiaPersistentStorage" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -72,11 +63,8 @@
         </NavigationProperty>
       </ComplexType>
     </Schema>
-
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaUpdateService.v1_2_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaUpdateService" BaseType="NvidiaUpdateService.v1_1_0.NvidiaUpdateService">
         <Property Name="MultipartHttpPushUriOptions" Type="NvidiaUpdateService.v1_2_0.MultipartHttpPushUriOptions">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -84,7 +72,6 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain options and capabilities of the service for MultipartHttpPushUri-provided firmware updates."/>
         </Property>
       </ComplexType>
-
       <ComplexType Name="MultipartHttpPushUriOptions">
         <Property Name="UpdateOptionSupport" Type="Collection(NvidiaUpdateService.v1_2_0.UpdateOptionSupport)">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -92,7 +79,6 @@
           <Annotation Term="OData.LongDescription" String="This property shall indicate that a client can request an UpdateOption parameter when using the URI specified by the `MultipartHttpPushUri` property to push firmware images and service shall allow one of the values in this array for the UpdateOption parameter. If this property is present and the UpdateOption parameter is absent when pushing the firmware images, the default is `StageAndActivate`."/>
         </Property>
       </ComplexType>
-
       <ComplexType Name="UpdateParameters" BaseType="NvidiaUpdateService.UpdateParameters">
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="OData.Description" String="The update parameters used with `MultipartHttpPushUri` firmware update."/>
@@ -103,7 +89,6 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain a requested update option when using the URI specified by the `MultipartHttpPushUri` property to push firmware images. If this property is absent, the default is `StageAndActivate`."/>
         </Property>
       </ComplexType>
-
       <EnumType Name="UpdateOptionSupport">
         <Member Name="StageOnly">
           <Annotation Term="OData.Description" String="Transfer the provided firmware images to the non-volatile storage of the target devices without activation."/>
@@ -115,6 +100,5 @@
         </Member>
       </EnumType>
     </Schema>
-
   </edmx:DataServices>
 </edmx:Edmx>

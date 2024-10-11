@@ -1,14 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaManager  v1.3.0                                           -->
+<!--# Redfish OEM Schema:  NvidiaManager  v1.4.0                                           -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2024 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
 <!--################################################################################       -->
 <!---->
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
-
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
     <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
   </edmx:Reference>
@@ -25,12 +24,9 @@
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Manager_v1.xml">
     <edmx:Include Namespace="Manager.v1_0_0"/>
   </edmx:Reference>
-
   <edmx:DataServices>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <Action Name="ResetToDefaults" IsBound="true">
         <Annotation Term="OData.Description" String="The reset action resets the manager settings to factory defaults as specified by NVIDIA."/>
         <Annotation Term="OData.LongDescription" String="This action shall reset the manager settings to factory defaults as specified by NVIDIA.  This action will delete all log entries and diagnostic data."/>
@@ -128,13 +124,11 @@
           <Annotation Term="OData.Description" String="Data field of the request payload defined in the NVIDIA System Management (NSM) API Base Specification."/>
           <Annotation Term="OData.LongDescription" String="This parameter shall contain the data field of the request payload defined in the NVIDIA System Management (NSM) API Base Specification."/>
         </Parameter>
-         <ReturnType Type="NvidiaManager.v1_3_0.NSMRawCommandResponse" Nullable="false"/>
+        <ReturnType Type="NvidiaManager.v1_3_0.NSMRawCommandResponse" Nullable="false"/>
       </Action>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaManager">
         <Property Name="FirmwareBuildType" Type="NvidiaManager.v1_0_0.FirmwareBuildType">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -161,7 +155,6 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain the settings of resources that allow client to use a redundancy channel to communicate."/>
         </Property>
       </ComplexType>
-
       <ComplexType Name="RedundancySupportedResource">
         <Property Name="UpdateService" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
@@ -174,7 +167,6 @@
           <Annotation Term="OData.LongDescription" String="This property shall indicate whether the ComponentIntegrity resource is configured to use a redundancy channel.  The default shall be false."/>
         </Property>
       </ComplexType>
-
       <ComplexType Name="SyncOOBRawCommandResponse">
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="OData.Description" String="The response from a synchronous raw command defined in SMBPBI specification."/>
@@ -196,7 +188,6 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain the Extended Data-Out defined in SMBPBI specification."/>
         </Property>
       </ComplexType>
-
       <ComplexType Name="AsyncOOBRawCommandResponse">
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="OData.Description" String="The response from an asynchronous raw command defined in SMBPBI specification."/>
@@ -218,7 +209,6 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain the output data of an asynchronous command defined in SMBPBI specification."/>
         </Property>
       </ComplexType>
-
       <EnumType Name="FirmwareBuildType">
         <Member Name="ProvisioningDebug">
           <Annotation Term="OData.Description" String="The firmware includes software to provision the debug OTP keys and is signed with debug keys."/>
@@ -255,7 +245,6 @@
           </Annotation>
         </Member>
       </EnumType>
-
       <EnumType Name="SMBPBIFencingPrivilege">
         <Member Name="HMC">
           <Annotation Term="OData.Description" String="HMC has SMBPBI privilege."/>
@@ -267,7 +256,6 @@
           <Annotation Term="OData.Description" String="No host has SMBPBI privilege."/>
         </Member>
       </EnumType>
-
       <EnumType Name="OOBRawCommandTargetType">
         <Member Name="GPU">
           <Annotation Term="OData.Description" String="The target is GPU."/>
@@ -279,26 +267,20 @@
           <Annotation Term="OData.Description" String="The target is Baseboard."/>
         </Member>
       </EnumType>
-
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <Annotation Term="OData.Description" String="This version was created to add `ProvisioningDevelopment` and `PlatformDevelopment` to FirmwareBuildType."/>
-
       <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_0_0.NvidiaManager"/>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_2_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_1_0.NvidiaManager">
         <Property Name="PersistentStorageSettings" Type="NvidiaManager.v1_2_0.PersistentStorageSettings">
           <Annotation Term="OData.Description" String="The settings of persistent storage attached to this manager."/>
           <Annotation Term="OData.LongDescription" String="The property shall contain the settings of persistent storage attached to this manager."/>
         </Property>
       </ComplexType>
-
       <ComplexType Name="PersistentStorageSettings">
         <Property Name="Status" Type="Resource.Status" Nullable="false"/>
         <Property Name="Enabled" Type="Edm.Boolean" Nullable="false">
@@ -308,12 +290,9 @@
         </Property>
       </ComplexType>
     </Schema>
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_3_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-
       <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_2_0.NvidiaManager"/>
-
       <ComplexType Name="NSMRawCommandResponse">
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="OData.Description" String="The response from a raw command defined in the NVIDIA System Management (NSM) API Base specification."/>
@@ -344,6 +323,77 @@
         </Property>
       </ComplexType>
     </Schema>
-
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_3_0.NvidiaManager">
+        <Property Name="OpenOCD" Type="NvidiaManager.v1_4_0.OpenOCD">
+          <Annotation Term="OData.Description" String="The settings of OpenOCD service attached to this manager."/>
+          <Annotation Term="OData.LongDescription" String="The property shall contain the settings of OpenOCD service attached to this manager."/>
+        </Property>
+        <Property Name="UptimeSeconds" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The wall-clock time this process has been running in seconds."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the wall-clock time this process has been running in seconds."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="OpenOCD">
+        <Property Name="Status" Type="Resource.Status" Nullable="false"/>
+        <Property Name="Enable" Type="Edm.Boolean" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication of whether OpenOCD service is enabled."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether OpenOCD service is enabled.  The default value is `false`."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NvidiaFabricManager">
+        <Property Name="FabricManagerState" Type="NvidiaManager.v1_4_0.FabricManagerState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Fabric Manager state."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Fabric Manager state."/>
+        </Property>
+        <Property Name="ReportStatus" Type="NvidiaManager.v1_4_0.ReportStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The report status."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the status for a report received from the Fabric Manager."/>
+        </Property>
+        <Property Name="DurationSinceLastRestartSeconds" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The time passed since last restart, in seconds."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the time passed since last restart, in seconds."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Measures.Unit" String="s"/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="FabricManagerState">
+        <Member Name="Offline">
+          <Annotation Term="OData.Description" String="Fabric Manager is at init stage, before the Fabric Manager can start sending telemetry."/>
+        </Member>
+        <Member Name="Standby">
+          <Annotation Term="OData.Description" String="Fabric Manager init is done, waiting for Subnet Manager to finish init."/>
+        </Member>
+        <Member Name="Configured">
+          <Annotation Term="OData.Description" String="Fabric Manager and Subnet Manager init in done."/>
+        </Member>
+        <Member Name="Error">
+          <Annotation Term="OData.Description" String="Error occurs in Fabric Manager or Subnet Manager."/>
+        </Member>
+        <Member Name="Unknown">
+          <Annotation Term="OData.Description" String="An unknown state."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="ReportStatus">
+        <Member Name="Pending">
+          <Annotation Term="OData.Description" String="Report didn't received yet."/>
+        </Member>
+        <Member Name="Received">
+          <Annotation Term="OData.Description" String="Report received."/>
+        </Member>
+        <Member Name="Timeout">
+          <Annotation Term="OData.Description" String="Report timeout."/>
+        </Member>
+        <Member Name="Unknown">
+          <Annotation Term="OData.Description" String="An unknown state."/>
+        </Member>
+      </EnumType>
+    </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

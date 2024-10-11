@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaPCIeSlots  v1.0.0                                         -->
+<!--# Redfish OEM Schema:  NvidiaCondition  v1.0.0                                         -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2024 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -11,30 +11,29 @@
   <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
     <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
   </edmx:Reference>
-  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
-    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
-  </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
     <edmx:Include Namespace="Resource"/>
   </edmx:Reference>
-  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
-    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
-  </edmx:Reference>
-  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Port_v1.xml">
-    <edmx:Include Namespace="Port"/>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
   </edmx:Reference>
   <edmx:DataServices>
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPCIeSlots">
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaCondition">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
     </Schema>
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPCIeSlots.v1_0_0">
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaCondition.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaPCIeSlots">
-        <NavigationProperty Name="ConnectedPorts" Type="Collection(Port.Port)">
+      <ComplexType Name="Condition">
+        <Property Name="Device" Type="Edm.String">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="An array of links to the ports that is associated with this slot."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain an array of links to the resources of the Port type with which this physical slot is associated."/>
-        </NavigationProperty>
+          <Annotation Term="OData.Description" String="The name of the device that caused this condition."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the name of the device the condition occurred on."/>
+        </Property>
+        <Property Name="ErrorId" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The Error ID of the condition from the Error Catalog."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Error ID, an identifier from the Error Catalog that identifies the specific condition that occurred."/>
+        </Property>
       </ComplexType>
     </Schema>
   </edmx:DataServices>
