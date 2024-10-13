@@ -3383,11 +3383,10 @@ inline static void getRelatedItemsNetworkAdapter(
             BMCWEB_LOG_ERROR("Invalid Object.");
             return;
         }
-        for (const std::string& path : *data)
+        if (!data->empty())
         {
-            sdbusplus::message::object_path myLocalPath(path);
+            sdbusplus::message::object_path myLocalPath(data->front());
             networAdapterChassisName = myLocalPath.filename();
-            break;
         }
         nlohmann::json& relatedItem = asyncResp->res.jsonValue["RelatedItem"];
         nlohmann::json& relatedItemCount =
@@ -5678,28 +5677,21 @@ inline void handleUpdateServicePersistentStorageFwPackagesListGet(
 
         bool found = false;
 
-        for (const std::pair<
-                 std::string,
-                 std::vector<std::pair<std::string, std::vector<std::string>>>>&
-                 obj : subtree)
+        if (!subtree.empty())
         {
-            if (obj.second.size() < 1)
+            const auto& obj = subtree.front();
+
+            if (obj.second.size() >= 1)
             {
-                break;
+                asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
+                nlohmann::json& members = asyncResp->res.jsonValue["Members"];
+                members.push_back(
+                    {{"@odata.id",
+                      "/redfish/v1/UpdateService/Oem/Nvidia/PersistentStorage/FirmwarePackages/0"}});
+                asyncResp->res.jsonValue["Members@odata.count"] =
+                    members.size();
+                found = true;
             }
-
-            asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
-
-            nlohmann::json& members = asyncResp->res.jsonValue["Members"];
-
-            members.push_back(
-                {{"@odata.id",
-                  "/redfish/v1/UpdateService/Oem/Nvidia/PersistentStorage/FirmwarePackages/0"}});
-            asyncResp->res.jsonValue["Members@odata.count"] = members.size();
-
-            found = true;
-
-            break;
         }
 
         if (!found)
@@ -6098,7 +6090,7 @@ inline void setTargetsInitiateFirmwarePackage(
                 }
 
                 crow::connections::systemBus->async_method_call(
-                    [req, asyncResp, foundService,
+                    [&req, asyncResp, foundService,
                      foundPath](const boost::system::error_code errCodePolicy) {
                     if (errCodePolicy)
                     {
@@ -6202,9 +6194,9 @@ inline void initiateFirmwarePackage(
                 std::chrono::seconds(fwObjectCreationDefaultTimeout));
 
             fwAvailableTimer->async_wait(
-                [asyncResp](const boost::system::error_code& ec) {
+                [asyncResp](const boost::system::error_code& errorCode) {
                 cleanUp();
-                if (ec == boost::asio::error::operation_aborted)
+                if (errorCode == boost::asio::error::operation_aborted)
                 {
                     // expected, we were canceled before the timer
                     // completed.
@@ -6213,9 +6205,9 @@ inline void initiateFirmwarePackage(
                 BMCWEB_LOG_ERROR(
                     "Timed out waiting for firmware object being created");
 
-                if (ec)
+                if (errorCode)
                 {
-                    BMCWEB_LOG_ERROR("Async_wait failed {}", ec);
+                    BMCWEB_LOG_ERROR("Async_wait failed {}", errorCode);
                     return;
                 }
                 if (asyncResp)
