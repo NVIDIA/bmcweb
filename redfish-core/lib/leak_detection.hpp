@@ -70,8 +70,39 @@ inline void
         std::bind_front(doLeakDetection, asyncResp, chassisId));
 }
 
+inline void
+    handleLeakDetectionHead(App& app, const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& chassisId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        [asyncResp,
+         chassisId](const std::optional<std::string>& validChassisPath) {
+        if (!validChassisPath)
+        {
+            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+            return;
+        }
+        asyncResp->res.addHeader(
+            boost::beast::http::field::link,
+            "</redfish/v1/JsonSchemas/LeakDetection/LeakDetection.json>; rel=describedby");
+    });
+}
+
 inline void requestRoutesLeakDetection(App& app)
 {
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Chassis/<str>/ThermalSubsystem/LeakDetection/")
+        .privileges(redfish::privileges::headLeakDetection)
+        .methods(boost::beast::http::verb::head)(
+            std::bind_front(handleLeakDetectionHead, std::ref(app)));
+
     BMCWEB_ROUTE(app,
                  "/redfish/v1/Chassis/<str>/ThermalSubsystem/LeakDetection/")
         .privileges(redfish::privileges::getLeakDetection)

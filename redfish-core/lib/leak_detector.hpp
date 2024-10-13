@@ -238,6 +238,36 @@ inline void
                         leakDetectorId));
 }
 
+inline void
+    handleLeakDetectorHead(App& app, const crow::Request& req,
+                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& chassisId,
+                           const std::string& leakDetectorId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        [asyncResp, chassisId,
+         leakDetectorId](const std::optional<std::string>& validChassisPath) {
+        if (!validChassisPath)
+        {
+            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+            return;
+        }
+        getValidLeakDetectorPath(
+            asyncResp, leakDetectorId,
+            [asyncResp](const std::string&, const std::string&) {
+            asyncResp->res.addHeader(
+                boost::beast::http::field::link,
+                "</redfish/v1/JsonSchemas/LeakDetector/LeakDetector.json>; rel=describedby");
+        });
+    });
+}
+
 inline void doLeakDetectorCollection(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId,
@@ -283,14 +313,53 @@ inline void handleLeakDetectorCollectionGet(
         std::bind_front(doLeakDetectorCollection, asyncResp, chassisId));
 }
 
+inline void handleLeakDetectorCollectionHead(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    redfish::chassis_utils::getValidChassisPath(
+        asyncResp, chassisId,
+        [asyncResp,
+         chassisId](const std::optional<std::string>& validChassisPath) {
+        if (!validChassisPath)
+        {
+            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+            return;
+        }
+        asyncResp->res.addHeader(
+            boost::beast::http::field::link,
+            "</redfish/v1/JsonSchemas/LeakDetectorCollection/LeakDetectorCollection.json>; rel=describedby");
+    });
+}
+
 inline void requestRoutesLeakDetector(App& app)
 {
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/ThermalSubsystem/LeakDetection/LeakDetectors/")
+        .privileges(redfish::privileges::headLeakDetectorCollection)
+        .methods(boost::beast::http::verb::head)(
+            std::bind_front(handleLeakDetectorCollectionHead, std::ref(app)));
+
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Chassis/<str>/ThermalSubsystem/LeakDetection/LeakDetectors/")
         .privileges(redfish::privileges::getLeakDetectorCollection)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleLeakDetectorCollectionGet, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/ThermalSubsystem/LeakDetection/LeakDetectors/<str>/")
+        .privileges(redfish::privileges::headLeakDetector)
+        .methods(boost::beast::http::verb::head)(
+            std::bind_front(handleLeakDetectorHead, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
