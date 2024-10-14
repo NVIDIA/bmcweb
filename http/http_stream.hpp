@@ -2,11 +2,8 @@
 #include "http/http_request.hpp"
 #include "http/http_response.hpp"
 
-#include <boost/algorithm/string/predicate.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/beast/core/ostream.hpp>
-#include <boost/beast/http/basic_dynamic_body.hpp>
 
 namespace crow
 {

@@ -26,14 +26,11 @@ limitations under the License.
 #include "utils/pcie_util.hpp"
 
 #include <app.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/format.hpp>
 #include <boost/system/linux_error.hpp>
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <utils/conditions_utils.hpp>
-#include <utils/dbus_utils.hpp>
 #include <utils/nvidia_pcie_utils.hpp>
 
 #include <limits>

@@ -28,13 +28,6 @@ limitations under the License.
 #include "utils/query_param.hpp"
 #include "utils/sensor_utils.hpp"
 
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/find.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/replace.hpp>
-#include <boost/algorithm/string/split.hpp>
-#include <boost/format.hpp>
-#include <boost/range/algorithm/replace_copy_if.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <dbus_singleton.hpp>

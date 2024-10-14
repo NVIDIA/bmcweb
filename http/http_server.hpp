@@ -12,7 +12,6 @@
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/beast/core/stream_traits.hpp>
 
 #include <atomic>
 #include <chrono>

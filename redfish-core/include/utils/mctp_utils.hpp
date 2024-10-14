@@ -16,8 +16,8 @@
  */
 #pragma once
 
-#include <boost/algorithm/string.hpp>
-#include <boost/asio.hpp>
+#include <boost/algorithm/string/classification.hpp>
+#include <boost/algorithm/string/split.hpp>
 #include <openbmc_dbus_rest.hpp>
 #include <utils/dbus_utils.hpp>
 

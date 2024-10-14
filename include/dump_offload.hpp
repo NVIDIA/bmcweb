@@ -20,12 +20,9 @@
 
 #include <sys/select.h>
 
-#include <boost/asio.hpp>
-#include <boost/asio/basic_socket_acceptor.hpp>
-#include <boost/asio/basic_stream_socket.hpp>
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/beast/core/flat_static_buffer.hpp>
-#include <boost/beast/http.hpp>
+#include <boost/beast/http/status.hpp>
 #include <http_stream.hpp>
 
 namespace crow

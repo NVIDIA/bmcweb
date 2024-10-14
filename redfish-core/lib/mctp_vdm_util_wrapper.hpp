@@ -21,7 +21,6 @@
 #include "dbus_singleton.hpp"
 #include "logging.hpp"
 
-#include <boost/asio.hpp>
 #include <boost/process.hpp>
 
 #include <chrono>

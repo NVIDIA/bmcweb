@@ -22,8 +22,6 @@
 #include "debug_token/request_utils.hpp"
 #include "debug_token/status_utils.hpp"
 
-#include <boost/asio.hpp>
-
 #include <memory>
 #include <variant>
 #include <vector>

@@ -41,7 +41,7 @@ limitations under the License.
 
 #include <sys/mman.h>
 
-#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/split.hpp>
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>

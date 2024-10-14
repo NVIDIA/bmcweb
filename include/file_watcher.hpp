@@ -23,10 +23,8 @@
 #include <sys/inotify.h>
 #include <unistd.h>
 
-#include <boost/array.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/io_context.hpp>
-#include <boost/asio/placeholders.hpp>
 #include <boost/asio/posix/stream_descriptor.hpp>
 
 #include <csignal>
@@ -37,7 +35,6 @@
 #include <iostream>
 #include <map>
 #include <memory>
-#include <thread>
 #include <vector>
 
 struct FileWatcherEvent

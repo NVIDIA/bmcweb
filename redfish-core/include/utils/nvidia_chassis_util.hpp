@@ -16,6 +16,8 @@
  */
 #pragma once
 
+#include "async_resp.hpp"
+
 #include <boost/container/flat_set.hpp>
 
 namespace redfish

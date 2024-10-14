@@ -1,6 +1,6 @@
 #include <boost/beast/core.hpp>
-#include <boost/beast/http.hpp>
-#include <boost/beast/version.hpp>
+#include <boost/beast/http/message.hpp>
+#include <boost/beast/http/string_body.hpp>
 #include <boost/config.hpp>
 #include <elog_entry.hpp>
 #include <nlohmann/json.hpp>

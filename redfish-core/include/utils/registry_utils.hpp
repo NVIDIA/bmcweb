@@ -21,8 +21,7 @@
 
 #pragma once
 
-#include <boost/algorithm/string.hpp>
-#include <boost/beast/core/span.hpp>
+#include <boost/algorithm/string/split.hpp>
 #include <registries.hpp>
 
 #include <array>
