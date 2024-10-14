@@ -40,7 +40,7 @@ static std::vector<std::string> scriptExecOutputFiles;
  * @return int -1 if an error occurred, filename index in
  * scriptExecOutputFiles vector otherwise.
  */
-static int copyMfgTestOutputFile(std::string& path)
+inline int copyMfgTestOutputFile(std::string& path)
 {
     static const std::string redfishLogDir = "/var/log/";
     static const std::string mfgTestPrefix = "mfgtest-";
@@ -83,7 +83,7 @@ static int copyMfgTestOutputFile(std::string& path)
  * @param[in]  ec           Optional system error code
  *
  */
-static void mfgTestProcExitHandler(int exitCode, const std::error_code& ec)
+inline void mfgTestProcExitHandler(int exitCode, const std::error_code& ec)
 {
     auto& t = mfgTestTask;
     if (ec)
