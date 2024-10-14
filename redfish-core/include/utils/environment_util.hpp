@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include "utils/nvidia_async_set_callbacks.hpp"
 namespace redfish
 {
 namespace nvidia_env_utils
@@ -440,7 +441,7 @@ inline void getPowerWattsEnergyJoules(
             // find power sensor
             if (endpoint.find("/power/") != std::string::npos &&
                 ((endpoint.find(powerSensorName) != std::string::npos) ||
-                 (endpoint.find(platformTotalPowerSensorName) !=
+                 (endpoint.find(BMCWEB_PLATFORM_TOTAL_POWER_SENSOR_NAME) !=
                   std::string::npos)))
             {
                 sdbusplus::message::object_path endpointPath(endpoint);

@@ -170,14 +170,17 @@ inline void requestRoutesEventService(App& app)
                     }
                 }
 
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-                EventServiceManager::getInstance().setEventServiceConfig(
-                    eventServiceConfig, req.target());
-#else
-                EventServiceManager::getInstance().setEventServiceConfig(
-                    eventServiceConfig);
-#endif
-    });
+                if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+                {
+                    EventServiceManager::getInstance().setEventServiceConfig(
+                        eventServiceConfig, req.target());
+                }
+                else
+                {
+                    EventServiceManager::getInstance().setEventServiceConfig(
+                        eventServiceConfig);
+                }
+            });
 }
 
 inline void requestRoutesSubmitTestEvent(App& app)
@@ -668,7 +671,8 @@ inline void requestRoutesEventDestinationCollection(App& app)
             }
 #ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
             // new subscription is added so start redfish event listener.
-            if (EventServiceManager::getInstance().getNumberOfSubscriptions() == 1)
+            if (EventServiceManager::getInstance().getNumberOfSubscriptions() ==
+                1)
             {
                 startRedfishEventListener(*req.ioService);
             }
@@ -783,18 +787,21 @@ inline void requestRoutesEventDestination(App& app)
                 if (context)
                 {
                     subValue->userSub.customText = *context;
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-                    // Send an event for property change
-                    Event event =
-                        redfish::EventUtil::getInstance().createEventPropertyModified(
-                            "Context", *context, "EventService");
-                    redfish::EventServiceManager::getInstance().sendEventWithOOC(
-                        std::string(req.target()), event);
-#endif
+                    if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+                    {
+                        // Send an event for property change
+                        DsEvent event =
+                            redfish::EventUtil::getInstance()
+                                .createEventPropertyModified(
+                                    "Context", *context, "EventService");
+                        redfish::EventServiceManager::getInstance()
+                            .sendEventWithOOC(std::string(req.target()), event);
+                    }
                 }
 
                 if (headers)
                 {
+                    std::string keyValues;
                     boost::beast::http::fields fields;
                     for (const nlohmann::json::object_t& headerChunk : *headers)
                     {
@@ -810,17 +817,23 @@ inline void requestRoutesEventDestination(App& app)
                                 return;
                             }
                             fields.set(it.first, *value);
+                            keyValues += it.first;
+                            keyValues.push_back(':');
+                            keyValues += *value;
+                            keyValues.push_back(' ');
                         }
                     }
                     subValue->userSub.httpHeaders = std::move(fields);
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-                    // Send an event for property change
-                    Event event =
-                        redfish::EventUtil::getInstance().createEventPropertyModified(
-                            "Headers", keyValues, "EventService");
-                    redfish::EventServiceManager::getInstance().sendEventWithOOC(
-                        std::string(req.target()), event);
-#endif
+                    if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+                    {
+                        // Send an event for property change
+                        DsEvent event =
+                            redfish::EventUtil::getInstance()
+                                .createEventPropertyModified(
+                                    "Headers", keyValues, "EventService");
+                        redfish::EventServiceManager::getInstance()
+                            .sendEventWithOOC(std::string(req.target()), event);
+                    }
                 }
 
                 if (retryPolicy)
@@ -835,14 +848,16 @@ inline void requestRoutesEventDestination(App& app)
                         return;
                     }
                     subValue->userSub.retryPolicy = *retryPolicy;
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-                    // Send an event for property change
-                    Event event =
-                        redfish::EventUtil::getInstance().createEventPropertyModified(
-                            "RetryPolicy", *retryPolicy, "EventService");
-                    redfish::EventServiceManager::getInstance().sendEventWithOOC(
-                        std::string(req.target()), event);
-#endif
+                    if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+                    {
+                        // Send an event for property change
+                        DsEvent event = redfish::EventUtil::getInstance()
+                                            .createEventPropertyModified(
+                                                "RetryPolicy", *retryPolicy,
+                                                "EventService");
+                        redfish::EventServiceManager::getInstance()
+                            .sendEventWithOOC(std::string(req.target()), event);
+                    }
                 }
 
                 if (verifyCertificate)
@@ -888,7 +903,8 @@ inline void requestRoutesEventDestination(App& app)
 #ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
                 // there will be no subscription after the deletion
                 // stop redfish event listener
-                if (EventServiceManager::getInstance().getNumberOfSubscriptions() == 1)
+                if (EventServiceManager::getInstance()
+                        .getNumberOfSubscriptions() == 1)
                 {
                     stopRedfishEventListener(*req.ioService);
                 }

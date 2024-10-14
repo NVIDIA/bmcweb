@@ -169,17 +169,20 @@ inline void afterNetworkPortRequest(
 inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const crow::Request& req)
 {
-#ifndef BMCWEB_ENABLE_TLS_AUTH_OPT_IN
-    if (req.session == nullptr)
+    if constexpr (!BMCWEB_TLS_AUTH_OPT_IN)
     {
-        messages::internalError(asyncResp->res);
-        return;
+        if (req.session == nullptr)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
     }
-#else
-    // This log added to satishfy compiler error : unused variable req
-    BMCWEB_LOG_ERROR("getNetworkData session is null for request {}",
-                     req.methodString());
-#endif
+    else
+    {
+        // This log added to satishfy compiler error : unused variable req
+        BMCWEB_LOG_ERROR("getNetworkData session is null for request {}",
+                         req.methodString());
+    }
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ManagerNetworkProtocol/NetworkProtocol.json>; rel=describedby");
@@ -214,7 +217,7 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         // even if SSL is enabled
 #ifdef BMCWEB_ENABLE_SSL
         if (protocolName == "HTTPS" &&
-            !persistent_data::getConfig().isTLSAuthEnabled())
+            !persistent_data::nvidia::getConfig().isTLSAuthEnabled())
         {
             continue;
         }
@@ -271,26 +274,27 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
     });
 
-#ifndef BMCWEB_ENABLE_TLS_AUTH_OPT_IN
-    Privileges effectiveUserPrivileges =
-        redfish::getUserPrivileges(*req.session);
-
-    // /redfish/v1/Managers/bmc/NetworkProtocol/HTTPS/Certificates is
-    // something only ConfigureManager can access then only display when
-    // the user has permissions ConfigureManager
-    if (isOperationAllowedWithPrivileges({{"ConfigureManager"}},
-                                         effectiveUserPrivileges))
+    if constexpr (!BMCWEB_TLS_AUTH_OPT_IN)
     {
-        asyncResp->res.jsonValue["HTTPS"]["Certificates"]["@odata.id"] =
-            boost::urls::format(
+        Privileges effectiveUserPrivileges =
+            redfish::getUserPrivileges(*req.session);
+
+        // /redfish/v1/Managers/bmc/NetworkProtocol/HTTPS/Certificates is
+        // something only ConfigureManager can access then only display when
+        // the user has permissions ConfigureManager
+        if (isOperationAllowedWithPrivileges({{"ConfigureManager"}},
+                                             effectiveUserPrivileges))
+        {
+            asyncResp->res.jsonValue["HTTPS"]["Certificates"]
+                                    ["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}/NetworkProtocol/HTTPS/Certificates",
                 BMCWEB_REDFISH_MANAGER_URI_NAME);
+        }
     }
-#endif
 
     getPortStatusAndPath(std::span(networkProtocolToDbus),
                          std::bind_front(afterNetworkPortRequest, asyncResp));
-} // namespace redfish
+} 
 
 inline void afterSetNTP(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const boost::system::error_code& ec)

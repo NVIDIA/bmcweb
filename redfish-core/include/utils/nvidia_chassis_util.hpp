@@ -1677,8 +1677,7 @@ inline void handleFruAssetInformation(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, std::string chassisPath)
 {
-    boost::algorithm::erase_tail(chassisPath,
-                                 static_cast<int>(chassisId.size()));
+    chassisPath.erase(chassisPath.size() - chassisId.size());
     asyncResp->res.jsonValue["Id"] = chassisId;
     constexpr std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Inventory.Decorator.Asset"};

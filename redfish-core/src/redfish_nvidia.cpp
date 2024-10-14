@@ -1,36 +1,5 @@
 #include "redfish_nvidia.hpp"
 #include "bmcweb_config.h"
-#include "assembly.hpp"
-#include "bios.hpp"
-#include "boot_options.hpp"
-#include "cable.hpp"
-#include "certificate_service.hpp"
-#include "chassis.hpp"
-#include "component_integrity.hpp"
-#include "control.hpp"
-#include "environment_metrics.hpp"
-#include "erot_chassis.hpp"
-#include "ethernet.hpp"
-#include "event_service.hpp"
-#include "eventservice_sse.hpp"
-#include "fabric.hpp"
-#include "fabric_adapters.hpp"
-#include "fan.hpp"
-#include "hypervisor_system.hpp"
-#include "leak_detection.hpp"
-#include "leak_detector.hpp"
-#include "log_services.hpp"
-#include "log_services_manufacturing_test.hpp"
-#include "manager_diagnostic_data.hpp"
-#include "manager_logservices_journal.hpp"
-#include "memory.hpp"
-#include "message_registries.hpp"
-#include "metadata.hpp"
-#include "metric_report.hpp"
-#include "metric_report_definition.hpp"
-#include "network_adapters.hpp"
-#include "network_adapters_generic.hpp"
-#include "network_protocol.hpp"
 #include "nvidia_cpu_debug_token.hpp"
 #include "nvidia_debug_token.hpp"
 #include "nvidia_error_injection.hpp"
@@ -39,33 +8,21 @@
 #include "nvidia_log_services_fdr.hpp"
 #include "nvidia_log_services_sel.hpp"
 #include "nvidia_log_services_xid.hpp"
+#include "nvidia_log_services_fault.hpp"
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_power_smoothing.hpp"
 #include "nvidia_protected_component.hpp"
 #include "nvidia_workload_power_profiles.hpp"
-#include "pcie.hpp"
-#include "pcie_slots.hpp"
-#include "pcieslots.hpp"
-#include "policy.hpp"
-#include "ports.hpp"
-#include "power.hpp"
-#include "processor.hpp"
-#include "secure_boot.hpp"
-#include "secure_boot_database.hpp"
-#include "service_conditions.hpp"
-#include "system_host_eth.hpp"
-#include "trigger.hpp"
-#include "trusted_components.hpp"
-#include "update_service.hpp"
-#include "virtual_media.hpp"
-#include "profiles.hpp"
+
 
 namespace redfish
 {
 void requestRoutesNvidia(crow::App& app)
-{
+{ 
+
     requestAssemblyRoutes(app);
     requestPcieSlotsRoutes(app);
+    requestRoutesSensorPatch(app);
 
     if constexpr (BMCWEB_LLDP_DEDICATED_PORTS)
     {

@@ -132,7 +132,7 @@ int run()
 
     if constexpr (!BMCWEB_INSECURE_DISABLE_SSL)
     {
-        if (persistent_data::getConfig().isTLSAuthEnabled())
+        if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
         {
             BMCWEB_LOG_INFO("Start Hostname Monitor Service...");
             crow::hostname_monitor::registerHostnameSignal();

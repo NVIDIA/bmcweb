@@ -1,13 +1,27 @@
 #pragma once
 
-<<<<<<< HEAD
 #include "bmcweb_config.h"
 
+#include "app.hpp"
+#include "dbus_utility.hpp"
+#include "query.hpp"
+#include "registries/privilege_registry.hpp"
 #include "sensors.hpp"
+#include "utils/chassis_utils.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/json_utils.hpp"
+#include "utils/sensor_utils.hpp"
 #include "utils/time_utils.hpp"
 
+#include <boost/system/error_code.hpp>
 #include <utils/chassis_utils.hpp>
+
+#include <array>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
 
 namespace redfish
 {
@@ -200,12 +214,12 @@ inline void processSensorsValue(
                             {
                                 // difference between requestTimestamp and
                                 // lastUpdateTime stamp should be within
-                                // staleSensorUpperLimitms for fresh metric
+                                // BMCWEB_STALESENSOR_UPPER_LIMIT_MILISECOND for fresh metric
                                 BMCWEB_LOG_DEBUG(
                                     "Stalesensor upper limit is:{}",
-                                    staleSensorUpperLimitms);
+                                    BMCWEB_STALESENSOR_UPPER_LIMIT_MILISECOND);
                                 if (requestTimestamp - *metricUpdatetimestamp <=
-                                    staleSensorUpperLimitms)
+                                    BMCWEB_STALESENSOR_UPPER_LIMIT_MILISECOND)
                                 {
                                     thisMetric["Oem"]["Nvidia"]
                                               ["MetricValueStale"] = false;
@@ -404,26 +418,8 @@ inline void processSensorServices(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/sensors", 2, sensorInterface);
-=======
-#include "app.hpp"
-#include "dbus_utility.hpp"
-#include "query.hpp"
-#include "registries/privilege_registry.hpp"
-#include "utils/chassis_utils.hpp"
-#include "utils/json_utils.hpp"
-#include "utils/sensor_utils.hpp"
+}
 
-#include <boost/system/error_code.hpp>
-
-#include <array>
-#include <functional>
-#include <memory>
-#include <optional>
-#include <string>
-#include <string_view>
-
-namespace redfish
-{
 inline void afterGetTemperatureValue(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& path,
@@ -515,7 +511,6 @@ inline void getTemperatureReadingsCelsius(
         interfaces, 1,
         std::bind_front(handleTemperatureReadingsCelsius, asyncResp,
                         chassisId));
->>>>>>> origin/master
 }
 
 inline void
@@ -610,6 +605,7 @@ inline void requestRoutesThermalMetrics(App& app)
         auto respHandler = [asyncResp, chassisId](
                                const boost::system::error_code ec,
                                const std::vector<std::string>& chassisPaths) {
+                                
             if (ec)
             {
                 BMCWEB_LOG_ERROR("thermal metrics respHandler DBUS error: {}",

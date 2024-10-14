@@ -19,6 +19,8 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/time_utils.hpp"
+#include "utils/dbus_event_log_entry.hpp"
+#include "log_services.hpp"
 
 #include <systemd/sd-id128.h>
 #include <tinyxml2.h>
@@ -295,133 +297,6 @@ inline void requestRoutesChassisLogServiceCollection(App& app)
             });
 }
 
-inline void requestRoutesSystemFaultLogService(App& app)
-{
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/FaultLog/")
-        .privileges(redfish::privileges::getLogService)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName)
-
-            {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                asyncResp->res.jsonValue["@odata.id"] =
-                    "/redfish/v1/Systems/" +
-                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                    "/LogServices/FaultLog";
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#LogService.v1_2_0.LogService";
-                asyncResp->res.jsonValue["Name"] = "FaultLog LogService";
-                asyncResp->res.jsonValue["Description"] =
-                    "System FaultLog LogService";
-                asyncResp->res.jsonValue["Id"] = "FaultLog";
-                asyncResp->res.jsonValue["OverWritePolicy"] = "WrapsWhenFull";
-
-                std::pair<std::string, std::string> redfishDateTimeOffset =
-                    redfish::time_utils::getDateTimeOffsetNow();
-                asyncResp->res.jsonValue["DateTime"] =
-                    redfishDateTimeOffset.first;
-                asyncResp->res.jsonValue["DateTimeLocalOffset"] =
-                    redfishDateTimeOffset.second;
-
-                asyncResp->res.jsonValue["Entries"] = {
-                    {"@odata.id",
-                     "/redfish/v1/Systems/" +
-                         std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                         "/LogServices/FaultLog/Entries"}};
-                asyncResp->res.jsonValue["Actions"] = {
-                    {"#LogService.ClearLog",
-                     {{"target",
-                       "/redfish/v1/Systems/" +
-                           std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                           "/LogServices/FaultLog/Actions/LogService.ClearLog"}}}};
-            });
-}
-
-inline void requestRoutesSystemFaultLogEntryCollection(App& app)
-{
-    /**
-     * Functions triggers appropriate requests on DBus
-     */
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/FaultLog/Entries/")
-        .privileges(redfish::privileges::getLogEntryCollection)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#LogEntryCollection.LogEntryCollection";
-                asyncResp->res.jsonValue["@odata.id"] =
-                    "/redfish/v1/Systems/" +
-                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                    "/LogServices/FaultLog/Entries";
-                asyncResp->res.jsonValue["Name"] = "System FaultLog Entries";
-                asyncResp->res.jsonValue["Description"] =
-                    "Collection of System FaultLog Entries";
-
-                getDumpEntryCollection(asyncResp, "FaultLog");
-            });
-}
-
-inline void requestRoutesSystemFaultLogEntry(App& app)
-{
-    BMCWEB_ROUTE(
-        app, "/redfish/v1/Systems/<str>/LogServices/FaultLog/Entries/<str>/")
-        .privileges(redfish::privileges::getLogEntry)
-
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
-                   const std::string& param) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                getDumpEntryById(asyncResp, param, "FaultLog");
-            });
-
-    BMCWEB_ROUTE(
-        app, "/redfish/v1/Systems/<str>/LogServices/FaultLog/Entries/<str>/")
-        .privileges(redfish::privileges::deleteLogEntry)
-        .methods(boost::beast::http::verb::delete_)(
-            [](const crow::Request&,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               [[maybe_unused]] const std::string& systemName,
-               const std::string& param) {
-                deleteDumpEntry(asyncResp, param, "FaultLog");
-            });
-}
-
-inline void requestRoutesSystemFaultLogClear(App& app)
-{
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Systems/<str>/LogServices/FaultLog/Actions/LogService.ClearLog/")
-        .privileges(redfish::privileges::postLogService)
-        .methods(boost::beast::http::verb::post)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName)
-
-            {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                clearDump(asyncResp, "FaultLog");
-            });
-}
-
-
 inline void handleLogServicesDumpServiceComputerSystemPatch(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -551,7 +426,7 @@ inline void requestRoutesSystemDumpServiceActionInfo(App& app)
 
                 // Get the OEMDiagnosticDataType from meson option to push back
                 std::string diagTypeStr = "";
-                for (const auto& typeStr : OEM_DIAG_DATA_TYPE_ARRAY)
+                for (const auto& typeStr : BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE)
                 {
                     diagTypeStr = std::string("DiagnosticType=") +
                                   std::string(typeStr);
@@ -716,23 +591,23 @@ inline void dBusEventLogEntryGetAdditionalInfo(
                 std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                 "/LogServices/"
                 "EventLog/Entries/",
-            "v1_15_0", std::to_string(entry.id), "System Event Log Entry",
+            "v1_15_0", std::to_string(entry.Id), "System Event Log Entry",
             redfish::time_utils::getDateTimeStdtime(
-                redfish::time_utils::getTimestamp(entry.timestamp)),
-            messageId, messageArgs, *entry.resolution, entry.resolved,
-            (entry.eventId == nullptr) ? "" : *entry.eventId, deviceName, *entry.severity);
+                redfish::time_utils::getTimestamp(entry.Timestamp)),
+            messageId, messageArgs, *entry.Resolution, entry.Resolved,
+            (entry.eventId == nullptr) ? "" : *entry.eventId, deviceName, entry.Severity);
 
         if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
         {
             origin_utils::convertDbusObjectToOriginOfCondition(
-                originOfCondition, std::to_string(entry.id), asyncResp,
+                originOfCondition, std::to_string(entry.Id), asyncResp,
                 objectToFillOut, deviceName);
         } // BMCWEB_DISABLE_HEALTH_ROLLUP
     }
 
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-        if ((eventId != nullptr && !eventId->empty()) ||
+        if ((entry.eventId != nullptr && !(*entry.eventId).empty()) ||
             !deviceName.empty())
         {
             nlohmann::json oem = {
@@ -744,9 +619,9 @@ inline void dBusEventLogEntryGetAdditionalInfo(
             {
                 oem["Oem"]["Nvidia"]["Device"] = deviceName;
             }
-            if (eventId != nullptr && !eventId->empty())
+            if (entry.eventId != nullptr && !(*entry.eventId).empty())
             {
-                oem["Oem"]["Nvidia"]["ErrorId"] = std::string(*eventId);
+                oem["Oem"]["Nvidia"]["ErrorId"] = std::string(*entry.eventId);
             }
             objectToFillOut.update(oem);
         }

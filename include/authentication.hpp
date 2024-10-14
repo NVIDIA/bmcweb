@@ -5,6 +5,7 @@
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "http_utility.hpp"
+#include "nvidia_persistent_data.hpp"
 #include "pam_authenticate.hpp"
 #include "persistent_data.hpp"
 #include "webroutes.hpp"
@@ -252,7 +253,7 @@ inline std::shared_ptr<persistent_data::UserSession> authenticate(
     std::shared_ptr<persistent_data::UserSession> sessionOut = nullptr;
     if constexpr (BMCWEB_MUTUAL_TLS_AUTH)
     {
-        if (persistent_data::getConfig().isTLSAuthEnabled() &&
+        if (persistent_data::nvidia::getConfig().isTLSAuthEnabled() &&
             authMethodsConfig.tls)
         {
             sessionOut = performTLSAuth(res, session);

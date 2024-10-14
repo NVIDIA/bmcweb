@@ -409,16 +409,11 @@ inline void assembleDimmProperties(
 {
     asyncResp->res.jsonValue[jsonPtr]["Id"] = dimmId;
     asyncResp->res.jsonValue[jsonPtr]["Name"] = "DIMM Slot";
-<<<<<<< HEAD
-    asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] = "Enabled";
-    asyncResp->res.jsonValue[jsonPtr]["Status"]["Health"] = "OK";
-    asyncResp->res.jsonValue[jsonPtr]["Status"]["HealthRollup"] = "OK";
-=======
     asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
         resource::State::Enabled;
     asyncResp->res.jsonValue[jsonPtr]["Status"]["Health"] =
         resource::Health::OK;
->>>>>>> origin/master
+    asyncResp->res.jsonValue[jsonPtr]["Status"]["HealthRollup"] = "OK";
 
     std::string dimmIdStr{dimmId};
 #ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
@@ -872,25 +867,8 @@ inline void getDimmData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
             const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
-<<<<<<< HEAD
-                for (const auto& interface : interfaces)
-                {
-                    if (interface ==
-                            "xyz.openbmc_project.Inventory.Item.Dimm" &&
-                        path.filename() == dimmId)
-                    {
-                        getDimmDataByService(asyncResp, dimmId, service,
-                                             rawPath);
-                        found = true;
-                        // Link association to parent processor
-                        getMemoryProcessorLink(asyncResp, path);
-                        // Link association to parent chassis
-                        getMemoryChassisLink(asyncResp, path);
-                    }
-=======
                 BMCWEB_LOG_DEBUG("DBUS response error");
                 messages::internalError(asyncResp->res);
->>>>>>> origin/master
 
                 return;
             }
@@ -909,6 +887,10 @@ inline void getDimmData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                             getDimmDataByService(asyncResp, dimmId, service,
                                                  rawPath);
                             found = true;
+                            // Link association to parent processor
+                            getMemoryProcessorLink(asyncResp, path);
+                            // Link association to parent chassis
+                            getMemoryChassisLink(asyncResp, path);
                         }
 
                         // partitions are separate as there can be multiple
@@ -936,14 +918,6 @@ inline void getDimmData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
             asyncResp->res.jsonValue["@odata.id"] =
                 boost::urls::format("/redfish/v1/Systems/{}/Memory/{}",
                                     BMCWEB_REDFISH_SYSTEM_URI_NAME, dimmId);
-            return;
-<<<<<<< HEAD
-        }
-        // Set @odata only if object is found
-        asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_11_0.Memory";
-        asyncResp->res.jsonValue["@odata.id"] =
-            boost::urls::format("/redfish/v1/Systems/{}/Memory/{}",
-                                BMCWEB_REDFISH_SYSTEM_URI_NAME, dimmId);
         std::string memoryMetricsURI =
             "/redfish/v1/Systems/" +
             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Memory/";
@@ -957,9 +931,6 @@ inline void getDimmData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
 
         return;
     });
-=======
-        });
->>>>>>> origin/master
 }
 
 inline void requestRoutesMemoryCollection(App& app)
@@ -991,21 +962,13 @@ inline void requestRoutesMemoryCollection(App& app)
                     return;
                 }
 
-<<<<<<< HEAD
-        asyncResp->res.jsonValue["@odata.type"] =
-            "#MemoryCollection.MemoryCollection";
-        asyncResp->res.jsonValue["Name"] = "Memory Module Collection";
-        asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/Memory", BMCWEB_REDFISH_SYSTEM_URI_NAME);
-        asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
-=======
                 asyncResp->res.jsonValue["@odata.type"] =
                     "#MemoryCollection.MemoryCollection";
                 asyncResp->res.jsonValue["Name"] = "Memory Module Collection";
                 asyncResp->res.jsonValue["@odata.id"] =
                     boost::urls::format("/redfish/v1/Systems/{}/Memory",
                                         BMCWEB_REDFISH_SYSTEM_URI_NAME);
->>>>>>> origin/master
+                asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
 
                 constexpr std::array<std::string_view, 1> interfaces{
                     "xyz.openbmc_project.Inventory.Item.Dimm"};

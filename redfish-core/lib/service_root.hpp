@@ -192,7 +192,7 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["Id"] = "RootService";
     asyncResp->res.jsonValue["Name"] = "Root Service";
     asyncResp->res.jsonValue["RedfishVersion"] = "1.17.0";
-    if (persistent_data::getConfig().isTLSAuthEnabled())
+    if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
     {
         asyncResp->res.jsonValue["Links"]["Sessions"]["@odata.id"] =
             "/redfish/v1/SessionService/Sessions";
@@ -214,7 +214,7 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["JsonSchemas"]["@odata.id"] =
         "/redfish/v1/JsonSchemas";
     asyncResp->res.jsonValue["Managers"]["@odata.id"] = "/redfish/v1/Managers";
-    if (persistent_data::getConfig().isTLSAuthEnabled())
+    if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
     {
         asyncResp->res.jsonValue["SessionService"]["@odata.id"] =
             "/redfish/v1/SessionService";
@@ -225,7 +225,7 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["UpdateService"]["@odata.id"] =
         "/redfish/v1/UpdateService";
     asyncResp->res.jsonValue["UUID"] = uuid;
-    if (persistent_data::getConfig().isTLSAuthEnabled())
+    if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
     {
         asyncResp->res.jsonValue["CertificateService"]["@odata.id"] =
             "/redfish/v1/CertificateService";

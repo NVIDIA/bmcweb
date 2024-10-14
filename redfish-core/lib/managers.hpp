@@ -151,7 +151,7 @@ inline void requestRoutesManagerResetAction(App& app)
                     return;
                 }
 
-                if constexpr (BMCWEB_REDFISH_DBUS_EVENT_PUSH)
+                if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
                 {
                     sendRestartEvent(req, resetType);
                 }
@@ -257,7 +257,7 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
                 return;
             }
 
-            if constexpr (BMCWEB_REDFISH_DBUS_EVENT_PUSH)
+            if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
             {
                 sendFactoryResetEvent(req);
             }
@@ -2033,15 +2033,11 @@ inline void requestRoutesManager(App& app)
                 return;
             }
 
-                    if (!path.ends_with(managerId))
-                    {
-                        continue;
-                    }
-                    if (connectionNames.size() < 1)
-                    {
-                        BMCWEB_LOG_ERROR("Got 0 Connection names");
-                        continue;
-                    }
+            if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+            {
+                handleGenericManager(req, asyncResp, managerId);
+                return;
+            }
 
             asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}", BMCWEB_REDFISH_MANAGER_URI_NAME);
@@ -2442,7 +2438,7 @@ inline void requestRoutesManager(App& app)
                     setDateTime(asyncResp, *datetime);
                 }
 
-                extendManagerPatch(req, asyncResp, managerId);
+                extendManagerPatch(req, asyncResp, managerId);             
                 if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                 {
                     extendManagerPatchOEM(req, asyncResp,

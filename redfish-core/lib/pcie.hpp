@@ -628,7 +628,6 @@ inline void getPCIeDeviceSlotPath(
         });
 }
 
-<<<<<<< HEAD
 static inline void
     getPCIeDevice(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                   const std::string& device, const std::string& path = pciePath,
@@ -749,12 +748,6 @@ inline void
                        const std::string& pcieDeviceSlot,
                        const boost::system::error_code& ec,
                        const dbus::utility::MapperGetObject& object)
-=======
-inline void afterGetDbusObject(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& pcieDeviceSlot, const boost::system::error_code& ec,
-    const dbus::utility::MapperGetObject& object)
->>>>>>> origin/master
 {
     if (ec || object.empty())
     {
@@ -804,23 +797,12 @@ inline void getPCIeDeviceHealth(
                 }
                 return;
             }
-<<<<<<< HEAD
-            return;
-        }
-        if (!value)
-        {
-            asyncResp->res.jsonValue["Status"]["Health"] = "Critical";
-        }
-    });
-=======
-
             if (!value)
             {
                 asyncResp->res.jsonValue["Status"]["Health"] =
                     resource::Health::Critical;
             }
         });
->>>>>>> origin/master
 }
 static inline void getPCIeDeviceFunctionsList(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -915,14 +897,12 @@ inline void getPCIeDeviceState(
                 }
                 return;
             }
-<<<<<<< HEAD
-            return;
-        }
-        if (!value)
-        {
-            asyncResp->res.jsonValue["Status"]["State"] = "Absent";
-        }
-    });
+            if (!value)
+            {
+                asyncResp->res.jsonValue["Status"]["State"] =
+                    resource::State::Absent;
+            }
+        });
 }
 
 static inline void
@@ -1092,20 +1072,6 @@ inline void
     getPCIeDeviceAsset(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::string& pcieDevicePath,
                        const std::string& service)
-=======
-
-            if (!value)
-            {
-                asyncResp->res.jsonValue["Status"]["State"] =
-                    resource::State::Absent;
-            }
-        });
-}
-
-inline void getPCIeDeviceAsset(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& pcieDevicePath, const std::string& service)
->>>>>>> origin/master
 {
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, service, pcieDevicePath,

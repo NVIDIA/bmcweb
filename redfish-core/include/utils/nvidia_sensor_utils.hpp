@@ -4,6 +4,41 @@ namespace redfish
 {
 namespace nvidia_sensor_utils
 {
+
+inline const char* toImplementation(const std::string& implementation)
+{
+    if (implementation ==
+        "xyz.openbmc_project.Sensor.Type.ImplementationType.PhysicalSensor")
+    {
+        return "PhysicalSensor";
+    }
+    if (implementation ==
+        "xyz.openbmc_project.Sensor.Type.ImplementationType.Synthesized")
+    {
+        return "Synthesized";
+    }
+    if (implementation ==
+        "xyz.openbmc_project.Sensor.Type.ImplementationType.Reported")
+    {
+        return "Reported";
+    }
+
+    return "";
+}
+
+
+inline const char* toReadingBasis(const std::string& readingBasis)
+{
+    if (readingBasis ==
+        "xyz.openbmc_project.Sensor.ReadingBasis.ReadingBasisType.Headroom")
+    {
+        return "Headroom";
+    }
+
+    return "";
+}
+
+
 inline void getRelatedNetworkAdapterData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objPath)

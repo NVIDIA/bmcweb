@@ -296,7 +296,7 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
     // So check the entry 'Id' anyway to cover that case.
     if (thisEntry["Id"].size() == 0)
     {
-        thisEntry["@odata.type"] = logEntryVersion;
+        thisEntry["@odata.type"] = "#LogEntry.v1_15_0.LogEntry";
         thisEntry["@odata.id"] = "/redfish/v1/Systems/" +
                                  std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                                  "/LogServices/SEL/"

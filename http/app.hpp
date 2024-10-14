@@ -5,10 +5,11 @@
 #include "http_request.hpp"
 #include "http_server.hpp"
 #include "logging.hpp"
+#include "nvidia_persistent_data.hpp"
 #include "privileges.hpp"
 #include "routing.hpp"
 #include "utility.hpp"
-
+#include "routing/dynamicrule.hpp"
 #include <systemd/sd-daemon.h>
 
 #include <boost/asio/io_context.hpp>
@@ -87,7 +88,7 @@ class App
     {
         if constexpr (!BMCWEB_INSECURE_DISABLE_SSL)
         {
-            if (persistent_data::getConfig().isTLSAuthEnabled())
+            if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
             {
                 if (!sslServer)
                 {
@@ -140,7 +141,7 @@ class App
         }
         if constexpr (!BMCWEB_INSECURE_DISABLE_SSL)
         {
-            if (persistent_data::getConfig().isTLSAuthEnabled())
+            if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
             {
                 BMCWEB_LOG_INFO("TLS RUN");
                 sslServer = std::make_unique<ssl_server_type>(

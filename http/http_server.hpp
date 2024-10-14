@@ -1,9 +1,11 @@
 #pragma once
 
+#include "asn1.hpp"
 #include "file_watcher.hpp"
 #include "http_connection.hpp"
 #include "logging.hpp"
 #include "lsp.hpp"
+#include "nvidia_ssl_key_handler.hpp"
 #include "ssl_key_handler.hpp"
 
 #include <boost/asio/ip/address.hpp>
@@ -38,7 +40,7 @@ class Server
            std::shared_ptr<boost::asio::io_context> io) :
         ioService(std::move(io)), acceptor(std::move(acceptorIn)),
         signals(*ioService, SIGINT, SIGTERM, SIGHUP), handler(handlerIn),
-        adaptorCtx(std::move(adaptorCtxIn), timer(*ioService), fileWatcher())
+        adaptorCtx(std::move(adaptorCtxIn)), timer(*ioService), fileWatcher()
     {}
 
     void updateDateStr()
@@ -116,8 +118,7 @@ class Server
         if (!isEncrypted)
         {
             BMCWEB_LOG_INFO("Credentials are not encrypted, encrypting.");
-            std::vector<char>& pwd = lsp::getLsp();
-            ensuressl::encryptCredentials(filename, &pwd);
+            ensuressl::encryptCredentials(filename);
         }
     }
 
@@ -229,13 +230,12 @@ class Server
     std::function<std::string()> getCachedDateStr;
     boost::asio::ip::tcp::acceptor acceptor;
     boost::asio::signal_set signals;
-    boost::asio::steady_timer timer;
-    InotifyFileWatcher fileWatcher;
-
     std::string dateStr;
 
     Handler* handler;
 
     std::shared_ptr<boost::asio::ssl::context> adaptorCtx;
+    boost::asio::steady_timer timer;
+    InotifyFileWatcher fileWatcher;
 };
 } // namespace crow

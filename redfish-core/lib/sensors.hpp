@@ -30,17 +30,9 @@ limitations under the License.
 
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
-#include <dbus_singleton.hpp>
-#include <dbus_utility.hpp>
-#include <health.hpp>
-#include <query.hpp>
-#include <registries/privilege_registry.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
-#include <utils/conditions_utils.hpp>
 #include <utils/nvidia_sensor_utils.hpp>
-#include <utils/query_param.hpp>
-
 #include <array>
 #include <cmath>
 #include <iterator>
@@ -55,10 +47,6 @@ limitations under the License.
 
 namespace redfish
 {
-
-using GetSubTreeType = std::vector<
-    std::pair<std::string,
-              std::vector<std::pair<std::string, std::vector<std::string>>>>>;
 
 using ManagedObjectsVectorType = std::vector<std::pair<
     sdbusplus::message::object_path,
@@ -1535,7 +1523,7 @@ void getPowerSupplyAttributesData(
 
     // Response handler for Get DeratingFactor property
     auto respHandler = [sensorsAsyncResp, inventoryItems,
-                        callback{std::forward<Callback>(callback)}](
+                        callback = std::forward<Callback>(callback)](
                            const boost::system::error_code& ec,
                            uint32_t value) mutable {
         BMCWEB_LOG_DEBUG("getPowerSupplyAttributesData respHandler enter");
@@ -1929,6 +1917,9 @@ inline void getSensorData(
                             redfish::sensor_utils::getSensorId(sensorName,
                                                                sensorType);
 
+                        // downstream patch to fix sensor name without the type
+                        sensorId = sensorName;
+
                         sensorsAsyncResp->asyncResp->res
                             .jsonValue["@odata.id"] = boost::urls::format(
                             "/redfish/v1/Chassis/{}/{}/{}",
@@ -2020,6 +2011,10 @@ inline void getSensorData(
                             std::string sensorId =
                                 redfish::sensor_utils::getSensorId(sensorName,
                                                                    sensorType);
+
+                            // downstream patch to fix sensor name without the
+                            // type
+                            sensorId = sensorName;
 
                             nlohmann::json::object_t member;
                             member["@odata.id"] = boost::urls::format(
@@ -2365,6 +2360,9 @@ inline void getChassisCallback(
         std::string type = path.parent_path().filename();
         std::string id = redfish::sensor_utils::getSensorId(sensorName, type);
 
+        // downstream patch to fix sensor name without the type 
+        id = sensorName;
+
         nlohmann::json::object_t member;
         member["@odata.id"] = boost::urls::format(
             "/redfish/v1/Chassis/{}/{}/{}", chassisId, chassisSubNode, id);
@@ -2381,8 +2379,6 @@ inline void handleSensorCollectionGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId)
 {
-#ifdef BMCWEB_ENABLE_EFFICIENT_EXPAND
-    // Efficient expand on sensors
     query_param::QueryCapabilities capabilities = {
         .canDelegateExpandLevel = 1,
     };
@@ -2406,13 +2402,6 @@ inline void handleSensorCollectionGet(
             "SensorCollection doGet exit via efficient expand handler");
         return;
     }
-#else
-    // Fallback to default expand mechanism
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-#endif
 
     // We get all sensors as hyperlinkes in the chassis (this
     // implies we reply on the default query parameters handler)
@@ -2456,16 +2445,15 @@ inline void
         });
 }
 
-inline void handleSensorGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void handleSensorGet(App& app, const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& chassisId,
-                            const std::string& sensorId,
-                            const std::string& sensorPath)
+                            const std::string& sensorId)
 {
-    // if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    // {
-    //     return;
-    // }
-#ifdef BMCWEB_ENFORCE_SENSOR_NAME_FORMAT
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
     std::pair<std::string, std::string> nameType =
         redfish::sensor_utils::splitSensorNameAndType(sensorId);
     if (nameType.first.empty() || nameType.second.empty())
@@ -2473,34 +2461,53 @@ inline void handleSensorGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
         return;
     }
-#endif // BMCWEB_ENFORCE_SENSOR_NAME_FORMAT
+
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/Sensors/{}", chassisId, sensorId);
-    std::vector<std::string> split;
-    // Reserve space for
-    // /xyz/openbmc_project/sensors/<name>/<subname>
-    split.reserve(6);
-    boost::algorithm::split(split, sensorPath, boost::is_any_of("/"));
-    if (split.size() < 6)
-    {
-        BMCWEB_LOG_ERROR("Got path that isn't long enough {}", sensorPath);
-        return;
-    }
-    // These indexes aren't intuitive, as boost::split puts an empty
-    // string at the beginning
-    const std::string& sensorType = split[4];
-    const std::string& sensorName = split[5];
-    BMCWEB_LOG_DEBUG("sensorName :{}, sensorType :{}", sensorName, sensorType);
 
     BMCWEB_LOG_DEBUG("Sensor doGet enter");
 
     constexpr std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Sensor.Value"};
-    // std::string sensorPath = "/xyz/openbmc_project/sensors/" + nameType.first
-    // +
-    //                          '/' + nameType.second;
+    std::string sensorPath = "/xyz/openbmc_project/sensors/" + nameType.first +
+                             '/' + nameType.second;
     // Get a list of all of the sensors that implement Sensor.Value
     // and get the path and service name associated with the sensor
+    ::dbus::utility::getDbusObject(
+        sensorPath, interfaces,
+        [asyncResp, sensorId,
+         sensorPath](const boost::system::error_code& ec,
+                     const ::dbus::utility::MapperGetObject& subtree) {
+            BMCWEB_LOG_DEBUG("respHandler1 enter");
+            if (ec == boost::system::errc::io_error)
+            {
+                BMCWEB_LOG_WARNING("Sensor not found from getSensorPaths");
+                messages::resourceNotFound(asyncResp->res, sensorId, "Sensor");
+                return;
+            }
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR(
+                    "Sensor getSensorPaths resp_handler: Dbus error {}", ec);
+                return;
+            }
+            getSensorFromDbus(asyncResp, sensorPath, subtree);
+            BMCWEB_LOG_DEBUG("respHandler1 exit");
+        });
+}
+
+inline void handleSensorGetUsingPath(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& chassisId,
+                            const std::string& sensorId,
+                            const std::string& sensorPath)
+{
+
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Sensors/{}", chassisId, sensorId);
+    BMCWEB_LOG_DEBUG("Sensor doGet enter");
+    constexpr std::array<std::string_view, 1> interfaces = {
+        "xyz.openbmc_project.Sensor.Value"};
     ::dbus::utility::getDbusObject(
         sensorPath, interfaces,
         [asyncResp, sensorId,
@@ -2678,7 +2685,7 @@ inline void
                 nlohmann::json::array();
 #endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
 
-            handleSensorGet(asyncResp, chassisId, sensorId, sensorPath);
+            handleSensorGetUsingPath(asyncResp, chassisId, sensorId, sensorPath);
             // Add related item data
             getRelatedItemData(asyncResp, std::string(sensorPath));
             return;
@@ -2863,8 +2870,12 @@ inline void requestRoutesSensor(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/<str>/")
         .privileges(redfish::privileges::getSensor)
-        .methods(boost::beast::http::verb::get)(std::bind_front(
-            sensors::handleSensorGetWithChassisValidation, std::ref(app)));
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(sensors::handleSensorGetWithChassisValidation, std::ref(app)));
+}
+
+inline void requestRoutesSensorPatch(App& app)
+{
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/<str>/")
         .privileges(redfish::privileges::patchSensor)
         .methods(boost::beast::http::verb::patch)(
@@ -2941,7 +2952,8 @@ inline void requestRoutesSensor(App& app)
             std::array<const char*, 1>{
                 "xyz.openbmc_project.Inventory.Item.Chassis"});
         return;
-    });
+    });    
 }
+
 
 } // namespace redfish

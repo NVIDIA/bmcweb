@@ -9,7 +9,7 @@ project(
         'b_lto=true',
         'b_ndebug=if-release',
         'buildtype=debugoptimized',
-        'cpp_rtti=false',
+        'cpp_rtti=true',
         'cpp_std=c++23',
         'warning_level=3',
         'werror=true',
@@ -223,8 +223,12 @@ if not openssl.found() or get_option('b_sanitize') != 'none'
 endif
 bmcweb_dependencies += [openssl]
 
-if get_option('shmem-platform-metrics').enabled()
-    nvtal = dependency('nvidia-tal', required: true)
+nvtal = dependency(
+    'nvidia-tal',
+    required: get_option('shmem-platform-metrics').allowed(),
+)
+if nvtal.found()
+    add_project_arguments(['-DHAVE_NVIDIA_TAL'], language: 'cpp')
     bmcweb_dependencies += nvtal
 endif
 
@@ -370,6 +374,8 @@ srcfiles_bmcweb = files(
     'src/boost_beast.cpp',
     'src/dbus_singleton.cpp',
     'src/json_html_serializer.cpp',
+    'src/nvidia_persistent_data.cpp',
+    'src/nvidia_ssl_key_handler.cpp',
     'src/ossl_random.cpp',
     'src/ssl_key_handler.cpp',
     'src/webserver_run.cpp',
@@ -448,12 +454,10 @@ srcfiles_unittest = files(
     'test/redfish-core/include/utils/time_utils_test.cpp',
     'test/redfish-core/lib/chassis_test.cpp',
     'test/redfish-core/lib/log_services_dump_test.cpp',
-    'test/redfish-core/lib/log_services_test.cpp',
     'test/redfish-core/lib/manager_diagnostic_data_test.cpp',
     'test/redfish-core/lib/manager_logservices_journal_test.cpp',
     'test/redfish-core/lib/metadata_test.cpp',
     'test/redfish-core/lib/power_subsystem_test.cpp',
-    'test/redfish-core/lib/sensors_test.cpp',
     'test/redfish-core/lib/service_root_test.cpp',
     'test/redfish-core/lib/system_test.cpp',
     'test/redfish-core/lib/systems_logservices_postcode.cpp',

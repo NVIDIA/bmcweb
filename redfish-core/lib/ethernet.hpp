@@ -81,7 +81,6 @@ struct IPv6AddressData
     std::string address;
     std::string origin;
     uint8_t prefixLength = 0;
-    ip_addresses::AddressState state;
 };
 
 /**
@@ -168,8 +167,8 @@ inline bool translateDhcpEnabledToBool(const std::string& inputDHCP,
              "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.both"));
 }
 
-inline std::string getDhcpEnabledEnumeration(bool isIPv4, bool isIPv6,
-                                             bool ipv6AcceptRa)
+inline std::string
+    getDhcpEnabledEnumeration(bool isIPv4, bool isIPv6, bool ipv6AcceptRa)
 {
     if (isIPv4 && isIPv6)
     {
@@ -585,13 +584,6 @@ inline void extractIPV6Data(const std::string& ethifaceId,
                             if (address != nullptr)
                             {
                                 ipv6Address.address = *address;
-                                ipv6Address.state =
-                                    ip_addresses::AddressState::Preferred;
-                            }
-                            else
-                            {
-                                ipv6Address.state =
-                                    ip_addresses::AddressState::Invalid;
                             }
                         }
                         else if (property.first == "Origin")
@@ -1354,8 +1346,8 @@ inline void setDHCPEnabled(const std::string& ifaceId,
                            const bool v6Value, const bool ipv6AcceptRa,
                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    const std::string dhcp = getDhcpEnabledEnumeration(v4Value, v6Value,
-                                                       ipv6AcceptRa);
+    const std::string dhcp =
+        getDhcpEnabledEnumeration(v4Value, v6Value, ipv6AcceptRa);
     setDbusProperty(
         asyncResp, "DHCPv4", "xyz.openbmc_project.Network",
         sdbusplus::message::object_path("/xyz/openbmc_project/network") /
@@ -1997,7 +1989,6 @@ inline void parseInterfaceData(
         ipv6["Address"] = ipv6Config.address;
         ipv6["PrefixLength"] = ipv6Config.prefixLength;
         ipv6["AddressOrigin"] = ipv6Config.origin;
-        ipv6["AddressState"] = ipv6Config.state;
 
         ipv6Array.emplace_back(std::move(ipv6));
         if (ipv6Config.origin == "Static")
@@ -2460,16 +2451,17 @@ inline void requestEthernetInterfacesRoutes(App& app)
                         if (interfaceEnabled)
                         {
 #ifdef BMCWEB_NIC_CONFIGURATION_UPDATE
-                            setDbusProperty(asyncResp, "InterfaceEnabled",
-                                            "xyz.openbmc_project.Network",
-                                            sdbusplus::message::object_path(
-                                                "/xyz/openbmc_project/network") /
-                                                ifaceId,
-                                            "xyz.openbmc_project.Network.EthernetInterface",
-                                            "NICEnabled", *interfaceEnabled);
+                            setDbusProperty(
+                                asyncResp, "InterfaceEnabled",
+                                "xyz.openbmc_project.Network",
+                                sdbusplus::message::object_path(
+                                    "/xyz/openbmc_project/network") /
+                                    ifaceId,
+                                "xyz.openbmc_project.Network.EthernetInterface",
+                                "NICEnabled", *interfaceEnabled);
 #else
                             messages::propertyNotWritable(asyncResp->res,
-                                                        "InterfaceEnabled");
+                                                          "InterfaceEnabled");
                             return;
 #endif
                         }
@@ -2478,9 +2470,9 @@ inline void requestEthernetInterfacesRoutes(App& app)
                         {
                             handleMTUSizePatch(ifaceId, *mtuSize, asyncResp);
                         }
-        });
-    });
-    
+                    });
+            });
+
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/<str>/")
         .privileges(redfish::privileges::deleteEthernetInterface)
         .methods(boost::beast::http::verb::delete_)(

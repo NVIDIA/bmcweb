@@ -167,58 +167,12 @@ inline void populateSoftwareInformation(
                             return;
                         }
 
-<<<<<<< HEAD
-                    const bool success = sdbusplus::unpackPropertiesNoThrow(
-                        dbus_utils::UnpackErrorPrinter(), propertiesList,
-                        "Purpose", swInvPurpose, "Version", version);
-
-                    if (!success)
-                    {
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-
-                    if (version == nullptr || version->empty())
-                    {
-                        // messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    if (swInvPurpose == nullptr ||
-                        *swInvPurpose != swVersionPurpose)
-                    {
-                        // Not purpose we're looking for
-                        return;
-                    }
-
-                    BMCWEB_LOG_DEBUG("Image ID: {}", swId);
-                    BMCWEB_LOG_DEBUG("Running image: {}", runningImage);
-                    BMCWEB_LOG_DEBUG("Image purpose: {}", *swInvPurpose);
-
-                    if (populateLinkToImages)
-                    {
-                        nlohmann::json& softwareImageMembers =
-                            asyncResp->res.jsonValue["Links"]["SoftwareImages"];
-                        // Firmware images are at
-                        // /redfish/v1/UpdateService/FirmwareInventory/<Id>
-                        // e.g. .../FirmwareInventory/82d3ec86
-                        nlohmann::json::object_t member;
-                        member["@odata.id"] = boost::urls::format(
-                            "/redfish/v1/UpdateService/FirmwareInventory/{}",
-                            swId);
-                        softwareImageMembers.emplace_back(std::move(member));
-                        asyncResp->res
-                            .jsonValue["Links"]["SoftwareImages@odata.count"] =
-                            softwareImageMembers.size();
-
-                        if (runningImage)
-=======
                         bool runningImage = false;
                         // Look at Ids from
                         // /xyz/openbmc_project/software/functional
                         // to determine if this is a running image
                         if (std::ranges::find(functionalSwIds, swId) !=
                             functionalSwIds.end())
->>>>>>> origin/master
                         {
                             runningImage = true;
                         }

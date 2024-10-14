@@ -23,8 +23,10 @@ limitations under the License.
 #include "generated/enums/log_entry.hpp"
 #include "http_client.hpp"
 #include "metric_report.hpp"
+#include "nvidia_event_service_manager.hpp"
 #include "ossl_random.hpp"
 #include "persistent_data.hpp"
+#include "redfish-core/lib/nvidia_cper_util.hpp"
 #include "registries.hpp"
 #include "registries_selector.hpp"
 #include "str_utility.hpp"
@@ -32,7 +34,7 @@ limitations under the License.
 #include "utility.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/time_utils.hpp"
-#include "nvidia_event_service_manager.hpp"
+
 #include <sys/inotify.h>
 
 #include <async_resp.hpp>
@@ -225,7 +227,7 @@ inline int formatEventLogEntry(
     const std::string& customText, nlohmann::json::object_t& logEntryJson)
 {
     // Get the Message from the MessageRegistry
-    const registries::Message* message = registries::getMessage(messageID);
+    const registries::Message* message = registries::formatMessage(messageID);
 
     if (message == nullptr)
     {
@@ -274,7 +276,8 @@ class Subscription : public std::enable_shared_from_this<Subscription>
     Subscription(const persistent_data::UserSubscription& userSubIn,
                  const boost::urls::url_view_base& url,
                  boost::asio::io_context& ioc) :
-        userSub(userSubIn), policy(std::make_shared<crow::ConnectionPolicy>())
+        userSub(userSubIn),
+        policy(std::make_shared<crow::ConnectionPolicy>())
     {
         userSub.destinationUrl = url;
         client.emplace(ioc, policy);
@@ -345,184 +348,6 @@ class Subscription : public std::enable_shared_from_this<Subscription>
             eventSeqNum++;
             sseConn->sendSseEvent(std::to_string(eventSeqNum), msg);
         }
-        return true;
-    }
-
-    bool eventMatchesFilter(const nlohmann::json::object_t& eventMessage,
-                            std::string_view resType)
-    {
-        // If resourceTypes list is empty, assume all
-        if (!resourceTypes.empty())
-        {
-            // Search the resourceTypes list for the subscription.
-            auto resourceTypeIndex = std::ranges::find_if(
-                resourceTypes, [resType](const std::string& rtEntry) {
-                return rtEntry == resType;
-            });
-            if (resourceTypeIndex == resourceTypes.end())
-            {
-                BMCWEB_LOG_DEBUG("Not subscribed to this resource");
-                return false;
-            }
-            BMCWEB_LOG_DEBUG("ResourceType {} found in the subscribed list",
-                             resType);
-        }
-
-        // If registryPrefixes list is empty, don't filter events
-        // send everything.
-        if (!registryPrefixes.empty())
-        {
-            auto eventJson = eventMessage.find("MessageId");
-            if (eventJson == eventMessage.end())
-            {
-                return false;
-            }
-
-            const std::string* messageId =
-                eventJson->second.get_ptr<const std::string*>();
-            if (messageId == nullptr)
-            {
-                BMCWEB_LOG_ERROR("MessageId wasn't a string???");
-                return false;
-            }
-
-            std::string registry;
-            std::string messageKey;
-            event_log::getRegistryAndMessageKey(*messageId, registry,
-                                                messageKey);
-
-            auto obj = std::ranges::find(registryPrefixes, registry);
-            if (obj == registryPrefixes.end())
-            {
-                return false;
-            }
-        }
-
-        if (!originResources.empty())
-        {
-            auto eventJson = eventMessage.find("OriginOfCondition");
-            if (eventJson == eventMessage.end())
-            {
-                return false;
-            }
-
-            const std::string* originOfCondition =
-                eventJson->second.get_ptr<const std::string*>();
-            if (originOfCondition == nullptr)
-            {
-                BMCWEB_LOG_ERROR("OriginOfCondition wasn't a string???");
-                return false;
-            }
-
-            auto obj = std::ranges::find(originResources, *originOfCondition);
-
-            if (obj == originResources.end())
-            {
-                return false;
-            }
-        }
-
-        // If registryMsgIds list is empty, assume all
-        if (!registryMsgIds.empty())
-        {
-            auto eventJson = eventMessage.find("MessageId");
-            if (eventJson == eventMessage.end())
-            {
-                BMCWEB_LOG_DEBUG("'MessageId' not present");
-                return false;
-            }
-
-            const std::string* messageId =
-                eventJson->second.get_ptr<const std::string*>();
-            if (messageId == nullptr)
-            {
-                BMCWEB_LOG_ERROR("EventType wasn't a string???");
-                return false;
-            }
-
-            std::string registry;
-            std::string messageKey;
-            event_log::getRegistryAndMessageKey(*messageId, registry,
-                                                messageKey);
-
-            BMCWEB_LOG_DEBUG("extracted registry {}", registry);
-            BMCWEB_LOG_DEBUG("extracted message key {}", messageKey);
-
-            auto obj = std::ranges::find(
-                registryMsgIds, std::format("{}.{}", registry, messageKey));
-            if (obj == registryMsgIds.end())
-            {
-                BMCWEB_LOG_DEBUG("did not find registry {} in registryMsgIds",
-                                 registry);
-                BMCWEB_LOG_DEBUG("registryMsgIds has {} entries",
-                                 registryMsgIds.size());
-                return false;
-            }
-        }
-
-        if (!originResources.empty())
-        {
-            auto eventJson = eventMessage.find("OriginOfCondition");
-            if (eventJson == eventMessage.end())
-            {
-                return false;
-            }
-
-            const std::string* originOfCondition =
-                eventJson->second.get_ptr<const std::string*>();
-            if (originOfCondition == nullptr)
-            {
-                BMCWEB_LOG_ERROR("EventType wasn't a string???");
-                return false;
-            }
-
-            auto obj = std::ranges::find(originResources, *originOfCondition);
-
-            if (obj == originResources.end())
-            {
-                return false;
-            }
-        }
-
-        // If registryMsgIds list is empty, assume all
-        if (!registryMsgIds.empty())
-        {
-            auto eventJson = eventMessage.find("MessageId");
-            if (eventJson == eventMessage.end())
-            {
-                return false;
-            }
-
-            const std::string* messageId =
-                eventJson->second.get_ptr<const std::string*>();
-            if (messageId == nullptr)
-            {
-                BMCWEB_LOG_ERROR("EventType wasn't a string???");
-                return false;
-            }
-
-            std::string registry;
-            std::string messageKey;
-            event_log::getRegistryAndMessageKey(*messageId, registry,
-                                                messageKey);
-
-            auto obj = std::ranges::find(
-                registryMsgIds, std::format("{}.{}", registry, messageKey));
-            if (obj == registryMsgIds.end())
-            {
-                return false;
-            }
-        }
-
-        if (filter)
-        {
-            if (!memberMatches(eventMessage, *filter))
-            {
-                BMCWEB_LOG_DEBUG("Filter didn't match");
-                return false;
-            }
-        }
-
         return true;
     }
 
@@ -814,9 +639,10 @@ class EventServiceManager
         }
 #endif
 
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-        registerDbusLoggingSignal();
-#endif
+        if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+        {
+            registerDbusLoggingSignal();
+        }
     }
 
     static void loadOldBehavior()
@@ -923,28 +749,31 @@ class EventServiceManager
 
         persistent_data::getConfig().writeData();
     }
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
+
     void setEventServiceConfig(const persistent_data::EventServiceConfig& cfg,
-                               const std::string_view url)
-#else
-    void setEventServiceConfig(const persistent_data::EventServiceConfig& cfg)
-#endif
+                               const std::string_view url = "")
     {
         bool updateConfig = false;
         bool updateRetryCfg = false;
+        if (url.empty())
+        {
+            BMCWEB_LOG_DEBUG("empty URL");
+        }
 
         if (serviceEnabled != cfg.enabled)
         {
             serviceEnabled = cfg.enabled;
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-            // Send an event for session creation
-            Event event =
-                redfish::EventUtil::getInstance().createEventPropertyModified(
-                    "ServiceEnabled", std::to_string(serviceEnabled),
-                    "EventService");
-            redfish::EventServiceManager::getInstance().sendEventWithOOC(
-                std::string(url), event);
-#endif
+            if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+            {
+                // Send an DsEvent for session creation
+                DsEvent event =
+                    redfish::EventUtil::getInstance()
+                        .createEventPropertyModified(
+                            "ServiceEnabled", std::to_string(serviceEnabled),
+                            "EventService");
+                redfish::EventServiceManager::getInstance().sendEventWithOOC(
+                    std::string(url), event);
+            }
             if (serviceEnabled && noOfMetricReportSubscribers != 0U)
             {
                 registerMetricReportSignal();
@@ -954,16 +783,17 @@ class EventServiceManager
                 unregisterMetricReportSignal();
             }
 
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-            if (serviceEnabled)
+            if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
             {
-                registerDbusLoggingSignal();
+                if (serviceEnabled)
+                {
+                    registerDbusLoggingSignal();
+                }
+                else
+                {
+                    unregisterDbusLoggingSignal();
+                }
             }
-            else
-            {
-                unregisterDbusLoggingSignal();
-            }
-#endif
             updateConfig = true;
         }
 
@@ -972,15 +802,17 @@ class EventServiceManager
             retryAttempts = cfg.retryAttempts;
             updateConfig = true;
             updateRetryCfg = true;
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-            // Send an event for property change
-            Event event =
-                redfish::EventUtil::getInstance().createEventPropertyModified(
-                    "DeliveryRetryAttempts", std::to_string(retryAttempts),
-                    "EventService");
-            redfish::EventServiceManager::getInstance().sendEventWithOOC(
-                std::string(url), event);
-#endif
+            if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+            {
+                // Send an DsEvent for property change
+                DsEvent event =
+                    redfish::EventUtil::getInstance()
+                        .createEventPropertyModified(
+                            "DeliveryRetryAttempts",
+                            std::to_string(retryAttempts), "EventService");
+                redfish::EventServiceManager::getInstance().sendEventWithOOC(
+                    std::string(url), event);
+            }
         }
 
         if (retryTimeoutInterval != cfg.retryTimeoutInterval)
@@ -988,15 +820,17 @@ class EventServiceManager
             retryTimeoutInterval = cfg.retryTimeoutInterval;
             updateConfig = true;
             updateRetryCfg = true;
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-            // Send an event for property change
-            Event event =
-                redfish::EventUtil::getInstance().createEventPropertyModified(
-                    "DeliveryRetryIntervalSeconds",
-                    std::to_string(retryTimeoutInterval), "EventService");
-            redfish::EventServiceManager::getInstance().sendEventWithOOC(
-                std::string(url), event);
-#endif
+            if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+            {
+                // Send an event for property change
+                DsEvent event = redfish::EventUtil::getInstance()
+                                    .createEventPropertyModified(
+                                        "DeliveryRetryIntervalSeconds",
+                                        std::to_string(retryTimeoutInterval),
+                                        "EventService");
+                redfish::EventServiceManager::getInstance().sendEventWithOOC(
+                    std::string(url), event);
+            }
         }
 
         if (updateConfig)
@@ -1108,7 +942,6 @@ class EventServiceManager
                 cacheRedfishLogFile();
             }
         }
-#endif
 
         // Update retry configuration.
         subValue->updateRetryConfig(retryAttempts, retryTimeoutInterval);
@@ -1299,7 +1132,7 @@ class EventServiceManager
      * @param[in] event   The event to be sent.
      * @return  Void
      */
-    void sendEvent(Event& event)
+    void sendEvent(DsEvent& event)
     {
         nlohmann::json logEntry;
         if (event.formatEventLogEntry(logEntry) != 0)
@@ -1313,11 +1146,11 @@ class EventServiceManager
         msg["Id"] = std::to_string(eventId);
         msg["Name"] = "Event Log";
         msg["Events"] = eventsArray;
-        messages.push_back(Event2(std::to_string(eventId), msg));
+        messages.push_back(Event(std::to_string(eventId), msg));
         for (const auto& it : this->subscriptionsMap)
         {
             std::shared_ptr<Subscription> entry = it.second;
-            if (!entry->eventMatchesFilter(logEntry, "Event"))
+            if (!eventMatchesFilter(entry->userSub, logEntry, "Event"))
             {
                 BMCWEB_LOG_DEBUG("Filter didn't match");
                 continue;
@@ -1326,7 +1159,7 @@ class EventServiceManager
                 nlohmann::json(std::move(msg))
                     .dump(2, ' ', true,
                           nlohmann::json::error_handler_t::replace);
-            entry->sendEvent(std::move(strMsg));
+            entry->sendEventToSubscriber(std::move(strMsg));
         }
         eventId++; // increament the eventId
     }
@@ -1660,18 +1493,17 @@ class EventServiceManager
         matchTelemetryMonitor = std::make_shared<sdbusplus::bus::match_t>(
             *crow::connections::systemBus, matchStr,
             [](sdbusplus::message::message& msg) {
-            if (msg.is_method_error())
-            {
-                BMCWEB_LOG_ERROR("TelemetryMonitor Signal error");
-                return;
-            }
+                if (msg.is_method_error())
+                {
+                    BMCWEB_LOG_ERROR("TelemetryMonitor Signal error");
+                    return;
+                }
 
-            getReadingsForReport(msg);
-        });
+                getReadingsForReport(msg);
+            });
     }
 
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-    const std::string inventorySubTree = "/xyz/openbmc_project/inventory";
+    // const std::string inventorySubTree = "/xyz/openbmc_project/inventory";
     const std::string sensorSubTree = "/xyz/openbmc_project/sensors";
     const std::string chassisPrefixDbus =
         "/xyz/openbmc_project/inventory/system/chassis/";
@@ -1735,8 +1567,8 @@ class EventServiceManager
         "/Actions/";
     const std::string ledGroupsDbusPrefix =
         "/xyz/openbmc_project/led/groups/enclosure_identify";
-    const std::string ledPrefix = "/redfish/v1/Systems/" +
-                                  std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    const std::string ledPrefix =
+        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME);
     const std::string biosPwdPathDbusPrefix =
         "/xyz/openbmc_project/bios_config/password";
     const std::string biosPwdPrefix =
@@ -1891,10 +1723,13 @@ class EventServiceManager
 
     void unregisterDbusLoggingSignal()
     {
-        if (matchDbusLogging)
+        if (BMCWEB_REDFISH_DBUS_EVENT)
         {
-            BMCWEB_LOG_DEBUG("Dbus logging signal - Unregister.");
-            matchDbusLogging.reset();
+            if (matchDbusLogging)
+            {
+                BMCWEB_LOG_DEBUG("Dbus logging signal - Unregister.");
+                matchDbusLogging.reset();
+            }
         }
     }
 
@@ -1903,7 +1738,7 @@ class EventServiceManager
      * then sends the event for Redfish Event Listener
      * to pick up
      */
-    void sendEventWithOOC(const std::string& ooc, Event& event)
+    void sendEventWithOOC(const std::string& ooc, DsEvent& event)
     {
         event.originOfCondition = ooc;
         sendEvent(event);
@@ -1911,283 +1746,294 @@ class EventServiceManager
 
     void registerDbusLoggingSignal()
     {
-        if (!serviceEnabled || matchDbusLogging)
+        if (BMCWEB_REDFISH_DBUS_EVENT)
         {
-            BMCWEB_LOG_DEBUG("Not registering dbus logging signal.");
-            return;
-        }
-
-        BMCWEB_LOG_DEBUG("Dbus logging signal - Register.");
-        std::string matchStr("type='signal', "
-                             "member='InterfacesAdded', "
-                             "path_namespace='/xyz/openbmc_project/logging'");
-
-        auto signalHandler = [this](sdbusplus::message::message& msg) {
-            if (msg.get_type() != SD_BUS_MESSAGE_SIGNAL)
+            if (!serviceEnabled || matchDbusLogging)
             {
-                BMCWEB_LOG_ERROR("Dbus logging signal error.");
+                BMCWEB_LOG_DEBUG("Not registering dbus logging signal.");
                 return;
             }
 
-            sdbusplus::message::object_path objPath;
-            std::map<std::string,
-                     std::map<std::string,
-                              std::variant<std::string, uint32_t, uint64_t,
-                                           bool, std::vector<std::string>>>>
-                properties;
+            BMCWEB_LOG_DEBUG("Dbus logging signal - Register.");
+            std::string matchStr(
+                "type='signal', "
+                "member='InterfacesAdded', "
+                "path_namespace='/xyz/openbmc_project/logging'");
 
-            std::string messageId = "";
-            std::string eventId = "";
-            std::string severity = "";
-            std::string timestamp = "";
-            std::string originOfCondition = "";
-            std::string message;
-            std::string deviceName;
-            std::string resourceType;
-            std::string logEntryId;
-            // this variable will record the log entry from the satellite BMC.
-            std::string satBMCLogEntryUrl;
-            std::string resolution;
-            std::vector<std::string> messageArgs = {};
-            const std::vector<std::string>* additionalDataPtr;
-            nlohmann::json::object_t cper;
-
-            msg.read(objPath, properties);
-            for (const auto& [key, val] :
-                 properties["xyz.openbmc_project.Logging.Entry"])
-            {
-                if (key == "AdditionalData")
+            auto signalHandler = [this](sdbusplus::message::message& msg) {
+                if (msg.get_type() != SD_BUS_MESSAGE_SIGNAL)
                 {
-                    additionalDataPtr =
-                        std::get_if<std::vector<std::string>>(&val);
-                    if (additionalDataPtr != nullptr)
-                    {
-                        AdditionalData additional(*additionalDataPtr);
-                        if (additional.count("DEVICE_NAME") > 0)
-                        {
-                            deviceName = additional["DEVICE_NAME"];
-                        }
-                        // convert SEL SENSOR_PATH to RF OriginOfCondition
-                        if (additional.count("SENSOR_PATH") == 1)
-                        {
-                            originOfCondition = additional["SENSOR_PATH"];
-                        }
-                        if (additional.count("REDFISH_ORIGIN_OF_CONDITION") ==
-                            1)
-                        {
-                            originOfCondition =
-                                additional["REDFISH_ORIGIN_OF_CONDITION"];
-                        }
-                        if (additional.count("REDFISH_LOGENTRY") == 1)
-                        {
-                            satBMCLogEntryUrl = additional["REDFISH_LOGENTRY"];
-                        }
-                        if (additional.count("REDFISH_MESSAGE_ID") == 1)
-                        {
-                            messageId = additional["REDFISH_MESSAGE_ID"];
-                            if (additional.count("REDFISH_MESSAGE_ARGS") == 1)
-                            {
-                                std::string args =
-                                    additional["REDFISH_MESSAGE_ARGS"];
-                                boost::split(messageArgs, args,
-                                             boost::is_any_of(","));
-                                // Trim leading and tailing whitespace of each
-                                // argument
-                                for (auto& msgArg : messageArgs)
-                                {
-                                    boost::trim(msgArg);
-                                }
+                    BMCWEB_LOG_ERROR("Dbus logging signal error.");
+                    return;
+                }
 
-                                if (!messageArgs[0].empty())
+                sdbusplus::message::object_path objPath;
+                std::map<std::string,
+                         std::map<std::string,
+                                  std::variant<std::string, uint32_t, uint64_t,
+                                               bool, std::vector<std::string>>>>
+                    properties;
+
+                std::string messageId = "";
+                std::string eventId = "";
+                std::string severity = "";
+                std::string timestamp = "";
+                std::string originOfCondition = "";
+                std::string message;
+                std::string deviceName;
+                std::string resourceType;
+                std::string logEntryId;
+                // this variable will record the log entry from the satellite
+                // BMC.
+                std::string satBMCLogEntryUrl;
+                std::string resolution;
+                std::vector<std::string> messageArgs = {};
+                const std::vector<std::string>* additionalDataPtr;
+                nlohmann::json::object_t cper;
+
+                msg.read(objPath, properties);
+                for (const auto& [key, val] :
+                     properties["xyz.openbmc_project.Logging.Entry"])
+                {
+                    if (key == "AdditionalData")
+                    {
+                        additionalDataPtr =
+                            std::get_if<std::vector<std::string>>(&val);
+                        if (additionalDataPtr != nullptr)
+                        {
+                            AdditionalData additional(*additionalDataPtr);
+                            if (additional.count("DEVICE_NAME") > 0)
+                            {
+                                deviceName = additional["DEVICE_NAME"];
+                            }
+                            // convert SEL SENSOR_PATH to RF OriginOfCondition
+                            if (additional.count("SENSOR_PATH") == 1)
+                            {
+                                originOfCondition = additional["SENSOR_PATH"];
+                            }
+                            if (additional.count(
+                                    "REDFISH_ORIGIN_OF_CONDITION") == 1)
+                            {
+                                originOfCondition =
+                                    additional["REDFISH_ORIGIN_OF_CONDITION"];
+                            }
+                            if (additional.count("REDFISH_LOGENTRY") == 1)
+                            {
+                                satBMCLogEntryUrl =
+                                    additional["REDFISH_LOGENTRY"];
+                            }
+                            if (additional.count("REDFISH_MESSAGE_ID") == 1)
+                            {
+                                messageId = additional["REDFISH_MESSAGE_ID"];
+                                if (additional.count("REDFISH_MESSAGE_ARGS") ==
+                                    1)
                                 {
-                                    // Map dbus property to redfish property
-                                    if (dBusToRedfishProperty.find(
-                                            messageArgs[0]) !=
-                                        dBusToRedfishProperty.end())
+                                    std::string args =
+                                        additional["REDFISH_MESSAGE_ARGS"];
+                                    boost::split(messageArgs, args,
+                                                 boost::is_any_of(","));
+                                    // Trim leading and tailing whitespace of
+                                    // each argument
+                                    for (auto& msgArg : messageArgs)
                                     {
-                                        messageArgs[0] = dBusToRedfishProperty
-                                            [messageArgs[0]];
+                                        boost::trim(msgArg);
                                     }
-                                    else
+
+                                    if (!messageArgs[0].empty())
                                     {
-                                        BMCWEB_LOG_ERROR(
-                                            "property mapping not found for {}",
-                                            messageArgs[0]);
+                                        // Map dbus property to redfish property
+                                        if (dBusToRedfishProperty.find(
+                                                messageArgs[0]) !=
+                                            dBusToRedfishProperty.end())
+                                        {
+                                            messageArgs[0] =
+                                                dBusToRedfishProperty
+                                                    [messageArgs[0]];
+                                        }
+                                        else
+                                        {
+                                            BMCWEB_LOG_ERROR(
+                                                "property mapping not found for {}",
+                                                messageArgs[0]);
+                                        }
                                     }
+                                }
+                                else if (additional.count(
+                                             "REDFISH_MESSAGE_ARGS") > 0)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "Multiple "
+                                        "REDFISH_MESSAGE_ARGS in the Dbus "
+                                        "signal message.");
+                                    return;
                                 }
                             }
-                            else if (additional.count("REDFISH_MESSAGE_ARGS") >
-                                     0)
+                            else
                             {
                                 BMCWEB_LOG_ERROR(
-                                    "Multiple "
-                                    "REDFISH_MESSAGE_ARGS in the Dbus "
-                                    "signal message.");
+                                    "There should be exactly one MessageId in the Dbus signal message. Found ",
+                                    std::to_string(additional.count(
+                                        "REDFISH_MESSAGE_ID")));
                                 return;
                             }
+
+                            nlohmann::json::object_t oem;
+                            parseAdditionalDataForCPER(cper, oem, additional);
+                        }
+                        else
+                        {
+                            BMCWEB_LOG_ERROR("Invalid type of AdditionalData "
+                                             "property.");
+                            return;
+                        }
+                    }
+                    else if (key == "EventId")
+                    {
+                        const std::string* eventIdPtr;
+
+                        eventIdPtr = std::get_if<std::string>(&val);
+                        if (eventIdPtr != nullptr)
+                        {
+                            eventId = *eventIdPtr;
                         }
                         else
                         {
                             BMCWEB_LOG_ERROR(
-                                "There should be exactly one MessageId in the Dbus signal message. Found ",
-                                std::to_string(
-                                    additional.count("REDFISH_MESSAGE_ID")));
+                                "Invalid type of EventId property.");
                             return;
                         }
+                    }
+                    else if (key == "Id")
+                    {
+                        const uint32_t* ipPtr = std::get_if<uint32_t>(&val);
+                        if (ipPtr != nullptr)
+                        {
+                            logEntryId = std::to_string(*ipPtr);
+                        }
+                        else
+                        {
+                            BMCWEB_LOG_ERROR("Invalid type of Id property.");
+                            return;
+                        }
+                    }
+                    else if (key == "Resolution")
+                    {
+                        const std::string* resolutionPtr;
+                        resolutionPtr = std::get_if<std::string>(&val);
+                        if (resolutionPtr != nullptr)
+                        {
+                            resolution = std::move(*resolutionPtr);
+                        }
+                        else
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "Invalid type of Resolution property.");
+                            return;
+                        }
+                    }
+                    else if (key == "Severity")
+                    {
+                        const std::string* severityPtr;
 
-                        nlohmann::json::object_t oem;
-                        parseAdditionalDataForCPER(cper, oem, additional);
+                        severityPtr = std::get_if<std::string>(&val);
+                        if (severityPtr != nullptr)
+                        {
+                            severity = std::move(*severityPtr);
+                        }
+                        else
+                        {
+                            BMCWEB_LOG_ERROR("Invalid type of Severity "
+                                             "property.");
+                            return;
+                        }
                     }
-                    else
+                    else if (key == "Timestamp")
                     {
-                        BMCWEB_LOG_ERROR("Invalid type of AdditionalData "
-                                         "property.");
-                        return;
-                    }
-                }
-                else if (key == "EventId")
-                {
-                    const std::string* eventIdPtr;
+                        const uint64_t* timestampPtr;
 
-                    eventIdPtr = std::get_if<std::string>(&val);
-                    if (eventIdPtr != nullptr)
-                    {
-                        eventId = *eventIdPtr;
+                        timestampPtr = std::get_if<uint64_t>(&val);
+                        if (timestampPtr != nullptr)
+                        {
+                            timestamp = redfish::time_utils::getDateTimeStdtime(
+                                redfish::time_utils::getTimestamp(
+                                    *timestampPtr));
+                        }
+                        else
+                        {
+                            BMCWEB_LOG_ERROR("Invalid type of Timestamp "
+                                             "property.");
+                            return;
+                        }
                     }
                     else
                     {
-                        BMCWEB_LOG_ERROR("Invalid type of EventId property.");
-                        return;
+                        continue;
                     }
                 }
-                else if (key == "Id")
+
+                if (messageId == "")
                 {
-                    const uint32_t* ipPtr = std::get_if<uint32_t>(&val);
-                    if (ipPtr != nullptr)
+                    BMCWEB_LOG_ERROR("Invalid Dbus log entry.");
+                    return;
+                }
+                else
+                {
+                    DsEvent event(messageId);
+                    if (!event.isValid())
                     {
-                        logEntryId = std::to_string(*ipPtr);
-                    }
-                    else
-                    {
-                        BMCWEB_LOG_ERROR("Invalid type of Id property.");
                         return;
                     }
-                }
-                else if (key == "Resolution")
-                {
-                    const std::string* resolutionPtr;
-                    resolutionPtr = std::get_if<std::string>(&val);
-                    if (resolutionPtr != nullptr)
+                    event.messageSeverity =
+                        translateSeverityDbusToRedfish(severity);
+                    event.eventTimestamp = timestamp;
+                    event.setRegistryMsg(messageArgs);
+                    event.messageArgs = messageArgs;
+                    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                     {
-                        resolution = std::move(*resolutionPtr);
+                        event.oem = {{"Oem",
+                                      {{"Nvidia",
+                                        {{"@odata.type",
+                                          "#NvidiaEvent.v1_0_0.EventRecord"},
+                                         {"Device", deviceName},
+                                         {"ErrorId", eventId}}}}}};
+                    }
+                    if (!cper.empty())
+                    {
+                        event.cper = cper;
+                    }
+                    event.eventResolution = resolution;
+                    event.logEntryId = logEntryId;
+                    event.satBMCLogEntryUrl = satBMCLogEntryUrl;
+                    if (!originOfCondition.empty())
+                    {
+                        for (auto& it : dBusToResourceType)
+                        {
+                            if (originOfCondition.find(it.first) !=
+                                std::string::npos)
+                            {
+                                resourceType = it.second;
+                                break;
+                            }
+                        }
+                        // resourceType empty error case not handled because it
+                        // will impact existing resourceErrordetected error
+                        // messages
+                        event.resourceType = resourceType;
+                        eventServiceOOC(originOfCondition, deviceName, event);
                     }
                     else
                     {
                         BMCWEB_LOG_ERROR(
-                            "Invalid type of Resolution property.");
-                        return;
+                            "no OriginOfCondition in event log. MsgId: ",
+                            messageId);
+                        sendEventWithOOC(std::string{""}, event);
                     }
                 }
-                else if (key == "Severity")
-                {
-                    const std::string* severityPtr;
+            };
 
-                    severityPtr = std::get_if<std::string>(&val);
-                    if (severityPtr != nullptr)
-                    {
-                        severity = std::move(*severityPtr);
-                    }
-                    else
-                    {
-                        BMCWEB_LOG_ERROR("Invalid type of Severity "
-                                         "property.");
-                        return;
-                    }
-                }
-                else if (key == "Timestamp")
-                {
-                    const uint64_t* timestampPtr;
-
-                    timestampPtr = std::get_if<uint64_t>(&val);
-                    if (timestampPtr != nullptr)
-                    {
-                        timestamp = redfish::time_utils::getDateTimeStdtime(
-                            redfish::time_utils::getTimestamp(*timestampPtr));
-                    }
-                    else
-                    {
-                        BMCWEB_LOG_ERROR("Invalid type of Timestamp "
-                                         "property.");
-                        return;
-                    }
-                }
-                else
-                {
-                    continue;
-                }
-            }
-
-            if (messageId == "")
-            {
-                BMCWEB_LOG_ERROR("Invalid Dbus log entry.");
-                return;
-            }
-            else
-            {
-                Event event(messageId);
-                if (!event.isValid())
-                {
-                    return;
-                }
-                event.messageSeverity =
-                    translateSeverityDbusToRedfish(severity);
-                event.eventTimestamp = timestamp;
-                event.setRegistryMsg(messageArgs);
-                event.messageArgs = messageArgs;
-                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-                {
-                    event.oem = {
-                        {"Oem",
-                         {{"Nvidia",
-                           {{"@odata.type", "#NvidiaEvent.v1_0_0.EventRecord"},
-                            {"Device", deviceName},
-                            {"ErrorId", eventId}}}}}};
-                }
-                if (!cper.empty())
-                {
-                    event.cper = cper;
-                }
-                event.eventResolution = resolution;
-                event.logEntryId = logEntryId;
-                event.satBMCLogEntryUrl = satBMCLogEntryUrl;
-                if (!originOfCondition.empty())
-                {
-                    for (auto& it : dBusToResourceType)
-                    {
-                        if (originOfCondition.find(it.first) !=
-                            std::string::npos)
-                        {
-                            resourceType = it.second;
-                            break;
-                        }
-                    }
-                    // resourceType empty error case not handled because it will
-                    // impact existing resourceErrordetected error messages
-                    event.resourceType = resourceType;
-                    eventServiceOOC(originOfCondition, deviceName, event);
-                }
-                else
-                {
-                    BMCWEB_LOG_ERROR(
-                        "no OriginOfCondition in event log. MsgId: ",
-                        messageId);
-                    sendEventWithOOC(std::string{""}, event);
-                }
-            }
-        };
-
-        matchDbusLogging = std::make_shared<sdbusplus::bus::match_t>(
-            *crow::connections::systemBus, matchStr, signalHandler);
+            matchDbusLogging = std::make_shared<sdbusplus::bus::match_t>(
+                *crow::connections::systemBus, matchStr, signalHandler);
+        }
     }
 
     /**
@@ -2197,7 +2043,7 @@ class EventServiceManager
      * @param event  the event to be sent out
      */
     inline void eventServiceOOC(const std::string& path,
-                                const std::string& devName, Event& event)
+                                const std::string& devName, DsEvent& event)
     {
 #ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
         // OOC Path in HMC events is already converted to Redfish path.
@@ -2220,8 +2066,9 @@ class EventServiceManager
                     std::string newPath;
                     if (it.first == sensorSubTree)
                     {
-                        std::string chassisName = PLATFORMDEVICEPREFIX +
-                                                  devName;
+                        std::string devicePrefix(BMCWEB_PLATFORM_DEVICE_PREFIX);
+                        std::string chassisName = devicePrefix;
+                        chassisName += devName;
                         std::string sensorName;
                         dbus::utility::getNthStringFromPath(path, 4,
                                                             sensorName);
@@ -2244,7 +2091,6 @@ class EventServiceManager
 
         sendEventWithOOC(std::string{""}, event);
     }
-#endif
 
     bool validateAndSplitUrl(const std::string& destUrl, std::string& urlProto,
                              std::string& host, std::string& port,

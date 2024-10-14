@@ -21,6 +21,7 @@ limitations under the License.
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/account_service.hpp"
+#include "nvidia_account_service.hpp"
 #include "persistent_data.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
@@ -1126,7 +1127,7 @@ inline void updateUserProperties(
                                                username);
                 }
                 else if (retval == PAM_AUTHTOK_ERR ||
-                                retval == PAM_NEW_AUTHTOK_REQD)
+                         retval == PAM_NEW_AUTHTOK_REQD)
                 {
                     // If password is invalid
                     messages::propertyValueFormatError(asyncResp->res, nullptr,
@@ -1746,15 +1747,12 @@ inline void handleAccountCollectionGet(
 
             for (const auto& userpath : users)
             {
+                std::string user = userpath.first.filename();
+                // Need to find the usecase for this.
                 if (user == "service")
                 {
                     continue;
                 }
-                nlohmann::json::object_t member;
-                member["@odata.id"] = boost::urls::format(
-                    "/redfish/v1/AccountService/Accounts/{}", user);
-                memberArray.emplace_back(std::move(member));
-                std::string user = userpath.first.filename();
                 if (user.empty())
                 {
                     messages::internalError(asyncResp->res);
@@ -1804,25 +1802,9 @@ inline void processAfterCreateUser(
 
         if (retval == PAM_AUTHTOK_ERR)
         {
-            size_t maxrepeat = 3;
-            if (!password.empty())
-            {
-                maxrepeat = static_cast<size_t>(
-                    3 + (0.09 * static_cast<double>(strlen(password.c_str()))));
-            }
-            std::string resolution =
-                "Password should be " + std::to_string(minPasswordLength) +
-                " character long including " +
-                std::to_string(minUcaseCharacters) + " uppercase character, " +
-                std::to_string(minLcaseCharacters) + " lower case character, " +
-                std::to_string(minDigits) + " digit," +
-                std::to_string(minSpecCharacters) + " special character and " +
-                std::to_string(maxrepeat) +
-                " maximum number of consecutive character pairs";
             // update the resolution message and add the
             // password policy too
-            redfish::message_registries::updateResolution(asyncResp, "Password",
-                                                          resolution);
+            handle_nvidia_resolution(asyncResp, password);
             BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
         }
 
@@ -2222,7 +2204,6 @@ inline void
     crow::connections::systemBus->async_method_call(
         [asyncResp, username](const boost::system::error_code& ec,
                               sdbusplus::message::message& m) {
-
             if (ec)
             {
                 handle_nvidia_delete_error(asyncResp, username, m);

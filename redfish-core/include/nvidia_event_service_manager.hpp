@@ -51,7 +51,17 @@ namespace redfish
  * Structure for an event which is based on Event v1.7.0 in "Redfish Schema
  * Supplement(DSP0268)".
  */
-class Event
+enum redfish_bool
+{
+    redfishBoolNa, // NOT APPLICABLE
+    redfishBoolTrue,
+    redfishBoolFalse
+};
+
+// Error constants of class Event
+static constexpr int redfishInvalidEvent = -1;
+static constexpr int redfishInvalidArgs = -2;
+class DsEvent
 {
   public:
     // required properties
@@ -83,7 +93,7 @@ class Event
     bool valid;
 
   public:
-    Event(const std::string& messageId) : messageId(messageId)
+    DsEvent(const std::string& messageId) : messageId(messageId)
     {
         registryPrefix = message_registries::getPrefix(messageId);
         registryMsg = redfish::registries::getMessage(messageId);
@@ -291,11 +301,11 @@ class EventUtil
         return handler;
     }
     // This function is used to form event message
-    Event createEventPropertyModified(const std::string& arg1,
-                                      const std::string& arg2,
-                                      const std::string& resourceType)
+    DsEvent createEventPropertyModified(const std::string& arg1,
+                                        const std::string& arg2,
+                                        const std::string& resourceType)
     {
-        Event event(propertyModified);
+        DsEvent event(propertyModified);
         std::vector<std::string> messageArgs;
         messageArgs.push_back(arg1);
         messageArgs.push_back(arg2);
@@ -307,26 +317,26 @@ class EventUtil
     }
 
     // This function is used to form event message
-    Event createEventResourceCreated(const std::string& resourceType)
+    DsEvent createEventResourceCreated(const std::string& resourceType)
     {
-        Event event(resorceCreated);
+        DsEvent event(resorceCreated);
         formBaseEvent(event, resourceType);
         return event;
     }
 
     // This function is used to form event message
-    Event createEventResourceRemoved(const std::string& resourceType)
+    DsEvent createEventResourceRemoved(const std::string& resourceType)
     {
-        Event event(resourceDeleted);
+        DsEvent event(resourceDeleted);
         formBaseEvent(event, resourceType);
         return event;
     }
 
     // This function is used to form event message
-    Event createEventRebootReason(const std::string& arg,
-                                  const std::string& resourceType)
+    DsEvent createEventRebootReason(const std::string& arg,
+                                    const std::string& resourceType)
     {
-        Event event(rebootReason);
+        DsEvent event(rebootReason);
 
         std::vector<std::string> messageArgs;
         messageArgs.push_back(arg);
@@ -337,7 +347,7 @@ class EventUtil
     }
 
   private:
-    void formBaseEvent(Event& event, const std::string& resourceType)
+    void formBaseEvent(DsEvent& event, const std::string& resourceType)
     {
         // Set message severity
         event.messageSeverity = "Informational";

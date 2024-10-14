@@ -102,6 +102,7 @@ feature_options = [
     'use-efficient-expand-on-sensors',
     'vm-websocket',
     'xtoken-auth',
+    'nvidia-oem-openocd'
 ]
 
 string_options = [
@@ -150,11 +151,14 @@ int_options = [
     'update-service-task-timeout',
 ]
 
+array_options = ['oem-diagnostic-allowable-type']
+
 feature_options_string = '\n//Feature options\n'
 string_options_string = '\n// String options\n'
 int_options_string = '\n// Integer options\n'
+array_options_string = '\n// Array options\n'
 
-foreach option_key : feature_options + string_options + int_options
+foreach option_key : feature_options + string_options + int_options + array_options
     option_key_config = 'BMCWEB_' + option_key.to_upper()
     option_key_config = option_key_config.replace('-', '_')
 
@@ -165,6 +169,12 @@ foreach option_key : feature_options + string_options + int_options
         string_options_string += 'constexpr std::string_view  ' + option_key_config + ' = "' + opt + '";\n'
     elif int_options.contains(option_key)
         int_options_string += 'constexpr const int         ' + option_key_config + ' = ' + opt.to_string() + ';\n'
+    elif array_options.contains(option_key)
+        array_options_string += 'constexpr std::array<std::string_view, '
+        array_options_string += opt.length().to_string() + '> ' + option_key_config
+        array_options_string += ' = {\n    "'
+        array_options_string += '",\n    "'.join(opt)
+        array_options_string += '"\n};\n'
     else
         feature_options_string += 'constexpr const bool        ' + option_key_config + ' = ' + opt.allowed().to_string() + ';\n'
         opt = opt.allowed().to_string()

@@ -256,7 +256,7 @@ struct UserSubscription
                     {
                         continue;
                     }
-                    subvalue->originResources.emplace_back(*value);
+                    subvalue.originResources.emplace_back(*value);
                 }
             }
             else if (element.first == "IncludeOriginOfCondition")
@@ -266,7 +266,7 @@ struct UserSubscription
                 {
                     continue;
                 }
-                subvalue->includeOriginOfCondition = *value;
+                subvalue.includeOriginOfCondition = *value;
             }
             else
             {

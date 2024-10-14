@@ -3,6 +3,7 @@
 #include "event_service_store.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
+#include "nvidia_persistent_data.hpp"
 #include "ossl_random.hpp"
 #include "sessions.hpp"
 
@@ -21,8 +22,6 @@ namespace persistent_data
 class ConfigFile
 {
     uint64_t jsonRevision = 1;
-    bool tlsAuth = false;
-    bool tlsAuthToWrite = false;
 
   public:
     // todo(ed) should read this from a fixed location somewhere, not CWD
@@ -48,26 +47,6 @@ class ConfigFile
     ConfigFile(ConfigFile&&) = delete;
     ConfigFile& operator=(const ConfigFile&) = delete;
     ConfigFile& operator=(ConfigFile&&) = delete;
-
-#ifdef BMCWEB_ENABLE_TLS_AUTH_OPT_IN
-    void enableTLSAuth()
-    {
-        tlsAuthToWrite = true;
-        writeData();
-    }
-
-    bool isTLSAuthEnabled() const
-    {
-        return tlsAuth;
-    }
-#else
-    // If BMCWEB_ENABLE_TLS_AUTH_OPT_IN is not enabled then the runtime check is
-    // always true, and the enablement depends on the various #ifdef checks.
-    constexpr bool isTLSAuthEnabled()
-    {
-        return true;
-    }
-#endif
 
     // TODO(ed) this should really use protobuf, or some other serialization
     // library, but adding another dependency is somewhat outside the scope of
@@ -116,15 +95,6 @@ class ConfigFile
                         if (jSystemUuid != nullptr)
                         {
                             systemUuid = *jSystemUuid;
-                        }
-                    }
-                    else if (item.first == "tls_auth_enabled")
-                    {
-                        const bool* ptr = item.second.get_ptr<const bool*>();
-                        if (ptr != nullptr)
-                        {
-                            tlsAuth = *ptr;
-                            tlsAuthToWrite = *ptr;
                         }
                     }
                     else if (item.first == "auth_config")
@@ -219,23 +189,11 @@ class ConfigFile
                         // downgrades in that case, even if we don't officially
                         // support it
                     }
+                    persistent_data::nvidia::getConfig().fromJson(data);
                 }
             }
         }
         bool needWrite = false;
-
-#ifdef BMCWEB_ENABLE_TLS_AUTH_OPT_IN
-        {
-            AuthConfigMethods& authMethodsConfig =
-                SessionStore::getInstance().getAuthMethodsConfig();
-            authMethodsConfig.basic = isTLSAuthEnabled();
-            authMethodsConfig.cookie = isTLSAuthEnabled();
-            authMethodsConfig.xtoken = isTLSAuthEnabled();
-            authMethodsConfig.sessionToken = isTLSAuthEnabled();
-            authMethodsConfig.tls = isTLSAuthEnabled();
-            needWrite = true;
-        }
-#endif
 
         if (systemUuid.empty())
         {
@@ -255,8 +213,6 @@ class ConfigFile
 
     void writeData()
     {
-<<<<<<< HEAD
-=======
         std::filesystem::path path(filename);
         path = path.parent_path();
         if (!path.empty())
@@ -270,18 +226,13 @@ class ConfigFile
                 return;
             }
         }
->>>>>>> origin/master
         boost::beast::file_posix persistentFile;
         boost::system::error_code ec;
         persistentFile.open(filename, boost::beast::file_mode::write, ec);
         if (ec)
         {
-<<<<<<< HEAD
-            BMCWEB_LOG_CRITICAL("Unable to store persistent data to file");
-=======
             BMCWEB_LOG_CRITICAL("Unable to store persistent data to file {}",
                                 ec.message());
->>>>>>> origin/master
             return;
         }
 
@@ -290,9 +241,6 @@ class ConfigFile
             std::filesystem::perms::owner_read |
             std::filesystem::perms::owner_write |
             std::filesystem::perms::group_read;
-<<<<<<< HEAD
-        std::filesystem::permissions(filename, permission);
-=======
         std::filesystem::permissions(filename, permission, ec);
         if (ec)
         {
@@ -300,7 +248,6 @@ class ConfigFile
                                 ec.message());
             return;
         }
->>>>>>> origin/master
         const AuthConfigMethods& c =
             SessionStore::getInstance().getAuthMethodsConfig();
         const auto& eventServiceConfig =
@@ -313,10 +260,7 @@ class ConfigFile
         authConfig["SessionToken"] = c.sessionToken;
         authConfig["BasicAuth"] = c.basic;
         authConfig["TLS"] = c.tls;
-<<<<<<< HEAD
-=======
         authConfig["TLSStrict"] = c.tlsStrict;
->>>>>>> origin/master
         authConfig["TLSCommonNameParseMode"] =
             static_cast<int>(c.mTLSCommonNameParsingMode);
 
@@ -328,7 +272,6 @@ class ConfigFile
             eventServiceConfig.retryTimeoutInterval;
 
         data["system_uuid"] = systemUuid;
-        data["tls_auth_enabled"] = tlsAuthToWrite;
         data["revision"] = jsonRevision;
         data["timeout"] = SessionStore::getInstance().getTimeoutInSeconds();
 
@@ -385,42 +328,25 @@ class ConfigFile
             subscription["Destination"] = subValue.destinationUrl;
             subscription["EventFormatType"] = subValue.eventFormatType;
             subscription["HttpHeaders"] = std::move(headers);
-<<<<<<< HEAD
-            subscription["MessageIds"] = subValue->registryMsgIds;
-            subscription["Protocol"] = subValue->protocol;
-            subscription["RegistryPrefixes"] = subValue->registryPrefixes;
-            subscription["OriginResources"] = subValue->originResources;
-            subscription["ResourceTypes"] = subValue->resourceTypes;
-            subscription["SubscriptionType"] = subValue->subscriptionType;
-=======
             subscription["MessageIds"] = subValue.registryMsgIds;
             subscription["Protocol"] = subValue.protocol;
             subscription["RegistryPrefixes"] = subValue.registryPrefixes;
             subscription["OriginResources"] = subValue.originResources;
             subscription["ResourceTypes"] = subValue.resourceTypes;
             subscription["SubscriptionType"] = subValue.subscriptionType;
->>>>>>> origin/master
             subscription["MetricReportDefinitions"] =
                 subValue.metricReportDefinitions;
             subscription["VerifyCertificate"] = subValue.verifyCertificate;
 
             subscriptions.emplace_back(std::move(subscription));
         }
-<<<<<<< HEAD
-        std::string dump = nlohmann::json(data).dump(
-            -1, ' ', true, nlohmann::json::error_handler_t::replace);
-        persistentFile.write(dump.data(), dump.size(), ec);
-        if (ec)
-        {
-            BMCWEB_LOG_CRITICAL("Failed to log persistent File");
-=======
+        persistent_data::nvidia::getConfig().toJson(data);
         std::string out = nlohmann::json(data).dump(
             -1, ' ', true, nlohmann::json::error_handler_t::replace);
         persistentFile.write(out.data(), out.size(), ec);
         if (ec)
         {
             BMCWEB_LOG_ERROR("Failed to write file {}", ec.message());
->>>>>>> origin/master
         }
     }
 

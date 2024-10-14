@@ -167,7 +167,8 @@ void getPortStatusAndPath(
                 // even if SSL is enabled
 #ifdef BMCWEB_ENABLE_SSL
                     if (protocolName == "HTTPS" &&
-                        !persistent_data::getConfig().isTLSAuthEnabled())
+                        !persistent_data::nvidia::getConfig()
+                             .isTLSAuthEnabled())
                     {
                         continue;
                     }

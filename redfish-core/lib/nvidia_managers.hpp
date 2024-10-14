@@ -24,16 +24,16 @@
 #include "generated/enums/action_info.hpp"
 #include "generated/enums/manager.hpp"
 #include "generated/enums/resource.hpp"
+#include "persistentstorage_util.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_manager_utils.hpp"
 #include "utils/sw_utils.hpp"
 #include "utils/systemd_utils.hpp"
 #include "utils/time_utils.hpp"
-#include "utils/nvidia_manager_utils.hpp"
-#include "persistentstorage_util.hpp"
 
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
@@ -98,7 +98,14 @@ inline void enableTLSAuth()
         BMCWEB_LOG_ERROR("TLSAuthEnable drop-in socket configuration file: {}",
                          e.what());
     }
-    persistent_data::getConfig().enableTLSAuth();
+    persistent_data::AuthConfigMethods& authMethodsConfig =
+        persistent_data::SessionStore::getInstance().getAuthMethodsConfig();
+    authMethodsConfig.basic = true;
+    authMethodsConfig.cookie = true;
+    authMethodsConfig.xtoken = true;
+    authMethodsConfig.sessionToken = true;
+    authMethodsConfig.tls = true;
+    persistent_data::nvidia::getConfig().enableTLSAuth();
 
     // restart procedure
     // TODO find nicer and faster way?
@@ -265,8 +272,6 @@ inline void executeRawSynCommand(
         serviceName, objPath, "com.nvidia.Protocol.SMBPBI.Raw", "SyncCommand",
         Type, id, opCode, arg1, arg2, dataIn, extDataIn);
 }
-
-
 
 // function to convert dataInbyte array to dataIn uint32 vector
 inline std::vector<std::uint32_t>
@@ -461,7 +466,6 @@ inline void setDbusSelCapacity(
         "/xyz/openbmc_project/logging", "xyz.openbmc_project.Logging.Capacity",
         "SetInfoLogCapacity", capacity);
 }
-
 
 /**
  * @brief Retrieves manager service state data over DBus
@@ -840,21 +844,29 @@ inline void sendRestartEvent(const crow::Request& req, std::string& resetType)
     if (resetType == "GracefulRestart" || resetType == "ForceRestart" ||
         resetType == "GracefulShutdown")
     {
-        // Send an event for Manager Reset
-        Event event = redfish::EventUtil::getInstance().createEventRebootReason(
-            "ManagerReset", "Managers");
-        redfish::EventServiceManager::getInstance().sendEventWithOOC(
-            std::string(req.target()), event);
+        if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+        {
+            // Send an event for Manager Reset
+            DsEvent event =
+                redfish::EventUtil::getInstance().createEventRebootReason(
+                    "ManagerReset", "Managers");
+            redfish::EventServiceManager::getInstance().sendEventWithOOC(
+                std::string(req.target()), event);
+        }
     }
 }
 
 inline void sendFactoryResetEvent(const crow::Request& req)
 {
-    // Send an event for reset to defaults
-    Event event = redfish::EventUtil::getInstance().createEventRebootReason(
-        "FactoryReset", "Managers");
-    redfish::EventServiceManager::getInstance().sendEventWithOOC(
-        std::string(req.target()), event);
+    if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+    {
+        // Send an event for reset to defaults
+        DsEvent event =
+            redfish::EventUtil::getInstance().createEventRebootReason(
+                "FactoryReset", "Managers");
+        redfish::EventServiceManager::getInstance().sendEventWithOOC(
+            std::string(req.target()), event);
+    }
 }
 
 inline void requestRoutesManagerEmmcSecureEraseActionInfo(App& app)
@@ -912,8 +924,6 @@ inline void requestRoutesNvidiaManagerSetSelCapacityAction(App& app)
                 setDbusSelCapacity(capacity, asyncResp);
             });
 }
-
-
 
 /**
  * NvidiaManagerGetSelCapacity class supports GET method for getting
@@ -1454,7 +1464,8 @@ inline void
 #ifdef BMCWEB_TLS_AUTH_OPT_IN
         if (tlsAuth)
         {
-            if (*tlsAuth == persistent_data::getConfig().isTLSAuthEnabled())
+            if (*tlsAuth ==
+                persistent_data::nvidia::getConfig().isTLSAuthEnabled())
             {
                 BMCWEB_LOG_DEBUG(
                     "Ignoring redundant patch of AuthenticationTLSRequired.");
@@ -1760,7 +1771,7 @@ inline void
 
 #ifdef BMCWEB_TLS_AUTH_OPT_IN
     oemNvidia["AuthenticationTLSRequired"] =
-        persistent_data::getConfig().isTLSAuthEnabled();
+        persistent_data::nvidia::getConfig().isTLSAuthEnabled();
 #endif
 
     populatePersistentStorageSettingStatus(asyncResp);

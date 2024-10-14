@@ -140,7 +140,7 @@ inline void
     if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
     {
         // Send an event for session deletion
-        Event event =
+        DsEvent event =
             redfish::EventUtil::getInstance().createEventResourceRemoved(
                 "SessionService");
         redfish::EventServiceManager::getInstance().sendEventWithOOC(
@@ -293,7 +293,7 @@ inline void handleSessionCollectionPost(
     if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
     {
         // Send an event for session creation
-        Event event =
+        DsEvent event =
             redfish::EventUtil::getInstance().createEventResourceCreated(
                 "SessionService");
         redfish::EventServiceManager::getInstance().sendEventWithOOC(
@@ -367,9 +367,9 @@ inline void handleSessionServicePatch(
         {
             if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
             {
-                std::string currentSessionTimeout =
-                    std::to_string(persistent_data::SessionStore::getInstance()
-                                       .getTimeoutInSeconds());
+                std::string currentSessionTimeout = std::to_string(
+                    persistent_data::SessionStore::getInstance()
+                        .getTimeoutInSeconds());
             }
             std::chrono::seconds sessionTimeoutInseconds(*sessionTimeout);
             persistent_data::SessionStore::getInstance().updateSessionTimeout(
@@ -382,7 +382,7 @@ inline void handleSessionServicePatch(
             if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
             {
                 // send redfish event for property change
-                Event event =
+                DsEvent event =
                     redfish::EventUtil::getInstance()
                         .createEventPropertyModified(
                             "SessionTimeOut",

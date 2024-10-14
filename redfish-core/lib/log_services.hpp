@@ -1582,11 +1582,11 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
 
-        auto it = std::find(std::begin(OEM_DIAG_DATA_TYPE_ARRAY),
-                            std::end(OEM_DIAG_DATA_TYPE_ARRAY),
+        auto it = std::find(std::begin(BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE),
+                            std::end(BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE),
                             oemDiagnosticDataType);
         if ((std::string(*oemDiagnosticDataType).empty()) ||
-            (it == std::end(OEM_DIAG_DATA_TYPE_ARRAY)))
+            (it == std::end(BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE)))
         {
             BMCWEB_LOG_ERROR("Wrong parameter values passed");
             messages::actionParameterValueError(
@@ -1857,7 +1857,7 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
                     std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                     "/LogServices/FDR";
                 logServiceArray.push_back(std::move(fdrLog));
-            } // BMCWEB__REDFISH_FDR_DUMP_LOG
+            } // BMCWEB_REDFISH_FDR_DUMP_LOG
 
             if constexpr (BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG)
             {
@@ -2119,7 +2119,7 @@ static LogParseError fillEventLogEntryJson(
     }
 
     // Fill in the log entry with the gathered data
-    logEntryJson["@odata.type"] = logEntryVersion;
+    logEntryJson["@odata.type"] = "#LogEntry.v1_15_0.LogEntry";
     logEntryJson["@odata.id"] = getLogEntryDataId(logEntryID);
     logEntryJson["Name"] = "System Event Log Entry";
     logEntryJson["Id"] = logEntryID;
@@ -2180,7 +2180,7 @@ inline void fillEventLogLogEntryFromPropertyMap(
     }
 
     //Nvidia Extension for RF log
-    dBusEventLogEntryGetAdditionalInfo(entry, objectToFillOut);
+    dBusEventLogEntryGetAdditionalInfo(asyncResp, entry, objectToFillOut);
 }
 
 inline void afterLogEntriesGetManagedObjects(

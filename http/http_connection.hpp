@@ -10,6 +10,7 @@
 #include "http_utility.hpp"
 #include "logging.hpp"
 #include "mutual_tls.hpp"
+#include "nvidia_persistent_data.hpp"
 #include "persistent_data.hpp"
 #include "ssl_key_handler.hpp"
 #include "str_utility.hpp"
@@ -297,7 +298,7 @@ class Connection :
         {
             if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
             {
-                if (persistent_data::getConfig().isTLSAuthEnabled())
+                if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
                 {
                     if (!crow::authentication::isOnAllowlist(req->url().path(),
                                                              req->method()) &&
@@ -495,7 +496,7 @@ class Connection :
     {
         if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
         {
-            if (persistent_data::getConfig().isTLSAuthEnabled() &&
+            if (persistent_data::nvidia::getConfig().isTLSAuthEnabled() &&
                 userSession == nullptr)
             {
                 return loggedOutPostBodyLimit;
@@ -605,7 +606,7 @@ class Connection :
 
         if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH && !isTest)
         {
-            if (persistent_data::getConfig().isTLSAuthEnabled())
+            if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
             {
                 boost::beast::http::verb method = parser->get().method();
                 userSession = crow::authentication::authenticate(
@@ -847,12 +848,12 @@ class Connection :
         {
             cancelDeadlineTimer();
 
-            std::chrono::seconds timeout(bmcwebResponseTimeoutSeconds);
+            std::chrono::seconds timeout(BMCWEB_BMCWEB_RESPONSE_TIMEOUT);
             // allow slow uploads for logged in users
             bool loggedIn = userSession != nullptr;
             if (loggedIn)
             {
-                timeout = std::chrono::seconds(bmcwebResponseTimeoutSeconds);
+                timeout = std::chrono::seconds(BMCWEB_BMCWEB_RESPONSE_TIMEOUT);
                 return;
             }
             std::weak_ptr<Connection<Adaptor, Handler>> weakSelf =

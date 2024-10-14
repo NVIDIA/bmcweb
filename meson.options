@@ -765,7 +765,7 @@ option(
     description: 'Enables DOT token support.',
 )
 option(
-    'enable-debug-interface',
+    'debug-interface-support',
     type: 'feature',
     value: 'disabled',
     description: 'Enables debug interface support.',
@@ -1111,4 +1111,27 @@ option(
     value: 'disabled',
     description: '''Enable HTTP/HTTPS based firmware update transactions through
                     Redfish UpdateService.SimpleUpdate.''',
+)
+
+# nvidia Specific 
+option(
+    'insecure-tftp-update',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable TFTP based firmware update transactions through
+                    Redfish UpdateService.   SimpleUpdate.''',
+)
+
+option(
+    'platform-metrics',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Enable/disable the platform metrics to collect all sensors reading',
+)
+
+option(
+    'oem-diagnostic-allowable-type',
+    type : 'array',
+    value : ['EROT', 'ROT', 'FirmwareAttributes'],
+    description : 'OEM diagnostic data allowable type'
 )

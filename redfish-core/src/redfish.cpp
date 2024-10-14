@@ -25,7 +25,7 @@
 #include "metadata.hpp"
 #include "metric_report.hpp"
 #include "metric_report_definition.hpp"
-#include "network_protocol.hpp"
+//#include "network_protocol.hpp"
 #include "odata.hpp"
 #include "pcie.hpp"
 #include "power.hpp"
@@ -58,7 +58,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesMetadata(app);
     requestRoutesOdata(app);
 
-    if (persistent_data::getConfig().isTLSAuthEnabled())
+    if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
     {
         requestAccountServiceRoutes(app);
     }
@@ -68,7 +68,7 @@ RedfishService::RedfishService(App& app)
         requestRoutesAggregationSourceCollection(app);
         requestRoutesAggregationSource(app);
     }
-    if (persistent_data::getConfig().isTLSAuthEnabled())
+    if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
     {
         requestRoutesRoles(app);
         requestRoutesRoleCollection(app);
@@ -76,10 +76,6 @@ RedfishService::RedfishService(App& app)
 
     requestRoutesServiceRoot(app);
     requestRoutesNetworkProtocol(app);
-    if (persistent_data::getConfig().isTLSAuthEnabled())
-    {
-        requestRoutesSession(app);
-    }
     requestEthernetInterfacesRoutes(app);
 
     if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL)
@@ -213,7 +209,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesMessageRegistryFileCollection(app);
     requestRoutesMessageRegistryFile(app);
     requestRoutesMessageRegistry(app);
-    if (persistent_data::getConfig().isTLSAuthEnabled())
+    if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
     {
         requestRoutesCertificateService(app);
         requestRoutesHTTPSCertificate(app);

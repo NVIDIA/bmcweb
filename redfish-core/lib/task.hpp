@@ -131,15 +131,17 @@ struct TaskData : std::enable_shared_from_this<TaskData>
     TaskData(
         std::function<bool(boost::system::error_code, sdbusplus::message_t&,
                            const std::shared_ptr<TaskData>&)>&& handler,
-        const std::string& matchIn, size_t idx) :
+        const std::string& matchIn, size_t idx,
+        std::function<nlohmann::json(std::string_view, size_t)>&&
+            getMsgHandler) :
         callback(std::move(handler)), matchStr(matchIn), index(idx),
         startTime(std::chrono::system_clock::to_time_t(
             std::chrono::system_clock::now())),
         status("OK"), state("Running"), messages(nlohmann::json::array()),
-        timer(crow::connections::systemBus->get_io_context())
+        timer(crow::connections::systemBus->get_io_context()),
+        getMsgCallback(getMsgHandler)
 
     {}
-    std::string status;
 
   public:
     TaskData() = delete;
@@ -327,7 +329,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                 self->state = "Cancelled";
                 self->status = "Warning";
                 self->messages.emplace_back(
-                    messages::taskAborted(std::to_string(self->index)));
+                    self->getMsgCallback("Aborted", self->index));
                 // Send event :TaskAborted
                 self->sendTaskEvent(self->state, self->index);
                 self->callback(ec, msg, self);
@@ -433,8 +435,6 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         sendTaskEvent(state, index);
     }
 
-    std::function<nlohmann::json(const std::string_view, size_t)>
-        getMsgCallback;
 
     std::function<bool(boost::system::error_code, sdbusplus::message_t&,
                        const std::shared_ptr<TaskData>&)>
@@ -442,6 +442,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
     std::string matchStr;
     size_t index;
     time_t startTime;
+    std::string status;
     std::string state;
     nlohmann::json messages;
     boost::asio::steady_timer timer;
@@ -453,6 +454,8 @@ struct TaskData : std::enable_shared_from_this<TaskData>
     bool gave204 = false;
     int percentComplete = 0;
     std::unique_ptr<sdbusplus::bus::match_t> loggingMatch;
+    std::function<nlohmann::json(const std::string_view, size_t)>
+    getMsgCallback;
 };
 
 } // namespace task
@@ -500,156 +503,7 @@ inline void requestRoutesTaskMonitor(App& app)
             });
 }
 
-inline void requestRoutesTask(App& app)
-{
-    BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/")
-        .privileges(redfish::privileges::getTask)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& strParam) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                auto find = std::ranges::find_if(
-                    task::tasks,
-                    [&strParam](const std::shared_ptr<task::TaskData>& task) {
-                        if (!task)
-                        {
-                            return false;
-                        }
-
-                        // we compare against the string version as on failure
-                        // strtoul returns 0
-                        return std::to_string(task->index) == strParam;
-                    });
-
-                if (find == task::tasks.end())
-                {
-                    messages::resourceNotFound(asyncResp->res, "Task",
-                                               strParam);
-                    return;
-                }
-
-                const std::shared_ptr<task::TaskData>& ptr = *find;
-
-                asyncResp->res.jsonValue["@odata.type"] = "#Task.v1_4_3.Task";
-                asyncResp->res.jsonValue["Id"] = strParam;
-                asyncResp->res.jsonValue["Name"] = "Task " + strParam;
-                asyncResp->res.jsonValue["TaskState"] = ptr->state;
-                asyncResp->res.jsonValue["StartTime"] =
-                    redfish::time_utils::getDateTimeStdtime(ptr->startTime);
-                if (ptr->endTime)
-                {
-                    asyncResp->res.jsonValue["EndTime"] =
-                        redfish::time_utils::getDateTimeStdtime(
-                            *(ptr->endTime));
-                }
-                asyncResp->res.jsonValue["TaskStatus"] = ptr->status;
-                asyncResp->res.jsonValue["Messages"] = ptr->messages;
-                asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-                    "/redfish/v1/TaskService/Tasks/{}", strParam);
-                if (!ptr->gave204)
-                {
-                    asyncResp->res.jsonValue["TaskMonitor"] =
-                        boost::urls::format(
-                            "/redfish/v1/TaskService/TaskMonitors/{}",
-                            strParam);
-                }
-
-                asyncResp->res.jsonValue["HidePayload"] = !ptr->payload;
-
-                if (ptr->payload)
-                {
-                    const task::Payload& p = *(ptr->payload);
-                    asyncResp->res.jsonValue["Payload"]["TargetUri"] =
-                        p.targetUri;
-                    asyncResp->res.jsonValue["Payload"]["HttpOperation"] =
-                        p.httpOperation;
-                    asyncResp->res.jsonValue["Payload"]["HttpHeaders"] =
-                        p.httpHeaders;
-                    asyncResp->res.jsonValue["Payload"]["JsonBody"] =
-                        p.jsonBody.dump(
-                            -1, ' ', true,
-                            nlohmann::json::error_handler_t::replace);
-                }
-                asyncResp->res.jsonValue["PercentComplete"] =
-                    ptr->percentComplete;
-            });      
-    requestRoutesTaskUpdate();   
-}
-
-inline void requestRoutesTaskCollection(App& app)
-{
-    BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/")
-        .privileges(redfish::privileges::getTaskCollection)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#TaskCollection.TaskCollection";
-                asyncResp->res.jsonValue["@odata.id"] =
-                    "/redfish/v1/TaskService/Tasks";
-                asyncResp->res.jsonValue["Name"] = "Task Collection";
-                asyncResp->res.jsonValue["Members@odata.count"] =
-                    task::tasks.size();
-                nlohmann::json& members = asyncResp->res.jsonValue["Members"];
-                members = nlohmann::json::array();
-
-                for (const std::shared_ptr<task::TaskData>& task : task::tasks)
-                {
-                    if (task == nullptr)
-                    {
-                        continue; // shouldn't be possible
-                    }
-                    nlohmann::json::object_t member;
-                    member["@odata.id"] =
-                        boost::urls::format("/redfish/v1/TaskService/Tasks/{}",
-                                            std::to_string(task->index));
-                    members.emplace_back(std::move(member));
-                }
-            });
-}
-
-inline void requestRoutesTaskService(App& app)
-{
-    BMCWEB_ROUTE(app, "/redfish/v1/TaskService/")
-        .privileges(redfish::privileges::getTaskService)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#TaskService.v1_1_4.TaskService";
-                asyncResp->res.jsonValue["@odata.id"] =
-                    "/redfish/v1/TaskService";
-                asyncResp->res.jsonValue["Name"] = "Task Service";
-                asyncResp->res.jsonValue["Id"] = "TaskService";
-                asyncResp->res.jsonValue["DateTime"] =
-                    redfish::time_utils::getDateTimeOffsetNow().first;
-                asyncResp->res.jsonValue["CompletedTaskOverWritePolicy"] =
-                    task_service::OverWritePolicy::Oldest;
-
-                asyncResp->res.jsonValue["LifeCycleEventOnTaskStateChange"] =
-                    true;
-
-                asyncResp->res.jsonValue["Status"]["State"] =
-                    resource::State::Enabled;
-                asyncResp->res.jsonValue["ServiceEnabled"] = true;
-                asyncResp->res.jsonValue["Tasks"]["@odata.id"] =
-                    "/redfish/v1/TaskService/Tasks";
-            });
-}
-
-inline void requestRoutesTaskUpdate()
+inline void requestRoutesTaskUpdate(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/Update/")
         .privileges(redfish::privileges::patchTask)
@@ -733,6 +587,156 @@ inline void requestRoutesTaskUpdate()
                 asyncResp->res.result(boost::beast::http::status::no_content);
             });
         });
+}
+
+inline void requestRoutesTask(App& app)
+{
+    BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/")
+        .privileges(redfish::privileges::getTask)
+        .methods(boost::beast::http::verb::get)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& strParam) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                auto find = std::ranges::find_if(
+                    task::tasks,
+                    [&strParam](const std::shared_ptr<task::TaskData>& task) {
+                        if (!task)
+                        {
+                            return false;
+                        }
+
+                        // we compare against the string version as on failure
+                        // strtoul returns 0
+                        return std::to_string(task->index) == strParam;
+                    });
+
+                if (find == task::tasks.end())
+                {
+                    messages::resourceNotFound(asyncResp->res, "Task",
+                                               strParam);
+                    return;
+                }
+
+                const std::shared_ptr<task::TaskData>& ptr = *find;
+
+                asyncResp->res.jsonValue["@odata.type"] = "#Task.v1_4_3.Task";
+                asyncResp->res.jsonValue["Id"] = strParam;
+                asyncResp->res.jsonValue["Name"] = "Task " + strParam;
+                asyncResp->res.jsonValue["TaskState"] = ptr->state;
+                asyncResp->res.jsonValue["StartTime"] =
+                    redfish::time_utils::getDateTimeStdtime(ptr->startTime);
+                if (ptr->endTime)
+                {
+                    asyncResp->res.jsonValue["EndTime"] =
+                        redfish::time_utils::getDateTimeStdtime(
+                            *(ptr->endTime));
+                }
+                asyncResp->res.jsonValue["TaskStatus"] = ptr->status;
+                asyncResp->res.jsonValue["Messages"] = ptr->messages;
+                asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                    "/redfish/v1/TaskService/Tasks/{}", strParam);
+                if (!ptr->gave204)
+                {
+                    asyncResp->res.jsonValue["TaskMonitor"] =
+                        boost::urls::format(
+                            "/redfish/v1/TaskService/TaskMonitors/{}",
+                            strParam);
+                }
+
+                asyncResp->res.jsonValue["HidePayload"] = !ptr->payload;
+
+                if (ptr->payload)
+                {
+                    const task::Payload& p = *(ptr->payload);
+                    asyncResp->res.jsonValue["Payload"]["TargetUri"] =
+                        p.targetUri;
+                    asyncResp->res.jsonValue["Payload"]["HttpOperation"] =
+                        p.httpOperation;
+                    asyncResp->res.jsonValue["Payload"]["HttpHeaders"] =
+                        p.httpHeaders;
+                    asyncResp->res.jsonValue["Payload"]["JsonBody"] =
+                        p.jsonBody.dump(
+                            -1, ' ', true,
+                            nlohmann::json::error_handler_t::replace);
+                }
+                asyncResp->res.jsonValue["PercentComplete"] =
+                    ptr->percentComplete;
+            });      
+
+    requestRoutesTaskUpdate(app);   
+}
+
+inline void requestRoutesTaskCollection(App& app)
+{
+    BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/")
+        .privileges(redfish::privileges::getTaskCollection)
+        .methods(boost::beast::http::verb::get)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                asyncResp->res.jsonValue["@odata.type"] =
+                    "#TaskCollection.TaskCollection";
+                asyncResp->res.jsonValue["@odata.id"] =
+                    "/redfish/v1/TaskService/Tasks";
+                asyncResp->res.jsonValue["Name"] = "Task Collection";
+                asyncResp->res.jsonValue["Members@odata.count"] =
+                    task::tasks.size();
+                nlohmann::json& members = asyncResp->res.jsonValue["Members"];
+                members = nlohmann::json::array();
+
+                for (const std::shared_ptr<task::TaskData>& task : task::tasks)
+                {
+                    if (task == nullptr)
+                    {
+                        continue; // shouldn't be possible
+                    }
+                    nlohmann::json::object_t member;
+                    member["@odata.id"] =
+                        boost::urls::format("/redfish/v1/TaskService/Tasks/{}",
+                                            std::to_string(task->index));
+                    members.emplace_back(std::move(member));
+                }
+            });
+}
+
+inline void requestRoutesTaskService(App& app)
+{
+    BMCWEB_ROUTE(app, "/redfish/v1/TaskService/")
+        .privileges(redfish::privileges::getTaskService)
+        .methods(boost::beast::http::verb::get)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                asyncResp->res.jsonValue["@odata.type"] =
+                    "#TaskService.v1_1_4.TaskService";
+                asyncResp->res.jsonValue["@odata.id"] =
+                    "/redfish/v1/TaskService";
+                asyncResp->res.jsonValue["Name"] = "Task Service";
+                asyncResp->res.jsonValue["Id"] = "TaskService";
+                asyncResp->res.jsonValue["DateTime"] =
+                    redfish::time_utils::getDateTimeOffsetNow().first;
+                asyncResp->res.jsonValue["CompletedTaskOverWritePolicy"] =
+                    task_service::OverWritePolicy::Oldest;
+
+                asyncResp->res.jsonValue["LifeCycleEventOnTaskStateChange"] =
+                    true;
+
+                asyncResp->res.jsonValue["Status"]["State"] =
+                    resource::State::Enabled;
+                asyncResp->res.jsonValue["ServiceEnabled"] = true;
+                asyncResp->res.jsonValue["Tasks"]["@odata.id"] =
+                    "/redfish/v1/TaskService/Tasks";
+            });
 }
 
 } // namespace redfish

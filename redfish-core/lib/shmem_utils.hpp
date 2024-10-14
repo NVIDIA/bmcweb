@@ -57,9 +57,11 @@ inline void
         metricDefinitionUri += metricId;
         asyncResp->res.jsonValue["MetricReportDefinition"]["@odata.id"] =
             metricDefinitionUri;
+
         nlohmann::json& resArray = asyncResp->res.jsonValue["MetricValues"];
         nlohmann::json thisMetric = nlohmann::json::object();
 
+        const auto& values = tal::TelemetryAggregator::getAllMrds(metricId);
         if (metricId == BMCWEB_PLATFORM_METRICS_ID)
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
@@ -99,14 +101,14 @@ inline void
                 resArray.push_back(thisMetric);
             }
         }
-
-#endif
+#endif        
     }
     catch (const std::exception& e)
     {
         BMCWEB_LOG_ERROR("Exception while getting MRD values: {}", e.what());
         messages::resourceNotFound(asyncResp->res, "MetricReport", metricId);
     }
+
 }
 
 constexpr const char* metricReportDefinitionUri =
@@ -658,6 +660,9 @@ inline void getShmemMetricsDefinitionWildCard(
 
         std::vector<std::string> inputMetricProperties;
         std::unordered_set<std::string> inputMetricPropertiesSet;
+        std::vector<std::string> inputMetricProperties;
+#ifdef NVIDIA_HAVE_TAL
+        const auto& values = tal::TelemetryAggregator::getAllMrds(metricId);
         nlohmann::json wildCards = nlohmann::json::array();
         asyncResp->res.jsonValue["Wildcards"] = wildCards;
         for (const auto& e : values)
@@ -681,6 +686,7 @@ inline void getShmemMetricsDefinitionWildCard(
                 inputMetricProperties.push_back(e.metricProperty);
             }
         }
+#endif
         if (deviceType == "NVSwitchPortMetrics" ||
             deviceType == "ProcessorPortMetrics" ||
             deviceType == "NetworkAdapterPortMetrics" ||
@@ -758,6 +764,8 @@ inline void getShmemMetricsReportCollection(
         const auto& values = tal::TelemetryAggregator::getMrdNamespaces();
 
         nlohmann::json& addMembers = asyncResp->res.jsonValue["Members"];
+#ifdef NVIDIA_HAVE_TAL
+        const auto& values = tal::TelemetryAggregator::getMrdNamespaces();
         for (std::string memoryMetricId : values)
         {
             // Get the metric object
@@ -774,6 +782,7 @@ inline void getShmemMetricsReportCollection(
             std::string uripath = metricReportDefUriPath + memoryMetricId;
             addMembers.push_back({{"@odata.id", uripath}});
         }
+#endif
         asyncResp->res.jsonValue["Members@odata.count"] = addMembers.size();
 
 #endif

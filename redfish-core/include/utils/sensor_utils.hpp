@@ -7,7 +7,8 @@
 #include "str_utility.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
-
+#include "utils/time_utils.hpp"
+#include "nvidia_sensor_utils.hpp"
 #include <boost/url/format.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
@@ -186,7 +187,7 @@ inline std::string_view toReadingUnits(std::string_view sensorType)
     }
     if (sensorType == "altitude")
     {
-        return "m";
+        return "Pa";
     }
     if (sensorType == "airflow")
     {
@@ -196,6 +197,10 @@ inline std::string_view toReadingUnits(std::string_view sensorType)
     {
         return "J";
     }
+    if (sensorType == "frequency")
+    {
+        return "Hz";
+    }    
     return "";
 }
 
@@ -739,12 +744,12 @@ inline void objectPropertiesToJson(
                     std::string implementation =
                         static_cast<std::string>(*stringValue);
                     const std::string& value =
-                        sensors::toImplementation(implementation);
+                        nvidia_sensor_utils::toImplementation(implementation);
                     sensorJson[key] = value;
                 }
                 if (valueName == "ReadingBasis")
                 {
-                    sensorJson[key] = sensors::toReadingBasis(
+                    sensorJson[key] = nvidia_sensor_utils::toReadingBasis(
                         static_cast<std::string>(*stringValue));
                 }
                 if (valueName == "Description")

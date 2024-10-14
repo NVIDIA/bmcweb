@@ -1,7 +1,6 @@
 #pragma once
 
 #include "app.hpp"
-#include "nvidia_debug_token.hpp"
 
 namespace redfish
 {

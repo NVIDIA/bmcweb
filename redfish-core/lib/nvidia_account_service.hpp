@@ -26,38 +26,20 @@
 #include <ranges>
 #include <string>
 #include <string_view>
-
-inline
-void handle_nvidia_resolution(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                                   const std::optional<std::string>& password)
+namespace redfish
 {
-    size_t maxrepeat = 3;
-    if (!password.value().empty())
-    {
-        maxrepeat = static_cast<size_t>(
-            3 + (0.09 * static_cast<double>(
-                            strlen(password.value().c_str()))));
-    }
-    std::string resolution =
-        " Password should be " + std::to_string(minPasswordLength) +
-        " character long including " +
-        std::to_string(minUcaseCharacters) +
-        " uppercase character, " +
-        std::to_string(minLcaseCharacters) +
-        " lower case character, " + std::to_string(minDigits) +
-        " digit, " + std::to_string(minSpecCharacters) +
-        " special character and " + std::to_string(maxrepeat) +
-        " maximum number of consecutive character pairs";
 
-    // update the resolution message and add the password
-    // policy
-    redfish::message_registries::updateResolution(
-        asyncResp, "Password", resolution);
+inline void handle_nvidia_resolution(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::optional<std::string> password)
+{
+    redfish::message_registries::updateResolution(asyncResp, *password,
+                                                  "resolution");
 }
 
-inline
-void handle_nvidia_delete_error(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                                const std::string& username, sdbusplus::message::message& m)
+inline void handle_nvidia_delete_error(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& username, sdbusplus::message::message& m)
 {
     const sd_bus_error* dbusError = m.get_error();
     if (dbusError && dbusError->name)
@@ -70,11 +52,11 @@ void handle_nvidia_delete_error(const std::shared_ptr<bmcweb::AsyncResp>& asyncR
                 username);
         }
         else if (!strcmp(dbusError->name,
-                            "org.freedesktop.DBus.Error.UnknownObject"))
+                         "org.freedesktop.DBus.Error.UnknownObject"))
         {
-            messages::resourceNotFound(
-                asyncResp->res, "#ManagerAccount.v1_4_0.ManagerAccount",
-                username);
+            messages::resourceNotFound(asyncResp->res,
+                                       "#ManagerAccount.v1_4_0.ManagerAccount",
+                                       username);
         }
         else
         {
@@ -86,3 +68,4 @@ void handle_nvidia_delete_error(const std::shared_ptr<bmcweb::AsyncResp>& asyncR
         messages::internalError(asyncResp->res);
     }
 }
+} // namespace redfish
