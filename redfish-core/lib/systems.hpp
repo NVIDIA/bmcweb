@@ -4055,6 +4055,8 @@ inline void
 
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+            "#NvidiaComputerSystem.v1_1_0.NvidiaComputerSystem";
         ist_mode_utils::getIstMode(asyncResp);
     }
 

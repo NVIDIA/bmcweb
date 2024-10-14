@@ -64,16 +64,9 @@ inline void getIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
             }
             bool istModeEnabled = false;
             nlohmann::json& json = aResp->res.jsonValue;
-            json["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaComputerSystem.v1_1_0.NvidiaComputerSystem";
-            auto modePtr = std::get_if<std::string>(&istMode);
-            if (modePtr == nullptr)
-            {
-                BMCWEB_LOG_ERROR("ISTMode not received");
-                messages::internalError(aResp->res);
-                return;
-            }
-            auto mode = dbus_utils::getRedfishIstMode(*modePtr);
+            auto mode = dbus_utils::getRedfishIstMode(
+                *std::get_if<std::string>(&istMode));
+
             if (mode == "Enabled")
             {
                 istModeEnabled = true;
