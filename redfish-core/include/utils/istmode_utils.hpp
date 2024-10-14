@@ -70,6 +70,7 @@ inline void getIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
             if (modePtr == nullptr)
             {
                 BMCWEB_LOG_ERROR("ISTMode not received");
+                messages::internalError(aResp->res);
                 return;
             }
             auto mode = dbus_utils::getRedfishIstMode(*modePtr);
@@ -142,6 +143,7 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             if (modePtr == nullptr)
             {
                 BMCWEB_LOG_ERROR("ISTMode not received");
+                messages::internalError(aResp->res);
                 return;
             }
             auto mode = dbus_utils::getRedfishIstMode(*modePtr);
@@ -179,6 +181,7 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 if (statusPtr == nullptr)
                 {
                     BMCWEB_LOG_ERROR("ISTMode Settings Status not found");
+                    messages::internalError(aResp->res);
                     return;
                 }
                 auto status = dbus_utils::toIstmgrStatus(*statusPtr);

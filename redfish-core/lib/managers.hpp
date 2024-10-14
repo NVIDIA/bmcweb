@@ -941,14 +941,14 @@ inline void requestRouteSyncRawOobCommand(App& app)
             return;
         }
 
-        uint8_t targetId{};
-        std::string targetType{};
-        std::string opCode{};
-        std::string arg1{};
-        std::string arg2{};
-        uint8_t opCodeRaw{};
-        uint8_t arg1Raw{};
-        uint8_t arg2Raw{};
+        uint8_t targetId = 0;
+        std::string targetType;
+        std::string opCode;
+        std::string arg1;
+        std::string arg2;
+        uint8_t opCodeRaw = 0;
+        uint8_t arg1Raw = 0;
+        uint8_t arg2Raw = 0;
         uint32_t dataInRaw = 0;
         uint32_t extDataInRaw = 0;
         std::optional<std::vector<std::string>> dataIn;
@@ -1186,11 +1186,11 @@ inline void requestRouteAsyncRawOobCommand(App& app)
             return;
         }
 
-        uint8_t targetId{};
-        uint8_t argRaw{};
-        uint32_t requestedDataOutBytes{};
-        std::string targetType{};
-        std::string arg{};
+        uint8_t targetId = 0;
+        uint8_t argRaw = 0;
+        uint32_t requestedDataOutBytes = 0;
+        std::string targetType;
+        std::string arg;
         std::optional<std::vector<std::string>> asynDataIn;
         std::vector<uint32_t> asyncDataInRaw;
 

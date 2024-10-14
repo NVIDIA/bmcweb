@@ -338,21 +338,6 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     asyncResp->res.jsonValue["PortProtocol"] = portProtocol;
                 }
 
-                std::string portProtocol = getPortProtocol(*value);
-                if (portProtocol.find(nvlinkToken) != std::string::npos &&
-                    portProtocol.size() > nvlinkToken.size())
-                {
-                    asyncResp->res.jsonValue["PortProtocol"] = nvlinkToken;
-                    std::string expandPortName =
-                        portProtocol.substr(nvlinkToken.size() + 1);
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["PortProtocol"] =
-                        expandPortName;
-                }
-                else
-                {
-                    asyncResp->res.jsonValue["PortProtocol"] = portProtocol;
-                }
-
                 asyncResp->res.jsonValue["PortProtocol"] =
                     getPortProtocol(*value);
             }
@@ -435,6 +420,7 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 {
                     BMCWEB_LOG_DEBUG("Null value returned "
                                      "for Current Power State");
+                    messages::internalError(asyncResp->res);
                     return;
                 }
                 if (*state == "xyz.openbmc_project.State.Chassis.PowerState.On")

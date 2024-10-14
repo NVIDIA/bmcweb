@@ -688,8 +688,14 @@ inline void
                         }
                     }
 
-                    if (uuid != nullptr && eid != nullptr &&
-                        (uuid && (*uuid) == chassisUUID && supportedMsgTypes))
+                    if (eid == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG(
+                            "handleMctpInBandActions: EID not found");
+                        messages::internalError(asyncResp->res);
+                        continue;
+                    }
+                    if (uuid && (*uuid) == chassisUUID && supportedMsgTypes)
                     {
                         if (std::find(supportedMsgTypes->begin(),
                                       supportedMsgTypes->end(),
