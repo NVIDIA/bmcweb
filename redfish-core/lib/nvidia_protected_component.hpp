@@ -371,6 +371,7 @@ inline void handleNvidiaRoTImageSlot(
                         asyncResp->res.jsonValue["Name"] =
                             chassisId + " RoTProtectedComponent " + fwTypeStr +
                             " ImageSlot " + slotNumStr;
+                        asyncResp->res.jsonValue["Id"] = slotNumStr;
                         asyncResp->res.jsonValue["@odata.type"] =
                             "#NvidiaRoTImageSlot.v1_0_0.NvidiaRoTImageSlot";
                         asyncResp->res.jsonValue["@odata.id"] =
@@ -442,6 +443,9 @@ inline void handleNvidiaRoTProtectedComponentCollection(
                                        chassisId);
             return;
         }
+        asyncResp->res.jsonValue["@odata.id"] =
+            "/redfish/v1/Chassis/" + chassisId +
+            "/Oem/NvidiaRoT/RoTProtectedComponents";
         asyncResp->res.jsonValue["@odata.type"] =
             "#NvidiaRoTProtectedComponentCollection.NvidiaRoTProtectedComponentCollection";
         asyncResp->res.jsonValue["Name"] = chassisId +
@@ -559,7 +563,8 @@ inline void handleNvidiaRoTImageSlotCollection(
         asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
         asyncResp->res.jsonValue["@odata.id"] =
             "/redfish/v1/Chassis/" + chassisId +
-            "/NvidiaRoT/RoTProtectedComponents/" + fwTypeStr + "/ImageSlots";
+            "/Oem/NvidiaRoT/RoTProtectedComponents/" + fwTypeStr +
+            "/ImageSlots";
         asyncResp->res.jsonValue["Name"] =
             chassisId + " RoTProtectedComponent " + fwTypeStr + " ImageSlot";
         for (const auto& [objectPath, serviceMap] : subtree)
