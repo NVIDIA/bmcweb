@@ -377,7 +377,7 @@ inline void getSysGUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
     BMCWEB_LOG_DEBUG("Get System-GUID");
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, service, objPath,
-        "xyz.openbmc_project.NSM.SysGUID", "SysGUID",
+        "com.nvidia.SysGUID.SysGUID", "SysGUID",
         [objPath, asyncResp{std::move(asyncResp)}](
             const boost::system::error_code& ec, const std::string& property) {
         if (ec)
@@ -388,7 +388,8 @@ inline void getSysGUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
         }
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             "#NvidiaProcessor.v1_3_0.NvidiaGPU";
-        asyncResp->res.jsonValue["Oem"]["Nvidia"]["SystemGUID"] = property;
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["MNNVLinkTopology"]
+                                ["SystemGUID"] = property;
     });
 }
 

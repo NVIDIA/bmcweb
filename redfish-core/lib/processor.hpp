@@ -2932,7 +2932,7 @@ inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 {
                     getWorkLoadPowerInfo(aResp, processorId);
                 }
-                else if (interface == "xyz.openbmc_project.NSM.SysGUID")
+                else if (interface == "com.nvidia.SysGUID.SysGUID")
                 {
                     getProcessorSystemGUID(aResp, serviceName, objectPath);
                 }
