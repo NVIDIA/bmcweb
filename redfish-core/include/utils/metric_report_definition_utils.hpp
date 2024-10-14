@@ -15,12 +15,9 @@
  * limitations under the License.
  */
 #pragma once
-#include <boost/regex.hpp>
 
-#ifdef BMCWEB_SHMEM_PLATFORM_METRICS
 #include "shmem_utils.hpp"
 #include "utils/file_utils.hpp"
-#endif
 
 namespace redfish
 {

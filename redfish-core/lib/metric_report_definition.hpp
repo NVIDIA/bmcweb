@@ -16,7 +16,6 @@
 #include "utils/time_utils.hpp"
 
 #include <boost/container/flat_map.hpp>
-#include <boost/regex.hpp>
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
