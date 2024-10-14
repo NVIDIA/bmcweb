@@ -840,7 +840,7 @@ inline void
                     << static_cast<int>(byte);
             }
             out = "0x" + oss.str();
-            asyncResp->res.jsonValue["BootStatus"] = out;
+            asyncResp->res.jsonValue["BootStatusCode"] = out;
         },
             statusService,
             "/xyz/openbmc_project/inventory/system/chassis/" + chassisObjPath,
