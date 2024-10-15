@@ -305,46 +305,47 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]["RXWidth"] =
                         *value;
                 }
-                else if (propertyName == "Protocol")
+            }
+            if (propertyName == "Protocol")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value == nullptr)
                 {
                     const std::string* value =
                         std::get_if<std::string>(&property.second);
                     if (value == nullptr)
                     {
-                        const std::string* value =
-                            std::get_if<std::string>(&property.second);
-                        if (value == nullptr)
-                        {
-                            BMCWEB_LOG_DEBUG("Null value returned "
-                                             "for protocol type");
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for protocol type");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
 
-                        std::string portProtocol = getPortProtocol(*value);
-                        if (portProtocol.find(nvlinkToken) !=
-                                std::string::npos &&
-                            portProtocol.size() > nvlinkToken.size())
+                    std::string portProtocol = getPortProtocol(*value);
+                    if (portProtocol.find(nvlinkToken) != std::string::npos &&
+                        portProtocol.size() > nvlinkToken.size())
+                    {
+                        asyncResp->res.jsonValue["PortProtocol"] = nvlinkToken;
+
+                        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                         {
-                            asyncResp->res.jsonValue["PortProtocol"] =
-                                nvlinkToken;
                             std::string expandPortName =
                                 portProtocol.substr(nvlinkToken.size() + 1);
                             asyncResp->res
                                 .jsonValue["Oem"]["Nvidia"]["PortProtocol"] =
                                 expandPortName;
                         }
-                        else
-                        {
-                            asyncResp->res.jsonValue["PortProtocol"] =
-                                portProtocol;
-                        }
                     }
-                    asyncResp->res.jsonValue["PortProtocol"] =
-                        getPortProtocol(*value);
+                    else
+                    {
+                        asyncResp->res.jsonValue["PortProtocol"] = portProtocol;
+                    }
                 }
+                asyncResp->res.jsonValue["PortProtocol"] =
+                    getPortProtocol(*value);
             }
-            if (propertyName == "LinkStatus")
+            else if (propertyName == "LinkStatus")
             {
                 const std::string* value =
                     std::get_if<std::string>(&property.second);

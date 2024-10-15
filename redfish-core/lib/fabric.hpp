@@ -727,8 +727,7 @@ inline void
                         *value;
                 }
             }
-
-            else if (propertyName == "SupportedProtocols")
+            if (propertyName == "SupportedProtocols")
             {
                 nlohmann::json& protoArray =
                     asyncResp->res.jsonValue["SupportedProtocols"];

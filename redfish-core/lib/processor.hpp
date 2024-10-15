@@ -6422,7 +6422,7 @@ inline void getProcessorPortMetricsData(
                     }
                 }
             }
-            else if (property.first == "ceCount")
+            if (property.first == "ceCount")
             {
                 const int64_t* value = std::get_if<int64_t>(&property.second);
                 if (value == nullptr)
