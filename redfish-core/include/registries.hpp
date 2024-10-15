@@ -73,7 +73,7 @@ inline std::string
         msg.remove_prefix(stringIndex + 1);
         size_t number = 0;
         auto it = std::from_chars(msg.data(), &*msg.end(), number);
-        if (it.ec != std::errc())
+        if (it.ec != std::errc() || number == 0)
         {
             return "";
         }
