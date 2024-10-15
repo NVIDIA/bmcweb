@@ -1844,7 +1844,7 @@ if constexpr (BMCWEB_REDFISH_AGGREGATION)
      *
      * @return None
      */
-    void handleSatBMCResponse(
+    inline void handleSatBMCResponse(
         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         crow::Response& resp)
     {

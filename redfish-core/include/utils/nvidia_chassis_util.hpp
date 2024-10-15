@@ -19,6 +19,12 @@
 #include "async_resp.hpp"
 
 #include <boost/container/flat_set.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/system/linux_error.hpp>
+
+#include <memory>
+#include <string>
+#include <variant>
 
 namespace redfish
 {

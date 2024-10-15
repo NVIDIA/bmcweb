@@ -1,5 +1,7 @@
 #pragma once
 
+#include "logging.hpp"
+
 #include <array>
 #include <climits>
 #include <cstddef>
@@ -8,6 +10,8 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <sstream>
+#include <iomanip>
 
 static constexpr std::array<char, 16> digitsArray = {
     '0', '1', '2', '3', '4', '5', '6', '7',
