@@ -27,7 +27,7 @@ constexpr const char* biosConfigIface =
 /**
  * BiosAttributeRegistry DB for DPU bios managment
  */
-nlohmann::json BiosRegistryJson;
+static nlohmann::json BiosRegistryJson;
 
 const std::string BiosRegistryJsonFileName =
     "/var/lib/bmcweb/BiosRegistryJson.json";
