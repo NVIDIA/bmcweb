@@ -2111,10 +2111,8 @@ class EventServiceManager
                     timestampPtr = std::get_if<uint64_t>(&val);
                     if (timestampPtr != nullptr)
                     {
-                        timestamp =
-                            std::move(redfish::time_utils::getDateTimeStdtime(
-                                redfish::time_utils::getTimestamp(
-                                    *timestampPtr)));
+                        timestamp = redfish::time_utils::getDateTimeStdtime(
+                            redfish::time_utils::getTimestamp(*timestampPtr));
                     }
                     else
                     {
