@@ -310,16 +310,17 @@ inline void patch(std::shared_ptr<bmcweb::AsyncResp> aResp,
 
         // Set the property, with handler to check error responses
         crow::connections::systemBus->async_method_call(
-            [aResp, property, interface](boost::system::error_code ec,
-                                         sdbusplus::message::message& msg) {
+            [aResp, property, interface,
+             service](boost::system::error_code ec,
+                      sdbusplus::message::message& msg) {
             if (!ec)
             {
                 BMCWEB_LOG_DEBUG("Set {} property for {} succeeded", property,
                                  interface);
                 return;
             }
-            BMCWEB_LOG_WARNING("Set {} property for {} failed: {}", property,
-                               interface, ec);
+            BMCWEB_LOG_WARNING("Set {} property for {} failed: {}. Serv: {}",
+                               property, interface, ec, service);
 
             // Read and convert dbus error message to redfish error
             const sd_bus_error* dbusError = msg.get_error();
@@ -356,6 +357,12 @@ inline void patch(std::shared_ptr<bmcweb::AsyncResp> aResp,
                 // timeout error
                 messages::asyncError(aResp->res, errTimeout,
                                      errTimeoutResolution);
+            }
+            else if (strcmp(dbusError->name,
+                            "org.freedesktop.DBus.Error.UnknownObject") == 0)
+            {
+                BMCWEB_LOG_WARNING("Serv {} didn't support this object",
+                                   service);
             }
             else
             {
