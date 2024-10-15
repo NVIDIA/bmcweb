@@ -270,6 +270,7 @@ static inline void addPrefixToStringItem(std::string& strValue,
     if (fragSize != 0)
     {
         url.set_fragment(thisUrl.fragment());
+        strValue = std::string(url.data(), url.size());
     }
 }
 
