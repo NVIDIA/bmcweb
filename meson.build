@@ -459,30 +459,6 @@ srcfiles_unittest = files(
 )
 
 if (get_option('tests').allowed())
-    gtest = dependency(
-        'gtest_main',
-        main: true,
-        version: '>=1.15.0',
-        required: true,
-    )
-    gmock = dependency('gmock', required: true)
-    gtestlib = static_library('gtestlib', dependencies: [gtest, gmock])
-    gtestdep = declare_dependency(
-        link_with: gtestlib,
-        dependencies: [
-            gtest.partial_dependency(includes: true),
-            gmock.partial_dependency(includes: true),
-        ],
-    )
-    # generate the test executable
-    ut_bin = executable(
-        'bmcweb_unit_test',
-        srcfiles_unittest + srcfiles_bmcweb,
-        include_directories: incdir,
-        install_dir: bindir,
-        dependencies: bmcweb_dependencies + [gtest, gmock],
-    )
-    test('bmcweb_unit_test', ut_bin)
     foreach test_src : srcfiles_unittest
         test_bin = executable(
             fs.stem(test_src),
