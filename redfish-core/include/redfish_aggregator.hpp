@@ -265,6 +265,12 @@ static inline void addPrefixToStringItem(std::string& strValue,
         url.segments().insert(url.segments().begin(), {"redfish", "v1"});
         strValue = std::string(url.data(), url.size());
     }
+
+    auto fragSize = thisUrl.fragment().size();
+    if (fragSize != 0)
+    {
+        url.set_fragment(thisUrl.fragment());
+    }
 }
 
 static inline void addPrefixToItem(nlohmann::json& item,
