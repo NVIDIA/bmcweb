@@ -800,25 +800,43 @@ class RedfishAggregator
             messages::internalError(asyncResp->res);
             return;
         }
-        auto dirPath = std::filesystem::path(path);
-        std::string dirName(dirPath.parent_path());
-        auto link = dirName.substr(std::strlen("/redfish/v1"));
-        auto match = std::binary_search(prefixURLTable.begin(),
-                                        prefixURLTable.end(), link);
-        if (match == true)
+
+        const boost::urls::segments_view urlSegments = thisReq.url().segments();
+        boost::urls::url currentUrl("/");
+        boost::urls::segments_view::iterator it = urlSegments.begin();
+        boost::urls::segments_view::iterator end = urlSegments.end();
+
+        // Skip past the leading "/redfish/v1"
+        it++;
+        it++;
+        // do url fixup if the request is from the collection resources
+        // specified in prefixURLTable.
+        for (; it != end; it++)
         {
-            BMCWEB_LOG_ERROR("removing prefix on:{}", targetURI);
-            path.erase(pos, prefix.size() + 1);
+            std::string_view link(currentUrl.data(), currentUrl.size());
+            if (std::binary_search(prefixURLTable.begin(), prefixURLTable.end(),
+                                   link))
+            {
+                // remove the prefix if there is the match in prefixURLTable
+                std::string p = *it;
+                p.erase(0, prefix.size() + 1);
+                currentUrl.segments().push_back(p);
+                continue;
+            }
+            currentUrl.segments().push_back(*it);
         }
 
-        BMCWEB_LOG_ERROR("forward: {}", targetURI);
+        std::string finalUrl("/redfish/v1");
+        std::string_view segments(currentUrl.data(), currentUrl.size());
+        finalUrl += segments;
+        BMCWEB_LOG_DEBUG("forward: {} ", finalUrl);
 
         std::function<void(crow::Response&)> cb =
             std::bind_front(processResponse, prefix, asyncResp);
 
         std::string data = thisReq.body();
         boost::urls::url url(sat->second);
-        url.set_path(path);
+        url.set_path(finalUrl);
         if (targetURI.has_query())
         {
             url.set_query(targetURI.query());
