@@ -469,7 +469,7 @@ inline void populateServiceConditions(
     std::string chasId = chassisId;
     if (!BMCWEB_PLATFORM_DEVICE_PREFIX.empty())
     {
-        if (boost::starts_with(chassisId, BMCWEB_PLATFORM_DEVICE_PREFIX))
+        if (chassisId.starts_with(BMCWEB_PLATFORM_DEVICE_PREFIX))
         {
             chasId = chassisId.substr(BMCWEB_PLATFORM_DEVICE_PREFIX.size());
         }

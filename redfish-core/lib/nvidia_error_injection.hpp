@@ -295,7 +295,7 @@ inline void getProcessor(std::shared_ptr<bmcweb::AsyncResp> aResp,
         }
         for (const auto& path : paths)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -379,7 +379,7 @@ inline void getNetworkAdapter(std::shared_ptr<bmcweb::AsyncResp> aResp,
         }
         for (const auto& path : paths)
         {
-            if (!boost::ends_with(path, networkAdapterId) ||
+            if (!path.ends_with(networkAdapterId) ||
                 path.find(chassisId) == path.npos)
             {
                 continue;
@@ -460,8 +460,7 @@ inline void getSwitch(std::shared_ptr<bmcweb::AsyncResp> aResp,
         }
         for (const auto& path : paths)
         {
-            if (!boost::ends_with(path, switchId) ||
-                path.find(fabricId) == path.npos)
+            if (!path.ends_with(switchId) || path.find(fabricId) == path.npos)
             {
                 continue;
             }

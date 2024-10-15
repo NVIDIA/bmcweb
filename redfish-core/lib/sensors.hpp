@@ -2892,7 +2892,7 @@ inline void requestRoutesSensor(App& app)
             }
             for (const std::string& object : objects)
             {
-                if (!boost::ends_with(object, chassisId))
+                if (!object.ends_with(chassisId))
                 {
                     continue;
                 }

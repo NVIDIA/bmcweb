@@ -317,7 +317,7 @@ inline void
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -501,7 +501,7 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -687,7 +687,7 @@ inline void getProcessorPowerSmoothingPresetProfileData(
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -806,7 +806,7 @@ inline void getProcessorPowerSmoothingPresetProfileCollectionData(
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -891,7 +891,7 @@ inline void patchPowerSmoothingFeature(std::shared_ptr<bmcweb::AsyncResp> aResp,
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -978,7 +978,7 @@ inline void patchAdminOverrideProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -1138,7 +1138,7 @@ inline void patchPresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -1354,7 +1354,7 @@ inline void postApplyAdminOverride(std::shared_ptr<bmcweb::AsyncResp> aResp,
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -1460,7 +1460,7 @@ inline void postActivatePresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }

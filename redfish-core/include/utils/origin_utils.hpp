@@ -21,10 +21,9 @@
 
 #pragma once
 
+#include "dbus_utility.hpp"
 #include "registries.hpp"
-
-#include <boost/algorithm/string.hpp>
-#include <dbus_utility.hpp>
+#include "str_utility.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -137,12 +136,8 @@ inline void oocUtilServiceConditions(
 
     std::vector<std::string> fields;
     fields.reserve(msg->numberOfArgs);
-    boost::split(fields, messageArgs, boost::is_any_of(","));
+    bmcweb::split(fields, messageArgs, ',');
 
-    for (auto& f : fields)
-    {
-        boost::trim(f);
-    }
     std::span<std::string> msgArgs;
     msgArgs = {&fields[0], fields.size()};
 
@@ -228,7 +223,7 @@ inline void convertDbusObjectToOriginOfCondition(
 {
     // if redfish URI is already provided in path, no need to compute, just use
     // it
-    if (boost::starts_with(path, redfishPrefix))
+    if (path.starts_with(redfishPrefix))
     {
         oocUtil(asyncResp, logEntry, id, path, severity, messageArgs, timestamp,
                 messageId);

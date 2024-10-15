@@ -2031,11 +2031,15 @@ inline void requestRoutesManager(App& app)
                 return;
             }
 
-            if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-            {
-                handleGenericManager(req, asyncResp, managerId);
-                return;
-            }
+                    if (!path.ends_with(managerId))
+                    {
+                        continue;
+                    }
+                    if (connectionNames.size() < 1)
+                    {
+                        BMCWEB_LOG_ERROR("Got 0 Connection names");
+                        continue;
+                    }
 
             asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Managers/{}", BMCWEB_REDFISH_MANAGER_URI_NAME);

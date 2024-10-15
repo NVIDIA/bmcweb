@@ -87,7 +87,7 @@ inline void
             // Get the metric object
             std::string metricReportUriPath =
                 "/redfish/v1/TelemetryService/MetricReports/";
-            if (boost::ends_with(object, "platformmetrics"))
+            if (object.ends_with("platformmetrics"))
             {
                 std::string uripath = metricReportUriPath;
                 uripath += BMCWEB_PLATFORM_METRICS_ID;
@@ -96,7 +96,7 @@ inline void
                     addMembers.push_back({{"@odata.id", uripath}});
                 }
             }
-            else if (boost::ends_with(object, "memory"))
+            else if (object.ends_with("memory"))
             {
                 std::string memoryMetricId = std::format(
                     "{}MemoryMetrics", BMCWEB_PLATFORM_DEVICE_PREFIX);
@@ -104,7 +104,7 @@ inline void
                 std::string uripath = metricReportUriPath + memoryMetricId;
                 addMembers.push_back({{"@odata.id", uripath}});
             }
-            else if (boost::ends_with(object, "processors"))
+            else if (object.ends_with("processors"))
             {
                 std::string processorMetricId =
                     std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) +
@@ -135,7 +135,7 @@ inline void
                 uripath = metricReportUriPath + processorPortGpmMetricId;
                 addMembers.push_back({{"@odata.id", uripath}});
             }
-            else if (boost::ends_with(object, "Switches"))
+            else if (object.ends_with("Switches"))
             {
                 std::string switchMetricId =
                     std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) +

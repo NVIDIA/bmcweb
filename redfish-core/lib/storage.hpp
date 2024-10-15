@@ -136,7 +136,7 @@ inline void afterChassisDriveCollectionSubtree(
         {
             if (std::find_if(driveInterface.begin(), driveInterface.end(),
                              [interface](const std::string& possible) {
-                return boost::starts_with(interface, possible);
+                return interface.starts_with(possible);
             }) != driveInterface.end())
             {
                 num++;
@@ -793,15 +793,14 @@ inline void createSanitizeProgressTask(
                 return !task::completed;
             }
 
-            if (boost::ends_with(*state, "Aborted") ||
-                boost::ends_with(*state, "Failed"))
+            if (state->ends_with("Aborted") || state->ends_with("Failed"))
             {
                 taskData->state = "Exception";
                 taskData->messages.emplace_back(messages::taskAborted(index));
                 return task::completed;
             }
 
-            if (boost::ends_with(*state, "Completed"))
+            if (state->ends_with("Completed"))
             {
                 taskData->state = "Completed";
                 taskData->percentComplete = 100;
@@ -1235,7 +1234,7 @@ inline void
             {
                 if (std::find_if(driveInterface.begin(), driveInterface.end(),
                                  [interface](const std::string& possible) {
-                    return boost::starts_with(interface, possible);
+                    return interface.starts_with(possible);
                 }) != driveInterface.end())
                 {
                     num++;

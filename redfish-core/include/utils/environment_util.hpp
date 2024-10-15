@@ -1555,7 +1555,7 @@ inline void
         const std::string resourceType = "Processor";
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -1681,7 +1681,7 @@ inline void
         const std::string resourceType = "Memory";
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, dimmId))
+            if (!path.ends_with(dimmId))
             {
                 continue;
             }

@@ -795,7 +795,7 @@ inline void
         for (const auto& obj : subtree)
         {
             sdbusplus::message::object_path objPath(obj.first);
-            if (!boost::equals(objPath.filename(), chassisObjPath))
+            if (objPath.filename() != chassisObjPath)
             {
                 continue;
             }

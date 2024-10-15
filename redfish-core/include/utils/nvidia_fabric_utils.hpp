@@ -209,7 +209,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
         for (const auto& [objectPath, serviceMap] : subtree)
         {
             // Ignore any objects which don't end with our desired fabric
-            if (!boost::ends_with(objectPath, fabricId))
+            if (!objectPath.ends_with(fabricId))
             {
                 continue;
             }

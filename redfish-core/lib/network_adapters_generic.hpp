@@ -379,7 +379,7 @@ inline void
 
             for (const std::string& sensorPath : *data)
             {
-                if (!boost::ends_with(sensorPath, networkAdapterId))
+                if (!sensorPath.ends_with(networkAdapterId))
                 {
                     continue;
                 }

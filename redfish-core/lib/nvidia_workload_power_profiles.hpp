@@ -126,7 +126,7 @@ inline void validateProcessorAndGetWorkloadPowerInfo(
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -284,7 +284,7 @@ inline void validateProcessorWorkloadPowerProfile(
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -398,7 +398,7 @@ inline void getProcessorWorkloadPowerProfileCollectionData(
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -534,7 +534,7 @@ inline void
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -641,7 +641,7 @@ inline void
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }

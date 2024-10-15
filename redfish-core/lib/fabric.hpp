@@ -1097,7 +1097,7 @@ inline void requestRoutesSwitchCollection(App& app)
             for (const std::string& object : objects)
             {
                 // Get the fabricId object
-                if (!boost::ends_with(object, fabricId))
+                if (!object.ends_with(fabricId))
                 {
                     continue;
                 }
@@ -1168,7 +1168,7 @@ inline void getSwitchParentChassisPCIeDeviceLink(
             for (const auto& [objectPath, serviceMap] : subtree)
             {
                 // Process same device
-                if (!boost::ends_with(objectPath, chassisName))
+                if (!objectPath.ends_with(chassisName))
                 {
                     continue;
                 }
@@ -1465,7 +1465,7 @@ inline void requestRoutesSwitch(App& app)
             for (const std::string& object : objects)
             {
                 // Get the fabricId object
-                if (!boost::ends_with(object, fabricId))
+                if (!object.ends_with(fabricId))
                 {
                     continue;
                 }
@@ -1728,7 +1728,7 @@ inline void requestRoutesSwitchMetrics(App& app)
             for (const std::string& object : objects)
             {
                 // Get the fabricId object
-                if (!boost::ends_with(object, fabricId))
+                if (!object.ends_with(fabricId))
                 {
                     continue;
                 }
@@ -1753,7 +1753,7 @@ inline void requestRoutesSwitchMetrics(App& app)
                     for (const std::string& path : *data)
                     {
                         // Get the switchId object
-                        if (!boost::ends_with(path, switchId))
+                        if (!path.ends_with(switchId))
                         {
                             continue;
                         }
@@ -2089,7 +2089,7 @@ inline void requestRoutesNVSwitchReset(App& app)
                 for (const std::string& object : objects)
                 {
                     // Get the fabricId object
-                    if (!boost::ends_with(object, fabricId))
+                    if (!object.ends_with(fabricId))
                     {
                         continue;
                     }
@@ -2115,7 +2115,7 @@ inline void requestRoutesNVSwitchReset(App& app)
                         for (const std::string& objectPath : *data)
                         {
                             // Get the switchId object
-                            if (!boost::ends_with(objectPath, switchId))
+                            if (!objectPath.ends_with(switchId))
                             {
                                 continue;
                             }
@@ -2207,7 +2207,7 @@ inline void requestRoutesPortCollection(App& app)
             for (const std::string& object : objects)
             {
                 // Get the fabricId object
-                if (!boost::ends_with(object, fabricId))
+                if (!object.ends_with(fabricId))
                 {
                     continue;
                 }
@@ -2233,7 +2233,7 @@ inline void requestRoutesPortCollection(App& app)
                     for (const std::string& object : *data)
                     {
                         // Get the switchId object
-                        if (!boost::ends_with(object, switchId))
+                        if (!object.ends_with(switchId))
                         {
                             continue;
                         }
@@ -2296,7 +2296,7 @@ inline void requestRoutesPort(App& app)
             for (const std::string& fabricPath : objects)
             {
                 // Get the fabricId object
-                if (!boost::ends_with(fabricPath, fabricId))
+                if (!fabricPath.ends_with(fabricId))
                 {
                     continue;
                 }
@@ -2322,7 +2322,7 @@ inline void requestRoutesPort(App& app)
                     for (const std::string& switchPath : *data)
                     {
                         // Get the switchId object
-                        if (!boost::ends_with(switchPath, switchId))
+                        if (!switchPath.ends_with(switchId))
                         {
                             continue;
                         }
@@ -2518,7 +2518,7 @@ inline void requestRoutesZoneCollection(App& app)
             for (const std::string& object : objects)
             {
                 // Get the fabricId object
-                if (!boost::ends_with(object, fabricId))
+                if (!object.ends_with(fabricId))
                 {
                     continue;
                 }
@@ -2570,7 +2570,7 @@ inline void requestRoutesZone(App& app)
             for (const std::string& object : objects)
             {
                 // Get the fabricId object
-                if (!boost::ends_with(object, fabricId))
+                if (!object.ends_with(fabricId))
                 {
                     continue;
                 }
@@ -2679,7 +2679,7 @@ inline void requestRoutesEndpointCollection(App& app)
             for (const std::string& object : objects)
             {
                 // Get the fabricId object
-                if (!boost::ends_with(object, fabricId))
+                if (!object.ends_with(fabricId))
                 {
                     continue;
                 }
@@ -2893,7 +2893,7 @@ inline void getProcessorParentEndpointData(
             for (const auto& [objectPath, serviceMap] : subtree)
             {
                 // Process same device
-                if (!boost::ends_with(objectPath, chassisName))
+                if (!objectPath.ends_with(chassisName))
                 {
                     continue;
                 }
@@ -3487,7 +3487,7 @@ inline void requestRoutesEndpoint(App& app)
             for (const std::string& object : objects)
             {
                 // Get the fabricId object
-                if (!boost::ends_with(object, fabricId))
+                if (!object.ends_with(fabricId))
                 {
                     continue;
                 }
@@ -4146,7 +4146,7 @@ inline void requestRoutesPortMetrics(App& app)
             for (const std::string& fabricPath : objects)
             {
                 // Get the fabricId object
-                if (!boost::ends_with(fabricPath, fabricId))
+                if (!fabricPath.ends_with(fabricId))
                 {
                     continue;
                 }
@@ -4172,7 +4172,7 @@ inline void requestRoutesPortMetrics(App& app)
                     for (const std::string& switchPath : *data)
                     {
                         // Get the switchId object
-                        if (!boost::ends_with(switchPath, switchId))
+                        if (!switchPath.ends_with(switchId))
                         {
                             continue;
                         }
@@ -4314,7 +4314,7 @@ inline void requestRoutesSwitchPowerMode(App& app)
             for (const std::string& object : objects)
             {
                 // Get the fabricId object
-                if (!boost::ends_with(object, fabricId))
+                if (!object.ends_with(fabricId))
                 {
                     continue;
                 }

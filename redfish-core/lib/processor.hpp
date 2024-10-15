@@ -820,7 +820,7 @@ inline void getParentChassisPCIeDeviceLink(
             for (const auto& [objectPath1, serviceMap] : subtree)
             {
                 // Process same device
-                if (!boost::ends_with(objectPath1, chassisName))
+                if (!objectPath1.ends_with(chassisName))
                 {
                     continue;
                 }
@@ -5133,7 +5133,7 @@ inline void getProcessorMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -5428,7 +5428,7 @@ inline void getProcessorMemoryMetricsData(
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -5603,7 +5603,7 @@ inline void
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -6105,7 +6105,7 @@ inline void requestRoutesProcessorPortCollection(App& app)
             }
             for (const auto& [path, object] : subtree)
             {
-                if (!boost::ends_with(path, processorId))
+                if (!path.ends_with(processorId))
                 {
                     continue;
                 }
@@ -6610,7 +6610,7 @@ inline void requestRoutesProcessorPort(App& app)
             }
             for (const auto& [path, object] : subtree)
             {
-                if (!boost::ends_with(path, processorId))
+                if (!path.ends_with(processorId))
                 {
                     continue;
                 }
@@ -7191,7 +7191,7 @@ inline void requestRoutesProcessorPortMetrics(App& app)
             }
             for (const auto& [path, object] : subtree)
             {
-                if (!boost::ends_with(path, processorId))
+                if (!path.ends_with(processorId))
                 {
                     continue;
                 }

@@ -96,7 +96,7 @@ inline void
 
         for (const std::string& sensorPath : *data)
         {
-            if (!boost::ends_with(sensorPath, objId))
+            if (!sensorPath.ends_with(objId))
             {
                 continue;
             }

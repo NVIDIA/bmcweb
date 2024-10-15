@@ -847,7 +847,7 @@ inline void getClearPCIeCountersActionInfo(
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }
@@ -1431,7 +1431,7 @@ inline void
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, processorId))
+            if (!path.ends_with(processorId))
             {
                 continue;
             }

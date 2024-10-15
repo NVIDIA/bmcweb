@@ -70,7 +70,7 @@ inline void getProcessorObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
         for (const auto& [objectPath, serviceMap] : subtree)
         {
             // Ignore any objects which don't end with our desired cpu name
-            if (!boost::ends_with(objectPath, processorId))
+            if (!objectPath.ends_with(processorId))
             {
                 continue;
             }

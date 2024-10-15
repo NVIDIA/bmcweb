@@ -4379,7 +4379,7 @@ inline void
                      object : subtree)
             {
                 const std::string& path = object.first;
-                if (!boost::ends_with(path, BMCWEB_REDFISH_MANAGER_URI_NAME))
+                if (!path.ends_with(BMCWEB_REDFISH_MANAGER_URI_NAME))
                 {
                     continue;
                 }

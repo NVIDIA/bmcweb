@@ -130,7 +130,7 @@ inline void getBMCObject(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
         for (const auto& [objectPath, serviceMap] : subtree)
         {
             // Ignore any objects which don't end with our desired bmcid
-            if (!boost::ends_with(objectPath, BMCWEB_REDFISH_MANAGER_URI_NAME))
+            if (!objectPath.ends_with(BMCWEB_REDFISH_MANAGER_URI_NAME))
             {
                 continue;
             }

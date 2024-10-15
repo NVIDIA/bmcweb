@@ -581,8 +581,7 @@ inline void assembleDimmProperties(
                 memoryDeviceType;
         }
         if (memoryType->find("DDR") != std::string::npos ||
-            (boost::ends_with(*memoryType, "HBM")) ||
-            (boost::ends_with(*memoryType, "HBM2")))
+            (memoryType->ends_with("HBM")) || (memoryType->ends_with("HBM2")))
         {
             asyncResp->res.jsonValue[jsonPtr]["MemoryType"] =
                 memory::MemoryType::DRAM;
@@ -1308,7 +1307,7 @@ inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
         }
         for (const auto& [path, object] : subtree)
         {
-            if (!boost::ends_with(path, dimmId))
+            if (!path.ends_with(dimmId))
             {
                 continue;
             }

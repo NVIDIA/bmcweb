@@ -299,8 +299,7 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
             return task::completed;
         }
 
-        if (boost::ends_with(*state, "Invalid") ||
-            boost::ends_with(*state, "Failed"))
+        if (state->ends_with("Invalid") || state->ends_with("Failed"))
         {
             taskData->state = "Exception";
             taskData->messages.emplace_back(messages::taskAborted(index));
@@ -308,7 +307,7 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
             return task::completed;
         }
 
-        if (boost::ends_with(*state, "Staged"))
+        if (state->ends_with("Staged"))
         {
             taskData->state = "Stopping";
             taskData->messages.emplace_back(messages::taskPaused(index));
@@ -322,7 +321,7 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
             return !task::completed;
         }
 
-        if (boost::ends_with(*state, "Activating"))
+        if (state->ends_with("Activating"))
         {
             // set firmware inventory inprogress
             // flag to true during activation.
@@ -333,7 +332,7 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
             return !task::completed;
         }
 
-        if (boost::ends_with(*state, "Active"))
+        if (state->ends_with("Active"))
         {
             taskData->state = "Completed";
             taskData->messages.emplace_back(messages::taskCompletedOK(index));
@@ -4096,7 +4095,7 @@ inline void requestRoutesSoftwareInventory(App& app)
                      obj : subtree)
             {
                 sdbusplus::message::object_path objPath(obj.first);
-                if (boost::equals(objPath.filename(), *swId) != true)
+                if (objPath.filename() != *swId)
                 {
                     continue;
                 }
@@ -5880,8 +5879,7 @@ inline void initiateStagedFirmwareUpdate(
                 return task::completed;
             }
 
-            if (boost::ends_with(*state, "Invalid") ||
-                boost::ends_with(*state, "Failed"))
+            if (state->ends_with("Invalid") || state->ends_with("Failed"))
             {
                 taskData->state = "Exception";
                 taskData->messages.emplace_back(messages::taskAborted(index));
@@ -5889,7 +5887,7 @@ inline void initiateStagedFirmwareUpdate(
                 return task::completed;
             }
 
-            if (boost::ends_with(*state, "Staged"))
+            if (state->ends_with("Staged"))
             {
                 taskData->state = "Stopping";
                 taskData->messages.emplace_back(messages::taskPaused(index));
@@ -5903,7 +5901,7 @@ inline void initiateStagedFirmwareUpdate(
                 return !task::completed;
             }
 
-            if (boost::ends_with(*state, "Activating"))
+            if (state->ends_with("Activating"))
             {
                 // set firmware inventory inprogress
                 // flag to true during activation.
@@ -5914,7 +5912,7 @@ inline void initiateStagedFirmwareUpdate(
                 return !task::completed;
             }
 
-            if (boost::ends_with(*state, "Active"))
+            if (state->ends_with("Active"))
             {
                 taskData->state = "Completed";
                 taskData->messages.emplace_back(
