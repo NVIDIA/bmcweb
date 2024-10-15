@@ -973,30 +973,26 @@ static inline void
         if (chassisId.empty())
         {
             pcieDeviceURI =
-                (boost::format("/redfish/v1/Systems/" +
-                               std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                               "/PCIeDevices/%s") %
-                 device)
-                    .str();
+                boost::urls::format("/redfish/v1/Systems/{}/PCIeDevices/{}",
+                                    BMCWEB_REDFISH_SYSTEM_URI_NAME, device)
+                    .buffer();
             pcieFunctionURI =
-                (boost::format("/redfish/v1/Systems/" +
-                               std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                               "/"
-                               "PCIeDevices/%s/PCIeFunctions/%s") %
-                 device % function)
-                    .str();
+                boost::urls::format(
+                    "/redfish/v1/Systems/{}/PCIeDevices/{}/PCIeFunctions/{}",
+                    BMCWEB_REDFISH_SYSTEM_URI_NAME, device, function)
+                    .buffer();
         }
         else
         {
             pcieDeviceURI =
-                (boost::format("/redfish/v1/Chassis/%s/PCIeDevices/%s") %
-                 chassisId % device)
-                    .str();
+                boost::urls::format("/redfish/v1/Chassis/{}/PCIeDevices/{}",
+                                    chassisId, device)
+                    .buffer();
             pcieFunctionURI =
-                (boost::format(
-                     "/redfish/v1/Chassis/%s/PCIeDevices/%s/PCIeFunctions/%s") %
-                 chassisId % device % function)
-                    .str();
+                boost::urls::format(
+                    "/redfish/v1/Chassis/{}/PCIeDevices/{}/PCIeFunctions/{}",
+                    chassisId, device, function)
+                    .buffer();
         }
 
         asyncResp->res.jsonValue = {

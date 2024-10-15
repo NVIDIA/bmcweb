@@ -512,7 +512,8 @@ inline void requestRoutesComponentIntegrity(App& app)
                 sdbusplus::message::object_path erotInvObjectPath(endpoint);
                 const std::string& objName = erotInvObjectPath.filename();
                 std::string chassisURI =
-                    (boost::format("/redfish/v1/Chassis/%s") % objName).str();
+                    boost::urls::format("/redfish/v1/Chassis/{}", objName)
+                        .buffer();
                 std::string certificateURI = chassisURI +
                                              "/Certificates/CertChain";
                 asyncResp->res.jsonValue["TargetComponentURI"] = chassisURI;

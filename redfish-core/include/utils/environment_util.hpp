@@ -1230,9 +1230,9 @@ inline void getSensorDataByService(
                                  sensorType);
 
                 std::string sensorURI =
-                    (boost::format("/redfish/v1/Chassis/%s/Sensors/%s") %
-                     chassisId % sensorName)
-                        .str();
+                    boost::urls::format("/redfish/v1/Chassis/{}/Sensors/{}",
+                                        chassisId, sensorName)
+                        .buffer();
                 if (sensorType == "temperature")
                 {
                     aResp->res.jsonValue["TemperatureCelsius"] = {
@@ -1444,9 +1444,9 @@ inline void getCpuPowerCapData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             return;
         }
         std::string sensorURI =
-            (boost::format("/redfish/v1/Chassis/%s/Controls/%s") % cpuId %
-             sensorName)
-                .str();
+            boost::urls::format("/redfish/v1/Chassis/{}/Controls/{}", cpuId,
+                                sensorName)
+                .buffer();
         aResp->res.jsonValue["PowerLimitWatts"]["DataSourceUri"] = sensorURI;
 
         getPowerCap(aResp, cpuId, objPath);

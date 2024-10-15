@@ -302,9 +302,9 @@ inline void getFabricSwitchLink(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 return;
             }
             std::string switchLink =
-                (boost::format("/redfish/v1/Fabrics/%s/Switches/%s") %
-                 fabricId % switchId)
-                    .str();
+                boost::urls::format("/redfish/v1/Fabrics/{}/Switches/{}",
+                                    fabricId, switchId)
+                    .buffer();
             aResp->res.jsonValue["Links"]["Switch"]["@odata.id"] = switchLink;
             return;
         },

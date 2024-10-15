@@ -138,10 +138,10 @@ inline void getNvidiaPowerSupplyMetrics(
                                 const std::string& sensorType = split[4];
                                 const std::string& sensorName = split[5];
                                 std::string sensorURI =
-                                    (boost::format(
-                                         "/redfish/v1/Chassis/%s/Sensors/%s") %
-                                     chassisId % sensorName)
-                                        .str();
+                                    boost::urls::format(
+                                        "/redfish/v1/Chassis/{}/Sensors/{}",
+                                        chassisId, sensorName)
+                                        .buffer();
                                 if (sensorType == "temperature")
                                 {
                                     asyncResp->res

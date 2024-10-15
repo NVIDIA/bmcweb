@@ -2604,9 +2604,10 @@ inline void
                     sdbusplus::message::object_path objectPath1(switchPath);
                     std::string switchId = objectPath1.filename();
                     std::string switchURI =
-                        (boost::format("/redfish/v1/Fabrics/%s/Switches/%s") %
-                         fabricId % switchId)
-                            .str();
+                        boost::urls::format(
+                            "/redfish/v1/Fabrics/{}/Switches/{}", fabricId,
+                            switchId)
+                            .buffer();
                     itemsArray1.push_back({{"@odata.id", switchURI}});
                 }
             },

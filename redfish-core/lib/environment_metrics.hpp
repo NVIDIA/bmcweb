@@ -5,7 +5,6 @@
 #include "registries/privilege_registry.hpp"
 #include "utils/chassis_utils.hpp"
 
-#include <boost/format.hpp>
 #include <boost/url/format.hpp>
 #include <utils/dbus_utils.hpp>
 #include <utils/environment_util.hpp>

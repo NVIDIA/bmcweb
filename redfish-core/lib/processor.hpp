@@ -4749,9 +4749,9 @@ inline void getVoltageData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         sdbusplus::message::object_path objectPath(sensorPath);
         const std::string& sensorName = objectPath.filename();
         std::string sensorURI =
-            (boost::format("/redfish/v1/Chassis/%s/Sensors/%s") % chassisId %
-             sensorName)
-                .str();
+            boost::urls::format("/redfish/v1/Chassis/{}/Sensors/{}", chassisId,
+                                sensorName)
+                .buffer();
         aResp->res.jsonValue["CoreVoltage"]["DataSourceUri"] = sensorURI;
         const double* attributeValue = nullptr;
         for (const std::pair<std::string, std::variant<std::string, double>>&
