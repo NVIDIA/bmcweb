@@ -69,13 +69,16 @@ inline void addLeakDetectorCommonProperties(crow::Response& resp,
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/LeakDetector/LeakDetector.json>; rel=describedby");
     resp.jsonValue["@odata.type"] = "#LeakDetector.v1_1_0.LeakDetector";
-    resp.jsonValue["Name"] = "Leak Detector";
     resp.jsonValue["Id"] = leakDetectorId;
     resp.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/ThermalSubsystem/LeakDetection/LeakDetectors/{}",
         chassisId, leakDetectorId);
     resp.jsonValue["Status"]["State"] = "Enabled";
     resp.jsonValue["Status"]["Health"] = "OK";
+
+    std::string leakDetectorName(leakDetectorId);
+    std::replace(leakDetectorName.begin(), leakDetectorName.end(), '_', ' ');
+    resp.jsonValue["Name"] = std::move(leakDetectorName);
 }
 
 inline void
