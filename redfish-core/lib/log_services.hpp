@@ -3213,7 +3213,9 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
             std::sort(
                 entriesArray.begin(), entriesArray.end(),
                 [](const nlohmann::json& left, const nlohmann::json& right) {
-                return (left["Id"] <= right["Id"]);
+                int leftId = std::stoi(left["Id"].get<std::string>());
+                int rightId = std::stoi(right["Id"].get<std::string>());
+                return (leftId < rightId);
             });
             asyncResp->res.jsonValue["Members@odata.count"] =
                 entriesArray.size();
@@ -3865,7 +3867,9 @@ inline void requestRoutesDBusSELLogEntryCollection(App& app)
             std::sort(
                 entriesArray.begin(), entriesArray.end(),
                 [](const nlohmann::json& left, const nlohmann::json& right) {
-                return (left["Id"] <= right["Id"]);
+                int leftId = std::stoi(left["Id"].get<std::string>());
+                int rightId = std::stoi(right["Id"].get<std::string>());
+                return (leftId < rightId);
             });
             asyncResp->res.jsonValue["Members@odata.count"] =
                 entriesArray.size();
