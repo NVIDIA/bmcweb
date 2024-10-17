@@ -416,7 +416,7 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         res.response = parser->release();
         if (callback != nullptr)
         {
-            callback(false, connId, res);
+            callback(parser->keep_alive(), connId, res);
         }
         else
         {
