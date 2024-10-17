@@ -86,7 +86,7 @@ inline void
         if (ec)
         {
             handleCommandError(asyncResp,
-                               "Failed to get NSM command response.");
+                               "Failed to get NSM command response." + ec.message());
             return;
         }
 
@@ -212,78 +212,28 @@ inline void handleNSMCommandResponse(
         "xyz.openbmc_project.NSM.NSMRawCommandStatus", "Status");
 }
 
-inline void
-    getFruDeviceProperty(const std::string& path, const std::string& property,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         std::function<void(std::optional<uint8_t>)>&& callback)
-{
-    crow::connections::systemBus->async_method_call(
-        [callback, asyncResp](const boost::system::error_code& ec,
-                              const dbus::utility::DbusVariantType& value) {
-        if (ec)
-        {
-            callback(std::nullopt);
-            return;
-        }
-        callback(std::get<uint8_t>(value)); // Return the property value
-    },
-        "xyz.openbmc_project.NSM", path.c_str(),
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.FruDevice", property);
-}
-
 inline void getMatchingFruDeviceObjectPath(
     uint8_t deviceIdentificationId, uint8_t deviceInstanceId,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     std::function<void(std::string)>&& callback)
 {
     crow::connections::systemBus->async_method_call(
-        [deviceIdentificationId, deviceInstanceId, callback, asyncResp](
-            const boost::system::error_code& ec,
-            const std::map<std::string,
-                           std::map<std::string, std::vector<std::string>>>&
-                subtree) {
+        [callback, asyncResp](const boost::system::error_code& ec,
+                              const std::string& objectPath) {
         if (ec)
         {
-            BMCWEB_LOG_ERROR("Error fetching FruDevice subtree. Error: {}",
-                             ec.message());
-            messages::internalError(asyncResp->res);
+            handleCommandError(asyncResp,
+                               "Error calling getObjectPathForNSMDevice. Error: {}" +
+                               ec.message());
             callback("");
             return;
         }
+        callback(objectPath);
 
-        BMCWEB_LOG_DEBUG("Found {} FruDevice(s) to check.", subtree.size());
-
-        for (const auto& [objectPath, interfaces] : subtree)
-        {
-            getFruDeviceProperty(
-                objectPath, "DEVICE_TYPE", asyncResp,
-                [objectPath, deviceIdentificationId, deviceInstanceId, callback,
-                 asyncResp](std::optional<uint8_t> deviceType) mutable {
-                if (!deviceType || deviceType.value() != deviceIdentificationId)
-                {
-                    return;
-                }
-
-                getFruDeviceProperty(
-                    objectPath, "INSTANCE_NUMBER", asyncResp,
-                    [objectPath, deviceInstanceId, callback,
-                     asyncResp](std::optional<uint8_t> instanceNumber) mutable {
-                    if (!instanceNumber ||
-                        instanceNumber.value() != deviceInstanceId)
-                    {
-                        return;
-                    }
-                    callback(objectPath);
-                    return;
-                });
-            });
-        }
     },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/FruDevice/", 1, std::vector<std::string>({}));
+        "xyz.openbmc_project.NSM", "/xyz/openbmc_project/NSM",
+        "com.nvidia.NSM.NSMDevice", "getObjectPathForNSMDevice",
+        deviceIdentificationId, deviceInstanceId);
 }
 
 inline void
