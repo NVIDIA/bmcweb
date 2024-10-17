@@ -301,7 +301,20 @@ inline void
         for (const std::pair<std::string, std::variant<std::string, uint64_t>>&
                  property : propertiesList)
         {
-            if (property.first == "FMState")
+            if (property.first == "Description")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for Description");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["Description"] = *value;
+            }
+            else if (property.first == "FMState")
             {
                 const std::string* value =
                     std::get_if<std::string>(&property.second);
@@ -366,8 +379,7 @@ inline void
                 "#NvidiaManager.v1_4_0.NvidiaFabricManager";
         }
     },
-        connectionName, path, "org.freedesktop.DBus.Properties", "GetAll",
-        "com.nvidia.State.FabricManager");
+        connectionName, path, "org.freedesktop.DBus.Properties", "GetAll", "");
 }
 
 } // namespace nvidia_manager_util
