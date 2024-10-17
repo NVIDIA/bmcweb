@@ -30,7 +30,6 @@
 #include <app.hpp>
 #include <boost/container/flat_map.hpp>
 #include <dbus_utility.hpp>
-#include <health.hpp>
 #include <openbmc_dbus_rest.hpp>
 #include <registries/privilege_registry.hpp>
 #include <sdbusplus/asio/property.hpp>
@@ -320,38 +319,8 @@ inline void getEROTChassis(const crow::Request& req,
 #endif
             }
 
-#ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
-            auto health = std::make_shared<HealthRollup>(
-                path,
-                [asyncResp](const std::string& rootHealth,
-                            const std::string& healthRollup) {
-                asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-                asyncResp->res.jsonValue["Status"]["HealthRollup"] =
-                    healthRollup;
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-            },
-                &health_state::ok);
-            health->start();
-#else  // ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
-            auto health = std::make_shared<HealthPopulate>(asyncResp);
-
-            sdbusplus::asio::getProperty<std::vector<std::string>>(
-                *crow::connections::systemBus,
-                "xyz.openbmc_project.ObjectMapper", path + "/all_sensors",
-                "xyz.openbmc_project.Association", "endpoints",
-                [health](const boost::system::error_code ec2,
-                         const std::vector<std::string>& resp) {
-                if (ec2)
-                {
-                    return; // no sensors = no failures
-                }
-                health->inventory = resp;
-            });
-
-            health->populate();
-#endif // ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
-
+            asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
+            asyncResp->res.jsonValue["Status"]["Health"] = "OK";
             asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
 
             asyncResp->res.jsonValue["@odata.type"] =
