@@ -602,12 +602,19 @@ inline void
 
     if (sparePartNumber != nullptr)
     {
-        asyncResp->res.jsonValue[jsonPtr]["SparePartNumber"] = *sparePartNumber;
+        if (!(sparePartNumber->empty()))
+        {
+            asyncResp->res.jsonValue[jsonPtr]["SparePartNumber"] =
+                *sparePartNumber;
+        }
     }
 
     if (model != nullptr)
     {
-        asyncResp->res.jsonValue[jsonPtr]["Model"] = *model;
+        if (!(model->empty()))
+        {
+            asyncResp->res.jsonValue[jsonPtr]["Model"] = *model;
+        }
     }
 
     if (locationCode != nullptr)
