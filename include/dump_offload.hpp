@@ -16,6 +16,8 @@
  */
 #pragma once
 
+#include "log_services.hpp"
+
 #include <sys/select.h>
 
 #include <boost/asio.hpp>
@@ -252,9 +254,9 @@ static boost::container::flat_map<crow::streaming_response::Connection*,
 
 inline void requestRoutes(App& app)
 {
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Managers/<str>/LogServices/Dump/Entries/<str>/attachment/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/" +
+                          std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                          "/LogServices/Dump/Entries/<str>/attachment/")
         .privileges({{"ConfigureComponents", "ConfigureManager"}})
         .streamingResponse()
         .onopen([](crow::streaming_response::Connection& conn) {
@@ -283,9 +285,9 @@ inline void requestRoutes(App& app)
         handlers.erase(handler);
     });
 
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/<str>/attachment/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
+                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                          "/LogServices/Dump/Entries/<str>/attachment/")
         .privileges({{"ConfigureComponents", "ConfigureManager"}})
         .streamingResponse()
         .onopen([](crow::streaming_response::Connection& conn) {
@@ -314,9 +316,9 @@ inline void requestRoutes(App& app)
         handler->second->outputBuffer.clear();
     });
 #ifdef BMCWEB_ENABLE_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Systems/<str>/LogServices/FaultLog/Entries/<str>/attachment")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
+                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                          "/LogServices/FaultLog/Entries/<str>/attachment/")
         .privileges({{"ConfigureComponents", "ConfigureManager"}})
         .streamingResponse()
         .onopen([](crow::streaming_response::Connection& conn) {
@@ -345,6 +347,35 @@ inline void requestRoutes(App& app)
         handler->second->outputBuffer.clear();
     });
 #endif // BMCWEB_ENABLE_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
+
+    if constexpr (BMCWEB_REDFISH_AGGREGATION)
+    {
+        BMCWEB_ROUTE(app,
+                     "/redfish/v1/Managers/" +
+                         std::string(redfishAggregationPrefix) +
+                         "<str>/LogServices/Dump/Entries/<str>/attachment/")
+            .privileges({{"ConfigureComponents", "ConfigureManager"}})
+            .methods(boost::beast::http::verb::get)(std::bind_front(
+                redfish::handleSetUpRedfishRoute, std::ref(app), "BMC"));
+
+        BMCWEB_ROUTE(app,
+                     "/redfish/v1/Systems/" +
+                         std::string(redfishAggregationPrefix) +
+                         "<str>/LogServices/Dump/Entries/<str>/attachment/")
+            .privileges({{"ConfigureComponents", "ConfigureManager"}})
+            .methods(boost::beast::http::verb::get)(std::bind_front(
+                redfish::handleSetUpRedfishRoute, std::ref(app), "System"));
+
+#ifdef BMCWEB_ENABLE_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
+        BMCWEB_ROUTE(app,
+                     "/redfish/v1/Systems/" +
+                         std::string(redfishAggregationPrefix) +
+                         "<str>/LogServices/FaultLog/Entries/<str>/attachment/")
+            .privileges({{"ConfigureComponents", "ConfigureManager"}})
+            .methods(boost::beast::http::verb::get)(std::bind_front(
+                redfish::handleSetUpRedfishRoute, std::ref(app), "FaultLog"));
+#endif
+    }
 }
 
 } // namespace obmc_dump
