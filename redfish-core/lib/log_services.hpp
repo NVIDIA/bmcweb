@@ -4735,6 +4735,24 @@ inline void handleLogServicesDumpClearLogComputerSystemPost(
     clearDump(asyncResp, "System");
 }
 
+inline void
+    handleSetUpRedfishRoute(crow::App& app,
+                            [[maybe_unused]] const std::string& dumpType,
+                            const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            [[maybe_unused]] const std::string& managerId,
+                            [[maybe_unused]] const std::string& dumpId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        BMCWEB_LOG_DEBUG("Aggregation is enabled. Forwarding URI");
+        return;
+    }
+
+    // Do nothing for the Host BMC because it will not invoke this function
+    return;
+}
+
 inline void requestRoutesBMCDumpServiceActionInfo(App& app)
 {
     BMCWEB_ROUTE(
