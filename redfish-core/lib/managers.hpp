@@ -3639,7 +3639,7 @@ inline void requestRoutesManager(App& app)
 #endif // BMCWEB_COMMAND_SMBPBI_OOB
 #ifdef BMCWEB_NSM_COMMAND_RAW
             boost::urls::url nsmRawCommandUrl;
-            nsmRawCommandUrl.set_path("/redfish/v1/Managers/");
+            nsmRawCommandUrl.set_path("/redfish/v1/Managers");
             nsmRawCommandUrl.segments().push_back(
                 std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
             nsmRawCommandUrl.segments().push_back("Actions");
@@ -3647,7 +3647,7 @@ inline void requestRoutesManager(App& app)
             nsmRawCommandUrl.segments().push_back("NvidiaManager.NSMRawCommand");
 
             boost::urls::url nsmRawCommandActionInfoUrl;
-            nsmRawCommandActionInfoUrl.set_path("/redfish/v1/Managers/");
+            nsmRawCommandActionInfoUrl.set_path("/redfish/v1/Managers");
             nsmRawCommandActionInfoUrl.segments().push_back(
                 std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
             nsmRawCommandActionInfoUrl.segments().push_back("Oem");
