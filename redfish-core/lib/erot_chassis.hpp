@@ -316,6 +316,7 @@ inline void getEROTChassis(const crow::Request& req,
                     ["#NvidiaChassis.BootProtectedDevice"]["target"] =
                         "/redfish/v1/Chassis/" + chassisId +
                         "/Actions/Oem/NvidiaChassis.BootProtectedDevice";
+                manual_boot::bootModeQuery(req, asyncResp, chassisId);
 #endif
             }
 
@@ -421,13 +422,6 @@ inline void getEROTChassis(const crow::Request& req,
             redfish::conditions_utils::populateServiceConditions(asyncResp,
                                                                  chassisId);
 #endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
-
-#ifdef BMCWEB_ENABLE_MANUAL_BOOT_MODE
-            if (isCpuEROT)
-            {
-                manual_boot::bootModeQuery(req, asyncResp, chassisId);
-            }
-#endif // BMCWEB_ENABLE_MANUAL_BOOT_MODE
             return;
         }
 
