@@ -176,6 +176,11 @@ void getPortStatusAndPath(
                     continue;
                 }
 #endif
+                if (protocolName == "HTTP" &&
+                    persistent_data::getConfig().isTLSAuthEnabled())
+                {
+                    continue;
+                }
                 const std::string& socketPath =
                     std::get<NET_PROTO_UNIT_OBJ_PATH>(unit);
                 const std::string& unitState =
