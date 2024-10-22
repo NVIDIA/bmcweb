@@ -199,21 +199,6 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     for (const auto& nwkProtocol : networkProtocolToDbus)
     {
         const std::string_view protocolName = nwkProtocol.first;
-        // if TLS authentication is disabled then don't support HTTPS.
-        // even if SSL is enabled
-#ifdef BMCWEB_ENABLE_SSL
-        if (protocolName == "HTTPS" &&
-            !persistent_data::getConfig().isTLSAuthEnabled())
-        {
-            continue;
-        }
-#else
-        if (protocolName == "HTTPS")
-        {
-            continue;
-        }
-#endif
-
 #ifndef BMCWEB_ENABLE_IPMI
         if (protocolName == "IPMI")
         {
