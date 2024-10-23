@@ -470,7 +470,7 @@ inline void
             (*memorySizeInKB >> 10);
     }
 
-    if (partNumber != nullptr)
+    if (partNumber && !partNumber->empty())
     {
         asyncResp->res.jsonValue[jsonPtr]["PartNumber"] = *partNumber;
     }
