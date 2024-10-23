@@ -339,7 +339,7 @@ static bool
 }
 
 inline std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
-    parseOEMAdditionalData(const std::string& oemData)
+    parseOEMAdditionalData(std::string& oemData)
 {
     // Parse OEM data for encoded format string
     // oemDiagnosticDataType = "key1=value1;key2=value2;key3=value3"
@@ -358,6 +358,16 @@ inline std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
             {
                 additionalData.emplace_back(
                     std::make_pair(subTokens[0], subTokens[1]));
+                if (subTokens[0] == "DiagnosticType")
+                {
+                    // Reassign the oemData to stay value only
+                    oemData = subTokens[1];
+                }
+            }
+            else
+            {
+                // Not be a <key,value> pair so it's invalid
+                oemData.clear();
             }
         }
     }
@@ -1819,6 +1829,20 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 "LogService.CollectDiagnosticData");
             return;
         }
+
+        auto it = std::find(std::begin(OEM_DIAG_DATA_TYPE_ARRAY),
+                            std::end(OEM_DIAG_DATA_TYPE_ARRAY),
+                            oemDiagnosticDataType);
+        if ((std::string(*oemDiagnosticDataType).empty()) ||
+            (it == std::end(OEM_DIAG_DATA_TYPE_ARRAY)))
+        {
+            BMCWEB_LOG_ERROR("Wrong parameter values passed");
+            messages::actionParameterValueError(
+                asyncResp->res, "OEMDiagnosticDataType",
+                "LogService.CollectDiagnosticData");
+            return;
+        }
+
         dumpPath = "/redfish/v1/Systems/" +
                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                    "/LogServices/Dump/";
@@ -1846,6 +1870,16 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 "LogService.CollectDiagnosticData");
             return;
         }
+
+        if (*oemDiagnosticDataType != "FDR")
+        {
+            BMCWEB_LOG_ERROR("Wrong parameter values passed");
+            messages::actionParameterValueError(
+                asyncResp->res, "OEMDiagnosticDataType",
+                "LogService.CollectDiagnosticData");
+            return;
+        }
+
         dumpPath = "/redfish/v1/Systems/" +
                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                    "/LogServices/FDR/";
@@ -4977,19 +5011,15 @@ inline void requestRoutesSystemDumpServiceActionInfo(App& app)
         parameter_OEMDiagnosticDataType["DataType"] = "String";
 
         nlohmann::json::array_t OEMDiagnosticDataType_allowableValues;
-        OEMDiagnosticDataType_allowableValues.push_back(
-            "DiagnosticType=SelfTest");
-        OEMDiagnosticDataType_allowableValues.push_back("DiagnosticType=FPGA");
-        OEMDiagnosticDataType_allowableValues.push_back("DiagnosticType=EROT");
-        OEMDiagnosticDataType_allowableValues.push_back("DiagnosticType=ROT");
-        OEMDiagnosticDataType_allowableValues.push_back(
-            "DiagnosticType=RetLTSSM");
-        OEMDiagnosticDataType_allowableValues.push_back(
-            "DiagnosticType=RetRegister");
-        OEMDiagnosticDataType_allowableValues.push_back(
-            "DiagnosticType=FirmwareAttributes");
-        OEMDiagnosticDataType_allowableValues.push_back(
-            "DiagnosticType=HardwareCheckout");
+
+        // Get the OEMDiagnosticDataType from meson option to push back
+        std::string diagTypeStr = "";
+        for (const auto& typeStr : OEM_DIAG_DATA_TYPE_ARRAY)
+        {
+            diagTypeStr = std::string("DiagnosticType=") + std::string(typeStr);
+            OEMDiagnosticDataType_allowableValues.emplace_back(diagTypeStr);
+        }
+
         if constexpr (BMCWEB_REDFISH_NET_LOG)
         {
             OEMDiagnosticDataType_allowableValues.push_back(

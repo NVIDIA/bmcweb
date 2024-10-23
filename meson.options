@@ -1052,3 +1052,10 @@ option(
     value: 'enabled',
     description: 'Enable LastResetTime property on ComputerSystem objects (/redfish/v1/Systems/<str>).',
 )
+
+option(
+    'oem-diagnostic-allowable-type',
+    type : 'array',
+    value : ['EROT', 'ROT', 'FirmwareAttributes'],
+    description : 'OEM diagnostic data allowable type'
+)

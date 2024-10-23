@@ -173,6 +173,7 @@ int_options = ['http-body-limit']
 feature_options_string = '\n//Feature options\n'
 string_options_string = '\n// String options\n'
 int_options_string = '\n// Integer options\n'
+array_options_string = '\n// Array options\n'
 
 foreach option_key : feature_options + string_options + int_options
     option_key_config = 'BMCWEB_' + option_key.to_upper()
@@ -204,9 +205,24 @@ endif
 loglvlopt = loglvlopt.to_upper()
 string_options_string += 'constexpr std::string_view  BMCWEB_LOGGING_LEVEL' + ' = "' + loglvlopt + '";\n'
 
+idx = 0
+oem_diagnostic_allowable_type = get_option('oem-diagnostic-allowable-type')
+array_options_string += 'constexpr std::string_view  OEM_DIAG_DATA_TYPE_ARRAY[] = {'
+foreach name : oem_diagnostic_allowable_type
+    message(name)
+    if idx != 0
+        array_options_string += ', '
+    endif
+    array_options_string += '"' + name + '"'
+
+    idx += 1
+endforeach
+array_options_string += '};\n'
+
 conf_data.set(
     'BMCWEB_OPTIONS',
-    string_options_string + int_options_string + feature_options_string,
+    string_options_string + int_options_string +
+    feature_options_string + array_options_string,
 )
 
 conf_data.set('TLS_CACERT_PATH', get_option('tls-cacert-path'))
