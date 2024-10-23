@@ -3616,6 +3616,12 @@ inline void requestRoutesManager(App& app)
 
 #ifdef BMCWEB_COMMAND_SMBPBI_OOB
             nlohmann::json& oemActionsNvidia = oemActions["Nvidia"];
+#elif BMCWEB_NSM_COMMAND_RAW
+            nlohmann::json& oemActionsNvidia = oemActions["Nvidia"];
+#endif
+
+#ifdef BMCWEB_COMMAND_SMBPBI_OOB
+            nlohmann::json& oemActionsNvidia = oemActions["Nvidia"];
 
             oemActionsNvidia["#NvidiaManager.SyncOOBRawCommand"]["target"] =
                 "/redfish/v1/Managers/" +
