@@ -1025,3 +1025,10 @@ option(
     value: 'disabled',
     description: 'Enable/Disable NSM raw command'
 )
+
+option(
+    'oem-diagnostic-allowable-type',
+    type : 'array',
+    value : ['EROT', 'ROT', 'FirmwareAttributes'],
+    description : 'OEM diagnostic data allowable type'
+)
