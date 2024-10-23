@@ -1725,6 +1725,24 @@ inline bool parseMultipartForm(
             }
             else if (param.second == "UpdateFile")
             {
+                boost::beast::http::fields::const_iterator contentTypeIt =
+                    formpart.fields.find("Content-Type");
+                if (contentTypeIt == formpart.fields.end() ||
+                    contentTypeIt->value() != "application/octet-stream")
+                {
+                    BMCWEB_LOG_ERROR(
+                        "UpdateFile parameter must be of type 'application/octet-stream'");
+                    messages::unsupportedMediaType(asyncResp->res);
+                    return false;
+                }
+                if (formpart.content.find('@') == std::string::npos)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "UpdateFile parameter does not contain '@' symbol");
+                    messages::propertyValueFormatError(
+                        asyncResp->res, formpart.content, "UpdateFile");
+                    return false;
+                }
                 hasFile = true;
             }
         }
