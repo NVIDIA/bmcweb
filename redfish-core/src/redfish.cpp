@@ -31,8 +31,11 @@
 #include "metric_report.hpp"
 #include "metric_report_definition.hpp"
 #include "network_protocol.hpp"
+<<<<<<< HEAD
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_protected_component.hpp"
+=======
+>>>>>>> origin/master
 #include "odata.hpp"
 #include "pcie.hpp"
 #include "policy.hpp"
@@ -48,6 +51,8 @@
 #include "service_root.hpp"
 #include "storage.hpp"
 #include "systems.hpp"
+#include "systems_logservices_hostlogger.hpp"
+#include "systems_logservices_postcodes.hpp"
 #include "task.hpp"
 #include "telemetry_service.hpp"
 #include "thermal.hpp"
@@ -91,6 +96,7 @@ RedfishService::RedfishService(App& app)
 {
     requestAssemblyRoutes(app);
     requestRoutesMetadata(app);
+<<<<<<< HEAD
     requestPcieSlotsRoutes(app);
     requestRoutesOdata(app);
     if (persistent_data::getConfig().isTLSAuthEnabled())
@@ -102,6 +108,11 @@ RedfishService::RedfishService(App& app)
         requestRoutesRoles(app);
         requestRoutesRoleCollection(app);
     }
+=======
+    requestRoutesOdata(app);
+
+    requestAccountServiceRoutes(app);
+>>>>>>> origin/master
     if constexpr (BMCWEB_REDFISH_AGGREGATION)
     {
         requestRoutesAggregationService(app);
@@ -202,6 +213,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesInventorySoftwareCollection(app);
     requestRoutesInventorySoftware(app);
     requestRoutesSystemLogServiceCollection(app);
+<<<<<<< HEAD
 
 #ifdef BMCWEB_ENABLE_MFG_TEST_API
     requestRoutesEventLogDiagnosticDataCollect(app);
@@ -220,6 +232,11 @@ RedfishService::RedfishService(App& app)
     requestRoutesPostCodesClear(app);
     requestRoutesPostCodesEntry(app);
     requestRoutesPostCodesEntryCollection(app);
+=======
+    requestRoutesEventLogService(app);
+
+    requestRoutesSystemsLogServicesPostCode(app);
+>>>>>>> origin/master
 
     requestRoutesDebugToken(app);
     requestRoutesDebugTokenServiceEntry(app);
@@ -254,6 +271,7 @@ RedfishService::RedfishService(App& app)
 #endif // BMCWEB_ENABLE_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
     }
 
+<<<<<<< HEAD
 #ifdef BMCWEB_ENABLE_REDFISH_FDR_DUMP_LOG
     requestRoutesSystemFDRService(app);
     requestRoutesSystemFDREntryCollection(app);
@@ -277,6 +295,8 @@ RedfishService::RedfishService(App& app)
         requestRoutesJournalEventLogClear(app);
     }
 
+=======
+>>>>>>> origin/master
     requestRoutesBMCLogServiceCollection(app);
 
     if constexpr (BMCWEB_REDFISH_BMC_JOURNAL)
@@ -362,12 +382,16 @@ RedfishService::RedfishService(App& app)
         requestRoutesDBusSELLogEntry(app);
         requestRoutesDBusSELLogServiceActionsClear(app);
     }
+    else
+    {
+        requestRoutesJournalEventLogEntryCollection(app);
+        requestRoutesJournalEventLogEntry(app);
+        requestRoutesJournalEventLogClear(app);
+    }
 
     if constexpr (BMCWEB_REDFISH_HOST_LOGGER)
     {
-        requestRoutesSystemHostLogger(app);
-        requestRoutesSystemHostLoggerCollection(app);
-        requestRoutesSystemHostLoggerLogEntry(app);
+        requestRoutesSystemsLogServiceHostlogger(app);
     }
 
     requestRoutesMessageRegistryFileCollection(app);
@@ -411,7 +435,10 @@ RedfishService::RedfishService(App& app)
     requestRoutesFabricAdapterCollection(app);
     requestRoutesSubmitTestEvent(app);
 
-    requestRoutesHypervisorSystems(app);
+    if constexpr (BMCWEB_HYPERVISOR_COMPUTER_SYSTEM)
+    {
+        requestRoutesHypervisorSystems(app);
+    }
 
     requestRoutesTelemetryService(app);
     requestRoutesMetricReportDefinitionCollection(app);

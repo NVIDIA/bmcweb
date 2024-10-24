@@ -7,14 +7,20 @@
 #include <boost/url/url.hpp>
 #include <nlohmann/json.hpp>
 
+#include <memory>
+#include <string>
+#include <vector>
+
 namespace persistent_data
 {
 
 struct UserSubscription
 {
+    // Represents a Redfish EventDestination instance
     std::string id;
     boost::urls::url destinationUrl;
     std::string protocol;
+    bool verifyCertificate = true;
     std::string retryPolicy;
     std::string customText;
     std::string eventFormatType;
@@ -25,14 +31,15 @@ struct UserSubscription
     boost::beast::http::fields httpHeaders;
     std::vector<std::string> metricReportDefinitions;
     std::vector<std::string> originResources;
+<<<<<<< HEAD
     bool includeOriginOfCondition = true;
+=======
+>>>>>>> origin/master
 
-    static std::shared_ptr<UserSubscription>
-        fromJson(const nlohmann::json::object_t& j,
-                 const bool loadFromOldConfig = false)
+    static std::optional<UserSubscription> fromJson(
+        const nlohmann::json::object_t& j, const bool loadFromOldConfig = false)
     {
-        std::shared_ptr<UserSubscription> subvalue =
-            std::make_shared<UserSubscription>();
+        UserSubscription subvalue;
         for (const auto& element : j)
         {
             if (element.first == "Id")
@@ -43,7 +50,7 @@ struct UserSubscription
                 {
                     continue;
                 }
-                subvalue->id = *value;
+                subvalue.id = *value;
             }
             else if (element.first == "Destination")
             {
@@ -59,7 +66,7 @@ struct UserSubscription
                 {
                     continue;
                 }
-                subvalue->destinationUrl = std::move(*url);
+                subvalue.destinationUrl = std::move(*url);
             }
             else if (element.first == "Protocol")
             {
@@ -69,7 +76,16 @@ struct UserSubscription
                 {
                     continue;
                 }
-                subvalue->protocol = *value;
+                subvalue.protocol = *value;
+            }
+            else if (element.first == "VerifyCertificate")
+            {
+                const bool* value = element.second.get_ptr<const bool*>();
+                if (value == nullptr)
+                {
+                    continue;
+                }
+                subvalue.verifyCertificate = *value;
             }
             else if (element.first == "DeliveryRetryPolicy")
             {
@@ -79,7 +95,7 @@ struct UserSubscription
                 {
                     continue;
                 }
-                subvalue->retryPolicy = *value;
+                subvalue.retryPolicy = *value;
             }
             else if (element.first == "Context")
             {
@@ -89,7 +105,7 @@ struct UserSubscription
                 {
                     continue;
                 }
-                subvalue->customText = *value;
+                subvalue.customText = *value;
             }
             else if (element.first == "EventFormatType")
             {
@@ -99,7 +115,7 @@ struct UserSubscription
                 {
                     continue;
                 }
-                subvalue->eventFormatType = *value;
+                subvalue.eventFormatType = *value;
             }
             else if (element.first == "SubscriptionType")
             {
@@ -109,7 +125,7 @@ struct UserSubscription
                 {
                     continue;
                 }
-                subvalue->subscriptionType = *value;
+                subvalue.subscriptionType = *value;
             }
             else if (element.first == "MessageIds")
             {
@@ -127,7 +143,7 @@ struct UserSubscription
                     {
                         continue;
                     }
-                    subvalue->registryMsgIds.emplace_back(*value);
+                    subvalue.registryMsgIds.emplace_back(*value);
                 }
             }
             else if (element.first == "RegistryPrefixes")
@@ -146,7 +162,7 @@ struct UserSubscription
                     {
                         continue;
                     }
-                    subvalue->registryPrefixes.emplace_back(*value);
+                    subvalue.registryPrefixes.emplace_back(*value);
                 }
             }
             else if (element.first == "ResourceTypes")
@@ -165,7 +181,7 @@ struct UserSubscription
                     {
                         continue;
                     }
-                    subvalue->resourceTypes.emplace_back(*value);
+                    subvalue.resourceTypes.emplace_back(*value);
                 }
             }
             else if (element.first == "HttpHeaders")
@@ -186,7 +202,7 @@ struct UserSubscription
                                          val.first);
                         continue;
                     }
-                    subvalue->httpHeaders.set(val.first, *value);
+                    subvalue.httpHeaders.set(val.first, *value);
                 }
             }
             else if (element.first == "MetricReportDefinitions")
@@ -205,7 +221,26 @@ struct UserSubscription
                     {
                         continue;
                     }
-                    subvalue->metricReportDefinitions.emplace_back(*value);
+                    subvalue.metricReportDefinitions.emplace_back(*value);
+                }
+            }
+            else if (element.first == "OriginResources")
+            {
+                const nlohmann::json::array_t* obj =
+                    element.second.get_ptr<const nlohmann::json::array_t*>();
+                if (obj == nullptr)
+                {
+                    continue;
+                }
+                for (const auto& val : *obj)
+                {
+                    const std::string* value =
+                        val.get_ptr<const std::string*>();
+                    if (value == nullptr)
+                    {
+                        continue;
+                    }
+                    subvalue.originResources.emplace_back(*value);
                 }
             }
             else if (element.first == "OriginResources")
@@ -245,15 +280,14 @@ struct UserSubscription
             }
         }
 
-        if ((subvalue->id.empty() && !loadFromOldConfig) ||
-            subvalue->destinationUrl.empty() || subvalue->protocol.empty() ||
-            subvalue->retryPolicy.empty() ||
-            subvalue->eventFormatType.empty() ||
-            subvalue->subscriptionType.empty())
+        if ((subvalue.id.empty() && !loadFromOldConfig) ||
+            subvalue.destinationUrl.empty() || subvalue.protocol.empty() ||
+            subvalue.retryPolicy.empty() || subvalue.eventFormatType.empty() ||
+            subvalue.subscriptionType.empty())
         {
             BMCWEB_LOG_ERROR("Subscription missing required field "
                              "information, refusing to restore");
-            return nullptr;
+            return std::nullopt;
         }
 
         return subvalue;
@@ -308,7 +342,7 @@ struct EventServiceConfig
 class EventServiceStore
 {
   public:
-    boost::container::flat_map<std::string, std::shared_ptr<UserSubscription>>
+    boost::container::flat_map<std::string, UserSubscription>
         subscriptionsConfigMap;
     EventServiceConfig eventServiceConfig;
 
@@ -321,6 +355,18 @@ class EventServiceStore
     EventServiceConfig& getEventServiceConfig()
     {
         return eventServiceConfig;
+    }
+
+    void updateUserSubscriptionConfig(const UserSubscription& userSub)
+    {
+        const std::string& id = userSub.id;
+        auto obj = subscriptionsConfigMap.find(id);
+        if (obj == subscriptionsConfigMap.end())
+        {
+            BMCWEB_LOG_INFO("No UserSubscription exist with ID:{}", id);
+            return;
+        }
+        obj->second = userSub;
     }
 };
 

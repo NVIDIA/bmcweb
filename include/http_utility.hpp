@@ -10,8 +10,6 @@
 #include <string_view>
 #include <vector>
 
-// IWYU pragma: no_include <ctype.h>
-
 namespace http_helpers
 {
 
@@ -40,9 +38,8 @@ constexpr std::array<ContentTypePair, 5> contentTypes{{
     {"text/event-stream", ContentType::EventStream},
 }};
 
-inline ContentType
-    getPreferredContentType(std::string_view header,
-                            std::span<const ContentType> preferedOrder)
+inline ContentType getPreferredContentType(
+    std::string_view header, std::span<const ContentType> preferedOrder)
 {
     size_t lastIndex = 0;
     while (lastIndex < header.size() + 1)
@@ -74,8 +71,8 @@ inline ContentType
         }
         const auto* knownContentType = std::ranges::find_if(
             contentTypes, [encoding](const ContentTypePair& pair) {
-            return pair.contentTypeString == encoding;
-        });
+                return pair.contentTypeString == encoding;
+            });
 
         if (knownContentType == contentTypes.end())
         {

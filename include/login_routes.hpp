@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app.hpp"
+#include "cookies.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "multipart_parser.hpp"
@@ -157,7 +158,7 @@ inline void handleLogin(const crow::Request& req,
 
     if (!username.empty() && !password.empty())
     {
-        int pamrc = pamAuthenticateUser(username, password);
+        int pamrc = pamAuthenticateUser(username, password, std::nullopt);
         bool isConfigureSelfOnly = pamrc == PAM_NEW_AUTHTOK_REQD;
         if ((pamrc != PAM_SUCCESS) && !isConfigureSelfOnly)
         {
@@ -165,18 +166,13 @@ inline void handleLogin(const crow::Request& req,
         }
         else
         {
-            auto session = persistent_data::SessionStore::getInstance()
-                               .generateUserSession(
-                                   username, req.ipAddress, std::nullopt,
-                                   persistent_data::PersistenceType::TIMEOUT,
-                                   isConfigureSelfOnly);
+            auto session =
+                persistent_data::SessionStore::getInstance()
+                    .generateUserSession(username, req.ipAddress, std::nullopt,
+                                         persistent_data::SessionType::Session,
+                                         isConfigureSelfOnly);
 
-            asyncResp->res.addHeader(boost::beast::http::field::set_cookie,
-                                     "XSRF-TOKEN=" + session->csrfToken +
-                                         "; SameSite=Strict; Secure");
-            asyncResp->res.addHeader(boost::beast::http::field::set_cookie,
-                                     "SESSION=" + session->sessionToken +
-                                         "; SameSite=Strict; Secure; HttpOnly");
+            bmcweb::setSessionCookies(asyncResp->res, *session);
 
             // if content type is json, assume json token
             asyncResp->res.jsonValue["token"] = session->sessionToken;
@@ -195,17 +191,12 @@ inline void handleLogout(const crow::Request& req,
     const auto& session = req.session;
     if (session != nullptr)
     {
-        asyncResp->res.jsonValue["data"] = "User '" + session->username +
-                                           "' logged out";
+        asyncResp->res.jsonValue["data"] =
+            "User '" + session->username + "' logged out";
         asyncResp->res.jsonValue["message"] = "200 OK";
         asyncResp->res.jsonValue["status"] = "ok";
 
-        asyncResp->res.addHeader("Set-Cookie",
-                                 "SESSION="
-                                 "; SameSite=Strict; Secure; HttpOnly; "
-                                 "expires=Thu, 01 Jan 1970 00:00:00 GMT");
-        asyncResp->res.addHeader("Clear-Site-Data",
-                                 R"("cache","cookies","storage")");
+        bmcweb::clearSessionCookies(asyncResp->res);
         persistent_data::SessionStore::getInstance().removeSession(session);
     }
 }

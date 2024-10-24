@@ -30,6 +30,7 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <string>
 #include <vector>
 
 namespace crow
@@ -39,6 +40,7 @@ struct Http2StreamData
 {
     std::shared_ptr<Request> req = std::make_shared<Request>();
     std::optional<bmcweb::HttpBody::reader> reqReader;
+    std::string accept;
     Response res;
     std::optional<bmcweb::HttpBody::writer> writer;
 };
@@ -52,9 +54,8 @@ class HTTP2Connection :
   public:
     HTTP2Connection(Adaptor&& adaptorIn, Handler* handlerIn,
                     std::function<std::string()>& getCachedDateStrF) :
-        adaptor(std::move(adaptorIn)),
-        ngSession(initializeNghttp2Session()), handler(handlerIn),
-        getCachedDateStr(getCachedDateStrF)
+        adaptor(std::move(adaptorIn)), ngSession(initializeNghttp2Session()),
+        handler(handlerIn), getCachedDateStr(getCachedDateStrF)
     {}
 
     void start()
@@ -88,11 +89,10 @@ class HTTP2Connection :
         return 0;
     }
 
-    static ssize_t fileReadCallback(nghttp2_session* /* session */,
-                                    int32_t streamId, uint8_t* buf,
-                                    size_t length, uint32_t* dataFlags,
-                                    nghttp2_data_source* /*source*/,
-                                    void* userPtr)
+    static ssize_t
+        fileReadCallback(nghttp2_session* /* session */, int32_t streamId,
+                         uint8_t* buf, size_t length, uint32_t* dataFlags,
+                         nghttp2_data_source* /*source*/, void* userPtr)
     {
         self_type& self = userPtrToSelf(userPtr);
 
@@ -170,9 +170,8 @@ class HTTP2Connection :
         Http2StreamData& stream = it->second;
         Response& res = stream.res;
         res = std::move(completedRes);
-        crow::Request& thisReq = *stream.req;
 
-        completeResponseFields(thisReq, res);
+        completeResponseFields(stream.accept, res);
         res.addHeader(boost::beast::http::field::date, getCachedDateStr());
         res.preparePayload();
 
@@ -246,6 +245,9 @@ class HTTP2Connection :
         crow::Request& thisReq = *it->second.req;
         thisReq.ioService = static_cast<decltype(thisReq.ioService)>(
             &adaptor.get_executor().context());
+
+        it->second.accept = thisReq.getHeaderValue("Accept");
+
         BMCWEB_LOG_DEBUG("Handling {} \"{}\"", logPtr(&thisReq),
                          thisReq.url().encoded_path());
 
@@ -253,13 +255,13 @@ class HTTP2Connection :
 
         thisRes.setCompleteRequestHandler(
             [this, streamId](Response& completeRes) {
-            BMCWEB_LOG_DEBUG("res.completeRequestHandler called");
-            if (sendResponse(completeRes, streamId) != 0)
-            {
-                close();
-                return;
-            }
-        });
+                BMCWEB_LOG_DEBUG("res.completeRequestHandler called");
+                if (sendResponse(completeRes, streamId) != 0)
+                {
+                    close();
+                    return;
+                }
+            });
         auto asyncResp =
             std::make_shared<bmcweb::AsyncResp>(std::move(it->second.res));
         if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
@@ -318,10 +320,9 @@ class HTTP2Connection :
         return 0;
     }
 
-    static int onDataChunkRecvStatic(nghttp2_session* /* session */,
-                                     uint8_t flags, int32_t streamId,
-                                     const uint8_t* data, size_t len,
-                                     void* userData)
+    static int onDataChunkRecvStatic(
+        nghttp2_session* /* session */, uint8_t flags, int32_t streamId,
+        const uint8_t* data, size_t len, void* userData)
     {
         BMCWEB_LOG_DEBUG("on_frame_recv_callback");
         if (userData == nullptr)
@@ -329,8 +330,8 @@ class HTTP2Connection :
             BMCWEB_LOG_CRITICAL("user data was null?");
             return NGHTTP2_ERR_CALLBACK_FAILURE;
         }
-        return userPtrToSelf(userData).onDataChunkRecvCallback(flags, streamId,
-                                                               data, len);
+        return userPtrToSelf(userData).onDataChunkRecvCallback(
+            flags, streamId, data, len);
     }
 
     int onFrameRecvCallback(const nghttp2_frame& frame)
@@ -452,11 +453,10 @@ class HTTP2Connection :
         return 0;
     }
 
-    static int onHeaderCallbackStatic(nghttp2_session* /* session */,
-                                      const nghttp2_frame* frame,
-                                      const uint8_t* name, size_t namelen,
-                                      const uint8_t* value, size_t vallen,
-                                      uint8_t /* flags */, void* userData)
+    static int onHeaderCallbackStatic(
+        nghttp2_session* /* session */, const nghttp2_frame* frame,
+        const uint8_t* name, size_t namelen, const uint8_t* value,
+        size_t vallen, uint8_t /* flags */, void* userData)
     {
         if (userData == nullptr)
         {

@@ -64,6 +64,7 @@ constexpr std::array nonUriProperties{
 inline bool searchCollectionsArray(std::string_view uri,
                                    const SearchType searchType)
 {
+<<<<<<< HEAD
     constexpr std::string_view serviceRootUri = "/redfish/v1";
 
     // The passed URI must begin with "/redfish/v1", but we have to strip it
@@ -90,27 +91,59 @@ inline bool searchCollectionsArray(std::string_view uri,
     std::string str(rootUri.begin(), rootUri.end());
     boost::system::result<boost::urls::url_view> parsedUrl =
         boost::urls::parse_relative_ref(str);
+=======
+    boost::system::result<boost::urls::url> parsedUrl =
+        boost::urls::parse_relative_ref(uri);
+>>>>>>> origin/master
     if (!parsedUrl)
     {
-        BMCWEB_LOG_ERROR("Failed to get target URI from {}",
-                         uri.substr(serviceRootUri.size()));
+        BMCWEB_LOG_ERROR("Failed to get target URI from {}", uri);
         return false;
     }
 
-    if (!parsedUrl->segments().is_absolute() && !parsedUrl->segments().empty())
+    parsedUrl->normalize();
+    boost::urls::segments_ref segments = parsedUrl->segments();
+    if (!segments.is_absolute())
     {
         return false;
     }
 
-    // If no segments() then the passed URI was either "/redfish/v1" or
+    // The passed URI must begin with "/redfish/v1", but we have to strip it
+    // from the URI since topCollections does not include it in its URIs.
+    if (segments.size() < 2)
+    {
+        return false;
+    }
+    if (segments.front() != "redfish")
+    {
+        return false;
+    }
+    segments.erase(segments.begin());
+    if (segments.front() != "v1")
+    {
+        return false;
+    }
+    segments.erase(segments.begin());
+
+    // Exclude the trailing "/" if it exists such as in "/redfish/v1/".
+    if (!segments.empty() && segments.back().empty())
+    {
+        segments.pop_back();
+    }
+
+    // If no segments then the passed URI was either "/redfish/v1" or
     // "/redfish/v1/".
-    if (parsedUrl->segments().empty())
+    if (segments.empty())
     {
         return (searchType == SearchType::ContainsSubordinate) ||
                (searchType == SearchType::CollOrCon);
     }
+<<<<<<< HEAD
 
     std::string_view url{parsedUrl->data(), parsedUrl->size()};
+=======
+    std::string_view url = segments.buffer();
+>>>>>>> origin/master
     const auto* it = std::ranges::lower_bound(topCollections, url);
     if (it == topCollections.end())
     {
@@ -128,7 +161,7 @@ inline bool searchCollectionsArray(std::string_view uri,
         collectionSegments.end();
 
     // Each segment in the passed URI should match the found collection
-    for (const auto& segment : parsedUrl->segments())
+    for (const auto& segment : segments)
     {
         if (itCollection == endCollection)
         {
@@ -173,8 +206,8 @@ inline bool isPropertyUri(std::string_view propertyName)
                               propertyName);
 }
 
-static inline void addPrefixToStringItem(std::string& strValue,
-                                         std::string_view prefix)
+inline void addPrefixToStringItem(std::string& strValue,
+                                  std::string_view prefix)
 {
     // Make sure the value is a properly formatted URI
     auto parsed = boost::urls::parse_relative_ref(strValue);
@@ -274,8 +307,7 @@ static inline void addPrefixToStringItem(std::string& strValue,
     }
 }
 
-static inline void addPrefixToItem(nlohmann::json& item,
-                                   std::string_view prefix)
+inline void addPrefixToItem(nlohmann::json& item, std::string_view prefix)
 {
     std::string* strValue = item.get_ptr<std::string*>();
     if (strValue == nullptr)
@@ -290,6 +322,7 @@ static inline void addPrefixToItem(nlohmann::json& item,
     item = *strValue;
 }
 
+<<<<<<< HEAD
 static inline void addPrefixToID(nlohmann::json& item, std::string_view prefix)
 {
     std::string* strValue = item.get_ptr<std::string*>();
@@ -307,6 +340,11 @@ static inline void addPrefixToID(nlohmann::json& item, std::string_view prefix)
 static inline void addAggregatedHeaders(crow::Response& asyncResp,
                                         const crow::Response& resp,
                                         std::string_view prefix)
+=======
+inline void addAggregatedHeaders(crow::Response& asyncResp,
+                                 const crow::Response& resp,
+                                 std::string_view prefix)
+>>>>>>> origin/master
 {
     using boost::beast::http::field;
 
@@ -330,8 +368,8 @@ static inline void addAggregatedHeaders(crow::Response& asyncResp,
 }
 
 // Fix HTTP headers which appear in responses from Task resources among others
-static inline void addPrefixToHeadersInResp(nlohmann::json& json,
-                                            std::string_view prefix)
+inline void addPrefixToHeadersInResp(nlohmann::json& json,
+                                     std::string_view prefix)
 {
     // The passed in "HttpHeaders" should be an array of headers
     nlohmann::json::array_t* array = json.get_ptr<nlohmann::json::array_t*>();
@@ -363,7 +401,7 @@ static inline void addPrefixToHeadersInResp(nlohmann::json& json,
 
 // Search the json for all URIs and add the supplied prefix if the URI is for
 // an aggregated resource.
-static inline void addPrefixes(nlohmann::json& json, std::string_view prefix)
+inline void addPrefixes(nlohmann::json& json, std::string_view prefix)
 {
     // get url from odata.id property of the response before url fixup
     std::string odataProp;
@@ -848,8 +886,9 @@ class RedfishAggregator
         {
             url.set_query(targetURI.query());
         }
-        client.sendDataWithCallback(std::move(data), url, thisReq.fields(),
-                                    thisReq.method(), cb);
+        client.sendDataWithCallback(std::move(data), url,
+                                    ensuressl::VerifyCertificate::Verify,
+                                    thisReq.fields(), thisReq.method(), cb);
     }
 
     // Forward a request for a collection URI to each known satellite BMC
@@ -880,8 +919,9 @@ class RedfishAggregator
                 }
             }
             std::string data = thisReq.body();
-            client.sendDataWithCallback(std::move(data), url, thisReq.fields(),
-                                        thisReq.method(), cb);
+            client.sendDataWithCallback(std::move(data), url,
+                                        ensuressl::VerifyCertificate::Verify,
+                                        thisReq.fields(), thisReq.method(), cb);
         }
     }
 
@@ -906,8 +946,9 @@ class RedfishAggregator
 
             std::string data = thisReq.body();
 
-            client.sendDataWithCallback(std::move(data), url, thisReq.fields(),
-                                        thisReq.method(), cb);
+            client.sendDataWithCallback(std::move(data), url,
+                                        ensuressl::VerifyCertificate::Verify,
+                                        thisReq.fields(), thisReq.method(), cb);
         }
     }
 
@@ -955,12 +996,33 @@ class RedfishAggregator
             [handler{std::move(handler)}](
                 const boost::system::error_code& ec,
                 const dbus::utility::ManagedObjectType& objects) {
-            std::unordered_map<std::string, boost::urls::url> satelliteInfo;
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("DBUS response error {}, {}", ec.value(),
-                                 ec.message());
+                std::unordered_map<std::string, boost::urls::url> satelliteInfo;
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("DBUS response error {}, {}", ec.value(),
+                                     ec.message());
+                    handler(ec, satelliteInfo);
+                    return;
+                }
+
+                // Maps a chosen alias representing a satellite BMC to a url
+                // containing the information required to create a http
+                // connection to the satellite
+                findSatelliteConfigs(objects, satelliteInfo);
+
+                if (!satelliteInfo.empty())
+                {
+                    BMCWEB_LOG_DEBUG(
+                        "Redfish Aggregation enabled with {} satellite BMCs",
+                        std::to_string(satelliteInfo.size()));
+                }
+                else
+                {
+                    BMCWEB_LOG_DEBUG(
+                        "No satellite BMCs detected.  Redfish Aggregation not enabled");
+                }
                 handler(ec, satelliteInfo);
+<<<<<<< HEAD
                 return;
             }
 
@@ -983,6 +1045,9 @@ class RedfishAggregator
             handler(ec, satelliteInfo);
             cachedSatInfo = satelliteInfo;
         });
+=======
+            });
+>>>>>>> origin/master
     }
 
     // Processes the response returned by a satellite BMC and loads its
@@ -1006,8 +1071,8 @@ class RedfishAggregator
         // We need to create a json from resp's stringResponse
         if (isJsonContentType(resp.getHeaderValue("Content-Type")))
         {
-            nlohmann::json jsonVal = nlohmann::json::parse(*resp.body(),
-                                                           nullptr, false);
+            nlohmann::json jsonVal =
+                nlohmann::json::parse(*resp.body(), nullptr, false);
             if (jsonVal.is_discarded())
             {
                 BMCWEB_LOG_ERROR("Error parsing satellite response as JSON");
@@ -1068,8 +1133,8 @@ class RedfishAggregator
         // We need to create a json from resp's stringResponse
         if (isJsonContentType(resp.getHeaderValue("Content-Type")))
         {
-            nlohmann::json jsonVal = nlohmann::json::parse(*resp.body(),
-                                                           nullptr, false);
+            nlohmann::json jsonVal =
+                nlohmann::json::parse(*resp.body(), nullptr, false);
             if (jsonVal.is_discarded())
             {
                 BMCWEB_LOG_ERROR("Error parsing satellite response as JSON");
@@ -1190,8 +1255,8 @@ class RedfishAggregator
         if (isJsonContentType(resp.getHeaderValue("Content-Type")))
         {
             bool addedLinks = false;
-            nlohmann::json jsonVal = nlohmann::json::parse(*resp.body(),
-                                                           nullptr, false);
+            nlohmann::json jsonVal =
+                nlohmann::json::parse(*resp.body(), nullptr, false);
             if (jsonVal.is_discarded())
             {
                 BMCWEB_LOG_ERROR("Error parsing satellite response as JSON");

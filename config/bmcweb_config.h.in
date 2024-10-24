@@ -9,6 +9,7 @@
 
 // NOLINTEND(readability-identifier-naming)
 // clang-format on
+<<<<<<< HEAD
 
 #define PLATFORMSYSTEMDESCRIPTION @PLATFORM_SYSTEM_DESCRIPTION@
 #define PLATFORMMETRICSID @PLATFORM_METRICS_ID@
@@ -68,3 +69,5 @@ constexpr const int bmcwebResponseTimeoutSeconds = @BMCWEB_RESPONSE_TIMEOUT@;
 constexpr const bool bmcwebEnableNvidiaBootEntryId = @BMCWEB_ENABLE_NVIDIA_BOOTENTRYID@ == 1;
 
 // clang-format on
+=======
+>>>>>>> origin/master

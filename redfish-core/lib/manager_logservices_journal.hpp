@@ -72,8 +72,13 @@ inline bool
         return false;
     }
     entryIDStrView.remove_prefix(1);
+<<<<<<< HEAD
     auto [ptr, indexEc] = std::from_chars(entryIDStrView.begin(),
                                           entryIDStrView.end(), index);
+=======
+    auto [ptr, indexEc] =
+        std::from_chars(entryIDStrView.begin(), entryIDStrView.end(), index);
+>>>>>>> origin/master
     if (indexEc != std::errc() || ptr != entryIDStrView.end())
     {
         messages::resourceNotFound(asyncResp->res, "LogEntry", entryIDStrView);
@@ -156,10 +161,16 @@ inline bool getEntryTimestamp(sd_journal* journal, std::string& entryTimestamp)
     return true;
 }
 
+<<<<<<< HEAD
 inline bool
     fillBMCJournalLogEntryJson(const std::string& bmcJournalLogEntryID,
                                sd_journal* journal,
                                nlohmann::json::object_t& bmcJournalLogEntryJson)
+=======
+inline bool fillBMCJournalLogEntryJson(
+    const std::string& bmcJournalLogEntryID, sd_journal* journal,
+    nlohmann::json::object_t& bmcJournalLogEntryJson)
+>>>>>>> origin/master
 {
     // Get the Log Entry contents
     std::string message;
@@ -207,7 +218,11 @@ inline bool
     bmcJournalLogEntryJson["Name"] = "BMC Journal Entry";
     bmcJournalLogEntryJson["Id"] = bmcJournalLogEntryID;
     bmcJournalLogEntryJson["Message"] = std::move(message);
+<<<<<<< HEAD
     bmcJournalLogEntryJson["EntryType"] = "Oem";
+=======
+    bmcJournalLogEntryJson["EntryType"] = log_entry::LogEntryType::Oem;
+>>>>>>> origin/master
     log_entry::EventSeverity severityEnum = log_entry::EventSeverity::OK;
     if (severity <= 2)
     {
@@ -268,10 +283,16 @@ struct JournalReadState
     uint64_t prevTs = 0;
 };
 
+<<<<<<< HEAD
 inline void
     readJournalEntries(uint64_t topEntryCount,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        JournalReadState&& readState)
+=======
+inline void readJournalEntries(
+    uint64_t topEntryCount, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    JournalReadState&& readState)
+>>>>>>> origin/master
 {
     nlohmann::json& logEntry = asyncResp->res.jsonValue["Members"];
     nlohmann::json::array_t* logEntryArray =
@@ -301,9 +322,15 @@ inline void
             boost::asio::post(crow::connections::systemBus->get_io_context(),
                               [asyncResp, topEntryCount,
                                readState = std::move(readState)]() mutable {
+<<<<<<< HEAD
                 readJournalEntries(topEntryCount, asyncResp,
                                    std::move(readState));
             });
+=======
+                                  readJournalEntries(topEntryCount, asyncResp,
+                                                     std::move(readState));
+                              });
+>>>>>>> origin/master
             return;
         }
 
@@ -431,7 +458,11 @@ inline void handleManagersJournalLogEntryCollectionGet(
 
     // Get the last sequence number
     uint64_t endSeqNum = 0;
+<<<<<<< HEAD
 #if SYSTEMD_VERSION >= 254
+=======
+#if LIBSYSTEMD_VERSION >= 254
+>>>>>>> origin/master
     {
         if (sd_journal_get_seqnum(journal.get(), &endSeqNum, nullptr) < 0)
         {
@@ -457,7 +488,11 @@ inline void handleManagersJournalLogEntryCollectionGet(
 
     // Get the first sequence number
     uint64_t startSeqNum = 0;
+<<<<<<< HEAD
 #if SYSTEMD_VERSION >= 254
+=======
+#if LIBSYSTEMD_VERSION >= 254
+>>>>>>> origin/master
     {
         if (sd_journal_get_seqnum(journal.get(), &startSeqNum, nullptr) < 0)
         {
@@ -502,7 +537,11 @@ inline void handleManagersJournalLogEntryCollectionGet(
         }
 
         uint64_t endChunkSeqNum = 0;
+<<<<<<< HEAD
 #if SYSTEMD_VERSION >= 254
+=======
+#if LIBSYSTEMD_VERSION >= 254
+>>>>>>> origin/master
         {
             if (sd_journal_get_seqnum(journal.get(), &endChunkSeqNum, nullptr) <
                 0)
@@ -527,7 +566,11 @@ inline void handleManagersJournalLogEntryCollectionGet(
             return;
         }
         uint64_t startChunkSeqNum = 0;
+<<<<<<< HEAD
 #if SYSTEMD_VERSION >= 254
+=======
+#if LIBSYSTEMD_VERSION >= 254
+>>>>>>> origin/master
         {
             if (sd_journal_get_seqnum(journal.get(), &startChunkSeqNum,
                                       nullptr) < 0)
@@ -627,8 +670,11 @@ inline void handleManagersJournalEntriesLogEntryGet(
         return;
     }
 
+<<<<<<< HEAD
     std::string idStr = getUniqueEntryID(index, ts, bootID);
 
+=======
+>>>>>>> origin/master
     nlohmann::json::object_t bmcJournalLogEntry;
     if (!fillBMCJournalLogEntryJson(entryID, journal.get(), bmcJournalLogEntry))
     {

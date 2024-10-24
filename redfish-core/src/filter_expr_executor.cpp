@@ -5,6 +5,19 @@
 #include "logging.hpp"
 #include "utils/time_utils.hpp"
 
+#include <nlohmann/json.hpp>
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <variant>
+
 namespace redfish
 {
 
@@ -19,46 +32,46 @@ struct DateTimeString
     // The following is created by dumping all key names of type
     // Edm.DateTimeOffset.  While imperfect that it's a hardcoded list, these
     // keys don't change that often
-    static constexpr auto timeKeys =
-        std::to_array<std::string_view>({"AccountExpiration",
-                                         "CalibrationTime",
-                                         "CoefficientUpdateTime",
-                                         "Created",
-                                         "CreatedDate",
-                                         "CreatedTime",
-                                         "CreateTime",
-                                         "DateTime",
-                                         "EndDateTime",
-                                         "EndTime",
-                                         "EventTimestamp",
-                                         "ExpirationDate",
-                                         "FirstOverflowTimestamp",
-                                         "InitialStartTime",
-                                         "InstallDate",
-                                         "LastOverflowTimestamp",
-                                         "LastResetTime",
-                                         "LastStateTime",
-                                         "LastUpdated",
-                                         "LifetimeStartDateTime",
-                                         "LowestReadingTime",
-                                         "MaintenanceWindowStartTime",
-                                         "Modified",
-                                         "PasswordExpiration",
-                                         "PeakReadingTime",
-                                         "PresentedPublicHostKeyTimestamp",
-                                         "ProductionDate",
-                                         "ReadingTime",
-                                         "ReleaseDate",
-                                         "ReservationTime",
-                                         "SensorResetTime",
-                                         "ServicedDate",
-                                         "SetPointUpdateTime",
-                                         "StartDateTime",
-                                         "StartTime",
-                                         "Time",
-                                         "Timestamp",
-                                         "ValidNotAfter",
-                                         "ValidNotBefore"});
+    static constexpr auto timeKeys = std::to_array<std::string_view>(
+        {"AccountExpiration",
+         "CalibrationTime",
+         "CoefficientUpdateTime",
+         "Created",
+         "CreatedDate",
+         "CreatedTime",
+         "CreateTime",
+         "DateTime",
+         "EndDateTime",
+         "EndTime",
+         "EventTimestamp",
+         "ExpirationDate",
+         "FirstOverflowTimestamp",
+         "InitialStartTime",
+         "InstallDate",
+         "LastOverflowTimestamp",
+         "LastResetTime",
+         "LastStateTime",
+         "LastUpdated",
+         "LifetimeStartDateTime",
+         "LowestReadingTime",
+         "MaintenanceWindowStartTime",
+         "Modified",
+         "PasswordExpiration",
+         "PeakReadingTime",
+         "PresentedPublicHostKeyTimestamp",
+         "ProductionDate",
+         "ReadingTime",
+         "ReleaseDate",
+         "ReservationTime",
+         "SensorResetTime",
+         "ServicedDate",
+         "SetPointUpdateTime",
+         "StartDateTime",
+         "StartTime",
+         "Time",
+         "Timestamp",
+         "ValidNotAfter",
+         "ValidNotBefore"});
 
     explicit DateTimeString(std::string_view strvalue)
     {

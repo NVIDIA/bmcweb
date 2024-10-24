@@ -53,8 +53,23 @@ constexpr crow::LogLevel getLogLevelFromName(std::string_view name)
 }
 
 // configured bmcweb LogLevel
-constexpr crow::LogLevel bmcwebCurrentLoggingLevel =
-    getLogLevelFromName(BMCWEB_LOGGING_LEVEL);
+inline crow::LogLevel& getBmcwebCurrentLoggingLevel()
+{
+    static crow::LogLevel level = getLogLevelFromName(BMCWEB_LOGGING_LEVEL);
+    return level;
+}
+
+struct FormatString
+{
+    std::string_view str;
+    std::source_location loc;
+
+    // NOLINTNEXTLINE(google-explicit-constructor)
+    FormatString(const char* stringIn, const std::source_location& locIn =
+                                           std::source_location::current()) :
+        str(stringIn), loc(locIn)
+    {}
+};
 
 template <typename T>
 const void* logPtr(T p)
@@ -68,7 +83,7 @@ template <LogLevel level, typename... Args>
 inline void vlog(std::format_string<Args...>&& format, Args&&... args,
                  const std::source_location& loc) noexcept
 {
-    if constexpr (bmcwebCurrentLoggingLevel < level)
+    if (getBmcwebCurrentLoggingLevel() < level)
     {
         return;
     }
@@ -77,7 +92,11 @@ inline void vlog(std::format_string<Args...>&& format, Args&&... args,
                   "Missing string for level");
     constexpr std::string_view levelString = mapLogLevelFromName[stringIndex];
     std::string_view filename = loc.file_name();
-    filename = filename.substr(filename.rfind('/') + 1);
+    filename = filename.substr(filename.rfind('/'));
+    if (!filename.empty())
+    {
+        filename.remove_prefix(1);
+    }
     std::string logLocation;
     try
     {
@@ -85,10 +104,10 @@ inline void vlog(std::format_string<Args...>&& format, Args&&... args,
         // throw Based on the documentation, it shouldn't throw, so long as none
         // of the formatters throw, so unclear at this point why this try/catch
         // is required, but add it to silence the static analysis tools.
-        logLocation = std::format("[{} {}:{}] ", levelString, filename,
-                                  loc.line());
-        logLocation += std::format(std::move(format),
-                                   std::forward<Args>(args)...);
+        logLocation =
+            std::format("[{} {}:{}] ", levelString, filename, loc.line());
+        logLocation +=
+            std::format(std::move(format), std::forward<Args>(args)...);
     }
     catch (const std::format_error& /*error*/)
     {
@@ -169,21 +188,21 @@ struct BMCWEB_LOG_DEBUG
 };
 
 template <typename... Args>
-BMCWEB_LOG_CRITICAL(std::format_string<Args...>, Args&&...)
-    -> BMCWEB_LOG_CRITICAL<Args...>;
+BMCWEB_LOG_CRITICAL(std::format_string<Args...>,
+                    Args&&...) -> BMCWEB_LOG_CRITICAL<Args...>;
 
 template <typename... Args>
-BMCWEB_LOG_ERROR(std::format_string<Args...>, Args&&...)
-    -> BMCWEB_LOG_ERROR<Args...>;
+BMCWEB_LOG_ERROR(std::format_string<Args...>,
+                 Args&&...) -> BMCWEB_LOG_ERROR<Args...>;
 
 template <typename... Args>
-BMCWEB_LOG_WARNING(std::format_string<Args...>, Args&&...)
-    -> BMCWEB_LOG_WARNING<Args...>;
+BMCWEB_LOG_WARNING(std::format_string<Args...>,
+                   Args&&...) -> BMCWEB_LOG_WARNING<Args...>;
 
 template <typename... Args>
-BMCWEB_LOG_INFO(std::format_string<Args...>, Args&&...)
-    -> BMCWEB_LOG_INFO<Args...>;
+BMCWEB_LOG_INFO(std::format_string<Args...>,
+                Args&&...) -> BMCWEB_LOG_INFO<Args...>;
 
 template <typename... Args>
-BMCWEB_LOG_DEBUG(std::format_string<Args...>, Args&&...)
-    -> BMCWEB_LOG_DEBUG<Args...>;
+BMCWEB_LOG_DEBUG(std::format_string<Args...>,
+                 Args&&...) -> BMCWEB_LOG_DEBUG<Args...>;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app.hpp"
+#include "generated/enums/resource.hpp"
 #include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
@@ -57,11 +58,16 @@ inline void doThermalSubsystemCollection(
             "/redfish/v1/Chassis/{}/ThermalSubsystem/ThermalMetrics",
             chassisId);
 
+<<<<<<< HEAD
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
     asyncResp->res.jsonValue["Status"]["Health"] = "OK";
 #ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
     asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
 #endif // BMCWEB_DISABLE_HEALTH_ROLLUP
+=======
+    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
+    asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
+>>>>>>> origin/master
 }
 
 inline void handleThermalSubsystemCollectionHead(

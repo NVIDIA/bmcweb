@@ -6,12 +6,14 @@
 #include "ossl_random.hpp"
 #include "sessions.hpp"
 
+#include <boost/beast/core/file_posix.hpp>
 #include <boost/beast/http/fields.hpp>
 #include <nlohmann/json.hpp>
 
 #include <filesystem>
 #include <fstream>
 #include <random>
+#include <system_error>
 
 namespace persistent_data
 {
@@ -189,10 +191,10 @@ class ConfigFile
                     {
                         for (const auto& elem : item.second)
                         {
-                            std::shared_ptr<UserSubscription> newSubscription =
+                            std::optional<UserSubscription> newSub =
                                 UserSubscription::fromJson(elem);
 
-                            if (newSubscription == nullptr)
+                            if (!newSub)
                             {
                                 BMCWEB_LOG_ERROR("Problem reading subscription "
                                                  "from persistent store");
@@ -200,11 +202,13 @@ class ConfigFile
                             }
 
                             BMCWEB_LOG_DEBUG("Restored subscription: {} {}",
-                                             newSubscription->id,
-                                             newSubscription->customText);
-                            EventServiceStore::getInstance()
-                                .subscriptionsConfigMap.emplace(
-                                    newSubscription->id, newSubscription);
+                                             newSub->id, newSub->customText);
+
+                            boost::container::flat_map<
+                                std::string, UserSubscription>& configMap =
+                                EventServiceStore::getInstance()
+                                    .subscriptionsConfigMap;
+                            configMap.emplace(newSub->id, *newSub);
                         }
                     }
                     else
@@ -251,12 +255,33 @@ class ConfigFile
 
     void writeData()
     {
+<<<<<<< HEAD
+=======
+        std::filesystem::path path(filename);
+        path = path.parent_path();
+        if (!path.empty())
+        {
+            std::error_code ecDir;
+            std::filesystem::create_directories(path, ecDir);
+            if (ecDir)
+            {
+                BMCWEB_LOG_CRITICAL("Can't create persistent folders {}",
+                                    ecDir.message());
+                return;
+            }
+        }
+>>>>>>> origin/master
         boost::beast::file_posix persistentFile;
         boost::system::error_code ec;
         persistentFile.open(filename, boost::beast::file_mode::write, ec);
         if (ec)
         {
+<<<<<<< HEAD
             BMCWEB_LOG_CRITICAL("Unable to store persistent data to file");
+=======
+            BMCWEB_LOG_CRITICAL("Unable to store persistent data to file {}",
+                                ec.message());
+>>>>>>> origin/master
             return;
         }
 
@@ -265,7 +290,17 @@ class ConfigFile
             std::filesystem::perms::owner_read |
             std::filesystem::perms::owner_write |
             std::filesystem::perms::group_read;
+<<<<<<< HEAD
         std::filesystem::permissions(filename, permission);
+=======
+        std::filesystem::permissions(filename, permission, ec);
+        if (ec)
+        {
+            BMCWEB_LOG_CRITICAL("Failed to set filesystem permissions {}",
+                                ec.message());
+            return;
+        }
+>>>>>>> origin/master
         const AuthConfigMethods& c =
             SessionStore::getInstance().getAuthMethodsConfig();
         const auto& eventServiceConfig =
@@ -278,6 +313,10 @@ class ConfigFile
         authConfig["SessionToken"] = c.sessionToken;
         authConfig["BasicAuth"] = c.basic;
         authConfig["TLS"] = c.tls;
+<<<<<<< HEAD
+=======
+        authConfig["TLSStrict"] = c.tlsStrict;
+>>>>>>> origin/master
         authConfig["TLSCommonNameParseMode"] =
             static_cast<int>(c.mTLSCommonNameParsingMode);
 
@@ -297,8 +336,9 @@ class ConfigFile
         sessions = nlohmann::json::array();
         for (const auto& p : SessionStore::getInstance().authTokens)
         {
-            if (p.second->persistence !=
-                persistent_data::PersistenceType::SINGLE_REQUEST)
+            if (p.second->sessionType != persistent_data::SessionType::Basic &&
+                p.second->sessionType !=
+                    persistent_data::SessionType::MutualTLS)
             {
                 nlohmann::json::object_t session;
                 session["unique_id"] = p.second->uniqueId;
@@ -319,15 +359,15 @@ class ConfigFile
         for (const auto& it :
              EventServiceStore::getInstance().subscriptionsConfigMap)
         {
-            std::shared_ptr<UserSubscription> subValue = it.second;
-            if (subValue->subscriptionType == "SSE")
+            const UserSubscription& subValue = it.second;
+            if (subValue.subscriptionType == "SSE")
             {
                 BMCWEB_LOG_DEBUG("The subscription type is SSE, so skipping.");
                 continue;
             }
             nlohmann::json::object_t headers;
             for (const boost::beast::http::fields::value_type& header :
-                 subValue->httpHeaders)
+                 subValue.httpHeaders)
             {
                 // Note, these are technically copies because nlohmann doesn't
                 // support key lookup by std::string_view.  At least the
@@ -339,29 +379,48 @@ class ConfigFile
 
             nlohmann::json::object_t subscription;
 
-            subscription["Id"] = subValue->id;
-            subscription["Context"] = subValue->customText;
-            subscription["DeliveryRetryPolicy"] = subValue->retryPolicy;
-            subscription["Destination"] = subValue->destinationUrl;
-            subscription["EventFormatType"] = subValue->eventFormatType;
+            subscription["Id"] = subValue.id;
+            subscription["Context"] = subValue.customText;
+            subscription["DeliveryRetryPolicy"] = subValue.retryPolicy;
+            subscription["Destination"] = subValue.destinationUrl;
+            subscription["EventFormatType"] = subValue.eventFormatType;
             subscription["HttpHeaders"] = std::move(headers);
+<<<<<<< HEAD
             subscription["MessageIds"] = subValue->registryMsgIds;
             subscription["Protocol"] = subValue->protocol;
             subscription["RegistryPrefixes"] = subValue->registryPrefixes;
             subscription["OriginResources"] = subValue->originResources;
             subscription["ResourceTypes"] = subValue->resourceTypes;
             subscription["SubscriptionType"] = subValue->subscriptionType;
+=======
+            subscription["MessageIds"] = subValue.registryMsgIds;
+            subscription["Protocol"] = subValue.protocol;
+            subscription["RegistryPrefixes"] = subValue.registryPrefixes;
+            subscription["OriginResources"] = subValue.originResources;
+            subscription["ResourceTypes"] = subValue.resourceTypes;
+            subscription["SubscriptionType"] = subValue.subscriptionType;
+>>>>>>> origin/master
             subscription["MetricReportDefinitions"] =
-                subValue->metricReportDefinitions;
+                subValue.metricReportDefinitions;
+            subscription["VerifyCertificate"] = subValue.verifyCertificate;
 
             subscriptions.emplace_back(std::move(subscription));
         }
+<<<<<<< HEAD
         std::string dump = nlohmann::json(data).dump(
             -1, ' ', true, nlohmann::json::error_handler_t::replace);
         persistentFile.write(dump.data(), dump.size(), ec);
         if (ec)
         {
             BMCWEB_LOG_CRITICAL("Failed to log persistent File");
+=======
+        std::string out = nlohmann::json(data).dump(
+            -1, ' ', true, nlohmann::json::error_handler_t::replace);
+        persistentFile.write(out.data(), out.size(), ec);
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Failed to write file {}", ec.message());
+>>>>>>> origin/master
         }
     }
 

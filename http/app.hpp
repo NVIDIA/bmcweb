@@ -85,6 +85,7 @@ class App
 
     void loadCertificate()
     {
+<<<<<<< HEAD
 #ifdef BMCWEB_ENABLE_SSL
         if (persistent_data::getConfig().isTLSAuthEnabled())
         {
@@ -95,6 +96,14 @@ class App
             sslServer->loadCertificate();
         }
 #endif
+=======
+        BMCWEB_LOG_DEBUG("Loading certificate");
+        if (!server)
+        {
+            return;
+        }
+        server->loadCertificate();
+>>>>>>> origin/master
     }
 
     std::optional<boost::asio::ip::tcp::acceptor> setupSocket()

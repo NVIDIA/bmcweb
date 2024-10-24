@@ -1,22 +1,23 @@
 /*
-// Copyright (c) 2018 Intel Corporation
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+Copyright (c) 2018 Intel Corporation
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 #pragma once
 
 #include "account_service.hpp"
 #include "app.hpp"
+#include "cookies.hpp"
 #include "error_messages.hpp"
 #include "http/utility.hpp"
 #include "persistent_data.hpp"
@@ -25,6 +26,9 @@
 #include "utils/json_utils.hpp"
 
 #include <boost/url/format.hpp>
+
+#include <string>
+#include <vector>
 
 namespace redfish
 {
@@ -125,6 +129,12 @@ inline void
         }
     }
 
+    if (req.session != nullptr && req.session->uniqueId == sessionId &&
+        session->cookieAuth)
+    {
+        bmcweb::clearSessionCookies(asyncResp->res);
+    }
+
     persistent_data::SessionStore::getInstance().removeSession(session);
     messages::success(asyncResp->res);
 #ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
@@ -138,15 +148,14 @@ inline void
 
 inline nlohmann::json getSessionCollectionMembers()
 {
-    std::vector<const std::string*> sessionIds =
-        persistent_data::SessionStore::getInstance().getUniqueIds(
-            false, persistent_data::PersistenceType::TIMEOUT);
+    std::vector<std::string> sessionIds =
+        persistent_data::SessionStore::getInstance().getAllUniqueIds();
     nlohmann::json ret = nlohmann::json::array();
-    for (const std::string* uid : sessionIds)
+    for (const std::string& uid : sessionIds)
     {
         nlohmann::json::object_t session;
         session["@odata.id"] =
-            boost::urls::format("/redfish/v1/SessionService/Sessions/{}", *uid);
+            boost::urls::format("/redfish/v1/SessionService/Sessions/{}", uid);
         ret.emplace_back(std::move(session));
     }
     return ret;
@@ -210,12 +219,17 @@ inline void handleSessionCollectionPost(
     std::string username;
     std::string password;
     std::optional<std::string> clientId;
-    if (!json_util::readJsonPatch(req, asyncResp->res, "UserName", username,
-                                  "Password", password, "Context", clientId))
+    std::optional<std::string> token;
+    if (!json_util::readJsonPatch( //
+            req, asyncResp->res, //
+            "Context", clientId, //
+            "Password", password, //
+            "Token", token, //
+            "UserName", username //
+            ))
     {
         return;
     }
-
     if (password.empty() || username.empty() ||
         asyncResp->res.result() != boost::beast::http::status::ok)
     {
@@ -232,7 +246,7 @@ inline void handleSessionCollectionPost(
         return;
     }
 
-    int pamrc = pamAuthenticateUser(username, password);
+    int pamrc = pamAuthenticateUser(username, password, token);
     bool isConfigureSelfOnly = pamrc == PAM_NEW_AUTHTOK_REQD;
     if ((pamrc != PAM_SUCCESS) && !isConfigureSelfOnly)
     {
@@ -244,14 +258,25 @@ inline void handleSessionCollectionPost(
     std::shared_ptr<persistent_data::UserSession> session =
         persistent_data::SessionStore::getInstance().generateUserSession(
             username, req.ipAddress, clientId,
-            persistent_data::PersistenceType::TIMEOUT, isConfigureSelfOnly);
+            persistent_data::SessionType::Session, isConfigureSelfOnly);
     if (session == nullptr)
     {
         messages::internalError(asyncResp->res);
         return;
     }
 
-    asyncResp->res.addHeader("X-Auth-Token", session->sessionToken);
+    // When session is created by webui-vue give it session cookies as a
+    // non-standard Redfish extension. This is needed for authentication for
+    // WebSockets-based functionality.
+    if (!req.getHeaderValue("X-Requested-With").empty())
+    {
+        bmcweb::setSessionCookies(asyncResp->res, *session);
+    }
+    else
+    {
+        asyncResp->res.addHeader("X-Auth-Token", session->sessionToken);
+    }
+
     asyncResp->res.addHeader(
         "Location", "/redfish/v1/SessionService/Sessions/" + session->uniqueId);
     asyncResp->res.result(boost::beast::http::status::created);
@@ -319,8 +344,10 @@ inline void handleSessionServicePatch(
         return;
     }
     std::optional<int64_t> sessionTimeout;
-    if (!json_util::readJsonPatch(req, asyncResp->res, "SessionTimeout",
-                                  sessionTimeout))
+    if (!json_util::readJsonPatch( //
+            req, asyncResp->res, //
+            "SessionTimeout", sessionTimeout //
+            ))
     {
         return;
     }

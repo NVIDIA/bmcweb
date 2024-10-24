@@ -8,14 +8,7 @@
 #include <system_error>
 #include <vector>
 
-#include <gtest/gtest.h> // IWYU pragma: keep
-
-// IWYU pragma: no_include <gtest/gtest-message.h>
-// IWYU pragma: no_include <gtest/gtest-test-part.h>
-// IWYU pragma: no_include "gtest/gtest_pred_impl.h"
-// IWYU pragma: no_include <boost/beast/http/impl/fields.hpp>
-// IWYU pragma: no_include <boost/intrusive/detail/list_iterator.hpp>
-// IWYU pragma: no_include <boost/intrusive/detail/tree_iterator.hpp>
+#include <gtest/gtest.h>
 
 namespace
 {
@@ -265,12 +258,13 @@ TEST_F(MultipartTest, TestErrorHeaderEnding)
 
 TEST_F(MultipartTest, TestGoodMultipartParserMultipleHeaders)
 {
-    std::string_view body = "-----------------------------d74496d66958873e\r\n"
-                            "Content-Disposition: form-data; name=\"Test1\"\r\n"
-                            "Other-Header: value=\"v1\"\r\n"
-                            "\r\n"
-                            "Data1\r\n"
-                            "-----------------------------d74496d66958873e--";
+    std::string_view body =
+        "-----------------------------d74496d66958873e\r\n"
+        "Content-Disposition: form-data; name=\"Test1\"\r\n"
+        "Other-Header: value=\"v1\"\r\n"
+        "\r\n"
+        "Data1\r\n"
+        "-----------------------------d74496d66958873e--";
 
     crow::Request reqIn(body, ec);
 
@@ -293,11 +287,12 @@ TEST_F(MultipartTest, TestGoodMultipartParserMultipleHeaders)
 
 TEST_F(MultipartTest, TestErrorHeaderWithoutColon)
 {
-    std::string_view body = "----end\r\n"
-                            "abc\r\n"
-                            "\r\n"
-                            "Data1\r\n"
-                            "----end--\r\n";
+    std::string_view body =
+        "----end\r\n"
+        "abc\r\n"
+        "\r\n"
+        "Data1\r\n"
+        "----end--\r\n";
     crow::Request reqIn(body, ec);
 
     reqIn.addHeader("Content-Type", "multipart/form-data; "
@@ -353,10 +348,11 @@ TEST_F(MultipartTest, TestErrorMissingSeparatorBetweenMimeFieldsAndData)
 
 TEST_F(MultipartTest, TestDataWithoutMimeFields)
 {
-    std::string_view body = "-----------------------------d74496d66958873e\r\n"
-                            "\r\n"
-                            "Data1\r\n"
-                            "-----------------------------d74496d66958873e--";
+    std::string_view body =
+        "-----------------------------d74496d66958873e\r\n"
+        "\r\n"
+        "Data1\r\n"
+        "-----------------------------d74496d66958873e--";
 
     crow::Request reqIn(body, ec);
 
@@ -445,9 +441,10 @@ TEST_F(MultipartTest, TestFinalBoundaryIsCorrectlyRecognized)
 
     EXPECT_EQ(parser.mime_fields[0].fields.at("Content-Disposition"),
               "form-data; name=\"Test1\"");
-    EXPECT_EQ(parser.mime_fields[0].content, "Data1\r\n"
-                                             "----XX-abc-\r\n"
-                                             "StillData1");
+    EXPECT_EQ(parser.mime_fields[0].content,
+              "Data1\r\n"
+              "----XX-abc-\r\n"
+              "StillData1");
 }
 
 } // namespace

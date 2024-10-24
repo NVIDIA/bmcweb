@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish Schema:  AggregationSource v1.4.1                                            -->
+<!--# Redfish Schema:  AggregationSource v1.4.3                                            -->
 <!--#                                                                                      -->
 <!--# For a detailed change log, see the README file contained in the DSP8010 bundle,      -->
 <!--# available at http://www.dmtf.org/standards/redfish                                   -->
@@ -143,8 +143,8 @@
         <Annotation Term="OData.LongDescription" String="This Redfish Specification-described type shall contain links to resources that are related to but are not contained by, or subordinate to, this resource."/>
         <NavigationProperty Name="ConnectionMethod" Type="ConnectionMethod.ConnectionMethod" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="An array of links to the connection methods used to contact this aggregation source."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain an array of links to resources of type `ConnectionMethod` that are used to connect to the aggregation source."/>
+          <Annotation Term="OData.Description" String="A link to the connection method used to contact this aggregation source."/>
+          <Annotation Term="OData.LongDescription" String="This property shall a link to a resource of type `ConnectionMethod` that represents the method used to connect to the aggregation source."/>
           <Annotation Term="OData.AutoExpandReferences"/>
         </NavigationProperty>
         <NavigationProperty Name="ResourcesAccessed" Type="Collection(Resource.Resource)">
@@ -190,6 +190,12 @@
       <EntityType Name="AggregationSource" BaseType="AggregationSource.v1_0_2.AggregationSource"/>
     </Schema>
 
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AggregationSource.v1_0_4">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the description for `ConnectionMethod` to show it's singular."/>
+      <EntityType Name="AggregationSource" BaseType="AggregationSource.v1_0_3.AggregationSource"/>
+    </Schema>
+
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AggregationSource.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="Redfish.Release" String="2020.4"/>
@@ -208,8 +214,8 @@
         <Property Name="AuthenticationKey" Type="Edm.String">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Write"/>
           <Annotation Term="OData.Description" String="The secret authentication key for SNMPv3."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the key for SNMPv3 authentication.  The value shall be `null` in responses.  This property accepts a passphrase or a hex-encoded key.  If the string starts with `Passphrase:`, the remainder of the string shall be the passphrase and shall be converted to the key as described in the 'Password to Key Algorithm' section of RFC3414.  If the string starts with `Hex:`, then the remainder of the string shall be the key encoded in hexadecimal notation.  If the string starts with neither, the full string shall be a passphrase and shall be converted to the key as described in the 'Password to Key Algorithm' section of RFC3414.  The passphrase can contain any printable characters except for the double quotation mark."/>
-          <Annotation Term="Validation.Pattern" String="(^[ !#-~]+$)|(^Passphrase:[ ^[ !#-~]+$)|(^Hex:[0-9A-Fa-f]{24,96})|(^\*+$)"/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the key for SNMPv3 authentication.  The value shall be `null` in responses.  This property accepts a passphrase or a hex-encoded key.  If the string starts with `Passphrase:`, the remainder of the string shall be the passphrase and shall be converted to the key as described in the 'Password to Key Algorithm' section of RFC3414.  If the string starts with `Hex:`, then the remainder of the string shall be the key encoded in hexadecimal notation.  If the string starts with neither, the full string shall be a passphrase and shall be converted to the key as described in the 'Password to Key Algorithm' section of RFC3414."/>
+          <Annotation Term="Validation.Pattern" String="(^[ -~]+$)|(^Passphrase:[ -~]+$)|(^Hex:[0-9A-Fa-f]{24,96}$)|(^\*+$)"/>
         </Property>
         <Property Name="AuthenticationProtocol" Type="AggregationSource.v1_1_0.SNMPAuthenticationProtocols">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
@@ -219,8 +225,8 @@
         <Property Name="EncryptionKey" Type="Edm.String">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Write"/>
           <Annotation Term="OData.Description" String="The secret authentication key for SNMPv3."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the key for SNMPv3 encryption.  The value shall be `null` in responses.  This property accepts a passphrase or a hex-encoded key.  If the string starts with `Passphrase:`, the remainder of the string shall be the passphrase and shall be converted to the key as described in the 'Password to Key Algorithm' section of RFC3414.  If the string starts with `Hex:`, then the remainder of the string shall be the key encoded in hexadecimal notation.  If the string starts with neither, the full string shall be a passphrase and shall be converted to the key as described in the 'Password to Key Algorithm' section of RFC3414.  The passphrase can contain any printable characters except for the double quotation mark."/>
-          <Annotation Term="Validation.Pattern" String="(^[A-Za-z0-9]+$)|(^\*+$)"/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the key for SNMPv3 encryption.  The value shall be `null` in responses.  This property accepts a passphrase or a hex-encoded key.  If the string starts with `Passphrase:`, the remainder of the string shall be the passphrase and shall be converted to the key as described in the 'Password to Key Algorithm' section of RFC3414.  If the string starts with `Hex:`, then the remainder of the string shall be the key encoded in hexadecimal notation.  If the string starts with neither, the full string shall be a passphrase and shall be converted to the key as described in the 'Password to Key Algorithm' section of RFC3414."/>
+          <Annotation Term="Validation.Pattern" String="(^[ -~]+$)|(^Passphrase:[ -~]+$)|(^Hex:[0-9A-Fa-f]{16,64}$)|(^\*+$)"/>
         </Property>
         <Property Name="EncryptionProtocol" Type="AggregationSource.v1_1_0.SNMPEncryptionProtocols">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
@@ -332,6 +338,18 @@
       <EntityType Name="AggregationSource" BaseType="AggregationSource.v1_1_2.AggregationSource"/>
     </Schema>
 
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AggregationSource.v1_1_4">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the description for `ConnectionMethod` to show it's singular."/>
+      <EntityType Name="AggregationSource" BaseType="AggregationSource.v1_1_3.AggregationSource"/>
+    </Schema>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AggregationSource.v1_1_5">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the regular expression pattern for the SNMP `AuthenticationKey` property."/>
+      <EntityType Name="AggregationSource" BaseType="AggregationSource.v1_1_4.AggregationSource"/>
+    </Schema>
+
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AggregationSource.v1_2_0">
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="Redfish.Release" String="2021.3"/>
@@ -380,6 +398,18 @@
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="OData.Description" String="This version was created to force the regeneration of OpenAPI schemas to properly express nullable properties with external references.  It was also created to correct various typographical errors."/>
       <EntityType Name="AggregationSource" BaseType="AggregationSource.v1_2_2.AggregationSource"/>
+    </Schema>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AggregationSource.v1_2_4">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the description for `ConnectionMethod` to show it's singular."/>
+      <EntityType Name="AggregationSource" BaseType="AggregationSource.v1_2_3.AggregationSource"/>
+    </Schema>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AggregationSource.v1_2_5">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the regular expression pattern for the SNMP `AuthenticationKey` property."/>
+      <EntityType Name="AggregationSource" BaseType="AggregationSource.v1_2_4.AggregationSource"/>
     </Schema>
 
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AggregationSource.v1_3_0">
@@ -458,6 +488,18 @@
       <EntityType Name="AggregationSource" BaseType="AggregationSource.v1_3_2.AggregationSource"/>
     </Schema>
 
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AggregationSource.v1_3_4">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the description for `ConnectionMethod` to show it's singular."/>
+      <EntityType Name="AggregationSource" BaseType="AggregationSource.v1_3_3.AggregationSource"/>
+    </Schema>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AggregationSource.v1_3_5">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the regular expression pattern for the SNMP `AuthenticationKey` property."/>
+      <EntityType Name="AggregationSource" BaseType="AggregationSource.v1_3_4.AggregationSource"/>
+    </Schema>
+
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AggregationSource.v1_4_0">
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="Redfish.Release" String="2023.3"/>
@@ -470,6 +512,18 @@
       <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
       <Annotation Term="OData.Description" String="This version was created to force the regeneration of OpenAPI schemas to properly express nullable properties with external references.  It was also created to correct various typographical errors."/>
       <EntityType Name="AggregationSource" BaseType="AggregationSource.v1_4_0.AggregationSource"/>
+    </Schema>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AggregationSource.v1_4_2">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the description for `ConnectionMethod` to show it's singular."/>
+      <EntityType Name="AggregationSource" BaseType="AggregationSource.v1_4_1.AggregationSource"/>
+    </Schema>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="AggregationSource.v1_4_3">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to correct the regular expression pattern for the SNMP `AuthenticationKey` property."/>
+      <EntityType Name="AggregationSource" BaseType="AggregationSource.v1_4_2.AggregationSource"/>
     </Schema>
 
   </edmx:DataServices>

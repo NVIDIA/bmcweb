@@ -214,8 +214,8 @@ class Trie
 
             if (reqUrl.starts_with(fragment))
             {
-                FindResult ret = findHelper(reqUrl.substr(fragment.size()),
-                                            child, params);
+                FindResult ret =
+                    findHelper(reqUrl.substr(fragment.size()), child, params);
                 if (ret.ruleIndex != 0U)
                 {
                     return {ret.ruleIndex, std::move(ret.params)};
@@ -527,8 +527,8 @@ class Router
              perMethodIndex++)
         {
             // Make sure it's safe to deference the array at that index
-            static_assert(maxVerbIndex <
-                          std::tuple_size_v<decltype(perMethods)>);
+            static_assert(
+                maxVerbIndex < std::tuple_size_v<decltype(perMethods)>);
             FindRoute route = findRouteByPerMethod(req.url().encoded_path(),
                                                    perMethods[perMethodIndex]);
             if (route.rule == nullptr)
@@ -541,6 +541,27 @@ class Router
             }
             HttpVerb thisVerb = static_cast<HttpVerb>(perMethodIndex);
             findRoute.allowHeader += httpVerbToString(thisVerb);
+<<<<<<< HEAD
+        }
+
+        std::optional<HttpVerb> verb = httpVerbFromBoost(req.method());
+        if (!verb)
+        {
+            return findRoute;
+        }
+        size_t reqMethodIndex = static_cast<size_t>(*verb);
+        if (reqMethodIndex >= perMethods.size())
+        {
+            return findRoute;
+        }
+
+        FindRoute route = findRouteByPerMethod(req.url().encoded_path(),
+                                               perMethods[reqMethodIndex]);
+        if (route.rule != nullptr)
+        {
+            findRoute.route = route;
+=======
+>>>>>>> origin/master
         }
 
         std::optional<HttpVerb> verb = httpVerbFromBoost(req.method());
@@ -560,6 +581,7 @@ class Router
         {
             findRoute.route = route;
         }
+
         return findRoute;
     }
 
@@ -598,11 +620,12 @@ class Router
         }
         // TODO(ed) This should be able to use std::bind_front, but it doesn't
         // appear to work with the std::move on adaptor.
-        validatePrivilege(req, asyncResp, rule,
-                          [req, &rule, asyncResp,
-                           adaptor = std::forward<Adaptor>(adaptor)]() mutable {
-            rule.handleUpgrade(*req, asyncResp, std::move(adaptor));
-        });
+        validatePrivilege(
+            req, asyncResp, rule,
+            [req, &rule, asyncResp,
+             adaptor = std::forward<Adaptor>(adaptor)]() mutable {
+                rule.handleUpgrade(*req, asyncResp, std::move(adaptor));
+            });
     }
 
     void handle(const std::shared_ptr<Request>& req,
@@ -664,8 +687,8 @@ class Router
         validatePrivilege(
             req, asyncResp, rule,
             [req, asyncResp, &rule, params = std::move(params)]() {
-            rule.handle(*req, asyncResp, params);
-        });
+                rule.handle(*req, asyncResp, params);
+            });
     }
 
     void debugPrint()

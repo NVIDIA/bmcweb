@@ -1,5 +1,6 @@
 #pragma once
 
+#include "app.hpp"
 #include "logging.hpp"
 
 #include <algorithm>
@@ -12,9 +13,6 @@
 #include <ratio>
 #include <string>
 #include <string_view>
-
-// IWYU pragma: no_include <stddef.h>
-// IWYU pragma: no_include <stdint.h>
 
 namespace redfish
 {
@@ -331,12 +329,12 @@ constexpr std::tuple<IntType, unsigned, unsigned>
     IntType era = (z >= 0 ? z : z - 146096) / 146097;
     unsigned doe = static_cast<unsigned>(z - era * 146097); // [0, 146096]
     unsigned yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) /
-                   365;                                     // [0, 399]
+                   365; // [0, 399]
     IntType y = static_cast<IntType>(yoe) + era * 400;
     unsigned doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
-    unsigned mp = (5 * doy + 2) / 153;                      // [0, 11]
-    unsigned d = doy - (153 * mp + 2) / 5 + 1;              // [1, 31]
-    unsigned m = mp < 10 ? mp + 3 : mp - 9;                 // [1, 12]
+    unsigned mp = (5 * doy + 2) / 153; // [0, 11]
+    unsigned d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
+    unsigned m = mp < 10 ? mp + 3 : mp - 9; // [1, 12]
 
     return std::tuple<IntType, unsigned, unsigned>(y + (m <= 2), m, d);
 }
@@ -485,5 +483,47 @@ inline std::time_t getTimestamp(uint64_t millisTimeStamp)
 
 using usSinceEpoch = std::chrono::duration<int64_t, std::micro>;
 std::optional<usSinceEpoch> dateStringToEpoch(std::string_view datetime);
+
+/**
+ * @brief Returns the datetime in ISO 8601 format
+ *
+ * @param[in] std::string_view the date of item manufacture in ISO 8601 format,
+ *            either as YYYYMMDD or YYYYMMDDThhmmssZ
+ * Ref: https://github.com/openbmc/phosphor-dbus-interfaces/blob/master/yaml/
+ *      xyz/openbmc_project/Inventory/Decorator/Asset.interface.yaml#L16
+ *
+ * @return std::string which consist the datetime
+ */
+inline std::optional<std::string> getDateTimeIso8601(std::string_view datetime)
+{
+    std::optional<redfish::time_utils::usSinceEpoch> us =
+        redfish::time_utils::dateStringToEpoch(datetime);
+    if (!us)
+    {
+        return std::nullopt;
+    }
+    auto secondsDuration =
+        std::chrono::duration_cast<std::chrono::seconds>(*us);
+
+    return std::make_optional(redfish::time_utils::getDateTimeUint(
+        static_cast<uint64_t>(secondsDuration.count())));
+}
+
+/**
+ * @brief ProductionDate report
+ */
+inline void productionDateReport(crow::Response& res,
+                                 const std::string& buildDate)
+{
+    std::optional<std::string> valueStr =
+        redfish::time_utils::getDateTimeIso8601(buildDate);
+    if (!valueStr)
+    {
+        messages::internalError();
+        return;
+    }
+    res.jsonValue["ProductionDate"] = *valueStr;
+}
+
 } // namespace time_utils
 } // namespace redfish

@@ -1,17 +1,17 @@
 /*
-// Copyright (c) 2019 Intel Corporation
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+Copyright (c) 2019 Intel Corporation
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 #pragma once
 
@@ -63,8 +63,8 @@ inline void handleMessageRegistryFileCollectionGet(
         }
 #endif
         nlohmann::json::object_t member;
-        member["@odata.id"] = boost::urls::format("/redfish/v1/Registries/{}",
-                                                  memberName);
+        member["@odata.id"] =
+            boost::urls::format("/redfish/v1/Registries/{}", memberName);
         members.emplace_back(std::move(member));
     }
 }
@@ -147,8 +147,8 @@ inline void handleMessageRoutesMessageRegistryFileGet(
     asyncResp->res.jsonValue["@odata.type"] =
         "#MessageRegistryFile.v1_1_0.MessageRegistryFile";
     asyncResp->res.jsonValue["Name"] = registry + " Message Registry File";
-    asyncResp->res.jsonValue["Description"] = dmtf + registry +
-                                              " Message Registry File Location";
+    asyncResp->res.jsonValue["Description"] =
+        dmtf + registry + " Message Registry File Location";
     asyncResp->res.jsonValue["Id"] = header->registryPrefix;
     asyncResp->res.jsonValue["Registry"] = header->id;
     nlohmann::json::array_t languages;

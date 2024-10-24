@@ -29,6 +29,22 @@ TEST(DbusUtils, AfterPropertySetSuccess)
     afterSetProperty(asyncResp, "MyRedfishProperty",
                      nlohmann::json("MyRedfishValue"), ec, msg);
 
+<<<<<<< HEAD
+=======
+    EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::no_content);
+}
+
+TEST(DbusUtils, AfterActionPropertySetSuccess)
+{
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp =
+        std::make_shared<bmcweb::AsyncResp>();
+
+    boost::system::error_code ec;
+    sdbusplus::message_t msg;
+    afterSetPropertyAction(asyncResp, "MyRedfishProperty",
+                           nlohmann::json("MyRedfishValue"), ec, msg);
+
+>>>>>>> origin/master
     EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
     EXPECT_EQ(asyncResp->res.jsonValue,
               R"({
@@ -37,7 +53,11 @@ TEST(DbusUtils, AfterPropertySetSuccess)
                             "@odata.type": "#Message.v1_1_1.Message",
                             "Message": "The request completed successfully.",
                             "MessageArgs": [],
+<<<<<<< HEAD
                             "MessageId": "Base.1.18.1.Success",
+=======
+                            "MessageId": "Base.1.19.0.Success",
+>>>>>>> origin/master
                             "MessageSeverity": "OK",
                             "Resolution": "None."
                         }
@@ -69,12 +89,12 @@ TEST(DbusUtils, AfterPropertySetInternalError)
                         "@odata.type": "#Message.v1_1_1.Message",
                         "Message": "The request failed due to an internal service error.  The service is still operational.",
                         "MessageArgs": [],
-                        "MessageId": "Base.1.18.1.InternalError",
+                        "MessageId": "Base.1.19.0.InternalError",
                         "MessageSeverity": "Critical",
                         "Resolution": "Resubmit the request.  If the problem persists, consider resetting the service."
                         }
                     ],
-                    "code": "Base.1.18.1.InternalError",
+                    "code": "Base.1.19.0.InternalError",
                     "message": "The request failed due to an internal service error.  The service is still operational."
                     }
                 })"_json);

@@ -1,17 +1,17 @@
 /*
- // Copyright (c) 2018 Intel Corporation
- //
- // Licensed under the Apache License, Version 2.0 (the "License");
- // you may not use this file except in compliance with the License.
- // You may obtain a copy of the License at
- //
- //      http://www.apache.org/licenses/LICENSE-2.0
- //
- // Unless required by applicable law or agreed to in writing, software
- // distributed under the License is distributed on an "AS IS" BASIS,
- // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- // See the License for the specific language governing permissions and
- // limitations under the License.
+Copyright (c) 2018 Intel Corporation
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
  */
 #pragma once
 
@@ -19,7 +19,7 @@
 #include "dbus_singleton.hpp"
 #include "logging.hpp"
 
-#include <boost/system/error_code.hpp> // IWYU pragma: keep
+#include <boost/system/error_code.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
@@ -37,10 +37,6 @@
 #include <utility>
 #include <variant>
 #include <vector>
-
-// IWYU pragma: no_include <stddef.h>
-// IWYU pragma: no_include <stdint.h>
-// IWYU pragma: no_include <boost/system/detail/error_code.hpp>
 
 namespace dbus
 {
@@ -158,8 +154,8 @@ inline void checkDbusPathExists(const std::string& path, Callback&& callback)
         [callback{std::forward<Callback>(callback)}](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetObject& objectNames) {
-        callback(!ec && !objectNames.empty());
-    },
+            callback(!ec && !objectNames.empty());
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject", path,
@@ -227,8 +223,8 @@ inline void getSubTreePaths(
         [callback{std::move(callbackIn)}](
             const boost::system::error_code& ec,
             const MapperGetSubTreePathsResponse& subtreePaths) {
-        callback(ec, subtreePaths);
-    },
+            callback(ec, subtreePaths);
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", path, depth,
@@ -263,14 +259,15 @@ inline void getAssociatedSubTreePaths(
         [callback{std::move(callbackIn)}](
             const boost::system::error_code& ec,
             const MapperGetSubTreePathsResponse& subtreePaths) {
-        callback(ec, subtreePaths);
-    },
+            callback(ec, subtreePaths);
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetAssociatedSubTreePaths",
         associatedPath, path, depth, interfaces);
 }
 
+<<<<<<< HEAD
 inline void
     getDbusObject(const std::string& path,
                   std::span<const std::string_view> interfaces,
@@ -282,6 +279,56 @@ inline void
                                           const MapperGetObject& object) {
         callback(ec, object);
     },
+=======
+inline void getAssociatedSubTreeById(
+    const std::string& id, const std::string& path,
+    std::span<const std::string_view> subtreeInterfaces,
+    std::string_view association,
+    std::span<const std::string_view> endpointInterfaces,
+    std::function<void(const boost::system::error_code&,
+                       const MapperGetSubTreeResponse&)>&& callback)
+{
+    crow::connections::systemBus->async_method_call(
+        [callback{std::move(callback)}](
+            const boost::system::error_code& ec,
+            const MapperGetSubTreeResponse& subtree) { callback(ec, subtree); },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetAssociatedSubTreeById", id,
+        path, subtreeInterfaces, association, endpointInterfaces);
+}
+
+inline void getAssociatedSubTreePathsById(
+    const std::string& id, const std::string& path,
+    std::span<const std::string_view> subtreeInterfaces,
+    std::string_view association,
+    std::span<const std::string_view> endpointInterfaces,
+    std::function<void(const boost::system::error_code&,
+                       const MapperGetSubTreePathsResponse&)>&& callback)
+{
+    crow::connections::systemBus->async_method_call(
+        [callback{std::move(callback)}](
+            const boost::system::error_code& ec,
+            const MapperGetSubTreePathsResponse& subtreePaths) {
+            callback(ec, subtreePaths);
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetAssociatedSubTreePathsById", id,
+        path, subtreeInterfaces, association, endpointInterfaces);
+}
+
+inline void getDbusObject(
+    const std::string& path, std::span<const std::string_view> interfaces,
+    std::function<void(const boost::system::error_code&,
+                       const MapperGetObject&)>&& callback)
+{
+    crow::connections::systemBus->async_method_call(
+        [callback{std::move(callback)}](const boost::system::error_code& ec,
+                                        const MapperGetObject& object) {
+            callback(ec, object);
+        },
+>>>>>>> origin/master
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject", path, interfaces);
@@ -300,6 +347,7 @@ inline void getAssociationEndPoints(
 inline void getManagedObjects(
     const std::string& service, const sdbusplus::message::object_path& path,
     std::function<void(const boost::system::error_code&,
+<<<<<<< HEAD
                        const ManagedObjectType&)>&& callbackIn)
 {
     crow::connections::systemBus->async_method_call(
@@ -307,6 +355,15 @@ inline void getManagedObjects(
                                           const ManagedObjectType& objects) {
         callback(ec, objects);
     },
+=======
+                       const ManagedObjectType&)>&& callback)
+{
+    crow::connections::systemBus->async_method_call(
+        [callback{std::move(callback)}](const boost::system::error_code& ec,
+                                        const ManagedObjectType& objects) {
+            callback(ec, objects);
+        },
+>>>>>>> origin/master
         service, path, "org.freedesktop.DBus.ObjectManager",
         "GetManagedObjects");
 }

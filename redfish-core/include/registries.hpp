@@ -1,17 +1,17 @@
 /*
-// Copyright (c) 2019 Intel Corporation
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+Copyright (c) 2019 Intel Corporation
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 #pragma once
 
@@ -25,8 +25,6 @@
 #include <string>
 #include <string_view>
 #include <utility>
-
-// IWYU pragma: no_include <stddef.h>
 
 namespace redfish::registries
 {
@@ -54,9 +52,8 @@ struct Message
 };
 using MessageEntry = std::pair<const char*, const Message>;
 
-inline std::string
-    fillMessageArgs(const std::span<const std::string_view> messageArgs,
-                    std::string_view msg)
+inline std::string fillMessageArgs(
+    const std::span<const std::string_view> messageArgs, std::string_view msg)
 {
     std::string ret;
     size_t reserve = msg.size();
@@ -90,10 +87,9 @@ inline std::string
     return ret;
 }
 
-inline nlohmann::json::object_t
-    getLogFromRegistry(const Header& header,
-                       std::span<const MessageEntry> registry, size_t index,
-                       std::span<const std::string_view> args)
+inline nlohmann::json::object_t getLogFromRegistry(
+    const Header& header, std::span<const MessageEntry> registry, size_t index,
+    std::span<const std::string_view> args)
 {
     const redfish::registries::MessageEntry& entry = registry[index];
     // Intentionally make a copy of the string, so we can append in the

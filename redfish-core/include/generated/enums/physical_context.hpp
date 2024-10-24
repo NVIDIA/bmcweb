@@ -30,7 +30,9 @@ enum class PhysicalContext{
     VoltageRegulator,
     Rectifier,
     StorageDevice,
+    StorageSubsystem,
     NetworkingDevice,
+    ExpansionSubsystem,
     ComputeBay,
     StorageBay,
     NetworkBay,
@@ -49,11 +51,16 @@ enum class PhysicalContext{
     DCBus,
     ACOutput,
     ACInput,
+    PowerOutlet,
     TrustedModule,
     Board,
     Transceiver,
     Battery,
     Pump,
+    Filter,
+    Reservoir,
+    Switch,
+    Manager,
 };
 
 enum class PhysicalSubContext{
@@ -97,7 +104,9 @@ NLOHMANN_JSON_SERIALIZE_ENUM(PhysicalContext, {
     {PhysicalContext::VoltageRegulator, "VoltageRegulator"},
     {PhysicalContext::Rectifier, "Rectifier"},
     {PhysicalContext::StorageDevice, "StorageDevice"},
+    {PhysicalContext::StorageSubsystem, "StorageSubsystem"},
     {PhysicalContext::NetworkingDevice, "NetworkingDevice"},
+    {PhysicalContext::ExpansionSubsystem, "ExpansionSubsystem"},
     {PhysicalContext::ComputeBay, "ComputeBay"},
     {PhysicalContext::StorageBay, "StorageBay"},
     {PhysicalContext::NetworkBay, "NetworkBay"},
@@ -116,11 +125,16 @@ NLOHMANN_JSON_SERIALIZE_ENUM(PhysicalContext, {
     {PhysicalContext::DCBus, "DCBus"},
     {PhysicalContext::ACOutput, "ACOutput"},
     {PhysicalContext::ACInput, "ACInput"},
+    {PhysicalContext::PowerOutlet, "PowerOutlet"},
     {PhysicalContext::TrustedModule, "TrustedModule"},
     {PhysicalContext::Board, "Board"},
     {PhysicalContext::Transceiver, "Transceiver"},
     {PhysicalContext::Battery, "Battery"},
     {PhysicalContext::Pump, "Pump"},
+    {PhysicalContext::Filter, "Filter"},
+    {PhysicalContext::Reservoir, "Reservoir"},
+    {PhysicalContext::Switch, "Switch"},
+    {PhysicalContext::Manager, "Manager"},
 });
 
 NLOHMANN_JSON_SERIALIZE_ENUM(PhysicalSubContext, {

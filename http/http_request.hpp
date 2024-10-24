@@ -76,6 +76,7 @@ struct Request
     {
         return req.method();
     }
+
     void method(boost::beast::http::verb verb)
     {
         req.method(verb);

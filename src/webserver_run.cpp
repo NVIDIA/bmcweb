@@ -24,17 +24,48 @@
 #include <boost/asio/io_context.hpp>
 #include <dump_offload.hpp>
 #include <sdbusplus/asio/connection.hpp>
+<<<<<<< HEAD
 #include <watchdog.hpp>
+=======
+#include <sdbusplus/asio/object_server.hpp>
+>>>>>>> origin/master
 
+#include <algorithm>
 #include <memory>
+#include <string>
+#include <string_view>
+
+static void setLogLevel(const std::string& logLevel)
+{
+    const std::basic_string_view<char>* iter =
+        std::ranges::find(crow::mapLogLevelFromName, logLevel);
+    if (iter == crow::mapLogLevelFromName.end())
+    {
+        BMCWEB_LOG_ERROR("log-level {} not found", logLevel);
+        return;
+    }
+    crow::getBmcwebCurrentLoggingLevel() = crow::getLogLevelFromName(logLevel);
+    BMCWEB_LOG_INFO("Requested log-level change to: {}", logLevel);
+}
 
 int run()
 {
     auto io = std::make_shared<boost::asio::io_context>();
     App app(io);
 
-    sdbusplus::asio::connection systemBus(*io);
-    crow::connections::systemBus = &systemBus;
+    std::shared_ptr<sdbusplus::asio::connection> systemBus =
+        std::make_shared<sdbusplus::asio::connection>(*io);
+    crow::connections::systemBus = systemBus.get();
+
+    auto server = sdbusplus::asio::object_server(systemBus);
+
+    std::shared_ptr<sdbusplus::asio::dbus_interface> iface =
+        server.add_interface("/xyz/openbmc_project/bmcweb",
+                             "xyz.openbmc_project.bmcweb");
+
+    iface->register_method("SetLogLevel", setLogLevel);
+
+    iface->initialize();
 
     // Enable SystemD service watchdog kicking. Service file has timeout of 60s.
     crow::watchdog::ServiceWD watchdog(30, io);
@@ -123,9 +154,15 @@ int run()
     bmcweb::registerUserRemovedSignal();
 
     app.run();
+
+    systemBus->request_name("xyz.openbmc_project.bmcweb");
+
     io->run();
 
     crow::connections::systemBus = nullptr;
+
+    // TODO(ed) Make event log monitor an RAII object instead of global vars
+    redfish::EventServiceManager::stopEventLogMonitor();
 
     return 0;
 }

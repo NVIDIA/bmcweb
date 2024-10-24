@@ -1,21 +1,14 @@
 #pragma once
 
-#include "logging.hpp"
-#include "mutual_tls_meta.hpp"
 #include "persistent_data.hpp"
-
-extern "C"
-{
-#include <openssl/crypto.h>
-#include <openssl/ssl.h>
-}
 
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/ssl/verify_context.hpp>
 
 #include <memory>
-#include <span>
+#include <string_view>
 
+<<<<<<< HEAD
 inline std::string getUsernameFromCommonName(std::string_view commonName)
 {
     const persistent_data::AuthConfigMethods& authMethodsConfig =
@@ -130,3 +123,10 @@ inline std::shared_ptr<persistent_data::UserSession>
         sslUser, clientIp, unsupportedClientId,
         persistent_data::PersistenceType::TIMEOUT);
 }
+=======
+std::string getUsernameFromCommonName(std::string_view commonName);
+
+std::shared_ptr<persistent_data::UserSession>
+    verifyMtlsUser(const boost::asio::ip::address& clientIp,
+                   boost::asio::ssl::verify_context& ctx);
+>>>>>>> origin/master

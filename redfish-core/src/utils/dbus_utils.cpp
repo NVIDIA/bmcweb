@@ -10,6 +10,7 @@
 #include <boost/asio/error.hpp>
 #include <boost/beast/http/status.hpp>
 #include <boost/system/error_code.hpp>
+#include <nlohmann/json.hpp>
 #include <sdbusplus/message.hpp>
 
 #include <memory>
@@ -21,11 +22,10 @@ namespace redfish
 namespace details
 {
 
-void afterSetProperty(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& redfishPropertyName,
-                      const nlohmann::json& propertyValue,
-                      const boost::system::error_code& ec,
-                      const sdbusplus::message_t& msg)
+void afterSetProperty(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& redfishPropertyName, const nlohmann::json& propertyValue,
+    const boost::system::error_code& ec, const sdbusplus::message_t& msg)
 {
     if (ec)
     {

@@ -5,6 +5,7 @@
 #include <boost/url/parse.hpp>
 #include <boost/url/url.hpp>
 #include <boost/url/url_view.hpp>
+#include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <ctime>
@@ -12,10 +13,7 @@
 #include <string>
 #include <string_view>
 
-#include <gtest/gtest.h> // IWYU pragma: keep
-// IWYU pragma: no_include <gtest/gtest-message.h>
-// IWYU pragma: no_include <gtest/gtest-test-part.h>
-// IWYU pragma: no_include "gtest/gtest_pred_impl.h"
+#include <gtest/gtest.h>
 
 namespace crow::utility
 {

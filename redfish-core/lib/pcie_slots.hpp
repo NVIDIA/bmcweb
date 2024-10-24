@@ -160,15 +160,14 @@ inline void onMapperAssociationDone(
         "xyz.openbmc_project.Inventory.Item.PCIeSlot",
         [asyncResp](const boost::system::error_code& ec2,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
-        onPcieSlotGetAllDone(asyncResp, ec2, propertiesList);
-    });
+            onPcieSlotGetAllDone(asyncResp, ec2, propertiesList);
+        });
 }
 
-inline void
-    onMapperSubtreeDone(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& chassisID,
-                        const boost::system::error_code& ec,
-                        const dbus::utility::MapperGetSubTreeResponse& subtree)
+inline void onMapperSubtreeDone(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
 {
     if (ec)
     {
@@ -209,9 +208,9 @@ inline void
                 [asyncResp, chassisID, pcieSlotPath, connectionName](
                     const boost::system::error_code& ec2,
                     const dbus::utility::MapperEndPoints& endpoints) {
-                onMapperAssociationDone(asyncResp, chassisID, pcieSlotPath,
-                                        connectionName, ec2, endpoints);
-            });
+                    onMapperAssociationDone(asyncResp, chassisID, pcieSlotPath,
+                                            connectionName, ec2, endpoints);
+                });
         }
     }
 }
@@ -233,8 +232,8 @@ inline void handlePCIeSlotCollectionGet(
         [asyncResp,
          chassisID](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
-        onMapperSubtreeDone(asyncResp, chassisID, ec, subtree);
-    });
+            onMapperSubtreeDone(asyncResp, chassisID, ec, subtree);
+        });
 }
 
 inline void requestRoutesPCIeSlots(App& app)

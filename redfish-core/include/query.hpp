@@ -23,8 +23,6 @@
 #include <utility>
 
 // IWYU pragma: no_forward_declare crow::App
-// IWYU pragma: no_include <boost/url/impl/params_view.hpp>
-// IWYU pragma: no_include <boost/url/impl/url_view.hpp>
 
 #include "redfish_aggregator.hpp"
 
@@ -153,8 +151,9 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
 
     if constexpr (BMCWEB_REDFISH_AGGREGATION)
     {
-        needToCallHandlers = RedfishAggregator::beginAggregation(
-                                 req, asyncResp) == Result::LocalHandle;
+        needToCallHandlers =
+            RedfishAggregator::beginAggregation(req, asyncResp) ==
+            Result::LocalHandle;
 
         // If the request should be forwarded to a satellite BMC then we don't
         // want to write anything to the asyncResp since it will get overwritten
@@ -174,8 +173,8 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
     asyncResp->res.setCompleteRequestHandler(
         [&app, handler(std::move(handler)), query{std::move(*queryOpt)},
          delegated{delegated}](crow::Response& resIn) mutable {
-        processAllParams(app, query, delegated, handler, resIn);
-    });
+            processAllParams(app, query, delegated, handler, resIn);
+        });
 
     return needToCallHandlers;
 }

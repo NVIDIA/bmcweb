@@ -1,5 +1,5 @@
-#include "boost_formatters.hpp"
 #include "http/server_sent_event.hpp"
+#include "http_request.hpp"
 
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/io_context.hpp>
@@ -31,10 +31,17 @@ TEST(ServerSentEvent, SseWorks)
     Request req;
 
     bool openCalled = false;
+<<<<<<< HEAD
     auto openHandler = [&openCalled](Connection&,
                                      const Request& /*handedReq*/) {
         openCalled = true;
     };
+=======
+    auto openHandler =
+        [&openCalled](Connection&, const Request& /*handedReq*/) {
+            openCalled = true;
+        };
+>>>>>>> origin/master
     bool closeCalled = false;
     auto closeHandler = [&closeCalled](Connection&) { closeCalled = true; };
 
@@ -65,7 +72,7 @@ TEST(ServerSentEvent, SseWorks)
     }
     // Send one event
     {
-        conn->sendEvent("TestEventId", "TestEventContent");
+        conn->sendSseEvent("TestEventId", "TestEventContent");
         std::string_view expected = "id: TestEventId\n"
                                     "data: TestEventContent\n"
                                     "\n";
@@ -85,11 +92,12 @@ TEST(ServerSentEvent, SseWorks)
     }
     // Send second event
     {
-        conn->sendEvent("TestEventId2", "TestEvent\nContent2");
-        constexpr std::string_view expected = "id: TestEventId2\n"
-                                              "data: TestEvent\n"
-                                              "data: Content2\n"
-                                              "\n";
+        conn->sendSseEvent("TestEventId2", "TestEvent\nContent2");
+        constexpr std::string_view expected =
+            "id: TestEventId2\n"
+            "data: TestEvent\n"
+            "data: Content2\n"
+            "\n";
 
         while (out.str().size() < expected.size())
         {

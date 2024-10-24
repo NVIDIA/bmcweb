@@ -1,28 +1,30 @@
 /*
-// Copyright (c) 2018 Intel Corporation
-// Copyright (c) 2018 Ampere Computing LLC
-/
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+Copyright (c) 2018 Intel Corporation
+Copyright (c) 2018 Ampere Computing LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 #pragma once
 
 #include "app.hpp"
 #include "dbus_utility.hpp"
+#include "generated/enums/power.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "sensors.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/sensor_utils.hpp"
 
 #include <sdbusplus/asio/property.hpp>
 
@@ -86,8 +88,10 @@ inline void afterGetChassisPath(
     auto& item = powerControlCollections[0];
 
     std::optional<uint32_t> value;
-    if (!json_util::readJsonObject(item, sensorsAsyncResp->asyncResp->res,
-                                   "PowerLimit/LimitInWatts", value))
+    if (!json_util::readJsonObject( //
+            item, sensorsAsyncResp->asyncResp->res, //
+            "PowerLimit/LimitInWatts", value //
+            ))
     {
         return;
     }
@@ -125,9 +129,9 @@ inline void afterPowerCapSettingGet(
         // A warning without a odata.type
         nlohmann::json::object_t powerControl;
         powerControl["@odata.type"] = "#Power.v1_0_0.PowerControl";
-        powerControl["@odata.id"] = "/redfish/v1/Chassis/" +
-                                    sensorAsyncResp->chassisId +
-                                    "/Power#/PowerControl/0";
+        powerControl["@odata.id"] =
+            "/redfish/v1/Chassis/" + sensorAsyncResp->chassisId +
+            "/Power#/PowerControl/0";
         powerControl["Name"] = "Chassis Power Control";
         powerControl["MemberId"] = "0";
         // Add missing properties to make
@@ -187,24 +191,24 @@ inline void afterPowerCapSettingGet(
     }
 
     // LimitException is Mandatory attribute as per OCP
-    // Baseline Profile – v1.0.0, so currently making it
+    // Baseline Profile - v1.0.0, so currently making it
     // "NoAction" as default value to make it OCP Compliant.
-    sensorJson["PowerLimit"]["LimitException"] = "NoAction";
+    sensorJson["PowerLimit"]["LimitException"] =
+        power::PowerLimitException::NoAction;
 
     if (enabled)
     {
         // Redfish specification indicates PowerLimit should
         // be null if the limit is not enabled.
-        sensorJson["PowerLimit"]["LimitInWatts"] = powerCap *
-                                                   std::pow(10, scale);
+        sensorJson["PowerLimit"]["LimitInWatts"] =
+            powerCap * std::pow(10, scale);
     }
 }
 
 using Mapper = dbus::utility::MapperGetSubTreePathsResponse;
-inline void
-    afterGetChassis(const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
-                    const boost::system::error_code& ec2,
-                    const Mapper& chassisPaths)
+inline void afterGetChassis(
+    const std::shared_ptr<SensorsAsyncResp>& sensorAsyncResp,
+    const boost::system::error_code& ec2, const Mapper& chassisPaths)
 {
     if (ec2)
     {
@@ -273,7 +277,8 @@ inline void
 
     auto sensorAsyncResp = std::make_shared<SensorsAsyncResp>(
         asyncResp, chassisName, sensors::dbus::powerPaths,
-        sensors::node::power);
+        sensor_utils::chassisSubNodeToString(
+            sensor_utils::ChassisSubNode::powerNode));
 
     getChassisData(sensorAsyncResp);
 
@@ -302,14 +307,17 @@ inline void
     }
     auto sensorAsyncResp = std::make_shared<SensorsAsyncResp>(
         asyncResp, chassisName, sensors::dbus::powerPaths,
-        sensors::node::power);
+        sensor_utils::chassisSubNodeToString(
+            sensor_utils::ChassisSubNode::powerNode));
 
     std::optional<std::vector<nlohmann::json::object_t>> voltageCollections;
     std::optional<std::vector<nlohmann::json::object_t>> powerCtlCollections;
 
-    if (!json_util::readJsonPatch(req, sensorAsyncResp->asyncResp->res,
-                                  "PowerControl", powerCtlCollections,
-                                  "Voltages", voltageCollections))
+    if (!json_util::readJsonPatch( //
+            req, sensorAsyncResp->asyncResp->res, //
+            "PowerControl", powerCtlCollections, //
+            "Voltages", voltageCollections //
+            ))
     {
         return;
     }

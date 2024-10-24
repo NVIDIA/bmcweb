@@ -1,17 +1,17 @@
 /*
-// Copyright (c) 2020 Intel Corporation
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+Copyright (c) 2020 Intel Corporation
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 */
 #pragma once
 
@@ -80,8 +80,7 @@ enum class ConnState
     retry
 };
 
-static inline boost::system::error_code
-    defaultRetryHandler(unsigned int respCode)
+inline boost::system::error_code defaultRetryHandler(unsigned int respCode)
 {
     // As a default, assume 200X is alright
     BMCWEB_LOG_DEBUG("Using default check for response code validity");
@@ -120,8 +119,7 @@ struct PendingRequest
     PendingRequest(
         boost::beast::http::request<bmcweb::HttpBody>&& reqIn,
         const std::function<void(bool, uint32_t, Response&)>& callbackIn) :
-        req(std::move(reqIn)),
-        callback(callbackIn)
+        req(std::move(reqIn)), callback(callbackIn)
     {}
 };
 
@@ -134,8 +132,8 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
     std::string subId;
     std::shared_ptr<ConnectionPolicy> connPolicy;
     boost::urls::url host;
+    ensuressl::VerifyCertificate verifyCert;
     uint32_t connId;
-
     // Data buffers
     http::request<bmcweb::HttpBody> req;
     using parser_type = http::response_parser<bmcweb::HttpBody>;
@@ -277,7 +275,10 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         // Set a timeout on the operation
         timer.expires_after(std::chrono::seconds(30));
         timer.async_wait(std::bind_front(onTimeout, weak_from_this()));
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/master
         // Send the HTTP request to the remote host
         if (sslConn)
         {
@@ -323,8 +324,8 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
     {
         state = ConnState::recvInProgress;
 
-        parser_type& thisParser = parser.emplace(std::piecewise_construct,
-                                                 std::make_tuple());
+        parser_type& thisParser =
+            parser.emplace(std::piecewise_construct, std::make_tuple());
 
         thisParser.body_limit(connPolicy->requestByteLimit);
 
@@ -645,7 +646,7 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         if (ssl)
         {
             std::optional<boost::asio::ssl::context> sslCtx =
-                ensuressl::getSSLClientContext();
+                ensuressl::getSSLClientContext(verifyCert);
 
             if (!sslCtx)
             {
@@ -670,10 +671,11 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
     explicit ConnectionInfo(
         boost::asio::io_context& iocIn, const std::string& idIn,
         const std::shared_ptr<ConnectionPolicy>& connPolicyIn,
-        const boost::urls::url_view_base& hostIn, unsigned int connIdIn) :
-        subId(idIn),
-        connPolicy(connPolicyIn), host(hostIn), connId(connIdIn), ioc(iocIn),
-        resolver(iocIn), conn(iocIn), timer(iocIn)
+        const boost::urls::url_view_base& hostIn,
+        ensuressl::VerifyCertificate verifyCertIn, unsigned int connIdIn) :
+        subId(idIn), connPolicy(connPolicyIn), host(hostIn),
+        verifyCert(verifyCertIn), connId(connIdIn), ioc(iocIn), resolver(iocIn),
+        conn(iocIn), timer(iocIn)
     {
         initializeConnection(host.scheme() == "https");
     }
@@ -688,6 +690,7 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
     boost::urls::url destIP;
     std::vector<std::shared_ptr<ConnectionInfo>> connections;
     boost::container::devector<PendingRequest> requestQueue;
+    ensuressl::VerifyCertificate verifyCert;
 
     friend class HttpClient;
 
@@ -863,7 +866,7 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
         unsigned int newId = static_cast<unsigned int>(connections.size());
 
         auto& ret = connections.emplace_back(std::make_shared<ConnectionInfo>(
-            ioc, id, connPolicy, destIP, newId));
+            ioc, id, connPolicy, destIP, verifyCert, newId));
 
         BMCWEB_LOG_DEBUG("Added connection {} to pool {}",
                          connections.size() - 1, id);
@@ -875,14 +878,36 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
     explicit ConnectionPool(
         boost::asio::io_context& iocIn, const std::string& idIn,
         const std::shared_ptr<ConnectionPolicy>& connPolicyIn,
-        const boost::urls::url_view_base& destIPIn) :
-        ioc(iocIn),
-        id(idIn), connPolicy(connPolicyIn), destIP(destIPIn)
+        const boost::urls::url_view_base& destIPIn,
+        ensuressl::VerifyCertificate verifyCertIn) :
+        ioc(iocIn), id(idIn), connPolicy(connPolicyIn), destIP(destIPIn),
+        verifyCert(verifyCertIn)
     {
         BMCWEB_LOG_DEBUG("Initializing connection pool for {}", id);
 
         // Initialize the pool with a single connection
         addConnection();
+    }
+
+    // Check whether all connections are terminated
+    bool areAllConnectionsTerminated()
+    {
+        if (connections.empty())
+        {
+            BMCWEB_LOG_DEBUG("There are no connections for pool id:{}", id);
+            return false;
+        }
+        for (const auto& conn : connections)
+        {
+            if (conn != nullptr && conn->state != ConnState::terminated)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "Not all connections of pool id:{} are terminated", id);
+                return false;
+            }
+        }
+        BMCWEB_LOG_INFO("All connections of pool id:{} are terminated", id);
+        return true;
     }
 };
 
@@ -891,7 +916,9 @@ class HttpClient
   private:
     std::unordered_map<std::string, std::shared_ptr<ConnectionPool>>
         connectionPools;
-    boost::asio::io_context& ioc;
+
+    // reference_wrapper here makes HttpClient movable
+    std::reference_wrapper<boost::asio::io_context> ioc;
     std::shared_ptr<ConnectionPolicy> connPolicy;
 
     // Used as a dummy callback by sendData() in order to call
@@ -906,46 +933,71 @@ class HttpClient
     HttpClient() = delete;
     explicit HttpClient(boost::asio::io_context& iocIn,
                         const std::shared_ptr<ConnectionPolicy>& connPolicyIn) :
-        ioc(iocIn),
-        connPolicy(connPolicyIn)
+        ioc(iocIn), connPolicy(connPolicyIn)
     {}
 
     HttpClient(const HttpClient&) = delete;
     HttpClient& operator=(const HttpClient&) = delete;
-    HttpClient(HttpClient&&) = delete;
-    HttpClient& operator=(HttpClient&&) = delete;
+    HttpClient(HttpClient&& client) = default;
+    HttpClient& operator=(HttpClient&& client) = default;
     ~HttpClient() = default;
 
     // Send a request to destIP:destPort where additional processing of the
     // result is not required
     void sendData(std::string&& data, const boost::urls::url_view_base& destUri,
+                  ensuressl::VerifyCertificate verifyCert,
                   const boost::beast::http::fields& httpHeader,
                   const boost::beast::http::verb verb)
     {
         const std::function<void(Response&)> cb = genericResHandler;
-        sendDataWithCallback(std::move(data), destUri, httpHeader, verb, cb);
+        sendDataWithCallback(std::move(data), destUri, verifyCert, httpHeader,
+                             verb, cb);
     }
 
     // Send request to destIP and use the provided callback to
     // handle the response
     void sendDataWithCallback(std::string&& data,
                               const boost::urls::url_view_base& destUrl,
+                              ensuressl::VerifyCertificate verifyCert,
                               const boost::beast::http::fields& httpHeader,
                               const boost::beast::http::verb verb,
                               const std::function<void(Response&)>& resHandler)
     {
-        std::string clientKey = std::format("{}://{}", destUrl.scheme(),
-                                            destUrl.encoded_host_and_port());
+        std::string_view verify = "ssl_verify";
+        if (verifyCert == ensuressl::VerifyCertificate::NoVerify)
+        {
+            verify = "ssl no verify";
+        }
+        std::string clientKey =
+            std::format("{}{}://{}", verify, destUrl.scheme(),
+                        destUrl.encoded_host_and_port());
         auto pool = connectionPools.try_emplace(clientKey);
         if (pool.first->second == nullptr)
         {
             pool.first->second = std::make_shared<ConnectionPool>(
-                ioc, clientKey, connPolicy, destUrl);
+                ioc, clientKey, connPolicy, destUrl, verifyCert);
         }
         // Send the data using either the existing connection pool or the
         // newly created connection pool
         pool.first->second->sendData(std::move(data), destUrl, httpHeader, verb,
                                      resHandler);
+    }
+
+    // Test whether all connections are terminated (after MaxRetryAttempts)
+    bool isTerminated()
+    {
+        for (const auto& pool : connectionPools)
+        {
+            if (pool.second != nullptr &&
+                !pool.second->areAllConnectionsTerminated())
+            {
+                BMCWEB_LOG_DEBUG(
+                    "Not all of client connections are terminated");
+                return false;
+            }
+        }
+        BMCWEB_LOG_DEBUG("All client connections are terminated");
+        return true;
     }
 };
 } // namespace crow

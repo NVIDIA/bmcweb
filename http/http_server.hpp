@@ -12,8 +12,12 @@
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
+<<<<<<< HEAD
 #include <boost/beast/ssl/ssl_stream.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
+=======
+#include <boost/beast/core/stream_traits.hpp>
+>>>>>>> origin/master
 
 #include <atomic>
 #include <chrono>
@@ -31,15 +35,23 @@ namespace crow
 template <typename Handler, typename Adaptor = boost::asio::ip::tcp::socket>
 class Server
 {
+    using self_t = Server<Handler, Adaptor>;
+
   public:
     Server(Handler* handlerIn, boost::asio::ip::tcp::acceptor&& acceptorIn,
            [[maybe_unused]] const std::shared_ptr<boost::asio::ssl::context>&
                adaptorCtxIn,
            std::shared_ptr<boost::asio::io_context> io) :
+<<<<<<< HEAD
         ioService(std::move(io)),
         acceptor(std::move(acceptorIn)),
         signals(*ioService, SIGINT, SIGTERM, SIGHUP), timer(*ioService),
         fileWatcher(), handler(handlerIn), adaptorCtx(std::move(adaptorCtxIn))
+=======
+        ioService(std::move(io)), acceptor(std::move(acceptorIn)),
+        signals(*ioService, SIGINT, SIGTERM, SIGHUP), handler(handlerIn),
+        adaptorCtx(std::move(adaptorCtxIn))
+>>>>>>> origin/master
     {}
 
     void updateDateStr()
@@ -143,48 +155,44 @@ class Server
     {
         signals.async_wait(
             [this](const boost::system::error_code& ec, int signalNo) {
-            if (ec)
-            {
-                BMCWEB_LOG_INFO("Error in signal handler{}", ec.message());
-            }
-            else
-            {
-                if (signalNo == SIGHUP)
+                if (ec)
                 {
-                    BMCWEB_LOG_INFO("Receivied reload signal");
-                    loadCertificate();
-                    boost::system::error_code ec2;
-                    acceptor.cancel(ec2);
-                    if (ec2)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "Error while canceling async operations:{}",
-                            ec2.message());
-                    }
-                    startAsyncWaitForSignal();
+                    BMCWEB_LOG_INFO("Error in signal handler{}", ec.message());
                 }
                 else
                 {
-                    stop();
+                    if (signalNo == SIGHUP)
+                    {
+                        BMCWEB_LOG_INFO("Receivied reload signal");
+                        loadCertificate();
+                        startAsyncWaitForSignal();
+                    }
+                    else
+                    {
+                        stop();
+                    }
                 }
-            }
-        });
+            });
     }
 
     void stop()
     {
         ioService->stop();
     }
+    using Socket = boost::beast::lowest_layer_type<Adaptor>;
+    using SocketPtr = std::unique_ptr<Socket>;
 
-    void doAccept()
+    void afterAccept(SocketPtr socket, const boost::system::error_code& ec)
     {
-        if (ioService == nullptr)
+        if (ec)
         {
-            BMCWEB_LOG_CRITICAL("IoService was null");
+            BMCWEB_LOG_ERROR("Failed to accept socket {}", ec);
             return;
         }
+
         boost::asio::steady_timer timer(*ioService);
         std::shared_ptr<Connection<Adaptor, Handler>> connection;
+
         if constexpr (std::is_same<Adaptor,
                                    boost::asio::ssl::stream<
                                        boost::asio::ip::tcp::socket>>::value)
@@ -197,24 +205,36 @@ class Server
             }
             connection = std::make_shared<Connection<Adaptor, Handler>>(
                 handler, std::move(timer), getCachedDateStr,
-                Adaptor(*ioService, *adaptorCtx));
+                Adaptor(std::move(*socket), *adaptorCtx));
         }
         else
         {
             connection = std::make_shared<Connection<Adaptor, Handler>>(
                 handler, std::move(timer), getCachedDateStr,
-                Adaptor(*ioService));
+                Adaptor(std::move(*socket)));
         }
+
+        boost::asio::post(*ioService, [connection] { connection->start(); });
+
+        doAccept();
+    }
+
+    void doAccept()
+    {
+        if (ioService == nullptr)
+        {
+            BMCWEB_LOG_CRITICAL("IoService was null");
+            return;
+        }
+
+        SocketPtr socket = std::make_unique<Socket>(*ioService);
+        // Keep a raw pointer so when the socket is moved, the pointer is still
+        // valid
+        Socket* socketPtr = socket.get();
+
         acceptor.async_accept(
-            boost::beast::get_lowest_layer(connection->socket()),
-            [this, connection](const boost::system::error_code& ec) {
-            if (!ec)
-            {
-                boost::asio::post(*ioService,
-                                  [connection] { connection->start(); });
-            }
-            doAccept();
-        });
+            *socketPtr,
+            std::bind_front(&self_t::afterAccept, this, std::move(socket)));
     }
 
   private:

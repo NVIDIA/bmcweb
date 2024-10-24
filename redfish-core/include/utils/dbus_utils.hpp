@@ -493,11 +493,10 @@ inline uint8_t toSMPBIPrivilegeType(const std::string& privilegeType)
 
 namespace details
 {
-void afterSetProperty(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& redfishPropertyName,
-                      const nlohmann::json& propertyValue,
-                      const boost::system::error_code& ec,
-                      const sdbusplus::message_t& msg);
+void afterSetProperty(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& redfishPropertyName, const nlohmann::json& propertyValue,
+    const boost::system::error_code& ec, const sdbusplus::message_t& msg);
 
 void afterSetPropertyAction(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& redfishActionName,
@@ -507,12 +506,11 @@ void afterSetPropertyAction(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 } // namespace details
 
 template <typename PropertyType>
-void setDbusProperty(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     std::string_view redfishPropertyName,
-                     std::string_view processName,
-                     const sdbusplus::message::object_path& path,
-                     std::string_view interface, std::string_view dbusProperty,
-                     const PropertyType& prop)
+void setDbusProperty(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string_view redfishPropertyName, std::string_view processName,
+    const sdbusplus::message::object_path& path, std::string_view interface,
+    std::string_view dbusProperty, const PropertyType& prop)
 {
     std::string processNameStr(processName);
     std::string interfaceStr(interface);
@@ -524,20 +522,18 @@ void setDbusProperty(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         [asyncResp, redfishPropertyNameStr = std::string{redfishPropertyName},
          jsonProp = nlohmann::json(prop)](const boost::system::error_code& ec,
                                           const sdbusplus::message_t& msg) {
-        details::afterSetProperty(asyncResp, redfishPropertyNameStr, jsonProp,
-                                  ec, msg);
-    });
+            details::afterSetProperty(asyncResp, redfishPropertyNameStr,
+                                      jsonProp, ec, msg);
+        });
 }
 
 template <typename DbusPropertyType>
-void setDbusPropertyAction(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           std::string_view processName,
-                           const sdbusplus::message::object_path& path,
-                           std::string_view interface,
-                           std::string_view dbusProperty,
-                           std::string_view redfishActionParameterName,
-                           std::string_view redfishActionName,
-                           const DbusPropertyType& prop)
+void setDbusPropertyAction(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string_view processName, const sdbusplus::message::object_path& path,
+    std::string_view interface, std::string_view dbusProperty,
+    std::string_view redfishActionParameterName,
+    std::string_view redfishActionName, const DbusPropertyType& prop)
 {
     std::string processNameStr(processName);
     std::string interfaceStr(interface);
@@ -552,9 +548,10 @@ void setDbusPropertyAction(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
          redfishActionNameStr = std::string{redfishActionName}](
             const boost::system::error_code& ec,
             const sdbusplus::message_t& msg) {
-        details::afterSetPropertyAction(asyncResp, redfishActionNameStr,
-                                        redfishActionParameterName, ec, msg);
-    });
+            details::afterSetPropertyAction(asyncResp, redfishActionNameStr,
+                                            redfishActionParameterName, ec,
+                                            msg);
+        });
 }
 
 } // namespace redfish

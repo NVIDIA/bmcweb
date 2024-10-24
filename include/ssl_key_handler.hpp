@@ -1,5 +1,8 @@
+
+
 #pragma once
 
+<<<<<<< HEAD
 #include "bmcweb_config.h"
 
 #include "logging.hpp"
@@ -27,112 +30,50 @@ extern "C"
 #include <boost/system/error_code.hpp>
 #include <logging.hpp>
 #include <lsp.hpp>
+=======
+#include <boost/asio/ssl/context.hpp>
+>>>>>>> origin/master
 
-#include <filesystem>
-#include <memory>
 #include <optional>
-#include <random>
 #include <string>
 
 namespace ensuressl
 {
+
+enum class VerifyCertificate
+{
+    Verify,
+    NoVerify
+};
+
 constexpr const char* trustStorePath = "/etc/ssl/certs/authority";
 constexpr const char* x509Comment = "Generated from OpenBMC service";
-static void initOpenssl();
-static EVP_PKEY* createEcKey();
 
-// Trust chain related errors.`
-inline bool isTrustChainError(int errnum)
-{
-    return (errnum == X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT) ||
-           (errnum == X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN) ||
-           (errnum == X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY) ||
-           (errnum == X509_V_ERR_CERT_UNTRUSTED) ||
-           (errnum == X509_V_ERR_UNABLE_TO_VERIFY_LEAF_SIGNATURE);
-}
+bool isTrustChainError(int errnum);
 
-inline bool validateCertificate(X509* const cert)
-{
-    // Create an empty X509_STORE structure for certificate validation.
-    X509_STORE* x509Store = X509_STORE_new();
-    if (x509Store == nullptr)
-    {
-        BMCWEB_LOG_ERROR("Error occurred during X509_STORE_new call");
-        return false;
-    }
+bool validateCertificate(X509* cert);
 
-    // Load Certificate file into the X509 structure.
-    X509_STORE_CTX* storeCtx = X509_STORE_CTX_new();
-    if (storeCtx == nullptr)
-    {
-        BMCWEB_LOG_ERROR("Error occurred during X509_STORE_CTX_new call");
-        X509_STORE_free(x509Store);
-        return false;
-    }
+std::string verifyOpensslKeyCert(const std::string& filepath);
 
-    int errCode = X509_STORE_CTX_init(storeCtx, x509Store, cert, nullptr);
-    if (errCode != 1)
-    {
-        BMCWEB_LOG_ERROR("Error occurred during X509_STORE_CTX_init call");
-        X509_STORE_CTX_free(storeCtx);
-        X509_STORE_free(x509Store);
-        return false;
-    }
+X509* loadCert(const std::string& filePath);
 
-    errCode = X509_verify_cert(storeCtx);
-    if (errCode == 1)
-    {
-        BMCWEB_LOG_INFO("Certificate verification is success");
-        X509_STORE_CTX_free(storeCtx);
-        X509_STORE_free(x509Store);
-        return true;
-    }
-    if (errCode == 0)
-    {
-        errCode = X509_STORE_CTX_get_error(storeCtx);
-        X509_STORE_CTX_free(storeCtx);
-        X509_STORE_free(x509Store);
-        if (isTrustChainError(errCode))
-        {
-            BMCWEB_LOG_DEBUG("Ignoring Trust Chain error. Reason: {}",
-                             X509_verify_cert_error_string(errCode));
-            return true;
-        }
-        BMCWEB_LOG_ERROR("Certificate verification failed. Reason: {}",
-                         X509_verify_cert_error_string(errCode));
-        return false;
-    }
+int addExt(X509* cert, int nid, const char* value);
 
-    BMCWEB_LOG_ERROR(
-        "Error occurred during X509_verify_cert call. ErrorCode: {}", errCode);
-    X509_STORE_CTX_free(storeCtx);
-    X509_STORE_free(x509Store);
-    return false;
-}
+std::string generateSslCertificate(const std::string& cn);
 
+<<<<<<< HEAD
 inline std::string verifyOpensslKeyCert(const std::string& filepath,
                                         pem_password_cb* pwdCb)
 {
     bool privateKeyValid = false;
+=======
+void writeCertificateToFile(const std::string& filepath,
+                            const std::string& certificate);
+>>>>>>> origin/master
 
-    BMCWEB_LOG_INFO("Checking certs in file {}", filepath);
-    boost::beast::file_posix file;
-    boost::system::error_code ec;
-    file.open(filepath.c_str(), boost::beast::file_mode::read, ec);
-    if (ec)
-    {
-        return "";
-    }
-    bool certValid = false;
-    std::string fileContents;
-    fileContents.resize(static_cast<size_t>(file.size(ec)), '\0');
-    file.read(fileContents.data(), fileContents.size(), ec);
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("Failed to read file");
-        return "";
-    }
+std::string ensureOpensslKeyPresentAndValid(const std::string& filepath);
 
+<<<<<<< HEAD
     BIO* bufio = BIO_new_mem_buf(static_cast<void*>(fileContents.data()),
                                  static_cast<int>(fileContents.size()));
     EVP_PKEY* pkey = PEM_read_bio_PrivateKey(bufio, nullptr, pwdCb, nullptr);
@@ -767,5 +708,11 @@ inline std::optional<boost::asio::ssl::context> getSSLClientContext()
 
     return {std::move(sslCtx)};
 }
+=======
+std::shared_ptr<boost::asio::ssl::context> getSslServerContext();
+
+std::optional<boost::asio::ssl::context>
+    getSSLClientContext(VerifyCertificate verifyCertificate);
+>>>>>>> origin/master
 
 } // namespace ensuressl
