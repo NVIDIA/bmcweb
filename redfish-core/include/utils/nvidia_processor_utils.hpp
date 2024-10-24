@@ -1033,6 +1033,26 @@ inline void getPortDisableFutureStatus(
     const dbus::utility::MapperServiceMap& serviceMap,
     const std::string& portId)
 {
+    // Check that the property even exists by checking for the interface
+    const std::string* inventoryService = nullptr;
+    for (const auto& [serviceName, interfaceList] : serviceMap)
+    {
+        if (std::find(interfaceList.begin(), interfaceList.end(),
+                      "com.nvidia.NVLink.NVLinkDisableFuture") !=
+            interfaceList.end())
+        {
+            inventoryService = &serviceName;
+            break;
+        }
+    }
+    if (inventoryService == nullptr)
+    {
+        // no interface = no failure
+        BMCWEB_LOG_DEBUG(
+            "NVLinkDisableFuture interface not found in getPortDisableFutureStatus");
+        return;
+    }
+
     using PropertyType =
         std::variant<std::string, bool, size_t, std::vector<uint8_t>>;
     using PropertiesMap = boost::container::flat_map<std::string, PropertyType>;
@@ -1116,7 +1136,7 @@ inline void getPortDisableFutureStatus(
             "org.freedesktop.DBus.Properties", "Get",
             "xyz.openbmc_project.Association", "endpoints");
     },
-        serviceMap.front().first, objectPath, "org.freedesktop.DBus.Properties",
+        *inventoryService, objectPath, "org.freedesktop.DBus.Properties",
         "GetAll", "com.nvidia.NVLink.NVLinkDisableFuture");
 }
 
