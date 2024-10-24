@@ -740,7 +740,7 @@ inline void handleChassisGetSubTree(
                  path](const boost::system::error_code&,
                        const dbus::utility::DBusPropertiesMap& propertiesList) {
                 redfish::nvidia_chassis_utils::handleChassisGetAllProperties(
-                    asyncResp, chassisId, path, propertiesList);
+                    asyncResp, chassisId, path, propertiesList, connectionName);
                 getChassisStateWrapper(asyncResp, propertiesList,
                                        connectionName, path);
                 getStorageLink(asyncResp, path);
