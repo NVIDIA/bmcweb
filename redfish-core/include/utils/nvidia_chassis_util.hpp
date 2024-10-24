@@ -1348,8 +1348,9 @@ inline void setChassisWriteProtectProtectEnable(
 
 inline void handleChassisGetAllProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& /*path*/,
-    const dbus::utility::DBusPropertiesMap& propertiesList)
+    const std::string& chassisId, const std::string& path,
+    const dbus::utility::DBusPropertiesMap& propertiesList,
+    const std::string& connectionName)
 {
     const std::string* partNumber = nullptr;
     const std::string* serialNumber = nullptr;
@@ -1449,12 +1450,6 @@ inline void handleChassisGetAllProperties(
     {
         asyncResp->res.jsonValue["Name"] = *prettyName;
     }
-    if (type != nullptr)
-    {
-        // asyncResp->res.jsonValue["Type"] = *type;
-        asyncResp->res.jsonValue["ChassisType"] =
-            redfish::chassis_utils::getChassisType(*type);
-    }
     if (height != nullptr)
     {
         asyncResp->res.jsonValue["HeightMm"] = *height;
@@ -1518,6 +1513,7 @@ inline void handleChassisGetAllProperties(
                 *pCIeReferenceClockCount;
         }
     }
+    redfish::chassis_utils::getChassisType(asyncResp, connectionName, path);
     asyncResp->res.jsonValue["Name"] = chassisId;
     asyncResp->res.jsonValue["Id"] = chassisId;
 #ifdef BMCWEB_ALLOW_DEPRECATED_POWER_THERMAL
