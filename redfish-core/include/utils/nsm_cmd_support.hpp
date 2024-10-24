@@ -232,7 +232,7 @@ inline void getMatchingFruDeviceObjectPath(
 
     },
         "xyz.openbmc_project.NSM", "/xyz/openbmc_project/NSM",
-        "com.nvidia.NSM.NSMDevice", "getObjectPathForNSMDevice",
+        "com.nvidia.NSM.NSMDevice", "getNSMDeviceObjectPath",
         deviceIdentificationId, deviceInstanceId);
 }
 

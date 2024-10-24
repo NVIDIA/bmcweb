@@ -3616,12 +3616,6 @@ inline void requestRoutesManager(App& app)
 
 #ifdef BMCWEB_COMMAND_SMBPBI_OOB
             nlohmann::json& oemActionsNvidia = oemActions["Nvidia"];
-#elif BMCWEB_NSM_COMMAND_RAW
-            nlohmann::json& oemActionsNvidia = oemActions["Nvidia"];
-#endif
-
-#ifdef BMCWEB_COMMAND_SMBPBI_OOB
-            nlohmann::json& oemActionsNvidia = oemActions["Nvidia"];
 
             oemActionsNvidia["#NvidiaManager.SyncOOBRawCommand"]["target"] =
                 "/redfish/v1/Managers/" +
@@ -3644,6 +3638,7 @@ inline void requestRoutesManager(App& app)
                                 "/Oem/Nvidia/AsyncOOBRawCommandActionInfo";
 #endif // BMCWEB_COMMAND_SMBPBI_OOB
 #ifdef BMCWEB_NSM_COMMAND_RAW
+            nlohmann::json& oemActionsNvidiaNSM = oemActions["Nvidia"];
             boost::urls::url nsmRawCommandUrl;
             nsmRawCommandUrl.set_path("/redfish/v1/Managers");
             nsmRawCommandUrl.segments().push_back(
@@ -3661,9 +3656,9 @@ inline void requestRoutesManager(App& app)
             nsmRawCommandActionInfoUrl.segments().push_back(
                 "NSMRawCommandActionInfo");
 
-            oemActionsNvidia["#NvidiaManager.NSMRawCommand"]["target"] =
+            oemActionsNvidiaNSM["#NvidiaManager.NSMRawCommand"]["target"] =
                 nsmRawCommandUrl.buffer();
-            oemActionsNvidia["#NvidiaManager.NSMRawCommand"]
+            oemActionsNvidiaNSM["#NvidiaManager.NSMRawCommand"]
                             ["@Redfish.ActionInfo"] =
                                 nsmRawCommandActionInfoUrl.buffer();
 #endif // BMCWEB_NSM_COMMAND_RAW
