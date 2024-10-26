@@ -85,25 +85,17 @@ class App
 
     void loadCertificate()
     {
-<<<<<<< HEAD
-#ifdef BMCWEB_ENABLE_SSL
-        if (persistent_data::getConfig().isTLSAuthEnabled())
+        if constexpr (!BMCWEB_INSECURE_DISABLE_SSL)
         {
-            if (!sslServer)
+            if (persistent_data::getConfig().isTLSAuthEnabled())
             {
-                return;
+                if (!sslServer)
+                {
+                    return;
+                }
+                sslServer->loadCertificate();
             }
-            sslServer->loadCertificate();
         }
-#endif
-=======
-        BMCWEB_LOG_DEBUG("Loading certificate");
-        if (!server)
-        {
-            return;
-        }
-        server->loadCertificate();
->>>>>>> origin/master
     }
 
     std::optional<boost::asio::ip::tcp::acceptor> setupSocket()
@@ -146,13 +138,22 @@ class App
             BMCWEB_LOG_CRITICAL("Couldn't start server");
             return;
         }
-#ifdef BMCWEB_ENABLE_SSL
-        if (persistent_data::getConfig().isTLSAuthEnabled())
+        if constexpr (!BMCWEB_INSECURE_DISABLE_SSL)
         {
-            BMCWEB_LOG_INFO("TLS RUN");
-            sslServer = std::make_unique<ssl_server_type>(
-                this, std::move(*acceptor), sslContext, io);
-            sslServer->run();
+            if (persistent_data::getConfig().isTLSAuthEnabled())
+            {
+                BMCWEB_LOG_INFO("TLS RUN");
+                sslServer = std::make_unique<ssl_server_type>(
+                    this, std::move(*acceptor), sslContext, io);
+                sslServer->run();
+            }
+            else
+            {
+                BMCWEB_LOG_INFO("NON TLS RUN");
+                rawServer = std::make_unique<raw_server_type>(
+                    this, std::move(*acceptor), sslContext, io);
+                rawServer->run();
+            }
         }
         else
         {
@@ -161,12 +162,6 @@ class App
                 this, std::move(*acceptor), sslContext, io);
             rawServer->run();
         }
-#else
-        BMCWEB_LOG_INFO("NON TLS RUN");
-        rawServer = std::make_unique<raw_server_type>(
-            this, std::move(*acceptor), sslContext, io);
-        rawServer->run();
-#endif
     }
 
     void stop()

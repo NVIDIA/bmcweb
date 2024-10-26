@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include "error_messages.hpp"
 #include "health.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 
@@ -30,13 +31,29 @@
 namespace redfish
 {
 
-#ifdef BMCWEB_CONTROL_SETPOINT_UNITS_PERCENTAGE
-const std::string setPointUnits = "%";
-const std::string setPointPropName = "PowerCapPercentage";
-#else
-const std::string setPointUnits = "W";
-const std::string setPointPropName = "PowerCap";
-#endif
+constexpr std::string_view setPointPropName()
+{
+    if constexpr (BMCWEB_POWER_CONTROL_TYPE_PERCENTAGE)
+    {
+        return "PowerCapPercentage";
+    }
+    else
+    {
+        return "PowerCap";
+    }
+}
+
+constexpr std::string_view setPointUnits()
+{
+    if constexpr (BMCWEB_POWER_CONTROL_TYPE_PERCENTAGE)
+    {
+        return "%";
+    }
+    else
+    {
+        return "W";
+    }
+}
 
 static std::map<std::string, std::string> modes = {
     {"xyz.openbmc_project.Control.Power.Mode.PowerMode.MaximumPerformance",
@@ -157,7 +174,7 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                 asyncResp->res.jsonValue[propertyName] = *value;
                                 continue;
                             }
-                            else if (propertyName == setPointPropName)
+                            else if (propertyName == setPointPropName())
                             {
                                 propertyName = "SetPoint";
                                 const auto* value =
@@ -252,7 +269,7 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& chassisID)
 {
-    const std::string& sensorName = platformPowerControlSensorName;
+    const std::string sensorName(BMCWEB_PLATFORM_POWER_CONTROL_SENSOR_NAME);
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, sensorName, chassisID](
@@ -627,13 +644,13 @@ inline void changepowercap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
                         BMCWEB_LOG_DEBUG(
                             "Performing Patch using Set Async Method Call");
-
+                        std::string setPointPropName2(setPointPropName());
                         nvidia_async_operation_utils::
                             doGenericSetAsyncAndGatherResult(
                                 asyncResp, std::chrono::seconds(60),
                                 element.first, path,
                                 "xyz.openbmc_project.Control.Power.Cap",
-                                setPointPropName,
+                                setPointPropName2,
                                 dbus::utility::DbusVariantType(setpoint),
                                 nvidia_async_operation_utils::
                                     PatchPowerCapCallback{
@@ -712,7 +729,8 @@ inline void changepowercap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 },
                     element.first, path, "org.freedesktop.DBus.Properties",
                     "Set", "xyz.openbmc_project.Control.Power.Cap",
-                    setPointPropName, dbus::utility::DbusVariantType(setpoint));
+                    setPointPropName(),
+                    dbus::utility::DbusVariantType(setpoint));
             });
         }
     },
@@ -911,7 +929,7 @@ inline void requestRoutesChassisControls(App& app)
                 return;
             }
             asyncResp->res.jsonValue["@odata.type"] = "#Control.v1_3_0.Control";
-            asyncResp->res.jsonValue["SetPointUnits"] = setPointUnits;
+            asyncResp->res.jsonValue["SetPointUnits"] = setPointUnits();
             asyncResp->res.jsonValue["Id"] = controlID;
             asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
             asyncResp->res.jsonValue["@odata.id"] =
@@ -1248,7 +1266,8 @@ inline void requestRoutesChassisControls(App& app)
                         }
                         if (setpoint)
                         {
-                            if ((setPointUnits == "%") && (setpoint > 100))
+                            if (BMCWEB_POWER_CONTROL_TYPE_PERCENTAGE &&
+                                (setpoint > 100))
                             {
                                 BMCWEB_LOG_ERROR("invalid input");
                                 std::string strValue =

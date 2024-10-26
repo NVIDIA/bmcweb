@@ -19,13 +19,8 @@ limitations under the License.
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
-<<<<<<< HEAD
-#include "generated/enums/ip_addresses.hpp"
-#include "health.hpp"
-=======
 #include "generated/enums/ethernet_interface.hpp"
 #include "generated/enums/resource.hpp"
->>>>>>> origin/master
 #include "human_sort.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
@@ -1201,14 +1196,6 @@ void getEthernetIfaceList(CallbackFunc&& callback)
             ifaceList.reserve(resp.size());
             if (ec)
             {
-<<<<<<< HEAD
-                // If interface is
-                // xyz.openbmc_project.Network.EthernetInterface, this is
-                // what we're looking for.
-
-                if (interface.first ==
-                    "xyz.openbmc_project.Network.EthernetInterface")
-=======
                 callback(false, ifaceList);
                 return;
             }
@@ -1218,7 +1205,6 @@ void getEthernetIfaceList(CallbackFunc&& callback)
             {
                 // And all interfaces available for certain ObjectPath.
                 for (const auto& interface : objpath.second)
->>>>>>> origin/master
                 {
                     // If interface is
                     // xyz.openbmc_project.Network.EthernetInterface, this is
@@ -2229,19 +2215,6 @@ inline void requestEthernetInterfacesRoutes(App& app)
                     return;
                 }
 
-<<<<<<< HEAD
-        std::string parentInterface;
-        if (!crow::utility::readUrlSegments(
-                *parsedUri, "redfish", "v1", "Managers",
-                BMCWEB_REDFISH_MANAGER_URI_NAME, "EthernetInterfaces",
-                std::ref(parentInterface)))
-        {
-            messages::propertyValueNotInList(
-                asyncResp->res, parentInterfaceUri,
-                "Links/RelatedInterfaces/0/@odata.id");
-            return;
-        }
-=======
                 std::string parentInterface;
                 if (!crow::utility::readUrlSegments(
                         *parsedUri, "redfish", "v1", "Managers", "bmc",
@@ -2252,7 +2225,6 @@ inline void requestEthernetInterfacesRoutes(App& app)
                         "Links/RelatedInterfaces/0/@odata.id");
                     return;
                 }
->>>>>>> origin/master
 
                 if (!vlanEnable)
                 {
@@ -2343,89 +2315,6 @@ inline void requestEthernetInterfacesRoutes(App& app)
                     return;
                 }
 
-<<<<<<< HEAD
-        std::optional<std::string> hostname;
-        std::optional<std::string> fqdn;
-        std::optional<std::string> macAddress;
-        std::optional<std::string> ipv6DefaultGateway;
-        std::optional<
-            std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>>
-            ipv4StaticAddresses;
-        std::optional<
-            std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>>
-            ipv6StaticAddresses;
-        std::optional<
-            std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>>
-            ipv6StaticDefaultGateways;
-        std::optional<std::vector<std::string>> staticNameServers;
-        std::optional<bool> ipv6AutoConfigEnabled;
-        std::optional<bool> interfaceEnabled;
-        std::optional<size_t> mtuSize;
-        DHCPParameters v4dhcpParms;
-        DHCPParameters v6dhcpParms;
-        // clang-format off
-        if (!json_util::readJsonPatch(req, asyncResp->res,
-                "DHCPv4/DHCPEnabled",   v4dhcpParms.dhcpv4Enabled,
-                "DHCPv4/UseDNSServers", v4dhcpParms.useDnsServers,
-                "DHCPv4/UseDomainName", v4dhcpParms.useDomainName,
-                "DHCPv4/UseNTPServers", v4dhcpParms.useNtpServers,
-                "DHCPv6/OperatingMode", v6dhcpParms.dhcpv6OperatingMode,
-                "DHCPv6/UseDNSServers", v6dhcpParms.useDnsServers,
-                "DHCPv6/UseDomainName", v6dhcpParms.useDomainName,
-                "DHCPv6/UseNTPServers", v6dhcpParms.useNtpServers,
-                "FQDN", fqdn,
-                "HostName", hostname,
-                "IPv4StaticAddresses", ipv4StaticAddresses,
-                "IPv6DefaultGateway", ipv6DefaultGateway,
-                "IPv6StaticAddresses", ipv6StaticAddresses,
-                "IPv6StaticDefaultGateways", ipv6StaticDefaultGateways,
-                "InterfaceEnabled", interfaceEnabled,
-                "MACAddress", macAddress,
-                "MTUSize", mtuSize,
-                "StatelessAddressAutoConfig/IPv6AutoConfigEnabled", ipv6AutoConfigEnabled,
-                "StaticNameServers", staticNameServers
-                )
-            )
-        {
-            return;
-        }
-        //clang-format on
-#ifndef BMCWEB_DHCP_CONFIGURATION_UPDATE
-        if (v4dhcpParms.dhcpv4Enabled)
-        {
-            messages::propertyNotWritable(asyncResp->res, "DHCPv4");
-            return;
-        }
-#endif
-        // Get single eth interface data, and call the below callback
-        // for JSON preparation
-        getEthernetIfaceData(
-            ifaceId,
-            [asyncResp, ifaceId, hostname = std::move(hostname),
-             fqdn = std::move(fqdn), macAddress = std::move(macAddress),
-             ipv4StaticAddresses = std::move(ipv4StaticAddresses),
-             ipv6DefaultGateway = std::move(ipv6DefaultGateway),
-             ipv6StaticAddresses = std::move(ipv6StaticAddresses),
-             ipv6StaticDefaultGateway = std::move(ipv6StaticDefaultGateways),
-             staticNameServers = std::move(staticNameServers), mtuSize,
-             ipv6AutoConfigEnabled, v4dhcpParms = std::move(v4dhcpParms),
-             v6dhcpParms = std::move(v6dhcpParms), interfaceEnabled](
-                const bool success, const EthernetInterfaceData& ethData,
-                const std::vector<IPv4AddressData>& ipv4Data,
-                const std::vector<IPv6AddressData>& ipv6Data,
-                const std::vector<StaticGatewayData>& ipv6GatewayData) mutable {
-            if (!success)
-            {
-                // ... otherwise return error
-                // TODO(Pawel)consider distinguish between non
-                // existing object, and other errors
-                messages::resourceNotFound(asyncResp->res, "EthernetInterface",
-                                           ifaceId);
-                return;
-            }
-            handleDHCPPatch(ifaceId, ethData, v4dhcpParms, v6dhcpParms,
-                                asyncResp);
-=======
                 std::optional<std::string> hostname;
                 std::optional<std::string> fqdn;
                 std::optional<std::string> macAddress;
@@ -2475,7 +2364,13 @@ inline void requestEthernetInterfacesRoutes(App& app)
                 {
                     return;
                 }
-
+#ifndef BMCWEB_DHCP_CONFIGURATION_UPDATE
+                if (v4dhcpParms.dhcpv4Enabled)
+                {
+                    messages::propertyNotWritable(asyncResp->res, "DHCPv4");
+                    return;
+                }
+#endif
                 // Get single eth interface data, and call the below callback
                 // for JSON preparation
                 getEthernetIfaceData(
@@ -2506,7 +2401,6 @@ inline void requestEthernetInterfacesRoutes(App& app)
                                 asyncResp->res, "EthernetInterface", ifaceId);
                             return;
                         }
->>>>>>> origin/master
 
                         handleDHCPPatch(ifaceId, ethData, v4dhcpParms,
                                         v6dhcpParms, asyncResp);
@@ -2557,57 +2451,36 @@ inline void requestEthernetInterfacesRoutes(App& app)
                                                            *ipv6StaticAddresses,
                                                            ipv6Data, asyncResp);
                         }
-
-<<<<<<< HEAD
-            if (interfaceEnabled)
-            {
-#ifdef BMCWEB_NIC_CONFIGURATION_UPDATE
-                setDbusProperty(asyncResp, "InterfaceEnabled",
-=======
                         if (ipv6StaticDefaultGateway)
                         {
                             handleIPv6DefaultGateway(
                                 ifaceId, *ipv6StaticDefaultGateway,
                                 ipv6GatewayData, asyncResp);
                         }
-
                         if (interfaceEnabled)
                         {
-                            setDbusProperty(
-                                asyncResp, "InterfaceEnabled",
->>>>>>> origin/master
-                                "xyz.openbmc_project.Network",
-                                sdbusplus::message::object_path(
-                                    "/xyz/openbmc_project/network") /
-                                    ifaceId,
-                                "xyz.openbmc_project.Network.EthernetInterface",
-                                "NICEnabled", *interfaceEnabled);
-<<<<<<< HEAD
+#ifdef BMCWEB_NIC_CONFIGURATION_UPDATE
+                            setDbusProperty(asyncResp, "InterfaceEnabled",
+                                            "xyz.openbmc_project.Network",
+                                            sdbusplus::message::object_path(
+                                                "/xyz/openbmc_project/network") /
+                                                ifaceId,
+                                            "xyz.openbmc_project.Network.EthernetInterface",
+                                            "NICEnabled", *interfaceEnabled);
 #else
-                messages::propertyNotWritable(asyncResp->res,
-                                              "InterfaceEnabled");
-                return;
+                            messages::propertyNotWritable(asyncResp->res,
+                                                        "InterfaceEnabled");
+                            return;
 #endif
-            }
-
-            if (mtuSize)
-            {
-                handleMTUSizePatch(ifaceId, *mtuSize, asyncResp);
-            }
-        });
-    });
-    
-=======
                         }
 
                         if (mtuSize)
                         {
                             handleMTUSizePatch(ifaceId, *mtuSize, asyncResp);
                         }
-                    });
-            });
-
->>>>>>> origin/master
+        });
+    });
+    
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/<str>/")
         .privileges(redfish::privileges::deleteEthernetInterface)
         .methods(boost::beast::http::verb::delete_)(
@@ -2626,18 +2499,6 @@ inline void requestEthernetInterfacesRoutes(App& app)
                     return;
                 }
 
-<<<<<<< HEAD
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, ifaceId](const boost::system::error_code& ec,
-                                 const sdbusplus::message_t& m) {
-            afterDelete(asyncResp, ifaceId, ec, m);
-            },
-            "xyz.openbmc_project.Network",
-            std::string("/xyz/openbmc_project/network/") + ifaceId,
-            "xyz.openbmc_project.Object.Delete", "Delete");
-        });
-
-=======
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, ifaceId](const boost::system::error_code& ec,
                                          const sdbusplus::message_t& m) {
@@ -2647,7 +2508,6 @@ inline void requestEthernetInterfacesRoutes(App& app)
                     std::string("/xyz/openbmc_project/network/") + ifaceId,
                     "xyz.openbmc_project.Object.Delete", "Delete");
             });
->>>>>>> origin/master
 }
 
 } // namespace redfish

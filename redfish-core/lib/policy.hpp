@@ -55,8 +55,8 @@ inline void handleLeakDetectionPolicyHead(
     });
 }
 
-static inline bool checkChassisId(const std::string& path,
-                                  const std::string& chassisId)
+inline bool checkChassisId(const std::string& path,
+                           const std::string& chassisId)
 {
     std::string chassisName =
         sdbusplus::message::object_path(path).parent_path().filename();

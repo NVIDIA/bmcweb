@@ -9,13 +9,8 @@ project(
         'b_lto=true',
         'b_ndebug=if-release',
         'buildtype=debugoptimized',
-<<<<<<< HEAD
-        'cpp_rtti=true',
-        'cpp_std=c++20',
-=======
         'cpp_rtti=false',
         'cpp_std=c++23',
->>>>>>> origin/master
         'warning_level=3',
         'werror=true',
     ],
@@ -75,144 +70,7 @@ incdir = include_directories(
     'redfish-core/lib',
     'http',
 )
-<<<<<<< HEAD
-
-# Get the options and enable the respective features
-## create a MAP of  "options : feature_flag"
-
-feature_map = {
-    'lldp-dedicated-ports'                        : '-DBMCWEB_ENABLE_LLDP_DEDICATED_PORTS',
-    'enforce_sensor_name_format'                  : '-DBMCWEB_ENFORCE_SENSOR_NAME_FORMAT',
-    'power-control-type-percentage'               : '-DBMCWEB_CONTROL_SETPOINT_UNITS_PERCENTAGE',
-    'platform-metrics'                            : '-DBMCWEB_ENABLE_PLATFORM_METRICS',
-    'basic-auth'                                  : '-DBMCWEB_ENABLE_BASIC_AUTHENTICATION',
-    'cookie-auth'                                 : '-DBMCWEB_ENABLE_COOKIE_AUTHENTICATION',
-    'google-api'                                  : '-DBMCWEB_ENABLE_GOOGLE_API',
-    'host-serial-socket'                          : '-DBMCWEB_ENABLE_HOST_SERIAL_WEBSOCKET',
-    'ibm-management-console'                      : '-DBMCWEB_ENABLE_IBM_MANAGEMENT_CONSOLE',
-    'insecure-disable-csrf'                       : '-DBMCWEB_INSECURE_DISABLE_CSRF_PREVENTION',
-    'insecure-disable-ssl'                        : '-DBMCWEB_INSECURE_DISABLE_SSL',
-    'insecure-push-style-notification'            : '-DBMCWEB_INSECURE_ENABLE_HTTP_PUSH_STYLE_EVENTING',
-    'insecure-tftp-update'                        : '-DBMCWEB_INSECURE_ENABLE_REDFISH_FW_TFTP_UPDATE',
-    'scp-update'                                  : '-DBMCWEB_ENABLE_REDFISH_FW_SCP_UPDATE',
-    'redfish-updateservice-http-pull'             : '-DBMCWEB_ENABLE_REDFISH_FW_HTTP_HTTPS_UPDATE',
-    'kvm'                                         : '-DBMCWEB_ENABLE_KVM' ,
-    'mutual-tls-auth'                             : '-DBMCWEB_ENABLE_MUTUAL_TLS_AUTHENTICATION',
-    'redfish-aggregation'                         : '-DBMCWEB_ENABLE_REDFISH_AGGREGATION',
-    'redfish-allow-deprecated-power-thermal'      : '-DBMCWEB_ALLOW_DEPRECATED_POWER_THERMAL',
-    'redfish-bmc-journal'                         : '-DBMCWEB_ENABLE_REDFISH_BMC_JOURNAL',
-    'redfish-cpu-log'                             : '-DBMCWEB_ENABLE_REDFISH_CPU_LOG',
-    'nvidia-oem-fw-update-staging'                : '-DBMCWEB_ENABLE_NVIDIA_UPDATE_STAGING',
-    'nvidia-oem-logservices'                      : '-DBMCWEB_ENABLE_NVIDIA_OEM_LOGSERVICES',
-    'nvidia-oem-common-properties'                : '-DBMCWEB_ENABLE_NVIDIA_OEM_COMMON_PROPERTIES',
-    'nvidia-oem-bf-properties'                    : '-DBMCWEB_ENABLE_NVIDIA_OEM_BF_PROPERTIES',
-    'nvidia-oem-bf3-properties'                   : '-DBMCWEB_ENABLE_NVIDIA_OEM_BF3_PROPERTIES',
-    'nvidia-oem-gb200nvl-properties'              : '-DBMCWEB_ENABLE_NVIDIA_OEM_GB200NVL_PROPERTIES',
-    'nvidia-retimer-debugmode'                    : '-DBMCWEB_ENABLE_NVIDIA_RETIMER_DEBUGMODE',
-    'nvidia-oem-device-status-from-file'          : '-DBMCWEB_ENABLE_DEVICE_STATUS_FROM_FILE',
-    'nvidia-device-status-from-association'       : '-DBMCWEB_ENABLE_DEVICE_STATUS_FROM_ASSOCIATION',
-    'nvidia-uuid-from-platform-chassis-name'      : '-DBMCWEB_ENABLE_UUID_FROM_PLATFORM_CHASSIS_NAME',
-    'network-adapters'                            : '-DBMCWEB_ENABLE_NETWORK_ADAPTERS',
-    'host-eth-iface'                              : '-DBMCWEB_ENABLE_HOST_ETH_IFACE',
-    'network-adapters-generic'                    : '-DBMCWEB_ENABLE_NETWORK_ADAPTERS_GENERIC',
-    'redfish-dbus-log'                            : '-DBMCWEB_ENABLE_REDFISH_DBUS_LOG_ENTRIES',
-    'redfish-fdr-log'                             : '-DBMCWEB_ENABLE_REDFISH_FDR_DUMP_LOG',
-    'redfish-net-log'                             : '-DBMCWEB_ENABLE_REDFISH_NET_DUMP_LOG',
-    'bmcweb-chunking'                             : '-DBMCWEB_ENABLE_CHUNKING',
-    'redfish-host-logger'                         : '-DBMCWEB_ENABLE_REDFISH_HOST_LOGGER',
-    'redfish-dbus-event'                          : '-DBMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH',
-    'redfish-new-powersubsystem-thermalsubsystem' : '-DBMCWEB_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM',
-    'redfish-oem-manager-fan-data'                : '-DBMCWEB_ENABLE_REDFISH_OEM_MANAGER_FAN_DATA',
-    'redfish-post-to-old-updateservice'           : '-DBMCWEB_ENABLE_REDFISH_UPDATESERVICE_OLD_POST_URL',
-    'redfish'                                     : '-DBMCWEB_ENABLE_REDFISH',
-    'rest'                                        : '-DBMCWEB_ENABLE_DBUS_REST',
-    'session-auth'                                : '-DBMCWEB_ENABLE_SESSION_AUTHENTICATION',
-    'static-hosting'                              : '-DBMCWEB_ENABLE_STATIC_HOSTING',
-    'experimental-redfish-multi-computer-system'  : '-DBMCWEB_ENABLE_MULTI_COMPUTERSYSTEM',
-    'vm-websocket'                                : '-DBMCWEB_ENABLE_VM_WEBSOCKET',
-    'xtoken-auth'                                 : '-DBMCWEB_ENABLE_XTOKEN_AUTHENTICATION',
-    'health-rollup-alternative'                   : '-DBMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE',
-    'disable-health-rollup'                       : '-DBMCWEB_DISABLE_HEALTH_ROLLUP',
-    'disable-conditions-array'                    : '-DBMCWEB_DISABLE_CONDITIONS_ARRAY',
-    'rmedia'                	                    : '-DBMCWEB_ENABLE_RMEDIA',
-    'tls-auth-opt-in'                             : '-DBMCWEB_ENABLE_TLS_AUTH_OPT_IN',
-    'manufacturing-test'                          : '-DBMCWEB_ENABLE_MFG_TEST_API',
-    'host-iface'                                	: '-DBMCWEB_ENABLE_HOST_IFACE',
-    'array-bootprogress'                          : '-DBMCWEB_ARRAY_BOOT_PROGRESS',
-    'bios'                                        : '-DBMCWEB_ENABLE_BIOS',
-    'dpu-bios'                                    : '-DBMCWEB_ENABLE_DPU_BIOS',
-    'ipmi'                                        : '-DBMCWEB_ENABLE_IPMI',
-    'ntp'                                         : '-DBMCWEB_ENABLE_NTP',
-    'patch-ssh'                                   : '-DBMCWEB_ENABLE_PATCH_SSH',
-    'dhcp-configuration-update'                   : '-DBMCWEB_DHCP_CONFIGURATION_UPDATE',
-    'host-os-features'                            : '-DBMCWEB_ENABLE_HOST_OS_FEATURE',
-    'fencing-privilege'                           : '-DBMCWEB_ENABLE_FENCING_PRIVILEGE',
-    'host-auxpower-features'                            : '-DBMCWEB_ENABLE_HOST_AUX_POWER',
-    'nic-configuration-update'                    : '-DBMCWEB_NIC_CONFIGURATION_UPDATE',
-    'command-shell'                               : '-DBMCWEB_ENABLE_IPMI_SOL',
-    'redfish-system-faultlog-dump-log'            : '-DBMCWEB_ENABLE_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG',
-    'reset-bios-by-clear-nonvolatile'             : '-DBMCWEB_RESET_BIOS_BY_CLEAR_NONVOLATILE',
-    'dot-support'                                 : '-DBMCWEB_ENABLE_DOT',
-    'manual-boot-mode-support'                    : '-DBMCWEB_ENABLE_MANUAL_BOOT_MODE',
-    'force-insecure-event-notification'           : '-DBMCWEB_FORCE_INSECURE_EVENT_NOTIFICATION',
-    'use-efficient-expand-on-sensors'             : '-DBMCWEB_ENABLE_EFFICIENT_EXPAND',
-    'shmem-platform-metrics'                      : '-DBMCWEB_ENABLE_SHMEM_PLATFORM_METRICS',
-    'enable-sse'                                  : '-DBMCWEB_ENABLE_SSE',
-    'erot-reset'                                  : '-DBMCWEB_ENABLE_EROT_RESET',
-    'cpu-diag-support'                            : '-DBMCWEB_ENABLE_CPU_DIAG_FEATURE',
-    'command-smbpbi-oob'                          : '-DBMCWEB_COMMAND_SMBPBI_OOB',
-    'redfish-leak-detect'                         : '-DBMCWEB_ENABLE_REDFISH_LEAK_DETECT',
-    'profile-configuration'                       : '-DBMCWEB_ENABLE_PROFILES',
-}
-
-if (get_option('tls-auth-opt-in').enabled())
-    if (get_option('insecure-disable-auth').enabled())
-        #error('Feature tls-auth-opt-in conflicts with insecure-disable-auth, only one can be enabled!')
-    endif
-    if (get_option('insecure-disable-ssl').enabled())
-        #error('Feature tls-auth-opt-in conflicts with insecure-disable-ssl, only one can be enabled!')
-    endif
-endif
-
-
-
-# Get the options status and build a project summary to show which flags are
-# being enabled during the configuration time.
-
-foreach option_key, option_value : feature_map
-    if (get_option(option_key).allowed())
-        if (option_key == 'mutual-tls-auth' or option_key == 'insecure-disable-ssl')
-            if (get_option('insecure-disable-ssl').disabled() or get_option(
-                'mutual-tls-auth',
-            ).disabled())
-                add_project_arguments(option_value, language: 'cpp')
-                summary(option_key, option_value, section: 'Enabled Features')
-            endif
-        elif (option_key in [
-            'basic-auth',
-            'cookie-auth',
-            'session-auth',
-            'xtoken-auth',
-            'mutual-tls-auth',
-        ])
-            if (get_option('insecure-disable-auth').disabled())
-                add_project_arguments(option_value, language: 'cpp')
-                summary(option_key, option_value, section: 'Enabled Features')
-            endif
-        else
-            summary(option_key, option_value, section: 'Enabled Features')
-            add_project_arguments(option_value, language: 'cpp')
-        endif
-    else
-        if (option_key == 'insecure-disable-ssl')
-            summary('ssl', '-DBMCWEB_ENABLE_SSL', section: 'Enabled Features')
-            add_project_arguments('-DBMCWEB_ENABLE_SSL', language: 'cpp')
-        endif
-    endif
-endforeach
-=======
 incdir_cli = include_directories('http', 'include')
->>>>>>> origin/master
 
 if (get_option('tests').allowed())
     summary('unittest', 'NA', section: 'Features')
@@ -414,16 +272,6 @@ endif
 bmcweb_dependencies += tinyxml
 
 systemd = dependency('systemd')
-<<<<<<< HEAD
-add_project_arguments('-DSYSTEMD_VERSION=' + systemd.version(), language: 'cpp')
-
-zlib = dependency('zlib')
-bmcweb_dependencies += [systemd, zlib]
-
-nlohmann_json_dep = dependency(
-    'nlohmann_json',
-    version: '>=3.11.2',
-=======
 libsystemd = dependency('libsystemd')
 add_project_arguments(
     '-DLIBSYSTEMD_VERSION=' + libsystemd.version(),
@@ -436,7 +284,6 @@ bmcweb_dependencies += [libsystemd, zlib]
 nlohmann_json_dep = dependency(
     'nlohmann_json',
     version: '>=3.11.3',
->>>>>>> origin/master
     include_type: 'system',
 )
 bmcweb_dependencies += nlohmann_json_dep
@@ -457,17 +304,9 @@ else
     boost_libs = [
         'asio',
         'beast',
-<<<<<<< HEAD
-        'callable_traits',
-        'circular_buffer',
-        'format',
-        'headers',
-        'interprocess',
-=======
         'circular_buffer',
         'callable_traits',
         'headers',
->>>>>>> origin/master
         'process',
         'type_index',
         'url',
@@ -476,11 +315,8 @@ else
     ]
     opt.add_cmake_defines(
         {
-<<<<<<< HEAD
-=======
             # 1.86.0 fails this.  Hopefully fixed in 1.86.1
             'CMAKE_CXX_FLAGS': '-Wno-unused-parameter',
->>>>>>> origin/master
             'BOOST_INCLUDE_LIBRARIES': ';'.join(boost_libs),
             'BUILD_SHARED_LIBS': 'OFF',
         },
@@ -490,30 +326,8 @@ else
     foreach boost_lib : boost_libs
         boost_lib_instance = boost.dependency('boost_' + boost_lib).as_system()
         bmcweb_dependencies += [boost_lib_instance]
-<<<<<<< HEAD
-    endforeach
-endif
-
-if get_option('tests').allowed()
-    gtest = dependency(
-        'gtest',
-        main: true,
-        version: '>=1.14.0',
-        disabler: true,
-        required: false,
-    )
-    gmock = dependency('gmock', required: false)
-    if not gtest.found() and get_option('tests').allowed()
-        gtest_proj = subproject('gtest', required: true)
-        gtest = gtest_proj.get_variable('gtest_main_dep')
-        gmock = gtest_proj.get_variable('gmock_dep')
-    endif
-    gtest = gtest.as_system('system')
-    gmock = gmock.as_system('system')
-=======
         bmcweb_cli_dependencies += [boost_lib_instance]
     endforeach
->>>>>>> origin/master
 endif
 
 systemd_system_unit_dir = systemd.get_variable('systemdsystemunitdir')
@@ -542,12 +356,7 @@ bmcweb_cli_dependencies += conf_h_dep
 fs = import('fs')
 
 srcfiles_bmcweb = files(
-<<<<<<< HEAD
-# end large files
-
-=======
     'http/mutual_tls.cpp',
->>>>>>> origin/master
     'redfish-core/src/error_messages.cpp',
     'redfish-core/src/filter_expr_executor.cpp',
     'redfish-core/src/filter_expr_printer.cpp',
@@ -619,14 +428,9 @@ srcfiles_unittest = files(
     'test/include/multipart_test.cpp',
     'test/include/openbmc_dbus_rest_test.cpp',
     'test/include/ossl_random.cpp',
-<<<<<<< HEAD
-    #'test/include/str_utility_test.cpp',
-    'test/redfish-core/include/event_service_manager_test.cpp',
-=======
     'test/include/ssl_key_handler_test.cpp',
     'test/include/str_utility_test.cpp',
     'test/redfish-core/include/event_matches_filter_test.cpp',
->>>>>>> origin/master
     'test/redfish-core/include/filter_expr_executor_test.cpp',
     'test/redfish-core/include/filter_expr_parser_test.cpp',
     'test/redfish-core/include/privileges_test.cpp',
@@ -638,14 +442,6 @@ srcfiles_unittest = files(
     'test/redfish-core/include/utils/json_utils_test.cpp',
     'test/redfish-core/include/redfish_test.cpp',
     'test/redfish-core/include/utils/query_param_test.cpp',
-<<<<<<< HEAD
-    #'test/redfish-core/include/utils/stl_utils_test.cpp',
-    'test/redfish-core/include/utils/time_utils_test.cpp',
-    #'test/redfish-core/lib/chassis_test.cpp',
-    #'test/redfish-core/lib/log_services_dump_test.cpp',
-    'test/redfish-core/lib/log_services_test.cpp',
-    'test/redfish-core/lib/manager_diagnostic_data_test.cpp',
-=======
     'test/redfish-core/include/utils/sensor_utils_test.cpp',
     'test/redfish-core/include/utils/stl_utils_test.cpp',
     'test/redfish-core/include/utils/time_utils_test.cpp',
@@ -654,7 +450,6 @@ srcfiles_unittest = files(
     'test/redfish-core/lib/manager_diagnostic_data_test.cpp',
     'test/redfish-core/lib/manager_logservices_journal_test.cpp',
     'test/redfish-core/lib/metadata_test.cpp',
->>>>>>> origin/master
     'test/redfish-core/lib/power_subsystem_test.cpp',
     'test/redfish-core/lib/service_root_test.cpp',
     'test/redfish-core/lib/system_test.cpp',
@@ -695,11 +490,7 @@ if (get_option('tests').allowed())
             link_with: bmcweblib,
             include_directories: incdir,
             install_dir: bindir,
-<<<<<<< HEAD
-            dependencies: bmcweb_dependencies + [gtest, gmock],
-=======
             dependencies: bmcweb_dependencies + [gtestdep],
->>>>>>> origin/master
         )
         test(fs.stem(test_src), test_bin, protocol: 'gtest')
     endforeach

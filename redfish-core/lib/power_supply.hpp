@@ -8,11 +8,8 @@
 #include "utils/chassis_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
-<<<<<<< HEAD
 #include "utils/nvidia_power_supply_utils.hpp"
-=======
 #include "utils/time_utils.hpp"
->>>>>>> origin/master
 
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
@@ -479,6 +476,10 @@ inline void doPowerSupplyGet(
     getPowerSupplyFirmwareVersion(asyncResp, service, powerSupplyPath);
     getPowerSupplyLocation(asyncResp, service, powerSupplyPath);
     getEfficiencyPercent(asyncResp);
+
+    redfish::nvidia_power_supply_utils::getNvidiaPowerSupply(
+        asyncResp, service, powerSupplyPath,
+        powerSupplyId, chassisId);
 }
 
 inline void handlePowerSupplyHead(
@@ -492,104 +493,9 @@ inline void handlePowerSupplyHead(
     }
 
     // Get the correct Path and Service that match the input parameters
-<<<<<<< HEAD
-    getValidPowerSupplyPath(asyncResp, *validChassisPath, powerSupplyId,
-                            [asyncResp, chassisId, powerSupplyId](
-                                const std::string& powerSupplyPath) {
-        asyncResp->res.addHeader(
-            boost::beast::http::field::link,
-            "</redfish/v1/JsonSchemas/PowerSupply/PowerSupply.json>; rel=describedby");
-        asyncResp->res.jsonValue["@odata.type"] =
-            "#PowerSupply.v1_5_0.PowerSupply";
-        asyncResp->res.jsonValue["Name"] = "Power Supply";
-        asyncResp->res.jsonValue["Id"] = powerSupplyId;
-        asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-            "/redfish/v1/Chassis/{}/PowerSubsystem/PowerSupplies/{}", chassisId,
-            powerSupplyId);
-
-        asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-        asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-
-        dbus::utility::getDbusObject(
-            powerSupplyPath, powerSupplyInterface,
-            [asyncResp, powerSupplyPath, powerSupplyId,
-             chassisId](const boost::system::error_code& ec,
-                        const dbus::utility::MapperGetObject& object) {
-            if (ec || object.empty())
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            getPowerSupplyState(asyncResp, object.begin()->first,
-                                powerSupplyPath);
-            getPowerSupplyHealth(asyncResp, object.begin()->first,
-                                 powerSupplyPath);
-            getPowerSupplyAsset(asyncResp, object.begin()->first,
-                                powerSupplyPath);
-            getPowerSupplyFirmwareVersion(asyncResp, object.begin()->first,
-                                          powerSupplyPath);
-            getPowerSupplyLocation(asyncResp, object.begin()->first,
-                                   powerSupplyPath);
-            redfish::nvidia_power_supply_utils::getNvidiaPowerSupply(
-                asyncResp, object.begin()->first, powerSupplyPath,
-                powerSupplyId, chassisId);
-        });
-
-        getEfficiencyPercent(asyncResp);
-    });
-}
-
-inline void
-    doPowerSupplyMetricsGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& chassisId,
-                            const std::string& powerSupplyId,
-                            const std::optional<std::string>& validChassisPath)
-{
-    if (!validChassisPath)
-    {
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-        return;
-    }
-
-    // Get the correct Path and Service that match the input parameters
-    getValidPowerSupplyPath(asyncResp, *validChassisPath, powerSupplyId,
-                            [asyncResp, chassisId, powerSupplyId](
-                                const std::string& powerSupplyPath) {
-        redfish::nvidia_power_supply_utils::getNvidiaPowerSupplyMetrics(
-            asyncResp, chassisId, powerSupplyId, powerSupplyPath);
-    });
-}
-
-inline void
-    handlePowerSupplyHead(App& app, const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& chassisId,
-                          const std::string& powerSupplyId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    redfish::chassis_utils::getValidChassisPath(
-        asyncResp, chassisId,
-        [asyncResp, chassisId,
-         powerSupplyId](const std::optional<std::string>& validChassisPath) {
-        if (!validChassisPath)
-        {
-            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-            return;
-        }
-
-        // Get the correct Path and Service that match the input parameters
-        getValidPowerSupplyPath(asyncResp, *validChassisPath, powerSupplyId,
-                                [asyncResp](const std::string&) {
-=======
     getValidPowerSupplyPath(
         asyncResp, chassisId, powerSupplyId,
         [asyncResp](const std::string&, const std::string&) {
->>>>>>> origin/master
             asyncResp->res.addHeader(
                 boost::beast::http::field::link,
                 "</redfish/v1/JsonSchemas/PowerSupply/PowerSupply.json>; rel=describedby");
@@ -646,6 +552,27 @@ inline void requestRoutesPowerSupply(App& app)
         .privileges(redfish::privileges::getPowerSupplyMetrics)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handlePowerSupplyMetricsGet, std::ref(app)));
+}
+
+inline void
+    doPowerSupplyMetricsGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& chassisId,
+                            const std::string& powerSupplyId,
+                            const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    // Get the correct Path and Service that match the input parameters
+    getValidPowerSupplyPath(asyncResp, *validChassisPath, powerSupplyId,
+                            [asyncResp, chassisId, powerSupplyId](
+                                const std::string& powerSupplyPath) {
+        redfish::nvidia_power_supply_utils::getNvidiaPowerSupplyMetrics(
+            asyncResp, chassisId, powerSupplyId, powerSupplyPath);
+    });
 }
 
 } // namespace redfish

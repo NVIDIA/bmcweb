@@ -1314,11 +1314,12 @@ inline void handleMetricReportDefinitionCollectionGet(
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/TelemetryService/MetricReportDefinitions";
     asyncResp->res.jsonValue["Name"] = "Metric Definition Collection";
-#ifdef BMCWEB_ENABLE_PLATFORM_METRICS
-    redfish::nvidia_metric_report_def_utils::getMetricReportCollection(
-        asyncResp);
-    return;
-#endif
+    if constexpr (BMCWEB_SHMEM_PLATFORM_METRICS)
+    {
+        redfish::nvidia_metric_report_def_utils::getMetricReportCollection(
+            asyncResp);
+        return;
+    }
     constexpr std::array<std::string_view, 1> interfaces{
         telemetry::reportInterface};
     collection_util::getCollectionMembers(
@@ -1398,22 +1399,12 @@ inline void handleReportDelete(
     crow::connections::systemBus->async_method_call(
         [asyncResp,
          reportId = std::string(id)](const boost::system::error_code& ec) {
-<<<<<<< HEAD
-        if (!verifyCommonErrors(asyncResp->res, reportId, ec))
-        {
-            // no chassis links = no failures
-            BMCWEB_LOG_ERROR("getAllChassisSensors DBUS error: {}", ec);
-        }
-        asyncResp->res.result(boost::beast::http::status::no_content);
-    },
-=======
             if (!verifyCommonErrors(asyncResp->res, reportId, ec))
             {
                 return;
             }
             asyncResp->res.result(boost::beast::http::status::no_content);
         },
->>>>>>> origin/master
         service, reportPath, "xyz.openbmc_project.Object.Delete", "Delete");
 }
 } // namespace telemetry
@@ -1492,10 +1483,23 @@ inline void handleMetricReportGet(
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/MetricReport/MetricReport.json>; rel=describedby");
-#ifdef BMCWEB_ENABLE_PLATFORM_METRICS
-    redfish::nvidia_metric_report_def_utils::
-        validateAndGetMetricReportDefinition(asyncResp, id);
-#else
+    if constexpr (BMCWEB_SHMEM_PLATFORM_METRICS)
+    {
+        redfish::nvidia_metric_report_def_utils::
+            validateAndGetMetricReportDefinition(asyncResp, id);
+    }
+    else
+    {
+        sdbusplus::asio::getAllProperties(
+            *crow::connections::systemBus, telemetry::service,
+            telemetry::getDbusReportPath(id), telemetry::reportInterface,
+            [asyncResp,
+             id](const boost::system::error_code& ec,
+                 const dbus::utility::DBusPropertiesMap& properties) {
+            if (!redfish::telemetry::verifyCommonErrors(asyncResp->res, id, ec))
+            {
+                return;
+            }
 
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, telemetry::service,
@@ -1507,14 +1511,8 @@ inline void handleMetricReportGet(
                 return;
             }
 
-<<<<<<< HEAD
-        telemetry::fillReportDefinition(asyncResp, id, properties);
-    });
-#endif
-=======
             telemetry::fillReportDefinition(asyncResp, id, properties);
         });
->>>>>>> origin/master
 }
 
 inline void handleMetricReportDelete(

@@ -5,13 +5,10 @@
 #include "account_service.hpp"
 #include "aggregation_service.hpp"
 #include "app.hpp"
-#include "assembly.hpp"
 #include "bios.hpp"
 #include "cable.hpp"
 #include "certificate_service.hpp"
 #include "chassis.hpp"
-#include "component_integrity.hpp"
-#include "control.hpp"
 #include "environment_metrics.hpp"
 #include "ethernet.hpp"
 #include "event_service.hpp"
@@ -19,8 +16,6 @@
 #include "fabric_adapters.hpp"
 #include "fan.hpp"
 #include "hypervisor_system.hpp"
-#include "leak_detection.hpp"
-#include "leak_detector.hpp"
 #include "log_services.hpp"
 #include "manager_diagnostic_data.hpp"
 #include "manager_logservices_journal.hpp"
@@ -31,14 +26,8 @@
 #include "metric_report.hpp"
 #include "metric_report_definition.hpp"
 #include "network_protocol.hpp"
-<<<<<<< HEAD
-#include "nvidia_oem_dpu.hpp"
-#include "nvidia_protected_component.hpp"
-=======
->>>>>>> origin/master
 #include "odata.hpp"
 #include "pcie.hpp"
-#include "policy.hpp"
 #include "power.hpp"
 #include "power_subsystem.hpp"
 #include "power_supply.hpp"
@@ -47,7 +36,6 @@
 #include "redfish_v1.hpp"
 #include "roles.hpp"
 #include "sensors.hpp"
-#include "service_conditions.hpp"
 #include "service_root.hpp"
 #include "storage.hpp"
 #include "systems.hpp"
@@ -61,64 +49,31 @@
 #include "trigger.hpp"
 #include "update_service.hpp"
 #include "virtual_media.hpp"
-#ifdef BMCWEB_ENABLE_NETWORK_ADAPTERS_GENERIC
-#include "network_adapters_generic.hpp"
-#endif
-#include "boot_options.hpp"
-#include "erot_chassis.hpp"
-#include "fabric.hpp"
-#include "fabric_adapters.hpp"
-#include "host_interface.hpp"
-#include "nvidia_debug_token.hpp"
-#include "nvidia_error_injection.hpp"
-#include "nvidia_power_smoothing.hpp"
-#include "nvidia_workload_power_profiles.hpp"
-#ifdef BMCWEB_ENABLE_NETWORK_ADAPTERS
-#include "network_adapters.hpp"
-#endif
-#include "pcie_slots.hpp"
-#include "pcieslots.hpp"
-#include "ports.hpp"
-#include "secure_boot.hpp"
-#include "secure_boot_database.hpp"
-#ifdef BMCWEB_ENABLE_HOST_ETH_IFACE
-#include "system_host_eth.hpp"
-#endif
-#include "trusted_components.hpp"
-#ifdef BMCWEB_ENABLE_PROFILES
-#include "profiles.hpp"
-#endif
 
 namespace redfish
 {
 
 RedfishService::RedfishService(App& app)
 {
-    requestAssemblyRoutes(app);
     requestRoutesMetadata(app);
-<<<<<<< HEAD
-    requestPcieSlotsRoutes(app);
     requestRoutesOdata(app);
+
     if (persistent_data::getConfig().isTLSAuthEnabled())
     {
         requestAccountServiceRoutes(app);
     }
-    if (persistent_data::getConfig().isTLSAuthEnabled())
-    {
-        requestRoutesRoles(app);
-        requestRoutesRoleCollection(app);
-    }
-=======
-    requestRoutesOdata(app);
-
-    requestAccountServiceRoutes(app);
->>>>>>> origin/master
     if constexpr (BMCWEB_REDFISH_AGGREGATION)
     {
         requestRoutesAggregationService(app);
         requestRoutesAggregationSourceCollection(app);
         requestRoutesAggregationSource(app);
     }
+    if (persistent_data::getConfig().isTLSAuthEnabled())
+    {
+        requestRoutesRoles(app);
+        requestRoutesRoleCollection(app);
+    }
+
     requestRoutesServiceRoot(app);
     requestRoutesNetworkProtocol(app);
     if (persistent_data::getConfig().isTLSAuthEnabled())
@@ -126,44 +81,25 @@ RedfishService::RedfishService(App& app)
         requestRoutesSession(app);
     }
     requestEthernetInterfacesRoutes(app);
-#ifdef BMCWEB_ENABLE_LLDP_DEDICATED_PORTS
-    requestDedicatedPortsInterfacesRoutes(app);
-#endif
 
     if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL)
     {
-#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
-        requestRoutesThermal(app);
-        requestRoutesPower(app);
-#endif
+        if constexpr (BMCWEB_HOST_OS_FEATURE) // TODO: wrong macro
+        {
+            requestRoutesThermal(app);
+            requestRoutesPower(app);
+        }
     }
-
-#ifdef BMCWEB_ENABLE_NETWORK_ADAPTERS
-    requestRoutesNetworkAdapters(app);
-    requestRoutesNetworkDeviceFunctions(app);
-    requestRoutesACDPort(app);
-#endif
-
-#ifdef BMCWEB_ENABLE_HOST_ETH_IFACE
-    requestHostEthernetInterfacesRoutes(app);
-#endif
-
-#ifdef BMCWEB_ENABLE_NETWORK_ADAPTERS_GENERIC
-    requestRoutesNetworkAdapters(app);
-#endif
-
     if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
     {
         requestRoutesEnvironmentMetrics(app);
-        requestRoutesProcessorEnvironmentMetrics(app);
-        requestRoutesMemoryEnvironmentMetrics(app);
         requestRoutesPowerSubsystem(app);
         requestRoutesPowerSupply(app);
         requestRoutesPowerSupplyCollection(app);
         requestRoutesThermalMetrics(app);
         requestRoutesThermalSubsystem(app);
         requestRoutesFan(app);
-        requestRoutesFanCollection(app);
+        requestRoutesFanCollection(app);      
     }
     requestRoutesManagerCollection(app);
     requestRoutesManager(app);
@@ -173,29 +109,13 @@ RedfishService::RedfishService(App& app)
     requestRoutesManagerDiagnosticData(app);
     requestRoutesChassisCollection(app);
     requestRoutesChassis(app);
-
-    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-    {
-        requestRoutesChassisEnvironmentMetricsClearOOBSetPoint(app);
-        requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(app);
-    }
-
-#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
+#ifdef BMCWEB_HOST_OS_FEATURE
     requestRoutesChassisResetAction(app);
     requestRoutesChassisResetActionInfo(app);
 #endif
-    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-    {
-        requestRoutesChassisDebugToken(app);
-    }
-    requestRoutesUpdateService(app);
-    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-    {
-        requestRoutesSplitUpdateService(app);
-    }
-
     requestRoutesChassisDrive(app);
     requestRoutesChassisDriveName(app);
+    requestRoutesUpdateService(app);
     requestRoutesStorageCollection(app);
     requestRoutesStorage(app);
     requestRoutesStorageControllerCollection(app);
@@ -203,100 +123,37 @@ RedfishService::RedfishService(App& app)
     requestRoutesDrive(app);
     requestRoutesCable(app);
     requestRoutesCableCollection(app);
-#if defined(BMCWEB_INSECURE_ENABLE_REDFISH_FW_TFTP_UPDATE) ||                  \
-    defined(BMCWEB_ENABLE_REDFISH_FW_SCP_UPDATE) ||                            \
-    defined(BMCWEB_ENABLE_REDFISH_FW_HTTP_HTTPS_UPDATE)
-    requestRoutesUpdateServiceActionsSimpleUpdate(app);
-#endif
-    requestRoutesSoftwareInventoryCollection(app);
-    requestRoutesSoftwareInventory(app);
-    requestRoutesInventorySoftwareCollection(app);
-    requestRoutesInventorySoftware(app);
+
     requestRoutesSystemLogServiceCollection(app);
-<<<<<<< HEAD
-
-#ifdef BMCWEB_ENABLE_MFG_TEST_API
-    requestRoutesEventLogDiagnosticDataCollect(app);
-    requestRoutesEventLogDiagnosticDataEntry(app);
-#endif
-    requestRoutesEventLogService(app);
-    requestRoutesSELLogService(app);
-    requestRoutesChassisLogServiceCollection(app);
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_LOGSERVICES
-    requestRoutesChassisXIDLogService(app);
-    requestRoutesChassisXIDLogEntryCollection(app);
-#endif
-
-    requestRoutesPostCodesEntryAdditionalData(app);
-    requestRoutesPostCodesLogService(app);
-    requestRoutesPostCodesClear(app);
-    requestRoutesPostCodesEntry(app);
-    requestRoutesPostCodesEntryCollection(app);
-=======
     requestRoutesEventLogService(app);
 
     requestRoutesSystemsLogServicesPostCode(app);
->>>>>>> origin/master
-
-    requestRoutesDebugToken(app);
-    requestRoutesDebugTokenServiceEntry(app);
-    requestRoutesDebugTokenServiceEntryCollection(app);
-    requestRoutesDebugTokenServiceDiagnosticDataCollect(app);
-    requestRoutesDebugTokenServiceDiagnosticDataEntryDownload(app);
 
     if constexpr (BMCWEB_REDFISH_DUMP_LOG)
     {
         requestRoutesSystemDumpService(app);
-        requestRoutesSystemDumpServiceActionInfo(app);
         requestRoutesSystemDumpEntryCollection(app);
         requestRoutesSystemDumpEntry(app);
         requestRoutesSystemDumpCreate(app);
         requestRoutesSystemDumpClear(app);
 
         requestRoutesBMCDumpService(app);
-        requestRoutesBMCDumpServiceActionInfo(app);
         requestRoutesBMCDumpEntryCollection(app);
         requestRoutesBMCDumpEntry(app);
         // Need to migrate dump-offload feature to upstream work
         // requestRoutesBMCDumpEntryDownload(app);
         requestRoutesBMCDumpCreate(app);
         requestRoutesBMCDumpClear(app);
-
-#ifdef BMCWEB_ENABLE_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
-        // Nvidia has faultlog support under system
-        // requestRoutesFaultLogDumpService(app);
-        // requestRoutesFaultLogDumpEntryCollection(app);
-        // requestRoutesFaultLogDumpEntry(app);
-        // requestRoutesFaultLogDumpClear(app);
-#endif // BMCWEB_ENABLE_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
     }
 
-<<<<<<< HEAD
-#ifdef BMCWEB_ENABLE_REDFISH_FDR_DUMP_LOG
-    requestRoutesSystemFDRService(app);
-    requestRoutesSystemFDREntryCollection(app);
-    requestRoutesSystemFDREntry(app);
-    requestRoutesSystemFDREntryDownload(app);
-    requestRoutesSystemFDRCreate(app);
-    requestRoutesSystemFDRClear(app);
-    requestRoutesSystemFDRGenBirthCert(app);
-#endif
-
-#ifdef BMCWEB_ENABLE_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
-    requestRoutesSystemFaultLogService(app);
-    requestRoutesSystemFaultLogEntryCollection(app);
-    requestRoutesSystemFaultLogEntry(app);
-    requestRoutesSystemFaultLogClear(app);
-#endif
-    if constexpr (!BMCWEB_REDFISH_DBUS_LOG)
+    if constexpr (!BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG)
     {
-        requestRoutesJournalEventLogEntryCollection(app);
-        requestRoutesJournalEventLogEntry(app);
-        requestRoutesJournalEventLogClear(app);
+        requestRoutesFaultLogDumpService(app);
+        requestRoutesFaultLogDumpEntryCollection(app);
+        requestRoutesFaultLogDumpEntry(app);
+        requestRoutesFaultLogDumpClear(app);
     }
 
-=======
->>>>>>> origin/master
     requestRoutesBMCLogServiceCollection(app);
 
     if constexpr (BMCWEB_REDFISH_BMC_JOURNAL)
@@ -318,53 +175,15 @@ RedfishService::RedfishService(App& app)
     requestRoutesProcessor(app);
     requestRoutesOperatingConfigCollection(app);
     requestRoutesOperatingConfig(app);
-    requestRoutesProcessorMetrics(app);
-    requestRoutesProcessorMemoryMetrics(app);
-    requestRoutesProcessorSettings(app);
-    requestRoutesProcessorReset(app);
-    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-    {
-        requestRoutesEdppReset(app);
-        requestRoutesClearPCIeCountersActionInfo(app);
-        requestRoutesPCIeClearCounter(app);
-        requestRoutesNvidiaManagerResetToDefaultsAction(app);
-        requestRoutesNvidiaManagerEmmcSecureErase(app);
-        requestRoutesManagerEmmcSecureEraseActionInfo(app);
-#ifdef BMCWEB_COMMAND_SMBPBI_OOB
-        requestRouteSyncRawOobCommand(app);
-        requestRouteAsyncRawOobCommand(app);
-        requestRoutesNvidiaAsyncOOBRawCommandActionInfo(app);
-        requestRoutesNvidiaSyncOOBRawCommandActionInfo(app);
-#endif // BMCWEB_COMMAND_SMBPBI_OOB
-    }
-
-    requestRoutesProcessorPortCollection(app);
-    requestRoutesProcessorPort(app);
-    requestRoutesProcessorPortMetrics(app);
-    requestRoutesProcessorPortSettings(app);
     requestRoutesMemoryCollection(app);
     requestRoutesMemory(app);
-    requestRoutesMemoryMetrics(app);
 
     requestRoutesSystems(app);
-    // The routes requestRoutesSystemActionsReset(app); and
-    // requestRoutesSystemResetActionInfo(app) are enabled in
-    // requestRoutesSystems(app) function as per upstream sync threfore
-    // removed from here
-#ifdef BMCWEB_ENABLE_BIOS
+    
+#ifdef BMCWEB_BIOS
     requestRoutesBiosService(app);
     requestRoutesBiosSettings(app);
     requestRoutesBiosReset(app);
-    requestRoutesBiosChangePassword(app);
-    requestRoutesBootOptions(app);
-    requestRoutesSecureBoot(app);
-    requestRoutesSecureBootDatabase(app);
-#endif
-#ifdef BMCWEB_ENABLE_DPU_BIOS
-    requestRoutesBiosAttrRegistryService(app);
-#endif
-#ifdef BMCWEB_ENABLE_HOST_IFACE
-    requestHostInterfacesRoutes(app);
 #endif
 
     if constexpr (BMCWEB_VM_NBDPROXY)
@@ -378,9 +197,6 @@ RedfishService::RedfishService(App& app)
         requestRoutesDBusEventLogEntryCollection(app);
         requestRoutesDBusEventLogEntry(app);
         requestRoutesDBusEventLogEntryDownload(app);
-        requestRoutesDBusSELLogEntryCollection(app);
-        requestRoutesDBusSELLogEntry(app);
-        requestRoutesDBusSELLogServiceActionsClear(app);
     }
     else
     {
@@ -408,15 +224,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesSystemPCIeFunction(app);
     requestRoutesSystemPCIeDeviceCollection(app);
     requestRoutesSystemPCIeDevice(app);
-    requestRoutesChassisPCIeFunctionCollection(app);
-    requestRoutesChassisPCIeFunction(app);
-    requestRoutesChassisPCIeDeviceCollection(app);
-    requestRoutesChassisPCIeDevice(app);
-    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-    {
-        requestRoutesClearPCIeAerErrorStatus(app);
-    }
-
+    
     requestRoutesSensorCollection(app);
     requestRoutesSensor(app);
 
@@ -425,10 +233,9 @@ RedfishService::RedfishService(App& app)
     requestRoutesTaskCollection(app);
     requestRoutesTask(app);
     requestRoutesEventService(app);
-#ifdef BMCWEB_ENABLE_SSE
+#ifdef BMCWEB_SSE
     requestRoutesEventServiceSse(app);
 #endif
-
     requestRoutesEventDestinationCollection(app);
     requestRoutesEventDestination(app);
     requestRoutesFabricAdapters(app);
@@ -442,87 +249,17 @@ RedfishService::RedfishService(App& app)
 
     requestRoutesTelemetryService(app);
     requestRoutesMetricReportDefinitionCollection(app);
-    requestRoutesMetricReportCollection(app);
     requestRoutesMetricReportDefinition(app);
+    requestRoutesMetricReportCollection(app);
     requestRoutesMetricReport(app);
-
-    requestRoutesFabricCollection(app);
-    requestRoutesFabric(app);
-    requestRoutesSwitchCollection(app);
-    requestRoutesSwitch(app);
-    requestRoutesNVSwitchReset(app);
-    requestRoutesSwitchMetrics(app);
-    requestRoutesPortCollection(app);
-    requestRoutesPort(app);
-    requestRoutesPortMetrics(app);
-    requestRoutesEndpointCollection(app);
-    requestRoutesEndpoint(app);
-    requestRoutesZoneCollection(app);
-    requestRoutesZone(app);
-    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-    {
-        requestRoutesSwitchPowerMode(app);
-    }
-
-#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
+#ifdef BMCWEB_HOST_OS_FEATURE
     requestRoutesTriggerCollection(app);
     requestRoutesTrigger(app);
 #endif
-
-    requestRoutesEROTChassisCertificate(app);
-#ifdef BMCWEB_ENABLE_DOT
-    requestRoutesEROTChassisDOT(app);
-#endif
-
-#ifdef BMCWEB_ENABLE_MANUAL_BOOT_MODE
-    requestRoutesEROTChassisManualBootMode(app);
-#endif
-    requestRoutesComponentIntegrity(app);
-    requestRoutesServiceConditions(app);
-    requestRoutesChassisControls(app);
-    requestRoutesChassisControlsCollection(app);
-    requestRoutesUpdateServiceCommitImage(app);
-    requestRoutesChassisControlsReset(app);
-    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-    {
-        requestRoutesComputeDigestPost(app);
-        requestRoutesErrorInjection(app);
-    }
-
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_BF_PROPERTIES
-    requestRoutesNvidiaOemBf(app);
-    requestRoutesNvidiaManagerSetSelCapacityAction(app);
-    requestRoutesNvidiaManagerGetSelCapacity(app);
-#endif
-    requestRoutesTrustedComponents(app);
-#ifdef BMCWEB_ENABLE_REDFISH_FW_SCP_UPDATE
-    requestRoutesUpdateServicePublicKeyExchange(app);
-    requestRoutesUpdateServiceRevokeAllRemoteServerPublicKeys(app);
-#endif
-
-    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-    {
-        requestRoutesChassisFirmwareInfo(app);
-        requestRoutesProcessorPowerSmoothing(app);
-        requestRoutesProcessorPowerSmoothingAdminProfile(app);
-        requestRoutesProcessorPowerSmoothingPresetProfileCollection(app);
-        requestRoutesProcessorPowerSmoothingPresetProfile(app);
-        requestRoutesProcessorWorkloadPower(app);
-        requestRoutesProcessorWorkloadPowerProfileCollection(app);
-        requestRoutesProcessorWorkloadPowerProfile(app);
-    }
-
-#ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
-    requestRoutesLeakDetection(app);
-    requestRoutesLeakDetector(app);
-    requestRoutesLeakDetectionPolicy(app);
-    requestPolicyCollection(app);
-#endif
+    
+    requestRoutesNvidia(app);
     // Note, this must be the last route registered
     requestRoutesRedfish(app);
-#ifdef BMCWEB_ENABLE_PROFILES
-    requestRoutesProfiles(app);
-#endif
 }
 
 } // namespace redfish

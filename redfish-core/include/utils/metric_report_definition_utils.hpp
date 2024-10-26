@@ -17,7 +17,7 @@
 #pragma once
 #include <boost/regex.hpp>
 
-#ifdef BMCWEB_ENABLE_SHMEM_PLATFORM_METRICS
+#ifdef BMCWEB_SHMEM_PLATFORM_METRICS
 #include "shmem_utils.hpp"
 #include "utils/file_utils.hpp"
 #endif
@@ -35,7 +35,7 @@ constexpr const char* metricReportUri =
 
 constexpr const char* mrdConfigFile = "/usr/share/bmcweb/";
 
-#ifdef BMCWEB_ENABLE_SHMEM_PLATFORM_METRICS
+#ifdef BMCWEB_SHMEM_PLATFORM_METRICS
 inline int mrdConfigRead(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const std::string& deviceType, const std::string& id)
 {
@@ -102,7 +102,7 @@ inline std::string metricId(const std::string& input,
 inline void validateAndGetMetricReportDefinition(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& id)
 {
-#ifdef BMCWEB_ENABLE_SHMEM_PLATFORM_METRICS
+#ifdef BMCWEB_SHMEM_PLATFORM_METRICS
     static std::string platformDevicePrefix(PLATFORMDEVICEPREFIX);
     std::string deviceType = metricId(id, platformDevicePrefix);
     int rc = mrdConfigRead(asyncResp, deviceType, id);
@@ -127,7 +127,7 @@ inline void validateAndGetMetricReportDefinition(
 inline void getMetricReportCollection(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-#ifdef BMCWEB_ENABLE_SHMEM_PLATFORM_METRICS
+#ifdef BMCWEB_SHMEM_PLATFORM_METRICS
     redfish::shmem::getShmemMetricsReportCollection(asyncResp,
                                                     "MetricReportDefinitions");
     return;

@@ -464,7 +464,7 @@ static inline void
         if (*s == "xyz.openbmc_project.State.Chassis.PowerState.On")
         {
             asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-#ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+#ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
             std::shared_ptr<HealthRollup> health =
                 std::make_shared<HealthRollup>(
                     escapedPath, [asyncResp](const std::string& rootHealth,
@@ -476,12 +476,12 @@ static inline void
 #endif // BMCWEB_DISABLE_HEALTH_ROLLUP
             });
             health->start();
-#else  // ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+#else  // ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
             asyncResp->res.jsonValue["Status"]["Health"] = "OK";
 #ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
             asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
 #endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-#endif // ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+#endif // ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
         }
         else if (*s == "xyz.openbmc_project.State.Chassis.PowerState.Off")
         {

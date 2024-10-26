@@ -20,9 +20,12 @@
 
 #include "background_copy.hpp"
 #include "dot.hpp"
+#include "erot_chassis.hpp"
 #include "in_band.hpp"
 #include "lsp.hpp"
 #include "manual_boot.hpp"
+#include "nvidia_protected_component.hpp"
+#include "query.hpp"
 
 #include <openssl/bio.h>
 #include <openssl/ec.h>
@@ -61,7 +64,7 @@ using SPDMCertificates = std::vector<std::tuple<uint8_t, std::string>>;
  * @param[in] objectPath  Path of the D-Bus service object
  * @return None
  */
-static void
+inline void
     getChassisCertificate(const crow::Request& req,
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& objectPath,
@@ -285,16 +288,19 @@ inline void getEROTChassis(const crow::Request& req,
                 continue;
             }
 
-#ifdef BMCWEB_ENABLE_EROT_RESET
-            asyncResp->res.jsonValue["Actions"]["#Chassis.Reset"]["target"] =
-                "/redfish/v1/Chassis/" + chassisId + "/Actions/Chassis.Reset";
-            asyncResp->res
-                .jsonValue["Actions"]["#Chassis.Reset"]["@Redfish.ActionInfo"] =
-                "/redfish/v1/Chassis/" + chassisId + "/ResetActionInfo";
-#endif
-            if (isCpuEROT)
+            if constexpr (BMCWEB_EROT_RESET)
             {
-#ifdef BMCWEB_ENABLE_DOT
+                asyncResp->res
+                    .jsonValue["Actions"]["#Chassis.Reset"]["target"] =
+                    "/redfish/v1/Chassis/" + chassisId +
+                    "/Actions/Chassis.Reset";
+                asyncResp->res.jsonValue["Actions"]["#Chassis.Reset"]
+                                        ["@Redfish.ActionInfo"] =
+                    "/redfish/v1/Chassis/" + chassisId + "/ResetActionInfo";
+            }
+
+            if constexpr (BMCWEB_DOT_SUPPORT)
+            {
                 auto& oemActionsJsonDot =
                     asyncResp->res.jsonValue["Actions"]["Oem"];
                 std::string oemActionsRouteDot = "/redfish/v1/Chassis/" +
@@ -309,48 +315,53 @@ inline void getEROTChassis(const crow::Request& req,
                     oemActionsRouteDot + "DOTDisable";
                 oemActionsJsonDot["#DOTTokenInstall"]["target"] =
                     oemActionsRouteDot + "DOTTokenInstall";
-#endif
-#ifdef BMCWEB_ENABLE_MANUAL_BOOT_MODE
-                auto& oemActionsJsonManualBoot =
-                    asyncResp->res.jsonValue["Actions"]["Oem"];
-                oemActionsJsonManualBoot
-                    ["#NvidiaChassis.BootProtectedDevice"]["target"] =
-                        "/redfish/v1/Chassis/" + chassisId +
-                        "/Actions/Oem/NvidiaChassis.BootProtectedDevice";
-#endif
+
+                if constexpr (BMCWEB_MANUAL_BOOT_MODE_SUPPORT)
+                {
+                    auto& oemActionsJsonManualBoot =
+                        asyncResp->res.jsonValue["Actions"]["Oem"];
+                    oemActionsJsonManualBoot
+                        ["#NvidiaChassis.BootProtectedDevice"]["target"] =
+                            "/redfish/v1/Chassis/" + chassisId +
+                            "/Actions/Oem/NvidiaChassis.BootProtectedDevice";
+                }
             }
 
-#ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
-            auto health = std::make_shared<HealthRollup>(
-                path,
-                [asyncResp](const std::string& rootHealth,
-                            const std::string& healthRollup) {
-                asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-                asyncResp->res.jsonValue["Status"]["HealthRollup"] =
-                    healthRollup;
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-            },
-                &health_state::ok);
-            health->start();
-#else  // ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
-            auto health = std::make_shared<HealthPopulate>(asyncResp);
+            if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
+            {
+                auto health = std::make_shared<HealthRollup>(
+                    path,
+                    [asyncResp](const std::string& rootHealth,
+                                const std::string& healthRollup) {
+                    asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
+                    if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
+                    {
+                        asyncResp->res.jsonValue["Status"]["HealthRollup"] =
+                            healthRollup;
+                    } // BMCWEB_DISABLE_HEALTH_ROLLUP
+                },
+                    &health_state::ok);
+                health->start();
+            }
+            else
+            { // ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
+                auto health = std::make_shared<HealthPopulate>(asyncResp);
 
-            sdbusplus::asio::getProperty<std::vector<std::string>>(
-                *crow::connections::systemBus,
-                "xyz.openbmc_project.ObjectMapper", path + "/all_sensors",
-                "xyz.openbmc_project.Association", "endpoints",
-                [health](const boost::system::error_code ec2,
-                         const std::vector<std::string>& resp) {
-                if (ec2)
-                {
-                    return; // no sensors = no failures
-                }
-                health->inventory = resp;
-            });
+                sdbusplus::asio::getProperty<std::vector<std::string>>(
+                    *crow::connections::systemBus,
+                    "xyz.openbmc_project.ObjectMapper", path + "/all_sensors",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [health](const boost::system::error_code ec2,
+                             const std::vector<std::string>& resp) {
+                    if (ec2)
+                    {
+                        return; // no sensors = no failures
+                    }
+                    health->inventory = resp;
+                });
 
-            health->populate();
-#endif // ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+                health->populate();
+            } // ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
 
             asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
 
@@ -360,12 +371,14 @@ inline void getEROTChassis(const crow::Request& req,
                                                     chassisId;
             asyncResp->res.jsonValue["Name"] = chassisId;
             asyncResp->res.jsonValue["Id"] = chassisId;
-#ifndef BMCWEB_ENABLE_NVIDIA_OEM_BF_PROPERTIES
-            auto certsObject = std::string("/redfish/v1/Chassis/") + chassisId +
-                               "/Certificates";
+            if constexpr (!BMCWEB_NVIDIA_OEM_BF_PROPERTIES)
+            {
+                auto certsObject = std::string("/redfish/v1/Chassis/") +
+                                   chassisId + "/Certificates";
 
-            asyncResp->res.jsonValue["Certificates"]["@odata.id"] = certsObject;
-#endif
+                asyncResp->res.jsonValue["Certificates"]["@odata.id"] =
+                    certsObject;
+            }
 
             asyncResp->res.jsonValue["Links"]["ManagedBy"] = {
                 {{"@odata.id",
@@ -448,17 +461,19 @@ inline void getEROTChassis(const crow::Request& req,
             // Link association to parent chassis
             redfish::chassis_utils::getChassisLinksContainedBy(asyncResp,
                                                                objPath);
-#ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
-            redfish::conditions_utils::populateServiceConditions(asyncResp,
-                                                                 chassisId);
-#endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
-
-#ifdef BMCWEB_ENABLE_MANUAL_BOOT_MODE
-            if (isCpuEROT)
+            if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
             {
-                manual_boot::bootModeQuery(req, asyncResp, chassisId);
+                redfish::conditions_utils::populateServiceConditions(asyncResp,
+                                                                     chassisId);
+            } // BMCWEB_DISABLE_CONDITIONS_ARRAY
+
+            if constexpr (BMCWEB_MANUAL_BOOT_MODE_SUPPORT)
+            {
+                if (isCpuEROT)
+                {
+                    manual_boot::bootModeQuery(req, asyncResp, chassisId);
+                }
             }
-#endif // BMCWEB_ENABLE_MANUAL_BOOT_MODE
             return;
         }
 
@@ -624,33 +639,41 @@ inline void
 
     std::optional<bool> backgroundCopyEnabled;
     std::optional<bool> inBandEnabled;
-#ifdef BMCWEB_ENABLE_MANUAL_BOOT_MODE
     std::optional<bool> manualBootModeEnabled;
-#endif
 
-    if (!json_util::readJson(*oemNvidiaObject, asyncResp->res,
-#ifdef BMCWEB_ENABLE_MANUAL_BOOT_MODE
-                             "ManualBootModeEnabled", manualBootModeEnabled,
-#endif
-                             "AutomaticBackgroundCopyEnabled",
-                             backgroundCopyEnabled, "InbandUpdatePolicyEnabled",
-                             inBandEnabled))
-    {
-        return;
-    }
-#ifdef BMCWEB_ENABLE_MANUAL_BOOT_MODE
-    if (manualBootModeEnabled.has_value())
+    if constexpr (BMCWEB_MANUAL_BOOT_MODE_SUPPORT)
     {
         if (isCpuEROT == false)
         {
-            messages::actionNotSupported(asyncResp->res,
-                                         "ERoT manualBootModeEnabled");
+            // Couldn't find an object with that name.  return an error
+            messages::resourceNotFound(asyncResp->res,
+                                       "#Chassis.v1_17_0.Chassis", chassisId);
             return;
         }
-        manual_boot::bootModeSet(req, asyncResp, chassisId,
-                                 *manualBootModeEnabled);
     }
-#endif // BMCWEB_ENABLE_MANUAL_BOOT_MODE
+
+    if (!json_util::readJson(
+            *oemNvidiaObject, asyncResp->res, "ManualBootModeEnabled",
+            manualBootModeEnabled, "AutomaticBackgroundCopyEnabled",
+            backgroundCopyEnabled, "InbandUpdatePolicyEnabled", inBandEnabled))
+    {
+        return;
+    }
+
+    if (manualBootModeEnabled)
+    {
+        if (BMCWEB_MANUAL_BOOT_MODE_SUPPORT && isCpuEROT)
+        {
+            manual_boot::bootModeSet(req, asyncResp, chassisId,
+                                     *manualBootModeEnabled);
+        }
+        else
+        {
+            messages::propertyNotWritable(asyncResp->res,
+                                          "ManualBootModeEnabled");
+            return;
+        }
+    }
 
     if (!backgroundCopyEnabled.has_value() && !inBandEnabled.has_value())
     {
@@ -722,7 +745,6 @@ inline void
         "/xyz/openbmc_project/inventory", 0, interfaces);
 }
 
-#ifdef BMCWEB_ENABLE_DOT
 /**
  * DOT (device ownership transfer) support
  */
@@ -734,7 +756,8 @@ inline void
 #define DOT_CAK_INSTALL_DATA_SIZE (DOT_KEY_SIZE + 98)
 #define DOT_TOKEN_SIZE 256
 
-bool getBinaryKeyFromPem(const std::string& pem, std::vector<uint8_t>& key)
+inline bool getBinaryKeyFromPem(const std::string& pem,
+                                std::vector<uint8_t>& key)
 {
     std::unique_ptr<BIO, decltype(&::BIO_free)> bio{BIO_new(BIO_s_mem()),
                                                     &::BIO_free};
@@ -784,7 +807,8 @@ bool getBinaryKeyFromPem(const std::string& pem, std::vector<uint8_t>& key)
     }
 
     // the first byte contains information about whether the key
-    // is compressed as per https://www.rfc-editor.org/rfc/rfc5480#section-2.2
+    // is compressed as per
+    // https://www.rfc-editor.org/rfc/rfc5480#section-2.2
     key.resize(DOT_KEY_SIZE + 1);
     size_t resultSize = EC_POINT_point2oct(
         group, point, EC_GROUP_get_point_conversion_form(group), key.data(),
@@ -800,9 +824,10 @@ bool getBinaryKeyFromPem(const std::string& pem, std::vector<uint8_t>& key)
     return true;
 }
 
-void createDotErrorResponse(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& type,
-                            const std::string& hexErrorCode)
+inline void
+    createDotErrorResponse(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& type,
+                           const std::string& hexErrorCode)
 {
     int decErrorCode = 0;
     try
@@ -823,10 +848,11 @@ void createDotErrorResponse(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     asyncResp->res.jsonValue["Resolution"] = "None";
 }
 
-void executeDotCommand(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& chassisID,
-                       dot::DotMctpVdmUtilCommand command,
-                       const std::vector<uint8_t>& data)
+inline void
+    executeDotCommand(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                      const std::string& chassisID,
+                      dot::DotMctpVdmUtilCommand command,
+                      const std::vector<uint8_t>& data)
 {
     static std::unique_ptr<dot::DotCommandHandler> dotOperation;
     auto resultHandler = [asyncResp](const std::string& output) {
@@ -1049,8 +1075,7 @@ inline void requestRoutesEROTChassisDOT(App& app)
                           dot::DotMctpVdmUtilCommand::DOTTokenInstall, data);
     });
 }
-#endif // BMCWEB_ENABLE_DOT
-#ifdef BMCWEB_ENABLE_MANUAL_BOOT_MODE
+
 inline void requestRoutesEROTChassisManualBootMode(App& app)
 {
     BMCWEB_ROUTE(
@@ -1068,14 +1093,13 @@ inline void requestRoutesEROTChassisManualBootMode(App& app)
         manual_boot::bootAp(req, asyncResp, chassisId);
     });
 }
-#endif // BMCWEB_ENABLE_MANUAL_BOOT_MODE
 
-#ifdef BMCWEB_ENABLE_EROT_RESET
 /**
-@brief - Performs ERoT chassis graceful reset using /usr/bin/erot_reset_pre.sh
-and /usr/bin/erot_reset.sh scripts. The scripts are platform-specific and need
-to be installed separately. Upon successful reset, the ERoT reset will also
-reset the BMC by toggling the AP_reset pin. There are three cases of failure:
+@brief - Performs ERoT chassis graceful reset using
+/usr/bin/erot_reset_pre.sh and /usr/bin/erot_reset.sh scripts. The scripts
+are platform-specific and need to be installed separately. Upon successful
+reset, the ERoT reset will also reset the BMC by toggling the AP_reset pin.
+There are three cases of failure:
          1. An update procedure is already in progress.
          2. There is no EC firmware pending.
          3. The command is not supported by the current ERoT firmware.
@@ -1152,8 +1176,9 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         };
         BMCWEB_LOG_DEBUG("Sending ERoT self-reset command");
 
-        /* During the erotReset script, ERoT performs a self reset which leads
-        to BMC external reset. Hence it is unnecessary to check its results */
+        /* During the erotReset script, ERoT performs a self reset which
+        leads to BMC external reset. Hence it is unnecessary to check its
+        results */
         messages::success(asyncResp->res);
 
         bp::async_system(crow::connections::systemBus->get_io_context(),
@@ -1352,5 +1377,5 @@ inline void handleEROTChassisResetAction(
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0, interfaces);
 }
-#endif // BMCWEB_ENABLE_EROT_RESET
+
 } // namespace redfish

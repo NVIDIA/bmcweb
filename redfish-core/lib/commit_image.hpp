@@ -49,7 +49,7 @@ inline std::vector<CommitImageValueEntry> getAllowableValues()
         return allowableValues;
     }
 
-    std::string configPath = FWMCTPMAPPINGJSON;
+    std::string configPath(BMCWEB_FW_MCTP_MAPPING_JSON);
 
     if (!fs::exists(configPath))
     {

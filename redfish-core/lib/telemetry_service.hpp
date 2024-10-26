@@ -29,16 +29,18 @@ inline void handleTelemetryServiceGet(
     asyncResp->res.jsonValue["Id"] = "TelemetryService";
     asyncResp->res.jsonValue["Name"] = "Telemetry Service";
 
-#ifndef BMCWEB_ENABLE_NVIDIA_OEM_BF_PROPERTIES
-    asyncResp->res.jsonValue["MetricReportDefinitions"]["@odata.id"] =
-        "/redfish/v1/TelemetryService/MetricReportDefinitions";
-    asyncResp->res.jsonValue["MetricReports"]["@odata.id"] =
-        "/redfish/v1/TelemetryService/MetricReports";
-#endif
-#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
-    asyncResp->res.jsonValue["Triggers"]["@odata.id"] =
-        "/redfish/v1/TelemetryService/Triggers";
-#endif
+    if constexpr (!BMCWEB_NVIDIA_OEM_BF_PROPERTIES)
+    {
+        asyncResp->res.jsonValue["MetricReportDefinitions"]["@odata.id"] =
+            "/redfish/v1/TelemetryService/MetricReportDefinitions";
+        asyncResp->res.jsonValue["MetricReports"]["@odata.id"] =
+            "/redfish/v1/TelemetryService/MetricReports";
+    }
+    if constexpr (BMCWEB_HOST_OS_FEATURES)
+    {
+        asyncResp->res.jsonValue["Triggers"]["@odata.id"] =
+            "/redfish/v1/TelemetryService/Triggers";
+    }
 
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, telemetry::service,
@@ -80,15 +82,6 @@ inline void handleTelemetryServiceGet(
                 asyncResp->res.jsonValue["MaxReports"] = *maxReports;
             }
 
-<<<<<<< HEAD
-        if (minInterval != nullptr)
-        {
-            asyncResp->res.jsonValue["MinCollectionInterval"] =
-                time_utils::toDurationString(std::chrono::milliseconds(
-                    static_cast<time_t>(*minInterval)));
-        }
-    });
-=======
             if (minInterval != nullptr)
             {
                 asyncResp->res.jsonValue["MinCollectionInterval"] =
@@ -104,7 +97,6 @@ inline void handleTelemetryServiceGet(
             asyncResp->res.jsonValue["SupportedCollectionFunctions"] =
                 std::move(supportedCollectionFunctions);
         });
->>>>>>> origin/master
 }
 
 inline void requestRoutesTelemetryService(App& app)

@@ -70,10 +70,10 @@ class LldpToolUtil
      *
      * @return none.
      */
-    static void run(const std::string& ifName, LldpTlv lldpTlv,
-                    LldpCommandType lldpCommandType, bool isReceived,
-                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                    LldpResponseCallback responseCallback);
+    inline static void run(const std::string& ifName, LldpTlv lldpTlv,
+                           LldpCommandType lldpCommandType, bool isReceived,
+                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           LldpResponseCallback responseCallback);
 
   private:
     LldpToolUtil() = default;
@@ -87,7 +87,7 @@ class LldpToolUtil
      *
      * @return string with the command to be executed.
      */
-    static std::string
+    inline static std::string
         translateOperationToCommand(const std::string& ifName, LldpTlv lldpTlv,
                                     LldpCommandType lldpCommandType,
                                     bool isReceived);

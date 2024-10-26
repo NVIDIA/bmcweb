@@ -100,14 +100,9 @@ inline void
                     [asyncResp](
                         const boost::system::error_code& ec,
                         const dbus::utility::DBusPropertiesMap& properties) {
-<<<<<<< HEAD
-                    fillCableProperties(asyncResp->res, ec, properties);
-                    updateCableNameProperty(asyncResp->res, ec, properties);
-                });
-=======
                         fillCableProperties(asyncResp->res, ec, properties);
+                        updateCableNameProperty(asyncResp->res, ec, properties);
                     });
->>>>>>> origin/master
             }
             else if (interface == "xyz.openbmc_project.Inventory.Item")
             {

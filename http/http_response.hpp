@@ -25,18 +25,17 @@ class Connection;
 
 namespace http = boost::beast::http;
 
-<<<<<<< HEAD
 enum class ForceChunking
 {
     Enabled,
     Disabled
-=======
+};
+
 enum class OpenCode
 {
     Success,
     FileDoesNotExist,
     InternalError,
->>>>>>> origin/master
 };
 
 struct Response

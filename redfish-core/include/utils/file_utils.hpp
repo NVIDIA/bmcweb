@@ -25,9 +25,7 @@ constexpr const char* bmcwebDeviceStatusFSPath = "/tmp/devices";
 namespace file_utils
 {
 
-#ifndef FLOCK_TIMEOUT
-#define FLOCK_TIMEOUT 100 // msec
-#endif
+constexpr int FLOCK_TIMEOUT = 100; // msec
 
 /**
  * @brief Read file content with timed lock protection

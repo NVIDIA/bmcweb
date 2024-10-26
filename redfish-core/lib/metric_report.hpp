@@ -6,6 +6,7 @@
 #include "dbus_utility.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "shmem_utils.hpp"
 #include "thermal_metrics.hpp"
 #include "utils/collection.hpp"
 #include "utils/metric_report_utils.hpp"
@@ -18,10 +19,6 @@
 #include <array>
 #include <chrono>
 #include <string_view>
-
-#ifdef BMCWEB_ENABLE_SHMEM_PLATFORM_METRICS
-#include "shmem_utils.hpp"
-#endif
 
 namespace redfish
 {
@@ -93,7 +90,7 @@ inline void
             if (boost::ends_with(object, "platformmetrics"))
             {
                 std::string uripath = metricReportUriPath;
-                uripath += PLATFORMMETRICSID;
+                uripath += BMCWEB_PLATFORM_METRICS_ID;
                 if (!containsJsonObject(addMembers, "@odata.id", uripath))
                 {
                     addMembers.push_back({{"@odata.id", uripath}});
@@ -101,49 +98,55 @@ inline void
             }
             else if (boost::ends_with(object, "memory"))
             {
-                std::string memoryMetricId = PLATFORMDEVICEPREFIX
-                    "MemoryMetrics";
+                std::string memoryMetricId = std::format(
+                    "{}MemoryMetrics", BMCWEB_PLATFORM_DEVICE_PREFIX);
                 memoryMetricId += "_0";
                 std::string uripath = metricReportUriPath + memoryMetricId;
                 addMembers.push_back({{"@odata.id", uripath}});
             }
             else if (boost::ends_with(object, "processors"))
             {
-                std::string processorMetricId = PLATFORMDEVICEPREFIX
-                    "ProcessorMetrics";
+                std::string processorMetricId =
+                    std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) +
+                    +"ProcessorMetrics";
                 processorMetricId += "_0";
                 std::string uripath = metricReportUriPath + processorMetricId;
                 addMembers.push_back({{"@odata.id", uripath}});
 
-                std::string processorGpmMetricId = PLATFORMDEVICEPREFIX
-                    "ProcessorGPMMetrics";
+                std::string processorGpmMetricId =
+                    std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) +
+                    +"ProcessorGPMMetrics";
                 processorGpmMetricId += "_0";
                 std::string uripathGpm = metricReportUriPath +
                                          processorGpmMetricId;
                 addMembers.push_back({{"@odata.id", uripathGpm}});
 
-                std::string processorPortMetricId = PLATFORMDEVICEPREFIX
-                    "ProcessorPortMetrics";
+                std::string processorPortMetricId =
+                    std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) +
+                    +"ProcessorPortMetrics";
                 processorPortMetricId += "_0";
                 uripath = metricReportUriPath + processorPortMetricId;
                 addMembers.push_back({{"@odata.id", uripath}});
 
-                std::string processorPortGpmMetricId = PLATFORMDEVICEPREFIX
-                    "ProcessorPortGPMMetrics";
+                std::string processorPortGpmMetricId =
+                    std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) +
+                    +"ProcessorPortGPMMetrics";
                 processorPortGpmMetricId += "_0";
                 uripath = metricReportUriPath + processorPortGpmMetricId;
                 addMembers.push_back({{"@odata.id", uripath}});
             }
             else if (boost::ends_with(object, "Switches"))
             {
-                std::string switchMetricId = PLATFORMDEVICEPREFIX
-                    "NVSwitchMetrics";
+                std::string switchMetricId =
+                    std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) +
+                    +"NVSwitchMetrics";
                 switchMetricId += "_0";
                 std::string uripath = metricReportUriPath + switchMetricId;
                 addMembers.push_back({{"@odata.id", uripath}});
 
-                std::string switchPortMetricId = PLATFORMDEVICEPREFIX
-                    "NVSwitchPortMetrics";
+                std::string switchPortMetricId =
+                    std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) +
+                    +"NVSwitchPortMetrics";
                 switchPortMetricId += "_0";
                 uripath = metricReportUriPath + switchPortMetricId;
                 addMembers.push_back({{"@odata.id", uripath}});
@@ -165,34 +168,6 @@ inline void requestRoutesMetricReportCollection(App& app)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-<<<<<<< HEAD
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        asyncResp->res.jsonValue["@odata.type"] =
-            "#MetricReportCollection.MetricReportCollection";
-        asyncResp->res.jsonValue["@odata.id"] =
-            "/redfish/v1/TelemetryService/MetricReports";
-        asyncResp->res.jsonValue["Name"] = "Metric Report Collection";
-#ifdef BMCWEB_ENABLE_PLATFORM_METRICS
-#ifdef BMCWEB_ENABLE_SHMEM_PLATFORM_METRICS
-        redfish::shmem::getShmemMetricsReportCollection(asyncResp,
-                                                        "MetricReports");
-#else
-        addMetricReportMembers(asyncResp);
-#endif
-        return;
-#endif
-        constexpr std::array<std::string_view, 1> interfaces{
-            telemetry::reportInterface};
-        collection_util::getCollectionMembers(
-            asyncResp,
-            boost::urls::url("/redfish/v1/TelemetryService/MetricReports"),
-            interfaces,
-            "/xyz/openbmc_project/Telemetry/Reports/TelemetryService");
-    });
-=======
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
@@ -203,6 +178,14 @@ inline void requestRoutesMetricReportCollection(App& app)
                 asyncResp->res.jsonValue["@odata.id"] =
                     "/redfish/v1/TelemetryService/MetricReports";
                 asyncResp->res.jsonValue["Name"] = "Metric Report Collection";
+
+                if constexpr (BMCWEB_SHMEM_PLATFORM_METRICS)
+                {
+                    redfish::shmem::getShmemMetricsReportCollection(
+                        asyncResp, "MetricReports");
+                    return;
+                }
+
                 constexpr std::array<std::string_view, 1> interfaces{
                     telemetry::reportInterface};
                 collection_util::getCollectionMembers(
@@ -212,9 +195,8 @@ inline void requestRoutesMetricReportCollection(App& app)
                     interfaces,
                     "/xyz/openbmc_project/Telemetry/Reports/TelemetryService");
             });
->>>>>>> origin/master
 }
-#ifdef BMCWEB_ENABLE_PLATFORM_METRICS
+
 inline void getSensorMap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const std::string& serviceName,
                          const std::string& objectPath,
@@ -314,11 +296,12 @@ inline void getPlatforMetricsFromSensorMap(
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
         "#NvidiaMetricReport.v1_0_0.NvidiaMetricReport";
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["SensingIntervalMilliseconds"] =
-        pmSensingInterval;
+        BMCWEB_PLATFORM_METRICS_SENSING_INTERVAL;
     asyncResp->res.jsonValue["MetricValues"] = nlohmann::json::array();
     sdbusplus::asio::getProperty<uint32_t>(
         *crow::connections::systemBus, serviceName, objectPath,
-        "xyz.openbmc_project.Sensor.Aggregation", "StaleSensorUpperLimitms",
+        "xyz.openbmc_project.Sensor.Aggregation",
+        "BMCWEB_STALESENSOR_UPPER_LIMIT_MILISECOND",
         [asyncResp, objectPath, serviceName,
          requestTimestamp](const boost::system::error_code ec,
                            const uint32_t& staleSensorUpperLimit) {
@@ -366,17 +349,19 @@ inline void
             }
             asyncResp->res.jsonValue["@odata.type"] =
                 "#MetricReport.v1_4_2.MetricReport";
-            asyncResp->res.jsonValue["@odata.id"] =
-                "/redfish/v1/TelemetryService/MetricReports/" PLATFORMMETRICSID;
-            asyncResp->res.jsonValue["Id"] = PLATFORMMETRICSID;
-            asyncResp->res.jsonValue["Name"] = PLATFORMMETRICSID;
+            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                "/redfish/v1/TelemetryService/MetricReports/{}",
+                BMCWEB_PLATFORM_METRICS_ID);
+            asyncResp->res.jsonValue["Id"] = BMCWEB_PLATFORM_METRICS_ID;
+            asyncResp->res.jsonValue["Name"] = BMCWEB_PLATFORM_METRICS_ID;
             asyncResp->res.jsonValue["MetricReportDefinition"]["@odata.id"] =
-                telemetry::metricReportDefinitionUriStr +
-                std::string("/" PLATFORMMETRICSID);
+                std::format("{}/{}", telemetry::metricReportDefinitionUriStr,
+                            BMCWEB_PLATFORM_METRICS_ID);
             asyncResp->res.jsonValue["MetricValues"] = nlohmann::json::array();
             // Identify sensor services for sensor readings
             processSensorServices(asyncResp, chassisPath, "all",
-                                  pmSensingInterval, requestTimestamp);
+                                  BMCWEB_PLATFORM_METRICS_SENSING_INTERVAL,
+                                  requestTimestamp);
             return;
         }
         messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
@@ -450,8 +435,8 @@ inline void getAggregatedDeviceMetrics(
     }
 }
 
-// This function populate the metric report for sub devices. Eg All nvlinks of
-// all processors or switches
+// This function populate the metric report for sub devices. Eg All nvlinks
+// of all processors or switches
 inline void getAggregatedSubDeviceMetrics(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& deviceType, const std::string& deviceName,
@@ -521,29 +506,32 @@ inline void getManagedObjectForMetrics(
     BMCWEB_LOG_DEBUG("{}", metricId);
     std::string deviceType;
 
-    std::string memoryMetrics = PLATFORMDEVICEPREFIX "MemoryMetrics";
+    std::string memoryMetrics = std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) +
+                                +"MemoryMetrics";
     memoryMetrics += "_0";
 
-    std::string processorMetrics = PLATFORMDEVICEPREFIX "ProcessorMetrics";
+    std::string processorMetrics = std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) +
+                                   +"ProcessorMetrics";
     processorMetrics += "_0";
 
-    std::string processorGpmMetrics = PLATFORMDEVICEPREFIX
-        "ProcessorGPMMetrics";
+    std::string processorGpmMetrics =
+        std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) + +"ProcessorGPMMetrics";
     processorGpmMetrics += "_0";
 
-    std::string processorPortMetrics = PLATFORMDEVICEPREFIX
-        "ProcessorPortMetrics";
+    std::string processorPortMetrics =
+        std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) + +"ProcessorPortMetrics";
     processorPortMetrics += "_0";
 
-    std::string processorPortGpmMetrics = PLATFORMDEVICEPREFIX
-        "ProcessorPortGPMMetrics";
+    std::string processorPortGpmMetrics =
+        std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) + +"ProcessorPortGPMMetrics";
     processorPortGpmMetrics += "_0";
 
-    std::string nvswitchMetrics = PLATFORMDEVICEPREFIX "NVSwitchMetrics";
+    std::string nvswitchMetrics = std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) +
+                                  +"NVSwitchMetrics";
     nvswitchMetrics += "_0";
 
-    std::string nvswitchPortMetrics = PLATFORMDEVICEPREFIX
-        "NVSwitchPortMetrics";
+    std::string nvswitchPortMetrics =
+        std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) + +"NVSwitchPortMetrics";
     nvswitchPortMetrics += "_0";
 
     if (metricId == memoryMetrics && metricfname == "memory")
@@ -697,11 +685,12 @@ inline void
             for (const auto& [conName, interfaceList] : serviceMap)
             {
                 const std::string serviceName = conName;
-                if (metricId == PLATFORMMETRICSID)
+                if (metricId == BMCWEB_PLATFORM_METRICS_ID)
                 {
                     if (metricfname == "platformmetrics")
                     {
-                        supportedMetricIds.emplace_back(PLATFORMMETRICSID);
+                        supportedMetricIds.emplace_back(
+                            BMCWEB_PLATFORM_METRICS_ID);
                         getPlatforMetricsFromSensorMap(asyncResp, objectPath,
                                                        serviceName, metricId,
                                                        requestTimestamp);
@@ -730,8 +719,6 @@ inline void
         std::array<const char*, 1>{"xyz.openbmc_project.Sensor.Aggregation"});
 }
 
-#endif
-
 inline void requestRoutesMetricReport(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/TelemetryService/MetricReports/<str>/")
@@ -740,53 +727,24 @@ inline void requestRoutesMetricReport(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& id) {
-<<<<<<< HEAD
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-#ifdef BMCWEB_ENABLE_PLATFORM_METRICS
-        const uint64_t requestTimestamp = static_cast<uint64_t>(
-            std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now().time_since_epoch())
-                .count());
-        BMCWEB_LOG_DEBUG("Request submitted at {}", requestTimestamp);
-#ifdef BMCWEB_ENABLE_SHMEM_PLATFORM_METRICS
-        redfish::shmem::getShmemPlatformMetrics(asyncResp, id,
-                                                requestTimestamp);
-#else
-        getPlatforMetrics(asyncResp, id, requestTimestamp);
-#endif
-        return;
-#else
-        const std::string reportPath = telemetry::getDbusReportPath(id);
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, id, reportPath](const boost::system::error_code& ec) {
-            if (ec.value() == EBADR ||
-                ec == boost::system::errc::host_unreachable)
-            {
-                messages::resourceNotFound(asyncResp->res, "MetricReport", id);
-                return;
-            }
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("respHandler DBus error {}", ec);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            sdbusplus::asio::getProperty<telemetry::TimestampReadings>(
-                *crow::connections::systemBus, telemetry::service, reportPath,
-                telemetry::reportInterface, "Readings",
-                [asyncResp, id](const boost::system::error_code& ec2,
-                                const telemetry::TimestampReadings& ret) {
-                if (ec2)
-=======
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
->>>>>>> origin/master
                 {
                     return;
                 }
+
+                if constexpr (BMCWEB_SHMEM_PLATFORM_METRICS)
+                {
+                    const uint64_t requestTimestamp = static_cast<uint64_t>(
+                        std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::steady_clock::now().time_since_epoch())
+                            .count());
+                    BMCWEB_LOG_DEBUG("Request submitted at {}",
+                                     requestTimestamp);
+                    redfish::shmem::getShmemPlatformMetrics(asyncResp, id,
+                                                            requestTimestamp);
+                    return;
+                }
+
                 const std::string reportPath = telemetry::getDbusReportPath(id);
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, id,
@@ -827,13 +785,5 @@ inline void requestRoutesMetricReport(App& app)
                     telemetry::service, reportPath, telemetry::reportInterface,
                     "Update");
             });
-<<<<<<< HEAD
-        },
-            telemetry::service, reportPath, telemetry::reportInterface,
-            "Update");
-#endif
-    });
-=======
->>>>>>> origin/master
 }
 } // namespace redfish

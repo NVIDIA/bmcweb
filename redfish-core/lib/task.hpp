@@ -127,23 +127,15 @@ static nlohmann::json getMessage(const std::string_view state, size_t index)
 struct TaskData : std::enable_shared_from_this<TaskData>
 {
   private:
+  private:
     TaskData(
         std::function<bool(boost::system::error_code, sdbusplus::message_t&,
                            const std::shared_ptr<TaskData>&)>&& handler,
-<<<<<<< HEAD
-        const std::string& matchIn, size_t idx,
-        std::function<nlohmann::json(std::string_view, size_t)>&&
-            getMsgHandler) :
-        status("OK"),
-        getMsgCallback(getMsgHandler), callback(std::move(handler)),
-        matchStr(matchIn), index(idx),
-=======
         const std::string& matchIn, size_t idx) :
         callback(std::move(handler)), matchStr(matchIn), index(idx),
->>>>>>> origin/master
         startTime(std::chrono::system_clock::to_time_t(
             std::chrono::system_clock::now())),
-        state("Running"), messages(nlohmann::json::array()),
+        status("OK"), state("Running"), messages(nlohmann::json::array()),
         timer(crow::connections::systemBus->get_io_context())
 
     {}
@@ -284,26 +276,18 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         {
             res.result(boost::beast::http::status::accepted);
             std::string strIdx = std::to_string(index);
-<<<<<<< HEAD
-            std::string uri = "/redfish/v1/TaskService/Tasks/" + strIdx;
-=======
             boost::urls::url uri =
                 boost::urls::format("/redfish/v1/TaskService/Tasks/{}", strIdx);
 
->>>>>>> origin/master
             res.jsonValue["@odata.id"] = uri;
             res.jsonValue["@odata.type"] = "#Task.v1_4_3.Task";
             res.jsonValue["Id"] = strIdx;
             res.jsonValue["TaskState"] = state;
-<<<<<<< HEAD
-            res.jsonValue["TaskStatus"] = getTaskStatus();
-=======
             res.jsonValue["TaskStatus"] = status;
 
             boost::urls::url taskMonitor = boost::urls::format(
                 "/redfish/v1/TaskService/TaskMonitors/{}", strIdx);
 
->>>>>>> origin/master
             res.addHeader(boost::beast::http::field::location,
                           taskMonitor.buffer());
             res.addHeader(boost::beast::http::field::retry_after,
@@ -328,27 +312,6 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         timer.expires_after(timeout);
         timer.async_wait(
             [self = shared_from_this()](boost::system::error_code ec) {
-<<<<<<< HEAD
-            if (ec == boost::asio::error::operation_aborted)
-            {
-                return; // completed successfully
-            }
-            if (!ec)
-            {
-                // change ec to error as timer expired
-                ec = boost::asio::error::operation_aborted;
-            }
-            self->match.reset();
-            sdbusplus::message_t msg;
-            self->state = "Cancelled";
-            self->messages.emplace_back(
-                self->getMsgCallback("Aborted", self->index));
-            self->finishTask();
-            // Send event :TaskAborted
-            self->sendTaskEvent(self->state, self->index);
-            self->callback(ec, msg, self);
-        });
-=======
                 if (ec == boost::asio::error::operation_aborted)
                 {
                     return; // completed successfully
@@ -369,7 +332,6 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                 self->sendTaskEvent(self->state, self->index);
                 self->callback(ec, msg, self);
             });
->>>>>>> origin/master
     }
 
     static void sendTaskEvent(std::string_view state, size_t index)
@@ -437,43 +399,33 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         {
             return;
         }
-<<<<<<< HEAD
+
         if (matchStr != "0")
         {
             match = std::make_unique<sdbusplus::bus::match_t>(
-                static_cast<sdbusplus::bus::bus&>(
-                    *crow::connections::systemBus),
+                static_cast<sdbusplus::bus_t&>(*crow::connections::systemBus),
                 matchStr,
                 [self = shared_from_this()](sdbusplus::message_t& message) {
-=======
-        match = std::make_unique<sdbusplus::bus::match_t>(
-            static_cast<sdbusplus::bus_t&>(*crow::connections::systemBus),
-            matchStr,
-            [self = shared_from_this()](sdbusplus::message_t& message) {
->>>>>>> origin/master
-                boost::system::error_code ec;
+                    boost::system::error_code ec;
 
-                // callback to return True if callback is done, callback needs
-                // to update status itself if needed
-                if (self->callback(ec, message, self) == task::completed)
-                {
-                    self->timer.cancel();
-                    self->finishTask();
+                    // callback to return True if callback is done, callback
+                    // needs to update status itself if needed
+                    if (self->callback(ec, message, self) == task::completed)
+                    {
+                        self->timer.cancel();
+                        self->finishTask();
 
-                    // Send event
-                    self->sendTaskEvent(self->state, self->index);
+                        // Send event
+                        self->sendTaskEvent(self->state, self->index);
 
-                    // reset the match after the callback was successful
-                    boost::asio::post(
-                        crow::connections::systemBus->get_io_context(),
-                        [self] { self->match.reset(); });
-                    return;
-                }
-            });
-<<<<<<< HEAD
+                        // reset the match after the callback was successful
+                        boost::asio::post(
+                            crow::connections::systemBus->get_io_context(),
+                            [self] { self->match.reset(); });
+                        return;
+                    }
+                });
         }
-=======
->>>>>>> origin/master
 
         extendTimer(timeout);
         messages.emplace_back(getMsgCallback("Started", index));
@@ -530,52 +482,6 @@ inline void requestRoutesTaskMonitor(App& app)
                         return std::to_string(task->index) == strParam;
                     });
 
-<<<<<<< HEAD
-        if (find == task::tasks.end())
-        {
-            messages::resourceNotFound(asyncResp->res, "Monitor", strParam);
-            return;
-        }
-        std::shared_ptr<task::TaskData>& ptr = *find;
-        // If Task is completed and success, task monitor URI should
-        // return result of the operation
-        if (ptr->getTaskStatus() == "OK" && ptr->state == "Completed" &&
-            ptr->taskResponse)
-        {
-            const task::TaskResponse& taskResp = *(ptr->taskResponse);
-            asyncResp->res.jsonValue = taskResp.jsonResponse;
-            return;
-        }
-        // monitor expires after 204
-        if (ptr->gave204)
-        {
-            messages::resourceNotFound(asyncResp->res, "Monitor", strParam);
-            return;
-        }
-        ptr->populateResp(asyncResp->res);
-
-        // if payload http headers contain location entry, use it
-        if (ptr->payload)
-        {
-            const auto& h = ptr->payload->httpHeaders;
-            const auto location = std::find_if(
-                h.begin(), h.end(), [](const nlohmann::json& element) {
-                if (!element.is_string())
-                {
-                    return false;
-                }
-                std::string str = element;
-                return str.rfind("Location: ", 0) == 0;
-            });
-            if (location != h.end())
-            {
-                std::string str = *location;
-                asyncResp->res.addHeader(boost::beast::http::field::location,
-                                         str.substr(sizeof("Location: ") - 1));
-            }
-        }
-    });
-=======
                 if (find == task::tasks.end())
                 {
                     messages::resourceNotFound(asyncResp->res, "Task",
@@ -592,7 +498,6 @@ inline void requestRoutesTaskMonitor(App& app)
                 }
                 ptr->populateResp(asyncResp->res);
             });
->>>>>>> origin/master
 }
 
 inline void requestRoutesTask(App& app)
@@ -620,45 +525,15 @@ inline void requestRoutesTask(App& app)
                         return std::to_string(task->index) == strParam;
                     });
 
-<<<<<<< HEAD
-        if (find == task::tasks.end())
-        {
-            messages::resourceNotFound(asyncResp->res, "Tasks", strParam);
-            return;
-        }
-=======
                 if (find == task::tasks.end())
                 {
                     messages::resourceNotFound(asyncResp->res, "Task",
                                                strParam);
                     return;
                 }
->>>>>>> origin/master
 
                 const std::shared_ptr<task::TaskData>& ptr = *find;
 
-<<<<<<< HEAD
-        asyncResp->res.jsonValue["@odata.type"] = "#Task.v1_4_3.Task";
-        asyncResp->res.jsonValue["Id"] = strParam;
-        asyncResp->res.jsonValue["Name"] = "Task " + strParam;
-        asyncResp->res.jsonValue["TaskState"] = ptr->state;
-        asyncResp->res.jsonValue["StartTime"] =
-            redfish::time_utils::getDateTimeStdtime(ptr->startTime);
-        if (ptr->endTime)
-        {
-            asyncResp->res.jsonValue["EndTime"] =
-                redfish::time_utils::getDateTimeStdtime(*(ptr->endTime));
-        }
-        asyncResp->res.jsonValue["TaskStatus"] = ptr->getTaskStatus();
-        asyncResp->res.jsonValue["Messages"] = ptr->messages;
-        asyncResp->res.jsonValue["@odata.id"] =
-            boost::urls::format("/redfish/v1/TaskService/Tasks/{}", strParam);
-        if (!ptr->gave204)
-        {
-            asyncResp->res.jsonValue["TaskMonitor"] =
-                "/redfish/v1/TaskService/Tasks/" + strParam + "/Monitor";
-        }
-=======
                 asyncResp->res.jsonValue["@odata.type"] = "#Task.v1_4_3.Task";
                 asyncResp->res.jsonValue["Id"] = strParam;
                 asyncResp->res.jsonValue["Name"] = "Task " + strParam;
@@ -682,101 +557,9 @@ inline void requestRoutesTask(App& app)
                             "/redfish/v1/TaskService/TaskMonitors/{}",
                             strParam);
                 }
->>>>>>> origin/master
 
                 asyncResp->res.jsonValue["HidePayload"] = !ptr->payload;
 
-<<<<<<< HEAD
-        if (ptr->payload)
-        {
-            const task::Payload& p = *(ptr->payload);
-            asyncResp->res.jsonValue["Payload"]["TargetUri"] = p.targetUri;
-            asyncResp->res.jsonValue["Payload"]["HttpOperation"] =
-                p.httpOperation;
-            asyncResp->res.jsonValue["Payload"]["HttpHeaders"] = p.httpHeaders;
-            asyncResp->res.jsonValue["Payload"]["JsonBody"] = p.jsonBody.dump(
-                2, ' ', true, nlohmann::json::error_handler_t::replace);
-        }
-        asyncResp->res.jsonValue["PercentComplete"] = ptr->percentComplete;
-    });
-
-    BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/Update/")
-        .privileges(redfish::privileges::patchTask)
-        .methods(boost::beast::http::verb::patch)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& strParam) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-
-        privilege_utils::isBiosPrivilege(
-            req, [req, asyncResp, strParam](const boost::system::error_code ec,
-                                            const bool isBios) {
-            if (ec || isBios == false)
-            {
-                asyncResp->res.addHeader(boost::beast::http::field::allow, "");
-                messages::resourceNotFound(asyncResp->res, "", "Update");
-                return;
-            }
-
-            auto find = std::find_if(
-                task::tasks.begin(), task::tasks.end(),
-                [&strParam](const std::shared_ptr<task::TaskData>& task) {
-                if (!task)
-                {
-                    return false;
-                }
-
-                // we compare against the string version as on failure
-                // strtoul returns 0
-                return std::to_string(task->index) == strParam;
-            });
-
-            if (find == task::tasks.end())
-            {
-                messages::resourceNotFound(asyncResp->res, "Tasks", strParam);
-                return;
-            }
-
-            const std::shared_ptr<task::TaskData>& ptr = *find;
-
-            std::optional<std::string> taskState;
-            std::optional<nlohmann::json> messages;
-            if (!json_util::readJsonPatch(req, asyncResp->res, "TaskState",
-                                          taskState, "Messages", messages))
-            {
-                BMCWEB_LOG_DEBUG(
-                    "/redfish/v1/TaskService/Tasks/<str>/Update/ readJsonPatch error");
-                return;
-            }
-
-            if (messages)
-            {
-                ptr->messages = *messages;
-            }
-
-            if (taskState && ptr->state != *taskState)
-            {
-                ptr->state = *taskState;
-                if (ptr->state == "Completed" || ptr->state == "Cancelled" ||
-                    ptr->state == "Exception" || ptr->state == "Killed")
-                {
-                    ptr->timer.cancel();
-                    ptr->finishTask();
-                    if (ptr->state == "Completed")
-                    {
-                        ptr->percentComplete = 100;
-                    }
-                }
-                ptr->sendTaskEvent(ptr->state, ptr->index);
-            }
-
-            asyncResp->res.result(boost::beast::http::status::no_content);
-        });
-    });
-=======
                 if (ptr->payload)
                 {
                     const task::Payload& p = *(ptr->payload);
@@ -793,8 +576,8 @@ inline void requestRoutesTask(App& app)
                 }
                 asyncResp->res.jsonValue["PercentComplete"] =
                     ptr->percentComplete;
-            });
->>>>>>> origin/master
+            });      
+    requestRoutesTaskUpdate();   
 }
 
 inline void requestRoutesTaskCollection(App& app)
@@ -864,6 +647,92 @@ inline void requestRoutesTaskService(App& app)
                 asyncResp->res.jsonValue["Tasks"]["@odata.id"] =
                     "/redfish/v1/TaskService/Tasks";
             });
+}
+
+inline void requestRoutesTaskUpdate()
+{
+    BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/Update/")
+        .privileges(redfish::privileges::patchTask)
+        .methods(
+            boost::beast::http::verb::
+                patch)([&app](
+                           const crow::Request& req,
+                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& strParam) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+
+            privilege_utils::isBiosPrivilege(req, [req, asyncResp, strParam](
+                                                      const boost::system::
+                                                          error_code ec,
+                                                      const bool isBios) {
+                if (ec || isBios == false)
+                {
+                    asyncResp->res.addHeader(boost::beast::http::field::allow,
+                                             "");
+                    messages::resourceNotFound(asyncResp->res, "", "Update");
+                    return;
+                }
+
+                auto find = std::find_if(
+                    task::tasks.begin(), task::tasks.end(),
+                    [&strParam](const std::shared_ptr<task::TaskData>& task) {
+                        if (!task)
+                        {
+                            return false;
+                        }
+
+                        // we compare against the string version as on failure
+                        // strtoul returns 0
+                        return std::to_string(task->index) == strParam;
+                    });
+
+                if (find == task::tasks.end())
+                {
+                    messages::resourceNotFound(asyncResp->res, "Tasks",
+                                               strParam);
+                    return;
+                }
+
+                const std::shared_ptr<task::TaskData>& ptr = *find;
+
+                std::optional<std::string> taskState;
+                std::optional<nlohmann::json> messages;
+                if (!json_util::readJsonPatch(req, asyncResp->res, "TaskState",
+                                              taskState, "Messages", messages))
+                {
+                    BMCWEB_LOG_DEBUG(
+                        "/redfish/v1/TaskService/Tasks/<str>/Update/ readJsonPatch error");
+                    return;
+                }
+
+                if (messages)
+                {
+                    ptr->messages = *messages;
+                }
+
+                if (taskState && ptr->state != *taskState)
+                {
+                    ptr->state = *taskState;
+                    if (ptr->state == "Completed" ||
+                        ptr->state == "Cancelled" ||
+                        ptr->state == "Exception" || ptr->state == "Killed")
+                    {
+                        ptr->timer.cancel();
+                        ptr->finishTask();
+                        if (ptr->state == "Completed")
+                        {
+                            ptr->percentComplete = 100;
+                        }
+                    }
+                    ptr->sendTaskEvent(ptr->state, ptr->index);
+                }
+
+                asyncResp->res.result(boost::beast::http::status::no_content);
+            });
+        });
 }
 
 } // namespace redfish

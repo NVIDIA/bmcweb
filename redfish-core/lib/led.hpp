@@ -142,15 +142,6 @@ inline void
                     ledOn = true;
                 }
             }
-<<<<<<< HEAD
-        }
-        setDbusProperty(
-            asyncResp, "IndicatorLED", "xyz.openbmc_project.LED.GroupManager",
-            sdbusplus::message::object_path(
-                "/xyz/openbmc_project/led/groups/enclosure_identify"),
-            "xyz.openbmc_project.Led.Group", "Asserted", ledOn);
-    });
-=======
             setDbusProperty(
                 asyncResp, "IndicatorLED",
                 "xyz.openbmc_project.LED.GroupManager",
@@ -158,7 +149,6 @@ inline void
                     "/xyz/openbmc_project/led/groups/enclosure_identify"),
                 "xyz.openbmc_project.Led.Group", "Asserted", ledBlinkng);
         });
->>>>>>> origin/master
 }
 
 /**

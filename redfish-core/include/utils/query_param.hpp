@@ -527,21 +527,24 @@ inline bool processOnly(crow::App& app, crow::Response& res,
     }
 
     auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
-#ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
-    auto needToCallHandlers = RedfishAggregator::beginAggregation(
-                                  *newReq, asyncResp) == Result::LocalHandle;
-#endif
+    bool needToCallHandlers = false;
+    if constexpr (BMCWEB_REDFISH_AGGREGATION)
+    {
+        needToCallHandlers = RedfishAggregator::beginAggregation(
+                                 *newReq, asyncResp) == Result::LocalHandle;
+    }
 
     BMCWEB_LOG_DEBUG("setting completion handler on {}",
                      logPtr(&asyncResp->res));
     asyncResp->res.setCompleteRequestHandler(std::move(completionHandler));
 
-#ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
-    if (!needToCallHandlers)
+    if constexpr (BMCWEB_REDFISH_AGGREGATION)
     {
-        return true;
+        if (!needToCallHandlers)
+        {
+            return true;
+        }
     }
-#endif
     app.handle(newReq, asyncResp);
     return true;
 }

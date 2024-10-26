@@ -15,7 +15,10 @@
  * limitations under the License.
  */
 #pragma once
+
+#ifdef NVIDIA_HAVE_TAL
 #include "tal.hpp"
+#endif
 
 #include <nlohmann/json.hpp>
 
@@ -35,7 +38,12 @@ inline void
                      requestTimestamp);
     try
     {
+#ifndef NVIDIA_HAVE_TAL
+        BMCWEB_LOG_CRITICAL("Attempt to access tal but not available");
+        return;
+#else
         const auto& values = tal::TelemetryAggregator::getAllMrds(metricId);
+
         asyncResp->res.jsonValue["@odata.type"] =
             "#MetricReport.v1_4_2.MetricReport";
         std::string metricUri = "/redfish/v1/TelemetryService/MetricReports/";
@@ -52,13 +60,13 @@ inline void
         nlohmann::json& resArray = asyncResp->res.jsonValue["MetricValues"];
         nlohmann::json thisMetric = nlohmann::json::object();
 
-        if (metricId == PLATFORMMETRICSID)
+        if (metricId == BMCWEB_PLATFORM_METRICS_ID)
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                 "#NvidiaMetricReport.v1_0_0.NvidiaMetricReport";
             asyncResp->res
                 .jsonValue["Oem"]["Nvidia"]["SensingIntervalMilliseconds"] =
-                pmSensingInterval;
+                BMCWEB_PLATFORM_METRICS_SENSING_INTERVAL;
             for (const auto& e : values)
             {
                 thisMetric["MetricValue"] = e.sensorValue;
@@ -71,7 +79,7 @@ inline void
                 {
                     int64_t freshness =
                         static_cast<int64_t>(requestTimestamp - e.timestamp);
-                    if (freshness <= staleSensorUpperLimitms)
+                    if (freshness <= BMCWEB_STALESENSOR_UPPER_LIMIT_MILISECOND)
                     {
                         thisMetric["Oem"]["Nvidia"]["MetricValueStale"] = false;
                     }
@@ -91,6 +99,8 @@ inline void
                 resArray.push_back(thisMetric);
             }
         }
+
+#endif
     }
     catch (const std::exception& e)
     {
@@ -105,9 +115,9 @@ constexpr const char* metricReportDefinitionUri =
 constexpr const char* metricReportUri =
     "/redfish/v1/TelemetryService/MetricReports";
 
-static std::string gpuPrefix(platformGpuNamePrefix);
-static std::string platformDevicePrefix(PLATFORMDEVICEPREFIX);
-static std::string platformChassisName(PLATFORMCHASSISNAME);
+static std::string gpuPrefix(BMCWEB_PLATFORM_GPU_NAME_PREFIX);
+static std::string platformDevicePrefix(BMCWEB_PLATFORM_DEVICE_PREFIX);
+static std::string platformChassisName(BMCWEB_PLATFORM_CHASSIS_NAME);
 static std::string chassisName = platformDevicePrefix + "Chassis_";
 static std::string fpgaChassiName = platformDevicePrefix + "FPGA_";
 static std::string gpuName = platformDevicePrefix + gpuPrefix;
@@ -117,12 +127,15 @@ static std::string pcieSwtich = platformDevicePrefix + "PCIeSwitch_";
 static std::string processorModule = platformDevicePrefix + "ProcessorModule_";
 static std::string cpu = platformDevicePrefix + "CPU_";
 static std::string nvLink = "NVLink_";
+
 static std::string cpuProcessor = "CPU_";
 static std::string processor = "ProcessorModule_";
 static std::string pcieLink = "PCIeLink_";
 static std::string cpuCore = "CoreUtil_";
-static std::string networkAdapter(NETWORKADAPTERPREFIX);
-static std::string networkAdapterLink(NETWORKADAPTERLINKPREFIX);
+static std::string networkAdapter(BMCWEB_NVIDIA_NETWORK_ADAPTER_PREFIX);
+static std::string
+    networkAdapterLink(BMCWEB_NVIDIA_NETWORK_ADAPTER_LINK_PREFIX);
+
 static std::string gpmInstances = "UtilizationPercent/";
 static std::string nvLinkManagementNIC = "NIC_";
 static std::string nvLinkManagementNICPort = "Port_";
@@ -604,8 +617,9 @@ inline void
 }
 
 inline void getShmemMetricsDefinitionWildCard(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& metricId, const std::string& deviceType)
+    [[maybe_unused]] const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    [[maybe_unused]] const std::string& metricId,
+    [[maybe_unused]] const std::string& deviceType)
 {
     BMCWEB_LOG_DEBUG("getShmemMetricsDefinitionWildCards :{}", metricId);
 
@@ -634,7 +648,14 @@ inline void getShmemMetricsDefinitionWildCard(
 
     try
     {
+#ifndef NVIDIA_HAVE_TAL
+
+        BMCWEB_LOG_CRITICAL("Attempt to access tal but not available");
+        return;
+#else
+
         const auto& values = tal::TelemetryAggregator::getAllMrds(metricId);
+
         std::vector<std::string> inputMetricProperties;
         std::unordered_set<std::string> inputMetricPropertiesSet;
         nlohmann::json wildCards = nlohmann::json::array();
@@ -714,6 +735,7 @@ inline void getShmemMetricsDefinitionWildCard(
             metricsReplacementsNonPlatformMetrics(
                 asyncResp, inputMetricProperties, deviceType);
         }
+#endif
     }
     catch (const std::exception& e)
     {
@@ -723,13 +745,18 @@ inline void getShmemMetricsDefinitionWildCard(
 }
 
 inline void getShmemMetricsReportCollection(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& reportType)
+    [[maybe_unused]] const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    [[maybe_unused]] const std::string& reportType)
 {
     BMCWEB_LOG_ERROR("Exception while getShmemMetricsReportDefinition");
     try
     {
+#ifndef NVIDIA_HAVE_TAL
+        BMCWEB_LOG_CRITICAL("Attempt to access tal but not available");
+        return;
+#else
         const auto& values = tal::TelemetryAggregator::getMrdNamespaces();
+
         nlohmann::json& addMembers = asyncResp->res.jsonValue["Members"];
         for (std::string memoryMetricId : values)
         {
@@ -748,6 +775,8 @@ inline void getShmemMetricsReportCollection(
             addMembers.push_back({{"@odata.id", uripath}});
         }
         asyncResp->res.jsonValue["Members@odata.count"] = addMembers.size();
+
+#endif
     }
     catch (const std::exception& e)
     {

@@ -25,26 +25,6 @@ inline void createSubscription(crow::sse_socket::Connection& conn,
         conn.close("Max SSE subscriptions reached");
         return;
     }
-<<<<<<< HEAD
-    std::optional<filter_ast::LogicalAnd> filter;
-    for (const auto& param : req.url().params())
-    {
-        if (param.key == "$filter")
-        {
-            std::string_view filterValue = param.value;
-            filter = parseFilter(filterValue);
-            if (!filter)
-            {
-                conn.close(std::format("Bad $filter param: {}", filterValue));
-                return;
-            }
-        }
-    }
-    std::string lastEventId(req.getHeaderValue("Last-Event-Id"));
-
-    std::shared_ptr<redfish::Subscription> subValue =
-        std::make_shared<redfish::Subscription>(conn);
-=======
 
     std::optional<filter_ast::LogicalAnd> filter;
 
@@ -66,21 +46,13 @@ inline void createSubscription(crow::sse_socket::Connection& conn,
 
     std::shared_ptr<Subscription> subValue =
         std::make_shared<Subscription>(conn);
->>>>>>> origin/master
 
     // GET on this URI means, Its SSE subscriptionType.
     subValue->userSub.subscriptionType = redfish::subscriptionTypeSSE;
 
-<<<<<<< HEAD
-    subValue->protocol = "Redfish";
-    subValue->retryPolicy = "TerminateAfterRetries";
-    subValue->eventFormatType = "Event";
-    subValue->filter = filter;
-=======
     subValue->userSub.protocol = "Redfish";
     subValue->userSub.retryPolicy = "TerminateAfterRetries";
     subValue->userSub.eventFormatType = "Event";
->>>>>>> origin/master
 
     std::string id = manager.addSSESubscription(subValue, lastEventId);
     if (id.empty())

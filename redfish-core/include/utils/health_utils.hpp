@@ -30,11 +30,11 @@ inline void getDeviceHealthInfo(crow::Response& resp,
                                 const std::string& chassisId)
 {
     std::string deviceId = chassisId;
-    if (strlen(PLATFORMDEVICEPREFIX) > 0)
+    if (!BMCWEB_PLATFORM_DEVICE_PREFIX.empty())
     {
-        if (boost::starts_with(chassisId, PLATFORMDEVICEPREFIX))
+        if (boost::starts_with(chassisId, BMCWEB_PLATFORM_DEVICE_PREFIX))
         {
-            deviceId = chassisId.substr(strlen(PLATFORMDEVICEPREFIX));
+            deviceId = chassisId.substr(BMCWEB_PLATFORM_DEVICE_PREFIX.size());
         }
     }
 

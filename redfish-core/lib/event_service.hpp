@@ -65,15 +65,6 @@ inline void requestRoutesEventService(App& app)
                 return;
             }
 
-<<<<<<< HEAD
-        asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/EventService";
-        asyncResp->res.jsonValue["@odata.type"] =
-            "#EventService.v1_7_2.EventService";
-        asyncResp->res.jsonValue["Id"] = "EventService";
-        asyncResp->res.jsonValue["Name"] = "Event Service";
-        asyncResp->res.jsonValue["ServerSentEventUri"] =
-            "/redfish/v1/EventService/SSE";
-=======
             asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/EventService";
             asyncResp->res.jsonValue["@odata.type"] =
                 "#EventService.v1_5_0.EventService";
@@ -81,7 +72,6 @@ inline void requestRoutesEventService(App& app)
             asyncResp->res.jsonValue["Name"] = "Event Service";
             asyncResp->res.jsonValue["ServerSentEventUri"] =
                 "/redfish/v1/EventService/SSE";
->>>>>>> origin/master
 
             asyncResp->res.jsonValue["Subscriptions"]["@odata.id"] =
                 "/redfish/v1/EventService/Subscriptions";
@@ -180,35 +170,14 @@ inline void requestRoutesEventService(App& app)
                     }
                 }
 
-<<<<<<< HEAD
-        if (retryInterval)
-        {
-            // Supported range [5 - 180]
-            if ((*retryInterval < 5) || (*retryInterval > 180))
-            {
-                messages::queryParameterOutOfRange(
-                    asyncResp->res, std::to_string(*retryInterval),
-                    "DeliveryRetryIntervalSeconds", "[5-180]");
-            }
-            else
-            {
-                eventServiceConfig.retryTimeoutInterval = *retryInterval;
-            }
-        }
-
 #ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-        EventServiceManager::getInstance().setEventServiceConfig(
-            eventServiceConfig, req.target());
+                EventServiceManager::getInstance().setEventServiceConfig(
+                    eventServiceConfig, req.target());
 #else
-        EventServiceManager::getInstance().setEventServiceConfig(
-            eventServiceConfig);
-#endif
-    });
-=======
                 EventServiceManager::getInstance().setEventServiceConfig(
                     eventServiceConfig);
-            });
->>>>>>> origin/master
+#endif
+    });
 }
 
 inline void requestRoutesSubmitTestEvent(App& app)
@@ -312,45 +281,6 @@ inline void requestRoutesEventDestinationCollection(App& app)
 
     BMCWEB_ROUTE(app, "/redfish/v1/EventService/Subscriptions/")
         .privileges(redfish::privileges::postEventDestinationCollection)
-<<<<<<< HEAD
-        .methods(boost::beast::http::verb::post)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        if (EventServiceManager::getInstance().getNumberOfSubscriptions() >=
-            maxNoOfSubscriptions)
-        {
-            messages::eventSubscriptionLimitExceeded(asyncResp->res);
-            return;
-        }
-        std::string destUrl;
-        std::string protocol;
-        std::optional<std::string> context;
-        std::optional<std::string> subscriptionType;
-        std::optional<std::string> eventFormatType2;
-        std::optional<std::string> retryPolicy;
-        std::optional<std::vector<std::string>> msgIds;
-        std::optional<std::vector<std::string>> regPrefixes;
-        std::optional<std::vector<std::string>> resTypes;
-        std::optional<std::vector<nlohmann::json::object_t>> headers;
-        std::optional<std::vector<nlohmann::json::object_t>> mrdJsonArray;
-        std::optional<std::vector<std::string>> originResources;
-
-        if (!json_util::readJsonPatch(
-                req, asyncResp->res, "Destination", destUrl, "Context", context,
-                "Protocol", protocol, "SubscriptionType", subscriptionType,
-                "EventFormatType", eventFormatType2, "HttpHeaders", headers,
-                "RegistryPrefixes", regPrefixes, "MessageIds", msgIds,
-                "OriginResources", originResources, "DeliveryRetryPolicy",
-                retryPolicy, "MetricReportDefinitions", mrdJsonArray,
-                "ResourceTypes", resTypes))
-        {
-            return;
-        }
-=======
         .methods(
             boost::beast::http::verb::
                 post)([&app](
@@ -400,103 +330,13 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 return;
             }
             // clang-format on
->>>>>>> origin/master
 
             // https://stackoverflow.com/questions/417142/what-is-the-maximum-length-of-a-url-in-different-browsers
             static constexpr const uint16_t maxDestinationSize = 2000;
             if (destUrl.size() > maxDestinationSize)
             {
-<<<<<<< HEAD
-                messages::propertyValueConflict(asyncResp->res, "MessageIds",
-                                                "RegistryPrefixes");
-                return;
-            }
-        }
-
-        boost::system::result<boost::urls::url> url =
-            boost::urls::parse_absolute_uri(destUrl);
-        if (!url)
-        {
-            BMCWEB_LOG_WARNING("Failed to validate and split destination url");
-            messages::propertyValueFormatError(asyncResp->res, destUrl,
-                                               "Destination");
-            return;
-        }
-        url->normalize();
-        crow::utility::setProtocolDefaults(*url, protocol);
-        crow::utility::setPortDefaults(*url);
-
-        if (url->path().empty())
-        {
-            url->set_path("/");
-        }
-
-        if (url->has_userinfo())
-        {
-            messages::propertyValueFormatError(asyncResp->res, destUrl,
-                                               "Destination");
-            return;
-        }
-
-        if (protocol == "SNMPv2c")
-        {
-            if (context)
-            {
-                messages::propertyValueConflict(asyncResp->res, "Context",
-                                                "Protocol");
-                return;
-            }
-            if (eventFormatType2)
-            {
-                messages::propertyValueConflict(asyncResp->res,
-                                                "EventFormatType", "Protocol");
-                return;
-            }
-
-            if (retryPolicy)
-            {
-                messages::propertyValueConflict(asyncResp->res, "RetryPolicy",
-                                                "Protocol");
-                return;
-            }
-            if (msgIds)
-            {
-                messages::propertyValueConflict(asyncResp->res, "MessageIds",
-                                                "Protocol");
-                return;
-            }
-            if (regPrefixes)
-            {
-                messages::propertyValueConflict(asyncResp->res,
-                                                "RegistryPrefixes", "Protocol");
-                return;
-            }
-            if (resTypes)
-            {
-                messages::propertyValueConflict(asyncResp->res, "ResourceTypes",
-                                                "Protocol");
-                return;
-            }
-            if (headers)
-            {
-                messages::propertyValueConflict(asyncResp->res, "HttpHeaders",
-                                                "Protocol");
-                return;
-            }
-            if (mrdJsonArray)
-            {
-                messages::propertyValueConflict(
-                    asyncResp->res, "MetricReportDefinitions", "Protocol");
-                return;
-            }
-            if (url->scheme() != "snmp")
-            {
-                messages::propertyValueConflict(asyncResp->res, "Destination",
-                                                "Protocol");
-=======
                 messages::stringValueTooLong(asyncResp->res, "Destination",
                                              maxDestinationSize);
->>>>>>> origin/master
                 return;
             }
 
@@ -510,20 +350,9 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 }
             }
 
-<<<<<<< HEAD
-        if (originResources)
-        {
-            subValue->originResources = *originResources;
-        }
-
-        if (resTypes)
-        {
-            for (const std::string& it : *resTypes)
-=======
             boost::system::result<boost::urls::url> url =
                 boost::urls::parse_absolute_uri(destUrl);
             if (!url)
->>>>>>> origin/master
             {
                 BMCWEB_LOG_WARNING(
                     "Failed to validate and split destination url");
@@ -837,48 +666,17 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 messages::internalError(asyncResp->res);
                 return;
             }
-
-<<<<<<< HEAD
-        if (mrdJsonArray)
-        {
-            for (nlohmann::json::object_t& mrdObj : *mrdJsonArray)
-            {
-                std::string mrdUri;
-
-                if (!json_util::readJsonObject(mrdObj, asyncResp->res,
-                                               "@odata.id", mrdUri))
-
-                {
-                    return;
-                }
-                subValue->metricReportDefinitions.emplace_back(mrdUri);
-            }
-        }
-
-        std::string id =
-            EventServiceManager::getInstance().addPushSubscription(subValue);
-        if (id.empty())
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
 #ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
-        // new subscription is added so start redfish event listener.
-        if (EventServiceManager::getInstance().getNumberOfSubscriptions() == 1)
-        {
-            startRedfishEventListener(*req.ioService);
-        }
+            // new subscription is added so start redfish event listener.
+            if (EventServiceManager::getInstance().getNumberOfSubscriptions() == 1)
+            {
+                startRedfishEventListener(*req.ioService);
+            }
 #endif
-        messages::created(asyncResp->res);
-        asyncResp->res.addHeader(
-            "Location", "/redfish/v1/EventService/Subscriptions/" + id);
-    });
-=======
             messages::created(asyncResp->res);
             asyncResp->res.addHeader(
                 "Location", "/redfish/v1/EventService/Subscriptions/" + id);
         });
->>>>>>> origin/master
 }
 
 inline void requestRoutesEventDestination(App& app)
@@ -910,26 +708,6 @@ inline void requestRoutesEventDestination(App& app)
                 }
                 const std::string& id = param;
 
-<<<<<<< HEAD
-        asyncResp->res.jsonValue["@odata.type"] =
-            "#EventDestination.v1_8_0.EventDestination";
-        asyncResp->res.jsonValue["Protocol"] = "Redfish";
-        asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-            "/redfish/v1/EventService/Subscriptions/{}", id);
-        asyncResp->res.jsonValue["Id"] = id;
-        asyncResp->res.jsonValue["Name"] = "Event Destination " + id;
-        asyncResp->res.jsonValue["Destination"] = subValue->destinationUrl;
-        asyncResp->res.jsonValue["Context"] = subValue->customText;
-        asyncResp->res.jsonValue["SubscriptionType"] =
-            subValue->subscriptionType;
-        asyncResp->res.jsonValue["HttpHeaders"] = nlohmann::json::array();
-        asyncResp->res.jsonValue["EventFormatType"] = subValue->eventFormatType;
-        asyncResp->res.jsonValue["RegistryPrefixes"] =
-            subValue->registryPrefixes;
-        asyncResp->res.jsonValue["ResourceTypes"] = subValue->resourceTypes;
-        asyncResp->res.jsonValue["MessageIds"] = subValue->registryMsgIds;
-        asyncResp->res.jsonValue["DeliveryRetryPolicy"] = subValue->retryPolicy;
-=======
                 const persistent_data::UserSubscription& userSub =
                     subValue->userSub;
 
@@ -949,7 +727,6 @@ inline void requestRoutesEventDestination(App& app)
                 jVal["EventFormatType"] = userSub.eventFormatType;
                 jVal["RegistryPrefixes"] = userSub.registryPrefixes;
                 jVal["ResourceTypes"] = userSub.resourceTypes;
->>>>>>> origin/master
 
                 jVal["MessageIds"] = userSub.registryMsgIds;
                 jVal["DeliveryRetryPolicy"] = userSub.retryPolicy;
@@ -974,53 +751,7 @@ inline void requestRoutesEventDestination(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& param) {
-<<<<<<< HEAD
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        std::shared_ptr<Subscription> subValue =
-            EventServiceManager::getInstance().getSubscription(param);
-        if (subValue == nullptr)
-        {
-            asyncResp->res.result(boost::beast::http::status::not_found);
-            return;
-        }
-
-        std::optional<std::string> context;
-        std::optional<std::string> retryPolicy;
-        std::optional<std::vector<nlohmann::json::object_t>> headers;
-
-        if (!json_util::readJsonPatch(req, asyncResp->res, "Context", context,
-                                      "DeliveryRetryPolicy", retryPolicy,
-                                      "HttpHeaders", headers))
-        {
-            return;
-        }
-
-        if (context)
-        {
-            subValue->customText = *context;
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-            // Send an event for property change
-            Event event =
-                redfish::EventUtil::getInstance().createEventPropertyModified(
-                    "Context", *context, "EventService");
-            redfish::EventServiceManager::getInstance().sendEventWithOOC(
-                std::string(req.target()), event);
-#endif
-        }
-
-        if (headers)
-        {
-            std::string keyValues;
-            boost::beast::http::fields fields;
-            for (const nlohmann::json::object_t& headerChunk : *headers)
-            {
-                for (const auto& it : headerChunk)
-=======
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
->>>>>>> origin/master
                 {
                     return;
                 }
@@ -1052,6 +783,14 @@ inline void requestRoutesEventDestination(App& app)
                 if (context)
                 {
                     subValue->userSub.customText = *context;
+#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
+                    // Send an event for property change
+                    Event event =
+                        redfish::EventUtil::getInstance().createEventPropertyModified(
+                            "Context", *context, "EventService");
+                    redfish::EventServiceManager::getInstance().sendEventWithOOC(
+                        std::string(req.target()), event);
+#endif
                 }
 
                 if (headers)
@@ -1074,6 +813,14 @@ inline void requestRoutesEventDestination(App& app)
                         }
                     }
                     subValue->userSub.httpHeaders = std::move(fields);
+#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
+                    // Send an event for property change
+                    Event event =
+                        redfish::EventUtil::getInstance().createEventPropertyModified(
+                            "Headers", keyValues, "EventService");
+                    redfish::EventServiceManager::getInstance().sendEventWithOOC(
+                        std::string(req.target()), event);
+#endif
                 }
 
                 if (retryPolicy)
@@ -1087,53 +834,21 @@ inline void requestRoutesEventDestination(App& app)
                                                          "DeliveryRetryPolicy");
                         return;
                     }
-<<<<<<< HEAD
-                    fields.set(it.first, *value);
-                    keyValues += it.first;
-                    keyValues.push_back(':');
-                    keyValues += *value;
-                    keyValues.push_back(' ');
-                }
-            }
-            subValue->httpHeaders = std::move(fields);
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-            // Send an event for property change
-            Event event =
-                redfish::EventUtil::getInstance().createEventPropertyModified(
-                    "Headers", keyValues, "EventService");
-            redfish::EventServiceManager::getInstance().sendEventWithOOC(
-                std::string(req.target()), event);
-#endif
-        }
-
-        if (retryPolicy)
-        {
-            if (std::ranges::find(supportedRetryPolicies, *retryPolicy) ==
-                supportedRetryPolicies.end())
-            {
-                messages::propertyValueNotInList(asyncResp->res, *retryPolicy,
-                                                 "DeliveryRetryPolicy");
-                return;
-            }
-            subValue->retryPolicy = *retryPolicy;
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-            // Send an event for property change
-            Event event =
-                redfish::EventUtil::getInstance().createEventPropertyModified(
-                    "RetryPolicy", *retryPolicy, "EventService");
-            redfish::EventServiceManager::getInstance().sendEventWithOOC(
-                std::string(req.target()), event);
-#endif
-        }
-=======
                     subValue->userSub.retryPolicy = *retryPolicy;
+#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
+                    // Send an event for property change
+                    Event event =
+                        redfish::EventUtil::getInstance().createEventPropertyModified(
+                            "RetryPolicy", *retryPolicy, "EventService");
+                    redfish::EventServiceManager::getInstance().sendEventWithOOC(
+                        std::string(req.target()), event);
+#endif
                 }
 
                 if (verifyCertificate)
                 {
                     subValue->userSub.verifyCertificate = *verifyCertificate;
                 }
->>>>>>> origin/master
 
                 // Sync Subscription to UserSubscriptionConfig
                 persistent_data::EventServiceStore::getInstance()
@@ -1163,30 +878,6 @@ inline void requestRoutesEventDestination(App& app)
                     return;
                 }
 
-<<<<<<< HEAD
-        if (param.starts_with("snmp"))
-        {
-            deleteSnmpTrapClient(asyncResp, param);
-            EventServiceManager::getInstance().deleteSubscription(param);
-            return;
-        }
-
-        if (!EventServiceManager::getInstance().isSubscriptionExist(param))
-        {
-            asyncResp->res.result(boost::beast::http::status::not_found);
-            return;
-        }
-#ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
-        // there will be no subscription after the deletion
-        // stop redfish event listener
-        if (EventServiceManager::getInstance().getNumberOfSubscriptions() == 1)
-        {
-            stopRedfishEventListener(*req.ioService);
-        }
-#endif
-        EventServiceManager::getInstance().deleteSubscription(param);
-    });
-=======
                 if (!event.deleteSubscription(param))
                 {
                     messages::resourceNotFound(asyncResp->res,
@@ -1194,8 +885,15 @@ inline void requestRoutesEventDestination(App& app)
                     return;
                 }
                 messages::success(asyncResp->res);
+#ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
+                // there will be no subscription after the deletion
+                // stop redfish event listener
+                if (EventServiceManager::getInstance().getNumberOfSubscriptions() == 1)
+                {
+                    stopRedfishEventListener(*req.ioService);
+                }
+#endif
             });
->>>>>>> origin/master
 }
 
 } // namespace redfish

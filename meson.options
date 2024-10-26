@@ -25,14 +25,6 @@ option(
                     https://github.com/openbmc/jsnbd/blob/master/README.''',
 )
 
-<<<<<<< HEAD
-option(
-    'platform-metrics',
-    type: 'feature',
-    value: 'enabled',
-    description: 'Enable/disable the platform metrics to collect all sensors reading',
-)
-=======
 # BMCWEB_NBDPROXY
 # if you use this option and are seeing this comment, please comment here:
 # https://github.com/openbmc/bmcweb/issues/188 and put forward your intentions
@@ -46,7 +38,6 @@ option(
 #    value: 'disabled',
 #    description: 'Enable the Virtual Media WebSocket.'
 #)
->>>>>>> origin/master
 
 # BMCWEB_REST
 option(
@@ -843,40 +834,7 @@ option(
                     Should be set to false for production systems.''',
 )
 
-<<<<<<< HEAD
-option(
-    'insecure-tftp-update',
-    type: 'feature',
-    value: 'disabled',
-    description: '''Enable TFTP based firmware update transactions through
-                    Redfish UpdateService.   SimpleUpdate.''',
-)
-option(
-    'profile-configuration',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable profile configuration.',
-)
-
-option(
-    'scp-update',
-    type: 'feature',
-    value: 'disabled',
-    description: '''Enable SCP based firmware update transactions through
-                    Redfish UpdateService.SimpleUpdate.''',
-)
-
-option(
-    'redfish-updateservice-http-pull',
-    type: 'feature',
-    value: 'disabled',
-    description: '''Enable HTTP/HTTPS based firmware update transactions through
-                    Redfish UpdateService.SimpleUpdate.''',
-)
-
-=======
 # BMCWEB_INSECURE_IGNORE_CONTENT_TYPE
->>>>>>> origin/master
 option(
     'insecure-ignore-content-type',
     type: 'feature',
@@ -1130,4 +1088,27 @@ option(
     type: 'feature',
     value: 'enabled',
     description: 'Enable LastResetTime property on ComputerSystem objects (/redfish/v1/Systems/<str>).',
+)
+
+option(
+    'profile-configuration',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable profile configuration.',
+)
+
+option(
+    'scp-update',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable SCP based firmware update transactions through
+                    Redfish UpdateService.SimpleUpdate.''',
+)
+
+option(
+    'redfish-updateservice-http-pull',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable HTTP/HTTPS based firmware update transactions through
+                    Redfish UpdateService.SimpleUpdate.''',
 )

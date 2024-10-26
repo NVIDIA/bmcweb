@@ -9,11 +9,7 @@ import generate_schema_enums
 import requests
 from generate_schema_collections import generate_top_collections
 
-<<<<<<< HEAD
-VERSION = "DSP8010_2024.1"
-=======
 VERSION = "DSP8010_2024.3"
->>>>>>> origin/master
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
@@ -108,11 +104,7 @@ for csdl_file in csdl_filenames:
         schema_out.write(content)
 
 for schema_filename, versions in json_schema_files.items():
-<<<<<<< HEAD
-    zip_filepath = os.path.join("json-schema", versions[0])
-=======
     zip_filepath = os.path.join(VERSION + "/json-schema", versions[0])
->>>>>>> origin/master
 
     with open(
         os.path.join(json_schema_path, versions[0]), "wb"

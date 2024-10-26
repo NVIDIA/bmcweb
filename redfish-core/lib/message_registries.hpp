@@ -56,7 +56,7 @@ inline void handleMessageRegistryFileCollectionGet(
              {"Base", "TaskEvent", "ResourceEvent", "OpenBMC", "Telemetry",
               "Platform", "Update", "BiosAttributeRegistry"}))
     {
-#ifndef BMCWEB_ENABLE_BIOS
+#ifndef BMCWEB_BIOS
         if (std::string(memberName) == "BiosAttributeRegistry")
         {
             continue;
@@ -118,7 +118,7 @@ inline void handleMessageRoutesMessageRegistryFileGet(
         header = &registries::update::header;
         url = registries::update::url;
     }
-#ifdef BMCWEB_ENABLE_BIOS
+#ifdef BMCWEB_BIOS
     else if (registry == "BiosAttributeRegistry")
     {
         header = &registries::bios::header;
@@ -242,7 +242,7 @@ inline void handleMessageRegistryGet(
             registryEntries.emplace_back(&entry);
         }
     }
-#ifdef BMCWEB_ENABLE_BIOS
+#ifdef BMCWEB_BIOS
     else if (registry == "BiosAttributeRegistry")
     {
         header = &registries::bios::header;

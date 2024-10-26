@@ -1113,44 +1113,6 @@ inline void updateUserProperties(
             {
                 messages::resourceNotFound(asyncResp->res, "ManagerAccount",
                                            username);
-<<<<<<< HEAD
-            }
-            else if (retval == PAM_AUTHTOK_ERR ||
-                     retval == PAM_NEW_AUTHTOK_REQD)
-            {
-                // If password is invalid
-                messages::propertyValueFormatError(asyncResp->res, *password,
-                                                   "Password");
-                size_t maxrepeat = 3;
-                if (!password.value().empty())
-                {
-                    maxrepeat = static_cast<size_t>(
-                        3 + (0.09 * static_cast<double>(
-                                        strlen(password.value().c_str()))));
-                }
-                std::string resolution =
-                    " Password should be " + std::to_string(minPasswordLength) +
-                    " character long including " +
-                    std::to_string(minUcaseCharacters) +
-                    " uppercase character, " +
-                    std::to_string(minLcaseCharacters) +
-                    " lower case character, " + std::to_string(minDigits) +
-                    " digit, " + std::to_string(minSpecCharacters) +
-                    " special character and " + std::to_string(maxrepeat) +
-                    " maximum number of consecutive character pairs";
-
-                // update the resolution message and add the password
-                // policy
-                redfish::message_registries::updateResolution(
-                    asyncResp, "Password", resolution);
-                BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
-            }
-
-            else if (retval != PAM_SUCCESS)
-            {
-                messages::internalError(asyncResp->res);
-=======
->>>>>>> origin/master
                 return;
             }
 
@@ -1163,12 +1125,14 @@ inline void updateUserProperties(
                     messages::resourceNotFound(asyncResp->res, "ManagerAccount",
                                                username);
                 }
-                else if (retval == PAM_AUTHTOK_ERR)
+                else if (retval == PAM_AUTHTOK_ERR ||
+                                retval == PAM_NEW_AUTHTOK_REQD)
                 {
                     // If password is invalid
                     messages::propertyValueFormatError(asyncResp->res, nullptr,
                                                        "Password");
                     BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
+                    handle_nvidia_resolution(asyncResp, password);
                 }
                 else if (retval != PAM_SUCCESS)
                 {
@@ -1411,12 +1375,8 @@ inline void
 
     nlohmann::json::object_t clientCertificate;
     clientCertificate["Enabled"] = authMethodsConfig.tls;
-<<<<<<< HEAD
-    clientCertificate["RespondToUnauthenticatedClients"] = true;
-=======
     clientCertificate["RespondToUnauthenticatedClients"] =
         !authMethodsConfig.tlsStrict;
->>>>>>> origin/master
 
     using account_service::CertificateMappingAttribute;
 
@@ -1477,13 +1437,8 @@ inline void
                 return;
             }
 
-<<<<<<< HEAD
-        BMCWEB_LOG_DEBUG("Got {}properties for AccountService",
-                         propertiesList.size());
-=======
             BMCWEB_LOG_DEBUG("Got {} properties for AccountService",
                              propertiesList.size());
->>>>>>> origin/master
 
             const uint8_t* minPasswordLength = nullptr;
             const uint32_t* accountUnlockTimeout = nullptr;
@@ -1533,14 +1488,8 @@ inline void
     getLDAPConfigData("ActiveDirectory", callback);
 }
 
-<<<<<<< HEAD
-inline void
-    handleCertificateMappingAttributePatch(crow::Response& res,
-                                           const std::string& certMapAttribute)
-=======
 inline void handleCertificateMappingAttributePatch(
     crow::Response& res, const std::string& certMapAttribute)
->>>>>>> origin/master
 {
     MTLSCommonNameParseMode parseMode =
         persistent_data::getMTLSCommonNameParseMode(certMapAttribute);
@@ -1556,8 +1505,6 @@ inline void handleCertificateMappingAttributePatch(
     authMethodsConfig.mTLSCommonNameParsingMode = parseMode;
 }
 
-<<<<<<< HEAD
-=======
 inline void handleRespondToUnauthenticatedClientsPatch(
     App& app, const crow::Request& req, crow::Response& res,
     bool respondToUnauthenticatedClients)
@@ -1590,7 +1537,6 @@ inline void handleRespondToUnauthenticatedClientsPatch(
     app.loadCertificate();
 }
 
->>>>>>> origin/master
 inline void handleAccountServicePatch(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -1605,48 +1551,11 @@ inline void handleAccountServicePatch(
     std::optional<uint16_t> maxPasswordLength;
     LdapPatchParams ldapObject;
     std::optional<std::string> certificateMappingAttribute;
-<<<<<<< HEAD
-=======
     std::optional<bool> respondToUnauthenticatedClients;
->>>>>>> origin/master
     LdapPatchParams activeDirectoryObject;
     AuthMethods auth;
     std::optional<std::string> httpBasicAuth;
 
-<<<<<<< HEAD
-    // clang-format off
-    if (!json_util::readJsonPatch(
-            req, asyncResp->res,
-            "AccountLockoutDuration", unlockTimeout,
-            "AccountLockoutThreshold", lockoutThreshold,
-            "ActiveDirectory/Authentication/AuthenticationType", activeDirectoryObject.authType,
-            "ActiveDirectory/Authentication/Password", activeDirectoryObject.password,
-            "ActiveDirectory/Authentication/Username", activeDirectoryObject.userName,
-            "ActiveDirectory/LDAPService/SearchSettings/BaseDistinguishedNames", activeDirectoryObject.baseDNList,
-            "ActiveDirectory/LDAPService/SearchSettings/GroupsAttribute", activeDirectoryObject.groupsAttribute,
-            "ActiveDirectory/LDAPService/SearchSettings/UsernameAttribute", activeDirectoryObject.userNameAttribute,
-            "ActiveDirectory/RemoteRoleMapping", activeDirectoryObject.remoteRoleMapData,
-            "ActiveDirectory/ServiceAddresses", activeDirectoryObject.serviceAddressList,
-            "ActiveDirectory/ServiceEnabled", activeDirectoryObject.serviceEnabled,
-            "MultiFactorAuth/ClientCertificate/CertificateMappingAttribute", certificateMappingAttribute,
-            "LDAP/Authentication/AuthenticationType", ldapObject.authType,
-            "LDAP/Authentication/Password", ldapObject.password,
-            "LDAP/Authentication/Username", ldapObject.userName,
-            "LDAP/LDAPService/SearchSettings/BaseDistinguishedNames", ldapObject.baseDNList,
-            "LDAP/LDAPService/SearchSettings/GroupsAttribute", ldapObject.groupsAttribute,
-            "LDAP/LDAPService/SearchSettings/UsernameAttribute", ldapObject.userNameAttribute,
-            "LDAP/RemoteRoleMapping", ldapObject.remoteRoleMapData,
-            "LDAP/ServiceAddresses", ldapObject.serviceAddressList,
-            "LDAP/ServiceEnabled", ldapObject.serviceEnabled,
-            "MaxPasswordLength", maxPasswordLength,
-            "MinPasswordLength", minPasswordLength,
-            "Oem/OpenBMC/AuthMethods/BasicAuth", auth.basicAuth,
-            "Oem/OpenBMC/AuthMethods/Cookie", auth.cookie,
-            "Oem/OpenBMC/AuthMethods/SessionToken", auth.sessionToken,
-            "Oem/OpenBMC/AuthMethods/TLS", auth.tls,
-            "Oem/OpenBMC/AuthMethods/XToken", auth.xToken,
-            "HTTPBasicAuth", httpBasicAuth))
-=======
     if (!json_util::readJsonPatch( //
             req, asyncResp->res, //
             "AccountLockoutDuration", unlockTimeout, //
@@ -1694,7 +1603,6 @@ inline void handleAccountServicePatch(
             "Oem/OpenBMC/AuthMethods/TLS", auth.tls, //
             "Oem/OpenBMC/AuthMethods/XToken", auth.xToken //
             ))
->>>>>>> origin/master
     {
         return;
     }
@@ -1716,15 +1624,12 @@ inline void handleAccountServicePatch(
         }
     }
 
-<<<<<<< HEAD
-=======
     if (respondToUnauthenticatedClients)
     {
         handleRespondToUnauthenticatedClientsPatch(
             app, req, asyncResp->res, *respondToUnauthenticatedClients);
     }
 
->>>>>>> origin/master
     if (certificateMappingAttribute)
     {
         handleCertificateMappingAttributePatch(asyncResp->res,
@@ -1841,7 +1746,6 @@ inline void handleAccountCollectionGet(
 
             for (const auto& userpath : users)
             {
-<<<<<<< HEAD
                 if (user == "service")
                 {
                     continue;
@@ -1850,7 +1754,6 @@ inline void handleAccountCollectionGet(
                 member["@odata.id"] = boost::urls::format(
                     "/redfish/v1/AccountService/Accounts/{}", user);
                 memberArray.emplace_back(std::move(member));
-=======
                 std::string user = userpath.first.filename();
                 if (user.empty())
                 {
@@ -1873,7 +1776,6 @@ inline void handleAccountCollectionGet(
                         "/redfish/v1/AccountService/Accounts/{}", user);
                     memberArray.emplace_back(std::move(member));
                 }
->>>>>>> origin/master
             }
             asyncResp->res.jsonValue["Members@odata.count"] =
                 memberArray.size();
@@ -2318,48 +2220,14 @@ inline void
     const std::string userPath(tempObjPath);
 
     crow::connections::systemBus->async_method_call(
-<<<<<<< HEAD
         [asyncResp, username](const boost::system::error_code& ec,
                               sdbusplus::message::message& m) {
-        if (ec)
-        {
-            const sd_bus_error* dbusError = m.get_error();
-            if (dbusError && dbusError->name)
-            {
-                if (!strcmp(dbusError->name,
-                            "xyz.openbmc_project.Common.Error.NotAllowed"))
-                {
-                    messages::resourceCannotBeDeleted(
-                        asyncResp->res, "#ManagerAccount.v1_4_0.ManagerAccount",
-                        username);
-                }
-                else if (!strcmp(dbusError->name,
-                                 "org.freedesktop.DBus.Error.UnknownObject"))
-                {
-                    messages::resourceNotFound(
-                        asyncResp->res, "#ManagerAccount.v1_4_0.ManagerAccount",
-                        username);
-                }
-                else
-                {
-                    messages::internalError(asyncResp->res);
-                }
-            }
-            else
-            {
-                messages::internalError(asyncResp->res);
-            }
-            return;
-        }
-=======
-        [asyncResp, username](const boost::system::error_code& ec) {
+
             if (ec)
             {
-                messages::resourceNotFound(asyncResp->res, "ManagerAccount",
-                                           username);
+                handle_nvidia_delete_error(asyncResp, username, m);
                 return;
             }
->>>>>>> origin/master
 
             messages::accountRemoved(asyncResp->res);
         },

@@ -29,7 +29,7 @@ constexpr unsigned int subscribeBodyLimit = 5 * 1024 * 1024; // 5MB
 
 namespace redfish
 {
-#ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
+#ifdef BMCWEB_REDFISH_AGGREGATION
 class subscribeSatBmc
 {
   public:
@@ -141,7 +141,7 @@ inline void doSubscribe(std::shared_ptr<crow::HttpClient> client,
                     std::bind_front(handleSubscribeResponse);
 
                 std::string path("/redfish/v1/EventService/Subscriptions");
-                std::string dest(rfaBmcHostURL);
+                std::string dest(BMCWEB_RFA_BMC_HOST_URL);
 
                 nlohmann::json postJson = {{"Destination", dest},
                                            {"Protocol", "Redfish"}};
@@ -219,7 +219,8 @@ inline void querySubscriptionList(std::shared_ptr<crow::HttpClient> client,
     auto subscribeTimer = subscribeSatBmc::getInstance().getTimer();
     // check HMC subscription periodically in case of HMC
     // reset-to-default
-    subscribeTimer->expires_after(std::chrono::seconds(rfaDeferSubscribeTime));
+    subscribeTimer->expires_after(
+        std::chrono::seconds(BMCWEB_RFA_DELAY_SUBSCRIBE_TIME));
     subscribeTimer->async_wait(
         std::bind_front(querySubscriptionList, client, url));
 }
@@ -235,7 +236,9 @@ inline void getSatBMCInfo(
         return;
     }
 
-    const auto& sat = satelliteInfo.find(redfishAggregationPrefix);
+    const auto& sat =
+        satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
+
     if (sat == satelliteInfo.end())
     {
         BMCWEB_LOG_ERROR("satellite BMC is not there.");
@@ -257,7 +260,7 @@ inline void getSatBMCInfo(
 
 inline int initRedfishEventListener(boost::asio::io_context& ioc)
 {
-    const uint8_t deferTime = rfaDeferSubscribeTime;
+    const uint8_t deferTime = BMCWEB_RFA_DELAY_SUBSCRIBE_TIME;
     RedfishAggregator::getSatelliteConfigs(
         std::bind_front(getSatBMCInfo, std::ref(ioc), deferTime));
 
@@ -285,7 +288,9 @@ inline void unSubscribe(
         return;
     }
 
-    const auto& sat = satelliteInfo.find(redfishAggregationPrefix);
+    const auto& sat =
+        satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
+
     if (sat == satelliteInfo.end())
     {
         BMCWEB_LOG_ERROR("satellite BMC is not there.");

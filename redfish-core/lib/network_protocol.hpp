@@ -191,17 +191,9 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     asyncResp->res.jsonValue["Id"] = "NetworkProtocol";
     asyncResp->res.jsonValue["Name"] = "Manager Network Protocol";
     asyncResp->res.jsonValue["Description"] = "Manager Network Service";
-<<<<<<< HEAD
-    asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-    asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-=======
     asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
     asyncResp->res.jsonValue["Status"]["HealthRollup"] = resource::Health::OK;
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
->>>>>>> origin/master
 
     // HTTP is Mandatory attribute as per OCP Baseline Profile - v1.0.0,
     // but from security perspective it is not recommended to use.
@@ -251,19 +243,11 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     getNTPProtocolEnabled(asyncResp);
 #endif
 
-<<<<<<< HEAD
-    getEthernetIfaceData(
-        [hostName,
-         asyncResp](const bool& success,
-                    [[maybe_unused]] const std::vector<std::string>& ntpServers,
-                    const std::vector<std::string>& domainNames) {
-=======
     getEthernetIfaceData([hostName, asyncResp](
                              const bool& success,
                              const std::vector<std::string>& ntpServers,
                              const std::vector<std::string>& dynamicNtpServers,
                              const std::vector<std::string>& domainNames) {
->>>>>>> origin/master
         if (!success)
         {
             messages::resourceNotFound(asyncResp->res, "ManagerNetworkProtocol",
@@ -273,12 +257,8 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
 #ifdef BMCWEB_ENABLE_NTP
         asyncResp->res.jsonValue["NTP"]["NTPServers"] = ntpServers;
-<<<<<<< HEAD
-#endif
-=======
         asyncResp->res.jsonValue["NTP"]["NetworkSuppliedServers"] =
             dynamicNtpServers;
->>>>>>> origin/master
         if (!hostName.empty())
         {
             std::string fqdn = hostName;
@@ -560,8 +540,6 @@ inline void handleManagersNetworkProtocolPatch(
     std::optional<bool> ipmiEnabled;
     std::optional<bool> sshEnabled;
 
-<<<<<<< HEAD
-    // clang-format off
         if (!json_util::readJsonPatch(
                 req, asyncResp->res,
                 "HostName", newHostName
@@ -583,20 +561,6 @@ inline void handleManagersNetworkProtocolPatch(
         {
             return;
         }
-    // clang-format on
-=======
-    if (!json_util::readJsonPatch(
-            req, asyncResp->res, //
-            "HostName", newHostName, //
-            "NTP/NTPServers", ntpServerObjects, //
-            "NTP/ProtocolEnabled", ntpEnabled, //
-            "IPMI/ProtocolEnabled", ipmiEnabled, //
-            "SSH/ProtocolEnabled", sshEnabled //
-            ))
-    {
-        return;
-    }
->>>>>>> origin/master
 
     asyncResp->res.result(boost::beast::http::status::no_content);
     if (newHostName)

@@ -31,17 +31,10 @@ TEST(ServerSentEvent, SseWorks)
     Request req;
 
     bool openCalled = false;
-<<<<<<< HEAD
-    auto openHandler = [&openCalled](Connection&,
-                                     const Request& /*handedReq*/) {
-        openCalled = true;
-    };
-=======
     auto openHandler =
         [&openCalled](Connection&, const Request& /*handedReq*/) {
             openCalled = true;
         };
->>>>>>> origin/master
     bool closeCalled = false;
     auto closeHandler = [&closeCalled](Connection&) { closeCalled = true; };
 

@@ -310,12 +310,13 @@ inline std::string getHealth(nlohmann::json& sensorJson,
     const bool* criticalAlarmLow = nullptr;
     const bool* warningAlarmHigh = nullptr;
     const bool* warningAlarmLow = nullptr;
+    const bool* functional = nullptr;
 
     const bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), valuesDict, "CriticalAlarmHigh",
         criticalAlarmHigh, "CriticalAlarmLow", criticalAlarmLow,
         "WarningAlarmHigh", warningAlarmHigh, "WarningAlarmLow",
-        warningAlarmLow);
+        warningAlarmLow, "Functional", functional);
 
     if (success)
     {
@@ -347,6 +348,16 @@ inline std::string getHealth(nlohmann::json& sensorJson,
             (warningAlarmLow != nullptr && *warningAlarmLow))
         {
             return "Warning";
+        }
+    }
+
+    if (success)
+    {
+        // Check if sensor is functional
+        if (functional != nullptr && *functional == false)
+        {
+            sensorJson["Status"]["State"] = resource::State::Absent;
+            sensorJson["Status"]["Health"] = "Critical";
         }
     }
 
@@ -450,7 +461,7 @@ inline void objectPropertiesToJson(
 
         if (chassisSubNode == ChassisSubNode::sensorsNode)
         {
-            sensorJson["@odata.type"] = "#Sensor.v1_2_0.Sensor";
+            sensorJson["@odata.type"] = "#Sensor.v1_7_0.Sensor";
 
             sensor::ReadingType readingType =
                 sensors::toReadingType(sensorType);
@@ -478,7 +489,7 @@ inline void objectPropertiesToJson(
         else if (sensorType == "temperature")
         {
             unit = "/ReadingCelsius"_json_pointer;
-            sensorJson["@odata.type"] = "#Thermal.v1_3_0.Temperature";
+            sensorJson["@odata.type"] = "#Thermal.v1_7_1.Temperature";
             // TODO(ed) Documentation says that path should be type fan_tach,
             // implementation seems to implement fan
         }
@@ -486,7 +497,7 @@ inline void objectPropertiesToJson(
         {
             unit = "/Reading"_json_pointer;
             sensorJson["ReadingUnits"] = thermal::ReadingUnits::RPM;
-            sensorJson["@odata.type"] = "#Thermal.v1_3_0.Fan";
+            sensorJson["@odata.type"] = "#Thermal.v1_7_1.Fan";
             setLedState(sensorJson, inventoryItem);
             forceToInt = true;
         }
@@ -494,7 +505,7 @@ inline void objectPropertiesToJson(
         {
             unit = "/Reading"_json_pointer;
             sensorJson["ReadingUnits"] = thermal::ReadingUnits::Percent;
-            sensorJson["@odata.type"] = "#Thermal.v1_3_0.Fan";
+            sensorJson["@odata.type"] = "#Thermal.v1_7_1.Fan";
             setLedState(sensorJson, inventoryItem);
             forceToInt = true;
         }
@@ -557,6 +568,26 @@ inline void objectPropertiesToJson(
             properties.emplace_back(
                 "xyz.openbmc_project.Sensor.Threshold.Critical", "CriticalLow",
                 "/Thresholds/LowerCritical/Reading"_json_pointer);
+            properties.emplace_back(
+                "xyz.openbmc_project.Sensor.Threshold.HardShutdown",
+                "HardShutdownHigh",
+                "/Thresholds/UpperFatal/Reading"_json_pointer);
+            properties.emplace_back(
+                "xyz.openbmc_project.Sensor.Threshold.HardShutdown",
+                "HardShutdownLow",
+                "/Thresholds/LowerFatal/Reading"_json_pointer);
+            properties.emplace_back("xyz.openbmc_project.Time.EpochTime",
+                                    "Elapsed", "/ReadingTime"_json_pointer);
+            properties.emplace_back("xyz.openbmc_project.Sensor.ReadingBasis",
+                                    "ReadingBasis",
+                                    "/ReadingBasis"_json_pointer);
+            properties.emplace_back("xyz.openbmc_project.Sensor.Description",
+                                    "Description", "/Description"_json_pointer);
+            properties.emplace_back("xyz.openbmc_project.Sensor.PeakValue",
+                                    "PeakValue", "/PeakReading"_json_pointer);
+            properties.emplace_back("xyz.openbmc_project.Sensor.PeakValue",
+                                    "Timestamp",
+                                    "/PeakReadingTime"_json_pointer);
 
             /* Add additional properties specific to sensorType */
             if (sensorType == "fan_tach")
@@ -593,6 +624,18 @@ inline void objectPropertiesToJson(
                                     "/ReadingRangeMax"_json_pointer);
             properties.emplace_back("xyz.openbmc_project.Sensor.Accuracy",
                                     "Accuracy", "/Accuracy"_json_pointer);
+            properties.emplace_back(
+                "xyz.openbmc_project.Inventory.Decorator.Area",
+                "PhysicalContext", "/PhysicalContext"_json_pointer);
+            properties.emplace_back("xyz.openbmc_project.Sensor.Type",
+                                    "Implementation",
+                                    "/Implementation"_json_pointer);
+            properties.emplace_back("xyz.openbmc_project.Sensor.Value",
+                                    "MaxAllowableValue",
+                                    "/MaxAllowableOperatingValue"_json_pointer);
+            properties.emplace_back("xyz.openbmc_project.Sensor.Value",
+                                    "MinAllowableValue",
+                                    "/MinAllowableOperatingValue"_json_pointer);
         }
         else if (sensorType == "temperature")
         {
@@ -602,6 +645,12 @@ inline void objectPropertiesToJson(
             properties.emplace_back("xyz.openbmc_project.Sensor.Value",
                                     "MaxValue",
                                     "/MaxReadingRangeTemp"_json_pointer);
+            properties.emplace_back("xyz.openbmc_project.Sensor.Value",
+                                    "MaxAllowableValue",
+                                    "/MaxAllowableOperatingValue"_json_pointer);
+            properties.emplace_back("xyz.openbmc_project.Sensor.Value",
+                                    "MinAllowableValue",
+                                    "/MinAllowableOperatingValue"_json_pointer);
         }
         else if (sensorType != "power")
         {
@@ -611,6 +660,15 @@ inline void objectPropertiesToJson(
             properties.emplace_back("xyz.openbmc_project.Sensor.Value",
                                     "MaxValue",
                                     "/MaxReadingRange"_json_pointer);
+            if (sensorType != "voltage")
+            {
+                properties.emplace_back(
+                    "xyz.openbmc_project.Sensor.Value", "MaxAllowableValue",
+                    "/MaxAllowableOperatingValue"_json_pointer);
+                properties.emplace_back(
+                    "xyz.openbmc_project.Sensor.Value", "MinAllowableValue",
+                    "/MinAllowableOperatingValue"_json_pointer);
+            }
         }
     }
 
@@ -629,31 +687,84 @@ inline void objectPropertiesToJson(
             const nlohmann::json::json_pointer& key = std::get<2>(p);
 
             const double* doubleValue = std::get_if<double>(&valueVariant);
-            if (doubleValue == nullptr)
+            const std::string* stringValue =
+                std::get_if<std::string>(&valueVariant);
+            const uint64_t* uint64Value = std::get_if<uint64_t>(&valueVariant);
+            if (doubleValue != nullptr)
             {
-                BMCWEB_LOG_ERROR("Got value interface that wasn't double");
-                continue;
-            }
-            if (!std::isfinite(*doubleValue))
-            {
-                if (valueName == "Value")
+                if (valueName == "MaxAllowableValue" ||
+                    valueName == "MinAllowableValue")
                 {
-                    // Readings are allowed to be NAN for unavailable;  coerce
-                    // them to null in the json response.
-                    sensorJson[key] = nullptr;
+                    forceToInt = true;
+                }
+                if (!std::isfinite(*doubleValue))
+                {
+                    if (valueName == "Value")
+                    {
+                        // Readings are allowed to be NAN for unavailable;
+                        // coerce them to null in the json response.
+                        sensorJson[key] = nullptr;
+                        continue;
+                    }
+                    BMCWEB_LOG_WARNING(
+                        "Sensor value for {} was unexpectedly {}", valueName,
+                        *doubleValue);
                     continue;
                 }
-                BMCWEB_LOG_WARNING("Sensor value for {} was unexpectedly {}",
-                                   valueName, *doubleValue);
+                if (!std::isinf(*doubleValue))
+                {
+                    if (forceToInt)
+                    {
+                        sensorJson[key] = static_cast<int64_t>(*doubleValue);
+                    }
+                    else
+                    {
+                        sensorJson[key] = *doubleValue;
+                    }
+                }
                 continue;
             }
-            if (forceToInt)
+            else if (stringValue != nullptr)
             {
-                sensorJson[key] = static_cast<int64_t>(*doubleValue);
+                if (valueName == "PhysicalContext")
+                {
+                    std::string physicalContext =
+                        static_cast<std::string>(*stringValue);
+                    const std::string& value =
+                        dbus_utils::toPhysicalContext(physicalContext);
+                    sensorJson[key] = value;
+                }
+                if (valueName == "Implementation")
+                {
+                    std::string implementation =
+                        static_cast<std::string>(*stringValue);
+                    const std::string& value =
+                        sensors::toImplementation(implementation);
+                    sensorJson[key] = value;
+                }
+                if (valueName == "ReadingBasis")
+                {
+                    sensorJson[key] = sensors::toReadingBasis(
+                        static_cast<std::string>(*stringValue));
+                }
+                if (valueName == "Description")
+                {
+                    sensorJson[key] = static_cast<std::string>(*stringValue);
+                }
+            }
+            else if (uint64Value != nullptr)
+            {
+                if (valueName == "Elapsed" || valueName == "Timestamp")
+                {
+                    sensorJson[key] =
+                        time_utils::getDateTimeUintMs(*uint64Value);
+                }
             }
             else
             {
-                sensorJson[key] = *doubleValue;
+                BMCWEB_LOG_ERROR(
+                    "Got value interface that wasn't string, double, or uint64");
+                continue;
             }
         }
     }

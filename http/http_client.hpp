@@ -275,10 +275,6 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
         // Set a timeout on the operation
         timer.expires_after(std::chrono::seconds(30));
         timer.async_wait(std::bind_front(onTimeout, weak_from_this()));
-<<<<<<< HEAD
-
-=======
->>>>>>> origin/master
         // Send the HTTP request to the remote host
         if (sslConn)
         {

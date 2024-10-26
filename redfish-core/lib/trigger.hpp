@@ -574,9 +574,6 @@ inline bool parseMetricProperties(crow::Response& res, Context& ctx)
             return false;
         }
 
-<<<<<<< HEAD
-        ctx.sensorNames.emplace_back(sensorName, uriStr);
-=======
         std::pair<std::string, std::string> split =
             redfish::sensor_utils::splitSensorNameAndType(sensorName);
         if (split.first.empty() || split.second.empty())
@@ -590,7 +587,6 @@ inline bool parseMetricProperties(crow::Response& res, Context& ctx)
             "/xyz/openbmc_project/sensors/" + split.first + '/' + split.second;
 
         ctx.sensors.emplace_back(sensorPath, uriStr);
->>>>>>> origin/master
         uriIdx++;
     }
     return true;
@@ -965,46 +961,6 @@ inline void handleTriggerCollectionPost(
     }
 
     crow::connections::systemBus->async_method_call(
-<<<<<<< HEAD
-        [ctx, asyncResp](const boost::system::error_code ec,
-                         const std::vector<std::string>& objects) {
-        std::vector<std::pair<sdbusplus::message::object_path, std::string>>
-            sensors;
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("respHandler DBus error {}", ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        for (const std::string& object : objects)
-        {
-            for (const std::pair<std::string, std::string>& sensorName :
-                 ctx.sensorNames)
-            {
-                if (object.find(sensorName.first) != std::string::npos)
-                {
-                    BMCWEB_LOG_DEBUG("Find sensor object path: {}", object);
-                    sensors.emplace_back(object, sensorName.second);
-                }
-            }
-        }
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, id = ctx.id](const boost::system::error_code& ec,
-                                     const std::string& dbusPath) {
-            afterCreateTrigger(ec, dbusPath, asyncResp, id);
-        },
-            service, "/xyz/openbmc_project/Telemetry/Triggers",
-            "xyz.openbmc_project.Telemetry.TriggerManager", "AddTrigger",
-            "TelemetryService/" + ctx.id, ctx.name, ctx.actions, sensors,
-            ctx.reports, ctx.thresholds);
-        return;
-    },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/sensors", 0,
-        std::array<const char*, 1>{"xyz.openbmc_project.Sensor.Value"});
-=======
         [asyncResp, id = ctx.id](const boost::system::error_code& ec,
                                  const std::string& dbusPath) {
             afterCreateTrigger(ec, dbusPath, asyncResp, id);
@@ -1013,7 +969,6 @@ inline void handleTriggerCollectionPost(
         "xyz.openbmc_project.Telemetry.TriggerManager", "AddTrigger",
         "TelemetryService/" + ctx.id, ctx.name, ctx.actions, ctx.sensors,
         ctx.reports, ctx.thresholds);
->>>>>>> origin/master
 }
 
 } // namespace telemetry

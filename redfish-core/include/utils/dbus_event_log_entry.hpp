@@ -22,6 +22,8 @@ struct DbusEventLogEntry
     std::string Severity;
     uint64_t Timestamp = 0;
     uint64_t UpdateTimestamp = 0;
+    const std::string* eventId = nullptr;
+    const std::vector<std::string>* additionalDataRaw = nullptr;
 };
 
 inline std::optional<DbusEventLogEntry> fillDbusEventLogEntryFromPropertyMap(
@@ -40,7 +42,9 @@ inline std::optional<DbusEventLogEntry> fillDbusEventLogEntryFromPropertyMap(
         "ServiceProviderNotify", entry.ServiceProviderNotify,
         "Severity", entry.Severity,
         "Timestamp", entry.Timestamp,
-        "UpdateTimestamp", entry.UpdateTimestamp
+        "UpdateTimestamp", entry.UpdateTimestamp,
+        "EventId", entry.eventId,
+        "AdditionalData", entry.additionalDataRaw
     );
     // clang-format on
     if (!success)

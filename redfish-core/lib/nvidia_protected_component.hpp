@@ -66,21 +66,21 @@ static std::unique_ptr<boost::asio::steady_timer> revokeKeysTimer;
 
 static constexpr auto timeoutTimeSeconds = 10;
 
-static inline void clearSecVersion()
+inline void clearSecVersion()
 {
     updateMinSecVersionMatch = nullptr;
     updateMinSecVersionTimer.reset();
     updateMinSecVersionTimer = nullptr;
 }
 
-static inline void clearRevokeKeys()
+inline void clearRevokeKeys()
 {
     revokeKeysMatch = nullptr;
     revokeKeysTimer.reset();
     revokeKeysTimer = nullptr;
 }
 
-static inline std::string getStrAfterLastDot(const std::string& text)
+inline std::string getStrAfterLastDot(const std::string& text)
 {
     size_t lastDot = text.find_last_of('.');
     if (lastDot != std::string::npos)
@@ -93,7 +93,7 @@ static inline std::string getStrAfterLastDot(const std::string& text)
     }
 }
 
-static inline bool stringToInt(const std::string& str, int& number)
+inline bool stringToInt(const std::string& str, int& number)
 {
     try
     {
@@ -115,7 +115,7 @@ static inline bool stringToInt(const std::string& str, int& number)
     return true;
 }
 
-static inline std::string removeERoTFromStr(const std::string& input)
+inline std::string removeERoTFromStr(const std::string& input)
 {
     size_t first_underscore = input.find('_');
     size_t second_underscore = input.find('_', first_underscore + 1);

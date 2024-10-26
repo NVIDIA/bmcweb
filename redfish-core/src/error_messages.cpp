@@ -533,14 +533,9 @@ void createFailedMissingReqProperties(crow::Response& res,
 nlohmann::json propertyValueFormatError(const nlohmann::json& arg1,
                                         std::string_view arg2)
 {
-<<<<<<< HEAD
     std::string arg1Str = arg1.dump(2, ' ', true,
                                     nlohmann::json::error_handler_t::replace);
     arg1Str = std::regex_replace(arg1Str, std::regex("\""), "");
-=======
-    std::string arg1Str =
-        arg1.dump(2, ' ', true, nlohmann::json::error_handler_t::replace);
->>>>>>> origin/master
     return getLog(redfish::registries::base::Index::propertyValueFormatError,
                   std::to_array<std::string_view>({arg1Str, arg2}));
 }
@@ -564,14 +559,9 @@ void propertyValueFormatError(crow::Response& res, const nlohmann::json& arg1,
 nlohmann::json propertyValueNotInList(const nlohmann::json& arg1,
                                       std::string_view arg2)
 {
-<<<<<<< HEAD
     std::string arg1Str = arg1.dump(-1, ' ', true,
                                     nlohmann::json::error_handler_t::replace);
     arg1Str = std::regex_replace(arg1Str, std::regex("\""), "");
-=======
-    std::string arg1Str =
-        arg1.dump(-1, ' ', true, nlohmann::json::error_handler_t::replace);
->>>>>>> origin/master
     return getLog(redfish::registries::base::Index::propertyValueNotInList,
                   std::to_array<std::string_view>({arg1Str, arg2}));
 }

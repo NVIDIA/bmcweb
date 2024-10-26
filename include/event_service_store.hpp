@@ -31,10 +31,7 @@ struct UserSubscription
     boost::beast::http::fields httpHeaders;
     std::vector<std::string> metricReportDefinitions;
     std::vector<std::string> originResources;
-<<<<<<< HEAD
     bool includeOriginOfCondition = true;
-=======
->>>>>>> origin/master
 
     static std::optional<UserSubscription> fromJson(
         const nlohmann::json::object_t& j, const bool loadFromOldConfig = false)

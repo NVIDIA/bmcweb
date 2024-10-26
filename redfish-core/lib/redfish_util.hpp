@@ -135,44 +135,9 @@ void getPortStatusAndPath(
                     continue;
                 }
 
-<<<<<<< HEAD
-                const std::string_view protocolName = kv.first;
-                // if TLS authentication is disabled then don't support HTTPS.
-                // even if SSL is enabled
-#ifdef BMCWEB_ENABLE_SSL
-                if (protocolName == "HTTPS" &&
-                    !persistent_data::getConfig().isTLSAuthEnabled())
-                {
-                    continue;
-                }
-#else
-                if (protocolName == "HTTPS")
-                {
-                    continue;
-                }
-#endif
-                const std::string& socketPath =
-                    std::get<NET_PROTO_UNIT_OBJ_PATH>(unit);
-                const std::string& unitState =
-                    std::get<NET_PROTO_UNIT_SUB_STATE>(unit);
-
-                bool isProtocolEnabled = ((unitState == "running") ||
-                                          (unitState == "listening"));
-
-                // Some protocols may have multiple services associated with
-                // them (for example IPMI). Look to see if we've already added
-                // an entry for the current protocol.
-                auto find = std::ranges::find_if(
-                    socketData,
-                    [&kv](const std::tuple<std::string, std::string, bool>& i) {
-                    return std::get<1>(i) == kv.first;
-                });
-                if (find != socketData.end())
-=======
                 // is unitsName end with ".socket"
                 std::string unitNameEnd = unitName.substr(lastCharPos);
                 if (unitNameEnd != ".socket")
->>>>>>> origin/master
                 {
                     continue;
                 }
@@ -196,6 +161,22 @@ void getPortStatusAndPath(
                     {
                         continue;
                     }
+
+                    const std::string_view protocolName = kv.first;
+                // if TLS authentication is disabled then don't support HTTPS.
+                // even if SSL is enabled
+#ifdef BMCWEB_ENABLE_SSL
+                    if (protocolName == "HTTPS" &&
+                        !persistent_data::getConfig().isTLSAuthEnabled())
+                    {
+                        continue;
+                    }
+#else
+                    if (protocolName == "HTTPS")
+                    {
+                        continue;
+                    }
+#endif
 
                     const std::string& socketPath =
                         std::get<NET_PROTO_UNIT_OBJ_PATH>(unit);
@@ -309,58 +290,60 @@ inline void
          user](const boost::system::error_code& ec,
                const std::map<std::string, dbus::utility::DbusVariantType>&
                    userInfo) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("GetUserInfo failed...");
-            messages::resourceAtUriUnauthorized(asyncResp->res, req.url(),
-                                                "Invalid username or password");
-            return;
-        }
-        bool userLocked = false;
-        const bool* userLockedPtr = nullptr;
-        auto lockedIter = userInfo.find("UserLockedForFailedAttempt");
-        if (lockedIter != userInfo.end())
-        {
-            userLockedPtr = std::get_if<bool>(&lockedIter->second);
-        }
-        if (userLockedPtr != nullptr)
-        {
-            userLocked = *userLockedPtr;
-        }
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("GetUserInfo failed...");
+                messages::resourceAtUriUnauthorized(
+                    asyncResp->res, req.url(), "Invalid username or password");
+                return;
+            }
+            bool userLocked = false;
+            const bool* userLockedPtr = nullptr;
+            auto lockedIter = userInfo.find("UserLockedForFailedAttempt");
+            if (lockedIter != userInfo.end())
+            {
+                userLockedPtr = std::get_if<bool>(&lockedIter->second);
+            }
+            if (userLockedPtr != nullptr)
+            {
+                userLocked = *userLockedPtr;
+            }
 
-        if (userLocked)
-        {
-            sdbusplus::asio::getProperty<uint32_t>(
-                *crow::connections::systemBus,
-                "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
-                "xyz.openbmc_project.User.AccountPolicy",
-                "AccountUnlockTimeout",
-                [asyncResp, &req](const boost::system::error_code ec,
-                                  const uint32_t& unlockTimeout) {
-                if (ec)
-                {
-                    messages::internalError(asyncResp->res);
-                }
-                else
-                {
-                    BMCWEB_LOG_DEBUG("unlock Timeout: {}", unlockTimeout);
-                    std::string arg2 =
-                        "Account temporarily locked out for " +
-                        std::to_string(unlockTimeout) +
-                        " seconds"
-                        " due to multiple authentication failures";
-                    messages::resourceAtUriUnauthorized(asyncResp->res,
-                                                        req.url(), arg2);
-                }
-            });
-        }
-        else
-        {
-            BMCWEB_LOG_DEBUG("User is not locked out");
-            messages::resourceAtUriUnauthorized(asyncResp->res, req.url(),
-                                                "Invalid username or password");
-        }
-    },
+            if (userLocked)
+            {
+                sdbusplus::asio::getProperty<uint32_t>(
+                    *crow::connections::systemBus,
+                    "xyz.openbmc_project.User.Manager",
+                    "/xyz/openbmc_project/user",
+                    "xyz.openbmc_project.User.AccountPolicy",
+                    "AccountUnlockTimeout",
+                    [asyncResp, &req](const boost::system::error_code ec,
+                                      const uint32_t& unlockTimeout) {
+                        if (ec)
+                        {
+                            messages::internalError(asyncResp->res);
+                        }
+                        else
+                        {
+                            BMCWEB_LOG_DEBUG("unlock Timeout: {}",
+                                             unlockTimeout);
+                            std::string arg2 =
+                                "Account temporarily locked out for " +
+                                std::to_string(unlockTimeout) +
+                                " seconds"
+                                " due to multiple authentication failures";
+                            messages::resourceAtUriUnauthorized(
+                                asyncResp->res, req.url(), arg2);
+                        }
+                    });
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("User is not locked out");
+                messages::resourceAtUriUnauthorized(
+                    asyncResp->res, req.url(), "Invalid username or password");
+            }
+        },
         "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
         "xyz.openbmc_project.User.Manager", "GetUserInfo", user);
 }
@@ -371,131 +354,202 @@ inline void
  * @param[in,out]   asyncResp   Async HTTP response.
  * @param[in]       objectPath  D-Bus object to query.
  */
-inline void
-    getComponentFirmwareVersion(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
-                                const std::string& objectPath)
+inline void getComponentFirmwareVersion(
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp, const std::string& objectPath)
 {
     const std::string serviceObjectMapper = "xyz.openbmc_project.ObjectMapper";
 
-    sdbusplus::asio::getProperty<std::vector<std::string>>(
-        *crow::connections::systemBus, serviceObjectMapper,
-        objectPath + "/parent_chassis", "xyz.openbmc_project.Association",
-        "endpoints",
-        [serviceObjectMapper,
-         asyncResp](const boost::system::error_code ec,
-                    const std::vector<std::string>& objPaths) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR(
-                "getComponentFirmwareVersion getProperty parent_chassis DBUS error");
-            BMCWEB_LOG_ERROR("error_code = ", ec);
-            BMCWEB_LOG_ERROR("error msg = ", ec.message());
+    sdbusplus::asio::
+        getProperty<std::
+                        vector<std::string>>(*crow::connections::systemBus,
+                                             serviceObjectMapper,
+                                             objectPath + "/parent_chassis",
+                                             "xyz.openbmc_project.Association",
+                                             "endpoints",
+                                             [serviceObjectMapper, asyncResp](
+                                                 const boost::system::error_code
+                                                     ec,
+                                                 const std::vector<std::string>&
+                                                     objPaths) {
+                                                 if (ec)
+                                                 {
+                                                     BMCWEB_LOG_ERROR(
+                                                         "getComponentFirmwareVersion getProperty parent_chassis DBUS error");
+                                                     BMCWEB_LOG_ERROR(
+                                                         "error_code = ", ec);
+                                                     BMCWEB_LOG_ERROR(
+                                                         "error msg = ",
+                                                         ec.message());
 
-            return;
-        }
+                                                     return;
+                                                 }
 
-        if (!objPaths.empty())
-        {
-            const std::string& firstElement = objPaths.front();
+                                                 if (!objPaths.empty())
+                                                 {
+                                                     const std::string&
+                                                         firstElement =
+                                                             objPaths.front();
 
-            sdbusplus::asio::getProperty<std::vector<std::string>>(
-                *crow::connections::systemBus, serviceObjectMapper,
-                firstElement + "/activation", "xyz.openbmc_project.Association",
-                "endpoints",
-                [asyncResp](const boost::system::error_code ec,
-                            const std::vector<std::string>& objPaths) {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "getComponentFirmwareVersion getProperty activation DBUS error");
-                    BMCWEB_LOG_ERROR("error_code = ", ec);
-                    BMCWEB_LOG_ERROR("error msg = ", ec.message());
+                                                     sdbusplus::
+                                                         asio::
+                                                             getProperty<
+                                                                 std::vector<
+                                                                     std::
+                                                                         string>>(
+                                                                 *crow::
+                                                                     connections::
+                                                                         systemBus,
+                                                                 serviceObjectMapper,
+                                                                 firstElement +
+                                                                     "/activation",
+                                                                 "xyz.openbmc_project.Association",
+                                                                 "endpoints",
+                                                                 [asyncResp](
+                                                                     const boost::system::error_code ec, const std::vector<
+                                                                                                             std::
+                                                                                                                 string>& objPaths) {
+                                                                     if (ec)
+                                                                     {
+                                                                         BMCWEB_LOG_ERROR(
+                                                                             "getComponentFirmwareVersion getProperty activation DBUS error");
+                                                                         BMCWEB_LOG_ERROR(
+                                                                             "error_code = ",
+                                                                             ec);
+                                                                         BMCWEB_LOG_ERROR(
+                                                                             "error msg = ",
+                                                                             ec.message());
 
-                    return;
-                }
+                                                                         return;
+                                                                     }
 
-                if (!objPaths.empty())
-                {
-                    const std::string& firstElement = objPaths.front();
+                                                                     if (!objPaths
+                                                                              .empty())
+                                                                     {
+                                                                         const std::string&
+                                                                             firstElement =
+                                                                                 objPaths
+                                                                                     .front();
 
-                    crow::connections::systemBus->async_method_call(
-                        [asyncResp,
-                         firstElement](const boost::system::error_code ec,
-                                       const GetObjectType& resp) {
-                        std::string url;
-                        if (ec)
-                        {
-                            BMCWEB_LOG_ERROR(
-                                "getComponentFirmwareVersion async_method_call GetObject DBUS error");
-                            BMCWEB_LOG_ERROR("error_code = ", ec);
-                            BMCWEB_LOG_ERROR("error msg = ", ec.message());
+                                                                         crow::connections::systemBus
+                                                                             ->async_method_call(
+                                                                                 [asyncResp,
+                                                                                  firstElement](
+                                                                                     const boost::
+                                                                                         system::error_code
+                                                                                             ec,
+                                                                                     const GetObjectType&
+                                                                                         resp) {
+                                                                                     std::string
+                                                                                         url;
+                                                                                     if (ec)
+                                                                                     {
+                                                                                         BMCWEB_LOG_ERROR(
+                                                                                             "getComponentFirmwareVersion async_method_call GetObject DBUS error");
+                                                                                         BMCWEB_LOG_ERROR(
+                                                                                             "error_code = ",
+                                                                                             ec);
+                                                                                         BMCWEB_LOG_ERROR(
+                                                                                             "error msg = ",
+                                                                                             ec.message());
 
-                            return;
-                        }
+                                                                                         return;
+                                                                                     }
 
-                        std::string softwareVersionInterface =
-                            "xyz.openbmc_project.Software.Version";
-                        std::string serviceObjectSoftware;
+                                                                                     std::string
+                                                                                         softwareVersionInterface =
+                                                                                             "xyz.openbmc_project.Software.Version";
+                                                                                     std::string
+                                                                                         serviceObjectSoftware;
 
-                        for (const auto& serObj : resp)
-                        {
-                            auto interfaces = serObj.second;
-                            for (const auto& interface : interfaces)
-                            {
-                                if (interface == softwareVersionInterface)
-                                {
-                                    serviceObjectSoftware = serObj.first;
-                                    break;
-                                }
-                            }
+                                                                                     for (
+                                                                                         const auto&
+                                                                                             serObj :
+                                                                                         resp)
+                                                                                     {
+                                                                                         auto interfaces =
+                                                                                             serObj
+                                                                                                 .second;
+                                                                                         for (
+                                                                                             const auto&
+                                                                                                 interface :
+                                                                                             interfaces)
+                                                                                         {
+                                                                                             if (interface ==
+                                                                                                 softwareVersionInterface)
+                                                                                             {
+                                                                                                 serviceObjectSoftware =
+                                                                                                     serObj
+                                                                                                         .first;
+                                                                                                 break;
+                                                                                             }
+                                                                                         }
 
-                            if (!serviceObjectSoftware.empty())
-                            {
-                                break;
-                            }
-                        }
+                                                                                         if (!serviceObjectSoftware
+                                                                                                  .empty())
+                                                                                         {
+                                                                                             break;
+                                                                                         }
+                                                                                     }
 
-                        if (!serviceObjectSoftware.empty())
-                        {
-                            sdbusplus::asio::getProperty<std::string>(
-                                *crow::connections::systemBus,
-                                serviceObjectSoftware, firstElement,
-                                softwareVersionInterface, "Version",
-                                [asyncResp](const boost::system::error_code ec,
-                                            const std::string& property) {
-                                if (ec)
-                                {
-                                    BMCWEB_LOG_ERROR(
-                                        "getComponentFirmwareVersion getProperty Version DBUS error");
-                                    BMCWEB_LOG_ERROR("error_code = ", ec);
-                                    BMCWEB_LOG_ERROR("error msg = ",
-                                                     ec.message());
+                                                                                     if (!serviceObjectSoftware
+                                                                                              .empty())
+                                                                                     {
+                                                                                         sdbusplus::asio::
+                                                                                             getProperty<std::string>(*crow::connections::
+                                                                                                                          systemBus,
+                                                                                                                      serviceObjectSoftware,
+                                                                                                                      firstElement,
+                                                                                                                      softwareVersionInterface,
+                                                                                                                      "Version",
+                                                                                                                      [asyncResp](
+                                                                                                                          const boost::
+                                                                                                                              system::error_code
+                                                                                                                                  ec,
+                                                                                                                          const std::
+                                                                                                                              string& property) {
+                                                                                                                          if (ec)
+                                                                                                                          {
+                                                                                                                              BMCWEB_LOG_ERROR(
+                                                                                                                                  "getComponentFirmwareVersion getProperty Version DBUS error");
+                                                                                                                              BMCWEB_LOG_ERROR(
+                                                                                                                                  "error_code = ",
+                                                                                                                                  ec);
+                                                                                                                              BMCWEB_LOG_ERROR(
+                                                                                                                                  "error msg = ",
+                                                                                                                                  ec.message());
 
-                                    return;
-                                }
-                                asyncResp->res.jsonValue["FirmwareVersion"] =
-                                    property;
-                            });
-                        }
-                    },
-                        "xyz.openbmc_project.ObjectMapper",
-                        "/xyz/openbmc_project/object_mapper",
-                        "xyz.openbmc_project.ObjectMapper", "GetObject",
-                        firstElement, std::array<const char*, 0>());
+                                                                                                                              return;
+                                                                                                                          }
+                                                                                                                          asyncResp
+                                                                                                                              ->res
+                                                                                                                              .jsonValue
+                                                                                                                                  ["FirmwareVersion"] =
+                                                                                                                              property;
+                                                                                                                      });
+                                                                                     }
+                                                                                 },
+                                                                                 "xyz.openbmc_project.ObjectMapper",
+                                                                                 "/xyz/openbmc_project/object_mapper",
+                                                                                 "xyz.openbmc_project.ObjectMapper",
+                                                                                 "GetObject",
+                                                                                 firstElement,
+                                                                                 std::array<
+                                                                                     const char*,
+                                                                                     0>());
 
-                    return;
-                }
+                                                                         return;
+                                                                     }
 
-                BMCWEB_LOG_ERROR(
-                    "Could not find property endpoints in activation element");
-            });
+                                                                     BMCWEB_LOG_ERROR(
+                                                                         "Could not find property endpoints in activation element");
+                                                                 });
 
-            return;
-        }
+                                                     return;
+                                                 }
 
-        BMCWEB_LOG_ERROR(
-            "Could not find property endpoints in parent_chassis element");
-    });
+                                                 BMCWEB_LOG_ERROR(
+                                                     "Could not find property endpoints in parent_chassis element");
+                                             });
 }
 
 } // namespace redfish

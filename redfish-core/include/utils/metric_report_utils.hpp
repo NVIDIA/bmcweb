@@ -403,7 +403,8 @@ static std::string
     }
     else if (deviceType == "NVSwitchPortMetrics")
     {
-        metricURI = "/redfish/v1/Fabrics/" PLATFORMDEVICEPREFIX;
+        metricURI = "/redfish/v1/Fabrics/";
+        metricURI += BMCWEB_PLATFORM_DEVICE_PREFIX;
         metricURI += "NVLinkFabric_0/Switches/";
         metricURI += deviceName;
         metricURI += "/Ports/";
@@ -428,7 +429,7 @@ static std::string
             {
                 sdbusplus::message::object_path deviceObjectPath(devicePath);
                 const std::string childDeviceName = deviceObjectPath.filename();
-                std::string parentDeviceName = PLATFORMDEVICEPREFIX;
+                std::string parentDeviceName(BMCWEB_PLATFORM_DEVICE_PREFIX);
                 parentDeviceName += childDeviceName;
                 metricURI = "/redfish/v1/Chassis/";
                 metricURI += parentDeviceName;
@@ -457,7 +458,8 @@ static std::string
     }
     else if (deviceType == "NVSwitchMetrics")
     {
-        metricURI = "/redfish/v1/Fabrics/" PLATFORMDEVICEPREFIX;
+        metricURI = "/redfish/v1/Fabrics/";
+        metricURI += BMCWEB_PLATFORM_DEVICE_PREFIX;
         metricURI += "NVLinkFabric_0/Switches/";
         metricURI += deviceName;
         metricURI += "/SwitchMetrics#";
@@ -512,7 +514,7 @@ static std::string
     return metricURI;
 }
 
-static inline std::string toPCIeType(const std::string& pcieType)
+inline std::string toPCIeType(const std::string& pcieType)
 {
     if (pcieType ==
         "xyz.openbmc_project.Inventory.Item.PCIeDevice.PCIeTypes.Gen1")

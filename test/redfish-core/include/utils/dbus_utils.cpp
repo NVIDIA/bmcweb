@@ -29,8 +29,6 @@ TEST(DbusUtils, AfterPropertySetSuccess)
     afterSetProperty(asyncResp, "MyRedfishProperty",
                      nlohmann::json("MyRedfishValue"), ec, msg);
 
-<<<<<<< HEAD
-=======
     EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::no_content);
 }
 
@@ -44,7 +42,6 @@ TEST(DbusUtils, AfterActionPropertySetSuccess)
     afterSetPropertyAction(asyncResp, "MyRedfishProperty",
                            nlohmann::json("MyRedfishValue"), ec, msg);
 
->>>>>>> origin/master
     EXPECT_EQ(asyncResp->res.result(), boost::beast::http::status::ok);
     EXPECT_EQ(asyncResp->res.jsonValue,
               R"({
@@ -53,11 +50,7 @@ TEST(DbusUtils, AfterActionPropertySetSuccess)
                             "@odata.type": "#Message.v1_1_1.Message",
                             "Message": "The request completed successfully.",
                             "MessageArgs": [],
-<<<<<<< HEAD
-                            "MessageId": "Base.1.18.1.Success",
-=======
                             "MessageId": "Base.1.19.0.Success",
->>>>>>> origin/master
                             "MessageSeverity": "OK",
                             "Resolution": "None."
                         }

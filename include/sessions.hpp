@@ -191,8 +191,6 @@ struct AuthConfigMethods
     bool cookie = BMCWEB_COOKIE_AUTH;
     bool tls = BMCWEB_MUTUAL_TLS_AUTH;
 
-<<<<<<< HEAD
-=======
     // Whether or not unauthenticated TLS should be accepted
     // true = reject connections if mutual tls is not provided
     // false = allow connection, and allow user to use other auth method
@@ -200,7 +198,6 @@ struct AuthConfigMethods
     // be provisioned at startup
     bool tlsStrict = false;
 
->>>>>>> origin/master
     MTLSCommonNameParseMode mTLSCommonNameParsingMode =
         getMTLSCommonNameParseMode(
             BMCWEB_MUTUAL_TLS_COMMON_NAME_PARSING_DEFAULT);
@@ -232,13 +229,10 @@ struct AuthConfigMethods
                 {
                     tls = *value;
                 }
-<<<<<<< HEAD
-=======
                 else if (element.first == "TLSStrict")
                 {
                     tlsStrict = *value;
                 }
->>>>>>> origin/master
             }
             const uint64_t* intValue =
                 element.second.get_ptr<const uint64_t*>();

@@ -31,9 +31,10 @@ class EventServiceInternalImplTest : public ::testing::Test
 {
     void SetUp() override
     {
-#ifdef BMCWEB_ENABLE_DEBUG
-        crow::Logger::setLogLevel(crow::LogLevel::Debug);
-#endif // BMCWEB_ENABLE_DEBUG
+        if constexpr (BMCWEB_DEBUG)
+        {
+            crow::Logger::setLogLevel(crow::LogLevel::Debug);
+        }
         BMCWEB_LOG_DEBUG("Debug log enabled");
     }
 };

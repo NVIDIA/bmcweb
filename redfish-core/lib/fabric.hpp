@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "dbus_utility.hpp"
+#include "managers.hpp"
 #include "redfish_util.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 
@@ -847,22 +849,26 @@ inline void
 
     asyncResp->res.jsonValue["Status"]["Health"] = "OK";
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-    asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-    // update switch health
-#ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
-    std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
-        objPath, [asyncResp](const std::string& rootHealth,
-                             const std::string& healthRollup) {
-        asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-        asyncResp->res.jsonValue["Status"]["HealthRollup"] = healthRollup;
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-    });
-    health->start();
+    if constexpr (BMCWEB_DISABLE_HEALTH_ROLLUP)
+    {
+        asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
+    }
 
-#endif // ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+    // update switch health
+    if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
+    {
+        std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
+            objPath, [asyncResp](const std::string& rootHealth,
+                                 const std::string& healthRollup) {
+            asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
+            if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
+            {
+                asyncResp->res.jsonValue["Status"]["HealthRollup"] =
+                    healthRollup;
+            }
+        });
+        health->start();
+    }
 }
 
 inline void updateZoneData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -2413,11 +2419,14 @@ inline void requestRoutesPort(App& app)
                                             .jsonValue["Metrics"]["@odata.id"] =
                                             portMetricsURI;
 
-#ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
-                                        asyncResp->res
-                                            .jsonValue["Status"]["Conditions"] =
-                                            nlohmann::json::array();
-#endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
+                                        if constexpr (
+                                            !BMCWEB_DISABLE_CONDITIONS_ARRAY)
+                                        {
+                                            asyncResp->res
+                                                .jsonValue["Status"]
+                                                          ["Conditions"] =
+                                                nlohmann::json::array();
+                                        }
 
                                         redfish::port_utils::getPortData(
                                             asyncResp, object.front().first,

@@ -30,7 +30,7 @@ namespace redfish
 using GetObjectType =
     std::vector<std::pair<std::string, std::vector<std::string>>>;
 
-static void
+inline void
     getInterfaceStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::string& ifaceId)
 {
@@ -91,7 +91,7 @@ static void
         "xyz.openbmc_project.Network.EthernetInterface", "NICEnabled");
 }
 
-static void
+inline void
     getCredentialsBootStrap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
@@ -167,7 +167,7 @@ static void
         std::array<const char*, 1>{redfish::bios::biosConfigIface});
 }
 
-static void
+inline void
     setCredentialBootstrap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& property, const bool& flag)
 {
@@ -204,7 +204,7 @@ static void
         std::array<const char*, 1>{redfish::bios::biosConfigIface});
 }
 
-static void
+inline void
     setInterfaceEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& ifaceId,
                         const bool& interfaceEnabled)
@@ -268,9 +268,9 @@ inline void requestHostInterfacesRoutes(App& app)
                     {
                         std::string ifaceId = objpath.first.filename();
                         // The Host Interface is configured with
-                        // 'HOSTIFACECHANNEL' interface. Check for
-                        // 'HOSTIFACECHANNEL' interface.
-                        if (ifaceId.compare(HOSTIFACECHANNEL) == 0)
+                        // 'BMCWEB_HOST_IFACE_CHANNEL' interface. Check for
+                        // 'BMCWEB_HOST_IFACE_CHANNEL' interface.
+                        if (ifaceId == BMCWEB_HOST_IFACE_CHANNEL)
                         {
                             ifaceArray.push_back(
                                 {{"@odata.id",
@@ -298,7 +298,7 @@ inline void requestHostInterfacesRoutes(App& app)
                const std::string& ifaceId) {
         // Check for the match of requested HostInterface Id with
         // the configured HostInterface channel
-        if (ifaceId.compare(HOSTIFACECHANNEL))
+        if (ifaceId != BMCWEB_HOST_IFACE_CHANNEL)
         {
             asyncResp->res.result(boost::beast::http::status::not_found);
             return;
@@ -349,7 +349,7 @@ inline void requestHostInterfacesRoutes(App& app)
         }
         // Check for the match of requested HostInterface Id with
         // the configured HostInterface channel
-        if (ifaceId.compare(HOSTIFACECHANNEL))
+        if (ifaceId != BMCWEB_HOST_IFACE_CHANNEL)
         {
             asyncResp->res.result(boost::beast::http::status::not_found);
             return;

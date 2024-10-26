@@ -137,13 +137,15 @@ inline void
 
     persistent_data::SessionStore::getInstance().removeSession(session);
     messages::success(asyncResp->res);
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-    // Send an event for session deletion
-    Event event = redfish::EventUtil::getInstance().createEventResourceRemoved(
-        "SessionService");
-    redfish::EventServiceManager::getInstance().sendEventWithOOC(
-        std::string(req.target()), event);
-#endif
+    if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+    {
+        // Send an event for session deletion
+        Event event =
+            redfish::EventUtil::getInstance().createEventResourceRemoved(
+                "SessionService");
+        redfish::EventServiceManager::getInstance().sendEventWithOOC(
+            std::string(req.target()), event);
+    }
 }
 
 inline nlohmann::json getSessionCollectionMembers()
@@ -288,13 +290,15 @@ inline void handleSessionCollectionPost(
                                 session->username));
     }
     fillSessionObject(asyncResp->res, *session);
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-    // Send an event for session creation
-    Event event = redfish::EventUtil::getInstance().createEventResourceCreated(
-        "SessionService");
-    redfish::EventServiceManager::getInstance().sendEventWithOOC(
-        std::string(req.target()), event);
-#endif
+    if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+    {
+        // Send an event for session creation
+        Event event =
+            redfish::EventUtil::getInstance().createEventResourceCreated(
+                "SessionService");
+        redfish::EventServiceManager::getInstance().sendEventWithOOC(
+            std::string(req.target()), event);
+    }
 }
 inline void handleSessionServiceHead(
     crow::App& app, const crow::Request& req,
@@ -361,11 +365,12 @@ inline void handleSessionServicePatch(
 
         if (*sessionTimeout <= 86400 && *sessionTimeout >= 30)
         {
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-            std::string currentSessionTimeout =
-                std::to_string(persistent_data::SessionStore::getInstance()
-                                   .getTimeoutInSeconds());
-#endif
+            if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+            {
+                std::string currentSessionTimeout =
+                    std::to_string(persistent_data::SessionStore::getInstance()
+                                       .getTimeoutInSeconds());
+            }
             std::chrono::seconds sessionTimeoutInseconds(*sessionTimeout);
             persistent_data::SessionStore::getInstance().updateSessionTimeout(
                 sessionTimeoutInseconds);
@@ -374,16 +379,18 @@ inline void handleSessionServicePatch(
             // update the message severity
             redfish::message_registries::updateMessageSeverity(
                 asyncResp, "SessionTimeOut", "OK");
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
-            // send redfish event for property change
-            Event event =
-                redfish::EventUtil::getInstance().createEventPropertyModified(
-                    "SessionTimeOut",
-                    std::to_string(sessionTimeoutInseconds.count()),
-                    "SessionService");
-            redfish::EventServiceManager::getInstance().sendEventWithOOC(
-                std::string(req.target()), event);
-#endif
+            if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+            {
+                // send redfish event for property change
+                Event event =
+                    redfish::EventUtil::getInstance()
+                        .createEventPropertyModified(
+                            "SessionTimeOut",
+                            std::to_string(sessionTimeoutInseconds.count()),
+                            "SessionService");
+                redfish::EventServiceManager::getInstance().sendEventWithOOC(
+                    std::string(req.target()), event);
+            }
         }
         else
         {

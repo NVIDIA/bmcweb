@@ -84,12 +84,11 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 }
 
 inline void
-    getOemReadyState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& bmcId)
+    getOemReadyState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     // call to get telemtery Ready status
     crow::connections::systemBus->async_method_call(
-        [asyncResp, bmcId](
+        [asyncResp](
             const boost::system::error_code ec,
             const std::vector<std::pair<
                 std::string,

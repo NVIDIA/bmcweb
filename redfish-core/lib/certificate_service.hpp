@@ -537,10 +537,10 @@ inline void handleReplaceCertificateAction(
     sdbusplus::message::object_path objectPath;
     std::string name;
     std::string service;
-    if (crow::utility::readUrlSegments(*parsedUrl, "redfish", "v1", "Managers",
-                                       BMCWEB_REDFISH_MANAGER_URI_NAME,
-                                       "NetworkProtocol", "HTTPS",
-                                       "Certificates", std::ref(id)))
+    if (crow::utility::readUrlSegments(
+            *parsedUrl, "redfish", "v1", "Managers",
+            BMCWEB_REDFISH_MANAGER_URI_NAME, "NetworkProtocol", "HTTPS",
+            "Certificates", std::ref(id)))
     {
         objectPath = sdbusplus::message::object_path(certs::httpsObjectPath) /
                      id;
@@ -578,27 +578,6 @@ inline void handleReplaceCertificateAction(
     crow::connections::systemBus->async_method_call(
         [asyncResp, certFile, objectPath, service, url{*parsedUrl}, id, name,
          certificate](const boost::system::error_code& ec,
-<<<<<<< HEAD
-                      sdbusplus::message::message& m) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-            const sd_bus_error* dbusError = m.get_error();
-            if (dbusError && dbusError->name)
-            {
-                handleError(dbusError->name, id, certificate, asyncResp);
-            }
-            else
-            {
-                messages::internalError(asyncResp->res);
-            }
-            return;
-        }
-        getCertificateProperties(asyncResp, objectPath, service, id, url, name);
-        BMCWEB_LOG_DEBUG("HTTPS certificate install file={}",
-                         certFile->getCertFilePath());
-    },
-=======
                       sdbusplus::message_t& m) {
             if (ec)
             {
@@ -619,7 +598,6 @@ inline void handleReplaceCertificateAction(
             BMCWEB_LOG_DEBUG("HTTPS certificate install file={}",
                              certFile->getCertFilePath());
         },
->>>>>>> origin/master
         service, objectPath, certs::certReplaceIntf, "Replace",
         certFile->getCertFilePath());
 }
@@ -1009,19 +987,6 @@ inline void handleHTTPSCertificateCollectionPost(
                 return;
             }
 
-<<<<<<< HEAD
-        sdbusplus::message::object_path path(objectPath);
-        std::string certId = path.filename();
-
-        const boost::urls::url certURL = boost::urls::format(
-            "/redfish/v1/Managers/{}/NetworkProtocol/HTTPS/Certificates/{}",
-            BMCWEB_REDFISH_MANAGER_URI_NAME, certId);
-        getCertificateProperties(asyncResp, objectPath, certs::httpsServiceName,
-                                 certId, certURL, "HTTPS Certificate");
-        BMCWEB_LOG_DEBUG("HTTPS certificate install file={}",
-                         certFile->getCertFilePath());
-    },
-=======
             sdbusplus::message::object_path path(objectPath);
             std::string certId = path.filename();
             const boost::urls::url certURL = boost::urls::format(
@@ -1033,7 +998,6 @@ inline void handleHTTPSCertificateCollectionPost(
             BMCWEB_LOG_DEBUG("HTTPS certificate install file={}",
                              certFile->getCertFilePath());
         },
->>>>>>> origin/master
         certs::httpsServiceName, certs::httpsObjectPath, certs::certInstallIntf,
         "Install", certFile->getCertFilePath());
 }

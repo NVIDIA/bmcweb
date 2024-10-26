@@ -3,129 +3,39 @@
 conf_data = configuration_data()
 
 if get_option('firmware-image-limit') > get_option('http-body-limit')
-    error('Firmware image size limit should be lesser than http body limit.')
-else
-    conf_data.set('FIRMWARE_IMAGE_LIMIT_MB', get_option('firmware-image-limit'))
+  error('Firmware image size limit should be lesser than http body limit.')
 endif
-conf_data.set(
-    'STALE_SENSOR_UPPER_LIMIT_IN_MILISECOND',
-    get_option('stalesensor-upper-limit-milisecond'),
-)
-conf_data.set(
-    'PLATFORM_METRICS_SENSING_INTERVAL',
-    get_option('platform-metrics-sensing-interval'),
-)
-conf_data.set(
-    'UPDATE_SERVICE_IMAGE_LOCATION',
-    get_option('update-service-image-location'),
-)
-conf_data.set(
-    'UPDATE_SERVICE_STAGE_LOCATION',
-    get_option('update-service-stage-location'),
-)
-conf_data.set(
-    'UPDATE_SERVICE_TASK_TIMEOUT',
-    get_option('update-service-task-timeout'),
-)
-conf_data.set('MFG_TEST_TIMEOUT', get_option('manufacturing-test-timeout'))
-conf_data.set_quoted('PLATFORM_SYSTEM_ID', get_option('platform-system-id'))
-conf_data.set_quoted(
-    'PLATFORM_SYSTEM_DESCRIPTION',
-    get_option('platform-system-description'),
-)
-conf_data.set_quoted(
-    'PLATFORM_DEVICE_PREFIX',
-    get_option('platform-device-prefix'),
-)
-conf_data.set_quoted('PLATFORM_BMC_ID', get_option('platform-bmc-id'))
-conf_data.set_quoted(
-    'PLATFORM_NETWORK_ADAPTER',
-    get_option('platform-network-adapter'),
-)
-conf_data.set_quoted(
-    'PLATFORM_TOTAL_POWER_SENSOR_NAME',
-    get_option('platform-total-power-sensor-name'),
-)
-conf_data.set_quoted(
-    'PLATFORM_POWER_CONTOL_SENSOR_NAME',
-    get_option('platform-power-control-sensor-name'),
-)
-conf_data.set_quoted('PLATFORM_METRICS_ID', get_option('platform-metrics-id'))
-conf_data.set_quoted('HOST_IFACE_CHANNEL', get_option('host-iface-channel'))
-conf_data.set_quoted(
-    'PLATFORM_GPU_NAME_PREFIX',
-    get_option('platform-gpu-name-prefix'),
-)
-conf_data.set_quoted(
-    'PLATFORM_CHASSIS_NAME',
-    get_option('platform-chassis-name'),
-)
-conf_data.set_quoted(
-    'RFA_HMC_UPDATE_TARGET',
-    get_option('rfa-hmc-update-target'),
-)
-conf_data.set_quoted('RFA_BMC_HOST_URL', get_option('rfa-bmc-host-url'))
-conf_data.set_quoted(
-    'NETWORK_ADAPTER_PREFIX',
-    get_option('nvidia-network-adapter-prefix'),
-)
-conf_data.set_quoted(
-    'NETWORK_ADAPTER_LINK_PREFIX',
-    get_option('nvidia-network-adapter-link-prefix'),
-)
-conf_data.set('RFA_SUBSCRIBE_TIME', get_option('rfa-delay-subscribe-time'))
-conf_data.set_quoted(
-    'REDFISH_AGGREGATION_PREFIX',
-    get_option('redfish-aggregation-prefix'),
-)
-conf_data.set_quoted(
-    'FW_MCTP_MAPPING_JSON',
-    join_paths(package_datadir, 'fw_mctp_mapping.json'),
-)
-conf_data.set(
-    'BUILD_DESCRIPTION_FILE_PATH',
-    get_option('build-description-file-path'),
-)
-conf_data.set(
-    'COMPUTER_SYSTEM_INVENTORY_PATH',
-    get_option('computer-system-inventory-path'),
-)
-conf_data.set(
-    'OTP_PROVISIONING_STATUS_FILE_PATH',
-    get_option('otp-provisioning-status-file-path'),
-)
-conf_data.set('BMCWEB_LOG_LEVEL', get_option('bmcweb-logging-log-level'))
-conf_data.set('MIN_UCASE_CHRS', get_option('min-ucase-characters'))
-conf_data.set('MIN_LCASE_CHRS', get_option('min-lcase-characters'))
-conf_data.set('MIN_DIGITS', get_option('min-digits'))
-conf_data.set('MIN_SPEC_CHRS', get_option('min-special-characters'))
-conf_data.set('MIN_PASSWORD_LENGTH', get_option('min-password-length'))
-conf_data.set('GPU_INDEX_START', get_option('gpu-index-start'))
-enable_health_populate = get_option('redfish-health-populate')
-conf_data.set10(
-    'BMCWEB_ENABLE_HEALTH_POPULATE',
-    enable_health_populate.enabled(),
-)
-enable_proc_mem_status = get_option('redfish-enable-proccessor-memory-status')
-conf_data.set10(
-    'BMCWEB_ENABLE_PROC_MEM_STATUS',
-    enable_proc_mem_status.enabled(),
-)
-conf_data.set('BMCWEB_RESPONSE_TIMEOUT', get_option('bmcweb-response-timeout'))
-nvidia_bootentryid = get_option('nvidia-bootentryid')
-conf_data.set10('BMCWEB_ENABLE_NVIDIA_BOOTENTRYID', nvidia_bootentryid.enabled())
-
-
 
 feature_options = [
+    'array-bootprogress',
     'basic-auth',
+    'bios',
+    'bmcweb-chunking',
+    'command-shell',
+    'command-smbpbi-oob',
     'cookie-auth',
-    'enable-debug-interface',
+    'cpu-diag-support',
+    'debug-interface-support',
+    'dhcp-configuration-update',
+    'disable-conditions-array',
+    'disable-health-rollup',
+    'dot-support',
+    'dpu-bios',
+    'enable-fabric-adapter',
+    'enable-sse',
+    'enforce_sensor_name_format',
+    'erot-reset',
     'experimental-http2',
     'experimental-redfish-multi-computer-system',
+    'fencing-privilege',
+    'force-insecure-event-notification',
     'google-api',
+    'health-rollup-alternative',
+    'host-auxpower-features',
+    'host-eth-iface',
+    'host-iface',
+    'host-os-features',
     'host-serial-socket',
-    'hypervisor-computer-system',
     'ibm-management-console',
     'insecure-disable-auth',
     'insecure-disable-csrf',
@@ -133,42 +43,112 @@ feature_options = [
     'insecure-enable-redfish-query',
     'insecure-ignore-content-type',
     'insecure-push-style-notification',
+    'insecure-tftp-update',
+    'ipmi',
     'kvm',
+    'lldp-dedicated-ports',
+    'manual-boot-mode-support',
+    'manufacturing-test',
     'meta-tls-common-name-parsing',
     'mutual-tls-auth',
-    'nvidia-oem-openocd',
+    'network-adapters-generic',
+    'network-adapters',
+    'nic-configuration-update',
+    'ntp',
+    'nvidia-bootentryid',
+    'nvidia-oem-bf-properties',
+    'nvidia-oem-bf3-properties',
+    'nvidia-oem-common-properties',
+    'nvidia-oem-device-status-from-file',
+    'nvidia-oem-fw-update-staging',
+    'nvidia-oem-logservices',
+    'nvidia-oem-gb200nvl-properties',
+    'nvidia-oem-properties',
+    'nvidia-uuid-from-platform-chassis-name',
+    'nvidia-retimer-debugmode',
+    'patch-ssh',
+    'platform-metrics',
+    'power-control-type-percentage',
+    'profile-configuration',
     'redfish-aggregation',
     'redfish-allow-deprecated-power-thermal',
     'redfish-bmc-journal',
     'redfish-cpu-log',
+    'redfish-dbus-event',
     'redfish-dbus-log',
     'redfish-dump-log',
-    'redfish-net-log',
+    'redfish-enable-proccessor-memory-status',
+    'redfish-fdr-log',
+    'redfish-health-populate',
     'redfish-host-logger',
+    'redfish-leak-detect',
     'redfish-new-powersubsystem-thermalsubsystem',
     'redfish-oem-manager-fan-data',
+    'redfish-post-to-old-updateservice',
     'redfish-provisioning-feature',
+    'redfish-system-faultlog-dump-log',
+    'redfish-updateservice-http-pull',
     'redfish-updateservice-use-dbus',
     'redfish',
+    'reset-bios-by-clear-nonvolatile',
     'rest',
+    'rmedia',
+    'scp-update',
     'session-auth',
-    'nvidia-oem-properties',
+    'shmem-platform-metrics',
     'static-hosting',
-    'systems-lastresettime',
     'tests',
+    'tls-auth-opt-in',
+    'use-efficient-expand-on-sensors',
     'vm-websocket',
-    'vm-nbdproxy',
     'xtoken-auth',
 ]
 
 string_options = [
+    'build-description-file-path',
+    'computer-system-inventory-path',
     'dns-resolver',
+    'host-iface-channel',
     'mutual-tls-common-name-parsing-default',
+    'nvidia-network-adapter-link-prefix',
+    'nvidia-network-adapter-prefix',
+    'otp-provisioning-status-file-path',
+    'platform-bmc-id',
+    'platform-chassis-name',
+    'platform-device-prefix',
+    'platform-gpu-name-prefix',
+    'platform-metrics-id',
+    'platform-network-adapter',
+    'platform-power-control-sensor-name',
+    'platform-system-description',
+    'platform-system-id',
+    'platform-total-power-sensor-name',
+    'redfish-aggregation-prefix',
     'redfish-manager-uri-name',
     'redfish-system-uri-name',
+    'rfa-bmc-host-url',
+    'rfa-hmc-update-target',
+    'tls-cacert-path',
+    'update-service-image-location',
+    'update-service-stage-location',
 ]
 
-int_options = ['http-body-limit']
+int_options = [
+    'firmware-image-limit',
+    'bmcweb-response-timeout',
+    'gpu-index-start',
+    'http-body-limit',
+    'manufacturing-test-timeout',
+    'min-digits',
+    'min-lcase-characters',
+    'min-password-length',
+    'min-special-characters',
+    'min-ucase-characters',
+    'platform-metrics-sensing-interval',
+    'rfa-delay-subscribe-time',
+    'stalesensor-upper-limit-milisecond',
+    'update-service-task-timeout',
+]
 
 feature_options_string = '\n//Feature options\n'
 string_options_string = '\n// String options\n'
@@ -199,17 +179,22 @@ conf_data.set('MESON_INSTALL_PREFIX', get_option('prefix'))
 loglvlopt = get_option('bmcweb-logging')
 if get_option('buildtype').startswith('debug') and loglvlopt == 'disabled'
     # Override logging level as 'debug' if 'bmcweb-logging' is set as 'disabled'
-    loglvlopt = 'debug'
+   loglvlopt = 'debug'
 endif
 loglvlopt = loglvlopt.to_upper()
 string_options_string += 'constexpr std::string_view  BMCWEB_LOGGING_LEVEL' + ' = "' + loglvlopt + '";\n'
+
+# NBD proxy is disabled due to lack of maintenance.  See meson_options.txt
+feature_options_string += 'constexpr const bool        BMCWEB_VM_NBDPROXY = false;\n'
 
 conf_data.set(
     'BMCWEB_OPTIONS',
     string_options_string + int_options_string + feature_options_string,
 )
 
-conf_data.set('TLS_CACERT_PATH', get_option('tls-cacert-path'))
+conf_data.set_quoted('FW_MCTP_MAPPING_JSON', join_paths(package_datadir, 'fw_mctp_mapping.json'))
+
+conf_data.set('BMCWEB_TLS_CACERT_PATH', get_option('tls-cacert-path') )
 
 conf_h_dep = declare_dependency(
     include_directories: include_directories('.'),
@@ -223,23 +208,27 @@ conf_h_dep = declare_dependency(
 # Configure and install systemd unit files
 configure_file(
     input: 'bmcweb.socket.in',
-    output: 'bmcweb.socket',
-    install_dir: systemd_system_unit_dir,
+               output : 'bmcweb.socket',
+               install_dir: systemd_system_unit_dir,
     install: true,
-    configuration: configuration_data(
-        {'BMCWEB_HTTPS_PORT': get_option('https_port')},
-    ),
+    configuration: configuration_data({
+        'BMCWEB_HTTPS_PORT': get_option('https_port'),
+    }),
 )
 
 configure_file(
     input: 'bmcweb.service.in',
-    output: 'bmcweb.service',
-    install_dir: systemd_system_unit_dir,
+               output : 'bmcweb.service',
+               install_dir: systemd_system_unit_dir,
     install: true,
-    configuration: configuration_data(
-        {'MESON_INSTALL_PREFIX': get_option('prefix')},
-    ),
+    configuration: configuration_data({
+        'MESON_INSTALL_PREFIX': get_option('prefix'),
+    }),
 )
 
 # Copy pam-webserver to etc/pam.d
-install_data('pam-webserver', install_dir: '/etc/pam.d/', rename: 'webserver')
+install_data(
+  'pam-webserver',
+  install_dir: '/etc/pam.d/',
+  rename: 'webserver',
+)

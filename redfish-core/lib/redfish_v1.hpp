@@ -104,13 +104,8 @@ inline void
             continue;
         }
         nlohmann::json::object_t member;
-<<<<<<< HEAD
-        member["@odata.id"] = boost::urls::format("/redfish/v1/JsonSchemas/{}",
-                                                  split[0]);
-=======
         member["@odata.id"] =
             boost::urls::format("/redfish/v1/JsonSchemas/{}", split[0]);
->>>>>>> origin/master
         members.emplace_back(std::move(member));
     }
 
@@ -151,13 +146,8 @@ inline void jsonSchemaGet(App& app, const crow::Request& req,
         }
 
         nlohmann::json& json = asyncResp->res.jsonValue;
-<<<<<<< HEAD
-        json["@odata.id"] = boost::urls::format("/redfish/v1/JsonSchemas/{}",
-                                                schema);
-=======
         json["@odata.id"] =
             boost::urls::format("/redfish/v1/JsonSchemas/{}", schema);
->>>>>>> origin/master
         json["@odata.type"] = "#JsonSchemaFile.v1_0_2.JsonSchemaFile";
         json["Name"] = schema + " Schema File";
         json["Description"] = schema + " Schema File Location";
@@ -214,13 +204,6 @@ inline void
         return;
     }
 
-<<<<<<< HEAD
-    if (!asyncResp->res.openFile(filepath))
-    {
-        BMCWEB_LOG_DEBUG("failed to read file");
-        asyncResp->res.result(
-            boost::beast::http::status::internal_server_error);
-=======
     crow::OpenCode ec = asyncResp->res.openFile(filepath);
     if (ec == crow::OpenCode::FileDoesNotExist)
     {
@@ -231,7 +214,6 @@ inline void
     {
         BMCWEB_LOG_DEBUG("failed to read file");
         messages::internalError(asyncResp->res);
->>>>>>> origin/master
         return;
     }
 }

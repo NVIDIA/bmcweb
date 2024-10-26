@@ -315,7 +315,7 @@ inline void requestRoutes(App& app)
         handlers.erase(handler);
         handler->second->outputBuffer.clear();
     });
-#ifdef BMCWEB_ENABLE_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
+#ifdef BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
                           std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                           "/LogServices/FaultLog/Entries/<str>/attachment/")
@@ -329,8 +329,8 @@ inline void requestRoutes(App& app)
         std::string dumpType = "faultlog";
         boost::asio::io_context* ioCon = conn.getIoContext();
 
-        std::string unixSocketPath = unixSocketPathDir + dumpType + "_dump_" +
-                                     dumpId;
+            std::string unixSocketPath = unixSocketPathDir + dumpType +
+                                         "_dump_" + dumpId;
 
         handlers[&conn] = std::make_shared<Handler>(*ioCon, dumpId, dumpType,
                                                     unixSocketPath);
@@ -346,7 +346,7 @@ inline void requestRoutes(App& app)
         handlers.erase(handler);
         handler->second->outputBuffer.clear();
     });
-#endif // BMCWEB_ENABLE_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
+#endif // BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
 
     if constexpr (BMCWEB_REDFISH_AGGREGATION)
     {
@@ -366,7 +366,7 @@ inline void requestRoutes(App& app)
             .methods(boost::beast::http::verb::get)(std::bind_front(
                 redfish::handleSetUpRedfishRoute, std::ref(app), "System"));
 
-#ifdef BMCWEB_ENABLE_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
+#ifdef BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
         BMCWEB_ROUTE(app,
                      "/redfish/v1/Systems/" +
                          std::string(redfishAggregationPrefix) +

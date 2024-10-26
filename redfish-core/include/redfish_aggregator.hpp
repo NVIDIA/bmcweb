@@ -64,37 +64,8 @@ constexpr std::array nonUriProperties{
 inline bool searchCollectionsArray(std::string_view uri,
                                    const SearchType searchType)
 {
-<<<<<<< HEAD
-    constexpr std::string_view serviceRootUri = "/redfish/v1";
-
-    // The passed URI must begin with "/redfish/v1", but we have to strip it
-    // from the URI since topCollections does not include it in its URIs
-    if (!uri.starts_with(serviceRootUri))
-    {
-        return false;
-    }
-
-    // Catch empty final segments such as "/redfish/v1/Chassis//"
-    if (uri.ends_with("//"))
-    {
-        return false;
-    }
-
-    std::size_t parseCount = uri.size() - serviceRootUri.size();
-    // Don't include the trailing "/" if it exists such as in "/redfish/v1/"
-    if (uri.ends_with("/"))
-    {
-        parseCount--;
-    }
-
-    auto rootUri = uri.substr(serviceRootUri.size(), parseCount);
-    std::string str(rootUri.begin(), rootUri.end());
-    boost::system::result<boost::urls::url_view> parsedUrl =
-        boost::urls::parse_relative_ref(str);
-=======
     boost::system::result<boost::urls::url> parsedUrl =
         boost::urls::parse_relative_ref(uri);
->>>>>>> origin/master
     if (!parsedUrl)
     {
         BMCWEB_LOG_ERROR("Failed to get target URI from {}", uri);
@@ -138,12 +109,7 @@ inline bool searchCollectionsArray(std::string_view uri,
         return (searchType == SearchType::ContainsSubordinate) ||
                (searchType == SearchType::CollOrCon);
     }
-<<<<<<< HEAD
-
-    std::string_view url{parsedUrl->data(), parsedUrl->size()};
-=======
     std::string_view url = segments.buffer();
->>>>>>> origin/master
     const auto* it = std::ranges::lower_bound(topCollections, url);
     if (it == topCollections.end())
     {
@@ -322,8 +288,7 @@ inline void addPrefixToItem(nlohmann::json& item, std::string_view prefix)
     item = *strValue;
 }
 
-<<<<<<< HEAD
-static inline void addPrefixToID(nlohmann::json& item, std::string_view prefix)
+inline void addPrefixToID(nlohmann::json& item, std::string_view prefix)
 {
     std::string* strValue = item.get_ptr<std::string*>();
     if (strValue == nullptr)
@@ -337,14 +302,9 @@ static inline void addPrefixToID(nlohmann::json& item, std::string_view prefix)
     }
 }
 
-static inline void addAggregatedHeaders(crow::Response& asyncResp,
-                                        const crow::Response& resp,
-                                        std::string_view prefix)
-=======
 inline void addAggregatedHeaders(crow::Response& asyncResp,
                                  const crow::Response& resp,
                                  std::string_view prefix)
->>>>>>> origin/master
 {
     using boost::beast::http::field;
 
@@ -531,8 +491,9 @@ class RedfishAggregator
 
                     // For now assume there will only be one satellite config.
                     // Assign it the name/prefix
-                    addSatelliteConfig(redfishAggregationPrefix,
-                                       interface.second, satelliteInfo);
+                    addSatelliteConfig(
+                        std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX),
+                        interface.second, satelliteInfo);
                 }
             }
         }
@@ -1022,32 +983,8 @@ class RedfishAggregator
                         "No satellite BMCs detected.  Redfish Aggregation not enabled");
                 }
                 handler(ec, satelliteInfo);
-<<<<<<< HEAD
-                return;
-            }
-
-            // Maps a chosen alias representing a satellite BMC to a url
-            // containing the information required to create a http
-            // connection to the satellite
-            findSatelliteConfigs(objects, satelliteInfo);
-
-            if (!satelliteInfo.empty())
-            {
-                BMCWEB_LOG_DEBUG(
-                    "Redfish Aggregation enabled with {} satellite BMCs",
-                    std::to_string(satelliteInfo.size()));
-            }
-            else
-            {
-                BMCWEB_LOG_DEBUG(
-                    "No satellite BMCs detected.  Redfish Aggregation not enabled");
-            }
-            handler(ec, satelliteInfo);
-            cachedSatInfo = satelliteInfo;
-        });
-=======
+                cachedSatInfo = satelliteInfo;
             });
->>>>>>> origin/master
     }
 
     // Processes the response returned by a satellite BMC and loads its
@@ -1398,7 +1335,7 @@ class RedfishAggregator
         // /redfish/v1/Chassis
         // /redfish/v1/UpdateService/FirmwareInventory
         const boost::urls::segments_view urlSegments = url.segments();
-        const std::string prefix(redfishAggregationPrefix);
+        const std::string prefix(BMCWEB_REDFISH_AGGREGATION_PREFIX);
         std::string collectionItem;
         boost::urls::url currentUrl("/");
         boost::urls::segments_view::const_iterator it = urlSegments.begin();

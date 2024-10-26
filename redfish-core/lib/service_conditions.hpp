@@ -37,13 +37,15 @@ inline void requestRoutesServiceConditions(App& app)
             {"Id", "ServiceConditions"},
             {"Name", "Redfish Service Conditions"}};
         asyncResp->res.jsonValue["Oem"] = nlohmann::json::object();
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-        asyncResp->res.jsonValue["HealthRollup"] = "OK";
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-#ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
-        redfish::conditions_utils::populateServiceConditions(asyncResp,
-                                                             std::string(""));
-#endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
+        if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
+        {
+            asyncResp->res.jsonValue["HealthRollup"] = "OK";
+        }
+        if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+        {
+            redfish::conditions_utils::populateServiceConditions(
+                asyncResp, std::string(""));
+        }
     });
 }
 

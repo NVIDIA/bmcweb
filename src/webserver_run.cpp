@@ -24,11 +24,8 @@
 #include <boost/asio/io_context.hpp>
 #include <dump_offload.hpp>
 #include <sdbusplus/asio/connection.hpp>
-<<<<<<< HEAD
 #include <watchdog.hpp>
-=======
 #include <sdbusplus/asio/object_server.hpp>
->>>>>>> origin/master
 
 #include <algorithm>
 #include <memory>
@@ -147,9 +144,15 @@ int run()
         crow::obmc_dump::requestRoutes(app);
     }
 
-#ifdef BMCWEB_ENABLE_SHMEM_PLATFORM_METRICS
-    tal::TelemetryAggregator::namespaceInit(tal::ProcessType::Client);
+    if constexpr (BMCWEB_SHMEM_PLATFORM_METRICS)
+    {
+#ifndef NVIDIA_HAVE_TAL
+        BMCWEB_LOG_CRITICAL("TAL not included, can't enable");
+        return -1;
+#else
+        tal::TelemetryAggregator::namespaceInit(tal::ProcessType::Client);
 #endif
+    }
 
     bmcweb::registerUserRemovedSignal();
 

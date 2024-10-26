@@ -42,12 +42,13 @@ inline void doThermalSubsystemCollection(
         boost::urls::format(
             "/redfish/v1/Chassis/{}/ThermalSubsystem/ThermalMetrics",
             chassisId);
-#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
-    asyncResp->res.jsonValue["Fans"]["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Chassis/{}/ThermalSubsystem/Fans", chassisId);
-#endif
+    if constexpr (BMCWEB_HOST_OS_FEATURES)
+    {
+        asyncResp->res.jsonValue["Fans"]["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Chassis/{}/ThermalSubsystem/Fans", chassisId);
+    }
 
-#ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
+#ifdef BMCWEB_REDFISH_LEAK_DETECT
     asyncResp->res.jsonValue["LeakDetection"]["@odata.id"] =
         boost::urls::format(
             "/redfish/v1/Chassis/{}/ThermalSubsystem/LeakDetection", chassisId);
@@ -58,16 +59,8 @@ inline void doThermalSubsystemCollection(
             "/redfish/v1/Chassis/{}/ThermalSubsystem/ThermalMetrics",
             chassisId);
 
-<<<<<<< HEAD
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-    asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-    asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-=======
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
     asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
->>>>>>> origin/master
 }
 
 inline void handleThermalSubsystemCollectionHead(

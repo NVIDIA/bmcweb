@@ -541,27 +541,6 @@ class Router
             }
             HttpVerb thisVerb = static_cast<HttpVerb>(perMethodIndex);
             findRoute.allowHeader += httpVerbToString(thisVerb);
-<<<<<<< HEAD
-        }
-
-        std::optional<HttpVerb> verb = httpVerbFromBoost(req.method());
-        if (!verb)
-        {
-            return findRoute;
-        }
-        size_t reqMethodIndex = static_cast<size_t>(*verb);
-        if (reqMethodIndex >= perMethods.size())
-        {
-            return findRoute;
-        }
-
-        FindRoute route = findRouteByPerMethod(req.url().encoded_path(),
-                                               perMethods[reqMethodIndex]);
-        if (route.rule != nullptr)
-        {
-            findRoute.route = route;
-=======
->>>>>>> origin/master
         }
 
         std::optional<HttpVerb> verb = httpVerbFromBoost(req.method());

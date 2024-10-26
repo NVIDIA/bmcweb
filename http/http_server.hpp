@@ -12,12 +12,7 @@
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
-<<<<<<< HEAD
-#include <boost/beast/ssl/ssl_stream.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp>
-=======
 #include <boost/beast/core/stream_traits.hpp>
->>>>>>> origin/master
 
 #include <atomic>
 #include <chrono>
@@ -42,16 +37,9 @@ class Server
            [[maybe_unused]] const std::shared_ptr<boost::asio::ssl::context>&
                adaptorCtxIn,
            std::shared_ptr<boost::asio::io_context> io) :
-<<<<<<< HEAD
-        ioService(std::move(io)),
-        acceptor(std::move(acceptorIn)),
-        signals(*ioService, SIGINT, SIGTERM, SIGHUP), timer(*ioService),
-        fileWatcher(), handler(handlerIn), adaptorCtx(std::move(adaptorCtxIn))
-=======
         ioService(std::move(io)), acceptor(std::move(acceptorIn)),
         signals(*ioService, SIGINT, SIGTERM, SIGHUP), handler(handlerIn),
-        adaptorCtx(std::move(adaptorCtxIn))
->>>>>>> origin/master
+        adaptorCtx(std::move(adaptorCtxIn), timer(*ioService), fileWatcher())
     {}
 
     void updateDateStr()

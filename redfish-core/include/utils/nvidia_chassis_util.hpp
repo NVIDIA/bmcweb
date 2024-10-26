@@ -145,7 +145,7 @@ inline void
                                 "OK";
 #endif // BMCWEB_DISABLE_HEALTH_ROLLUP
        // update health
-#ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+#ifdef BBMCWEB_HEALTH_ROLLUP_ALTERNATIVE
                             std::shared_ptr<HealthRollup> health =
                                 std::make_shared<HealthRollup>(
                                     sensorPath,
@@ -162,7 +162,7 @@ inline void
                             });
                             health->start();
 
-#endif // ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+#endif // ifdef BBMCWEB_HEALTH_ROLLUP_ALTERNATIVE
                             if (*value ==
                                 "xyz.openbmc_project.State.Decorator.Health.HealthType.OK")
                             {
@@ -1521,7 +1521,7 @@ inline void handleChassisGetAllProperties(
     asyncResp->res.jsonValue["Name"] = chassisId;
     asyncResp->res.jsonValue["Id"] = chassisId;
 #ifdef BMCWEB_ALLOW_DEPRECATED_POWER_THERMAL
-#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
+#ifdef BBMCWEB_HOST_OS_FEATURE
     asyncResp->res.jsonValue["Thermal"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Thermal", chassisId);
 
@@ -1549,7 +1549,7 @@ inline void handleChassisGetAllProperties(
     asyncResp->res.jsonValue["Assembly"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Assembly", chassisId);
 
-#ifdef BMCWEB_ENABLE_NETWORK_ADAPTERS
+#ifdef BBMCWEB_NETWORK_ADAPTERS
     // NetworkAdapters collection
     asyncResp->res.jsonValue["NetworkAdapters"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters",
@@ -1568,7 +1568,7 @@ inline void handleChassisGetAllProperties(
     asyncResp->res.jsonValue["Controls"] = {
         {"@odata.id", "/redfish/v1/Chassis/" + chassisId + "/Controls"}};
 
-#ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
+#ifdef BBMCWEB_REDFISH_LEAK_DETECT
     // Policy Collection
     asyncResp->res.jsonValue["Policies"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Policies", chassisId);

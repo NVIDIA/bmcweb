@@ -118,7 +118,7 @@ static std::map<std::string, std::string> dBusToRedfishURI = {
  * device
  */
 
-static void oocUtilServiceConditions(
+inline void oocUtilServiceConditions(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& ooc,
     const std::string& messageArgs, const std::string& timestamp,
     const std::string& severity, const std::string& id,
@@ -188,7 +188,7 @@ static void oocUtilServiceConditions(
  * origin of condition device for system events
  */
 
-static void oocUtil(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void oocUtil(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     nlohmann::json& logEntry, const std::string& id,
                     const std::string& ooc, const std::string& severity = "",
                     const std::string& messageArgs = "",
@@ -241,7 +241,8 @@ inline void convertDbusObjectToOriginOfCondition(
             std::string newPath;
             if (it.first == sensorSubTree)
             {
-                std::string chassisName = PLATFORMDEVICEPREFIX + deviceName;
+                std::string chassisName = std::format(
+                    "{}{}", BMCWEB_PLATFORM_DEVICE_PREFIX, deviceName);
                 std::string sensorName;
                 dbus::utility::getNthStringFromPath(path, 4, sensorName);
                 newPath = chassisName + "/Sensors/";
@@ -273,14 +274,15 @@ inline std::string getDeviceRedfishURI(const std::string& device)
         return device;
     }
 
-    if (std::string_view(BMCWEB_REDFISH_SYSTEM_URI_NAME).ends_with(device))
+    if (BMCWEB_REDFISH_SYSTEM_URI_NAME.ends_with(device))
     {
         return systemsPrefixRedfish +
                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
     else
     {
-        return chassisPrefix + PLATFORMDEVICEPREFIX + device;
+        return std::format("{}{}{}", chassisPrefix,
+                           BMCWEB_PLATFORM_DEVICE_PREFIX, device);
     }
 }
 

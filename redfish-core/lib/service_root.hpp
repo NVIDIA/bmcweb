@@ -26,6 +26,7 @@ limitations under the License.
 #include "utils/systemd_utils.hpp"
 
 #include <managers.hpp>
+#include "nvidia_managers.hpp"
 #include <nlohmann/json.hpp>
 #include <persistent_data.hpp>
 #include <query.hpp>
@@ -204,10 +205,11 @@ inline void handleServiceRootGetImpl(
             "/redfish/v1/AggregationService";
     }
     asyncResp->res.jsonValue["Chassis"]["@odata.id"] = "/redfish/v1/Chassis";
-#ifndef BMCWEB_ENABLE_NVIDIA_OEM_BF_PROPERTIES
-    asyncResp->res.jsonValue["ComponentIntegrity"]["@odata.id"] =
-        "/redfish/v1/ComponentIntegrity";
-#endif
+    if constexpr (!BMCWEB_NVIDIA_OEM_BF_PROPERTIES)
+    {
+        asyncResp->res.jsonValue["ComponentIntegrity"]["@odata.id"] =
+            "/redfish/v1/ComponentIntegrity";
+    }
     asyncResp->res.jsonValue["Fabrics"]["@odata.id"] = "/redfish/v1/Fabrics";
     asyncResp->res.jsonValue["JsonSchemas"]["@odata.id"] =
         "/redfish/v1/JsonSchemas";
@@ -236,9 +238,10 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["TelemetryService"]["@odata.id"] =
         "/redfish/v1/TelemetryService";
 
-#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
-    asyncResp->res.jsonValue["Cables"]["@odata.id"] = "/redfish/v1/Cables";
-#endif
+    if constexpr (BMCWEB_HOST_OS_FEATURES)
+    {
+        asyncResp->res.jsonValue["Cables"]["@odata.id"] = "/redfish/v1/Cables";
+    }
     asyncResp->res.jsonValue["Links"]["ManagerProvidingService"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);

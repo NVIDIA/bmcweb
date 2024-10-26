@@ -459,7 +459,7 @@ inline std::map<int, VdmTokenStatus>
     return outputMap;
 }
 
-static std::string setOrAppend(std::string str, std::string in)
+inline std::string setOrAppend(std::string str, std::string in)
 {
     if (str.empty())
     {

@@ -24,7 +24,6 @@ constexpr const char* biosConfigObj =
 constexpr const char* biosConfigIface =
     "xyz.openbmc_project.BIOSConfig.Manager";
 
-#ifdef BMCWEB_ENABLE_DPU_BIOS
 /**
  * BiosAttributeRegistry DB for DPU bios managment
  */
@@ -32,7 +31,6 @@ nlohmann::json BiosRegistryJson;
 
 const std::string BiosRegistryJsonFileName =
     "/var/lib/bmcweb/BiosRegistryJson.json";
-#endif
 
 /**
  * BiosService DBus types
@@ -324,7 +322,7 @@ static std::string getBiosDefaultSettingsMode(const std::string& biosMode)
  *
  * @return None.
  */
-static void
+inline void
     getResetBiosSettings(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get Reset Bios Settings to Defaults Pending Status");
@@ -395,7 +393,7 @@ static void
  *
  * @return None.
  */
-static void
+inline void
     getBiosAttributes(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
@@ -682,7 +680,7 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  *
  * @return Returns None.
  */
-static void fillBiosTable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void fillBiosTable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::vector<nlohmann::json>& baseBiosTableJson)
 {
     BaseBIOSTable baseBiosTable;
@@ -852,7 +850,7 @@ static void fillBiosTable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  *
  * @return None.
  */
-static void
+inline void
     getBiosSettingsAttr(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
@@ -981,7 +979,7 @@ static void
  *
  * @return None.
  */
-static void setBiosCurrentOrPendingAttr(
+inline void setBiosCurrentOrPendingAttr(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const nlohmann::json& pendingAttrJson, bool biosFlag)
 {
@@ -1290,7 +1288,7 @@ static void setBiosCurrentOrPendingAttr(
  *
  * @return None.
  */
-static void
+inline void
     setBiosPendingAttr(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const nlohmann::json& pendingAttrJson)
 {
@@ -1306,7 +1304,7 @@ static void
  *
  * @return None.
  */
-static void setBiosServicCurrentAttr(
+inline void setBiosServicCurrentAttr(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const nlohmann::json& pendingAttrJson)
 {
@@ -1668,7 +1666,6 @@ static void setBiosServicCurrentAttr(
  *
  * @return None.
  */
-#ifdef BMCWEB_ENABLE_DPU_BIOS
 static void
     updateBiosAttrRegistry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -1776,7 +1773,7 @@ static void
         "xyz.openbmc_project.ObjectMapper", "GetObject", biosConfigObj,
         std::array<const char*, 1>{biosConfigIface});
 }
-#endif
+
 } // namespace bios
 
 /**
@@ -1978,14 +1975,15 @@ inline void requestRoutesBiosService(App& app)
         .privileges(redfish::privileges::putBios)
         .methods(boost::beast::http::verb::put)(
             std::bind_front(handleBiosServicePut, std::ref(app)));
-#ifdef BMCWEB_ENABLE_DPU_BIOS
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                          "/Bios/")
-        .privileges(redfish::privileges::patchBios)
-        .methods(boost::beast::http::verb::patch)(
-            std::bind_front(handleBiosServicePatch, std::ref(app)));
-#endif
+    if constexpr (BMCWEB_DPU_BIOS)
+    {
+        BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
+                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                              "/Bios/")
+            .privileges(redfish::privileges::patchBios)
+            .methods(boost::beast::http::verb::patch)(
+                std::bind_front(handleBiosServicePatch, std::ref(app)));
+    }
 }
 
 /**
@@ -2095,7 +2093,6 @@ inline void
         "xyz.openbmc_project.Common.FactoryReset", "Reset");
 }
 
-#ifdef BMCWEB_RESET_BIOS_BY_CLEAR_NONVOLATILE
 enum class SecureSelector
 {
     nonSecure = 0,
@@ -2330,19 +2327,25 @@ inline void handleNvidiaBiosResetPost(
 
     clearVariables(asyncResp, SecureSelector::nonSecure, true);
 }
-#endif
 
 inline void requestRoutesBiosReset(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Bios/Actions/Bios.ResetBios/")
-        .privileges(redfish::privileges::postBios)
-        .methods(boost::beast::http::verb::post)(
-#ifdef BMCWEB_RESET_BIOS_BY_CLEAR_NONVOLATILE
-            std::bind_front(handleNvidiaBiosResetPost, std::ref(app))
-#else
-            std::bind_front(handleBiosResetPost, std::ref(app))
-#endif
-        );
+    if constexpr (BMCWEB_RESET_BIOS_BY_CLEAR_NONVOLATILE)
+    {
+        BMCWEB_ROUTE(app,
+                     "/redfish/v1/Systems/<str>/Bios/Actions/Bios.ResetBios/")
+            .privileges(redfish::privileges::postBios)
+            .methods(boost::beast::http::verb::post)(
+                std::bind_front(handleNvidiaBiosResetPost, std::ref(app)));
+    }
+    else
+    {
+        BMCWEB_ROUTE(app,
+                     "/redfish/v1/Systems/<str>/Bios/Actions/Bios.ResetBios/")
+            .privileges(redfish::privileges::postBios)
+            .methods(boost::beast::http::verb::post)(
+                std::bind_front(handleBiosResetPost, std::ref(app)));
+    }
 }
 
 /**
@@ -2446,45 +2449,46 @@ inline void handleBiosAttrRegistryGet(
     {
         return;
     }
-#ifdef BMCWEB_ENABLE_DPU_BIOS
-    std::ifstream inputFile(redfish::bios::BiosRegistryJsonFileName);
-    if (!inputFile.is_open())
+    if constexpr (BMCWEB_DPU_BIOS)
     {
-        BMCWEB_LOG_DEBUG("Can't opening file for reading: {}",
-                         redfish::bios::BiosRegistryJsonFileName);
+        std::ifstream inputFile(redfish::bios::BiosRegistryJsonFileName);
+        if (!inputFile.is_open())
+        {
+            BMCWEB_LOG_DEBUG("Can't opening file for reading: {}",
+                             redfish::bios::BiosRegistryJsonFileName);
 
-        // Return empty json object if file not found
-        redfish::bios::BiosRegistryJson = nlohmann::json();
+            // Return empty json object if file not found
+            redfish::bios::BiosRegistryJson = nlohmann::json();
+        }
+        else
+        {
+            std::string contents{std::istreambuf_iterator<char>{inputFile},
+                                 std::istreambuf_iterator<char>{}};
+            inputFile.close();
+            redfish::bios::BiosRegistryJson = nlohmann::json::parse(contents);
+            bios::updateBiosAttrRegistry(asyncResp);
+        }
     }
     else
     {
-        std::string contents{std::istreambuf_iterator<char>{inputFile},
-                             std::istreambuf_iterator<char>{}};
-        inputFile.close();
-        redfish::bios::BiosRegistryJson = nlohmann::json::parse(contents);
-        bios::updateBiosAttrRegistry(asyncResp);
+        asyncResp->res.jsonValue["@odata.id"] =
+            "/redfish/v1/Registries/BiosAttributeRegistry/"
+            "BiosAttributeRegistry";
+        asyncResp->res.jsonValue["@odata.type"] =
+            "#AttributeRegistry.v1_3_2.AttributeRegistry";
+        asyncResp->res.jsonValue["Name"] = "Bios Attribute Registry";
+        asyncResp->res.jsonValue["Id"] = "BiosAttributeRegistry";
+        asyncResp->res.jsonValue["RegistryVersion"] = "1.0.0";
+        asyncResp->res.jsonValue["Language"] = "en";
+        asyncResp->res.jsonValue["OwningEntity"] = "NVIDIA";
+
+        asyncResp->res.jsonValue["RegistryEntries"]["Attributes"] =
+            nlohmann::json::array();
+
+        // Get the BIOS Attributes Registry
+        bios::getBiosAttributeRegistry(asyncResp);
     }
-#else
-    asyncResp->res.jsonValue["@odata.id"] =
-        "/redfish/v1/Registries/BiosAttributeRegistry/"
-        "BiosAttributeRegistry";
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#AttributeRegistry.v1_3_2.AttributeRegistry";
-    asyncResp->res.jsonValue["Name"] = "Bios Attribute Registry";
-    asyncResp->res.jsonValue["Id"] = "BiosAttributeRegistry";
-    asyncResp->res.jsonValue["RegistryVersion"] = "1.0.0";
-    asyncResp->res.jsonValue["Language"] = "en";
-    asyncResp->res.jsonValue["OwningEntity"] = "NVIDIA";
-
-    asyncResp->res.jsonValue["RegistryEntries"]["Attributes"] =
-        nlohmann::json::array();
-
-    // Get the BIOS Attributes Registry
-    bios::getBiosAttributeRegistry(asyncResp);
-#endif
 }
-
-#ifdef BMCWEB_ENABLE_DPU_BIOS
 
 /**
  * BiosAttributeRegistry class supports handle put method for bios.
@@ -2599,6 +2603,13 @@ inline void requestRoutesBiosAttrRegistryService(App& app)
         .privileges(redfish::privileges::putBios)
         .methods(boost::beast::http::verb::put)(
             std::bind_front(handleBiosAttrRegistryPut, std::ref(app)));
+    if constexpr (BMCWEB_DPU_BIOS)
+    {
+        BMCWEB_ROUTE(app, "/redfish/v1/Registries/"
+                          "BiosAttributeRegistry/BiosAttributeRegistry/")
+            .privileges(redfish::privileges::putBios)
+            .methods(boost::beast::http::verb::put)(
+                std::bind_front(handleBiosAttrRegistryPut, std::ref(app)));
+    }
 }
-#endif
 } // namespace redfish

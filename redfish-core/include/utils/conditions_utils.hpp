@@ -463,14 +463,15 @@ inline void populateServiceConditions(
     BMCWEB_LOG_DEBUG("Populating service conditions for device {}", chassisId);
     BMCWEB_LOG_DEBUG("ON REDFISH URI {}",
                      asyncResp->res.jsonValue["@odata.id"]);
-    BMCWEB_LOG_DEBUG("PLATFORM DEVICE PREFIX IS {}", PLATFORMDEVICEPREFIX);
+    BMCWEB_LOG_DEBUG("PLATFORM DEVICE PREFIX IS {}",
+                     BMCWEB_PLATFORM_DEVICE_PREFIX);
 
     std::string chasId = chassisId;
-    if (strlen(PLATFORMDEVICEPREFIX) > 0)
+    if (!BMCWEB_PLATFORM_DEVICE_PREFIX.empty())
     {
-        if (boost::starts_with(chassisId, PLATFORMDEVICEPREFIX))
+        if (boost::starts_with(chassisId, BMCWEB_PLATFORM_DEVICE_PREFIX))
         {
-            chasId = chassisId.substr(strlen(PLATFORMDEVICEPREFIX));
+            chasId = chassisId.substr(BMCWEB_PLATFORM_DEVICE_PREFIX.size());
         }
     }
     bool isDevice = !chasId.empty();
@@ -482,11 +483,14 @@ inline void populateServiceConditions(
             asyncResp->res.jsonValue["Status"]["Conditions"] =
                 nlohmann::json::array();
         }
-#ifdef BMCWEB_ENABLE_DEVICE_STATUS_FROM_FILE
-        handleDeviceServiceConditionsFromFile(asyncResp->res, chasId);
-#else
-        handleDeviceServiceConditions(asyncResp, chasId);
-#endif // BMCWEB_ENABLE_DEVICE_STATUS_FROM_FILE
+        if constexpr (BMCWEB_NVIDIA_OEM_DEVICE_STATUS_FROM_FILE)
+        {
+            handleDeviceServiceConditionsFromFile(asyncResp->res, chasId);
+        }
+        else
+        {
+            handleDeviceServiceConditions(asyncResp, chasId);
+        }
     }
     else
     {

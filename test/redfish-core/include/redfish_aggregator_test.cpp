@@ -258,16 +258,12 @@ TEST(addPrefixes, FixHttpHeadersInResponseBody)
     )",
                                                     nullptr, false);
 
-    std::string prefix(redfishAggregationPrefix);
+    std::string prefix(BMCWEB_REDFISH_AGGREGATION_PREFIX);
     addPrefixes(taskResp, prefix);
     EXPECT_EQ(taskResp["@odata.id"],
               "/redfish/v1/TaskService/Tasks/" + prefix + "_0");
     EXPECT_EQ(taskResp["TaskMonitor"],
-<<<<<<< HEAD
               "/redfish/v1/TaskService/Tasks/" + prefix + "_0/Monitor");
-=======
-              "/redfish/v1/TaskService/TaskMonitors/5B247A_0");
->>>>>>> origin/master
     nlohmann::json& httpHeaders = taskResp["Payload"]["HttpHeaders"];
     EXPECT_EQ(httpHeaders[4], "Location: /redfish/v1/Managers/" + prefix +
                                   "_bmc/LogServices/Dump/Entries/0");

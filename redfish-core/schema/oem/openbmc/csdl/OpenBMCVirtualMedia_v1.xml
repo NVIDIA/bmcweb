@@ -14,17 +14,9 @@
     <edmx:Include Namespace="Resource.v1_0_0"/>
   </edmx:Reference>
   <edmx:DataServices>
-<<<<<<< HEAD
-
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="OpenBMCVirtualMedia">
       <Annotation Term="Redfish.OwningEntity" String="OpenBMC"/>
     </Schema>
-
-=======
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="OpenBMCVirtualMedia">
-      <Annotation Term="Redfish.OwningEntity" String="OpenBMC"/>
-    </Schema>
->>>>>>> origin/master
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="OpenBMCVirtualMedia.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="OpenBMC"/>
       <Annotation Term="Redfish.Release" String="1.0"/>

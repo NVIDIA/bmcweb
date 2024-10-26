@@ -7,67 +7,7 @@
 
 @BMCWEB_OPTIONS@
 
+constexpr std::string_view BMCWEB_FW_MCTP_MAPPING_JSON = @FW_MCTP_MAPPING_JSON@;
+
 // NOLINTEND(readability-identifier-naming)
 // clang-format on
-<<<<<<< HEAD
-
-#define PLATFORMSYSTEMDESCRIPTION @PLATFORM_SYSTEM_DESCRIPTION@
-#define PLATFORMMETRICSID @PLATFORM_METRICS_ID@
-#define PLATFORMDEVICEPREFIX @PLATFORM_DEVICE_PREFIX@
-#define PLATFORMNETWORKADAPTER @PLATFORM_NETWORK_ADAPTER@
-#define PLATFORMCHASSISNAME @PLATFORM_CHASSIS_NAME@
-
-#define HOSTIFACECHANNEL @HOST_IFACE_CHANNEL@
-#define FWMCTPMAPPINGJSON @FW_MCTP_MAPPING_JSON@
-
-#define NETWORKADAPTERPREFIX @NETWORK_ADAPTER_PREFIX@
-#define NETWORKADAPTERLINKPREFIX @NETWORK_ADAPTER_LINK_PREFIX@
-
-constexpr const size_t firmwareImageLimitBytes =
-    static_cast<size_t>(@FIRMWARE_IMAGE_LIMIT_MB@ * 1024 * 1024);
-
-constexpr const int updateServiceTaskTimeout = @UPDATE_SERVICE_TASK_TIMEOUT@;
-
-constexpr const char* updateServiceImageLocation = "@UPDATE_SERVICE_IMAGE_LOCATION@";
-
-constexpr const char* updateServiceStageLocation = "@UPDATE_SERVICE_STAGE_LOCATION@";
-
-constexpr const char* buildDescriptionFilePath = "@BUILD_DESCRIPTION_FILE_PATH@";
-
-constexpr const char* otpProvisioningStatusFilePath = "@OTP_PROVISIONING_STATUS_FILE_PATH@";
-
-constexpr const char* computerSystemInventoryPath = "@COMPUTER_SYSTEM_INVENTORY_PATH@";
-
-constexpr const int64_t staleSensorUpperLimitms = @STALE_SENSOR_UPPER_LIMIT_IN_MILISECOND@;
-
-constexpr const uint64_t pmSensingInterval = @PLATFORM_METRICS_SENSING_INTERVAL@;
-
-constexpr const int mfgTestTimeout = @MFG_TEST_TIMEOUT@;
-
-constexpr const char* platformTotalPowerSensorName = @PLATFORM_TOTAL_POWER_SENSOR_NAME@;
-
-constexpr const char* platformPowerControlSensorName = @PLATFORM_POWER_CONTOL_SENSOR_NAME@;
-
-constexpr const uint8_t bmcwebLogLevel = @BMCWEB_LOG_LEVEL@;
-
-constexpr const uint8_t minUcaseCharacters = @MIN_UCASE_CHRS@;
-constexpr const uint8_t minLcaseCharacters = @MIN_LCASE_CHRS@;
-constexpr const uint8_t minSpecCharacters = @MIN_SPEC_CHRS@;
-constexpr const uint8_t minDigits = @MIN_DIGITS@;
-constexpr const uint8_t minPasswordLength = @MIN_PASSWORD_LENGTH@;
-
-constexpr const char* platformGpuNamePrefix = @PLATFORM_GPU_NAME_PREFIX@;
-constexpr const int gpuIndexStart = @GPU_INDEX_START@;
-
-constexpr const char* tlsCaCertificatePath = "@TLS_CACERT_PATH@";
-constexpr const char *redfishAggregationPrefix = @REDFISH_AGGREGATION_PREFIX@;
-constexpr const char *rfaHmcUpdateTarget = @RFA_HMC_UPDATE_TARGET@;
-constexpr const char *rfaBmcHostURL = @RFA_BMC_HOST_URL@;
-constexpr const int rfaDeferSubscribeTime = @RFA_SUBSCRIBE_TIME@;
-
-constexpr const int bmcwebResponseTimeoutSeconds = @BMCWEB_RESPONSE_TIMEOUT@;
-constexpr const bool bmcwebEnableNvidiaBootEntryId = @BMCWEB_ENABLE_NVIDIA_BOOTENTRYID@ == 1;
-
-// clang-format on
-=======
->>>>>>> origin/master

@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include "certificate_service.hpp"
 #include "nlohmann/json.hpp"
 #include "task.hpp"
 
@@ -59,7 +60,6 @@ static const char* oemFruService = "xyz.openbmc_project.Control.dpu_fru";
 static const char* oemFruObj = "/xyz/openbmc_project/oem_fru";
 static const char* oemFruIntf = "xyz.openbmc_project.OemFruDevice";
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_BF3_PROPERTIES
 struct PropertyInfo
 {
     const std::string intf;
@@ -147,8 +147,8 @@ class DpuGetProperties : virtual public DpuCommonProperties
 {
   public:
     DpuGetProperties(
-        const std::unordered_map<std::string, ObjectInfo>& objects) :
-        DpuCommonProperties(objects)
+        const std::unordered_map<std::string, ObjectInfo>& objects2) :
+        DpuCommonProperties(objects2)
     {}
 
     int getObject(nlohmann::json* const json,
@@ -189,10 +189,10 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
 {
   public:
     DpuActionSetProperties(
-        const std::unordered_map<std::string, ObjectInfo>& objects,
-        const std::string target) :
-        DpuCommonProperties(objects),
-        target(target)
+        const std::unordered_map<std::string, ObjectInfo>& objects2,
+        const std::string targetIn) :
+        DpuCommonProperties(objects2),
+        target(targetIn)
     {}
     std::string getActionTarget()
     {
@@ -304,10 +304,11 @@ class DpuActionSetAndGetProp :
 {
   public:
     DpuActionSetAndGetProp(
-        const std::unordered_map<std::string, ObjectInfo>& objects,
-        const std::string target) :
-        DpuCommonProperties(objects),
-        DpuActionSetProperties(objects, target), DpuGetProperties(objects)
+        const std::unordered_map<std::string, ObjectInfo>& objects3,
+        const std::string target2) :
+        DpuCommonProperties(objects3),
+        DpuActionSetProperties(objects3, target2), DpuGetProperties(objects3)
+
     {}
 };
 
@@ -380,7 +381,7 @@ const std::string externalHostPrivilegeTarget =
     "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
     "/Oem/Nvidia/Connectx/ExternalHostPrivileges/Actions/ExternalHostPrivileges.Set";
 
-bluefield::DpuActionSetAndGetProp externalHostPrivilege(
+inline bluefield::DpuActionSetAndGetProp externalHostPrivilege(
     {{"HostPrivFlashAccess",
       {.service = "xyz.openbmc_project.Settings.connectx",
        .obj =
@@ -422,7 +423,7 @@ bluefield::DpuActionSetAndGetProp externalHostPrivilege(
            "/xyz/openbmc_project/network/connectx/external_host_privileges/external_host_privileges/HOST_PRIV_PCC_UPDATE",
        .propertyInfo = bluefield::nicTristateAttributeInfo}}},
     bluefield::externalHostPrivilegeTarget);
-bluefield::DpuGetProperties starpOptions(
+inline bluefield::DpuGetProperties starpOptions(
     {{"2PcoreActive",
       {.service = "xyz.openbmc_project.Settings.connectx",
        .obj =
@@ -478,7 +479,7 @@ bluefield::DpuGetProperties starpOptions(
        .obj =
            "/xyz/openbmc_project/network/connectx/strap_options/strap_options/SOCKET_DIRECT",
        .propertyInfo = bluefield::nicAttributeInfo}}});
-bluefield::DpuGetProperties starpOptionsMask(
+inline bluefield::DpuGetProperties starpOptionsMask(
     {{"2PcoreActive",
       {.service = "xyz.openbmc_project.Settings.connectx",
        .obj =
@@ -533,7 +534,7 @@ bluefield::DpuGetProperties starpOptionsMask(
        .obj =
            "/xyz/openbmc_project/network/connectx/strap_options/mask/SOCKET_DIRECT",
        .propertyInfo = bluefield::nicAttributeInfo}}});
-bluefield::DpuActionSetAndGetProp hostRshim(
+inline bluefield::DpuActionSetAndGetProp hostRshim(
     {{"HostRshim",
       {.service = "xyz.openbmc_project.Settings.connectx",
        .obj =
@@ -541,7 +542,7 @@ bluefield::DpuActionSetAndGetProp hostRshim(
        .propertyInfo = bluefield::nicAttributeInfo,
        .required = true}}},
     bluefield::hostRhimTarget);
-DpuActionSetAndGetProp mode(
+inline DpuActionSetAndGetProp mode(
     {{"Mode",
       {.service = "xyz.openbmc_project.Settings.connectx",
        .obj =
@@ -550,7 +551,6 @@ DpuActionSetAndGetProp mode(
        .required = true}}},
     modeTarget);
 
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_BF3_PROPERTIES
 inline void getIsOemNvidiaRshimEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -1606,33 +1606,42 @@ inline void requestRoutesNvidiaOemBf(App& app)
             bp::std_err > *dataErr);
     });
 
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_BF3_PROPERTIES
+    if constexpr (BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)
+    {
+        BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
+                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                              "/Oem/Nvidia/Actions/HostRshim.Set")
+            .privileges(redfish::privileges::postComputerSystem)
+            .methods(boost::beast::http::verb::post)(
+                std::bind_front(&bluefield::DpuActionSetAndGetProp::setAction,
+                                &bluefield::hostRshim, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                          "/Oem/Nvidia/Actions/HostRshim.Set")
-        .privileges(redfish::privileges::postComputerSystem)
-        .methods(boost::beast::http::verb::post)(
-            std::bind_front(&bluefield::DpuActionSetAndGetProp::setAction,
-                            &bluefield::hostRshim, std::ref(app)));
+        BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
+                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                              "/Oem/Nvidia/Actions/Mode.Set")
+            .privileges(redfish::privileges::postComputerSystem)
+            .methods(boost::beast::http::verb::post)(
+                std::bind_front(&bluefield::DpuActionSetAndGetProp::setAction,
+                                &bluefield::mode, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                          "/Oem/Nvidia/Actions/Mode.Set")
-        .privileges(redfish::privileges::postComputerSystem)
-        .methods(boost::beast::http::verb::post)(
-            std::bind_front(&bluefield::DpuActionSetAndGetProp::setAction,
-                            &bluefield::mode, std::ref(app)));
+        BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
+                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                              "/Oem/Nvidia/Actions/Mode.Set")
+            .privileges(redfish::privileges::postComputerSystem)
+            .methods(boost::beast::http::verb::post)(
+                std::bind_front(&bluefield::DpuActionSetAndGetProp::setAction,
+                                &bluefield::mode, std::ref(app)));
 
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Oem/Nvidia/Connectx/ExternalHostPrivileges/Actions/ExternalHostPrivileges.Set")
-        .privileges(redfish::privileges::postComputerSystem)
-        .methods(boost::beast::http::verb::post)(
-            std::bind_front(&bluefield::DpuActionSetAndGetProp::setAction,
-                            &bluefield::externalHostPrivilege, std::ref(app)));
-#endif
+        BMCWEB_ROUTE(
+            app,
+            "/redfish/v1/Systems/" +
+                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                "/Oem/Nvidia/Connectx/ExternalHostPrivileges/Actions/ExternalHostPrivileges.Set")
+            .privileges(redfish::privileges::postComputerSystem)
+            .methods(boost::beast::http::verb::post)(std::bind_front(
+                &bluefield::DpuActionSetAndGetProp::setAction,
+                &bluefield::externalHostPrivilege, std::ref(app)));
+    }
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia")
         .privileges(redfish::privileges::putComputerSystem)
         .methods(boost::beast::http::verb::put)(
@@ -1663,32 +1672,34 @@ inline void requestRoutesNvidiaOemBf(App& app)
         auto& nvidia = asyncResp->res.jsonValue;
         auto& actions = nvidia["Actions"];
         auto& socForceReset = actions["#SOC.ForceReset"];
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_BF3_PROPERTIES
-        auto& connectx = nvidia["Connectx"];
-        auto& hostRshimAction = actions["#HostRshim.Set"];
-        auto& modeAction = actions["#Mode.Set"];
+        if constexpr (BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)
+        {
+            auto& connectx = nvidia["Connectx"];
+            auto& hostRshimAction = actions["#HostRshim.Set"];
+            auto& modeAction = actions["#Mode.Set"];
 
-        bluefield::mode.getProperty(&nvidia, asyncResp);
-        bluefield::hostRshim.getProperty(&nvidia, asyncResp);
-        connectx["StrapOptions"]["@odata.id"] = bluefield::dpuStrpOptionGet;
-        connectx["ExternalHostPrivilege"]["@odata.id"] =
-            bluefield::dpuHostPrivGet;
-        bluefield::mode.getActionInfo(&modeAction);
-        bluefield::hostRshim.getActionInfo(&hostRshimAction);
+            bluefield::mode.getProperty(&nvidia, asyncResp);
+            bluefield::hostRshim.getProperty(&nvidia, asyncResp);
+            connectx["StrapOptions"]["@odata.id"] = bluefield::dpuStrpOptionGet;
+            connectx["ExternalHostPrivilege"]["@odata.id"] =
+                bluefield::dpuHostPrivGet;
+            bluefield::mode.getActionInfo(&modeAction);
+            bluefield::hostRshim.getActionInfo(&hostRshimAction);
 
-        nvidia["Truststore"]["Certificates"]["@odata.id"] =
-            "/redfish/v1/Systems/" +
-            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Oem/Nvidia/Truststore/Certificates";
+            nvidia["Truststore"]["Certificates"]["@odata.id"] =
+                "/redfish/v1/Systems/" +
+                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                "/Oem/Nvidia/Truststore/Certificates";
 
-        actions["#TruststoreCertificates.ResetKeys"]["target"] =
-            "/redfish/v1/Systems/" +
-            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Oem/Nvidia/Actions/TruststoreCertificates.ResetKeys";
+            actions["#TruststoreCertificates.ResetKeys"]["target"] =
+                "/redfish/v1/Systems/" +
+                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                "/Oem/Nvidia/Actions/TruststoreCertificates.ResetKeys";
 
-        actions["#TruststoreCertificates.ResetKeys"]
-               ["ResetKeysType@Redfish.AllowableValues"] = {"DeleteAllKeys"};
-#endif
+            actions["#TruststoreCertificates.ResetKeys"]
+                   ["ResetKeysType@Redfish.AllowableValues"] = {
+                       "DeleteAllKeys"};
+        }
         socForceReset["target"] = bluefield::socForceResetTraget;
         bluefield::handleGetOemFru(app, req, asyncResp);
         sdbusplus::asio::getAllProperties(
@@ -1732,51 +1743,53 @@ inline void requestRoutesNvidiaOemBf(App& app)
                 asyncResp->res.jsonValue["BaseMAC"] = *baseMac;
             }
         });
-#ifdef BMCWEB_ENABLE_PROFILES
+#ifdef BMCWEB_PROFILES
         nvidia["Profiles"]["@odata.id"] =
             "/redfish/v1/Systems/" +
             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
             "/Oem/Nvidia/SystemConfigurationProfile";
 #endif
     });
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_BF3_PROPERTIES
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                          "/Oem/Nvidia/Connectx/StrapOptions")
-        .privileges(redfish::privileges::getComputerSystem)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        auto& strapOptionsJson = asyncResp->res.jsonValue["StrapOptions"];
-        auto& mask = asyncResp->res.jsonValue["Mask"];
+    if constexpr (BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)
+    {
+        BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
+                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                              "/Oem/Nvidia/Connectx/StrapOptions")
+            .privileges(redfish::privileges::getComputerSystem)
+            .methods(boost::beast::http::verb::get)(
+                [&app](const crow::Request& req,
+                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            auto& strapOptionsJson = asyncResp->res.jsonValue["StrapOptions"];
+            auto& mask = asyncResp->res.jsonValue["Mask"];
 
-        bluefield::starpOptions.getProperty(&strapOptionsJson, asyncResp);
-        bluefield::starpOptionsMask.getProperty(&mask, asyncResp);
-    });
+            bluefield::starpOptions.getProperty(&strapOptionsJson, asyncResp);
+            bluefield::starpOptionsMask.getProperty(&mask, asyncResp);
+        });
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                          "/Oem/Nvidia/Connectx/ExternalHostPrivileges")
-        .privileges(redfish::privileges::getComputerSystem)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        auto& hostPriv = asyncResp->res.jsonValue["ExternalHostPrivilege"];
-        auto& actions =
-            asyncResp->res.jsonValue["Actions"]["#ExternalHostPrivilege.Set"];
+        BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
+                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                              "/Oem/Nvidia/Connectx/ExternalHostPrivileges")
+            .privileges(redfish::privileges::getComputerSystem)
+            .methods(boost::beast::http::verb::get)(
+                [&app](const crow::Request& req,
+                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            auto& hostPriv = asyncResp->res.jsonValue["ExternalHostPrivilege"];
+            auto& actions =
+                asyncResp->res
+                    .jsonValue["Actions"]["#ExternalHostPrivilege.Set"];
 
-        bluefield::externalHostPrivilege.getProperty(&hostPriv, asyncResp);
-        bluefield::externalHostPrivilege.getActionInfo(&actions);
-    });
-#endif // BMCWEB_ENABLE_NVIDIA_OEM_BF3_PROPERTIES
+            bluefield::externalHostPrivilege.getProperty(&hostPriv, asyncResp);
+            bluefield::externalHostPrivilege.getActionInfo(&actions);
+        });
+    }
 }
 
 } // namespace redfish
