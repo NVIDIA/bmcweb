@@ -81,7 +81,7 @@ inline void
 
 inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& path,
-                            const std::string& chassisPath)
+                            const std::string& /*chassisPath*/)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, path](
@@ -232,21 +232,6 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject", path, powerinterfaces);
-
-    auto health = std::make_shared<HealthPopulate>(asyncResp);
-    sdbusplus::asio::getProperty<std::vector<std::string>>(
-        *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
-        chassisPath + "/all_sensors", "xyz.openbmc_project.Association",
-        "endpoints",
-        [health](const boost::system::error_code ec2,
-                 const std::vector<std::string>& resp) {
-        if (ec2)
-        {
-            return; // no sensors = no failures
-        }
-        health->inventory = resp;
-    });
-    health->populate();
 }
 
 inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -947,6 +932,8 @@ inline void requestRoutesChassisControls(App& app)
                             "System Power Control";
                         asyncResp->res.jsonValue["ControlType"] = "Power";
                         asyncResp->res.jsonValue["Status"]["Health"] = "OK";
+                        asyncResp->res.jsonValue["Status"]["HealthRollup"] =
+                            "OK";
                         getChassisPower(asyncResp, object, *validChassisPath);
                         getTotalPower(asyncResp, chassisID);
                         validendpoint = true;

@@ -65,7 +65,7 @@ inline void getClockLimitControlObjects(
 inline void
     getChassisClockLimit(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const std::string& path,
-                         const std::string& chassisPath)
+                         const std::string& /*chassisPath*/)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, path](
@@ -210,21 +210,6 @@ inline void
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject", path,
         std::array<const char*, 0>());
-
-    auto health = std::make_shared<HealthPopulate>(asyncResp);
-    sdbusplus::asio::getProperty<std::vector<std::string>>(
-        *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
-        chassisPath + "/all_sensors", "xyz.openbmc_project.Association",
-        "endpoints",
-        [health](const boost::system::error_code ec2,
-                 const std::vector<std::string>& resp) {
-        if (ec2)
-        {
-            return; // no sensors = no failures
-        }
-        health->inventory = resp;
-    });
-    health->populate();
 }
 
 inline void
@@ -278,6 +263,7 @@ inline void
                     "Control for " + processorName + " " + controlID;
                 asyncResp->res.jsonValue["ControlType"] = "FrequencyMHz";
                 asyncResp->res.jsonValue["Status"]["Health"] = "OK";
+                asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
                 nlohmann::json& relatedItemsArray =
                     asyncResp->res.jsonValue["RelatedItem"];
                 relatedItemsArray = nlohmann::json::array();
