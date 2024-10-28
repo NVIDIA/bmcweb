@@ -4736,6 +4736,8 @@ inline void handleCommitImagePost(
         hasTargets = true;
     }
 
+    UuidToUriMap targetUuidInventoryUriMap = {};
+
     if (hasTargets)
     {
         std::vector<std::string> targetsCollection = targets.value();
@@ -4749,10 +4751,8 @@ inline void handleCommitImagePost(
                 getAllowableValue(inventoryPath);
             if (result.first == true)
             {
-                uint32_t eid = result.second.mctpEndpointId;
-
-                initBackgroundCopy(req, asyncResp, eid,
-                                   result.second.inventoryUri);
+                targetUuidInventoryUriMap[result.second.uuid] =
+                    result.second.inventoryUri;
             }
             else
             {
@@ -4772,13 +4772,30 @@ inline void handleCommitImagePost(
 
             if (result.first == true)
             {
-                uint32_t eid = result.second.mctpEndpointId;
-
-                initBackgroundCopy(req, asyncResp, eid,
-                                   result.second.inventoryUri);
+                targetUuidInventoryUriMap[result.second.uuid] =
+                    result.second.inventoryUri;
             }
         }
     }
+
+    auto initBackgroundCopyCallback =
+        [req, asyncResp]([[maybe_unused]] const UUID uuid, const EID eid,
+                         const URI inventoryUri) mutable {
+        BMCWEB_LOG_DEBUG("Run CommitImage operation for EID {}, UUID {}", eid,
+                         uuid);
+        initBackgroundCopy(req, asyncResp, eid, inventoryUri);
+    };
+
+    auto errorCallback =
+        [req, asyncResp]([[maybe_unused]] const std::string desc,
+                         [[maybe_unused]] const std::string errMsg) mutable {
+        BMCWEB_LOG_ERROR("The CommitImage operation failed: {}, {}", desc,
+                         errMsg);
+        messages::internalError(asyncResp->res);
+    };
+
+    retrieveEidFromMctpServices(targetUuidInventoryUriMap,
+                                initBackgroundCopyCallback, errorCallback);
 }
 
 /**
