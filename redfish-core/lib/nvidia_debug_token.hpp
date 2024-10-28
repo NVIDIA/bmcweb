@@ -109,9 +109,11 @@ inline void handleDebugTokenResourceInfo(
         return;
     }
 
-    auto resultCallback =
-        [asyncResp, chassisId, resUri{std::string(req.url().buffer())}](
-            EndpointState state, TargetedOperationResult result) {
+    std::string resUri =
+        std::format("/redfish/v1/Chassis/{}/Oem/Nvidia/DebugToken", chassisId);
+    auto resultCallback = [asyncResp, chassisId,
+                           resUri](EndpointState state,
+                                   TargetedOperationResult result) {
         if (state == EndpointState::DebugTokenUnsupported)
         {
             messages::debugTokenUnsupported(asyncResp->res, chassisId);
@@ -414,17 +416,17 @@ inline void
 inline void requestRoutesChassisDebugToken(App& app)
 {
     using namespace debug_token;
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Oem/Nvidia/DebugToken")
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Oem/Nvidia/DebugToken/")
         .privileges(redfish::privileges::getChassis)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleDebugTokenResourceInfo, std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Oem/Nvidia/DebugToken"
-                      "/GenerateTokenActionInfo")
+                      "/GenerateTokenActionInfo/")
         .privileges(redfish::privileges::getChassis)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleGenerateTokenActionInfo, std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Oem/Nvidia/DebugToken"
-                      "/InstallTokenActionInfo")
+                      "/InstallTokenActionInfo/")
         .privileges(redfish::privileges::getChassis)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleInstallTokenActionInfo, std::ref(app)));
