@@ -144,6 +144,17 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
         return false;
     }
 
+    // Handle unauthorized expand query parameters for service root example
+    // /redfish/v1/?$expand=< >
+    if (req.session == nullptr &&
+        persistent_data::getConfig().isTLSAuthEnabled() &&
+        queryOpt->expandType != query_param::ExpandType::None)
+    {
+        messages::resourceAtUriUnauthorized(asyncResp->res, req.url(),
+                                            "Invalid username or password");
+        return false;
+    }
+
     if (!handleIfMatch(app, req, asyncResp))
     {
         return false;
