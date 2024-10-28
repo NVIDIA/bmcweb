@@ -79,8 +79,8 @@ conf_data.set_quoted(
     get_option('redfish-aggregation-prefix'),
 )
 conf_data.set_quoted(
-    'FW_MCTP_MAPPING_JSON',
-    join_paths(package_datadir, 'fw_mctp_mapping.json'),
+    'FW_UUID_MAPPING_JSON',
+    join_paths(package_datadir, 'fw_uuid_mapping.json'),
 )
 conf_data.set(
     'BUILD_DESCRIPTION_FILE_PATH',
