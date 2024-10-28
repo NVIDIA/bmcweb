@@ -22,6 +22,25 @@ namespace redfish
 {
 namespace nvidia_chassis_utils
 {
+
+constexpr const size_t trayTopologyStringLength = 16;
+constexpr const size_t trayTopologyByteLength = 8;
+constexpr const size_t trayTopologyTokenLength = 2;
+constexpr const uint8_t trayTopologyMinRevision = 2;
+#pragma pack(1)
+struct trayTopology
+{
+    uint8_t revision;
+    uint8_t reserved1;
+    uint8_t chassisSlotNumber;
+    uint8_t trayIndex;
+    uint8_t topologyId;
+    uint8_t reserved2;
+    uint8_t reserved3;
+    uint8_t reserved4;
+};
+#pragma pack()
+
 /* * @brief Fill out links association to underneath chassis by
  * requesting data from the given D-Bus association object.
  *
@@ -355,33 +374,40 @@ inline void getOemCBCChassisAsset(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
             messages::internalError(asyncResp->res);
             return;
         }
-        // convert byte string to vector.
-        std::vector<char> value;
-        for (unsigned int i = 0; i < property.length(); i += 2)
+
+        // CBC FRU spec specifies that it is 8 bytes (string length 16)
+        if (property.length() != trayTopologyStringLength)
         {
-            std::string byteData = property.substr(i, 2);
-            char byte =
-                static_cast<char>(strtol(byteData.c_str(), nullptr, 16));
-            value.push_back(byte);
+            BMCWEB_LOG_ERROR("CBC Tray ID string len is in invalid");
+            messages::internalError(asyncResp->res);
+            return;
         }
-        // this is CBC byte defintion for rev. 0x2
-        // byte 0: Revision 0x2
-        // byte 1: Unused
-        // byte 2: Chassis slot number
-        // byte 3: Tray Index
-        // byte 4: Topology Id
-        if (value[2] != 2)
+
+        std::array<uint8_t, trayTopologyByteLength> byteArray;
+        for (size_t i = 0; i < trayTopologyByteLength; i++)
         {
-            // redfish only support rev. 0x2 defintion.
+            byteArray[i] = static_cast<uint8_t>(
+                std::stoi(property.substr((i * trayTopologyTokenLength),
+                                          trayTopologyTokenLength),
+                          nullptr, 16));
+        }
+        trayTopology* trayTopologyPtr =
+            reinterpret_cast<trayTopology*>(byteArray.data());
+
+        // make sure it can support trayTopologyMinRevision at least
+        if (trayTopologyPtr->revision < trayTopologyMinRevision)
+        {
+            BMCWEB_LOG_ERROR("CBC Tray ID revision must be >= {}",
+                             static_cast<int>(trayTopologyMinRevision));
             return;
         }
 
         auto& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
         oem["@odata.type"] = "#NvidiaChassis.v1_4_0.NvidiaCBCChassis";
-        oem["ChassisPhysicalSlotNumber"] = value[2];
-        oem["ComputeTrayIndex"] = value[3];
-        oem["RevisionId"] = value[0];
-        oem["TopologyId"] = value[4];
+        oem["ChassisPhysicalSlotNumber"] = trayTopologyPtr->chassisSlotNumber;
+        oem["ComputeTrayIndex"] = trayTopologyPtr->trayIndex;
+        oem["RevisionId"] = trayTopologyPtr->revision;
+        oem["TopologyId"] = trayTopologyPtr->topologyId;
     });
 }
 
