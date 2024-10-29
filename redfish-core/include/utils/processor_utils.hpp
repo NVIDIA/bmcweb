@@ -33,9 +33,9 @@ using MapperGetSubTreeResponse =
     std::vector<std::pair<std::string, MapperServiceMap>>;
 
 // Interfaces which imply a D-Bus object represents a Processor
-constexpr std::array<const char*, 2> processorInterfaces = {
+constexpr std::array<const char*, 3> processorInterfaces = {
     "xyz.openbmc_project.Inventory.Item.Cpu",
-    "xyz.openbmc_project.Inventory.Item.Accelerator"};
+    "xyz.openbmc_project.Inventory.Item.Accelerator", "com.nvidia.GPMMetrics"};
 
 /**
  * Find the D-Bus object representing the requested Processor, and call the
@@ -88,7 +88,17 @@ inline void getProcessorObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                                         interfaceList.end(), iface);
                     if (it != interfaceList.end())
                     {
-                        deviceType = *it;
+                        if (*it == "com.nvidia.GPMMetrics")
+                        {
+                            // Assign the device type to Accelerator because we
+                            // have found the GPMMetrics interface here
+                            deviceType =
+                                "xyz.openbmc_project.Inventory.Item.Accelerator";
+                        }
+                        else
+                        {
+                            deviceType = *it;
+                        }
                         found = true;
                         break;
                     }
@@ -123,7 +133,7 @@ inline void getProcessorObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 9>{
+        std::array<const char*, 10>{
             "xyz.openbmc_project.Common.UUID",
             "xyz.openbmc_project.Inventory.Decorator.Asset",
             "xyz.openbmc_project.Inventory.Decorator.Revision",
@@ -132,7 +142,8 @@ inline void getProcessorObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
             "xyz.openbmc_project.Inventory.Item.Accelerator",
             "xyz.openbmc_project.Software.Version",
             "xyz.openbmc_project.Control.Processor.CurrentOperatingConfig",
-            "xyz.openbmc_project.Inventory.Decorator.UniqueIdentifier"});
+            "xyz.openbmc_project.Inventory.Decorator.UniqueIdentifier",
+            "com.nvidia.GPMMetrics"});
 }
 
 inline void getPCIeErrorData(std::shared_ptr<bmcweb::AsyncResp> aResp,
