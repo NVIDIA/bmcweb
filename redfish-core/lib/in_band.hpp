@@ -70,8 +70,8 @@ inline void
         return;
     };
 
-    mctpVdmUtilWrapper.run(MctpVdmUtilCommand::INBAND_STATUS, req, asyncResp,
-                           responseCallback);
+    mctpVdmUtilWrapper.run(MctpVdmUtilCommand::INBAND_STATUS, std::monostate(),
+                           req, asyncResp, responseCallback);
 
     return;
 }
@@ -120,12 +120,14 @@ inline void enableInBand(const crow::Request& req,
     };
     if (enabled)
     {
-        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::INBAND_ENABLE, req,
-                               asyncResp, responseCallback);
+        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::INBAND_ENABLE,
+                               std::monostate(), req, asyncResp,
+                               responseCallback);
     }
     else
     {
-        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::INBAND_DISABLE, req,
-                               asyncResp, responseCallback);
+        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::INBAND_DISABLE,
+                               std::monostate(), req, asyncResp,
+                               responseCallback);
     }
 }

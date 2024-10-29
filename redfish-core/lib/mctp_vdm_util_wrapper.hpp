@@ -28,9 +28,17 @@
 #include <functional>
 #include <iostream>
 #include <string>
+#include <variant>
+#include <vector>
+
+constexpr const size_t MctpVdmUtilErrorCodeOffset = 8;
 
 enum class MctpVdmUtilCommand
 {
+    /*debug token*/
+    DEBUG_TOKEN_INSTALL,
+    DEBUG_TOKEN_ERASE,
+    DEBUG_TOKEN_QUERY,
     /*background_copy*/
     BACKGROUNDCOPY_INIT,
     BACKGROUNDCOPY_DISABLE,
@@ -70,15 +78,28 @@ using ResponseCallback = std::function<void(
     const std::string& /* stdErr*/, const boost::system::error_code& /* ec */,
     int /*errorCode */)>;
 
+using MctpVdmUtilData = std::variant<std::monostate, std::vector<uint8_t>>;
+
 struct MctpVdmUtil
 {
   private:
-    void translateOperationToCommand(MctpVdmUtilCommand mctpVdmUtilcommand)
+    void translateOperationToCommand(MctpVdmUtilCommand mctpVdmUtilcommand,
+                                     MctpVdmUtilData data)
     {
         std::string cmd;
 
         switch (mctpVdmUtilcommand)
         {
+            case MctpVdmUtilCommand::DEBUG_TOKEN_INSTALL:
+                cmd = "debug_token_install";
+                break;
+            case MctpVdmUtilCommand::DEBUG_TOKEN_ERASE:
+                cmd = "debug_token_erase";
+                break;
+            case MctpVdmUtilCommand::DEBUG_TOKEN_QUERY:
+                cmd = "debug_token_query";
+                break;
+
             case MctpVdmUtilCommand::BACKGROUNDCOPY_INIT:
                 cmd = "background_copy_init";
                 break;
@@ -130,6 +151,19 @@ struct MctpVdmUtil
 
         command = "mctp-vdm-util -t " + std::to_string(endpointId) + " -c " +
                   cmd;
+        std::vector<uint8_t>* vectorData =
+            std::get_if<std::vector<uint8_t>>(&data);
+        if (vectorData != nullptr)
+        {
+            std::stringstream ss;
+            for (const auto& byte : *vectorData)
+            {
+                ss << " " << std::hex << std::setw(2) << std::setfill('0')
+                   << static_cast<int>(byte);
+            }
+            command += ss.str();
+            return;
+        }
     }
     uint32_t endpointId = 0L;
     std::string command;
@@ -148,11 +182,12 @@ struct MctpVdmUtil
      *
      * @return none.
      */
-    void run(MctpVdmUtilCommand mctpVdmUtilcommand, const crow::Request& req,
+    void run(MctpVdmUtilCommand mctpVdmUtilcommand, MctpVdmUtilData data,
+             const crow::Request& req,
              const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
              ResponseCallback responseCallback)
     {
-        translateOperationToCommand(mctpVdmUtilcommand);
+        translateOperationToCommand(mctpVdmUtilcommand, data);
         auto dataOut = std::make_shared<boost::process::ipstream>();
         auto dataErr = std::make_shared<boost::process::ipstream>();
         auto exitCallback =

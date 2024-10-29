@@ -31,6 +31,7 @@
 #include "metric_report.hpp"
 #include "metric_report_definition.hpp"
 #include "network_protocol.hpp"
+#include "nvidia_cpu_debug_token.hpp"
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_protected_component.hpp"
 #include "odata.hpp"
@@ -176,6 +177,7 @@ RedfishService::RedfishService(App& app)
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
         requestRoutesChassisDebugToken(app);
+        requestRoutesCpuDebugToken(app);
     }
     requestRoutesUpdateService(app);
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)

@@ -145,6 +145,60 @@ inline std::vector<uint8_t>
     return requestWithHeader;
 }
 
+enum class TokenFileType
+{
+    TokenRequest = 1,
+    DebugToken = 2
+};
+
+#pragma pack(1)
+struct TokenFileHeader
+{
+    /* Set to 0x01 */
+    uint8_t version;
+    /* Either 1 for token request or 2 for token data */
+    uint8_t type;
+    /* Count of stored debug tokens / requests */
+    uint16_t numberOfRecords;
+    /* Equal to sizeof(struct TokenFileHeader) for version 0x01. */
+    uint16_t offsetToListOfStructs;
+    /* Equal to sum of sizes of a given structure type +
+     * sizeof(struct TokenFileHeader) */
+    uint32_t fileSize;
+    /* Padding */
+    std::array<uint8_t, 6> reserved;
+};
+#pragma pack()
+
+inline std::vector<uint8_t> generateTokenRequestFile(
+    const std::vector<std::vector<uint8_t>>& tokenRequests)
+{
+    std::vector<uint8_t> output;
+    if (tokenRequests.size() == 0)
+    {
+        return output;
+    }
+    size_t size = sizeof(TokenFileHeader);
+    for (const auto& request : tokenRequests)
+    {
+        size += request.size();
+    }
+    auto header = std::make_unique<TokenFileHeader>();
+    header->version = 0x01;
+    header->type = static_cast<uint8_t>(TokenFileType::TokenRequest);
+    header->numberOfRecords = static_cast<uint16_t>(tokenRequests.size());
+    header->offsetToListOfStructs = sizeof(TokenFileHeader);
+    header->fileSize = static_cast<uint32_t>(size);
+    output.reserve(size);
+    output.resize(sizeof(TokenFileHeader));
+    std::memcpy(output.data(), header.get(), sizeof(TokenFileHeader));
+    for (const auto& request : tokenRequests)
+    {
+        output.insert(output.end(), request.begin(), request.end());
+    }
+    return output;
+}
+
 inline bool readNsmTokenRequestFd(int fd, std::vector<uint8_t>& buffer)
 {
     int dupFd = dup(fd);
