@@ -4170,6 +4170,7 @@ inline void requestRoutesSoftwareInventory(App& app)
                     fw_util::getFwWriteProtectedStatus(asyncResp, swId,
                                                        settingService);
                 }
+                asyncResp->res.jsonValue["Id"] = *swId;
 
                 if (!versionService.empty())
                 {
@@ -4268,7 +4269,6 @@ inline void requestRoutesSoftwareInventory(App& app)
                         }
 
                         asyncResp->res.jsonValue["Version"] = *version;
-                        asyncResp->res.jsonValue["Id"] = *swId;
 
                         // swInvPurpose is of format:
                         // xyz.openbmc_project.Software.Version.VersionPurpose.ABC
