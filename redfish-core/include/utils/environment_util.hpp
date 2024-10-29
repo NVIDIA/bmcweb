@@ -1691,6 +1691,13 @@ inline void
                         aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                             "#NvidiaEnvironmentMetrics.v1_3_0.NvidiaEnvironmentMetrics";
                     }
+
+                    if (std::find(interfaces.begin(), interfaces.end(),
+                                  "com.nvidia.GPMMetrics") != interfaces.end())
+                    {
+                        getEnvironmentMetricsDataByService(aResp, service, path,
+                                                           resourceType);
+                    }
                 }
 
                 if (std::find(
@@ -1719,9 +1726,9 @@ inline void
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu", "com.nvidia.GPMMetrics"});
 }
 
 inline void

@@ -1090,10 +1090,13 @@ inline void requestRoutesChassisControls(App& app)
                         }
                         for (auto [service, interfaces] : objType)
                         {
-                            if (std::find(
-                                    interfaces.begin(), interfaces.end(),
-                                    "xyz.openbmc_project.Inventory.Item.Accelerator") !=
-                                interfaces.end())
+                            if ((std::find(
+                                     interfaces.begin(), interfaces.end(),
+                                     "xyz.openbmc_project.Inventory.Item.Accelerator") !=
+                                 interfaces.end()) ||
+                                (std::find(interfaces.begin(), interfaces.end(),
+                                           "com.nvidia.GPMMetrics") !=
+                                 interfaces.end()))
                             {
                                 auto processorName = processorPath.substr(
                                     processorPath.find_last_of('/') + 1);
@@ -1320,10 +1323,13 @@ inline void requestRoutesChassisControls(App& app)
                         }
                         for (auto [service, interfaces] : objType)
                         {
-                            if (std::find(
-                                    interfaces.begin(), interfaces.end(),
-                                    "xyz.openbmc_project.Inventory.Item.Accelerator") !=
-                                interfaces.end())
+                            if ((std::find(
+                                     interfaces.begin(), interfaces.end(),
+                                     "xyz.openbmc_project.Inventory.Item.Accelerator") !=
+                                 interfaces.end()) ||
+                                (std::find(interfaces.begin(), interfaces.end(),
+                                           "com.nvidia.GPMMetrics") !=
+                                 interfaces.end()))
                             {
                                 auto processorName = processorPath.substr(
                                     processorPath.find_last_of('/') + 1);
@@ -1618,10 +1624,13 @@ inline void requestRoutesChassisControlsReset(App& app)
                         }
                         for (auto [service, interfaces] : objType)
                         {
-                            if (std::find(
-                                    interfaces.begin(), interfaces.end(),
-                                    "xyz.openbmc_project.Inventory.Item.Accelerator") !=
-                                interfaces.end())
+                            if ((std::find(
+                                     interfaces.begin(), interfaces.end(),
+                                     "xyz.openbmc_project.Inventory.Item.Accelerator") !=
+                                 interfaces.end()) ||
+                                (std::find(interfaces.begin(), interfaces.end(),
+                                           "com.nvidia.GPMMetrics") !=
+                                 interfaces.end()))
                             {
                                 auto processorName = processorPath.substr(
                                     processorPath.find_last_of('/') + 1);
