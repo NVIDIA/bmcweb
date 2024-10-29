@@ -173,9 +173,9 @@ inline void requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(App& app)
         {
             return;
         }
-        const std::array<const char*, 2> interfaces = {
-            "xyz.openbmc_project.Inventory.Item.Cpu",
-            "xyz.openbmc_project.Inventory.Item.Accelerator"};
+
+        const std::array<const char*, 1> interfaces = {
+            "com.nvidia.Common.ClearPowerCap"};
 
         crow::connections::systemBus->async_method_call(
             [asyncResp,
@@ -209,18 +209,8 @@ inline void requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(App& app)
                     BMCWEB_LOG_ERROR("Got 0 Connection names");
                     continue;
                 }
-
-                const std::string& connectionName = connectionNames[0].first;
-                const std::vector<std::string>& interfaces =
-                    connectionNames[0].second;
-
-                if (std::find(interfaces.begin(), interfaces.end(),
-                              "com.nvidia.Common.ClearPowerCap") !=
-                    interfaces.end())
-                {
-                    redfish::chassis_utils::resetPowerLimit(asyncResp, objPath,
-                                                            connectionName);
-                }
+                redfish::chassis_utils::resetPowerLimit(
+                    asyncResp, objPath, connectionNames[0].first);
 
                 return;
             }
@@ -668,9 +658,8 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
             if (json_util::readJson(*powerLimit, asyncResp->res, "SetPoint",
                                     setPoint))
             {
-                const std::array<const char*, 2> interfaces = {
-                    "xyz.openbmc_project.Inventory.Item.Cpu",
-                    "xyz.openbmc_project.Inventory.Item.Accelerator"};
+                const std::array<const char*, 1> interfaces = {
+                    "xyz.openbmc_project.Control.Power.Cap"};
 
                 bool persistency = false;
                 if (powerLimitPersistency)
@@ -711,20 +700,10 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
                             BMCWEB_LOG_ERROR("Got 0 Connection names");
                             continue;
                         }
-
-                        const std::vector<std::string>& interfaces =
-                            connectionNames[0].second;
-
-                        if (std::find(
-                                interfaces.begin(), interfaces.end(),
-                                "xyz.openbmc_project.Control.Power.Cap") !=
-                            interfaces.end())
-                        {
-                            std::string resourceType = "Processors";
-                            redfish::nvidia_env_utils::patchPowerLimit(
-                                asyncResp, processorId, *setPoint, objPath,
-                                resourceType, persistency);
-                        }
+                        std::string resourceType = "Processors";
+                        redfish::nvidia_env_utils::patchPowerLimit(
+                            asyncResp, processorId, *setPoint, objPath,
+                            resourceType, persistency);
 
                         return;
                     }
