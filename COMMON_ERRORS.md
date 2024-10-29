@@ -379,28 +379,19 @@ crow::connections::systemBus->async_method_call(
     "/xyz/openbmc_project/inventory", 0, interfaces);
 ```
 
-It's recommended to use dbus utility functions provided in the file redfish-core/include/utils/dbus_utils.hpp instead of invoking them directly. Using the exiting util functions will help to reduce the compilation time. 
+It's required to use dbus utility functions provided in the file redfish-core/include/utils/dbus_utils.hpp instead of invoking them directly. Using the exiting util functions will help to reduce the compilation time. 
 
-## 16. Using #ifdef macros
+## 16. using strings for DMTF schema Enums 
 
 ```cpp
-#ifdef BMCWEB_ENABLE_SOMETHING 
-   doSomething();
-#else
-   doSomethingElse();
-#endif    
+sensorJson["ReadingType"] = "Frequency";
+
 ```
-When #ifdef are used its hard to catch the errors while running the unit tests and in CI. Depending on the 
-default state of the macro only part of code gets compiled and the compilation errors will be caught in the other 
-part. The recommendation is to use *constexpr* as shown below. 
+
+Schema Enums and types are auto generated using scripts/generate_schema_enums.py. It's recommended to add and enhance the new schema support here and use the generated header file and types as shows below. 
 
 ```cpp
-if constexpr (BMCWEB_ENABLE_SOMETHING)
-{
-    doSomething();
-}
-else
-{
-    doSomethingElse();
-} 
+#include "generated/enums/sensor.hpp"
+sensorJson["ReadingType"] = sensor::ReadingType::Frequency;
+
 ```

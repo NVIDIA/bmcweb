@@ -2,6 +2,13 @@
 #include <cstdint>
 #include <string_view>
 
+/*
+ Meson file (config/meson.build) is used to populate all the features flags
+ and compile time variables under the macro *BMCWEB_OPTIONS*.
+ It's required to add the features and options under feature_options_string,
+ int_options_string or string_options_string.
+*/
+
 // clang-format off
 // NOLINTBEGIN(readability-identifier-naming)
 
