@@ -36,6 +36,8 @@ constexpr const char* chassisInvInterf =
 
 constexpr const char* bootStatusIntf = "com.nvidia.RoT.BootStatus";
 
+constexpr const char* gpmMetricsIntf = "com.nvidia.GPMMetrics";
+
 using Associations =
     std::vector<std::tuple<std::string, std::string, std::string>>;
 
@@ -1212,7 +1214,8 @@ inline void getRedfishURL(const std::filesystem::path& invObjPath,
 
             for (const auto& interface : interfaces)
             {
-                if (interface == acceleratorInvIntf || interface == cpuInvIntf)
+                if (interface == acceleratorInvIntf ||
+                    interface == cpuInvIntf || interface == gpmMetricsIntf)
                 {
                     /*
                     busctl call xyz.openbmc_project.ObjectMapper
