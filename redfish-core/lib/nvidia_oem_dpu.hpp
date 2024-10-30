@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include "generated/enums/port.hpp"
 #include "nlohmann/json.hpp"
 #include "task.hpp"
 
@@ -41,6 +42,9 @@ static const char* ctlBMCSwitchModeBMCObj =
 static const char* ctlBMCSwitchModeIntf =
     "xyz.openbmc_project.Control.TorSwitchPortsMode";
 static const char* ctlBMCSwitchMode = "TorSwitchPortsMode";
+
+static const char* ctl3PortSwitchLinkStatusTool =
+    "/usr/bin/get_3port_switch_link";
 
 static const std::string& truststoreBiosService =
     "xyz.openbmc_project.Certs.Manager.AuthorityBios.TruststoreBios";
@@ -612,6 +616,46 @@ inline void
     messages::success(asyncResp->res);
 }
 
+inline void getOemNvidiaSwitchLinkStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& portName, const std::string& portIndex)
+{
+    std::string command = std::string(ctl3PortSwitchLinkStatusTool) + " " +
+                          portIndex;
+
+    auto callback = [asyncResp, portName](const boost::system::error_code& ec,
+                                          int exitCode) mutable {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Failed to execute command with error: {}",
+                             ec.message());
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        port::LinkStatus status;
+        if (exitCode == static_cast<int>(port::LinkStatus::LinkUp))
+        {
+            status = port::LinkStatus::LinkUp;
+        }
+        else if (exitCode == static_cast<int>(port::LinkStatus::LinkDown))
+        {
+            status = port::LinkStatus::LinkDown;
+        }
+        else
+        {
+            status = port::LinkStatus::Invalid;
+            BMCWEB_LOG_ERROR("Unexpected exit code: {}", exitCode);
+        }
+
+        asyncResp->res.jsonValue["LinkStatus"][portName] = status;
+    };
+
+    boost::process::async_system(
+        crow::connections::systemBus->get_io_context(), std::move(callback),
+        command, boost::process::std_in.close(),
+        boost::process::std_out > boost::process::null);
+}
+
 /**
  * @brief Retrieve the current switch status and append to the response message
  *
@@ -621,6 +665,13 @@ inline void
 inline void getOemNvidiaSwitchStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    bluefield::getOemNvidiaSwitchLinkStatus(asyncResp, "RJ45", "1");
+    bluefield::getOemNvidiaSwitchLinkStatus(asyncResp, "DPU", "2");
+    // As BMC is not connected through PHY, it cannot manage properties like
+    // Link status, Duplex, Speed, etc. The values come hardcoded in the HW
+    // and are constant.
+    asyncResp->res.jsonValue["LinkStatus"]["BMC"] = port::LinkStatus::LinkUp;
+
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
                     std::variant<std::string>& resp) {
