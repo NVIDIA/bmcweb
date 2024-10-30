@@ -2907,7 +2907,18 @@ inline void parseAdditionalDataForCPER(
         break;
     }
 
-    // Root
+    // Expect timestamp to be formatted as 
+    // ISO8061 string
+    const auto& cperTime = additional.find("timestamp");
+    if (additional.end() == cperTime)
+    {
+        BMCWEB_LOG_ERROR("timestamp property not found in CPER log");
+    }
+    else
+    {
+        jOut["Created"] = cperTime->second;
+    }
+
     jOut["DiagnosticDataType"] = "CPERSection";
     jOut["MessageId"] = "Platform.1.0.PlatformError";
 
