@@ -41,13 +41,15 @@ std::string getHostName();
 
 static constexpr std::string_view sshServiceName = "dropbear";
 static constexpr std::string_view httpsServiceName = "bmcweb";
+static constexpr std::string_view httpServiceName = "bmcweb";
 static constexpr std::string_view ipmiServiceName = "phosphor-ipmi-net";
 
 // Mapping from Redfish NetworkProtocol key name to backend service that hosts
 // that protocol.
-static constexpr std::array<std::pair<std::string_view, std::string_view>, 3>
+static constexpr std::array<std::pair<std::string_view, std::string_view>, 4>
     networkProtocolToDbus = {{{"SSH", sshServiceName},
                               {"HTTPS", httpsServiceName},
+                              {"HTTP", httpServiceName},
                               {"IPMI", ipmiServiceName}}};
 
 inline void extractNTPServersAndDomainNamesData(
