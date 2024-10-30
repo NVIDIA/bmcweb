@@ -736,11 +736,12 @@ inline void handleChassisGetSubTree(
 
             sdbusplus::asio::getAllProperties(
                 *crow::connections::systemBus, connectionName, path, "",
-                [asyncResp, chassisId, connectionName,
-                 path](const boost::system::error_code&,
-                       const dbus::utility::DBusPropertiesMap& propertiesList) {
+                [asyncResp, chassisId, connectionName, path, interfaces2](
+                    const boost::system::error_code&,
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
                 redfish::nvidia_chassis_utils::handleChassisGetAllProperties(
-                    asyncResp, chassisId, path, propertiesList, connectionName);
+                    asyncResp, chassisId, path, propertiesList, connectionName,
+                    interfaces2);
                 getChassisStateWrapper(asyncResp, propertiesList,
                                        connectionName, path);
                 getStorageLink(asyncResp, path);

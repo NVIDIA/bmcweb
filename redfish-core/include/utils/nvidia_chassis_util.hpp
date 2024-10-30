@@ -1376,7 +1376,8 @@ inline void handleChassisGetAllProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& path,
     const dbus::utility::DBusPropertiesMap& propertiesList,
-    const std::string& connectionName)
+    const std::string& connectionName,
+    const std::vector<std::string>& interfaces)
 {
     const std::string* partNumber = nullptr;
     const std::string* serialNumber = nullptr;
@@ -1539,7 +1540,12 @@ inline void handleChassisGetAllProperties(
                 *pCIeReferenceClockCount;
         }
     }
-    redfish::chassis_utils::getChassisType(asyncResp, connectionName, path);
+    if (std::find(interfaces.begin(), interfaces.end(),
+                  "xyz.openbmc_project.Inventory.Item.Chassis") !=
+        interfaces.end())
+    {
+        redfish::chassis_utils::getChassisType(asyncResp, connectionName, path);
+    }
     asyncResp->res.jsonValue["Name"] = chassisId;
     asyncResp->res.jsonValue["Id"] = chassisId;
 #ifdef BMCWEB_ALLOW_DEPRECATED_POWER_THERMAL
