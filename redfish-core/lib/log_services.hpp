@@ -5020,13 +5020,6 @@ inline void requestRoutesSystemDumpServiceActionInfo(App& app)
             OEMDiagnosticDataType_allowableValues.emplace_back(diagTypeStr);
         }
 
-        if constexpr (BMCWEB_REDFISH_NET_LOG)
-        {
-            OEMDiagnosticDataType_allowableValues.push_back(
-                "DiagnosticType=Net_NVSwitch");
-            OEMDiagnosticDataType_allowableValues.push_back(
-                "DiagnosticType=Net_NVLinkManagementNIC");
-        }
         parameter_OEMDiagnosticDataType["AllowableValues"] =
             std::move(OEMDiagnosticDataType_allowableValues);
 
