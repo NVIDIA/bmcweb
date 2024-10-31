@@ -2569,8 +2569,8 @@ inline void requestRoutesUpdateService(App& app)
             {"@odata.id", "/redfish/v1/UpdateService/SoftwareInventory"}};
         // Get the MaxImageSizeBytes
         asyncResp->res.jsonValue["MaxImageSizeBytes"] = firmwareImageLimitBytes;
-        asyncResp->res.jsonValue["Actions"]["Oem"]["Nvidia"]
-                                ["#NvidiaUpdateService.CommitImage"] = {
+        asyncResp->res
+            .jsonValue["Actions"]["Oem"]["#NvidiaUpdateService.CommitImage"] = {
             {"target",
              "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.CommitImage"},
             {"@Redfish.ActionInfo",
