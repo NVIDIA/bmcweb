@@ -1111,12 +1111,24 @@ inline void isEROTChassis(const std::string& chassisID, CallbackFunc&& callback)
                 {
                     // check if it is CPU ERoT
                     std::string path = std::get<2>(assoc);
-                    dbus::utility::findAssociations(
-                        path + "/processors",
-                        [callback, path](const boost::system::error_code ec,
-                                         [[maybe_unused]] std::variant<
-                                             std::vector<std::string>>& assoc) {
-                        if (ec)
+                    size_t rotNamePos = path.rfind('/');
+                    if (rotNamePos == std::string::npos ||
+                        rotNamePos == (path.size() - 1))
+                    {
+                        callback(true, false);
+                        return;
+                    }
+
+                    constexpr std::array<std::string_view, 1> cpuInterface = {
+                        "xyz.openbmc_project.Inventory.Item.Cpu"};
+
+                    dbus::utility::getSubTreePaths(
+                        path.substr(0, rotNamePos), 0, cpuInterface,
+                        [callback](
+                            const boost::system::error_code ec2,
+                            const dbus::utility::MapperGetSubTreePathsResponse&
+                                subtreePaths) {
+                        if ((ec2) || (subtreePaths.size() == 0))
                         {
                             callback(true, false);
                             return;
