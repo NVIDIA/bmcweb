@@ -2810,10 +2810,97 @@ inline int severityToStr(const std::string& code, std::string& out)
     return 1;
 }
 
+inline boost::urls::url handleMemProcessorOrigin(const nlohmann::json& mainCper)
+{
+    const auto& nodeIt = mainCper.find("Node");
+    if (nodeIt == mainCper.end())
+    {
+        BMCWEB_LOG_ERROR("Node property not found");
+        return boost::urls::url();
+    }
+    uint64_t node = *(nodeIt->get_ptr<const uint64_t*>());
+
+    return boost::urls::format("/redfish/v1/Systems/{}/Processors/CPU_{}",
+                               BMCWEB_REDFISH_SYSTEM_URI_NAME, node);
+}
+
+inline boost::urls::url handleNvProcessorOrigin(const nlohmann::json& mainCper)
+{
+    const auto& sockIt = mainCper.find("Socket");
+    if (sockIt == mainCper.end())
+    {
+        BMCWEB_LOG_ERROR("Socket property not found");
+        return boost::urls::url();
+    }
+    uint64_t sock = *(sockIt->get_ptr<const uint64_t*>());
+
+    return boost::urls::format("/redfish/v1/Systems/{}/Processors/CPU_{}",
+                               BMCWEB_REDFISH_SYSTEM_URI_NAME, sock);
+}
+
+inline boost::urls::url handleArmProcessorOrigin(const nlohmann::json& mainCper)
+{
+    boost::urls::url origin;
+    const auto& mpIt = mainCper.find("Affinity3");
+    if (mpIt == mainCper.end())
+    {
+        BMCWEB_LOG_ERROR("Aff3 not found");
+        return boost::urls::url();
+    }
+
+    // mpidrEli bits 32:39 denote aff3/socket num
+    uint64_t sock = *(mpIt->get_ptr<const uint64_t*>());
+
+    return boost::urls::format("/redfish/v1/Systems/{}/Processors/CPU_{}",
+                               BMCWEB_REDFISH_SYSTEM_URI_NAME, sock);
+}
+
+inline std::optional<boost::urls::url>
+    handleOriginCondition(const nlohmann::json& nvCper)
+{
+    boost::urls::url origin;
+    const auto& aType = nvCper.find("ArmProcessor");
+    if (aType != nvCper.end())
+    {
+        BMCWEB_LOG_DEBUG("ArmProcessor found");
+        origin = handleArmProcessorOrigin(*aType);
+        if (origin.empty())
+        {
+            return std::nullopt;
+        }
+        return origin;
+    }
+    const auto& nvType = nvCper.find("Nvidia");
+    if (nvType != nvCper.end())
+    {
+        BMCWEB_LOG_DEBUG("Nvidia type found");
+        origin = handleNvProcessorOrigin(*nvType);
+        if (origin.empty())
+        {
+            return std::nullopt;
+        }
+        return origin;
+    }
+    const auto& memType = nvCper.find("Memory");
+    if (memType != nvCper.end())
+    {
+        BMCWEB_LOG_DEBUG("Memory type found");
+        origin = handleMemProcessorOrigin(*memType);
+        if (origin.empty())
+        {
+            return std::nullopt;
+        }
+        return std::nullopt;
+    }
+
+    BMCWEB_LOG_ERROR("OriginOfCondition not supported");
+    return std::nullopt;
+}
+
 inline void parseAdditionalDataForCPER(
     nlohmann::json::object_t& entry,
     [[maybe_unused]] const nlohmann::json::object_t& oem,
-    const AdditionalData& additional)
+    const AdditionalData& additional, std::string& originStr)
 {
     const auto& type = additional.find("diagnosticDataType");
     if (additional.end() == type ||
@@ -2907,11 +2994,12 @@ inline void parseAdditionalDataForCPER(
         break;
     }
 
-    // Expect timestamp to be formatted as 
+    // Expect timestamp to be formatted as
     // ISO8061 string
     const auto& cperTime = additional.find("timestamp");
     if (additional.end() == cperTime)
     {
+        // Don't exit here, use HMC time by default
         BMCWEB_LOG_ERROR("timestamp property not found in CPER log");
     }
     else
@@ -2925,6 +3013,26 @@ inline void parseAdditionalDataForCPER(
     // NVIDIA
     jOut["CPER"]["Oem"]["Nvidia"]["@odata.type"] =
         "#NvidiaCPER.v1_0_0.NvidiaCPER";
+
+    // OriginOfCondition
+    if (originStr.empty())
+    {
+        std::optional<boost::urls::url> origin =
+            handleOriginCondition(jOut["CPER"]["Oem"]["Nvidia"]);
+
+        if (!origin)
+        {
+            BMCWEB_LOG_ERROR(
+                "OriginOfCondition RF property not found in CPER log");
+        }
+        else
+        {
+            jOut["Links"]["OriginOfCondition"]["@odata.id"] = *origin;
+            // Eventing needs ooc as a string
+            // maintain support for sendEventWithOOC()
+            originStr = std::string((*origin).buffer());
+        }
+    }
 
     entry = jOut;
 
@@ -3125,11 +3233,6 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                             messageArgs = additional["REDFISH_MESSAGE_ARGS"];
                         }
                     }
-                    if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
-                    {
-                        originOfCondition =
-                            additional["REDFISH_ORIGIN_OF_CONDITION"];
-                    }
                     if (additional.count("DEVICE_NAME") > 0)
                     {
                         deviceName = additional["DEVICE_NAME"];
@@ -3146,7 +3249,8 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                     }
                     // populate CPER section (checks are in the fn)
                     nlohmann::json::object_t oem;
-                    parseAdditionalDataForCPER(cper, oem, additional);
+                    parseAdditionalDataForCPER(cper, oem, additional,
+                                               originOfCondition);
                 }
                 if (isMessageRegistry)
                 {
@@ -3162,11 +3266,6 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                         messageId, messageArgs, *resolution, resolved,
                         (eventId == nullptr) ? "" : *eventId, deviceName,
                         *severity);
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-                    origin_utils::convertDbusObjectToOriginOfCondition(
-                        originOfCondition, std::to_string(*id), asyncResp,
-                        thisEntry, deviceName);
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
                 }
 
                 // generateMessageRegistry will not create the entry if
@@ -3349,11 +3448,6 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                         messageArgs = additional["REDFISH_MESSAGE_ARGS"];
                     }
                 }
-                if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
-                {
-                    originOfCondition =
-                        additional["REDFISH_ORIGIN_OF_CONDITION"];
-                }
                 if (additional.count("DEVICE_NAME") > 0)
                 {
                     deviceName = additional["DEVICE_NAME"];
@@ -3361,7 +3455,8 @@ inline void requestRoutesDBusEventLogEntry(App& app)
 
                 // populate CPER section (checks are in the fn)
                 nlohmann::json::object_t oem;
-                parseAdditionalDataForCPER(cper, oem, additional);
+                parseAdditionalDataForCPER(cper, oem, additional,
+                                           originOfCondition);
             }
 
             if (isMessageRegistry)
@@ -3378,11 +3473,6 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                     messageId, messageArgs, *resolution, resolved,
                     (eventId == nullptr) ? "" : *eventId, deviceName,
                     *severity);
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-                origin_utils::convertDbusObjectToOriginOfCondition(
-                    originOfCondition, std::to_string(*id), asyncResp,
-                    asyncResp->res.jsonValue, deviceName);
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
             }
 
             // generateMessageRegistry will not create the entry if

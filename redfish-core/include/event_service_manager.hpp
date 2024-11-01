@@ -250,7 +250,8 @@ static constexpr int redfishInvalidArgs = -2;
 
 void parseAdditionalDataForCPER(nlohmann::json::object_t& entry,
                                 const nlohmann::json::object_t& oem,
-                                const AdditionalData& additional);
+                                const AdditionalData& additional,
+                                std::string& origin);
 
 /*
  * Structure for an event which is based on Event v1.7.0 in "Redfish Schema
@@ -2396,7 +2397,8 @@ class EventServiceManager
                         }
 
                         nlohmann::json::object_t oem;
-                        parseAdditionalDataForCPER(cper, oem, additional);
+                        parseAdditionalDataForCPER(cper, oem, additional,
+                                                   originOfCondition);
                     }
                     else
                     {
