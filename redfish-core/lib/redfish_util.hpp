@@ -21,6 +21,8 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 
+#include <pwquality.h>
+
 #include <boost/system/error_code.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/message.hpp>
@@ -479,6 +481,49 @@ inline void
         BMCWEB_LOG_ERROR(
             "Could not find property endpoints in parent_chassis element");
     });
+}
+
+inline bool checkPasswordQuality(const std::string username,
+                                 const std::string password,
+                                 std::string& errorMsg)
+{
+    void* auxerror;
+    char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
+    const char* oldpassword = nullptr;
+    int result;
+
+    pwquality_settings_t* settings = pwquality_default_settings();
+    if (!settings)
+    {
+        BMCWEB_LOG_ERROR(
+            "Error occurred while creatinf pwquality default settings");
+        return false;
+    }
+
+    // Read the configuration file (default if nullptr)
+    if ((result = pwquality_read_config(settings, nullptr, &auxerror)) != 0)
+    {
+        // Free the settings
+        pwquality_free_settings(settings);
+        BMCWEB_LOG_ERROR("Error occurred while reading pwquality settings");
+        return false;
+    }
+
+    result = pwquality_check(settings, password.c_str(), oldpassword,
+                             username.c_str(), &auxerror);
+    // Free the settings
+    pwquality_free_settings(settings);
+    if (result < 0)
+    {
+        // Copy the error message to errorMsg
+        errorMsg = pwquality_strerror(buf, sizeof(buf), result, auxerror);
+        return false;
+    }
+
+    // Clear errorMsg if the password is acceptable
+    errorMsg.clear();
+
+    return true;
 }
 
 } // namespace redfish
