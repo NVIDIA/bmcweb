@@ -23,13 +23,13 @@
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Processor_v1.xml">
     <edmx:Include Namespace="Processor.v1_1_0"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/schemas/v1/NvidiaPowerSmoothing_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerSmoothing_v1.xml">
     <edmx:Include Namespace="NvidiaPowerSmoothing"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/schemas/v1/NvidiaErrorInjection_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaErrorInjection_v1.xml">
     <edmx:Include Namespace="NvidiaErrorInjection"/>
   </edmx:Reference>
-  <edmx:Reference Uri="/schemas/v1/NvidiaWorkloadPower_v1.xml">
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaWorkloadPower_v1.xml">
     <edmx:Include Namespace="NvidiaWorkloadPower"/>
   </edmx:Reference>
   <edmx:DataServices>
@@ -242,13 +242,6 @@
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_3_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="InbandReconfigSettings">
-        <Property Name="EGMMode" Type="NvidiaProcessor.v1_3_0.InbandReconfigSettings">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The in-band settings for EGM mode."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for Extended GPU Memory(EGM) mode."/>
-        </Property>
-      </ComplexType>
       <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_2_0.NvidiaGPU">
         <NavigationProperty Name="ErrorInjection" Type="NvidiaErrorInjection.NvidiaErrorInjection" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -262,11 +255,6 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaWorkloadPower."/>
           <Annotation Term="OData.AutoExpandReferences"/>
         </NavigationProperty>
-        <Property Name="EGMModeEnabled" Type="Edm.Boolean">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
-          <Annotation Term="OData.Description" String="An indication of whether the extended GPU memory (EGM) mode is enabled for this processor."/>
-          <Annotation Term="OData.LongDescription" String="The value of this property shall indicate if the extended GPU memory (EGM) mode is enabled for this processor."/>
-        </Property>
         <Property Name="MNNVLinkTopology" Type="NvidiaProcessor.v1_3_0.MNNVLinkTopology">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Multi-Node NVLink topology information."/>
