@@ -1735,14 +1735,6 @@ inline bool parseMultipartForm(
                     messages::unsupportedMediaType(asyncResp->res);
                     return false;
                 }
-                if (formpart.content.find('@') == std::string::npos)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "UpdateFile parameter does not contain '@' symbol");
-                    messages::propertyValueFormatError(
-                        asyncResp->res, formpart.content, "UpdateFile");
-                    return false;
-                }
                 hasFile = true;
             }
         }
