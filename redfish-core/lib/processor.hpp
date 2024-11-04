@@ -4318,120 +4318,84 @@ inline void
 
 inline void
     getStateSensorMetric(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                         const std::string& service, const std::string& path,
+                         const std::string& service, const std::string& objPath,
                          const std::string& deviceType)
 {
-    // Get the Processors Associations to cover all processors' cases,
-    // to ensure the object has `all_processors` and go ahead.
-    sdbusplus::asio::getProperty<
-        std::vector<std::tuple<std::string, std::string, std::string>>>(
-        *crow::connections::systemBus, service, path,
-        "xyz.openbmc_project.Association.Definitions", "Associations",
-        [aResp, service, path, deviceType](
-            const boost::system::error_code ec,
-            const std::vector<
-                std::tuple<std::string, std::string, std::string>>& property) {
-        std::string objPath;
-        std::string redirectObjPath;
-
-        if (ec)
+    crow::connections::systemBus->async_method_call(
+        [aResp, service, objPath,
+         deviceType](const boost::system::error_code& e,
+                     std::variant<std::vector<std::string>>& resp) {
+        if (e)
         {
-            BMCWEB_LOG_DEBUG("DBUS response error");
+            // No state sensors attached.
+            return;
+        }
+        std::vector<std::string>* data =
+            std::get_if<std::vector<std::string>>(&resp);
+        if (data == nullptr)
+        {
+            messages::internalError(aResp->res);
             return;
         }
 
-        for (const auto& assoc : property)
+        for (const std::string& sensorPath : *data)
         {
-            if (std::get<1>(assoc) == "all_processors")
-            {
-                redirectObjPath = std::get<2>(assoc);
-            }
-        }
-        if (!redirectObjPath.empty())
-        {
-            objPath = redirectObjPath;
-        }
-        else
-        {
-            objPath = path;
-        }
+            BMCWEB_LOG_DEBUG("State Sensor Object Path {}", sensorPath);
 
-        crow::connections::systemBus->async_method_call(
-            [aResp, service, objPath,
-             deviceType](const boost::system::error_code& e,
-                         std::variant<std::vector<std::string>>& resp) {
-            if (e)
-            {
-                // No state sensors attached.
-                return;
-            }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                messages::internalError(aResp->res);
-                return;
-            }
+            const std::array<const char*, 3> sensorInterfaces = {
+                "xyz.openbmc_project.State.Decorator.PowerSystemInputs",
+                "xyz.openbmc_project.State.ProcessorPerformance",
+                "com.nvidia.MemorySpareChannel"};
+            // Process sensor reading
+            crow::connections::systemBus->async_method_call(
+                [aResp, sensorPath, deviceType](
+                    const boost::system::error_code ec,
+                    const std::vector<std::pair<
+                        std::string, std::vector<std::string>>>& object) {
+                if (ec)
+                {
+                    // The path does not implement any state interfaces.
+                    return;
+                }
 
-            for (const std::string& sensorPath : *data)
-            {
-                BMCWEB_LOG_DEBUG("State Sensor Object Path {}", sensorPath);
-
-                const std::array<const char*, 3> sensorInterfaces = {
-                    "xyz.openbmc_project.State.Decorator.PowerSystemInputs",
-                    "xyz.openbmc_project.State.ProcessorPerformance",
-                    "com.nvidia.MemorySpareChannel"};
-                // Process sensor reading
-                crow::connections::systemBus->async_method_call(
-                    [aResp, sensorPath, deviceType](
-                        const boost::system::error_code ec,
-                        const std::vector<std::pair<
-                            std::string, std::vector<std::string>>>& object) {
-                    if (ec)
+                for (const auto& [service, interfaces] : object)
+                {
+                    if (std::find(
+                            interfaces.begin(), interfaces.end(),
+                            "xyz.openbmc_project.State.ProcessorPerformance") !=
+                        interfaces.end())
                     {
-                        // The path does not implement any state interfaces.
-                        return;
+                        getProcessorPerformanceData(aResp, service, sensorPath,
+                                                    deviceType);
                     }
-
-                    for (const auto& [service, interfaces] : object)
+                    if (std::find(
+                            interfaces.begin(), interfaces.end(),
+                            "xyz.openbmc_project.State.Decorator.PowerSystemInputs") !=
+                        interfaces.end())
                     {
-                        if (std::find(
-                                interfaces.begin(), interfaces.end(),
-                                "xyz.openbmc_project.State.ProcessorPerformance") !=
-                            interfaces.end())
-                        {
-                            getProcessorPerformanceData(aResp, service,
-                                                        sensorPath, deviceType);
-                        }
-                        if (std::find(
-                                interfaces.begin(), interfaces.end(),
-                                "xyz.openbmc_project.State.Decorator.PowerSystemInputs") !=
-                            interfaces.end())
-                        {
-                            getPowerSystemInputsData(aResp, service, sensorPath,
-                                                     deviceType);
-                        }
-                        if (std::find(interfaces.begin(), interfaces.end(),
-                                      "com.nvidia.MemorySpareChannel") !=
-                            interfaces.end())
-                        {
-                            getMemorySpareChannelPresenceData(
-                                aResp, service, sensorPath, deviceType);
-                        }
+                        getPowerSystemInputsData(aResp, service, sensorPath,
+                                                 deviceType);
                     }
-                },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetObject", sensorPath,
-                    sensorInterfaces);
-            }
+                    if (std::find(interfaces.begin(), interfaces.end(),
+                                  "com.nvidia.MemorySpareChannel") !=
+                        interfaces.end())
+                    {
+                        getMemorySpareChannelPresenceData(
+                            aResp, service, sensorPath, deviceType);
+                    }
+                }
+            },
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetObject", sensorPath,
+                sensorInterfaces);
+        }
 
-            getPowerBreakThrottle(aResp, service, objPath, deviceType);
-        },
-            "xyz.openbmc_project.ObjectMapper", objPath + "/all_states",
-            "org.freedesktop.DBus.Properties", "Get",
-            "xyz.openbmc_project.Association", "endpoints");
-    });
+        getPowerBreakThrottle(aResp, service, objPath, deviceType);
+    },
+        "xyz.openbmc_project.ObjectMapper", objPath + "/all_states",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
 }
 
 inline void getNumericSensorMetric(
