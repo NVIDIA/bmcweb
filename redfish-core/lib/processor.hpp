@@ -2371,6 +2371,15 @@ inline void getProcessorMigModeData(
     getMigModeData(aResp, cpuId, service, objPath);
 }
 
+inline void getProcessorEgmModeData(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
+    const std::string& service, const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG(" get EGMMode data");
+    redfish::nvidia_processor_utils::getEgmModeData(aResp, cpuId, service,
+                                                    objPath);
+}
+
 inline void getPortDisableFutureStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const std::string& processorId, const std::string& objectPath,
@@ -2935,6 +2944,11 @@ inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 else if (interface == "com.nvidia.SysGUID.SysGUID")
                 {
                     getProcessorSystemGUID(aResp, serviceName, objectPath);
+                }
+                else if (interface == "com.nvidia.EgmMode")
+                {
+                    getProcessorEgmModeData(aResp, processorId, serviceName,
+                                            objectPath);
                 }
             }
         }
@@ -5007,6 +5021,12 @@ inline void
                         redfish::nvidia_processor_utils::getCCModePendingData(
                             aResp, processorId, service, path);
                     }
+                    if (std::find(interfaces.begin(), interfaces.end(),
+                                  "com.nvidia.EgmMode") != interfaces.end())
+                    {
+                        redfish::nvidia_processor_utils::getEgmModePendingData(
+                            aResp, processorId, service, path);
+                    }
                 }
                 if (std::find(interfaces.begin(), interfaces.end(),
                               "xyz.openbmc_project.Software.ApplyTime") !=
@@ -5243,10 +5263,12 @@ inline void requestRoutesProcessorSettings(App& app)
             {
                 std::optional<bool> ccMode;
                 std::optional<bool> ccDevMode;
+                std::optional<bool> egmMode;
                 if (oemNvidiaObject &&
                     redfish::json_util::readJson(
                         *oemNvidiaObject, asyncResp->res, "CCModeEnabled",
-                        ccMode, "CCDevModeEnabled", ccDevMode))
+                        ccMode, "CCDevModeEnabled", ccDevMode, "EGMModeEnabled",
+                        egmMode))
                 {
                     if (ccMode && ccDevMode)
                     {
@@ -5285,6 +5307,22 @@ inline void requestRoutesProcessorSettings(App& app)
                             redfish::nvidia_processor_utils::patchCCDevMode(
                                 asyncResp1, processorId1, *ccDevMode,
                                 objectPath, serviceMap);
+                        });
+                    }
+                    if (egmMode)
+                    {
+                        redfish::processor_utils::getProcessorObject(
+                            asyncResp, processorId,
+                            [egmMode](const std::shared_ptr<bmcweb::AsyncResp>&
+                                          asyncResp1,
+                                      const std::string& processorId1,
+                                      const std::string& objectPath,
+                                      const MapperServiceMap& serviceMap,
+                                      [[maybe_unused]] const std::string&
+                                          deviceType) {
+                            redfish::nvidia_processor_utils::patchEgmMode(
+                                asyncResp1, processorId1, *egmMode, objectPath,
+                                serviceMap);
                         });
                     }
                 }
