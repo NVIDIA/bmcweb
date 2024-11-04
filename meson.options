@@ -959,40 +959,6 @@ option(
     value: 'disabled',
     description: 'Enable/disable IPMI SOL.',
 )
-option(
-    'min-ucase-characters',
-    type: 'integer',
-    value: 1,
-    description: 'Minimum number of upper case characters in the password',
-)
-
-option(
-    'min-lcase-characters',
-    type: 'integer',
-    value: 1,
-    description: 'Minimum number of lower case characters in the password',
-)
-
-option(
-    'min-digits',
-    type: 'integer',
-    value: 1,
-    description: 'Minimum number of digits in the password',
-)
-
-option(
-    'min-special-characters',
-    type: 'integer',
-    value: 0,
-    description: 'Minimum number of special characters in the password',
-)
-
-option(
-    'min-password-length',
-    type: 'integer',
-    value: 7,
-    description: 'Min password Length',
-)
 
 option(
     'use-efficient-expand-on-sensors',

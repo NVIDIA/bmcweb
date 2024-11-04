@@ -95,11 +95,7 @@ conf_data.set(
     get_option('otp-provisioning-status-file-path'),
 )
 conf_data.set('BMCWEB_LOG_LEVEL', get_option('bmcweb-logging-log-level'))
-conf_data.set('MIN_UCASE_CHRS', get_option('min-ucase-characters'))
-conf_data.set('MIN_LCASE_CHRS', get_option('min-lcase-characters'))
-conf_data.set('MIN_DIGITS', get_option('min-digits'))
-conf_data.set('MIN_SPEC_CHRS', get_option('min-special-characters'))
-conf_data.set('MIN_PASSWORD_LENGTH', get_option('min-password-length'))
+
 conf_data.set('GPU_INDEX_START', get_option('gpu-index-start'))
 enable_health_populate = get_option('redfish-health-populate')
 conf_data.set10(

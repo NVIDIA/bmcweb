@@ -1108,29 +1108,18 @@ inline void updateUserProperties(
                 // If password is invalid
                 messages::propertyValueFormatError(asyncResp->res, *password,
                                                    "Password");
-                size_t maxrepeat = 3;
-                if (!password.value().empty())
+                // update the resolution message
+                std::string resolution;
+                if (!checkPasswordQuality(username, *password, resolution))
                 {
-                    maxrepeat = static_cast<size_t>(
-                        3 + (0.09 * static_cast<double>(
-                                        strlen(password.value().c_str()))));
+                    redfish::message_registries::updateResolution(
+                        asyncResp, "Password", resolution);
+                    BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
                 }
-                std::string resolution =
-                    " Password should be " + std::to_string(minPasswordLength) +
-                    " character long including " +
-                    std::to_string(minUcaseCharacters) +
-                    " uppercase character, " +
-                    std::to_string(minLcaseCharacters) +
-                    " lower case character, " + std::to_string(minDigits) +
-                    " digit, " + std::to_string(minSpecCharacters) +
-                    " special character and " + std::to_string(maxrepeat) +
-                    " maximum number of consecutive character pairs";
-
-                // update the resolution message and add the password
-                // policy
-                redfish::message_registries::updateResolution(
-                    asyncResp, "Password", resolution);
-                BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
+                else
+                {
+                    BMCWEB_LOG_DEBUG("checkPasswordQuality passed");
+                }
             }
 
             else if (retval != PAM_SUCCESS)
@@ -1741,26 +1730,18 @@ inline void processAfterCreateUser(
 
         if (retval == PAM_AUTHTOK_ERR)
         {
-            size_t maxrepeat = 3;
-            if (!password.empty())
+            // update the resolution message
+            std::string resolution;
+            if (!checkPasswordQuality(username, password, resolution))
             {
-                maxrepeat = static_cast<size_t>(
-                    3 + (0.09 * static_cast<double>(strlen(password.c_str()))));
+                redfish::message_registries::updateResolution(
+                    asyncResp, "Password", resolution);
+                BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
             }
-            std::string resolution =
-                "Password should be " + std::to_string(minPasswordLength) +
-                " character long including " +
-                std::to_string(minUcaseCharacters) + " uppercase character, " +
-                std::to_string(minLcaseCharacters) + " lower case character, " +
-                std::to_string(minDigits) + " digit," +
-                std::to_string(minSpecCharacters) + " special character and " +
-                std::to_string(maxrepeat) +
-                " maximum number of consecutive character pairs";
-            // update the resolution message and add the
-            // password policy too
-            redfish::message_registries::updateResolution(asyncResp, "Password",
-                                                          resolution);
-            BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
+            else
+            {
+                BMCWEB_LOG_DEBUG("checkPasswordQuality passed");
+            }
         }
 
         // At this point we have a user that's been
