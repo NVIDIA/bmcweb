@@ -530,5 +530,107 @@ inline void
         "xyz.openbmc_project.Association", "endpoints");
 };
 
+inline void getControlSettingRelatedItems(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisPath)
+{
+    // Get the Processors Associations to cover all processors'
+    // cases, If the object has `all_processors`, need to check
+    // the further endpoint under the all_processors, which is
+    // the actual processor
+    nlohmann::json& relatedItemsArray = asyncResp->res.jsonValue["RelatedItem"];
+    relatedItemsArray = nlohmann::json::array();
+    sdbusplus::asio::getProperty<std::vector<std::string>>(
+        *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
+        chassisPath + "/all_processors", "xyz.openbmc_project.Association",
+        "endpoints",
+        [asyncResp, chassisPath,
+         &relatedItemsArray](const boost::system::error_code ec,
+                             const std::vector<std::string>& resp) {
+        std::string getObjectPath;
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("DBUS response error");
+            getObjectPath = chassisPath;
+        }
+        else
+        {
+            getObjectPath = resp.front();
+        }
+
+        sdbusplus::message::object_path objectPath(getObjectPath);
+        std::string chassisName = objectPath.filename();
+        if (chassisName.empty())
+        {
+            return;
+        }
+        std::string chassisLink = "/redfish/v1/Chassis/" + chassisName;
+        // Only add chassisLink if it doesn't already exist
+        if (std::find_if(relatedItemsArray.begin(), relatedItemsArray.end(),
+                         [&chassisLink](const nlohmann::json& item) {
+            return item["@odata.id"] == chassisLink;
+        }) == relatedItemsArray.end())
+        {
+            relatedItemsArray.push_back({{"@odata.id", chassisLink}});
+        }
+    });
+}
+
+inline void
+    getControlCpuObjects(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                         const auto getControlCpu,
+                         const std::optional<std::string>& validChassisPath)
+{
+    // Get the Processors Associations to cover all processors' cases,
+    // to ensure the object has `all_processors` and go ahead.
+    sdbusplus::asio::getProperty<std::vector<std::string>>(
+        *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
+        *validChassisPath + "/all_processors",
+        "xyz.openbmc_project.Association", "endpoints",
+        [asyncResp, getControlCpu,
+         validChassisPath](const boost::system::error_code ec,
+                           const std::vector<std::string>& resp) {
+        std::string objPath;
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("DBUS response error");
+            objPath = *validChassisPath;
+        }
+        else
+        {
+            objPath = resp.front();
+        }
+
+        crow::connections::systemBus->async_method_call(
+            [asyncResp, getControlCpu, objPath,
+             validChassisPath](const boost::system::error_code ec,
+                               const dbus::utility::MapperGetObject& objType) {
+            if (ec || objType.empty())
+            {
+                BMCWEB_LOG_ERROR("GetObject for path {}", (objPath).c_str());
+                return;
+            }
+            for (auto [service, interfaces] : objType)
+            {
+                if (std::find(interfaces.begin(), interfaces.end(),
+                              "xyz.openbmc_project.Inventory.Item.Cpu") !=
+                        interfaces.end() ||
+                    std::find(
+                        interfaces.begin(), interfaces.end(),
+                        "xyz.openbmc_project.Inventory.Item.ProcessorModule") !=
+                        interfaces.end())
+                {
+                    getControlCpu(objPath);
+                    return;
+                }
+            }
+        },
+            "xyz.openbmc_project.ObjectMapper",
+            "/xyz/openbmc_project/object_mapper",
+            "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
+            std::array<const char*, 0>{});
+    });
+}
+
 } // namespace nvidia_control_utils
 } // namespace redfish
