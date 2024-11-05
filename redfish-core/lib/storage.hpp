@@ -41,7 +41,7 @@
 namespace redfish
 {
 // task uri for long-run drive operation
-static std::string taskUri;
+static std::map<std::string, std::string> taskUri;
 // drive resouce has two interfaces from Dbus.
 // EM will also populate drive resource with the only one interface
 const std::array<const char*, 2> driveInterface = {
@@ -72,6 +72,7 @@ inline void handleSystemsStorageCollectionGet(
 
     constexpr std::array<std::string_view, 1> interface{
         "xyz.openbmc_project.Inventory.Item.Storage"};
+
     collection_util::getCollectionMembers(
         asyncResp,
         boost::urls::format("/redfish/v1/Systems/{}/Storage",
@@ -954,8 +955,8 @@ inline void
     sdbusplus::asio::getProperty<uint8_t>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Common.Progress", "Progress",
-        [asyncResp, operationName](const boost::system::error_code ec,
-                                   const uint8_t prog) {
+        [asyncResp, operationName, path](const boost::system::error_code ec,
+                                         const uint8_t prog) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("fail to get drive progress");
@@ -969,7 +970,13 @@ inline void
         {
             obj["OperationName"] = *operationName;
         }
-        obj["AssociatedTask"]["@odata.id"] = taskUri;
+
+        sdbusplus::message::object_path objectPath(path);
+        std::string driveId = objectPath.filename();
+        if (!taskUri[driveId].empty())
+        {
+            obj["AssociatedTask"]["@odata.id"] = taskUri[driveId];
+        }
 
         asyncResp->res.jsonValue["Operations"].emplace_back(std::move(obj));
     });
@@ -1096,11 +1103,10 @@ inline void getChassisID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 }
 
 inline void createSanitizeProgressTask(
-    [[maybe_unused]] const crow::Request& req,
-    [[maybe_unused]] const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::string& service,
-    [[maybe_unused]] const std::string& path,
-    [[maybe_unused]] const std::string& driveId)
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& path,
+    const std::string& driveId)
 {
     std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
         [service, path,
@@ -1184,7 +1190,8 @@ inline void createSanitizeProgressTask(
     task->payload.emplace(req);
     task->populateResp(asyncResp->res);
 
-    taskUri = "/redfish/v1/TaskService/Tasks/" + std::to_string(task->index);
+    taskUri[driveId] = "/redfish/v1/TaskService/Tasks/" +
+                       std::to_string(task->index);
 }
 
 inline void
@@ -1396,7 +1403,7 @@ inline void handleDriveSanitizetActionInfoGet(
                     allowed.push_back("CryptographicErase");
                 }
                 parameter["Name"] = "SanitizationType";
-                parameter["DataType"] = "string";
+                parameter["DataType"] = "String";
 
                 parameter["AllowableValues"] = allowed;
                 parameters.push_back(parameter);
