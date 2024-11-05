@@ -60,7 +60,7 @@
         <Parameter Name="ProfileMask" Type="Edm.String" Nullable="false">
           <Annotation Term="OData.Description" String="Mask of profiles to enable. Each set bit indicates that the profile at that index requests to be enabled."/>
           <Annotation Term="OData.LongDescription" String="This parameter shall contain the mask of profiles to enable. Each set bit indicates that the profile at that index requests to be enabled."/>
-          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]+$"/>
+          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]{1,64}$"/>
         </Parameter>
       </Action>
       <Action Name="DisableProfiles" IsBound="true">
@@ -70,7 +70,7 @@
         <Parameter Name="ProfileMask" Type="Edm.String" Nullable="false">
           <Annotation Term="OData.Description" String="Mask of profiles to disable. Each set bit indicates that the profile at that index requests to be disabled."/>
           <Annotation Term="OData.LongDescription" String="This parameter shall contain the mask of profiles to disable. Each set bit indicates that the profile at that index requests to be disabled."/>
-          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]+$"/>
+          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]{1,64}$"/>
         </Parameter>
       </Action>
     </Schema>
@@ -86,19 +86,19 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Mask of supported profiles. Each set bit indicates if the profile at that index is supported."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the mask of supported profiles. Each set bit indicates if the profile at that index is supported."/>
-          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]+$"/>
+          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]{1,64}$"/>
         </Property>
         <Property Name="RequestedProfileMask" Type="Edm.String">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Mask of requested profiles. Each set bit indicates if the profile at that index is requested by the client."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the mask of requested profiles. Each set bit indicates if the profile at that index is requested by the client."/>
-          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]+$"/>
+          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]{1,64}$"/>
         </Property>
         <Property Name="EnforcedProfileMask" Type="Edm.String">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Mask of enforced profiles. Each set bit indicates if the profile at that index is actively enforced."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the mask of enforced profiles. Each set bit indicates if the profile at that index is actively enforced."/>
-          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]+$"/>
+          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]{1,64}$"/>
         </Property>
         <NavigationProperty Name="Profiles" Type="NvidiaWorkloadPowerProfileCollection.NvidiaWorkloadPowerProfileCollection" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
