@@ -485,6 +485,8 @@ inline void
                     }
                     relatedItemsArray.push_back(
                         {{"@odata.id", "/redfish/v1/Chassis/" + chassisName}});
+                    redfish::nvidia_control_utils::
+                        getControlSettingRelatedItems(asyncResp, chassisPath);
                 }
             },
                 "xyz.openbmc_project.ObjectMapper", path + "/chassis",
@@ -1156,6 +1158,8 @@ inline void requestRoutesChassisControls(App& app)
                         return;
                     }
                 }
+                redfish::nvidia_control_utils::getControlCpuObjects(
+                    asyncResp, getControlCpu, validChassisPath);
                 // Not a CPU
                 getChassisControl(validChassisPath);
             },
