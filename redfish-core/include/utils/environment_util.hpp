@@ -209,6 +209,38 @@ inline void getPowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "xyz.openbmc_project.Control.Power.Mode");
 }
 
+inline void
+    getClearPowerCap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                     const std::string& resourceId, const std::string& objPath)
+{
+    const std::array<const char*, 2> clearPowerCapInterfaces = {
+        "com.nvidia.Common.ClearPowerCap",
+        "com.nvidia.Common.ClearPowerCapAsync"};
+
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, resourceId, objPath](
+            const boost::system::error_code ec,
+            [[maybe_unused]] const std::vector<
+                std::pair<std::string, std::vector<std::string>>>& objInfo) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("ObjectMapper::GetObject call failed: {}", ec);
+            return;
+        }
+
+        asyncResp->res
+            .jsonValue["Actions"]["Oem"]
+                      ["#NvidiaEnvironmentMetrics.ClearOOBSetPoint"] = {
+            {"target",
+             "/redfish/v1/Chassis/" + resourceId +
+                 "/EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ClearOOBSetPoint"}};
+    },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
+        clearPowerCapInterfaces);
+}
+
 inline void getPowerWattsBySensorName(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisID, const std::string& sensorName)
@@ -982,12 +1014,7 @@ inline void
                     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                     {
                         getPowerMode(asyncResp, connectionName, ctrlPath);
-                        asyncResp->res.jsonValue
-                            ["Actions"]["Oem"]
-                            ["#NvidiaEnvironmentMetrics.ClearOOBSetPoint"] = {
-                            {"target",
-                             "/redfish/v1/Chassis/" + resourceId +
-                                 "/EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ClearOOBSetPoint"}};
+                        getClearPowerCap(asyncResp, resourceId, ctrlPath);
                     }
                     getPowerReadings(asyncResp, connectionName, ctrlPath,
                                      resourceId);
