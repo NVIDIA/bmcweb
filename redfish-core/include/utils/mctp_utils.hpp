@@ -23,6 +23,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace redfish
@@ -83,7 +84,7 @@ class MctpEndpoint
                 try
                 {
                     mctpEid = std::stoi(v.back());
-                    getDbusMctpMessageTypes(callback);
+                    getDbusMctpProperties(callback);
                 }
                 catch (const std::invalid_argument&)
                 {
@@ -105,9 +106,10 @@ class MctpEndpoint
         return mctpObj;
     }
 
-    const std::vector<uint8_t>& getMctpMessageTypes() const
+    std::vector<uint8_t> getMctpMessageTypes() const
     {
-        return mctpMessageTypes;
+        return mctpMessageTypes.has_value() ? *mctpMessageTypes
+                                            : std::vector<uint8_t>();
     }
 
     const std::string& getSpdmObject() const
@@ -115,42 +117,84 @@ class MctpEndpoint
         return spdmObj;
     }
 
+    bool isEnabled() const
+    {
+        return enabled.has_value() ? *enabled : false;
+    }
+
   protected:
-    void getDbusMctpMessageTypes(const AssociationCallback& callback)
+    void getDbusMctpProperties(const AssociationCallback& callback)
     {
         crow::connections::systemBus->async_method_call(
             [this, callback](const boost::system::error_code ec,
                              const GetObjectType& response) {
             if (ec || response.empty())
             {
-                callback(false, "GetObject failure for: " + mctpObj);
+                callback(false, "GetObject failure for " + mctpObj);
                 return;
             }
             for (const auto& elem : response)
             {
                 const std::string& service = elem.first;
-                if (service.rfind(mctpBusPrefix, 0) == 0)
+                if (service.rfind(mctpBusPrefix, 0) != 0)
                 {
-                    sdbusplus::asio::getProperty<std::vector<uint8_t>>(
-                        *crow::connections::systemBus, service, mctpObj,
-                        "xyz.openbmc_project.MCTP.Endpoint",
-                        "SupportedMessageTypes",
-                        [this, callback](const boost::system::error_code ec,
-                                         const std::vector<uint8_t>& resp) {
-                        if (ec)
+                    continue;
+                }
+                crow::connections::systemBus->async_method_call(
+                    [this,
+                     callback](const boost::system::error_code ec,
+                               const boost::container::flat_map<
+                                   std::string, dbus::utility::DbusVariantType>&
+                                   properties) {
+                    if (ec)
+                    {
+                        callback(false,
+                                 "Failed to get properties for " + mctpObj);
+                        return;
+                    }
+                    for (const auto& [key, val] : properties)
+                    {
+                        if (key == "Enabled")
                         {
-                            callback(
-                                false,
-                                "Failed to get supported message types for: " +
-                                    mctpObj);
+                            if (const bool* value = std::get_if<bool>(&val))
+                            {
+                                enabled = *value;
+                            }
+                            else
+                            {
+                                callback(false,
+                                         "Enabled property failure for " +
+                                             mctpObj);
+                                return;
+                            }
+                        }
+                        else if (key == "SupportedMessageTypes")
+                        {
+                            if (const std::vector<uint8_t>* value =
+                                    std::get_if<std::vector<uint8_t>>(&val))
+                            {
+                                mctpMessageTypes = *value;
+                            }
+                            else
+                            {
+                                callback(
+                                    false,
+                                    "SupportedMessageTypes property failure for " +
+                                        mctpObj);
+                                return;
+                            }
+                        }
+                        if (enabled.has_value() && mctpMessageTypes.has_value())
+                        {
+                            callback(true, mctpObj);
                             return;
                         }
-                        mctpMessageTypes = resp;
-                        callback(true, mctpObj);
-                        return;
-                    });
-                    return;
-                }
+                    }
+                    callback(false, "GetAll properties failure for " + mctpObj);
+                },
+                    service, mctpObj, "org.freedesktop.DBus.Properties",
+                    "GetAll", "");
+                return;
             }
             callback(false, "GetObject failure for: " + mctpObj);
             return;
@@ -163,7 +207,8 @@ class MctpEndpoint
     std::string mctpObj;
     std::string spdmObj;
     int mctpEid{-1};
-    std::vector<uint8_t> mctpMessageTypes;
+    std::optional<bool> enabled;
+    std::optional<std::vector<uint8_t>> mctpMessageTypes;
 };
 
 using Endpoints = std::vector<MctpEndpoint>;
