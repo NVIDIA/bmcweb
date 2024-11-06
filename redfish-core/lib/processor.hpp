@@ -2391,6 +2391,16 @@ inline void getProcessorSystemGUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
     redfish::nvidia_processor_utils::getSysGUID(asyncResp, service, objPath);
 }
 
+inline void getMNNVLinkTopologyInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
+    const std::string& service, const std::string& objPath,
+    const std::string& interface)
+{
+    BMCWEB_LOG_DEBUG("Get MNNVLinkTopologyInfo");
+    redfish::nvidia_processor_utils::getMNNVLinkTopologyInfo(
+        aResp, cpuId, service, objPath, interface);
+}
+
 inline void
     getProcessorCCModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                            const std::string& cpuId, const std::string& service,
@@ -2936,6 +2946,11 @@ inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 else if (interface == "com.nvidia.SysGUID.SysGUID")
                 {
                     getProcessorSystemGUID(aResp, serviceName, objectPath);
+                }
+                else if (interface == "com.nvidia.NVLink.MNNVLinkTopology")
+                {
+                    getMNNVLinkTopologyInfo(aResp, processorId, serviceName,
+                                            objectPath, interface);
                 }
             }
         }
