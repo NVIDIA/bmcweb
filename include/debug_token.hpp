@@ -208,6 +208,10 @@ class StatusQueryHandler : public OperationHandler
             }
             for (auto& ep : *mctpEndpoints)
             {
+                if (!ep.isEnabled())
+                {
+                    continue;
+                }
                 const auto& msgTypes = ep.getMctpMessageTypes();
                 if (std::find(msgTypes.begin(), msgTypes.end(),
                               mctp_utils::mctpMessageTypeVdm) != msgTypes.end())
