@@ -132,15 +132,6 @@ option(
 )
 
 option(
-    'redfish-net-log',
-    type: 'feature',
-    value: 'disabled',
-    description: '''Enable NetIR debug dumps collection through Redfish.
-                   Current devices supporting this feature are:
-		   NVSwitch and NVLinkManagementNIC''', 
-)
-
-option(
     'redfish-dbus-log',
     type: 'feature',
     value: 'disabled',

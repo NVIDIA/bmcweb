@@ -139,7 +139,7 @@ RedfishService::RedfishService(App& app)
 #endif
 
 #ifdef BMCWEB_ENABLE_NETWORK_ADAPTERS_GENERIC
-    requestRoutesNetworkAdapters(app);
+    requestRoutesNetworkAdaptersGeneric(app);
 #endif
 
     if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)

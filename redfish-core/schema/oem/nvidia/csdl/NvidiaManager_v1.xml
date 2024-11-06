@@ -126,6 +126,47 @@
         </Parameter>
         <ReturnType Type="NvidiaManager.v1_3_0.NSMRawCommandResponse" Nullable="false"/>
       </Action>
+      <Action Name="SWErrorInjection" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to perform software error injections on a debug firmware image."/>
+        <Annotation Term="OData.LongDescription" String="This action shall perform software error injections on a debug firmware image, without hardware interactions."/>
+        <Parameter Name="Manager" Type="Manager.v1_0_0.OemActions"/>
+        <Parameter Name="RequestType" Type="NvidiaManager.v1_4_0.SWEIJRequestType" Nullable="false">
+          <Annotation Term="OData.Description" String="The type of the requested operations."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the type of the requested operations. The entire flow includes `Setup`, `Injection` and `Cleanup` operations."/>
+        </Parameter>
+        <Parameter Name="ClearData" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="Indicates whether the values of the Health properties should be set to `OK` prior to performing the error injections."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether the values of the Health properties should be set to `OK` prior to performing the error injections. This parameter is allowed for the `Setup` or `Injection` operation. If this parameter is not provided by the client, the default is `false`."/>
+        </Parameter>
+        <Parameter Name="KeepLogs" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="Indicates whether the existing log entries should be preserved prior to performing the error injections."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether the existing log entries should be preserved prior to performing the error injections. This parameter is allowed for the `Injection` operation. If this parameter is not provided by the client, the default is `false`."/>
+        </Parameter>
+        <Parameter Name="ErrorId" Type="Edm.String">
+          <Annotation Term="OData.Description" String="The Error ID."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the Error ID, as specified in the NVIDIA Server RAS Catalog. This parameter is allowed for the `Injection` operation."/>
+        </Parameter>
+        <Parameter Name="DeviceIndex" Type="Edm.String">
+          <Annotation Term="OData.Description" String="The index of the devices."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the index of the devices, as specified in the NVIDIA Server RAS Catalog. This parameter is allowed for the `Injection` operation. If this parameter is not provided by the client, the default is `0`."/>
+        </Parameter>
+        <Parameter Name="Recovery" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="Indicates whether recovery process should be performed after the error injections."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether recovery process should be performed after the error injections. A successful recovery shall expect the Resolved values updated to `true` in the log entries. This parameter is allowed for the `Injection` operation. If this parameter is not provided by the client, the default is `false`."/>
+        </Parameter>
+        <Parameter Name="CompleteCycle" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="Indicates whether the entire flow from `Setup`, `Injection` to `Cleanup` operations should be performed."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether the entire flow from `Setup`, `Injection` to `Cleanup` operations should be performed. This parameter is allowed for the `Injection` operation. If this parameter is not provided by the client, the default is `false`."/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_4_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -392,6 +433,17 @@
         </Member>
         <Member Name="Unknown">
           <Annotation Term="OData.Description" String="An unknown state."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="SWEIJRequestType">
+        <Member Name="Setup">
+          <Annotation Term="OData.Description" String="Set up environment for performing software error injections."/>
+        </Member>
+        <Member Name="Cleanup">
+          <Annotation Term="OData.Description" String="Clean up environment for performing software error injections."/>
+        </Member>
+        <Member Name="Injection">
+          <Annotation Term="OData.Description" String="Perform software error injections."/>
         </Member>
       </EnumType>
     </Schema>

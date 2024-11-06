@@ -156,9 +156,6 @@
         <Member Name="NoDebugSessionInProgress">
           <Annotation Term="OData.Description" String="There is no debug session in progress."/>
         </Member>
-        <Member Name="NoTokenApplied">
-          <Annotation Term="OData.Description" String="No token applied."/>
-        </Member>
         <Member Name="QueryDebugSessionFailed">
           <Annotation Term="OData.Description" String="Device is not allowed to query debug session."/>
         </Member>

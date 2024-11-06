@@ -44,9 +44,8 @@ inline void bootModeQuery(const crow::Request& req,
             {
                 oem["ManualBootModeEnabled"] = nullptr;
                 messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res,
-
-                    "Oem/Nvidia/ManualBootModeEnabled", "command failure");
+                    asyncResp->res, "Oem/Nvidia/ManualBootModeEnabled",
+                    "command failure");
                 return;
             }
             std::string reEnabled = "(.|\n)*RX:( \\d\\d){9} 01(.|\n)*";
@@ -126,7 +125,9 @@ inline void bootModeSet(const crow::Request& req,
                 messages::internalError(asyncResp->res);
                 return;
             }
-            BMCWEB_LOG_ERROR("Invalid boot_ap response: {}", stdOut);
+            BMCWEB_LOG_ERROR("Invalid disable_boot_mode"
+                             " / enable_boot_mode response: {}",
+                             stdOut);
             messages::resourceErrorsDetectedFormatError(
                 asyncResp->res, "Oem/Nvidia/ManualBootModeEnabled",
                 "invalid backend response");
@@ -181,7 +182,9 @@ inline void bootAp(const crow::Request& req,
             }
             if (std::regex_match(stdOut, std::regex(reFailure)))
             {
-                messages::internalError(asyncResp->res);
+                messages::resourceErrorsDetectedFormatError(
+                    asyncResp->res, "BootProtectedDevice",
+                    "attestation mode is off (manual boot is disabled)");
                 return;
             }
             BMCWEB_LOG_ERROR("Invalid boot_ap response: {}", stdOut);

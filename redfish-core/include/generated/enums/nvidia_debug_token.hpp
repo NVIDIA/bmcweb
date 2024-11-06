@@ -27,7 +27,6 @@ enum class AdditionalInfo{
     Invalid,
     None,
     NoDebugSessionInProgress,
-    NoTokenApplied,
     QueryDebugSessionFailed,
     DebugSessionActive,
 };
@@ -54,7 +53,6 @@ NLOHMANN_JSON_SERIALIZE_ENUM(AdditionalInfo, {
     {AdditionalInfo::Invalid, "Invalid"},
     {AdditionalInfo::None, "None"},
     {AdditionalInfo::NoDebugSessionInProgress, "NoDebugSessionInProgress"},
-    {AdditionalInfo::NoTokenApplied, "NoTokenApplied"},
     {AdditionalInfo::QueryDebugSessionFailed, "QueryDebugSessionFailed"},
     {AdditionalInfo::DebugSessionActive, "DebugSessionActive"},
 });

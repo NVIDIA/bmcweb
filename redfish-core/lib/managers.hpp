@@ -20,6 +20,7 @@
 
 #include "app.hpp"
 #include "dbus_utility.hpp"
+#include "event_service_manager.hpp"
 #include "health.hpp"
 #include "persistentstorage_util.hpp"
 #include "query.hpp"

@@ -1735,14 +1735,6 @@ inline bool parseMultipartForm(
                     messages::unsupportedMediaType(asyncResp->res);
                     return false;
                 }
-                if (formpart.content.find('@') == std::string::npos)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "UpdateFile parameter does not contain '@' symbol");
-                    messages::propertyValueFormatError(
-                        asyncResp->res, formpart.content, "UpdateFile");
-                    return false;
-                }
                 hasFile = true;
             }
         }
@@ -2569,8 +2561,8 @@ inline void requestRoutesUpdateService(App& app)
             {"@odata.id", "/redfish/v1/UpdateService/SoftwareInventory"}};
         // Get the MaxImageSizeBytes
         asyncResp->res.jsonValue["MaxImageSizeBytes"] = firmwareImageLimitBytes;
-        asyncResp->res.jsonValue["Actions"]["Oem"]["Nvidia"]
-                                ["#NvidiaUpdateService.CommitImage"] = {
+        asyncResp->res
+            .jsonValue["Actions"]["Oem"]["#NvidiaUpdateService.CommitImage"] = {
             {"target",
              "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.CommitImage"},
             {"@Redfish.ActionInfo",
