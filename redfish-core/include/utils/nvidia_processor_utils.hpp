@@ -1533,6 +1533,100 @@ inline void
         powerProfileURI;
 }
 
+inline void getMNNVLinkTopologyInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
+    const std::string& service, const std::string& objPath,
+    const std::string& interface)
+{
+    sdbusplus::asio::getAllProperties(
+        *crow::connections::systemBus, service, objPath, interface,
+        [aResp, cpuId](const boost::system::error_code ec,
+                       const dbus::utility::DBusPropertiesMap& resp) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("DBUS response error");
+            messages::internalError(aResp->res);
+            return;
+        }
+
+        nlohmann::json& json = aResp->res.jsonValue;
+
+        const std::string* chassisSerialNumber = nullptr;
+        const std::string* ibGuid = nullptr;
+        const std::string* traySerialNumber = nullptr;
+        const std::string* systemGUID = nullptr;
+        const std::string* peerType = nullptr;
+        const uint64_t* moduleID = nullptr;
+        const uint64_t* hostID = nullptr;
+        const uint64_t* traySlotIndex = nullptr;
+        const uint64_t* traySlotNumber = nullptr;
+
+        const bool success = sdbusplus::unpackPropertiesNoThrow(
+            dbus_utils::UnpackErrorPrinter(), resp, "ChassisSerialNumber",
+            chassisSerialNumber, "IBGUID", ibGuid, "TraySerialNumber",
+            traySerialNumber, "SystemGUID", systemGUID, "ModuleID", moduleID,
+            "HostID", hostID, "PeerType", peerType, "TraySlotIndex",
+            traySlotIndex, "TraySlotNumber", traySlotNumber);
+
+        if (!success)
+        {
+            BMCWEB_LOG_ERROR("failed to unpack");
+            messages::internalError(aResp->res);
+            return;
+        }
+
+        if (chassisSerialNumber != nullptr)
+        {
+            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["ChassisSerialNumber"] =
+                *chassisSerialNumber;
+        }
+
+        if (ibGuid != nullptr)
+        {
+            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["IBGUID"] = *ibGuid;
+        }
+
+        if (traySerialNumber != nullptr)
+        {
+            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["TraySerialNumber"] =
+                *traySerialNumber;
+        }
+
+        if (systemGUID != nullptr && systemGUID->empty() == false)
+        {
+            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["SystemGUID"] =
+                *systemGUID;
+        }
+
+        if (moduleID != nullptr)
+        {
+            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["ModuleID"] = *moduleID;
+        }
+
+        if (hostID != nullptr)
+        {
+            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["HostID"] = *hostID;
+        }
+
+        if (peerType != nullptr)
+        {
+            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["PeerType"] = *peerType;
+        }
+
+        if (traySlotIndex != nullptr)
+        {
+            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["TraySlotIndex"] =
+                *traySlotIndex;
+        }
+
+        if (traySlotNumber != nullptr)
+        {
+            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["TraySlotNumber"] =
+                *traySlotNumber;
+        }
+    });
+}
+
 inline void
     clearPCIeCounter(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const std::string& connection, const std::string& path,
