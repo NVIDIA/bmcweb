@@ -138,6 +138,7 @@ feature_options = [
     'redfish-bmc-journal',
     'redfish-cpu-log',
     'redfish-dbus-log',
+    'redfish-net-log',    
     'redfish-dump-log',
     'redfish-host-logger',
     'redfish-new-powersubsystem-thermalsubsystem',
