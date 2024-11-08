@@ -800,10 +800,9 @@ inline void
                 continue;
             }
 
-            for (const auto& [service, interfaces] : obj.second)
+            if (!obj.second.empty())
             {
-                statusService = service;
-                break;
+                statusService = obj.second.begin()->first;
             }
         }
         crow::connections::systemBus->async_method_call(

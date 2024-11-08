@@ -439,6 +439,13 @@ inline void
                     {
                         const auto* physicalcontext =
                             std::get_if<std::string>(&value);
+                        if (physicalcontext == nullptr)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "PropertyName resource not found.");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
                         asyncResp->res.jsonValue[propertyName] =
                             redfish::dbus_utils::toPhysicalContext(
                                 *physicalcontext);
