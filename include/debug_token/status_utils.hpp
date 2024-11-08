@@ -23,6 +23,7 @@
 #include <optional>
 #include <sstream>
 #include <tuple>
+#include <unordered_map>
 #include <vector>
 
 namespace redfish::debug_token
@@ -680,7 +681,8 @@ inline std::string getNsmTokenStatus(const std::string& tokenStatus)
 {
     const static std::unordered_map<std::string, std::string>
         nsmTokenStatusMapping{
-            {"QueryFailure", "Failed"},
+            {"DebugSessionEnded", "DebugSessionEnded"},
+            {"OperationFailure", "Failed"},
             {"DebugSessionActive", "DebugSessionActive"},
             {"NoTokenApplied", "NoTokenApplied"},
             {"ChallengeProvided", "ChallengeProvidedNoTokenInstalled"},
@@ -706,6 +708,8 @@ inline std::string getNsmTokenAdditionalInfo(const std::string& additionalInfo)
         nsmTokenadditionalInfoMapping{
             {"None", "None"},
             {"NoDebugSession", "NoDebugSessionInProgress"},
+            {"FirmwareNotSecured", "InsecureFirmware"},
+            {"DebugSessionEndRequestNotAccepted", "DebugEndRequestFailed"},
             {"DebugSessionQueryDisallowed", "QueryDebugSessionFailed"},
             {"DebugSessionActive", "DebugSessionActive"},
         };
