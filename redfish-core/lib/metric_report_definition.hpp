@@ -1084,8 +1084,7 @@ inline void handleMetricReportDefinitionCollectionGet(
 #ifdef BMCWEB_ENABLE_PLATFORM_METRICS
     redfish::nvidia_metric_report_def_utils::getMetricReportCollection(
         asyncResp);
-    return;
-#endif
+#else
     constexpr std::array<std::string_view, 1> interfaces{
         telemetry::reportInterface};
     collection_util::getCollectionMembers(
@@ -1093,6 +1092,7 @@ inline void handleMetricReportDefinitionCollectionGet(
         boost::urls::url(
             "/redfish/v1/TelemetryService/MetricReportDefinitions"),
         interfaces, "/xyz/openbmc_project/Telemetry/Reports/TelemetryService");
+#endif
 }
 
 inline void
