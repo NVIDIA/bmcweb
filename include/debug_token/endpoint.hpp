@@ -146,7 +146,7 @@ class DebugTokenNsmEndpoint : public DebugTokenEndpoint
             state = EndpointState::TokenInstalled;
             return;
         }
-        if (status->tokenStatus == "QueryFailure")
+        if (status->tokenStatus == "OperationFailure")
         {
             state = EndpointState::Error;
             return;
