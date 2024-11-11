@@ -826,12 +826,50 @@ inline void getPowerLimitPersistency(
             messages::internalError(asyncResp->res);
             return;
         }
-        for (const auto& [key, variant] : properties)
+        for (const auto& property : properties)
         {
-            if (key == "Persistency")
+            const std::string& propertyName = property.first;
+            if (propertyName == "Persistency")
             {
-                asyncResp->res
-                    .jsonValue["Oem"]["Nvidia"]["PowerLimitPersistency"] = {};
+                const bool* value = std::get_if<bool>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for Persistency");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                        ["PowerLimitPersistency"] = *value;
+            }
+            else if (propertyName == "PersistentPowerLimit")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for Persistent Power Limit");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                        ["RequestedPersistentPowerLimitWatts"] =
+                    *value;
+            }
+            else if (propertyName == "OneShotPowerLimit")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for OneShot Power Limit");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                        ["RequestedOneshotPowerLimitWatts"] =
+                    *value;
             }
         }
     },
@@ -1651,7 +1689,7 @@ inline void
                     {
                         getPowerLimitPersistency(aResp, service, path);
                         aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                            "#NvidiaEnvironmentMetrics.v1_2_0.NvidiaEnvironmentMetrics";
+                            "#NvidiaEnvironmentMetrics.v1_3_0.NvidiaEnvironmentMetrics";
                     }
 
                     if (std::find(interfaces.begin(), interfaces.end(),
