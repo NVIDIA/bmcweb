@@ -165,12 +165,14 @@ string_options = [
 
 int_options = ['http-body-limit']
 
+array_options = ['oem-diagnostic-allowable-type']
+
 feature_options_string = '\n//Feature options\n'
 string_options_string = '\n// String options\n'
 int_options_string = '\n// Integer options\n'
 array_options_string = '\n// Array options\n'
 
-foreach option_key : feature_options + string_options + int_options
+foreach option_key : feature_options + string_options + int_options + array_options
     option_key_config = 'BMCWEB_' + option_key.to_upper()
     option_key_config = option_key_config.replace('-', '_')
 
@@ -181,6 +183,11 @@ foreach option_key : feature_options + string_options + int_options
         string_options_string += 'constexpr std::string_view  ' + option_key_config + ' = "' + opt + '";\n'
     elif int_options.contains(option_key)
         int_options_string += 'constexpr const int         ' + option_key_config + ' = ' + opt.to_string() + ';\n'
+    elif array_options.contains(option_key)
+        array_len = opt.length()
+        array_options_string += 'constexpr std::array<std::string_view, ' + array_len.to_string() + '> '  + option_key_config + '_ARRAY = {"'
+        array_options_string += '", "'.join(opt)
+        array_options_string += '"};\n'
     else
         feature_options_string += 'constexpr const bool        ' + option_key_config + ' = ' + opt.allowed().to_string() + ';\n'
         opt = opt.allowed().to_string()
@@ -199,20 +206,6 @@ if get_option('buildtype').startswith('debug') and loglvlopt == 'disabled'
 endif
 loglvlopt = loglvlopt.to_upper()
 string_options_string += 'constexpr std::string_view  BMCWEB_LOGGING_LEVEL' + ' = "' + loglvlopt + '";\n'
-
-idx = 0
-oem_diagnostic_allowable_type = get_option('oem-diagnostic-allowable-type')
-array_options_string += 'constexpr std::string_view  OEM_DIAG_DATA_TYPE_ARRAY[] = {'
-foreach name : oem_diagnostic_allowable_type
-    message(name)
-    if idx != 0
-        array_options_string += ', '
-    endif
-    array_options_string += '"' + name + '"'
-
-    idx += 1
-endforeach
-array_options_string += '};\n'
 
 conf_data.set(
     'BMCWEB_OPTIONS',

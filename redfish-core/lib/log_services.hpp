@@ -339,7 +339,7 @@ static bool
 }
 
 inline std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
-    parseOEMAdditionalData(std::string& oemData)
+    parseOEMAdditionalData(const std::string_view& oemData)
 {
     // Parse OEM data for encoded format string
     // oemDiagnosticDataType = "key1=value1;key2=value2;key3=value3"
@@ -358,16 +358,6 @@ inline std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
             {
                 additionalData.emplace_back(
                     std::make_pair(subTokens[0], subTokens[1]));
-                if (subTokens[0] == "DiagnosticType")
-                {
-                    // Reassign the oemData to stay value only
-                    oemData = subTokens[1];
-                }
-            }
-            else
-            {
-                // Not be a <key,value> pair so it's invalid
-                oemData.clear();
             }
         }
     }
@@ -1830,11 +1820,25 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
 
-        auto it = std::find(std::begin(OEM_DIAG_DATA_TYPE_ARRAY),
-                            std::end(OEM_DIAG_DATA_TYPE_ARRAY),
-                            oemDiagnosticDataType);
-        if ((std::string(*oemDiagnosticDataType).empty()) ||
-            (it == std::end(OEM_DIAG_DATA_TYPE_ARRAY)))
+        bool isValidParam = false;
+        for (const auto& dumpPara : createDumpParamVec)
+        {
+            if (dumpPara.first == "DiagnosticType")
+            {
+                const std::string* oemDiagType =
+                    std::get_if<std::string>(&dumpPara.second);
+                auto it = std::ranges::find(
+                    BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE_ARRAY, *oemDiagType);
+                if (it != std::ranges::end(
+                              BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE_ARRAY))
+                {
+                    isValidParam = true;
+                    break;
+                }
+            }
+        }
+
+        if (isValidParam == false)
         {
             BMCWEB_LOG_ERROR("Wrong parameter values passed");
             messages::actionParameterValueError(
@@ -1871,7 +1875,22 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
 
-        if (*oemDiagnosticDataType != "FDR")
+        bool isValidParam = false;
+        for (const auto& dumpPara : createDumpParamVec)
+        {
+            if (dumpPara.first == "DiagnosticType")
+            {
+                const std::string* oemDiagType =
+                    std::get_if<std::string>(&dumpPara.second);
+                if (*oemDiagType == "FDR")
+                {
+                    isValidParam = true;
+                    break;
+                }
+            }
+        }
+
+        if (isValidParam == false)
         {
             BMCWEB_LOG_ERROR("Wrong parameter values passed");
             messages::actionParameterValueError(
@@ -5014,7 +5033,7 @@ inline void requestRoutesSystemDumpServiceActionInfo(App& app)
 
         // Get the OEMDiagnosticDataType from meson option to push back
         std::string diagTypeStr = "";
-        for (const auto& typeStr : OEM_DIAG_DATA_TYPE_ARRAY)
+        for (const auto& typeStr : BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE_ARRAY)
         {
             diagTypeStr = std::string("DiagnosticType=") + std::string(typeStr);
             OEMDiagnosticDataType_allowableValues.emplace_back(diagTypeStr);
