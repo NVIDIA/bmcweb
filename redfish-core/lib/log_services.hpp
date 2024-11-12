@@ -6234,7 +6234,7 @@ static int copyMfgTestOutputFile(std::string& path)
     bool fileExists = std::filesystem::exists(path, ec);
     if (ec)
     {
-        BMCWEB_LOG_ERROR("File access error: {}", ec);
+        BMCWEB_LOG_ERROR("File access error: {}", ec.message());
     }
     else if (!fileExists)
     {
@@ -6249,7 +6249,7 @@ static int copyMfgTestOutputFile(std::string& path)
         std::filesystem::copy(path, targetPath, ec);
         if (ec)
         {
-            BMCWEB_LOG_ERROR("File copy error: {}", ec);
+            BMCWEB_LOG_ERROR("File copy error: {}", ec.message());
         }
         else
         {
@@ -6273,7 +6273,7 @@ static void mfgTestProcExitHandler(int exitCode, const std::error_code& ec)
     auto& t = mfgTestTask;
     if (ec)
     {
-        BMCWEB_LOG_ERROR("Error executing script: {}", ec);
+        BMCWEB_LOG_ERROR("Error executing script: {}", ec.message());
         t->state = "Aborted";
         t->messages.emplace_back(messages::internalError());
     }
@@ -6418,13 +6418,22 @@ inline void requestRoutesEventLogDiagnosticDataEntry(App& app)
 {
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/LogServices/EventLog/DiagnosticData/<uint>/attachment")
+        "/redfish/v1/Systems/<str>/LogServices/EventLog/DiagnosticData/<str>/attachment")
         .privileges(redfish::privileges::getLogEntry)
         .methods(boost::beast::http::verb::get)(
             [](const crow::Request&,
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                [[maybe_unused]] const std::string& systemName,
-               const uint32_t id) {
+               const std::string& idParam) {
+        uint32_t id = 0;
+        std::string_view paramSV(idParam);
+        auto it = std::from_chars(paramSV.begin(), paramSV.end(), id);
+        if (it.ec != std::errc())
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
         auto files = scriptExecOutputFiles.size();
         if (files == 0 || id > files - 1)
         {
@@ -6435,8 +6444,7 @@ inline void requestRoutesEventLogDiagnosticDataEntry(App& app)
                     BMCWEB_REDFISH_SYSTEM_URI_NAME, std::to_string(id)));
             return;
         }
-        std::ifstream file(scriptExecOutputFiles[id]);
-        if (!file.good())
+        if (!asyncResp->res.openFile(scriptExecOutputFiles[id]))
         {
             messages::resourceMissingAtURI(
                 asyncResp->res,
@@ -6445,13 +6453,9 @@ inline void requestRoutesEventLogDiagnosticDataEntry(App& app)
                     BMCWEB_REDFISH_SYSTEM_URI_NAME, std::to_string(id)));
             return;
         }
-        std::stringstream ss;
-        ss << file.rdbuf();
-        auto output = ss.str();
 
         asyncResp->res.addHeader("Content-Type", "application/octet-stream");
         asyncResp->res.addHeader("Content-Transfer-Encoding", "Binary");
-        asyncResp->res.body() = std::move(output);
     });
 }
 #endif /* BMCWEB_ENABLE_MFG_TEST_API */
