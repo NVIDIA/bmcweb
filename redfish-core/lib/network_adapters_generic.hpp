@@ -1343,21 +1343,6 @@ inline void
                         *value;
                     addNvidiaType = true;
                 }
-                else if (property.first == "SymbolError")
-                {
-                    const uint64_t* value =
-                        std::get_if<uint64_t>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Null value returned "
-                                         "for symbol error");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["SymbolErrors"] =
-                        *value;
-                    addNvidiaType = true;
-                }
                 else if (property.first == "LinkErrorRecoveryCounter")
                 {
                     const uint64_t* value =
