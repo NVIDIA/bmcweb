@@ -21,7 +21,9 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 
+#ifdef HAVE_PWQUALITY
 #include <pwquality.h>
+#endif
 
 #include <boost/system/error_code.hpp>
 #include <sdbusplus/asio/property.hpp>
@@ -483,10 +485,11 @@ inline void
     });
 }
 
-inline bool checkPasswordQuality(const std::string username,
-                                 const std::string password,
-                                 std::string& errorMsg)
+inline bool checkPasswordQuality(const std::string username [[maybe_unused]],
+                                 const std::string password [[maybe_unused]],
+                                 std::string& errorMsg [[maybe_unused]])
 {
+#ifdef HAVE_PWQUALITY
     void* auxerror;
     char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
     const char* oldpassword = nullptr;
@@ -522,7 +525,7 @@ inline bool checkPasswordQuality(const std::string username,
 
     // Clear errorMsg if the password is acceptable
     errorMsg.clear();
-
+#endif
     return true;
 }
 

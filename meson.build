@@ -398,7 +398,10 @@ add_project_arguments('-DSYSTEMD_VERSION=' + systemd.version(), language: 'cpp')
 zlib = dependency('zlib')
 bmcweb_dependencies += [systemd, zlib]
 
-pwquality_dep = dependency('pwquality')
+pwquality_dep = dependency('pwquality', required: false)
+if pwquality_dep.found()
+    add_project_arguments('-DHAVE_PWQUALITY', language: 'cpp')
+endif
 bmcweb_dependencies += pwquality_dep
 
 nlohmann_json_dep = dependency(
