@@ -3580,10 +3580,11 @@ inline void getFabricsPortMetricsData(
         {"Id", "Metrics"}};
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
-                    const boost::container::flat_map<
-                        std::string, std::variant<uint16_t, uint32_t, uint64_t,
-                                                  int64_t>>& properties) {
+        [asyncResp](
+            const boost::system::error_code ec,
+            const boost::container::flat_map<
+                std::string, std::variant<uint16_t, uint32_t, uint64_t, int64_t,
+                                          double>>& properties) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("DBUS response error");
@@ -3915,18 +3916,17 @@ inline void getFabricsPortMetricsData(
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]
                                             ["NeighborMTUDiscards"] = *value;
                 }
-                else if (property.first == "SymbolError")
+                else if (property.first == "BitErrorRate")
                 {
-                    const uint64_t* value =
-                        std::get_if<uint64_t>(&property.second);
+                    const double* value = std::get_if<double>(&property.second);
                     if (value == nullptr)
                     {
                         BMCWEB_LOG_ERROR("Null value returned "
-                                         "for symbol error");
+                                         "for bit error rate");
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["SymbolErrors"] =
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["BitErrorRate"] =
                         *value;
                 }
                 else if (property.first == "LinkErrorRecoveryCounter")
