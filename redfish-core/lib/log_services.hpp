@@ -1827,10 +1827,14 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             {
                 const std::string* oemDiagType =
                     std::get_if<std::string>(&dumpPara.second);
+                if (oemDiagType == nullptr)
+                {
+                    continue;
+                }
                 auto it = std::ranges::find(
-                    BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE_ARRAY, *oemDiagType);
-                if (it != std::ranges::end(
-                              BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE_ARRAY))
+                    BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE, *oemDiagType);
+                if (it !=
+                    std::ranges::end(BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE))
                 {
                     isValidParam = true;
                     break;
@@ -5033,7 +5037,7 @@ inline void requestRoutesSystemDumpServiceActionInfo(App& app)
 
         // Get the OEMDiagnosticDataType from meson option to push back
         std::string diagTypeStr = "";
-        for (const auto& typeStr : BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE_ARRAY)
+        for (const auto& typeStr : BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE)
         {
             diagTypeStr = std::string("DiagnosticType=") + std::string(typeStr);
             OEMDiagnosticDataType_allowableValues.emplace_back(diagTypeStr);
