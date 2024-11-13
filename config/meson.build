@@ -184,10 +184,11 @@ foreach option_key : feature_options + string_options + int_options + array_opti
     elif int_options.contains(option_key)
         int_options_string += 'constexpr const int         ' + option_key_config + ' = ' + opt.to_string() + ';\n'
     elif array_options.contains(option_key)
-        array_len = opt.length()
-        array_options_string += 'constexpr std::array<std::string_view, ' + array_len.to_string() + '> '  + option_key_config + '_ARRAY = {"'
-        array_options_string += '", "'.join(opt)
-        array_options_string += '"};\n'
+        array_options_string += 'constexpr std::array<std::string_view, '
+        array_options_string += opt.length().to_string() + '> ' + option_key_config
+        array_options_string += ' = {\n    "'
+        array_options_string += '",\n    "'.join(opt)
+        array_options_string += '"\n};\n'
     else
         feature_options_string += 'constexpr const bool        ' + option_key_config + ' = ' + opt.allowed().to_string() + ';\n'
         opt = opt.allowed().to_string()
@@ -209,8 +210,7 @@ string_options_string += 'constexpr std::string_view  BMCWEB_LOGGING_LEVEL' + ' 
 
 conf_data.set(
     'BMCWEB_OPTIONS',
-    string_options_string + int_options_string +
-    feature_options_string + array_options_string,
+    string_options_string + int_options_string + feature_options_string + array_options_string,
 )
 
 conf_data.set('TLS_CACERT_PATH', get_option('tls-cacert-path'))
