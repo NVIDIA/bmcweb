@@ -4195,6 +4195,19 @@ inline void
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
         "/Oem/Nvidia";
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+        "#NvidiaComputerSystem.v1_3_0.NvidiaComputerSystem";
+    if constexpr (BMCWEB_ENABLE_PROFILES)
+    {
+        asyncResp->res
+            .jsonValue["Oem"]["Nvidia"]["SystemConfigProfile"]["@odata.type"] =
+            "#SystemConfigProfile.v1_0_0.SystemConfigProfile";
+        asyncResp->res
+            .jsonValue["Oem"]["Nvidia"]["SystemConfigProfile"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Systems/{}"
+                                "/Oem/Nvidia/SystemConfigProfile",
+                                BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    }
 #endif
 #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
     // Fill in SerialConsole info

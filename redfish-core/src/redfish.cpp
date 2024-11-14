@@ -89,7 +89,7 @@
 #endif
 #include "trusted_components.hpp"
 #ifdef BMCWEB_ENABLE_PROFILES
-#include "profiles.hpp"
+#include "nvidia_dpu_system_profiles.hpp"
 #endif
 
 namespace redfish
