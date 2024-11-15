@@ -32,6 +32,9 @@
 namespace redfish
 {
 
+namespace debug_token
+{
+
 constexpr const int cpuTokenGenerationTimeoutSeconds = 30;
 constexpr const uint8_t cpuTokenGenerationSlotId = 0;
 constexpr const uint8_t cpuTokenGenerationMeasIndex = 50;
@@ -99,7 +102,7 @@ inline void getCpuEid(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     getCpuObjectPath([asyncResp, callback](const boost::system::error_code& ec,
                                            const std::string path) {
-        if (ec)
+        if (ec || path.empty())
         {
             BMCWEB_LOG_ERROR("Failed to find CPU object path: {}",
                              ec.message());
@@ -166,7 +169,6 @@ inline void handleCpuDebugTokenResourceInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName)
 {
-    using namespace debug_token;
     using namespace std::string_literals;
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -421,7 +423,7 @@ inline void
     }
     getCpuObjectPath([asyncResp](const boost::system::error_code& ec,
                                  const std::string path) {
-        if (ec)
+        if (ec || path.empty())
         {
             BMCWEB_LOG_ERROR("Failed to find CPU object path: {}",
                              ec.message());
@@ -512,9 +514,8 @@ inline void
                         return;
                     }
                     std::vector<std::vector<uint8_t>> requestVec{
-                        debug_token::addTokenRequestHeader(meas)};
-                    auto file =
-                        debug_token::generateTokenRequestFile(requestVec);
+                        addTokenRequestHeader(meas)};
+                    auto file = generateTokenRequestFile(requestVec);
                     std::string_view binaryData(
                         reinterpret_cast<const char*>(file.data()),
                         file.size());
@@ -616,8 +617,7 @@ inline void
                 }
                 messages::resourceErrorsDetectedFormatError(
                     asyncResp->res, req.url().buffer(),
-                    debug_token::getVdmDebugTokenInstallErrorDescription(
-                        vdmCode));
+                    getVdmDebugTokenInstallErrorDescription(vdmCode));
             }
             catch (std::exception&)
             {
@@ -627,6 +627,8 @@ inline void
         });
     });
 }
+
+} // namespace debug_token
 
 inline void requestRoutesCpuDebugToken(App& app)
 {

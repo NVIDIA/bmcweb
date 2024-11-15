@@ -4059,7 +4059,7 @@ inline void
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             "#NvidiaComputerSystem.v1_1_0.NvidiaComputerSystem";
         ist_mode_utils::getIstMode(asyncResp);
-        getSystemsCpuDebugToken(asyncResp, systemName);
+        debug_token::getSystemsCpuDebugToken(asyncResp, systemName);
     }
 
 #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE

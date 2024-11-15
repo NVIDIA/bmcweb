@@ -22,6 +22,7 @@
 #include "debug_token/endpoint.hpp"
 #include "debug_token/request_utils.hpp"
 #include "debug_token/status_utils.hpp"
+#include "nvidia_cpu_debug_token.hpp"
 #include "openbmc_dbus_rest.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/mctp_utils.hpp"
@@ -188,49 +189,60 @@ class StatusQueryHandler : public OperationHandler
         BMCWEB_LOG_DEBUG("StatusQueryHandler constructor");
         resCallback = resultCallback;
         errCallback = errorCallback;
-        mctp_utils::enumerateMctpEndpoints(
-            [this](const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
-                       mctpEndpoints) {
-            spdmEnumerationFinished = true;
-            const std::string desc = "SPDM endpoint enumeration";
-            BMCWEB_LOG_DEBUG("{}", desc);
-            if (!mctpEndpoints || mctpEndpoints->size() == 0)
-            {
-                BMCWEB_LOG_ERROR("{}: {}", desc, "no endpoints found");
+        getCpuObjectPath([this, errorCallback](const boost::system::error_code&,
+                                               const std::string cpuPath) {
+            mctp_utils::enumerateMctpEndpoints(
+                [this, cpuPath](
+                    const std::shared_ptr<
+                        std::vector<mctp_utils::MctpEndpoint>>& mctpEndpoints) {
+                spdmEnumerationFinished = true;
+                const std::string desc = "SPDM endpoint enumeration";
+                BMCWEB_LOG_DEBUG("{}", desc);
+                if (!mctpEndpoints || mctpEndpoints->size() == 0)
+                {
+                    BMCWEB_LOG_ERROR("{}: {}", desc, "no endpoints found");
+                    finalize();
+                    return;
+                }
+                if (!endpoints)
+                {
+                    endpoints = std::make_shared<
+                        std::vector<std::unique_ptr<DebugTokenEndpoint>>>();
+                    endpoints->reserve(mctpEndpoints->size());
+                }
+                for (auto& ep : *mctpEndpoints)
+                {
+                    if (!ep.isEnabled())
+                    {
+                        continue;
+                    }
+                    // ignore satmc (CPU debug token) endpoint
+                    if (ep.getSpdmObject() == cpuPath)
+                    {
+                        continue;
+                    }
+                    const auto& msgTypes = ep.getMctpMessageTypes();
+                    if (std::find(msgTypes.begin(), msgTypes.end(),
+                                  mctp_utils::mctpMessageTypeVdm) !=
+                        msgTypes.end())
+                    {
+                        endpoints->emplace_back(
+                            std::make_unique<DebugTokenSpdmEndpoint>(ep));
+                    }
+                }
+                endpoints->shrink_to_fit();
+                getMctpVdmStatus();
                 finalize();
-                return;
-            }
-            if (!endpoints)
-            {
-                endpoints = std::make_shared<
-                    std::vector<std::unique_ptr<DebugTokenEndpoint>>>();
-                endpoints->reserve(mctpEndpoints->size());
-            }
-            for (auto& ep : *mctpEndpoints)
-            {
-                if (!ep.isEnabled())
-                {
-                    continue;
-                }
-                const auto& msgTypes = ep.getMctpMessageTypes();
-                if (std::find(msgTypes.begin(), msgTypes.end(),
-                              mctp_utils::mctpMessageTypeVdm) != msgTypes.end())
-                {
-                    endpoints->emplace_back(
-                        std::make_unique<DebugTokenSpdmEndpoint>(ep));
-                }
-            }
-            endpoints->shrink_to_fit();
-            getMctpVdmStatus();
-            finalize();
-        },
-            [this, errorCallback](bool, const std::string& desc,
-                                  const std::string& error) {
-            spdmEnumerationFinished = true;
-            errorCallback(false, desc, error);
-            finalize();
-        },
-            "", static_cast<uint64_t>(statusQueryTimeoutSeconds) * 1000000u);
+            },
+                [this, errorCallback](bool, const std::string& desc,
+                                      const std::string& error) {
+                spdmEnumerationFinished = true;
+                errorCallback(false, desc, error);
+                finalize();
+            },
+                "",
+                static_cast<uint64_t>(statusQueryTimeoutSeconds) * 1000000u);
+        });
 
         if (!useNsm)
         {
