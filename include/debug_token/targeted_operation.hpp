@@ -31,7 +31,10 @@
 namespace redfish::debug_token
 {
 
-constexpr const int targetedOpTimeoutSeconds = 2;
+// NSMD request handler has 3 retries at 2 second interval. Updating the timer
+// to 7 seconds now. However timer dependency needs to be removed by relying on
+// signals and bmcweb default timeout handler.
+constexpr const int targetedOpTimeoutSeconds = 7;
 
 enum class TargetedOperation
 {
