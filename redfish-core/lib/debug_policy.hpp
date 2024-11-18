@@ -217,13 +217,7 @@ inline void
            const std::string& svc, const std::string& path) {
         if (path.empty())
         {
-            // Not an error :: partial success
-            // propertyMissing:Indicates that a required property was not
-            // supplied as part of the request.
-            nlohmann::json missingProperty = messages::propertyMissing(
-                "Oem/Nvidia/ProcessorDebugCapabilities");
-            messages::moveErrorsToErrorJson(asyncResp->res.jsonValue,
-                                            missingProperty);
+            /* There is no PLDM effecter when AC On with system off */
             return;
         }
         debugPropertiesGet(asyncResp, svc, path);
