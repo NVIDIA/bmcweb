@@ -1,5 +1,6 @@
 #pragma once
 #include <utils/chassis_utils.hpp>
+#include <utils/nvidia_chassis_util.hpp>
 
 namespace redfish
 {
@@ -80,8 +81,11 @@ inline void getRelatedNetworkAdapterData(
                              std::variant<std::vector<std::string>>& resp1) {
                 if (ec1)
                 {
-                    // If network adapter call fails
-                    handleChassisRedfishURL(asyncResp, objectPath);
+                    // If network adapter call fails,
+                    // ensure to pick up the resource from Chassis interface
+                    redfish::nvidia_chassis_utils::getChassisRelatedItem(
+                        asyncResp, objectPath, chassisId,
+                        handleChassisRedfishURL);
                     return;
                 }
                 std::vector<std::string>* data1 =

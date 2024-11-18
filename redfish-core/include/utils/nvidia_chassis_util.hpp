@@ -16,7 +16,10 @@
  */
 #pragma once
 
+#include "openbmc_dbus_rest.hpp"
+
 #include <boost/container/flat_set.hpp>
+#include <boost/system/linux_error.hpp>
 
 namespace redfish
 {
@@ -1812,6 +1815,44 @@ inline void insertSorted(nlohmann::json& arr, const nlohmann::json& element,
         return left[sortField] < right[sortField];
     });
     arr.insert(it, element);
+}
+
+template <typename Handler>
+inline void
+    getChassisRelatedItem(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const sdbusplus::message::object_path& objectPath,
+                          const std::string& chassisId, Handler&& handler)
+{
+    // Ensure to pick up the resource from Chassis interface
+    size_t chassisNamePos = objectPath.str.rfind('/');
+    if (chassisNamePos == std::string::npos ||
+        chassisNamePos == (objectPath.str.size() - 1))
+    {
+        return;
+    }
+
+    constexpr std::array<std::string_view, 1> chassisInterface = {
+        "xyz.openbmc_project.Inventory.Item.Chassis"};
+
+    dbus::utility::getSubTreePaths(
+        objectPath.str.substr(0, chassisNamePos), 0, chassisInterface,
+        [asyncResp, objectPath, chassisId,
+         handler = std::forward<Handler>(handler)](
+            const boost::system::error_code ec,
+            const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
+        if ((!ec) && (subtreePaths.size() != 0))
+        {
+            for (const auto& path : subtreePaths)
+            {
+                sdbusplus::message::object_path chassisPath(path);
+                std::string chassisName = chassisPath.filename();
+                if (chassisId == chassisName)
+                {
+                    handler(asyncResp, objectPath);
+                }
+            }
+        }
+    });
 }
 
 } // namespace nvidia_chassis_utils
