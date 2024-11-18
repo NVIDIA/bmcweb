@@ -370,7 +370,14 @@ class TargetedOperationHandler
 
     void generalErrorHandler()
     {
-        callback(EndpointState::Error, std::monostate());
+        if (callback)
+        {
+            callback(EndpointState::Error, std::monostate());
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR("Token operation callback is already called.");
+        }
         cleanup();
     }
 
