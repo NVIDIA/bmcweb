@@ -2709,6 +2709,9 @@ inline void getManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 }
             }
         }
+#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
+        aResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
+#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
     },
         connectionName, path, "org.freedesktop.DBus.Properties", "GetAll",
         "xyz.openbmc_project.State.Decorator.OperationalStatus");
