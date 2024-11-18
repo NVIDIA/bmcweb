@@ -1820,35 +1820,38 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
 
-        bool isValidParam = false;
-        for (const auto& dumpPara : createDumpParamVec)
+        if constexpr (BMCWEB_CHECK_OEM_DIAGNOSTIC_TYPE)
         {
-            if (dumpPara.first == "DiagnosticType")
+            bool isValidParam = false;
+            for (const auto& dumpPara : createDumpParamVec)
             {
-                const std::string* oemDiagType =
-                    std::get_if<std::string>(&dumpPara.second);
-                if (oemDiagType == nullptr)
+                if (dumpPara.first == "DiagnosticType")
                 {
-                    continue;
-                }
-                auto it = std::ranges::find(
-                    BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE, *oemDiagType);
-                if (it !=
-                    std::ranges::end(BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE))
-                {
-                    isValidParam = true;
-                    break;
+                    const std::string* oemDiagType =
+                        std::get_if<std::string>(&dumpPara.second);
+                    if (oemDiagType == nullptr)
+                    {
+                        continue;
+                    }
+                    auto it = std::ranges::find(
+                        BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE, *oemDiagType);
+                    if (it !=
+                        std::ranges::end(BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE))
+                    {
+                        isValidParam = true;
+                        break;
+                    }
                 }
             }
-        }
 
-        if (isValidParam == false)
-        {
-            BMCWEB_LOG_ERROR("Wrong parameter values passed");
-            messages::actionParameterValueError(
-                asyncResp->res, "OEMDiagnosticDataType",
-                "LogService.CollectDiagnosticData");
-            return;
+            if (isValidParam == false)
+            {
+                BMCWEB_LOG_ERROR("Wrong parameter values passed");
+                messages::actionParameterValueError(
+                    asyncResp->res, "OEMDiagnosticDataType",
+                    "LogService.CollectDiagnosticData");
+                return;
+            }
         }
 
         dumpPath = "/redfish/v1/Systems/" +
@@ -1879,28 +1882,31 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
 
-        bool isValidParam = false;
-        for (const auto& dumpPara : createDumpParamVec)
+        if constexpr (BMCWEB_CHECK_OEM_DIAGNOSTIC_TYPE)
         {
-            if (dumpPara.first == "DiagnosticType")
+            bool isValidParam = false;
+            for (const auto& dumpPara : createDumpParamVec)
             {
-                const std::string* oemDiagType =
-                    std::get_if<std::string>(&dumpPara.second);
-                if (*oemDiagType == "FDR")
+                if (dumpPara.first == "DiagnosticType")
                 {
-                    isValidParam = true;
-                    break;
+                    const std::string* oemDiagType =
+                        std::get_if<std::string>(&dumpPara.second);
+                    if (*oemDiagType == "FDR")
+                    {
+                        isValidParam = true;
+                        break;
+                    }
                 }
             }
-        }
 
-        if (isValidParam == false)
-        {
-            BMCWEB_LOG_ERROR("Wrong parameter values passed");
-            messages::actionParameterValueError(
-                asyncResp->res, "OEMDiagnosticDataType",
-                "LogService.CollectDiagnosticData");
-            return;
+            if (isValidParam == false)
+            {
+                BMCWEB_LOG_ERROR("Wrong parameter values passed");
+                messages::actionParameterValueError(
+                    asyncResp->res, "OEMDiagnosticDataType",
+                    "LogService.CollectDiagnosticData");
+                return;
+            }
         }
 
         dumpPath = "/redfish/v1/Systems/" +

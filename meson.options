@@ -1016,3 +1016,10 @@ option(
     value : ['EROT', 'ROT', 'FirmwareAttributes'],
     description : 'OEM diagnostic data allowable type'
 )
+
+option(
+    'check-oem-diagnostic-type',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Enable the check mechanism of OEM diagnostic data allowable type',
+)
