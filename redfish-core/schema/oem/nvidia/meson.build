@@ -3,6 +3,7 @@ if get_option('nvidia-oem-properties').allowed()
     schemas = [
         'NvidiaChassis_v1.xml',
         'NvidiaComputerSystem_v1.xml',
+        'NvidiaDebugToken_v1.xml',
         'NvidiaEnvironmentMetrics_v1.xml',
         'NvidiaErrorInjection_v1.xml',
         'NvidiaEvent_v1.xml',
