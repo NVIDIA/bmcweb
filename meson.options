@@ -1023,3 +1023,10 @@ option(
     value: 'enabled',
     description: 'Enable the check mechanism of OEM diagnostic data allowable type',
 )
+
+option(
+    'sort-event-log',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable/Disable event log sorting based upon ID.',
+)

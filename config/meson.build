@@ -155,6 +155,7 @@ feature_options = [
     'vm-websocket',
     'vm-nbdproxy',
     'xtoken-auth',
+    'sort-event-log',
 ]
 
 string_options = [
