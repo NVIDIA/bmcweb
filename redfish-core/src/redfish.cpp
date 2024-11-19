@@ -32,6 +32,7 @@
 #include "metric_report_definition.hpp"
 #include "network_protocol.hpp"
 #include "nvidia_cpu_debug_token.hpp"
+#include "nvidia_manager_eventlog.hpp"
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_protected_component.hpp"
 #include "odata.hpp"
@@ -284,6 +285,10 @@ RedfishService::RedfishService(App& app)
     if constexpr (BMCWEB_REDFISH_BMC_JOURNAL)
     {
         requestRoutesBMCJournalLogService(app);
+    }
+    if constexpr (BMCWEB_REDFISH_MANAGER_EVENT_LOG)
+    {
+        requestRoutesMangersEventLogService(app);
     }
 
     if constexpr (BMCWEB_REDFISH_CPU_LOG)

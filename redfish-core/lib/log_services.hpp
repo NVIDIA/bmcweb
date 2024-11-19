@@ -3124,6 +3124,15 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                         deviceName = additional["DEVICE_NAME"];
                     }
 
+                    // Don't include Manager event logs in system event log
+                    if constexpr (BMCWEB_REDFISH_MANAGER_EVENT_LOG)
+                    {
+                        if (additional.count("namespace") > 0 &&
+                            "Manager" == additional["namespace"])
+                        {
+                            continue;
+                        }
+                    }
                     // populate CPER section (checks are in the fn)
                     nlohmann::json::object_t oem;
                     parseAdditionalDataForCPER(cper, oem, additional);
@@ -4348,6 +4357,14 @@ inline void handleBMCLogServicesCollectionGet(
                            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                            "/LogServices/Journal"}});
 #endif
+
+    if constexpr (BMCWEB_REDFISH_MANAGER_EVENT_LOG)
+    {
+        logServiceArray.push_back(
+            {{"@odata.id", boost::urls::format(
+                               "/redfish/v1/Managers/{}/LogServices/EventLog",
+                               BMCWEB_REDFISH_MANAGER_URI_NAME)}});
+    }
 
     asyncResp->res.jsonValue["Members@odata.count"] = logServiceArray.size();
 

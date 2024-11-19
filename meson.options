@@ -148,6 +148,15 @@ option(
                     phosphor-hostlogger through Redfish.  Paths are under
                     /redfish/v1/Systems/system/LogServices/HostLogger''',
 )
+
+option(
+    'redfish-manager-event-log',
+    type: 'feature',
+    value: 'enabled',
+    description: '''Enable Manager Event log service transactions through Redfish. Paths
+                   are under /redfish/v1/Managers/bmc/LogServices/Eventlog''',
+)
+
 option(
     'redfish-dbus-event',
     type: 'feature',
