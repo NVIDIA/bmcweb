@@ -126,8 +126,8 @@ inline std::string verifyOpensslKeyCert(const std::string& filepath,
     bool certValid = false;
     std::string fileContents;
     fileContents.resize(static_cast<size_t>(file.size(ec)), '\0');
-    file.read(fileContents.data(), fileContents.size(), ec);
-    if (ec)
+    size_t readSize = file.read(fileContents.data(), fileContents.size(), ec);
+    if (ec || !readSize)
     {
         BMCWEB_LOG_ERROR("Failed to read file");
         return "";
@@ -280,8 +280,13 @@ inline void writeCertificateToFile(const std::string& filepath,
     file.open(filepath.c_str(), boost::beast::file_mode::write, ec);
     if (!ec)
     {
-        file.write(certificate.data(), certificate.size(), ec);
-        // ignore result
+        size_t writeBytes = file.write(certificate.data(), certificate.size(),
+                                       ec);
+
+        if (!writeBytes)
+        {
+            BMCWEB_LOG_ERROR("Certificate Write failed");
+        }
     }
 }
 

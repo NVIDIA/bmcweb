@@ -126,7 +126,10 @@ static void
                                 {
                                     slot =
                                         std::get_if<uint8_t>(&property.second);
-                                    BMCWEB_LOG_DEBUG("Slot ID:{}", *slot);
+                                    if (slot)
+                                    {
+                                        BMCWEB_LOG_DEBUG("Slot ID:{}", *slot);
+                                    }
                                 }
                             }
                         }
@@ -135,16 +138,19 @@ static void
                     // PEM.
                     auto chassisID =
                         std::filesystem::path(objectPath).filename().string();
-                    asyncResp->res.jsonValue = {
-                        {"@odata.id", req.url()},
-                        {"@odata.type", "#Certificate.v1_5_0.Certificate"},
-                        {"Id", certificateID},
-                        {"Name", chassisID + " Certificate Chain"},
-                        {"CertificateType", "PEMchain"},
-                        {"CertificateUsageTypes",
-                         nlohmann::json::array({"Device"})},
-                        {"SPDM", {{"SlotId", *slot}}},
-                    };
+                    if (slot)
+                    {
+                        asyncResp->res.jsonValue = {
+                            {"@odata.id", req.url()},
+                            {"@odata.type", "#Certificate.v1_5_0.Certificate"},
+                            {"Id", certificateID},
+                            {"Name", chassisID + " Certificate Chain"},
+                            {"CertificateType", "PEMchain"},
+                            {"CertificateUsageTypes",
+                             nlohmann::json::array({"Device"})},
+                            {"SPDM", {{"SlotId", *slot}}},
+                        };
+                    }
 
                     if (certs && slot && certs->size() > 0)
                     {

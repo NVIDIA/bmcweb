@@ -358,8 +358,8 @@ class ConfigFile
         }
         std::string dump = nlohmann::json(data).dump(
             -1, ' ', true, nlohmann::json::error_handler_t::replace);
-        persistentFile.write(dump.data(), dump.size(), ec);
-        if (ec)
+        size_t writeBytes = persistentFile.write(dump.data(), dump.size(), ec);
+        if (ec || !writeBytes)
         {
             BMCWEB_LOG_CRITICAL("Failed to log persistent File");
         }

@@ -350,7 +350,7 @@ class StatusQueryHandler : public OperationHandler
                 return;
             }
             DebugTokenNsmEndpoint* nsmEp =
-                dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
+                static_cast<DebugTokenNsmEndpoint*>(ep.get());
             if (status == "Aborted")
             {
                 sdbusplus::asio::getProperty<std::tuple<uint16_t, std::string>>(
@@ -422,7 +422,7 @@ class StatusQueryHandler : public OperationHandler
                 continue;
             }
             DebugTokenNsmEndpoint* nsmEp =
-                dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
+                static_cast<DebugTokenNsmEndpoint*>(ep.get());
             auto objectPath = ep->getObject();
             crow::connections::systemBus->async_method_call(
                 [this, nsmEp, objectPath](const boost::system::error_code& ec) {
@@ -502,7 +502,7 @@ class StatusQueryHandler : public OperationHandler
                 continue;
             }
             DebugTokenSpdmEndpoint* spdmEp =
-                dynamic_cast<DebugTokenSpdmEndpoint*>(ep->get());
+                static_cast<DebugTokenSpdmEndpoint*>(ep->get());
             spdmEp->setStatus(std::make_unique<VdmTokenStatus>(vdmStatus));
         }
         finalize();
@@ -696,7 +696,7 @@ class RequestHandler : public OperationHandler
                 continue;
             }
             DebugTokenNsmEndpoint* nsmEp =
-                dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
+                static_cast<DebugTokenNsmEndpoint*>(ep.get());
             auto objectPath = ep->getObject();
             crow::connections::systemBus->async_method_call(
                 [this, nsmEp, objectPath](const boost::system::error_code& ec) {
@@ -742,7 +742,7 @@ class RequestHandler : public OperationHandler
                 continue;
             }
             DebugTokenSpdmEndpoint* spdmEp =
-                dynamic_cast<DebugTokenSpdmEndpoint*>(ep.get());
+                static_cast<DebugTokenSpdmEndpoint*>(ep.get());
             auto objectPath = ep->getObject();
             const std::string desc = "SPDM refresh call for " + objectPath;
             BMCWEB_LOG_DEBUG("{}", desc);
@@ -801,7 +801,7 @@ class RequestHandler : public OperationHandler
             return;
         }
         DebugTokenNsmEndpoint* nsmEp =
-            dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
+            static_cast<DebugTokenNsmEndpoint*>(ep.get());
         if (status == "Aborted")
         {
             sdbusplus::asio::getProperty<std::tuple<uint16_t, std::string>>(
@@ -891,7 +891,7 @@ class RequestHandler : public OperationHandler
         else if (status == "Success")
         {
             DebugTokenSpdmEndpoint* spdmEp =
-                dynamic_cast<DebugTokenSpdmEndpoint*>(ep.get());
+                static_cast<DebugTokenSpdmEndpoint*>(ep.get());
             crow::connections::systemBus->async_method_call(
                 [this, spdmEp](
                     const boost::system::error_code ec,
