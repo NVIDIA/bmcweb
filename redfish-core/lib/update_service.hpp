@@ -5184,18 +5184,15 @@ inline void
         std::string foundService;
         std::string foundPath;
 
-        for (const auto& obj : subtree)
+        if (subtree.size() == 1)
         {
-            if (obj.second.size() < 1)
+            const auto& obj = *subtree.begin();
+            if (!obj.second.empty())
             {
-                break;
+                foundService = obj.second[0].first;
+                foundPath = obj.first;
+                found = true;
             }
-
-            foundService = obj.second[0].first;
-            foundPath = obj.first;
-
-            found = true;
-            break;
         }
 
         if (found)
@@ -6166,18 +6163,15 @@ inline void initiateFirmwarePackage(
         std::string foundService;
         std::string foundPath;
 
-        for (const auto& obj : subtree)
+        if (subtree.size() == 1)
         {
-            if (obj.second.size() < 1)
+            const auto& obj = *subtree.begin();
+            if (!obj.second.empty())
             {
-                break;
+                found = true;
+                foundService = obj.second[0].first;
+                foundPath = obj.first;
             }
-
-            found = true;
-            foundService = obj.second[0].first;
-            foundPath = obj.first;
-
-            break;
         }
 
         if (found)
@@ -6455,8 +6449,11 @@ inline void handleUpdateServiceDeleteFirmwarePackage(
     // FwPackages has only one item
     if (strParam != "0")
     {
-        messages::resourceNotFound(asyncResp->res, "FirmwarePackages",
-                                   strParam);
+        if (asyncResp)
+        {
+            messages::resourceNotFound(asyncResp->res, "FirmwarePackages",
+                                       strParam);
+        }
         return;
     }
 
@@ -6500,18 +6497,15 @@ inline void handleUpdateServiceDeleteFirmwarePackage(
         std::string foundService;
         std::string foundPath;
 
-        for (const auto& obj : subtree)
+        if (subtree.size() == 1)
         {
-            if (obj.second.size() < 1)
+            const auto& obj = *subtree.begin();
+            if (!obj.second.empty())
             {
-                break;
+                foundService = obj.second[0].first;
+                foundPath = obj.first;
+                found = true;
             }
-
-            foundService = obj.second[0].first;
-            foundPath = obj.first;
-
-            found = true;
-            break;
         }
 
         if (found)
