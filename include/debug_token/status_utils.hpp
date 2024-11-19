@@ -383,8 +383,9 @@ struct VdmTokenStatus
 
     VdmResponseStatus responseStatus;
     std::optional<uint8_t> errorCode;
-    VdmTokenInstallationStatus tokenStatus;
-    VdmTokenFuseType fuseType;
+    VdmTokenInstallationStatus tokenStatus =
+        VdmTokenInstallationStatus::NOT_INSTALLED;
+    VdmTokenFuseType fuseType = VdmTokenFuseType::INVALID;
     std::vector<uint8_t> deviceId;
     std::optional<uint32_t> tokenType;
     std::optional<uint16_t> validityCounter;
