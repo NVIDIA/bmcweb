@@ -696,6 +696,9 @@ class Subscription : public persistent_data::UserSubscription
 
         if (client)
         {
+            boost::beast::http::fields httpHeadersCopy(httpHeaders);
+            httpHeaders.set(boost::beast::http::field::content_type,
+                            "application/json");
             client->sendData(std::move(msg), destinationUrl, httpHeaders,
                              boost::beast::http::verb::post);
             return true;
