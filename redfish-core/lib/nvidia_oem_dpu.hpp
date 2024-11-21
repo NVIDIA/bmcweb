@@ -59,7 +59,7 @@ static const std::string socForceResetTraget =
     "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
     "/Oem/Nvidia/SOC.ForceReset";
 
-static const char* oemFruService = "xyz.openbmc_project.Control.dpu_fru";
+static const char* oemFruService = "xyz.openbmc_project.DPU.Config_oem_fru";
 static const char* oemFruObj = "/xyz/openbmc_project/oem_fru";
 static const char* oemFruIntf = "xyz.openbmc_project.OemFruDevice";
 
@@ -1175,7 +1175,6 @@ inline void handleGetOemFru([[maybe_unused]] crow::App& app,
         {
             BMCWEB_LOG_ERROR(
                 "DBUS response error: Checking OEM FRU Enabled error{}", ec);
-            messages::internalError(asyncResp->res);
             return;
         }
         if (!enabled)
@@ -1195,7 +1194,6 @@ inline void handleGetOemFru([[maybe_unused]] crow::App& app,
                 BMCWEB_LOG_ERROR(
                     "DBUS response error: Get All OEM FRU Property error{}",
                     ec);
-                messages::internalError(asyncResp->res);
                 return;
             }
             const std::string* productManufacturer = nullptr;
