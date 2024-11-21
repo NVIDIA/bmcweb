@@ -4,6 +4,7 @@
 #include <climits>
 #include <cstddef>
 #include <cstdint>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -103,16 +104,69 @@ inline std::string vectorTo256BitHexString(const std::vector<uint8_t>& value)
     if (value.size() != 32)
     {
         BMCWEB_LOG_ERROR("vectorToHexString failed");
-        return "0x" + std::string(64, '0');
+        return "";
     }
 
     // Convert the vector to a hex string
+    bool allZero = true;
     std::stringstream ss;
     ss << "0x";
     for (const auto& byte : value)
     {
-        ss << std::hex << std::setw(2) << std::setfill('0')
-           << static_cast<int>(byte);
+        if (byte != 0)
+        {
+            allZero = false;
+            ss << std::hex << std::setw(2) << std::setfill('0')
+               << static_cast<int>(byte);
+        }
+    }
+    if (allZero)
+    {
+        return "0x00";
     }
     return ss.str();
+}
+
+inline std::vector<uint8_t>
+    stringNibbleToVector(const std::string& nibbleString)
+{
+    std::vector<uint8_t> result(32, 0); // Initialize with 32 zeros
+
+    // Validate input string
+    std::string processedString = nibbleString;
+
+    // Remove '0x' prefix if present
+    if (processedString.substr(0, 2) == "0x")
+    {
+        processedString = processedString.substr(2);
+    }
+
+    // Check for even length
+    if (processedString.length() % 2 != 0)
+    {
+        throw std::invalid_argument(
+            "Input string must have an even number of characters");
+    }
+
+    // Validate hexadecimal characters
+    std::regex hexRegex("^[0-9A-Fa-f]+$");
+    if (!std::regex_match(processedString, hexRegex))
+    {
+        throw std::invalid_argument(
+            "Input string contains invalid hexadecimal characters");
+    }
+
+    // Calculate how many bytes we can extract from the string
+    size_t bytesToProcess = std::min(processedString.length() / 2,
+                                     static_cast<size_t>(32));
+
+    // Process the validated string
+    for (size_t i = 0; i < bytesToProcess; ++i)
+    {
+        std::string byteString = processedString.substr(i * 2, 2);
+        result[31 - i] =
+            static_cast<uint8_t>(std::stoi(byteString, nullptr, 16));
+    }
+
+    return result;
 }

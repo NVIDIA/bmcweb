@@ -710,17 +710,29 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
         {
             return;
         }
-        std::optional<std::vector<uint8_t>> profileMask;
+        std::optional<std::string> profileMaskAsStr;
 
-        if (!redfish::json_util::readJsonAction(req, asyncResp->res,
-                                                "ProfileMask", profileMask))
+        if (!redfish::json_util::readJsonAction(
+                req, asyncResp->res, "ProfileMask", profileMaskAsStr))
         {
             return;
         }
-        if (profileMask)
+        if (profileMaskAsStr)
         {
-            postEnableWorkLoadPowerProfile(asyncResp, processorId,
-                                           *profileMask);
+            try
+            {
+                std::vector<uint8_t> profileMask =
+                    stringNibbleToVector(*profileMaskAsStr);
+                postEnableWorkLoadPowerProfile(asyncResp, processorId,
+                                               profileMask);
+            }
+            catch (const std::exception& /*e*/)
+            {
+                messages::actionParameterValueError(
+                    asyncResp->res, *profileMaskAsStr,
+                    "NvidiaWorkloadPower.EnableProfiles");
+                return;
+            }
         }
     });
 
@@ -771,17 +783,29 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
         {
             return;
         }
-        std::optional<std::vector<uint8_t>> profileMask;
 
-        if (!redfish::json_util::readJsonAction(req, asyncResp->res,
-                                                "ProfileMask", profileMask))
+        std::optional<std::string> profileMaskAsStr;
+        if (!redfish::json_util::readJsonAction(
+                req, asyncResp->res, "ProfileMask", profileMaskAsStr))
         {
             return;
         }
-        if (profileMask)
+        if (profileMaskAsStr)
         {
-            postDisableWorkLoadPowerProfile(asyncResp, processorId,
-                                            *profileMask);
+            try
+            {
+                std::vector<uint8_t> profileMask =
+                    stringNibbleToVector(*profileMaskAsStr);
+                postDisableWorkLoadPowerProfile(asyncResp, processorId,
+                                                profileMask);
+            }
+            catch (const std::exception& /*e*/)
+            {
+                messages::actionParameterValueError(
+                    asyncResp->res, *profileMaskAsStr,
+                    "NvidiaWorkloadPower.DisableProfiles");
+                return;
+            }
         }
     });
 
