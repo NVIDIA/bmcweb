@@ -631,11 +631,6 @@ inline void getPowerCap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
 
-        sdbusplus::message::object_path path(objPath);
-        const std::string name = path.filename();
-        asyncResp->res.jsonValue["PowerLimitWatts"]["DataSourceUri"] =
-            "/redfish/v1/Chassis/" + chassisID + "/Controls/" + name;
-
         for (const auto& element : objInfo)
         {
             crow::connections::systemBus->async_method_call(
