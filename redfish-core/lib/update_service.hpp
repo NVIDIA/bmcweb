@@ -892,7 +892,8 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                 // Read the version object's FilePath property which holds
                 // the local path used for the update procedure
                 crow::connections::systemBus->async_method_call(
-                    [req, asyncResp, fwFile, server, transferProtocol,
+                    [objInfo, objName, req, asyncResp, fwFile, server,
+                     transferProtocol,
                      username](const boost::system::error_code ecPath,
                                const std::variant<std::string>& property) {
                     if (ecPath)
@@ -916,6 +917,40 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                             "UpdateService.SimpleUpdate");
                         BMCWEB_LOG_ERROR("Null value returned for path");
                         return;
+                    }
+
+                    // For update traget path that need mouting, proxy interface
+                    // should be used Here we try to mount the proxy interface
+                    // Fortarget path that does not need mounting, exception and
+                    // we will continue
+                    try
+                    {
+                        auto method =
+                            crow::connections::systemBus->new_method_call(
+                                objInfo[0].first.data(), objName.data(),
+                                "xyz.openbmc_project.VirtualMedia.Proxy",
+                                "Mount");
+                        crow::connections::systemBus->call_noreply(method);
+                        BMCWEB_LOG_DEBUG("Mounting device");
+                    }
+                    catch (const sdbusplus::exception::SdBusError& ex)
+                    {
+                        if (std::string_view(
+                                "org.freedesktop.DBus.Error.UnknownMethod") !=
+                            std::string_view(ex.name()))
+                        {
+                            BMCWEB_LOG_ERROR("Mounting error");
+                        }
+                        else
+                        {
+                            // This is a normal case for traget path that
+                            // doesn't need any mounting
+                            BMCWEB_LOG_DEBUG("Continue without mounting");
+                        }
+                    }
+                    catch (...)
+                    {
+                        BMCWEB_LOG_ERROR("Mounting error");
                     }
 
                     // Check if local path exists
