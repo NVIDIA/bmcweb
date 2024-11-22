@@ -47,7 +47,7 @@ option(
     'vm-nbdproxy',
     type: 'feature',
     value: 'disabled',
-    description: 'Enable the Virtual Media WebSocket.'
+    description: 'Enable the Virtual Media WebSocket.',
 )
 
 option(
@@ -137,7 +137,7 @@ option(
     value: 'disabled',
     description: '''Enable NetIR debug dumps collection through Redfish.
                    Current devices supporting this feature are:
-		   NVSwitch and NVLinkManagementNIC''', 
+		   NVSwitch and NVLinkManagementNIC''',
 )
 
 option(
@@ -1023,14 +1023,14 @@ option(
     'command-nsm-command-raw',
     type: 'feature',
     value: 'disabled',
-    description: 'Enable/Disable NSM raw command'
+    description: 'Enable/Disable NSM raw command',
 )
 
 option(
     'oem-diagnostic-allowable-type',
-    type : 'array',
-    value : ['EROT', 'ROT', 'FirmwareAttributes'],
-    description : 'OEM diagnostic data allowable type'
+    type: 'array',
+    value: ['EROT', 'ROT', 'FirmwareAttributes'],
+    description: 'OEM diagnostic data allowable type',
 )
 
 option(
@@ -1038,4 +1038,12 @@ option(
     type: 'feature',
     value: 'enabled',
     description: 'Enable the check mechanism of OEM diagnostic data allowable type',
+)
+
+
+option(
+    'nsm-raw-command-enable',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable/Disable NSM raw command',
 )

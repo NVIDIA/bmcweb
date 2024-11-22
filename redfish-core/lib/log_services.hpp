@@ -5055,7 +5055,7 @@ inline void requestRoutesSystemDumpServiceActionInfo(App& app)
                 "DiagnosticType=Net_NVSwitch");
             OEMDiagnosticDataType_allowableValues.push_back(
                 "DiagnosticType=Net_NVLinkManagementNIC");
-        }			
+        }
         parameter_OEMDiagnosticDataType["AllowableValues"] =
             std::move(OEMDiagnosticDataType_allowableValues);
 
