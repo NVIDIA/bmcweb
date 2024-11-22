@@ -1616,8 +1616,8 @@ inline void requestRoutesSwitch(App& app)
         {
             return;
         }
-        if (std::optional<nlohmann::json> oemNvidiaObject;
-            oemObject &&
+        std::optional<nlohmann::json> oemNvidiaObject;
+        if (oemObject &&
             redfish::json_util::readJson(*oemObject, asyncResp->res, "Nvidia",
                                          oemNvidiaObject))
         {
@@ -1628,21 +1628,23 @@ inline void requestRoutesSwitch(App& app)
             {
                 if (isolationMode)
                 {
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
-                    redfish::nvidia_fabric_utils::getSwitchObject(
-                        asyncResp, fabricId, switchId,
-                        [isolationMode](
-                            const std::shared_ptr<bmcweb::AsyncResp>&
-                                asyncResp1,
-                            const std::string& fabricId1,
-                            const std::string& switchId1,
-                            const std::string& objectPath,
-                            const MapperServiceMap& serviceMap) {
-                        redfish::nvidia_fabric_utils::patchSwitchIsolationMode(
-                            asyncResp1, fabricId1, switchId1, *isolationMode,
-                            objectPath, serviceMap);
-                    });
-#endif
+                    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                    {
+                        redfish::nvidia_fabric_utils::getSwitchObject(
+                            asyncResp, fabricId, switchId,
+                            [isolationMode](
+                                const std::shared_ptr<bmcweb::AsyncResp>&
+                                    asyncResp1,
+                                const std::string& fabricId1,
+                                const std::string& switchId1,
+                                const std::string& objectPath,
+                                const MapperServiceMap& serviceMap) {
+                            redfish::nvidia_fabric_utils::
+                                patchSwitchIsolationMode(
+                                    asyncResp1, fabricId1, switchId1,
+                                    *isolationMode, objectPath, serviceMap);
+                        });
+                    }
                 }
             }
         }
