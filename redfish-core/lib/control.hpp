@@ -25,6 +25,7 @@
 #include <utils/chassis_utils.hpp>
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_async_set_utils.hpp>
+#include <utils/nvidia_chassis_util.hpp>
 #include <utils/nvidia_control_utils.hpp>
 
 namespace redfish
@@ -483,10 +484,10 @@ inline void
                     {
                         return;
                     }
-                    relatedItemsArray.push_back(
-                        {{"@odata.id", "/redfish/v1/Chassis/" + chassisName}});
-                    redfish::nvidia_control_utils::
-                        getControlSettingRelatedItems(asyncResp, chassisPath);
+                    redfish::nvidia_chassis_utils::getChassisRelatedItem(
+                        asyncResp, objectPath, chassisName,
+                        redfish::nvidia_control_utils::
+                            getControlSettingRelatedItems);
                 }
             },
                 "xyz.openbmc_project.ObjectMapper", path + "/chassis",

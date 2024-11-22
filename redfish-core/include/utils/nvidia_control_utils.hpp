@@ -532,48 +532,11 @@ inline void
 
 inline void getControlSettingRelatedItems(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisPath)
+    const sdbusplus::message::object_path& chassisPath)
 {
-    // Get the Processors Associations to cover all processors'
-    // cases, If the object has `all_processors`, need to check
-    // the further endpoint under the all_processors, which is
-    // the actual processor
     nlohmann::json& relatedItemsArray = asyncResp->res.jsonValue["RelatedItem"];
-    relatedItemsArray = nlohmann::json::array();
-    sdbusplus::asio::getProperty<std::vector<std::string>>(
-        *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
-        chassisPath + "/all_processors", "xyz.openbmc_project.Association",
-        "endpoints",
-        [asyncResp, chassisPath,
-         &relatedItemsArray](const boost::system::error_code ec,
-                             const std::vector<std::string>& resp) {
-        std::string getObjectPath;
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("DBUS response error");
-            getObjectPath = chassisPath;
-        }
-        else
-        {
-            getObjectPath = resp.front();
-        }
-
-        sdbusplus::message::object_path objectPath(getObjectPath);
-        std::string chassisName = objectPath.filename();
-        if (chassisName.empty())
-        {
-            return;
-        }
-        std::string chassisLink = "/redfish/v1/Chassis/" + chassisName;
-        // Only add chassisLink if it doesn't already exist
-        if (std::find_if(relatedItemsArray.begin(), relatedItemsArray.end(),
-                         [&chassisLink](const nlohmann::json& item) {
-            return item["@odata.id"] == chassisLink;
-        }) == relatedItemsArray.end())
-        {
-            relatedItemsArray.push_back({{"@odata.id", chassisLink}});
-        }
-    });
+    relatedItemsArray.push_back(
+        {{"@odata.id", "/redfish/v1/Chassis/" + chassisPath.filename()}});
 }
 
 inline void
