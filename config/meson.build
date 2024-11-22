@@ -133,6 +133,7 @@ feature_options = [
     'kvm',
     'meta-tls-common-name-parsing',
     'mutual-tls-auth',
+    'nsm-raw-command-enable',
     'nvidia-oem-openocd',
     'redfish-aggregation',
     'redfish-allow-deprecated-power-thermal',

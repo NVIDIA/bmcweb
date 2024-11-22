@@ -1,3 +1,20 @@
+/*
+// Copyright (c) 2018 Intel Corporation
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+*/
+#pragma once
+#include "nsm_cmd_support.hpp"
 #include "utils/time_utils.hpp"
 
 #include <async_resp.hpp>
@@ -380,6 +397,86 @@ inline void
         }
     },
         connectionName, path, "org.freedesktop.DBus.Properties", "GetAll", "");
+}
+
+inline void
+    getNSMRawCommandActions(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
+{
+    auto& oemNsmRawCommand =
+        asyncResp->res
+            .jsonValue["Actions"]["Oem"]["#NvidiaManager.NSMRawCommand"];
+    oemNsmRawCommand["target"] = boost::urls::format(
+        "/redfish/v1/Managers/{}/Actions/Oem/NvidiaManager.NSMRawCommand",
+        std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
+    oemNsmRawCommand["@Redfish.ActionInfo"] = boost::urls::format(
+        "/redfish/v1/Managers/{}/Oem/Nvidia/NSMRawCommandActionInfo",
+        std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
+}
+
+inline void requestRouteNSMRawCommand(App& app)
+{
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Managers/<str>/Actions/Oem/NvidiaManager.NSMRawCommand/")
+        .privileges(redfish::privileges::postManager)
+        .methods(boost::beast::http::verb::post)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& bmcId) {
+        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        {
+            BMCWEB_LOG_ERROR("Failed to set up Redfish route.");
+            return;
+        }
+
+        if (bmcId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res,
+                                       "#Manager.v1_11_0.Manager", bmcId);
+            return;
+        }
+
+        uint8_t deviceIdentificationId = 0, deviceInstanceId = 0,
+                messageType = 0, commandCode = 0;
+        uint16_t dataSizeInBytes = 0;
+        bool isLongRunning = false;
+        std::vector<uint8_t> data;
+
+        if (nsm_command_support::parseRequestJson(
+                req, asyncResp, commandCode, deviceIdentificationId,
+                deviceInstanceId, messageType, isLongRunning, dataSizeInBytes,
+                data))
+        {
+            nsm_command_support::callSendRequest(
+                asyncResp, deviceIdentificationId, deviceInstanceId,
+                isLongRunning, messageType, commandCode, data);
+        }
+    });
+}
+
+inline void requestRouteNSMRawCommandActionInfo(App& app)
+{
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Managers/<str>/Oem/Nvidia/NSMRawCommandActionInfo/")
+        .privileges(redfish::privileges::getManager)
+        .methods(boost::beast::http::verb::get)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& bmcId) {
+        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        {
+            return;
+        }
+
+        if (bmcId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res,
+                                       "#Manager.v1_11_0.Manager", bmcId);
+            return;
+        }
+
+        nsm_command_support::actionInfoResponse(asyncResp, bmcId);
+    });
 }
 
 } // namespace nvidia_manager_util

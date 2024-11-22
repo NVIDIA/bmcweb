@@ -318,6 +318,11 @@ RedfishService::RedfishService(App& app)
         requestRoutesNvidiaAsyncOOBRawCommandActionInfo(app);
         requestRoutesNvidiaSyncOOBRawCommandActionInfo(app);
 #endif // BMCWEB_COMMAND_SMBPBI_OOB
+        if constexpr (BMCWEB_NSM_RAW_COMMAND_ENABLE)
+        {
+            nvidia_manager_util::requestRouteNSMRawCommand(app);
+            nvidia_manager_util::requestRouteNSMRawCommandActionInfo(app);
+        }
     }
 
     requestRoutesProcessorPortCollection(app);

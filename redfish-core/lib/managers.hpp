@@ -3619,28 +3619,30 @@ inline void requestRoutesManager(App& app)
                 asyncResp->res.jsonValue["Actions"]["Oem"];
 
 #ifdef BMCWEB_COMMAND_SMBPBI_OOB
-            nlohmann::json& oemActionsNvidia = oemActions["Nvidia"];
-
-            oemActionsNvidia["#NvidiaManager.SyncOOBRawCommand"]["target"] =
+            oemActions["#NvidiaManager.SyncOOBRawCommand"]["target"] =
                 "/redfish/v1/Managers/" +
                 std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                 "/Actions/Oem/NvidiaManager.SyncOOBRawCommand";
-            oemActionsNvidia["#NvidiaManager.SyncOOBRawCommand"]
-                            ["@Redfish.ActionInfo"] =
-                                "/redfish/v1/Managers/" +
-                                std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                                "/Oem/Nvidia/SyncOOBRawCommandActionInfo";
+            oemActions["#NvidiaManager.SyncOOBRawCommand"]
+                      ["@Redfish.ActionInfo"] =
+                          "/redfish/v1/Managers/" +
+                          std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                          "/Oem/Nvidia/SyncOOBRawCommandActionInfo";
 
-            oemActionsNvidia["#NvidiaManager.AsyncOOBRawCommand"]["target"] =
+            oemActions["#NvidiaManager.AsyncOOBRawCommand"]["target"] =
                 "/redfish/v1/Managers/" +
                 std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                 "/Actions/Oem/NvidiaManager.AsyncOOBRawCommand";
-            oemActionsNvidia["#NvidiaManager.AsyncOOBRawCommand"]
-                            ["@Redfish.ActionInfo"] =
-                                "/redfish/v1/Managers/" +
-                                std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                                "/Oem/Nvidia/AsyncOOBRawCommandActionInfo";
+            oemActions["#NvidiaManager.AsyncOOBRawCommand"]
+                      ["@Redfish.ActionInfo"] =
+                          "/redfish/v1/Managers/" +
+                          std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                          "/Oem/Nvidia/AsyncOOBRawCommandActionInfo";
 #endif // BMCWEB_COMMAND_SMBPBI_OOB
+            if constexpr (BMCWEB_NSM_RAW_COMMAND_ENABLE)
+            {
+                nvidia_manager_util::getNSMRawCommandActions(asyncResp);
+            }
 
             oemActions["#eMMC.SecureErase"]["target"] =
                 "/redfish/v1/Managers/" +
