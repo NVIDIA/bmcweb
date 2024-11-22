@@ -658,8 +658,9 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
             if (json_util::readJson(*powerLimit, asyncResp->res, "SetPoint",
                                     setPoint))
             {
-                const std::array<const char*, 1> interfaces = {
-                    "xyz.openbmc_project.Control.Power.Cap"};
+                const std::array<const char*, 2> interfaces = {
+                    "xyz.openbmc_project.Inventory.Item.Cpu",
+                    "xyz.openbmc_project.Inventory.Item.Accelerator"};
 
                 bool persistency = false;
                 if (powerLimitPersistency)
@@ -700,11 +701,56 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
                             BMCWEB_LOG_ERROR("Got 0 Connection names");
                             continue;
                         }
-                        std::string resourceType = "Processors";
-                        redfish::nvidia_env_utils::patchPowerLimit(
-                            asyncResp, processorId, *setPoint, objPath,
-                            resourceType, persistency);
+                        const std::vector<std::string>& interfaces =
+                            connectionNames[0].second;
 
+                        if (std::find(
+                                interfaces.begin(), interfaces.end(),
+                                "xyz.openbmc_project.Inventory.Item.Accelerator") !=
+                            interfaces.end())
+                        {
+                            std::string resourceType = "Processors";
+                            redfish::nvidia_env_utils::patchPowerLimit(
+                                asyncResp, processorId, *setPoint, objPath,
+                                resourceType, persistency);
+                        }
+                        else if (
+                            std::find(
+                                interfaces.begin(), interfaces.end(),
+                                "xyz.openbmc_project.Inventory.Item.Cpu") !=
+                            interfaces.end())
+                        {
+                            crow::connections::systemBus->async_method_call(
+                                [asyncResp, processorId, setPoint](
+                                    const boost::system::error_code& e,
+                                    std::variant<std::vector<std::string>>&
+                                        resp) {
+                                if (e)
+                                {
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                std::vector<std::string>* data =
+                                    std::get_if<std::vector<std::string>>(
+                                        &resp);
+                                if (data == nullptr)
+                                {
+                                    return;
+                                }
+                                for (const std::string& ctrlPath : *data)
+                                {
+                                    std::string resourceType = "Cpu";
+                                    redfish::nvidia_env_utils::patchPowerLimit(
+                                        asyncResp, processorId, *setPoint,
+                                        ctrlPath, resourceType);
+                                }
+                            },
+                                "xyz.openbmc_project.ObjectMapper",
+                                path + "/power_controls",
+                                "org.freedesktop.DBus.Properties", "Get",
+                                "xyz.openbmc_project.Association", "endpoints");
+                            return;
+                        }
                         return;
                     }
 
