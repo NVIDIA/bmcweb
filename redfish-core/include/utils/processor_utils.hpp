@@ -16,6 +16,8 @@
  */
 #pragma once
 
+#include <utils/nvidia_utils.hpp>
+
 namespace redfish
 {
 
@@ -164,91 +166,95 @@ inline void getPCIeErrorData(std::shared_ptr<bmcweb::AsyncResp> aResp,
         {
             if (property.first == "ceCount")
             {
-                const int64_t* value = std::get_if<int64_t>(&property.second);
+                const double* value = std::get_if<double>(&property.second);
                 if (value == nullptr)
                 {
                     messages::internalError(aResp->res);
                     return;
                 }
                 aResp->res.jsonValue["PCIeErrors"]["CorrectableErrorCount"] =
-                    *value;
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
             }
             else if (property.first == "nonfeCount")
             {
-                const int64_t* value = std::get_if<int64_t>(&property.second);
+                const double* value = std::get_if<double>(&property.second);
                 if (value == nullptr)
                 {
                     messages::internalError(aResp->res);
                     return;
                 }
                 aResp->res.jsonValue["PCIeErrors"]["NonFatalErrorCount"] =
-                    *value;
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
             }
             else if (property.first == "feCount")
             {
-                const int64_t* value = std::get_if<int64_t>(&property.second);
+                const double* value = std::get_if<double>(&property.second);
                 if (value == nullptr)
                 {
                     messages::internalError(aResp->res);
                     return;
                 }
-                aResp->res.jsonValue["PCIeErrors"]["FatalErrorCount"] = *value;
+                aResp->res.jsonValue["PCIeErrors"]["FatalErrorCount"] =
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
             }
             else if (property.first == "L0ToRecoveryCount")
             {
-                const int64_t* value = std::get_if<int64_t>(&property.second);
+                const double* value = std::get_if<double>(&property.second);
                 if (value == nullptr)
                 {
                     messages::internalError(aResp->res);
                     return;
                 }
                 aResp->res.jsonValue["PCIeErrors"]["L0ToRecoveryCount"] =
-                    *value;
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
             }
             else if (property.first == "ReplayCount")
             {
-                const int64_t* value = std::get_if<int64_t>(&property.second);
+                const double* value = std::get_if<double>(&property.second);
                 if (value == nullptr)
                 {
                     messages::internalError(aResp->res);
                     return;
                 }
-                aResp->res.jsonValue["PCIeErrors"]["ReplayCount"] = *value;
+                aResp->res.jsonValue["PCIeErrors"]["ReplayCount"] =
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
             }
             else if (property.first == "ReplayRolloverCount")
             {
-                const int64_t* value = std::get_if<int64_t>(&property.second);
+                const double* value = std::get_if<double>(&property.second);
                 if (value == nullptr)
                 {
                     messages::internalError(aResp->res);
                     return;
                 }
                 aResp->res.jsonValue["PCIeErrors"]["ReplayRolloverCount"] =
-                    *value;
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
             }
             else if (property.first == "NAKSentCount")
             {
-                const int64_t* value = std::get_if<int64_t>(&property.second);
+                const double* value = std::get_if<double>(&property.second);
                 if (value == nullptr)
                 {
                     messages::internalError(aResp->res);
                     return;
                 }
-                aResp->res.jsonValue["PCIeErrors"]["NAKSentCount"] = *value;
+                aResp->res.jsonValue["PCIeErrors"]["NAKSentCount"] =
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
             }
             else if (property.first == "NAKReceivedCount")
             {
-                const int64_t* value = std::get_if<int64_t>(&property.second);
+                const double* value = std::get_if<double>(&property.second);
                 if (value == nullptr)
                 {
                     messages::internalError(aResp->res);
                     return;
                 }
-                aResp->res.jsonValue["PCIeErrors"]["NAKReceivedCount"] = *value;
+                aResp->res.jsonValue["PCIeErrors"]["NAKReceivedCount"] =
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
             }
             else if (property.first == "UnsupportedRequestCount")
             {
-                const int64_t* value = std::get_if<int64_t>(&property.second);
+                const double* value = std::get_if<double>(&property.second);
                 if (value == nullptr)
                 {
                     BMCWEB_LOG_ERROR("Invalid Data Type");
@@ -256,7 +262,7 @@ inline void getPCIeErrorData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     return;
                 }
                 aResp->res.jsonValue["PCIeErrors"]["UnsupportedRequestCount"] =
-                    *value;
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
             }
         }
     },

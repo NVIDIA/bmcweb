@@ -23,6 +23,7 @@
 #include <utils/chassis_utils.hpp>
 #include <utils/collection.hpp>
 #include <utils/json_utils.hpp>
+#include <utils/nvidia_utils.hpp>
 #include <utils/port_utils.hpp>
 
 #include <map>
@@ -1652,7 +1653,7 @@ inline void
                     const auto propertyName = fixedPropertyName
                                                   ? *fixedPropertyName
                                                   : pdiPropertyName;
-                    const auto* value = std::get_if<int64_t>(&property.second);
+                    const auto* value = std::get_if<double>(&property.second);
                     if (value == nullptr)
                     {
                         BMCWEB_LOG_ERROR("Null value returned for {}",
@@ -1661,7 +1662,7 @@ inline void
                         return;
                     }
                     asyncResp->res.jsonValue["PCIeErrors"][propertyName] =
-                        *value;
+                        nvidia::nsm_utils::tryConvertToInt64(*value);
                 }
             }
         }
