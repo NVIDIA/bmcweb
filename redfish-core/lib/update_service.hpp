@@ -4479,8 +4479,11 @@ inline void requestRoutesSoftwareInventory(App& app)
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
-                            asyncResp->res.jsonValue["SoftwareId"] =
-                                *softwareId;
+                            if (!softwareId->empty())
+                            {
+                                asyncResp->res.jsonValue["SoftwareId"] =
+                                    *softwareId;
+                            }
                         }
 
                         asyncResp->res.jsonValue["Version"] = *version;

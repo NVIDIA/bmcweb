@@ -1450,7 +1450,7 @@ inline void handleChassisGetAllProperties(
         asyncResp->res.jsonValue["SparePartNumber"] = *sparePartNumber;
     }
 
-    if (sku != nullptr)
+    if (sku != nullptr && !sku->empty())
     {
         asyncResp->res.jsonValue["SKU"] = *sku;
     }
