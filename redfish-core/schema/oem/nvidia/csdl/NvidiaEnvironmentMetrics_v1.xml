@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaEnvironmentMetrics  v1.2.0                                -->
+<!--# Redfish OEM Schema:  NvidiaEnvironmentMetrics  v1.3.0                                -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2024 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -96,7 +96,22 @@
         <Property Name="PowerLimitPersistency" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="Indicates whether a client can set the persistence of the desired power limit control value."/>
-          <Annotation Term="OData.LongDescription" String="This property shall indicate whether a client can set the persistence of the desired power limit control value, where a value `true` shall indicate that the power limit control value will be persistent over subsequent resets.  Use this property with a PATCH to write the SetPoint value in the PowerLimitWatts object.  This property is `null` in responses."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether a client can set the persistence of the desired power limit control value, where a value `true` shall indicate that the power limit control value will be persistent over subsequent resets.  Use this property with a PATCH to write the SetPoint value in the PowerLimitWatts object."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaEnvironmentMetrics.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaEnvironmentMetrics" BaseType="NvidiaEnvironmentMetrics.v1_2_0.NvidiaEnvironmentMetrics">
+        <Property Name="RequestedPersistentPowerLimitWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The persistent power limit requested by the client, in watt units."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the persistent power limit requested by the client, in watt units.  If no power limit request has been previously submitted, the value is `null` in responses."/>
+        </Property>
+        <Property Name="RequestedOneshotPowerLimitWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The one-shot power limit requested by the client, in watt units."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the one-shot power limit requested by the client, in watt units.  If no power limit request has been previously submitted, the value is `null` in responses."/>
         </Property>
       </ComplexType>
     </Schema>

@@ -412,7 +412,7 @@
           <Annotation Term="OData.Description" String="Fabric Manager init is done, waiting for Subnet Manager to finish init."/>
         </Member>
         <Member Name="Configured">
-          <Annotation Term="OData.Description" String="Fabric Manager and Subnet Manager init in done."/>
+          <Annotation Term="OData.Description" String="Fabric Manager and Subnet Manager init are complete."/>
         </Member>
         <Member Name="Error">
           <Annotation Term="OData.Description" String="Error occurs in Fabric Manager or Subnet Manager."/>
@@ -423,13 +423,13 @@
       </EnumType>
       <EnumType Name="ReportStatus">
         <Member Name="Pending">
-          <Annotation Term="OData.Description" String="Report didn't received yet."/>
+          <Annotation Term="OData.Description" String="The report has not been received."/>
         </Member>
         <Member Name="Received">
-          <Annotation Term="OData.Description" String="Report received."/>
+          <Annotation Term="OData.Description" String="The report has been received."/>
         </Member>
         <Member Name="Timeout">
-          <Annotation Term="OData.Description" String="Report timeout."/>
+          <Annotation Term="OData.Description" String="The report has timed out."/>
         </Member>
         <Member Name="Unknown">
           <Annotation Term="OData.Description" String="An unknown state."/>
