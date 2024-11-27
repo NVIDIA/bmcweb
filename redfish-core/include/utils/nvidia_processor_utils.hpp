@@ -2103,7 +2103,7 @@ inline void
                 messages::internalError(aResp->res);
                 return;
             }
-            json["Oem"]["Nvidia"]["EGMModeEnabled"] = nullptr;
+            json["Oem"]["Nvidia"]["EGMModeEnabled"] = *egmModeEnabled;
         }
     }
 
