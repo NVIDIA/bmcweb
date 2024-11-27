@@ -661,6 +661,210 @@ inline std::optional<boost::urls::url>
     return *url;
 }
 
+struct SimpleUpdateParams
+{
+    std::string remoteServerIP;
+    std::string fwImagePath;
+    std::string transferProtocol;
+    std::optional<std::string> username;
+};
+
+inline void
+    downloadViaSCP(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::shared_ptr<const SimpleUpdateParams>& params,
+                   const std::string& targetPath)
+{
+    BMCWEB_LOG_DEBUG("Downloading from {}:{} to {} using {} protocol...",
+                     params->remoteServerIP, params->fwImagePath, targetPath,
+                     params->transferProtocol);
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code ec) {
+        if (ec)
+        {
+            messages::internalError(asyncResp->res);
+            BMCWEB_LOG_ERROR("error_code = {}, error msg = {}", ec,
+                             ec.message());
+        }
+        else
+        {
+            BMCWEB_LOG_DEBUG("Call to DownloadViaSCP Success");
+        }
+    },
+        "xyz.openbmc_project.Software.Download",
+        "/xyz/openbmc_project/software", "xyz.openbmc_project.Common.SCP",
+        "DownloadViaSCP", params->remoteServerIP, (params->username).value(),
+        params->fwImagePath, targetPath);
+}
+
+inline void
+    downloadViaHTTP(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                    const std::shared_ptr<const SimpleUpdateParams>& params,
+                    const std::string& targetPath)
+{
+    BMCWEB_LOG_DEBUG("Downloading from {}:{} to {} using {} protocol...",
+                     params->remoteServerIP, params->fwImagePath, targetPath,
+                     params->transferProtocol);
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code ec) {
+        if (ec)
+        {
+            messages::internalError(asyncResp->res);
+            BMCWEB_LOG_ERROR("error_code = {}, error msg = {}", ec,
+                             ec.message());
+        }
+        else
+        {
+            BMCWEB_LOG_DEBUG("Call to DownloadViaHTTP Success");
+        }
+    },
+        "xyz.openbmc_project.Software.Download",
+        "/xyz/openbmc_project/software", "xyz.openbmc_project.Common.HTTP",
+        "DownloadViaHTTP", params->remoteServerIP,
+        (params->transferProtocol == "HTTPS"), params->fwImagePath, targetPath);
+}
+
+inline void mountTargetPath(const std::string& serviceName,
+                            const std::string& objPath)
+{
+    // For update target path that needs mouting, proxy interface should be used
+    // Here we try to mount the proxy interface
+    // For target path that does not need mounting, catch exception and continue
+    try
+    {
+        auto method = crow::connections::systemBus->new_method_call(
+            serviceName.data(), objPath.data(),
+            "xyz.openbmc_project.VirtualMedia.Proxy", "Mount");
+        crow::connections::systemBus->call_noreply(method);
+        BMCWEB_LOG_DEBUG("Mounting device");
+    }
+    catch (const sdbusplus::exception::SdBusError& ex)
+    {
+        if (std::string_view("org.freedesktop.DBus.Error.UnknownMethod") !=
+            std::string_view(ex.name()))
+        {
+            BMCWEB_LOG_ERROR("Mounting error");
+        }
+        else
+        {
+            // This is a normal case for target path that doesn't need
+            // any mounting
+            BMCWEB_LOG_DEBUG("Continue without mounting");
+        }
+    }
+    catch (...)
+    {
+        BMCWEB_LOG_ERROR("Mounting error");
+    }
+}
+
+inline void downloadFirmwareImageToTarget(
+    const std::shared_ptr<const crow::Request>& request,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::shared_ptr<const SimpleUpdateParams>& params,
+    const std::string& service, const std::string& objPath)
+{
+    mountTargetPath(service, objPath);
+    BMCWEB_LOG_DEBUG(
+        "Getting value of Path property for service {} and object path {}...",
+        service, objPath);
+    crow::connections::systemBus->async_method_call(
+        [request, asyncResp,
+         params](const boost::system::error_code ec,
+                 const std::variant<std::string>& property) {
+        if (ec)
+        {
+            messages::actionParameterNotSupported(asyncResp->res, "Targets",
+                                                  "UpdateService.SimpleUpdate");
+            BMCWEB_LOG_ERROR("Failed to read the path property of Target");
+            BMCWEB_LOG_ERROR("error_code = {}, error msg = {}", ec,
+                             ec.message());
+            return;
+        }
+
+        const std::string* targetPath = std::get_if<std::string>(&property);
+
+        if (targetPath == nullptr)
+        {
+            messages::actionParameterNotSupported(asyncResp->res, "Targets",
+                                                  "UpdateService.SimpleUpdate");
+            BMCWEB_LOG_ERROR("Null value returned for path");
+            return;
+        }
+
+        BMCWEB_LOG_DEBUG("Path property: {}", *targetPath);
+
+        // Check if local path exists
+        if (!fs::exists(*targetPath))
+        {
+            messages::resourceNotFound(asyncResp->res, "Targets", *targetPath);
+            BMCWEB_LOG_ERROR("Path does not exist");
+            return;
+        }
+
+        // Setup callback for when new software detected
+        // Give SCP 10 minutes to detect new software
+        monitorForSoftwareAvailable(asyncResp, *request, 600);
+
+        if (params->transferProtocol == "SCP")
+        {
+            downloadViaSCP(asyncResp, params, *targetPath);
+        }
+        else if ((params->transferProtocol == "HTTP") ||
+                 (params->transferProtocol == "HTTPS"))
+        {
+            downloadViaHTTP(asyncResp, params, *targetPath);
+        }
+    },
+        service, objPath, "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Common.FilePath", "Path");
+}
+
+inline void findAssociatedUpdaterService(
+    const std::shared_ptr<const crow::Request>& request,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::shared_ptr<const SimpleUpdateParams>& params,
+    const std::string& fwItemObjPath)
+{
+    BMCWEB_LOG_DEBUG("Searching for updater service associated with {}...",
+                     fwItemObjPath);
+    crow::connections::systemBus->async_method_call(
+        [request, asyncResp, params,
+         fwItemObjPath](const boost::system::error_code ec,
+                        const MapperServiceMap& objInfo) {
+        if (ec)
+        {
+            messages::actionParameterNotSupported(asyncResp->res, "Targets",
+                                                  "UpdateService.SimpleUpdate");
+            BMCWEB_LOG_ERROR("Request incorrect target URI parameter: {}",
+                             fwItemObjPath);
+            BMCWEB_LOG_ERROR("error_code = {}, error msg = {}", ec,
+                             ec.message());
+            return;
+        }
+        // Ensure we only got one service back
+        if (objInfo.size() != 1)
+        {
+            messages::internalError(asyncResp->res);
+            BMCWEB_LOG_ERROR("Invalid Object Size {}", objInfo.size());
+            return;
+        }
+        const std::string& serviceName = objInfo[0].first;
+        BMCWEB_LOG_DEBUG("Found service {}", serviceName);
+        downloadFirmwareImageToTarget(request, asyncResp, params, serviceName,
+                                      fwItemObjPath);
+    },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetObject", fwItemObjPath,
+        std::array<const char*, 2>{"xyz.openbmc_project.Software.Version",
+                                   "xyz.openbmc_project.Common.FilePath"});
+}
+
+inline bool isProtocolScpOrHttp(const std::string& protocol)
+{
+    return protocol == "SCP" || protocol == "HTTP" || protocol == "HTTPS";
+}
+
 /**
  * UpdateServiceActionsSimpleUpdate class supports handle POST method for
  * SimpleUpdate action.
@@ -691,11 +895,10 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
         // TransferProtocol:TFTP ImageURI:1.1.1.1/myfile.bin 2)
         // ImageURI:tftp://1.1.1.1/myfile.bin
 
-        if (!json_util::readJsonAction(req, asyncResp->res, "TransferProtocol",
-                                       transferProtocol, "ImageURI", imageURI,
-                                       "Targets", targets, "Username",
-                                       username) &&
-            imageURI.empty())
+        bool success = json_util::readJsonAction(
+            req, asyncResp->res, "TransferProtocol", transferProtocol,
+            "ImageURI", imageURI, "Targets", targets, "Username", username);
+        if (!success && imageURI.empty())
         {
             messages::createFailedMissingReqProperties(asyncResp->res,
                                                        "ImageURI");
@@ -745,9 +948,10 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
         supportedProtocols.push_back("HTTPS");
 #endif
 
-        // OpenBMC currently only supports TFTP and SCP
-        if (std::find(supportedProtocols.begin(), supportedProtocols.end(),
-                      *transferProtocol) == supportedProtocols.end())
+        auto searchProtocol = std::find(supportedProtocols.begin(),
+                                        supportedProtocols.end(),
+                                        *transferProtocol);
+        if (searchProtocol == supportedProtocols.end())
         {
             messages::actionParameterNotSupported(asyncResp->res,
                                                   "TransferProtocol",
@@ -757,8 +961,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
             return;
         }
 
-        if ((*transferProtocol == "SCP") || (*transferProtocol == "HTTP") ||
-            (*transferProtocol == "HTTPS"))
+        if (isProtocolScpOrHttp(*transferProtocol))
         {
             if (!targets.has_value())
             {
@@ -846,9 +1049,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                 "xyz.openbmc_project.Common.TFTP", "DownloadViaTFTP", fwFile,
                 server);
         }
-        else if ((*transferProtocol == "SCP") ||
-                 (*transferProtocol == "HTTP") ||
-                 (*transferProtocol == "HTTPS"))
+        else if (isProtocolScpOrHttp(*transferProtocol))
         {
             // Take the first target as only one target is supported
             std::string targetURI = targets.value()[0];
@@ -862,173 +1063,17 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
             }
             std::string objName = "/xyz/openbmc_project/software/" +
                                   targetURI.substr(firmwarePrefix.length());
-
+            BMCWEB_LOG_INFO("Object path: {}", objName);
+            // pack SimpleUpdate parameters in shared pointer to allow safe
+            // usage during the sequence of asynchronous method calls.
+            const auto params = std::make_shared<const SimpleUpdateParams>(
+                server, fwFile, *transferProtocol, username);
+            // wrap crow::Request in a shared pointer to pass securely to
+            // asynchronous method calls.
+            const auto sharedReq = std::make_shared<const crow::Request>(req);
             // Search for the version object related to the given target URI
-            crow::connections::systemBus->async_method_call(
-                [req, asyncResp, objName, fwFile, server, transferProtocol,
-                 username](
-                    const boost::system::error_code ec,
-                    const std::vector<std::pair<
-                        std::string, std::vector<std::string>>>& objInfo) {
-                if (ec)
-                {
-                    messages::actionParameterNotSupported(
-                        asyncResp->res, "Targets",
-                        "UpdateService.SimpleUpdate");
-                    BMCWEB_LOG_ERROR(
-                        "Request incorrect target URI parameter: {}", objName);
-                    BMCWEB_LOG_ERROR("error_code = {} error msg = {}", ec,
-                                     ec.message());
-                    return;
-                }
-                // Ensure we only got one service back
-                if (objInfo.size() != 1)
-                {
-                    messages::internalError(asyncResp->res);
-                    BMCWEB_LOG_ERROR("Invalid Object Size {}", objInfo.size());
-                    return;
-                }
-
-                // Read the version object's FilePath property which holds
-                // the local path used for the update procedure
-                crow::connections::systemBus->async_method_call(
-                    [objInfo, objName, req, asyncResp, fwFile, server,
-                     transferProtocol,
-                     username](const boost::system::error_code ecPath,
-                               const std::variant<std::string>& property) {
-                    if (ecPath)
-                    {
-                        messages::actionParameterNotSupported(
-                            asyncResp->res, "Targets",
-                            "UpdateService.SimpleUpdate");
-                        BMCWEB_LOG_ERROR(
-                            "Failed to read the path property of Target");
-                        BMCWEB_LOG_ERROR("error_code = {} error msg = {}",
-                                         ecPath, ecPath.message());
-                        return;
-                    }
-
-                    const std::string* targetPath =
-                        std::get_if<std::string>(&property);
-                    if (targetPath == nullptr)
-                    {
-                        messages::actionParameterNotSupported(
-                            asyncResp->res, "Targets",
-                            "UpdateService.SimpleUpdate");
-                        BMCWEB_LOG_ERROR("Null value returned for path");
-                        return;
-                    }
-
-                    // For update traget path that need mouting, proxy interface
-                    // should be used Here we try to mount the proxy interface
-                    // Fortarget path that does not need mounting, exception and
-                    // we will continue
-                    try
-                    {
-                        auto method =
-                            crow::connections::systemBus->new_method_call(
-                                objInfo[0].first.data(), objName.data(),
-                                "xyz.openbmc_project.VirtualMedia.Proxy",
-                                "Mount");
-                        crow::connections::systemBus->call_noreply(method);
-                        BMCWEB_LOG_DEBUG("Mounting device");
-                    }
-                    catch (const sdbusplus::exception::SdBusError& ex)
-                    {
-                        if (std::string_view(
-                                "org.freedesktop.DBus.Error.UnknownMethod") !=
-                            std::string_view(ex.name()))
-                        {
-                            BMCWEB_LOG_ERROR("Mounting error");
-                        }
-                        else
-                        {
-                            // This is a normal case for traget path that
-                            // doesn't need any mounting
-                            BMCWEB_LOG_DEBUG("Continue without mounting");
-                        }
-                    }
-                    catch (...)
-                    {
-                        BMCWEB_LOG_ERROR("Mounting error");
-                    }
-
-                    // Check if local path exists
-                    if (!fs::exists(*targetPath))
-                    {
-                        messages::resourceNotFound(asyncResp->res, "Targets",
-                                                   *targetPath);
-                        BMCWEB_LOG_ERROR("Path does not exist");
-                        return;
-                    }
-
-                    // Setup callback for when new software detected
-                    // Give SCP 10 minutes to detect new software
-                    monitorForSoftwareAvailable(asyncResp, req, 600);
-
-                    if (*transferProtocol == "SCP")
-                    {
-                        // Call SCP service. As passwordless authentication is
-                        // used, user password is not necessary
-                        crow::connections::systemBus->async_method_call(
-                            [asyncResp](const boost::system::error_code ecSCP) {
-                            if (ecSCP)
-                            {
-                                messages::internalError(asyncResp->res);
-                                BMCWEB_LOG_ERROR(
-                                    "error_code = {} error msg = {}", ecSCP,
-                                    ecSCP.message());
-                            }
-                            else
-                            {
-                                BMCWEB_LOG_DEBUG(
-                                    "Call to DownloadViaSCP Success");
-                            }
-                        },
-                            "xyz.openbmc_project.Software.Download",
-                            "/xyz/openbmc_project/software",
-                            "xyz.openbmc_project.Common.SCP", "DownloadViaSCP",
-                            server, *username, fwFile, *targetPath);
-                    }
-                    else if ((*transferProtocol == "HTTP") ||
-                             (*transferProtocol == "HTTPS"))
-                    {
-                        // Call HTTP/HTTPS service
-                        crow::connections::systemBus->async_method_call(
-                            [asyncResp](const boost::system::error_code ecH) {
-                            if (ecH)
-                            {
-                                messages::internalError(asyncResp->res);
-                                BMCWEB_LOG_ERROR(
-                                    "error_code = {} error msg = {}", ecH,
-                                    ecH.message());
-                            }
-                            else
-                            {
-                                BMCWEB_LOG_DEBUG(
-                                    "Call to DownloadViaHTTP Success");
-                            }
-                        },
-                            "xyz.openbmc_project.Software.Download",
-                            "/xyz/openbmc_project/software",
-                            "xyz.openbmc_project.Common.HTTP",
-                            "DownloadViaHTTP", server,
-                            (*transferProtocol == "HTTPS"), fwFile,
-                            *targetPath);
-                    }
-                },
-                    objInfo[0].first, objName,
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Common.FilePath", "Path");
-            },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetObject", objName,
-                std::array<const char*, 2>{
-                    "xyz.openbmc_project.Software.Version",
-                    "xyz.openbmc_project.Common.FilePath"});
+            findAssociatedUpdaterService(sharedReq, asyncResp, params, objName);
         }
-
         BMCWEB_LOG_DEBUG("Exit UpdateService.SimpleUpdate doPost");
     });
 }
