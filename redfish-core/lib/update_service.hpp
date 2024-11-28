@@ -4070,7 +4070,7 @@ inline void updateOemActionComputeDigest(
                     "/redfish/v1/UpdateService/FirmwareInventory/" + swId +
                     "/Actions/Oem/NvidiaSoftwareInventory.ComputeDigest";
                 asyncResp->res
-                    .jsonValue["Actions"]["Oem"]["Nvidia"]
+                    .jsonValue["Actions"]["Oem"]
                               ["#NvidiaSoftwareInventory.ComputeDigest"] = {
                     {"target", computeDigestTarget}};
                 break;
