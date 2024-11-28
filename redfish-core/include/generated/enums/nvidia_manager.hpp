@@ -46,6 +46,13 @@ enum class ReportStatus{
     Unknown,
 };
 
+enum class SWEIJRequestType{
+    Invalid,
+    Setup,
+    Cleanup,
+    Injection,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(FirmwareBuildType, {
     {FirmwareBuildType::Invalid, "Invalid"},
     {FirmwareBuildType::ProvisioningDebug, "ProvisioningDebug"},
@@ -85,6 +92,13 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ReportStatus, {
     {ReportStatus::Received, "Received"},
     {ReportStatus::Timeout, "Timeout"},
     {ReportStatus::Unknown, "Unknown"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(SWEIJRequestType, {
+    {SWEIJRequestType::Invalid, "Invalid"},
+    {SWEIJRequestType::Setup, "Setup"},
+    {SWEIJRequestType::Cleanup, "Cleanup"},
+    {SWEIJRequestType::Injection, "Injection"},
 });
 
 }

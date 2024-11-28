@@ -16,6 +16,7 @@ enum class TokenType{
 enum class TokenStatus{
     Invalid,
     Failed,
+    DebugSessionEnded,
     DebugSessionActive,
     NoTokenApplied,
     ChallengeProvidedNoTokenInstalled,
@@ -27,7 +28,8 @@ enum class AdditionalInfo{
     Invalid,
     None,
     NoDebugSessionInProgress,
-    NoTokenApplied,
+    InsecureFirmware,
+    DebugEndRequestFailed,
     QueryDebugSessionFailed,
     DebugSessionActive,
 };
@@ -43,6 +45,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(TokenType, {
 NLOHMANN_JSON_SERIALIZE_ENUM(TokenStatus, {
     {TokenStatus::Invalid, "Invalid"},
     {TokenStatus::Failed, "Failed"},
+    {TokenStatus::DebugSessionEnded, "DebugSessionEnded"},
     {TokenStatus::DebugSessionActive, "DebugSessionActive"},
     {TokenStatus::NoTokenApplied, "NoTokenApplied"},
     {TokenStatus::ChallengeProvidedNoTokenInstalled, "ChallengeProvidedNoTokenInstalled"},
@@ -54,7 +57,8 @@ NLOHMANN_JSON_SERIALIZE_ENUM(AdditionalInfo, {
     {AdditionalInfo::Invalid, "Invalid"},
     {AdditionalInfo::None, "None"},
     {AdditionalInfo::NoDebugSessionInProgress, "NoDebugSessionInProgress"},
-    {AdditionalInfo::NoTokenApplied, "NoTokenApplied"},
+    {AdditionalInfo::InsecureFirmware, "InsecureFirmware"},
+    {AdditionalInfo::DebugEndRequestFailed, "DebugEndRequestFailed"},
     {AdditionalInfo::QueryDebugSessionFailed, "QueryDebugSessionFailed"},
     {AdditionalInfo::DebugSessionActive, "DebugSessionActive"},
 });

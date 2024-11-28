@@ -64,7 +64,7 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Mask of conflicting profiles. Each set bit indicates if the profile at that index is conflicting with this profile."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the mask of conflicting profiles. Each set bit indicates if the profile at that index is conflicting with this profile."/>
-          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]+$"/>
+          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]{1,64}$"/>
         </Property>
       </EntityType>
     </Schema>
