@@ -238,6 +238,7 @@ inline void debugCapabilitiesProcess(
             messages::internalError(asyncResp->res);
             return;
         }
+        asyncResp->res.result(boost::beast::http::status::ok);
         messages::success(asyncResp->res, method);
     },
         svc, path, "xyz.openbmc_project.Control.Processor.RemoteDebug", method,
@@ -257,6 +258,7 @@ inline void
             messages::internalError(asyncResp->res);
             return;
         }
+        asyncResp->res.result(boost::beast::http::status::ok);
         messages::success(asyncResp->res, prop);
     },
         svc, path, "org.freedesktop.DBus.Properties", "Set",
