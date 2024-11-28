@@ -111,11 +111,6 @@ inline void resetPowerLimit(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         {
             for (const auto& [serv, _] : object)
             {
-                if (serv != connection)
-                {
-                    continue;
-                }
-
                 BMCWEB_LOG_DEBUG("Performing Post using Async Method Call");
 
                 nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
