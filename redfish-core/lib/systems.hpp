@@ -4060,6 +4060,11 @@ inline void
             "#NvidiaComputerSystem.v1_1_0.NvidiaComputerSystem";
         ist_mode_utils::getIstMode(asyncResp);
         getSystemsCpuDebugToken(asyncResp, systemName);
+        asyncResp->res
+            .jsonValue["Oem"]["Nvidia"]["DebugTokenService"]["@odata.id"] =
+            "/redfish/v1/Systems/" +
+            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+            "/Oem/Nvidia/DebugTokenService";
     }
 
 #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
