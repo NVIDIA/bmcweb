@@ -666,6 +666,7 @@ struct SimpleUpdateParams
     std::string remoteServerIP;
     std::string fwImagePath;
     std::string transferProtocol;
+    bool forceUpdate;
     std::optional<std::string> username;
 };
 
@@ -819,6 +820,141 @@ inline void downloadFirmwareImageToTarget(
         "xyz.openbmc_project.Common.FilePath", "Path");
 }
 
+inline void setUpdaterForceUpdateProperty(
+    const std::shared_ptr<const crow::Request>& request,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::shared_ptr<const SimpleUpdateParams>& params,
+    const std::string& serviceName, const std::string& serviceObjectPath,
+    const std::string& fwItemObjPath)
+{
+    BMCWEB_LOG_DEBUG(
+        "Setting ForceUpdate property for service {} and object path {} to {}",
+        serviceName, serviceObjectPath,
+        (params->forceUpdate ? "true" : "false"));
+    crow::connections::systemBus->async_method_call(
+        [request, asyncResp, params, serviceName,
+         fwItemObjPath](const boost::system::error_code ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR(
+                "Failed to set ForceUpdate property. Aborting update as "
+                "value of ForceUpdate property can't be guaranteed.");
+            BMCWEB_LOG_ERROR("error_code = {}", ec);
+            BMCWEB_LOG_ERROR("error_msg = {}", ec.message());
+            if (asyncResp)
+            {
+                messages::internalError(asyncResp->res);
+            }
+            return;
+        }
+        BMCWEB_LOG_DEBUG("ForceUpdate property successfully set to {}.",
+                         (params->forceUpdate ? "true" : "false"));
+        // begin downloading the firmware image to the target path
+        downloadFirmwareImageToTarget(request, asyncResp, params, serviceName,
+                                      fwItemObjPath);
+    },
+        serviceName, serviceObjectPath, "org.freedesktop.DBus.Properties",
+        "Set", "xyz.openbmc_project.Software.UpdatePolicy", "ForceUpdate",
+        dbus::utility::DbusVariantType(params->forceUpdate));
+}
+
+inline void findObjectPathAssociatedWithService(
+    const std::shared_ptr<const crow::Request>& request,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::shared_ptr<const SimpleUpdateParams>& params,
+    const std::string& serviceName, const std::string& fwItemObjPath,
+    const char* rootPath = "/xyz/openbmc_project")
+{
+    BMCWEB_LOG_DEBUG(
+        "Searching for object paths associated with the service {} in the "
+        "sub-tree {}...",
+        serviceName, rootPath);
+    crow::connections::systemBus->async_method_call(
+        [request, asyncResp, params, serviceName, fwItemObjPath,
+         rootPath](const boost::system::error_code ec,
+                   const dbus::utility::MapperGetSubTreeResponse& subtree) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("error_code = {}", ec);
+            BMCWEB_LOG_ERROR("error_msg = {}", ec.message());
+            if (asyncResp)
+            {
+                messages::internalError(asyncResp->res);
+            }
+            return;
+        }
+        else if (subtree.empty())
+        {
+            BMCWEB_LOG_DEBUG(
+                "Could not find any services implementing "
+                "xyz.openbmc_project.Software.UpdatePolicy associated with the "
+                "object path {}. Proceeding with update as though the "
+                "ForceUpdate property is set to false.",
+                rootPath);
+            // Begin downloading the firmware image to the target path
+            downloadFirmwareImageToTarget(request, asyncResp, params,
+                                          serviceName, fwItemObjPath);
+            return;
+        }
+        // iterate through the object paths in the subtree until one is found
+        // with an associated service name matching the input service.
+        std::optional<std::string> serviceObjPath{};
+        for (const auto& pathServiceMapPair : subtree)
+        {
+            const auto& currObjPath = pathServiceMapPair.first;
+            for (const auto& serviceInterfacesMap : pathServiceMapPair.second)
+            {
+                const auto& currServiceName = serviceInterfacesMap.first;
+                if (currServiceName == serviceName)
+                {
+                    if (!serviceObjPath.has_value())
+                    {
+                        serviceObjPath.emplace(currObjPath);
+                        break;
+                    }
+                }
+            }
+            // break external for-loop if object path is found
+            if (serviceObjPath.has_value())
+            {
+                break;
+            }
+        }
+        if (serviceObjPath.has_value())
+        {
+            BMCWEB_LOG_DEBUG("Found object path {}.", serviceObjPath.value());
+            // use the service and object path found to set the ForceUpdate
+            // property
+            setUpdaterForceUpdateProperty(request, asyncResp, params,
+                                          serviceName, serviceObjPath.value(),
+                                          fwItemObjPath);
+        }
+        else
+        {
+            // If there is no object implementing
+            // xyz.openbmc_project.Software.UpdatePolicy associated with
+            // the service under the sub-tree root, then that service does
+            // not implement a force-update policy, and the download should
+            // continue.
+            BMCWEB_LOG_DEBUG(
+                "Could not find any a service {} implementing "
+                "xyz.openbmc_project.Software.UpdatePolicy and "
+                "associated with the object path {}. Proceeding with "
+                "update as though the ForceUpdate property is set to "
+                "false.",
+                serviceName, rootPath);
+            // Begin downloading the firmware image to the target path
+            downloadFirmwareImageToTarget(request, asyncResp, params,
+                                          serviceName, fwItemObjPath);
+        }
+    },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTree", rootPath, 0,
+        std::array<const char*, 1>{
+            "xyz.openbmc_project.Software.UpdatePolicy"});
+}
+
 inline void findAssociatedUpdaterService(
     const std::shared_ptr<const crow::Request>& request,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -850,8 +986,12 @@ inline void findAssociatedUpdaterService(
         }
         const std::string& serviceName = objInfo[0].first;
         BMCWEB_LOG_DEBUG("Found service {}", serviceName);
-        downloadFirmwareImageToTarget(request, asyncResp, params, serviceName,
-                                      fwItemObjPath);
+        // The ForceUpdate property of the
+        // xyz.openbmc_project.Software.UpdatePolicy dbus interface should
+        // be explicitly set to true or false, according to the value of
+        // ForceUpdate option in the Redfish command.
+        findObjectPathAssociatedWithService(request, asyncResp, params,
+                                            serviceName, fwItemObjPath);
     },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -886,6 +1026,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
         std::optional<std::string> transferProtocol;
         std::optional<std::vector<std::string>> targets;
         std::optional<std::string> username;
+        std::optional<bool> forceUpdate;
 
         BMCWEB_LOG_DEBUG("Enter UpdateService.SimpleUpdate doPost");
 
@@ -897,7 +1038,8 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
 
         bool success = json_util::readJsonAction(
             req, asyncResp->res, "TransferProtocol", transferProtocol,
-            "ImageURI", imageURI, "Targets", targets, "Username", username);
+            "ImageURI", imageURI, "Targets", targets, "Username", username,
+            "ForceUpdate", forceUpdate);
         if (!success && imageURI.empty())
         {
             messages::createFailedMissingReqProperties(asyncResp->res,
@@ -1066,8 +1208,10 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
             BMCWEB_LOG_INFO("Object path: {}", objName);
             // pack SimpleUpdate parameters in shared pointer to allow safe
             // usage during the sequence of asynchronous method calls.
+            // The value of forceUpdate is false by default.
             const auto params = std::make_shared<const SimpleUpdateParams>(
-                server, fwFile, *transferProtocol, username);
+                server, fwFile, *transferProtocol, forceUpdate.value_or(false),
+                username);
             // wrap crow::Request in a shared pointer to pass securely to
             // asynchronous method calls.
             const auto sharedReq = std::make_shared<const crow::Request>(req);
