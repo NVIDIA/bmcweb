@@ -3404,8 +3404,9 @@ inline void requestRoutesManager(App& app)
         asyncResp->res.jsonValue["Description"] =
             "Baseboard Management Controller";
         asyncResp->res.jsonValue["PowerState"] = "On";
-        asyncResp->res.jsonValue["Status"]["State"] = "Starting";
+        asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
         asyncResp->res.jsonValue["Status"]["Health"] = "OK";
+        asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
 
         asyncResp->res.jsonValue["ManagerType"] = "BMC";
         asyncResp->res.jsonValue["UUID"] = systemd_utils::getUuid();
@@ -3703,9 +3704,6 @@ inline void requestRoutesManager(App& app)
         asyncResp->res.jsonValue["Links"]["ManagerForServers"] =
             std::move(managerForServers);
 
-        auto health = std::make_shared<HealthPopulate>(asyncResp);
-        health->isManagersHealth = true;
-        health->populate();
 #ifdef BMCWEB_ENABLE_IPMI_SOL
         asyncResp->res.jsonValue["CommandShell"]["MaxConcurrentSessions"] = 1;
         asyncResp->res.jsonValue["CommandShell"]["ConnectTypesSupported"] = {
