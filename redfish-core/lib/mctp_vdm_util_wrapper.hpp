@@ -125,6 +125,9 @@ struct MctpVdmUtil
             case MctpVdmUtilCommand::BOOT_AP:
                 cmd = "boot_ap";
                 break;
+            default:
+                cmd = "";
+                break;                
         }
 
         command = "mctp-vdm-util -t " + std::to_string(endpointId) + " -c " +

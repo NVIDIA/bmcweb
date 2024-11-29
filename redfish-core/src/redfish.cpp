@@ -49,7 +49,7 @@
 #include "trigger.hpp"
 #include "update_service.hpp"
 #include "virtual_media.hpp"
-
+#include "redfish_nvidia.hpp"
 namespace redfish
 {
 
@@ -75,12 +75,12 @@ RedfishService::RedfishService(App& app)
     }
 
     requestRoutesServiceRoot(app);
-    requestRoutesNetworkProtocol(app);
+    //requestRoutesNetworkProtocol(app);
     requestEthernetInterfacesRoutes(app);
 
     if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL)
     {
-        if constexpr (BMCWEB_HOST_OS_FEATURE) // TODO: wrong macro
+        if constexpr (BMCWEB_HOST_OS_FEATURES) // TODO: wrong macro
         {
             requestRoutesThermal(app);
             requestRoutesPower(app);
@@ -105,7 +105,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesManagerDiagnosticData(app);
     requestRoutesChassisCollection(app);
     requestRoutesChassis(app);
-#ifdef BMCWEB_HOST_OS_FEATURE
+#ifdef BMCWEB_HOST_OS_FEATURES
     requestRoutesChassisResetAction(app);
     requestRoutesChassisResetActionInfo(app);
 #endif
@@ -248,7 +248,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesMetricReportDefinition(app);
     requestRoutesMetricReportCollection(app);
     requestRoutesMetricReport(app);
-#ifdef BMCWEB_HOST_OS_FEATURE
+#ifdef BMCWEB_HOST_OS_FEATURES
     requestRoutesTriggerCollection(app);
     requestRoutesTrigger(app);
 #endif

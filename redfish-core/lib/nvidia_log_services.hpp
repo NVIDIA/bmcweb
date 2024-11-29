@@ -20,7 +20,6 @@
 #include "utils/json_utils.hpp"
 #include "utils/time_utils.hpp"
 #include "utils/dbus_event_log_entry.hpp"
-#include "log_services.hpp"
 
 #include <systemd/sd-id128.h>
 #include <tinyxml2.h>

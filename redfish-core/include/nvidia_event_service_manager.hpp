@@ -267,7 +267,7 @@ class DsEvent
         if (!logEntryId.empty())
         {
             eventLogEntry["LogEntry"] = nlohmann::json::object();
-#ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
+#ifdef BMCWEB_REDFISH_AGGREGATION
             if (!satBMCLogEntryUrl.empty())
             {
                 // the URL is from the satellite BMC so URL fixup will be

@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <string_view>
-
+#include <array>
 // clang-format off
 // NOLINTBEGIN(readability-identifier-naming)
 

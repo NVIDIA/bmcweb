@@ -3,7 +3,7 @@
 #include "async_resp.hpp"
 #include "http_response.hpp"
 #include "service_root.hpp"
-
+#include "nvidia_event_service_manager.hpp"
 #include <nlohmann/json.hpp>
 
 #include <cstddef>

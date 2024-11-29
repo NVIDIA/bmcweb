@@ -1529,7 +1529,7 @@ inline void handleChassisGetAllProperties(
     asyncResp->res.jsonValue["Name"] = chassisId;
     asyncResp->res.jsonValue["Id"] = chassisId;
 #ifdef BMCWEB_ALLOW_DEPRECATED_POWER_THERMAL
-#ifdef BBMCWEB_HOST_OS_FEATURE
+#ifdef BMCWEB_HOST_OS_FEATURES
     asyncResp->res.jsonValue["Thermal"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Thermal", chassisId);
 

@@ -163,21 +163,24 @@ void getPortStatusAndPath(
                     }
 
                     const std::string_view protocolName = kv.first;
-                // if TLS authentication is disabled then don't support HTTPS.
-                // even if SSL is enabled
-#ifdef BMCWEB_ENABLE_SSL
-                    if (protocolName == "HTTPS" &&
-                        !persistent_data::nvidia::getConfig()
-                             .isTLSAuthEnabled())
+                    // if TLS authentication is disabled then don't support
+                    // HTTPS. even if SSL is enabled
+                    if constexpr (!BMCWEB_INSECURE_DISABLE_SSL)
                     {
-                        continue;
+                        if (protocolName == "HTTPS" &&
+                            !persistent_data::nvidia::getConfig()
+                                 .isTLSAuthEnabled())
+                        {
+                            continue;
+                        }
                     }
-#else
-                    if (protocolName == "HTTPS")
+                    else
                     {
-                        continue;
+                        if (protocolName == "HTTPS")
+                        {
+                            continue;
+                        }
                     }
-#endif
 
                     const std::string& socketPath =
                         std::get<NET_PROTO_UNIT_OBJ_PATH>(unit);

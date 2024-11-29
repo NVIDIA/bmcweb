@@ -22,18 +22,6 @@
 namespace redfish
 {
 
-inline void requestRoutesSystemFDRService(App& app)
-{
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/FDR/")
-        .privileges(redfish::privileges::getLogService)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleFDRServiceGet, std::ref(app)));
-
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/FDR/")
-        .privileges(redfish::privileges::patchLogService)
-        .methods(boost::beast::http::verb::patch)(
-            std::bind_front(handleFDRServicePatch, std::ref(app)));
-}
 
 inline void requestRoutesSystemFDREntryCollection(App& app)
 {
@@ -372,6 +360,19 @@ inline void
             serviceName, objectPath, interfaceName, disableService,
             std::array<std::string, 1>{fdrServiceName}, runtime);
     }
+}
+
+inline void requestRoutesSystemFDRService(App& app)
+{
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/FDR/")
+        .privileges(redfish::privileges::getLogService)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleFDRServiceGet, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/FDR/")
+        .privileges(redfish::privileges::patchLogService)
+        .methods(boost::beast::http::verb::patch)(
+            std::bind_front(handleFDRServicePatch, std::ref(app)));
 }
 
 void inline requestRoutesSystemFDRGenBirthCert(App& app)

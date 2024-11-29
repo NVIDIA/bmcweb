@@ -336,7 +336,7 @@ inline void
     nlohmann::json& membersArray = asyncResp->res.jsonValue["Members"];
     membersArray = nlohmann::json::array();
 
-#ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
+#ifdef BMCWEB_REDFISH_LEAK_DETECT
     boost::urls::url leakDetectionPolicyUrl = boost::urls::format(
         "/redfish/v1/Chassis/{}/Policies/LeakDetectionPolicy", chassisId);
 

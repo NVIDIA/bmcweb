@@ -629,7 +629,7 @@ class EventServiceManager
             // Update retry configuration.
             subValue->updateRetryConfig(retryAttempts, retryTimeoutInterval);
         }
-#ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
+#ifdef BMCWEB_REDFISH_AGGREGATION
         redfish::subscribeSatBmc::getInstance().createSubscribeTimer();
 
         if (getNumberOfSubscriptions() > 0)
@@ -2045,7 +2045,7 @@ class EventServiceManager
     inline void eventServiceOOC(const std::string& path,
                                 const std::string& devName, DsEvent& event)
     {
-#ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
+#ifdef BMCWEB_REDFISH_AGGREGATION
         // OOC Path in HMC events is already converted to Redfish path.
         if (path.starts_with("/redfish/v1/"))
         {

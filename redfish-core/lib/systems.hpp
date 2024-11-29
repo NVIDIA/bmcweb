@@ -435,7 +435,7 @@ inline void
         asyncResp->res.jsonValue["SubModel"] = *subModel;
     }
 
-#ifdef BMCWEB_ENABLE_BIOS
+#ifdef BMCWEB_BIOS
     // Schema defaults for interop validator
     asyncResp->res.jsonValue["BiosVersion"] = "";
     asyncResp->res.jsonValue["AssetTag"] = "";
@@ -509,7 +509,7 @@ inline void afterSystemGetSubTree(
                 {
                     BMCWEB_LOG_DEBUG("Found UUID, now get its properties.");
 
-#ifdef BMCWEB_ENABLE_BIOS
+#ifdef BMCWEB_BIOS
                     // Make sure to get SMBIOS UUID
                     sdbusplus::message::object_path uuidPath(path);
                     if (uuidPath.filename() == "bios")
@@ -524,7 +524,7 @@ inline void afterSystemGetSubTree(
                         });
                     }
 #endif
-#ifdef BMCWEB_ENABLE_UUID_FROM_PLATFORM_CHASSIS_NAME
+#ifdef BMCWEB_UUID_FROM_PLATFORM_CHASSIS_NAME
                     sdbusplus::message::object_path uuidPath(path);
                     if (uuidPath.filename() == PLATFORMCHASSISNAME)
                     {
@@ -3688,7 +3688,7 @@ inline void doNMI(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
         },
         serviceName, objectPath, interfaceName, method);
 }
-#ifdef BMCWEB_ENABLE_CPU_DIAG_FEATURE
+#ifdef BMCWEB_CPU_DIAG_FEATURE
 
 inline void handleProcessorDiagActionPost(
     crow::App& app, const crow::Request& req,
@@ -4066,10 +4066,10 @@ inline void
     asyncResp->res.jsonValue["Id"] = BMCWEB_REDFISH_SYSTEM_URI_NAME;
     asyncResp->res.jsonValue["SystemType"] =
         computer_system::SystemType::Physical;
-    asyncResp->res.jsonValue["Description"] = PLATFORMSYSTEMDESCRIPTION;
-#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
+    asyncResp->res.jsonValue["Description"] = BMCWEB_PLATFORM_SYSTEM_DESCRIPTION;
+#ifdef BMCWEB_HOST_OS_FEATURE
     asyncResp->res.jsonValue["ProcessorSummary"]["Count"] = 0;
-#endif // #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
+#endif // #ifdef BMCWEB_HOST_OS_FEATURE
     asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"] = int(0);
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME);
@@ -4088,17 +4088,17 @@ inline void
         ist_mode_utils::getIstMode(asyncResp);
     }
 
-#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
+#ifdef BMCWEB_HOST_OS_FEATURE
     asyncResp->res.jsonValue["Storage"]["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
         "/Storage";
 #endif
-#ifdef BMCWEB_ENABLE_FABRIC_ADAPTER
+#ifdef BMCWEB_FABRIC_ADAPTER
     asyncResp->res.jsonValue["FabricAdapters"]["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
         "/FabricAdapters";
 #endif
-#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
+#ifdef BMCWEB_HOST_OS_FEATURE
     asyncResp->res.jsonValue["Actions"]["#ComputerSystem.Reset"]["target"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
         "/Actions/ComputerSystem.Reset";
@@ -4111,7 +4111,7 @@ inline void
     asyncResp->res.jsonValue["LogServices"]["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
         "/LogServices";
-#ifdef BMCWEB_ENABLE_BIOS
+#ifdef BMCWEB_BIOS
     asyncResp->res.jsonValue["Bios"]["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
         "/Bios";
@@ -4124,13 +4124,13 @@ inline void
     asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
-#ifdef BMCWEB_ENABLE_DEVICE_STATUS_FROM_FILE
+#ifdef BMCWEB_DEVICE_STATUS_FROM_FILE
     /** NOTES: This is a temporary solution to avoid performance issues may
      * impact other Redfish services. Please call for architecture decisions
      * from all NvBMC teams if want to use it in other places.
      */
 
-#ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+#ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
 #error "Conflicts! Please set health-rollup-alternative=disabled."
 #endif
 
@@ -4140,16 +4140,16 @@ inline void
 
     health_utils::getDeviceHealthInfo(
         asyncResp->res, std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
-#endif // BMCWEB_ENABLE_DEVICE_STATUS_FROM_FILE
+#endif // BMCWEB_DEVICE_STATUS_FROM_FILE
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
     redfish::conditions_utils::populateServiceConditions(
         asyncResp, std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_COMMON_PROPERTIES
+#ifdef BMCWEB_NVIDIA_OEM_COMMON_PROPERTIES
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
         "/Oem/Nvidia";
 #endif
-#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
+#ifdef BMCWEB_HOST_OS_FEATURE
     // Fill in SerialConsole info
     asyncResp->res.jsonValue["SerialConsole"]["MaxConcurrentSessions"] = 15;
     asyncResp->res.jsonValue["SerialConsole"]["IPMI"]["ServiceEnabled"] = true;
@@ -4158,9 +4158,9 @@ inline void
     asyncResp->res.jsonValue["SerialConsole"]["SSH"]["Port"] = 2200;
     asyncResp->res.jsonValue["SerialConsole"]["SSH"]["HotKeySequenceDisplay"] =
         "Press ~. to exit console";
-#endif // BMCWEB_ENABLE_HOST_OS_FEATURE
+#endif // BMCWEB_HOST_OS_FEATURE
 
-#ifdef BMCWEB_ENABLE_HOST_ETH_IFACE
+#ifdef BMCWEB_HOST_ETH_IFACE
     asyncResp->res.jsonValue["EthernetInterfaces"] = {
         {"@odata.id", "/redfish/v1/Systems/" +
                           std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -4268,7 +4268,7 @@ inline void
     getIndicatorLedState(asyncResp);
     getComputerSystem(asyncResp);
     getHostState(asyncResp);
-#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
+#ifdef BMCWEB_HOST_OS_FEATURE
     getBootProperties(asyncResp);
     getBootProgress(asyncResp);
     getBootProgressLastStateTime(asyncResp);
@@ -4282,14 +4282,14 @@ inline void
         .jsonValue["Boot"]
                   ["BootSourceOverrideEnabled@Redfish.AllowableValues"] = {
         "Once", "Continuous", "Disabled"};
-#endif // BMCWEB_ENABLE_HOST_OS_FEATURE
+#endif // BMCWEB_HOST_OS_FEATURE
     nvidia_pcie_utils::getPCIeDeviceList(asyncResp, "PCIeDevices");
     getHostWatchdogTimer(asyncResp);
-#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
+#ifdef BMCWEB_HOST_OS_FEATURE
     getPowerRestorePolicy(asyncResp);
     getStopBootOnFault(asyncResp);
     getAutomaticRetryPolicy(asyncResp);
-#endif // BMCWEB_ENABLE_HOST_OS_FEATURE
+#endif // BMCWEB_HOST_OS_FEATURE
     if constexpr (BMCWEB_SYSTEMS_LASTRESETTIME)
     {
         getLastResetTime(asyncResp);
@@ -4298,17 +4298,17 @@ inline void
     {
         getProvisioningStatus(asyncResp);
     }
-#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
+#ifdef BMCWEB_HOST_OS_FEATURE
     getTrustedModuleRequiredToBoot(asyncResp);
-#endif // BMCWEB_ENABLE_HOST_OS_FEATURE
+#endif // BMCWEB_HOST_OS_FEATURE
     getPowerMode(asyncResp);
     getIdlePowerSaver(asyncResp);
-    if constexpr (BMCWEB_ENABLE_DEBUG_INTERFACE)
+    if constexpr (BMCWEB_DEBUG_INTERFACE_SUPPORT)
     {
         handleDebugPolicyGet(asyncResp);
     }
 
-#ifdef BMCWEB_ENABLE_CPU_DIAG_FEATURE
+#ifdef BMCWEB_CPU_DIAG_FEATURE
     asyncResp->res
         .jsonValue["Actions"]["Oem"]["#NvidiaComputerSystem.ProcessorDiagMode"]
                   ["target"] = boost::urls::format(
@@ -4417,7 +4417,7 @@ inline void handleComputerSystemPatch(
                         "IndicatorLED", indicatorLed,
                         "LocationIndicatorActive", locationIndicatorActive,
                         "AssetTag", assetTag,
-#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
+#ifdef BMCWEB_HOST_OS_FEATURE
                         "PowerRestorePolicy", powerRestorePolicy,
 #endif
                         "PowerMode", powerMode,
@@ -4517,7 +4517,7 @@ inline void handleComputerSystemPatch(
                                  "299 - \"IndicatorLED is deprecated. Use "
                                  "LocationIndicatorActive instead.\"");
     }
-#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
+#ifdef BMCWEB_HOST_OS_FEATURE
     if (powerRestorePolicy)
     {
         setPowerRestorePolicy(asyncResp, *powerRestorePolicy);
@@ -4607,7 +4607,7 @@ inline void handleComputerSystemPatch(
                                 "TargetURI", *httpBootUri);
     }
 
-    if constexpr (BMCWEB_ENABLE_DEBUG_INTERFACE)
+    if constexpr (BMCWEB_DEBUG_INTERFACE_SUPPORT)
     {
         if (processorDebugCapabilities)
         {
@@ -4779,7 +4779,7 @@ inline void handleSystemCollectionResetActionGet(
                                            allowedHostTransitions);
         });
 }
-#ifdef BMCWEB_ENABLE_CPU_DIAG_FEATURE
+#ifdef BMCWEB_CPU_DIAG_FEATURE
 inline void handleSystemProcessorDiagCapabilitiesActionGet(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -4973,7 +4973,7 @@ inline void requestRoutesSystems(App& app)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleComputerSystemPatch, std::ref(app)));
 
-#ifdef BMCWEB_ENABLE_CPU_DIAG_FEATURE
+#ifdef BMCWEB_CPU_DIAG_FEATURE
     BMCWEB_ROUTE(
         app, "/redfish/v1/Systems/<str>/Oem/Nvidia/ProcessorDiagCapabilities")
         .privileges(redfish::privileges::postComputerSystem)

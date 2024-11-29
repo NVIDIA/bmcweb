@@ -1,6 +1,6 @@
+#include "assembly.hpp"
 #include "redfish_nvidia.hpp"
 #include "bmcweb_config.h"
-#include "nvidia_cpu_debug_token.hpp"
 #include "nvidia_debug_token.hpp"
 #include "nvidia_error_injection.hpp"
 #include "nvidia_log_services.hpp"
@@ -9,11 +9,28 @@
 #include "nvidia_log_services_sel.hpp"
 #include "nvidia_log_services_xid.hpp"
 #include "nvidia_log_services_fault.hpp"
+#include "log_services_manufacturing_test.hpp"
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_power_smoothing.hpp"
 #include "nvidia_protected_component.hpp"
 #include "nvidia_workload_power_profiles.hpp"
-
+#include "pcieslots.hpp"
+#include "pcie.hpp"
+#include "ports.hpp"
+#include "network_adapters.hpp"
+#include "network_adapters_generic.hpp"
+#include "update_service.hpp"
+#include "erot_chassis.hpp"
+#include "nvidia_managers.hpp"
+#include "trigger.hpp"
+#include "environment_metrics.hpp"
+#include "processor.hpp"
+#include "fabric.hpp"
+#include "trusted_components.hpp"
+#include "control.hpp"
+#include "memory.hpp"
+#include "system_host_eth.hpp"
+#include "service_conditions.hpp"
 
 namespace redfish
 {
@@ -65,7 +82,6 @@ void requestRoutesNvidia(crow::App& app)
 
     if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
     {
-        requestRoutesEnvironmentMetrics(app);
         requestRoutesProcessorEnvironmentMetrics(app);
         requestRoutesMemoryEnvironmentMetrics(app);
     }
@@ -152,7 +168,7 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesSystemFDRGenBirthCert(app);
     }
 
-    requestRoutesEventLogServicePatch();
+    requestRoutesEventLogServicePatch(app);
     requestRoutesChassisLogServiceCollection(app);
 
     if constexpr (BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG)

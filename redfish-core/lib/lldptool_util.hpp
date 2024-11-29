@@ -125,6 +125,10 @@ inline std::string LldpToolUtil::translateOperationToCommand(
         case LldpCommandType::SET_LLDP:
             cmdAction = " set-lldp ";
             break;
+        default:
+            cmdAction = " ";
+            break;
+    
     }
 
     switch (lldpTlv)
@@ -158,6 +162,8 @@ inline std::string LldpToolUtil::translateOperationToCommand(
             break;
         case LldpTlv::ALL:
             break;
+        default:
+            break;            
     }
 
     if (isReceived)

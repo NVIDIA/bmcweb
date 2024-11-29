@@ -8,6 +8,12 @@
 #include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/server/manager.hpp>
+#include <boost/beast/version.hpp>
+#include <boost/beast/http/message.hpp>
+#include <boost/beast/http/message_generator.hpp>
+#include <boost/beast/http/parser.hpp>
+#include <boost/beast/http/read.hpp>
+#include <boost/beast/http/write.hpp>
 
 #include <algorithm>
 #include <cstdlib>
@@ -192,7 +198,7 @@ void handle_request(std::shared_ptr<sdbusplus::asio::connection>& bus,
         redfishEventMgr::createLogEntry(bus, entryName, data);
     }
 
-    http::response<http::empty_body> res{http::status::ok, req.version()};
+    http::response<http::string_body> res{http::status::ok, req.version()};
     res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
     res.set(http::field::content_type, "text/html");
     res.keep_alive(req.keep_alive());
@@ -236,7 +242,7 @@ class session : public std::enable_shared_from_this<session>
             self_.res_ = sp;
 
             // Write the response
-            http::async_write(self_.stream_, *sp,
+            boost::beast::http::async_write(self_.stream_, *sp,
                               beast::bind_front_handler(
                                   &session::on_write, self_.shared_from_this(),
                                   sp->need_eof()));

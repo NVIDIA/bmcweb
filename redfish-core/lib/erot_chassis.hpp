@@ -474,6 +474,10 @@ inline void getEROTChassis(const crow::Request& req,
                     manual_boot::bootModeQuery(req, asyncResp, chassisId);
                 }
             }
+            else 
+            {
+                (void)isCpuEROT;
+            }
             return;
         }
 

@@ -27,7 +27,7 @@
 #include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_async_set_utils.hpp"
-
+#include "utils/nvidia_async_set_callbacks.hpp"
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
@@ -252,7 +252,7 @@ inline void getErrorInjectionService(std::shared_ptr<bmcweb::AsyncResp> aResp,
     crow::connections::systemBus->async_method_call(
         [aResp, eiPath, handler{std::forward<Handler>(handler)}](
             const boost::system::error_code ec,
-            const MapperServiceMap& serviceMap) {
+            const dbus::utility::MapperServiceMap& serviceMap) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("Error while fetching service for {}", eiPath);

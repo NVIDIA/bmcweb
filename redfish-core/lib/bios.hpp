@@ -2108,8 +2108,7 @@ inline void setClearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                               const bool requestToClear)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp, path, service,
-         requestToClear](const boost::system::error_code ec,
+        [aResp, path, service](const boost::system::error_code ec,
                          sdbusplus::message::message& msg) {
         if (!ec)
         {

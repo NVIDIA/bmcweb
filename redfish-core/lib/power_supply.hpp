@@ -516,6 +516,27 @@ inline void handlePowerSupplyGet(
         std::bind_front(doPowerSupplyGet, asyncResp, chassisId, powerSupplyId));
 }
 
+inline void
+    doPowerSupplyMetricsGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& chassisId,
+                            const std::string& powerSupplyId,
+                            const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    // Get the correct Path and Service that match the input parameters
+    getValidPowerSupplyPath(asyncResp, *validChassisPath, powerSupplyId,
+                            [asyncResp, chassisId, powerSupplyId](
+                                const std::string& powerSupplyPath, const std::string& /*service*/) {
+        redfish::nvidia_power_supply_utils::getNvidiaPowerSupplyMetrics(
+            asyncResp, chassisId, powerSupplyId, powerSupplyPath);
+    });
+}
+
 inline void handlePowerSupplyMetricsGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -554,25 +575,6 @@ inline void requestRoutesPowerSupply(App& app)
             std::bind_front(handlePowerSupplyMetricsGet, std::ref(app)));
 }
 
-inline void
-    doPowerSupplyMetricsGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& chassisId,
-                            const std::string& powerSupplyId,
-                            const std::optional<std::string>& validChassisPath)
-{
-    if (!validChassisPath)
-    {
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-        return;
-    }
 
-    // Get the correct Path and Service that match the input parameters
-    getValidPowerSupplyPath(asyncResp, *validChassisPath, powerSupplyId,
-                            [asyncResp, chassisId, powerSupplyId](
-                                const std::string& powerSupplyPath) {
-        redfish::nvidia_power_supply_utils::getNvidiaPowerSupplyMetrics(
-            asyncResp, chassisId, powerSupplyId, powerSupplyPath);
-    });
-}
 
 } // namespace redfish

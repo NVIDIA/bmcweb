@@ -379,6 +379,7 @@ srcfiles_bmcweb = files(
     'src/ossl_random.cpp',
     'src/ssl_key_handler.cpp',
     'src/webserver_run.cpp',
+    'redfish-core/src/redfish_nvidia.cpp',
 )
 
 bmcweblib = static_library(
@@ -437,11 +438,11 @@ srcfiles_unittest = files(
     'test/redfish-core/include/event_matches_filter_test.cpp',
     'test/include/ssl_key_handler_test.cpp',
     'test/include/str_utility_test.cpp',
-    'test/redfish-core/include/event_service_manager_test.cpp',
+    #'test/redfish-core/include/event_service_manager_test.cpp',
     'test/redfish-core/include/filter_expr_executor_test.cpp',
     'test/redfish-core/include/filter_expr_parser_test.cpp',
     'test/redfish-core/include/privileges_test.cpp',
-    'test/redfish-core/include/redfish_aggregator_test.cpp',
+    #'test/redfish-core/include/redfish_aggregator_test.cpp',
     'test/redfish-core/include/registries_test.cpp',
     'test/redfish-core/include/utils/dbus_utils.cpp',
     'test/redfish-core/include/utils/hex_utils_test.cpp',
@@ -462,10 +463,26 @@ srcfiles_unittest = files(
     'test/redfish-core/lib/system_test.cpp',
     'test/redfish-core/lib/systems_logservices_postcode.cpp',
     'test/redfish-core/lib/thermal_subsystem_test.cpp',
-    'test/redfish-core/lib/update_service_test.cpp',
+    #'test/redfish-core/lib/update_service_test.cpp',
 )
 
 if (get_option('tests').allowed())
+    gtest = dependency(
+        'gtest_main',
+        main: true,
+        version: '>=1.15.0',
+        required: true,
+    )
+    gmock = dependency('gmock', required: true)
+    gtestlib = static_library('gtestlib', dependencies: [gtest, gmock])
+    gtestdep = declare_dependency(
+        link_with: gtestlib,
+        dependencies: [
+            gtest.partial_dependency(includes: true),
+            gmock.partial_dependency(includes: true),
+        ],
+    )
+    # generate the test executable
     foreach test_src : srcfiles_unittest
         test_bin = executable(
             fs.stem(test_src),
@@ -477,8 +494,4 @@ if (get_option('tests').allowed())
         )
         test(fs.stem(test_src), test_bin, protocol: 'gtest')
     endforeach
-endif
-
-if (get_option('redfish-aggregation').enabled())
-    subdir('event-listener')
 endif

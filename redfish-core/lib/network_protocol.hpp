@@ -177,12 +177,7 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
     }
-    else
-    {
-        // This log added to satishfy compiler error : unused variable req
-        BMCWEB_LOG_ERROR("getNetworkData session is null for request {}",
-                         req.methodString());
-    }
+
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ManagerNetworkProtocol/NetworkProtocol.json>; rel=describedby");
@@ -212,37 +207,38 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     // defaults to ensure something is always returned.
     for (const auto& nwkProtocol : networkProtocolToDbus)
     {
-        const std::string_view protocolName = nwkProtocol.first;
         // if TLS authentication is disabled then don't support HTTPS.
         // even if SSL is enabled
-#ifdef BMCWEB_ENABLE_SSL
-        if (protocolName == "HTTPS" &&
-            !persistent_data::nvidia::getConfig().isTLSAuthEnabled())
+        if constexpr (!BMCWEB_INSECURE_DISABLE_SSL)
         {
-            continue;
+            if (nwkProtocol.first == "HTTPS" &&
+                !persistent_data::nvidia::getConfig().isTLSAuthEnabled())
+            {
+                continue;
+            }
         }
-#else
-        if (protocolName == "HTTPS")
+        else
         {
-            continue;
+            if (nwkProtocol.first == "HTTPS")
+            {
+                continue;
+            }
         }
-#endif
-
-#ifndef BMCWEB_ENABLE_IPMI
+#ifndef BMCWEB_IPMI
         if (protocolName == "IPMI")
         {
             continue;
         }
 #endif
-        asyncResp->res.jsonValue[protocolName]["Port"] = nullptr;
-        asyncResp->res.jsonValue[protocolName]["ProtocolEnabled"] = false;
+        asyncResp->res.jsonValue[nwkProtocol.first]["Port"] = nullptr;
+        asyncResp->res.jsonValue[nwkProtocol.first]["ProtocolEnabled"] = false;
     }
 
     std::string hostName = getHostName();
 
     asyncResp->res.jsonValue["HostName"] = hostName;
 
-#ifdef BMCWEB_ENABLE_NTP
+#ifdef BMCWEB_NTP
     getNTPProtocolEnabled(asyncResp);
 #endif
 
@@ -258,10 +254,11 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
 
-#ifdef BMCWEB_ENABLE_NTP
+#ifdef BMCWEB_NTP
         asyncResp->res.jsonValue["NTP"]["NTPServers"] = ntpServers;
         asyncResp->res.jsonValue["NTP"]["NetworkSuppliedServers"] =
             dynamicNtpServers;
+#endif
         if (!hostName.empty())
         {
             std::string fqdn = hostName;
@@ -294,7 +291,7 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     getPortStatusAndPath(std::span(networkProtocolToDbus),
                          std::bind_front(afterNetworkPortRequest, asyncResp));
-} 
+} // namespace redfish
 
 inline void afterSetNTP(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const boost::system::error_code& ec)
@@ -544,27 +541,17 @@ inline void handleManagersNetworkProtocolPatch(
     std::optional<bool> ipmiEnabled;
     std::optional<bool> sshEnabled;
 
-        if (!json_util::readJsonPatch(
-                req, asyncResp->res,
-                "HostName", newHostName
-#ifdef BMCWEB_ENABLE_NTP
-		,
-                "NTP/NTPServers", ntpServerObjects,
-                "NTP/ProtocolEnabled", ntpEnabled
-#endif
-
-#ifdef BMCWEB_ENABLE_IPMI
-                 ,
-                "IPMI/ProtocolEnabled", ipmiEnabled
-#endif
-#ifdef BMCWEB_ENABLE_PATCH_SSH
-                 ,
-                "SSH/ProtocolEnabled", sshEnabled
-#endif
-                ))
-        {
-            return;
-        }
+    if (!json_util::readJsonPatch(
+            req, asyncResp->res, //
+            "HostName", newHostName, //
+            "NTP/NTPServers", ntpServerObjects, //
+            "NTP/ProtocolEnabled", ntpEnabled, //
+            "IPMI/ProtocolEnabled", ipmiEnabled, //
+            "SSH/ProtocolEnabled", sshEnabled //
+            ))
+    {
+        return;
+    }
 
     asyncResp->res.result(boost::beast::http::status::no_content);
     if (newHostName)

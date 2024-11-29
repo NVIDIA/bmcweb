@@ -1209,7 +1209,7 @@ inline void getAcceleratorDataByService(
 {
     BMCWEB_LOG_DEBUG("Get available system Accelerator resources by service.");
 
-#ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+#ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
     std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
         objPath, [aResp](const std::string& rootHealth,
                          const std::string& healthRollup) {
@@ -1219,7 +1219,7 @@ inline void getAcceleratorDataByService(
 #endif // BMCWEB_DISABLE_HEALTH_ROLLUP
     });
     health->start();
-#endif // ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+#endif // ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
 
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, service, objPath, "",
@@ -1253,15 +1253,15 @@ inline void getAcceleratorDataByService(
             }
 
             std::string state = "Enabled";
-#ifndef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+#ifndef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
             std::string health = "OK";
-#endif // ifndef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+#endif // ifndef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
 
             if (present != nullptr && !*present)
             {
                 state = "Absent";
             }
-#ifndef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+#ifndef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
             if (functional != nullptr && !*functional)
             {
                 if (state == "Enabled")
@@ -1269,26 +1269,26 @@ inline void getAcceleratorDataByService(
                     health = "Critical";
                 }
             }
-#else // ifndef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+#else // ifndef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
             (void)functional;
-#endif // ifndef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+#endif // ifndef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
 
             aResp->res.jsonValue["Id"] = acclrtrId;
             aResp->res.jsonValue["Name"] = "Processor";
             aResp->res.jsonValue["Status"]["State"] = state;
-#ifndef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE   
+#ifndef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE   
             aResp->res.jsonValue["Status"]["Health"] = health;
-#endif // ifndef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+#endif // ifndef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
             
             // Nvidia Added Code Block: Handling for Health, ProcessorType ,State
 
-#ifdef BMCWEB_ENABLE_DEVICE_STATUS_FROM_FILE
+#ifdef BMCWEB_DEVICE_STATUS_FROM_FILE
         /** NOTES: This is a temporary solution to avoid performance issues may
          * impact other Redfish services. Please call for architecture decisions
          * from all NvBMC teams if want to use it in other places.
          */
 
-#ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+#ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
 #error "Conflicts! Please set health-rollup-alternative=disabled."
 #endif
 
@@ -1297,7 +1297,7 @@ inline void getAcceleratorDataByService(
 #endif
 
             health_utils::getDeviceHealthInfo(aResp->res, acclrtrId);
-#endif // BMCWEB_ENABLE_DEVICE_STATUS_FROM_FILE
+#endif // BMCWEB_DEVICE_STATUS_FROM_FILE
 
             if (accType != nullptr && !accType->empty())
             {

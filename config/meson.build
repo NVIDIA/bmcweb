@@ -36,6 +36,7 @@ feature_options = [
     'host-iface',
     'host-os-features',
     'host-serial-socket',
+    'hypervisor-computer-system',
     'ibm-management-console',
     'insecure-disable-auth',
     'insecure-disable-csrf',
@@ -102,7 +103,8 @@ feature_options = [
     'use-efficient-expand-on-sensors',
     'vm-websocket',
     'xtoken-auth',
-    'nvidia-oem-openocd'
+    'nvidia-oem-openocd',
+    'systems-lastresettime',
 ]
 
 string_options = [
@@ -199,7 +201,7 @@ feature_options_string += 'constexpr const bool        BMCWEB_VM_NBDPROXY = fals
 
 conf_data.set(
     'BMCWEB_OPTIONS',
-    string_options_string + int_options_string + feature_options_string,
+    string_options_string + int_options_string + feature_options_string + array_options_string,
 )
 
 conf_data.set_quoted('FW_MCTP_MAPPING_JSON', join_paths(package_datadir, 'fw_mctp_mapping.json'))

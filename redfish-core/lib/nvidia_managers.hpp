@@ -34,7 +34,10 @@
 #include "utils/sw_utils.hpp"
 #include "utils/systemd_utils.hpp"
 #include "utils/time_utils.hpp"
-
+#include "utils/conditions_utils.hpp"
+#include "event_service_manager.hpp"
+#include "nvidia_event_service_manager.hpp"
+#include "health.hpp"
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
@@ -1642,7 +1645,7 @@ inline void
 {
     // default oem data
     nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
-#ifdef BMCWEB_HOST_OS_FEATURE
+#ifdef BMCWEB_HOST_OS_FEATURES
     nlohmann::json& oemOpenbmc = oem["OpenBmc"];
 
     oemOpenbmc["@odata.type"] = "#OpenBMCManager.OpenBmc";
@@ -1661,7 +1664,7 @@ inline void
         "/Oem/Nvidia";
 #endif // BMCWEB_NVIDIA_OEM_COMMON_PROPERTIES
 
-#endif // BMCWEB_HOST_OS_FEATURE
+#endif // BMCWEB_HOST_OS_FEATURES
 
 #ifdef BMCWEB_NVIDIA_OEM_GB200NVL_PROPERTIES
     oem["Nvidia"]["UptimeSeconds"] = [asyncResp]() -> double {
@@ -1697,7 +1700,7 @@ inline void
 
     // build type
     nlohmann::json& buildType = oemNvidia["FirmwareBuildType"];
-    std::ifstream buildDescriptionFile(buildDescriptionFilePath);
+    std::ifstream buildDescriptionFile(BMCWEB_BUILD_DESCRIPTION_FILE_PATH.data());
     if (buildDescriptionFile.good())
     {
         std::string line;
@@ -1743,7 +1746,7 @@ inline void
 
     // OTP provisioning status
     nlohmann::json& otpProvisioned = oemNvidia["OTPProvisioned"];
-    std::ifstream otpStatusFile(otpProvisioningStatusFilePath);
+    std::ifstream otpStatusFile(BMCWEB_OTP_PROVISIONING_STATUS_FILE_PATH.data());
     if (otpStatusFile.good())
     {
         std::string statusLine;

@@ -1566,10 +1566,10 @@ inline void requestRoutesSwitch(App& app)
                         getSwitchEndpointsLink(asyncResp, path, fabricId);
                         // Link association to manager
                         getManagerLink(asyncResp, path);
-#ifdef BMCWEB_ENABLE_DEVICE_STATUS_FROM_ASSOCIATION
+#ifdef BMCWEB_DEVICE_STATUS_FROM_ASSOCIATION
                         // get health by association
                         getHealthByAssociatedChassis(asyncResp, path, switchId);
-#endif // BMCWEB_ENABLE_DEVICE_STATUS_FROM_ASSOCIATION
+#endif // BMCWEB_DEVICE_STATUS_FROM_ASSOCIATION
 
 #ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
                         redfish::conditions_utils::populateServiceConditions(
@@ -1634,7 +1634,7 @@ inline void requestRoutesSwitch(App& app)
             {
                 if (isolationMode)
                 {
-#ifdef BMCWEB_ENABLE_NVIDIA_OEM_PROPERTIES
+#ifdef BMCWEB_NVIDIA_OEM_PROPERTIES
                     redfish::nvidia_fabric_utils::getSwitchObject(
                         asyncResp, fabricId, switchId,
                         [isolationMode](
