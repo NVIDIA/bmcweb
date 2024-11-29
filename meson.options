@@ -237,6 +237,13 @@ option(
 )
 
 option(
+    'rsyslog-client',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable rsyslog client',
+)
+
+option(
     'basic-auth',
     type: 'feature',
     value: 'enabled',

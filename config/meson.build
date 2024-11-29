@@ -115,6 +115,7 @@ conf_data.set10('BMCWEB_ENABLE_NVIDIA_BOOTENTRYID', nvidia_bootentryid.enabled()
 
 feature_options = [
     'basic-auth',
+    'rsyslog-client',
     'check-oem-diagnostic-type',
     'cookie-auth',
     'enable-debug-interface',
