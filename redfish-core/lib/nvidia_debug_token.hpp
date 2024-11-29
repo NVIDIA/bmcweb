@@ -127,7 +127,7 @@ inline void handleDebugTokenResourceInfo(
         }
         auto& resJson = asyncResp->res.jsonValue;
         nsmTokenStatusToJson(*tokenStatus, resJson);
-        resJson["@odata.type"] = "#NvidiaDebugToken.v1_0_0.NvidiaDebugToken";
+        resJson["@odata.type"] = "#NvidiaDebugToken.v1_1_0.NvidiaDebugToken";
         resJson["@odata.id"] = resUri;
         resJson["Id"] = "DebugToken";
         resJson["Name"] = chassisId + " Debug Token Resource"s;
