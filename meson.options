@@ -373,7 +373,7 @@ option(
     description: 'Specifies the http request body length limit',
 )
 
-# BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM
+# BMCWEB_FIRMWARE_IMAGE_LIMIT
 option(
     'firmware-image-limit',
     type: 'integer',
@@ -383,6 +383,7 @@ option(
     description: 'Specifies the firmware image size limit',
 )
 
+# BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM
 option(
     'redfish-new-powersubsystem-thermalsubsystem',
     type: 'feature',

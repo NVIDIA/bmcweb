@@ -33,6 +33,7 @@
 #include "trigger.hpp"
 #include "trusted_components.hpp"
 #include "update_service.hpp"
+#include "nvidia_update_service.hpp"
 
 namespace redfish
 {
