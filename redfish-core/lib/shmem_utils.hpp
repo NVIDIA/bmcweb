@@ -128,19 +128,6 @@ static std::string nvLinkManagementNIC = "NIC_";
 static std::string nvLinkManagementNICPort = "Port_";
 static std::string retimer = "PCIeRetimer_";
 
-inline std::string getSwitchId(const std::string& key)
-{
-    // Use regular expressions to extract the numeric part after "NVSwitch_"
-    std::regex pattern("NVSwitch_(\\d+)");
-    std::smatch match;
-    std::string swithId = "";
-    if (std::regex_search(key, match, pattern))
-    {
-        swithId = match[1].str();
-    }
-    return swithId;
-}
-
 inline void replaceNumber(const std::string& input, const std::string& key,
                           const std::string& value,
                           std::set<std::string>& replacedName)
@@ -178,8 +165,6 @@ inline void metricsReplacementsNonPlatformMetrics(
     std::smatch match;
     std::set<int> nvSwitchId_Type_1;
     std::set<int> nvlinkId_Type_1;
-    std::set<int> nvSwitchId_Type_2;
-    std::set<int> nvlinkId_Type_2;
     std::set<int> gpuId;
     std::set<int> gpmInstance;
     std::set<int> networkAdapterNId;
@@ -197,36 +182,17 @@ inline void metricsReplacementsNonPlatformMetrics(
     {
         if (deviceType == "NVSwitchPortMetrics")
         {
-            std::string switchType = getSwitchId(e);
-            if ((switchType == "0" || switchType == "3"))
+            std::regex switchPattern(nvSwitch + "(\\d+)");
+            if (std::regex_search(e, match, switchPattern))
             {
-                std::regex switchPattern(nvSwitch + "(\\d+)");
-                if (std::regex_search(e, match, switchPattern))
-                {
-                    int number = std::stoi(match[1].str());
-                    nvSwitchId_Type_1.insert(number);
-                }
-                std::regex nvLinkPattern(nvLink + "(\\d+)");
-                if (std::regex_search(e, match, nvLinkPattern))
-                {
-                    int number = std::stoi(match[1].str());
-                    nvlinkId_Type_1.insert(number);
-                }
+                int number = std::stoi(match[1].str());
+                nvSwitchId_Type_1.insert(number);
             }
-            else if ((switchType == "1" || switchType == "2"))
+            std::regex nvLinkPattern(nvLink + "(\\d+)");
+            if (std::regex_search(e, match, nvLinkPattern))
             {
-                std::regex switchPattern(nvSwitch + "(\\d+)");
-                if (std::regex_search(e, match, switchPattern))
-                {
-                    int number = std::stoi(match[1].str());
-                    nvSwitchId_Type_2.insert(number);
-                }
-                std::regex nvLinkPattern(nvLink + "(\\d+)");
-                if (std::regex_search(e, match, nvLinkPattern))
-                {
-                    int number = std::stoi(match[1].str());
-                    nvlinkId_Type_2.insert(number);
-                }
+                int number = std::stoi(match[1].str());
+                nvlinkId_Type_1.insert(number);
             }
         }
         if (deviceType == "NVSwitchMetrics")
@@ -377,7 +343,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             devCountSwitchType_1.push_back(std::to_string(e));
         }
         wildCards.push_back({
-            {"Name", "NVSwitchId_Type_1"},
+            {"Name", "NVSwitchId"},
             {"Values", devCountSwitchType_1},
         });
         nlohmann::json devCountNVlinkId_Type_1 = nlohmann::json::array();
@@ -386,27 +352,8 @@ inline void metricsReplacementsNonPlatformMetrics(
             devCountNVlinkId_Type_1.push_back(std::to_string(e));
         }
         wildCards.push_back({
-            {"Name", "NvlinkId_Type_1"},
+            {"Name", "NvlinkId"},
             {"Values", devCountNVlinkId_Type_1},
-        });
-
-        nlohmann::json devCountSwitchType_2 = nlohmann::json::array();
-        for (const auto& e : nvSwitchId_Type_2)
-        {
-            devCountSwitchType_2.push_back(std::to_string(e));
-        }
-        wildCards.push_back({
-            {"Name", "NVSwitchId_Type_2"},
-            {"Values", devCountSwitchType_2},
-        });
-        nlohmann::json devCountNVlinkId_Type_2 = nlohmann::json::array();
-        for (const auto& e : nvlinkId_Type_2)
-        {
-            devCountNVlinkId_Type_2.push_back(std::to_string(e));
-        }
-        wildCards.push_back({
-            {"Name", "NvlinkId_Type_2"},
-            {"Values", devCountNVlinkId_Type_2},
         });
     }
     if (deviceType == "NetworkAdapterPortMetrics")
