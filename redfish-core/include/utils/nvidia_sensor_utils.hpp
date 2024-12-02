@@ -1,5 +1,7 @@
 #pragma once
 
+#include "async_resp.hpp"
+
 namespace redfish
 {
 namespace nvidia_sensor_utils
