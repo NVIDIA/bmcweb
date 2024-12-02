@@ -247,195 +247,197 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     crow::connections::systemBus->async_method_call(
         [asyncResp{asyncResp}](const boost::system::error_code ec,
                                const PropertiesMap& properties) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-        {
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaPort.v1_0_0.NvidiaPort";
-        }
-        for (const auto& property : properties)
-        {
-            const std::string& propertyName = property.first;
-            if (propertyName == "Type")
+            if (ec)
             {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for port type");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["PortType"] = getPortType(*value);
+                messages::internalError(asyncResp->res);
+                return;
             }
-
             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
-                if (propertyName == "TXWidth")
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                    "#NvidiaPort.v1_0_0.NvidiaPort";
+            }
+            for (const auto& property : properties)
+            {
+                const std::string& propertyName = property.first;
+                if (propertyName == "Type")
                 {
-                    const uint16_t* value =
-                        std::get_if<uint16_t>(&property.second);
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
                     if (value == nullptr)
                     {
                         BMCWEB_LOG_DEBUG("Null value returned "
-                                         "for TXWidth");
+                                         "for port type");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["PortType"] = getPortType(*value);
+                }
+
+                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                {
+                    if (propertyName == "TXWidth")
+                    {
+                        const uint16_t* value =
+                            std::get_if<uint16_t>(&property.second);
+                        if (value == nullptr)
+                        {
+                            BMCWEB_LOG_DEBUG("Null value returned "
+                                             "for TXWidth");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+
+                        asyncResp->res.jsonValue["Oem"]["Nvidia"]["TXWidth"] =
+                            *value;
+                    }
+                    else if (propertyName == "RXWidth")
+                    {
+                        const uint16_t* value =
+                            std::get_if<uint16_t>(&property.second);
+                        if (value == nullptr)
+                        {
+                            BMCWEB_LOG_DEBUG("Null value returned "
+                                             "for RXWidth");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        asyncResp->res.jsonValue["Oem"]["Nvidia"]["RXWidth"] =
+                            *value;
+                    }
+                }
+                if (propertyName == "Protocol")
+                {
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for protocol type");
                         messages::internalError(asyncResp->res);
                         return;
                     }
 
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["TXWidth"] =
-                        *value;
+                    std::string portProtocol = getPortProtocol(*value);
+                    if (portProtocol.find(nvlinkToken) != std::string::npos &&
+                        portProtocol.size() > nvlinkToken.size())
+                    {
+                        asyncResp->res.jsonValue["PortProtocol"] = nvlinkToken;
+
+                        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                        {
+                            std::string expandPortName =
+                                portProtocol.substr(nvlinkToken.size() + 1);
+                            asyncResp->res
+                                .jsonValue["Oem"]["Nvidia"]["PortProtocol"] =
+                                expandPortName;
+                        }
+                    }
+                    else
+                    {
+                        asyncResp->res.jsonValue["PortProtocol"] = portProtocol;
+                    }
+
+                    asyncResp->res.jsonValue["PortProtocol"] =
+                        getPortProtocol(*value);
                 }
-                else if (propertyName == "RXWidth")
+                else if (propertyName == "LinkStatus")
                 {
-                    const uint16_t* value =
-                        std::get_if<uint16_t>(&property.second);
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
                     if (value == nullptr)
                     {
                         BMCWEB_LOG_DEBUG("Null value returned "
-                                         "for RXWidth");
+                                         "for link status");
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["RXWidth"] =
-                        *value;
+                    asyncResp->res.jsonValue["LinkStatus"] =
+                        getLinkStatusType(*value);
                 }
-            }
-            if (propertyName == "Protocol")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value == nullptr)
+                else if (propertyName == "LinkState")
                 {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for protocol type");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-
-                std::string portProtocol = getPortProtocol(*value);
-                if (portProtocol.find(nvlinkToken) != std::string::npos &&
-                    portProtocol.size() > nvlinkToken.size())
-                {
-                    asyncResp->res.jsonValue["PortProtocol"] = nvlinkToken;
-
-                    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
                     {
-                        std::string expandPortName =
-                            portProtocol.substr(nvlinkToken.size() + 1);
-                        asyncResp->res
-                            .jsonValue["Oem"]["Nvidia"]["PortProtocol"] =
-                            expandPortName;
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for link state");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["LinkState"] =
+                        getLinkStates(*value);
+                }
+                else if (propertyName == "CurrentSpeed")
+                {
+                    const double* value = std::get_if<double>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for CurrentSpeed");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["CurrentSpeedGbps"] = *value;
+                }
+                else if (propertyName == "MaxSpeed")
+                {
+                    const double* value = std::get_if<double>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for MaxSpeed");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["MaxSpeedGbps"] = *value;
+                }
+                else if ((propertyName == "Width") ||
+                         (propertyName == "ActiveWidth"))
+                {
+                    const size_t* value = std::get_if<size_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for Width or ActiveWidth");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (*value == INT_MAX)
+                    {
+                        asyncResp->res.jsonValue[propertyName] = 0;
+                    }
+                    else
+                    {
+                        asyncResp->res.jsonValue[propertyName] = *value;
                     }
                 }
-                else
+                else if (propertyName == "CurrentPowerState")
                 {
-                    asyncResp->res.jsonValue["PortProtocol"] = portProtocol;
-                }
-
-                asyncResp->res.jsonValue["PortProtocol"] =
-                    getPortProtocol(*value);
-            }
-            else if (propertyName == "LinkStatus")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for link status");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["LinkStatus"] =
-                    getLinkStatusType(*value);
-            }
-            else if (propertyName == "LinkState")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for link state");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["LinkState"] = getLinkStates(*value);
-            }
-            else if (propertyName == "CurrentSpeed")
-            {
-                const double* value = std::get_if<double>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for CurrentSpeed");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["CurrentSpeedGbps"] = *value;
-            }
-            else if (propertyName == "MaxSpeed")
-            {
-                const double* value = std::get_if<double>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for MaxSpeed");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["MaxSpeedGbps"] = *value;
-            }
-            else if ((propertyName == "Width") ||
-                     (propertyName == "ActiveWidth"))
-            {
-                const size_t* value = std::get_if<size_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for Width or ActiveWidth");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                if (*value == INT_MAX)
-                {
-                    asyncResp->res.jsonValue[propertyName] = 0;
-                }
-                else
-                {
-                    asyncResp->res.jsonValue[propertyName] = *value;
+                    const std::string* state =
+                        std::get_if<std::string>(&property.second);
+                    if (state == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for Current Power State");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (*state ==
+                        "xyz.openbmc_project.State.Chassis.PowerState.On")
+                    {
+                        asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+                    }
+                    else if (*state ==
+                             "xyz.openbmc_project.State.Chassis.PowerState.Off")
+                    {
+                        asyncResp->res.jsonValue["Status"]["State"] =
+                            "StandbyOffline";
+                    }
                 }
             }
-            else if (propertyName == "CurrentPowerState")
-            {
-                const std::string* state =
-                    std::get_if<std::string>(&property.second);
-                if (state == nullptr)
-                {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for Current Power State");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                if (*state == "xyz.openbmc_project.State.Chassis.PowerState.On")
-                {
-                    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-                }
-                else if (*state ==
-                         "xyz.openbmc_project.State.Chassis.PowerState.Off")
-                {
-                    asyncResp->res.jsonValue["Status"]["State"] =
-                        "StandbyOffline";
-                }
-            }
-        }
-    },
+        },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
 
     asyncResp->res.jsonValue["Status"]["Health"] = "OK";
@@ -466,103 +468,105 @@ inline void getCpuPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     crow::connections::systemBus->async_method_call(
         [asyncResp{asyncResp}](const boost::system::error_code ec,
                                const PropertiesMap& properties) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-        for (const auto& property : properties)
-        {
-            const std::string& propertyName = property.first;
-            if (propertyName == "Type")
+            for (const auto& property : properties)
             {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value == nullptr)
+                const std::string& propertyName = property.first;
+                if (propertyName == "Type")
                 {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for port type");
-                    messages::internalError(asyncResp->res);
-                    return;
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for port type");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["PortType"] = getPortType(*value);
                 }
-                asyncResp->res.jsonValue["PortType"] = getPortType(*value);
+                else if (propertyName == "Protocol")
+                {
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for protocol type");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["PortProtocol"] =
+                        getPortProtocol(*value);
+                }
+                else if (propertyName == "LinkStatus")
+                {
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for link status");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (*value ==
+                            "xyz.openbmc_project.Inventory.Decorator.PortState.LinkStatusType.LinkDown" ||
+                        *value ==
+                            "xyz.openbmc_project.Inventory.Decorator.PortState.LinkStatusType.LinkUp")
+                    {
+                        asyncResp->res.jsonValue["Status"]["Health"] = "OK";
+                    }
+                    else if (
+                        *value ==
+                        "xyz.openbmc_project.Inventory.Decorator.PortState.LinkStatusType.NoLink")
+                    {
+                        asyncResp->res.jsonValue["Status"]["Health"] =
+                            "Critical";
+                    }
+                }
+                else if (propertyName == "LinkState")
+                {
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "for link state");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (*value ==
+                        "xyz.openbmc_project.Inventory.Decorator.PortState.LinkStates.Enabled")
+                    {
+                        asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+                    }
+                    else if (
+                        *value ==
+                        "xyz.openbmc_project.Inventory.Decorator.PortState.LinkStates.Disabled")
+                    {
+                        asyncResp->res.jsonValue["Status"]["State"] =
+                            "Disabled";
+                    }
+                    else if (
+                        *value ==
+                        "xyz.openbmc_project.Inventory.Decorator.PortState.LinkStates.Error")
+                    {
+                        asyncResp->res.jsonValue["Status"]["State"] =
+                            "UnavailableOffline";
+                    }
+                    else
+                    {
+                        asyncResp->res.jsonValue["Status"]["State"] = "Absent";
+                    }
+                }
             }
-            else if (propertyName == "Protocol")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for protocol type");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["PortProtocol"] =
-                    getPortProtocol(*value);
-            }
-            else if (propertyName == "LinkStatus")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for link status");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                if (*value ==
-                        "xyz.openbmc_project.Inventory.Decorator.PortState.LinkStatusType.LinkDown" ||
-                    *value ==
-                        "xyz.openbmc_project.Inventory.Decorator.PortState.LinkStatusType.LinkUp")
-                {
-                    asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-                }
-                else if (
-                    *value ==
-                    "xyz.openbmc_project.Inventory.Decorator.PortState.LinkStatusType.NoLink")
-                {
-                    asyncResp->res.jsonValue["Status"]["Health"] = "Critical";
-                }
-            }
-            else if (propertyName == "LinkState")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_DEBUG("Null value returned "
-                                     "for link state");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                if (*value ==
-                    "xyz.openbmc_project.Inventory.Decorator.PortState.LinkStates.Enabled")
-                {
-                    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-                }
-                else if (
-                    *value ==
-                    "xyz.openbmc_project.Inventory.Decorator.PortState.LinkStates.Disabled")
-                {
-                    asyncResp->res.jsonValue["Status"]["State"] = "Disabled";
-                }
-                else if (
-                    *value ==
-                    "xyz.openbmc_project.Inventory.Decorator.PortState.LinkStates.Error")
-                {
-                    asyncResp->res.jsonValue["Status"]["State"] =
-                        "UnavailableOffline";
-                }
-                else
-                {
-                    asyncResp->res.jsonValue["Status"]["State"] = "Absent";
-                }
-            }
-        }
-    },
+        },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
 }
 

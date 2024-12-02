@@ -40,112 +40,115 @@ inline void handleDeviceServiceConditions(
         [asyncResp{asyncResp}, chassisId(std::string(chassisId))](
             const boost::system::error_code ec,
             const dbus::utility::ManagedObjectType& resp) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            BMCWEB_LOG_ERROR("getLogEntriesIfaceData resp_handler got error {}",
-                             ec);
-            return;
-        }
-
-        const uint32_t* id = nullptr;
-        const std::string* message = nullptr;
-        const std::string* severity = nullptr;
-        const std::vector<std::string>* additionalDataRaw = nullptr;
-        const std::string prefix = "xyz.openbmc_project.Logging.Entry.Level.";
-        const std::string criticalSev = prefix + "Critical";
-        const std::string warningSev = prefix + "Warning";
-        std::time_t timestamp{};
-
-        for (auto& objectPath : resp)
-        {
-            additionalDataRaw = nullptr;
-            for (auto& interfaceMap : objectPath.second)
+            if (ec)
             {
-                if (interfaceMap.first == "xyz.openbmc_project.Logging.Entry")
+                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR(
+                    "getLogEntriesIfaceData resp_handler got error {}", ec);
+                return;
+            }
+
+            const uint32_t* id = nullptr;
+            const std::string* message = nullptr;
+            const std::string* severity = nullptr;
+            const std::vector<std::string>* additionalDataRaw = nullptr;
+            const std::string prefix =
+                "xyz.openbmc_project.Logging.Entry.Level.";
+            const std::string criticalSev = prefix + "Critical";
+            const std::string warningSev = prefix + "Warning";
+            std::time_t timestamp{};
+
+            for (auto& objectPath : resp)
+            {
+                additionalDataRaw = nullptr;
+                for (auto& interfaceMap : objectPath.second)
                 {
-                    for (auto& propertyMap : interfaceMap.second)
+                    if (interfaceMap.first ==
+                        "xyz.openbmc_project.Logging.Entry")
                     {
-                        if (propertyMap.first == "Id")
+                        for (auto& propertyMap : interfaceMap.second)
                         {
-                            id = std::get_if<uint32_t>(&propertyMap.second);
-                        }
-                        else if (propertyMap.first == "Severity")
-                        {
-                            severity =
-                                std::get_if<std::string>(&propertyMap.second);
-                        }
-                        else if (propertyMap.first == "Message")
-                        {
-                            message =
-                                std::get_if<std::string>(&propertyMap.second);
-                        }
-                        else if (propertyMap.first == "AdditionalData")
-                        {
-                            additionalDataRaw =
-                                std::get_if<std::vector<std::string>>(
-                                    &propertyMap.second);
-                        }
-                        else if (propertyMap.first == "Timestamp")
-                        {
-                            const uint64_t* millisTimeStamp =
-                                std::get_if<uint64_t>(&propertyMap.second);
-                            if (millisTimeStamp != nullptr)
+                            if (propertyMap.first == "Id")
                             {
-                                timestamp = redfish::time_utils::getTimestamp(
-                                    *millisTimeStamp);
+                                id = std::get_if<uint32_t>(&propertyMap.second);
+                            }
+                            else if (propertyMap.first == "Severity")
+                            {
+                                severity = std::get_if<std::string>(
+                                    &propertyMap.second);
+                            }
+                            else if (propertyMap.first == "Message")
+                            {
+                                message = std::get_if<std::string>(
+                                    &propertyMap.second);
+                            }
+                            else if (propertyMap.first == "AdditionalData")
+                            {
+                                additionalDataRaw =
+                                    std::get_if<std::vector<std::string>>(
+                                        &propertyMap.second);
+                            }
+                            else if (propertyMap.first == "Timestamp")
+                            {
+                                const uint64_t* millisTimeStamp =
+                                    std::get_if<uint64_t>(&propertyMap.second);
+                                if (millisTimeStamp != nullptr)
+                                {
+                                    timestamp =
+                                        redfish::time_utils::getTimestamp(
+                                            *millisTimeStamp);
+                                }
                             }
                         }
+                        if (id == nullptr || message == nullptr ||
+                            severity == nullptr)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "id, message, severity of log entry is null");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        break;
                     }
-                    if (id == nullptr || message == nullptr ||
-                        severity == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "id, message, severity of log entry is null");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    break;
                 }
-            }
-            std::string originOfCondition;
-            std::string messageArgs;
-            std::string messageId;
-            std::string deviceName;
+                std::string originOfCondition;
+                std::string messageArgs;
+                std::string messageId;
+                std::string deviceName;
 
-            if (additionalDataRaw != nullptr)
-            {
-                AdditionalData additional(*additionalDataRaw);
-                if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
+                if (additionalDataRaw != nullptr)
                 {
-                    originOfCondition =
-                        additional["REDFISH_ORIGIN_OF_CONDITION"];
-                }
-                if (additional.count("REDFISH_MESSAGE_ARGS") > 0)
-                {
-                    messageArgs = additional["REDFISH_MESSAGE_ARGS"];
-                }
-                if (additional.count("REDFISH_MESSAGE_ID") > 0)
-                {
-                    messageId = additional["REDFISH_MESSAGE_ID"];
-                }
-                if (additional.count("DEVICE_NAME") > 0)
-                {
-                    deviceName = additional["DEVICE_NAME"];
-                }
-                if ((*severity == criticalSev || *severity == warningSev) &&
-                    messageArgs.find(chassisId) != std::string::npos)
-                {
-                    origin_utils::convertDbusObjectToOriginOfCondition(
-                        originOfCondition, std::to_string(*id), asyncResp,
-                        asyncResp->res.jsonValue, deviceName,
-                        (*severity).substr(prefix.length()), messageArgs,
-                        redfish::time_utils::getDateTimeStdtime(timestamp),
-                        messageId);
+                    AdditionalData additional(*additionalDataRaw);
+                    if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
+                    {
+                        originOfCondition =
+                            additional["REDFISH_ORIGIN_OF_CONDITION"];
+                    }
+                    if (additional.count("REDFISH_MESSAGE_ARGS") > 0)
+                    {
+                        messageArgs = additional["REDFISH_MESSAGE_ARGS"];
+                    }
+                    if (additional.count("REDFISH_MESSAGE_ID") > 0)
+                    {
+                        messageId = additional["REDFISH_MESSAGE_ID"];
+                    }
+                    if (additional.count("DEVICE_NAME") > 0)
+                    {
+                        deviceName = additional["DEVICE_NAME"];
+                    }
+                    if ((*severity == criticalSev || *severity == warningSev) &&
+                        messageArgs.find(chassisId) != std::string::npos)
+                    {
+                        origin_utils::convertDbusObjectToOriginOfCondition(
+                            originOfCondition, std::to_string(*id), asyncResp,
+                            asyncResp->res.jsonValue, deviceName,
+                            (*severity).substr(prefix.length()), messageArgs,
+                            redfish::time_utils::getDateTimeStdtime(timestamp),
+                            messageId);
+                    }
                 }
             }
-        }
-    },
+        },
         "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
         "xyz.openbmc_project.Logging.Namespace", "GetAll", chassisId,
         "xyz.openbmc_project.Logging.Namespace.ResolvedFilterType.Unresolved");
@@ -157,124 +160,127 @@ inline void handleServiceConditionsURI(
     crow::connections::systemBus->async_method_call(
         [asyncResp{asyncResp}](const boost::system::error_code ec,
                                const dbus::utility::ManagedObjectType& resp) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            BMCWEB_LOG_ERROR("getLogEntriesIfaceData resp_handler got error {}",
-                             ec);
-            return;
-        }
-        const std::map<std::string, int> severityMap = {
-            {"OK", 1}, {"Warning", 2}, {"Critical", 3}};
-        const uint32_t* id = nullptr;
-        const std::string* message = nullptr;
-        const std::string* severity = nullptr;
-        const std::vector<std::string>* additionalDataRaw = nullptr;
-        const std::string prefix = "xyz.openbmc_project.Logging.Entry.Level.";
-        const std::string criticalSev = prefix + "Critical";
-        const std::string warningSev = prefix + "Warning";
-        std::time_t timestamp{};
-        for (auto& objectPath : resp)
-        {
-            additionalDataRaw = nullptr;
-            for (auto& interfaceMap : objectPath.second)
+            if (ec)
             {
-                if (interfaceMap.first == "xyz.openbmc_project.Logging.Entry")
+                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR(
+                    "getLogEntriesIfaceData resp_handler got error {}", ec);
+                return;
+            }
+            const std::map<std::string, int> severityMap = {
+                {"OK", 1}, {"Warning", 2}, {"Critical", 3}};
+            const uint32_t* id = nullptr;
+            const std::string* message = nullptr;
+            const std::string* severity = nullptr;
+            const std::vector<std::string>* additionalDataRaw = nullptr;
+            const std::string prefix =
+                "xyz.openbmc_project.Logging.Entry.Level.";
+            const std::string criticalSev = prefix + "Critical";
+            const std::string warningSev = prefix + "Warning";
+            std::time_t timestamp{};
+            for (auto& objectPath : resp)
+            {
+                additionalDataRaw = nullptr;
+                for (auto& interfaceMap : objectPath.second)
                 {
-                    for (auto& propertyMap : interfaceMap.second)
+                    if (interfaceMap.first ==
+                        "xyz.openbmc_project.Logging.Entry")
                     {
-                        if (propertyMap.first == "Id")
+                        for (auto& propertyMap : interfaceMap.second)
                         {
-                            id = std::get_if<uint32_t>(&propertyMap.second);
-                        }
-                        else if (propertyMap.first == "Severity")
-                        {
-                            severity =
-                                std::get_if<std::string>(&propertyMap.second);
-                        }
-                        else if (propertyMap.first == "Message")
-                        {
-                            message =
-                                std::get_if<std::string>(&propertyMap.second);
-                        }
-                        else if (propertyMap.first == "AdditionalData")
-                        {
-                            additionalDataRaw =
-                                std::get_if<std::vector<std::string>>(
-                                    &propertyMap.second);
-                        }
-                        else if (propertyMap.first == "Timestamp")
-                        {
-                            const uint64_t* millisTimeStamp =
-                                std::get_if<uint64_t>(&propertyMap.second);
-                            if (millisTimeStamp != nullptr)
+                            if (propertyMap.first == "Id")
                             {
-                                timestamp = redfish::time_utils::getTimestamp(
-                                    *millisTimeStamp);
+                                id = std::get_if<uint32_t>(&propertyMap.second);
+                            }
+                            else if (propertyMap.first == "Severity")
+                            {
+                                severity = std::get_if<std::string>(
+                                    &propertyMap.second);
+                            }
+                            else if (propertyMap.first == "Message")
+                            {
+                                message = std::get_if<std::string>(
+                                    &propertyMap.second);
+                            }
+                            else if (propertyMap.first == "AdditionalData")
+                            {
+                                additionalDataRaw =
+                                    std::get_if<std::vector<std::string>>(
+                                        &propertyMap.second);
+                            }
+                            else if (propertyMap.first == "Timestamp")
+                            {
+                                const uint64_t* millisTimeStamp =
+                                    std::get_if<uint64_t>(&propertyMap.second);
+                                if (millisTimeStamp != nullptr)
+                                {
+                                    timestamp =
+                                        redfish::time_utils::getTimestamp(
+                                            *millisTimeStamp);
+                                }
                             }
                         }
+                        if (id == nullptr || message == nullptr ||
+                            severity == nullptr)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "id, message, severity of log entry is null");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        break;
                     }
-                    if (id == nullptr || message == nullptr ||
-                        severity == nullptr)
+                }
+                std::string originOfCondition;
+                std::string messageArgs;
+                std::string messageId;
+                std::string deviceName;
+
+                if (additionalDataRaw != nullptr)
+                {
+                    AdditionalData additional(*additionalDataRaw);
+                    if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
                     {
-                        BMCWEB_LOG_ERROR(
-                            "id, message, severity of log entry is null");
-                        messages::internalError(asyncResp->res);
-                        return;
+                        originOfCondition =
+                            additional["REDFISH_ORIGIN_OF_CONDITION"];
                     }
-                    break;
+                    if (additional.count("REDFISH_MESSAGE_ARGS") > 0)
+                    {
+                        messageArgs = additional["REDFISH_MESSAGE_ARGS"];
+                    }
+                    if (additional.count("REDFISH_MESSAGE_ID") > 0)
+                    {
+                        messageId = additional["REDFISH_MESSAGE_ID"];
+                    }
+                    if (additional.count("DEVICE_NAME") > 0)
+                    {
+                        deviceName = additional["DEVICE_NAME"];
+                    }
+                    if (*severity == criticalSev || *severity == warningSev)
+                    {
+                        origin_utils::convertDbusObjectToOriginOfCondition(
+                            originOfCondition, std::to_string(*id), asyncResp,
+                            asyncResp->res.jsonValue, deviceName,
+                            (*severity).substr(prefix.length()), messageArgs,
+                            redfish::time_utils::getDateTimeStdtime(timestamp),
+                            messageId);
+
+                        std::string sev = (*severity).substr(prefix.length());
+                        std::string currSev =
+                            asyncResp->res.jsonValue["HealthRollup"];
+
+                        if (severityMap.at(sev) > severityMap.at(currSev))
+                        {
+                            asyncResp->res.jsonValue["HealthRollup"] = sev;
+                        }
+                    }
                 }
             }
-            std::string originOfCondition;
-            std::string messageArgs;
-            std::string messageId;
-            std::string deviceName;
-
-            if (additionalDataRaw != nullptr)
+            if (asyncResp->res.jsonValue["Conditions"].size() == 0)
             {
-                AdditionalData additional(*additionalDataRaw);
-                if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
-                {
-                    originOfCondition =
-                        additional["REDFISH_ORIGIN_OF_CONDITION"];
-                }
-                if (additional.count("REDFISH_MESSAGE_ARGS") > 0)
-                {
-                    messageArgs = additional["REDFISH_MESSAGE_ARGS"];
-                }
-                if (additional.count("REDFISH_MESSAGE_ID") > 0)
-                {
-                    messageId = additional["REDFISH_MESSAGE_ID"];
-                }
-                if (additional.count("DEVICE_NAME") > 0)
-                {
-                    deviceName = additional["DEVICE_NAME"];
-                }
-                if (*severity == criticalSev || *severity == warningSev)
-                {
-                    origin_utils::convertDbusObjectToOriginOfCondition(
-                        originOfCondition, std::to_string(*id), asyncResp,
-                        asyncResp->res.jsonValue, deviceName,
-                        (*severity).substr(prefix.length()), messageArgs,
-                        redfish::time_utils::getDateTimeStdtime(timestamp),
-                        messageId);
-
-                    std::string sev = (*severity).substr(prefix.length());
-                    std::string currSev =
-                        asyncResp->res.jsonValue["HealthRollup"];
-
-                    if (severityMap.at(sev) > severityMap.at(currSev))
-                    {
-                        asyncResp->res.jsonValue["HealthRollup"] = sev;
-                    }
-                }
+                asyncResp->res.jsonValue["HealthRollup"] = "OK";
             }
-        }
-        if (asyncResp->res.jsonValue["Conditions"].size() == 0)
-        {
-            asyncResp->res.jsonValue["HealthRollup"] = "OK";
-        }
-    },
+        },
         "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
         "xyz.openbmc_project.Logging.Namespace", "GetAll", "Namespace.All",
         "xyz.openbmc_project.Logging.Namespace.ResolvedFilterType.Unresolved");
@@ -331,8 +337,8 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
         {
             // MessageRegistry Format
             std::string messageId = *jMsgId;
-            std::string message = message_registries::composeMessage(*jMsgId,
-                                                                     *jMsgArgs);
+            std::string message =
+                message_registries::composeMessage(*jMsgId, *jMsgArgs);
 
             conditionResp["MessageId"] = messageId;
             conditionResp["MessageArgs"] = *jMsgArgs;

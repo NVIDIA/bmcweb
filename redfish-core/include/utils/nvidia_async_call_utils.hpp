@@ -72,33 +72,34 @@ void callAsyncGetValue(std::shared_ptr<CallAsyncStatusInfo> statusInfo,
              status](const boost::system::error_code ec,
                      const std::variant<typename CallAsyncStatusInfo::Value>&
                          value) {
-            auto statInfo = weakStatusInfo.lock();
-            if (!statInfo || statInfo->completed)
-            {
-                BMCWEB_LOG_INFO(
-                    "Call Async : Redudent Response for GetValue or Response arrived after the timeout.");
-                return;
-            }
+                auto statInfo = weakStatusInfo.lock();
+                if (!statInfo || statInfo->completed)
+                {
+                    BMCWEB_LOG_INFO(
+                        "Call Async : Redudent Response for GetValue or Response arrived after the timeout.");
+                    return;
+                }
 
-            if (ec)
-            {
-                BMCWEB_LOG_INFO("Call Async : GetValue failed with error {}",
-                                ec);
-                reportErrorAndCancel(statInfo);
-            }
-            else
-            {
-                const auto valuePtr =
-                    std::get_if<typename CallAsyncStatusInfo::Value>(&value);
+                if (ec)
+                {
+                    BMCWEB_LOG_INFO(
+                        "Call Async : GetValue failed with error {}", ec);
+                    reportErrorAndCancel(statInfo);
+                }
+                else
+                {
+                    const auto valuePtr =
+                        std::get_if<typename CallAsyncStatusInfo::Value>(
+                            &value);
 
-                BMCWEB_LOG_INFO(
-                    "Call Async : Successfully Obtained the Value.");
+                    BMCWEB_LOG_INFO(
+                        "Call Async : Successfully Obtained the Value.");
 
-                statInfo->completed = true;
-                statInfo->callback(status, valuePtr);
-                statInfo->timeoutTimer.cancel();
-            }
-        },
+                    statInfo->completed = true;
+                    statInfo->callback(status, valuePtr);
+                    statInfo->timeoutTimer.cancel();
+                }
+            },
             statusInfo->service, statusInfo->object,
             "org.freedesktop.DBus.Properties", "Get",
             statusInfo->valueInterface, statusInfo->valueProperty);
@@ -325,22 +326,20 @@ void doCallAsyncAndGatherResult(
     statusInfo->timeoutTimer.expires_after(timeout);
     statusInfo->timeoutTimer.async_wait(
         [statusInfo](boost::system::error_code ec) {
-        if (ec != boost::asio::error::operation_aborted)
-        {
-            BMCWEB_LOG_INFO("Call Async : Operation timed out.");
-            messages::operationTimeout(statusInfo->aresp->res);
-        }
-    });
+            if (ec != boost::asio::error::operation_aborted)
+            {
+                BMCWEB_LOG_INFO("Call Async : Operation timed out.");
+                messages::operationTimeout(statusInfo->aresp->res);
+            }
+        });
 }
 
 template <typename Value, typename Callback, typename... Params>
-void doGenericCallAsyncAndGatherResult(std::shared_ptr<bmcweb::AsyncResp> resp,
-                                       const std::chrono::milliseconds timeout,
-                                       const std::string& service,
-                                       const std::string& object,
-                                       const std::string& interface,
-                                       const std::string& method,
-                                       Callback&& callback, Params&&... params)
+void doGenericCallAsyncAndGatherResult(
+    std::shared_ptr<bmcweb::AsyncResp> resp,
+    const std::chrono::milliseconds timeout, const std::string& service,
+    const std::string& object, const std::string& interface,
+    const std::string& method, Callback&& callback, Params&&... params)
 {
     doCallAsyncAndGatherResult<Value>(
         resp, timeout, service, object, interface, method,

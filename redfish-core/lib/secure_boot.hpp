@@ -58,80 +58,83 @@ inline void handleSecureBootGet(crow::App& app, const crow::Request& req,
         "xyz.openbmc_project.BIOSConfig.SecureBoot",
         [aResp](const boost::system::error_code ec,
                 const dbus::utility::DBusPropertiesMap& properties) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error on SecureBoot GetAll: {}",
-                             ec);
-            messages::internalError(aResp->res);
-            return;
-        }
-
-        std::string secureBootCurrentBoot;
-        bool secureBootEnable = false;
-        std::string secureBootMode;
-        for (auto& [propertyName, propertyVariant] : properties)
-        {
-            if (propertyName == "CurrentBoot" &&
-                std::holds_alternative<std::string>(propertyVariant))
+            if (ec)
             {
-                secureBootCurrentBoot = std::get<std::string>(propertyVariant);
+                BMCWEB_LOG_ERROR("DBUS response error on SecureBoot GetAll: {}",
+                                 ec);
+                messages::internalError(aResp->res);
+                return;
             }
-            else if (propertyName == "Enable" &&
-                     std::holds_alternative<bool>(propertyVariant))
+
+            std::string secureBootCurrentBoot;
+            bool secureBootEnable = false;
+            std::string secureBootMode;
+            for (auto& [propertyName, propertyVariant] : properties)
             {
-                secureBootEnable = std::get<bool>(propertyVariant);
+                if (propertyName == "CurrentBoot" &&
+                    std::holds_alternative<std::string>(propertyVariant))
+                {
+                    secureBootCurrentBoot =
+                        std::get<std::string>(propertyVariant);
+                }
+                else if (propertyName == "Enable" &&
+                         std::holds_alternative<bool>(propertyVariant))
+                {
+                    secureBootEnable = std::get<bool>(propertyVariant);
+                }
+                else if (propertyName == "Mode" &&
+                         std::holds_alternative<std::string>(propertyVariant))
+                {
+                    secureBootMode = std::get<std::string>(propertyVariant);
+                }
             }
-            else if (propertyName == "Mode" &&
-                     std::holds_alternative<std::string>(propertyVariant))
+            if (secureBootCurrentBoot ==
+                    "xyz.openbmc_project.BIOSConfig.SecureBoot.CurrentBootType.Unknown" ||
+                secureBootMode ==
+                    "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.Unknown")
             {
-                secureBootMode = std::get<std::string>(propertyVariant);
+                // BMC has not yet recevied data.
+                return;
             }
-        }
-        if (secureBootCurrentBoot ==
-                "xyz.openbmc_project.BIOSConfig.SecureBoot.CurrentBootType.Unknown" ||
-            secureBootMode ==
-                "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.Unknown")
-        {
-            // BMC has not yet recevied data.
-            return;
-        }
 
-        if (secureBootCurrentBoot ==
-            "xyz.openbmc_project.BIOSConfig.SecureBoot.CurrentBootType.Enabled")
-        {
-            aResp->res.jsonValue["SecureBootCurrentBoot"] = "Enabled";
-        }
-        else if (
-            secureBootCurrentBoot ==
-            "xyz.openbmc_project.BIOSConfig.SecureBoot.CurrentBootType.Disabled")
-        {
-            aResp->res.jsonValue["SecureBootCurrentBoot"] = "Disabled";
-        }
+            if (secureBootCurrentBoot ==
+                "xyz.openbmc_project.BIOSConfig.SecureBoot.CurrentBootType.Enabled")
+            {
+                aResp->res.jsonValue["SecureBootCurrentBoot"] = "Enabled";
+            }
+            else if (
+                secureBootCurrentBoot ==
+                "xyz.openbmc_project.BIOSConfig.SecureBoot.CurrentBootType.Disabled")
+            {
+                aResp->res.jsonValue["SecureBootCurrentBoot"] = "Disabled";
+            }
 
-        aResp->res.jsonValue["SecureBootEnable"] = secureBootEnable;
+            aResp->res.jsonValue["SecureBootEnable"] = secureBootEnable;
 
-        if (secureBootMode ==
-            "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.SetupMode")
-        {
-            aResp->res.jsonValue["SecureBootMode"] = "SetupMode";
-        }
-        else if (secureBootMode ==
-                 "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.UserMode")
-        {
-            aResp->res.jsonValue["SecureBootMode"] = "UserMode";
-        }
-        else if (secureBootMode ==
-                 "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.AuditMode")
-        {
-            aResp->res.jsonValue["SecureBootMode"] = "AuditMode";
-        }
-        else if (
-            secureBootMode ==
-            "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.DeployedMode")
-        {
-            aResp->res.jsonValue["SecureBootMode"] = "DeployedMode";
-        }
-    });
+            if (secureBootMode ==
+                "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.SetupMode")
+            {
+                aResp->res.jsonValue["SecureBootMode"] = "SetupMode";
+            }
+            else if (
+                secureBootMode ==
+                "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.UserMode")
+            {
+                aResp->res.jsonValue["SecureBootMode"] = "UserMode";
+            }
+            else if (
+                secureBootMode ==
+                "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.AuditMode")
+            {
+                aResp->res.jsonValue["SecureBootMode"] = "AuditMode";
+            }
+            else if (
+                secureBootMode ==
+                "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.DeployedMode")
+            {
+                aResp->res.jsonValue["SecureBootMode"] = "DeployedMode";
+            }
+        });
 }
 
 inline void
@@ -144,9 +147,10 @@ inline void
         return;
     }
 
-    privilege_utils::isBiosPrivilege(
-        req,
-        [req, aResp](const boost::system::error_code ec, const bool isBios) {
+    privilege_utils::isBiosPrivilege(req, [req, aResp](
+                                              const boost::system::error_code
+                                                  ec,
+                                              const bool isBios) {
         std::optional<std::string> secureBootCurrentBoot;
         std::optional<bool> secureBootEnable;
         std::optional<std::string> secureBootMode;
@@ -228,13 +232,13 @@ inline void
         {
             crow::connections::systemBus->async_method_call(
                 [aResp](const boost::system::error_code ec) {
-                if (ec)
-                {
-                    BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
-                    messages::internalError(aResp->res);
-                    return;
-                }
-            },
+                    if (ec)
+                    {
+                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                },
                 "xyz.openbmc_project.BIOSConfigManager",
                 "/xyz/openbmc_project/bios_config/manager",
                 "org.freedesktop.DBus.Properties", "Set",
@@ -246,13 +250,13 @@ inline void
         {
             crow::connections::systemBus->async_method_call(
                 [aResp](const boost::system::error_code ec) {
-                if (ec)
-                {
-                    BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
-                    messages::internalError(aResp->res);
-                    return;
-                }
-            },
+                    if (ec)
+                    {
+                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                },
                 "xyz.openbmc_project.BIOSConfigManager",
                 "/xyz/openbmc_project/bios_config/manager",
                 "org.freedesktop.DBus.Properties", "Set",
@@ -264,13 +268,13 @@ inline void
         {
             crow::connections::systemBus->async_method_call(
                 [aResp](const boost::system::error_code ec) {
-                if (ec)
-                {
-                    BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
-                    messages::internalError(aResp->res);
-                    return;
-                }
-            },
+                    if (ec)
+                    {
+                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                },
                 "xyz.openbmc_project.BIOSConfigManager",
                 "/xyz/openbmc_project/bios_config/manager",
                 "org.freedesktop.DBus.Properties", "Set",

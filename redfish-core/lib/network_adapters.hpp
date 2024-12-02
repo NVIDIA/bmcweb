@@ -39,59 +39,60 @@ inline void getNetworkAdapterCollectionMembers(
         [collectionPath, isNDF, aResp{std::move(aResp)}](
             const boost::system::error_code ec,
             const dbus::utility::MapperGetSubTreePathsResponse& objects) {
-        // currently host name is hard coded. We will add support for multiple
-        // hosts through https://redmine.mellanox.com/issues/3461409
-        std::string dpuString = "host0";
-        if (ec == boost::system::errc::io_error)
-        {
-            aResp->res.jsonValue["Members"] = nlohmann::json::array();
-            aResp->res.jsonValue["Members@odata.count"] = 0;
-            return;
-        }
-
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
-            messages::internalError(aResp->res);
-            return;
-        }
-
-        std::vector<std::string> pathNames;
-        for (const auto& object : objects)
-        {
-            std::string p = object;
-            if (p.find(dpuString) == std::string::npos)
+            // currently host name is hard coded. We will add support for
+            // multiple hosts through
+            // https://redmine.mellanox.com/issues/3461409
+            std::string dpuString = "host0";
+            if (ec == boost::system::errc::io_error)
             {
-                continue;
+                aResp->res.jsonValue["Members"] = nlohmann::json::array();
+                aResp->res.jsonValue["Members@odata.count"] = 0;
+                return;
             }
-            sdbusplus::message::object_path path(object);
-            std::string leaf = path.filename();
-            if (leaf.empty())
-            {
-                continue;
-            }
-            if (isNDF)
-            {
-                leaf += "f0";
-            }
-            pathNames.push_back(leaf);
-        }
-        std::sort(pathNames.begin(), pathNames.end(),
-                  AlphanumLess<std::string>());
 
-        nlohmann::json& members = aResp->res.jsonValue["Members"];
-        members = nlohmann::json::array();
-        for (const std::string& leaf : pathNames)
-        {
-            std::string newPath = collectionPath;
-            newPath += '/';
-            newPath += leaf;
-            nlohmann::json::object_t member;
-            member["@odata.id"] = std::move(newPath);
-            members.push_back(std::move(member));
-        }
-        aResp->res.jsonValue["Members@odata.count"] = members.size();
-    },
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
+                messages::internalError(aResp->res);
+                return;
+            }
+
+            std::vector<std::string> pathNames;
+            for (const auto& object : objects)
+            {
+                std::string p = object;
+                if (p.find(dpuString) == std::string::npos)
+                {
+                    continue;
+                }
+                sdbusplus::message::object_path path(object);
+                std::string leaf = path.filename();
+                if (leaf.empty())
+                {
+                    continue;
+                }
+                if (isNDF)
+                {
+                    leaf += "f0";
+                }
+                pathNames.push_back(leaf);
+            }
+            std::sort(pathNames.begin(), pathNames.end(),
+                      AlphanumLess<std::string>());
+
+            nlohmann::json& members = aResp->res.jsonValue["Members"];
+            members = nlohmann::json::array();
+            for (const std::string& leaf : pathNames)
+            {
+                std::string newPath = collectionPath;
+                newPath += '/';
+                newPath += leaf;
+                nlohmann::json::object_t member;
+                member["@odata.id"] = std::move(newPath);
+                members.push_back(std::move(member));
+            }
+            aResp->res.jsonValue["Members@odata.count"] = members.size();
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", subtree, 0,
@@ -119,45 +120,46 @@ inline void doNetworkAdaptersCollection(
         [chassisId, asyncResp](
             const boost::system::error_code ec,
             const dbus::utility::MapperGetSubTreePathsResponse& objects) {
-        if (ec == boost::system::errc::io_error)
-        {
-            asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
-            asyncResp->res.jsonValue["Members@odata.count"] = 0;
-            return;
-        }
-
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        std::string dpuString = "host0";
-        int networkAdaptersCount = 0;
-        std::map<std::string, int> networkAdaptersCollectionMap;
-        std::vector<std::string> pathNames;
-        for (const auto& object : objects)
-        {
-            std::string p = object;
-            if (p.find(dpuString) == std::string::npos)
+            if (ec == boost::system::errc::io_error)
             {
-                continue;
+                asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
+                asyncResp->res.jsonValue["Members@odata.count"] = 0;
+                return;
             }
-            networkAdaptersCount = 1;
-            break;
-        }
-        nlohmann::json& members = asyncResp->res.jsonValue["Members"];
-        members = nlohmann::json::array();
-        asyncResp->res.jsonValue["Members@odata.count"] = networkAdaptersCount;
-        if (networkAdaptersCount)
-        {
-            nlohmann::json::object_t member;
-            member["@odata.id"] =
-                boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters/{}",
-                                    chassisId, BMCWEB_PLATFORM_NETWORK_ADAPTER);
-            members.push_back(std::move(member));
-        }
-    },
+
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            std::string dpuString = "host0";
+            int networkAdaptersCount = 0;
+            std::map<std::string, int> networkAdaptersCollectionMap;
+            std::vector<std::string> pathNames;
+            for (const auto& object : objects)
+            {
+                std::string p = object;
+                if (p.find(dpuString) == std::string::npos)
+                {
+                    continue;
+                }
+                networkAdaptersCount = 1;
+                break;
+            }
+            nlohmann::json& members = asyncResp->res.jsonValue["Members"];
+            members = nlohmann::json::array();
+            asyncResp->res.jsonValue["Members@odata.count"] =
+                networkAdaptersCount;
+            if (networkAdaptersCount)
+            {
+                nlohmann::json::object_t member;
+                member["@odata.id"] = boost::urls::format(
+                    "/redfish/v1/Chassis/{}/NetworkAdapters/{}", chassisId,
+                    BMCWEB_PLATFORM_NETWORK_ADAPTER);
+                members.push_back(std::move(member));
+            }
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
@@ -255,11 +257,10 @@ inline void handleNetworkAdaptersCollectionGet(
         std::bind_front(&doNetworkAdaptersCollection, asyncResp, chassisId));
 }
 
-inline void
-    handleNetworkAdapterGet(App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& param,
-                            const std::string& networkId [[maybe_unused]])
+inline void handleNetworkAdapterGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& param, const std::string& networkId [[maybe_unused]])
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -321,61 +322,62 @@ inline void doPort(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
                     const GetManagedPropertyType& properties) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        for (const auto& property : properties)
-        {
-            const std::string& propertyName = property.first;
-            if (propertyName == "LinkUp")
+            if (ec)
             {
-                const bool* value = std::get_if<bool>(&property.second);
-                if (value == nullptr)
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            for (const auto& property : properties)
+            {
+                const std::string& propertyName = property.first;
+                if (propertyName == "LinkUp")
                 {
-                    BMCWEB_LOG_ERROR("Cannot read LinkUp property");
-                    messages::internalError(asyncResp->res);
-                    return;
+                    const bool* value = std::get_if<bool>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Cannot read LinkUp property");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (*value)
+                    {
+                        asyncResp->res.jsonValue["LinkStatus"] = "LinkUp";
+                    }
+                    else
+                    {
+                        asyncResp->res.jsonValue["LinkStatus"] = "LinkDown";
+                    }
                 }
-                if (*value)
+                if (propertyName == "Speed")
                 {
-                    asyncResp->res.jsonValue["LinkStatus"] = "LinkUp";
+                    const uint32_t* value =
+                        std::get_if<uint32_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Cannot read Speed property");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    uint32_t valueInGbps = (*value) / 1000;
+                    asyncResp->res.jsonValue["CurrentSpeedGbps"] = valueInGbps;
                 }
-                else
+                if (propertyName == "LinkType")
                 {
-                    asyncResp->res.jsonValue["LinkStatus"] = "LinkDown";
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Cannot read LinkType property");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (value->find("InfiniBand") != std::string::npos)
+                        asyncResp->res.jsonValue["LinkNetworkTechnology"] =
+                            "InfiniBand";
                 }
             }
-            if (propertyName == "Speed")
-            {
-                const uint32_t* value = std::get_if<uint32_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Cannot read Speed property");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                uint32_t valueInGbps = (*value) / 1000;
-                asyncResp->res.jsonValue["CurrentSpeedGbps"] = valueInGbps;
-            }
-            if (propertyName == "LinkType")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Cannot read LinkType property");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                if (value->find("InfiniBand") != std::string::npos)
-                    asyncResp->res.jsonValue["LinkNetworkTechnology"] =
-                        "InfiniBand";
-            }
-        }
-    },
+        },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
 }
 
@@ -404,79 +406,81 @@ inline void doNDF(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
                     const GetManagedPropertyType& properties) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        for (const auto& property : properties)
-        {
-            const std::string& propertyName = property.first;
-
-            if (propertyName == "MTU")
+            if (ec)
             {
-                const uint32_t* value = std::get_if<uint32_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Cannot read MTU property");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Ethernet"]["MTUSize"] = *value;
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
+                messages::internalError(asyncResp->res);
+                return;
             }
-            if (propertyName == "MACAddress")
+
+            for (const auto& property : properties)
             {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value == nullptr)
+                const std::string& propertyName = property.first;
+
+                if (propertyName == "MTU")
                 {
-                    BMCWEB_LOG_ERROR("Cannot read MACAddress property");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Ethernet"]["MACAddress"] = *value;
-            }
-            if (propertyName == "InterfaceName")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Cannot read InterfaceName property");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                if (value->find("oob") != 0)
-                {
-                    auto& capabilitiesArray =
-                        asyncResp->res.jsonValue["NetDevFuncCapabilities"];
-                    if (std::find(capabilitiesArray.begin(),
-                                  capabilitiesArray.end(),
-                                  "InfiniBand") == capabilitiesArray.end())
+                    const uint32_t* value =
+                        std::get_if<uint32_t>(&property.second);
+                    if (value == nullptr)
                     {
-                        capabilitiesArray.push_back("InfiniBand");
+                        BMCWEB_LOG_ERROR("Cannot read MTU property");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Ethernet"]["MTUSize"] = *value;
+                }
+                if (propertyName == "MACAddress")
+                {
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Cannot read MACAddress property");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Ethernet"]["MACAddress"] = *value;
+                }
+                if (propertyName == "InterfaceName")
+                {
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Cannot read InterfaceName property");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (value->find("oob") != 0)
+                    {
+                        auto& capabilitiesArray =
+                            asyncResp->res.jsonValue["NetDevFuncCapabilities"];
+                        if (std::find(capabilitiesArray.begin(),
+                                      capabilitiesArray.end(), "InfiniBand") ==
+                            capabilitiesArray.end())
+                        {
+                            capabilitiesArray.push_back("InfiniBand");
+                        }
                     }
                 }
-            }
-            if (propertyName == "LinkType")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value == nullptr)
+                if (propertyName == "LinkType")
                 {
-                    BMCWEB_LOG_ERROR("Cannot read LinkType property");
-                    messages::internalError(asyncResp->res);
-                    return;
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Cannot read LinkType property");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (value->find("InfiniBand") != std::string::npos)
+                        asyncResp->res.jsonValue["NetDevFuncType"] =
+                            "InfiniBand";
+                    else
+                        asyncResp->res.jsonValue["NetDevFuncType"] = "Ethernet";
                 }
-                if (value->find("InfiniBand") != std::string::npos)
-                    asyncResp->res.jsonValue["NetDevFuncType"] = "InfiniBand";
-                else
-                    asyncResp->res.jsonValue["NetDevFuncType"] = "Ethernet";
             }
-        }
-    },
+        },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
 }
 
@@ -496,49 +500,51 @@ inline void handleGet(App& app, const crow::Request& req,
         [asyncResp, chassisId, id,
          isNDF](const boost::system::error_code ec,
                 const crow::openbmc_mapper::GetSubTreeType& subtree) {
-        std::string dpuString = "host0";
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        // Iterate over all retrieved ObjectPaths.
-        for (const std::pair<
-                 std::string,
-                 std::vector<std::pair<std::string, std::vector<std::string>>>>&
-                 object : subtree)
-        {
-            const std::string& path = object.first;
-            const std::vector<std::pair<std::string, std::vector<std::string>>>&
-                connectionNames = object.second;
+            std::string dpuString = "host0";
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            // Iterate over all retrieved ObjectPaths.
+            for (const std::pair<std::string,
+                                 std::vector<std::pair<
+                                     std::string, std::vector<std::string>>>>&
+                     object : subtree)
+            {
+                const std::string& path = object.first;
+                const std::vector<
+                    std::pair<std::string, std::vector<std::string>>>&
+                    connectionNames = object.second;
 
-            if (path.find(dpuString) == std::string::npos)
-            {
-                continue;
+                if (path.find(dpuString) == std::string::npos)
+                {
+                    continue;
+                }
+                sdbusplus::message::object_path objPath(path);
+                const std::string& connectionName = connectionNames[0].first;
+                if (objPath.filename() != id && objPath.filename() + "f0" != id)
+                {
+                    continue;
+                }
+                if (objPath.filename() + "f0" == id && isNDF)
+                {
+                    doNDF(asyncResp, path, connectionName, chassisId, id,
+                          objPath.filename());
+                }
+                else
+                {
+                    doPort(asyncResp, path, connectionName, chassisId, id);
+                }
+                return;
             }
-            sdbusplus::message::object_path objPath(path);
-            const std::string& connectionName = connectionNames[0].first;
-            if (objPath.filename() != id && objPath.filename() + "f0" != id)
-            {
-                continue;
-            }
-            if (objPath.filename() + "f0" == id && isNDF)
-            {
-                doNDF(asyncResp, path, connectionName, chassisId, id,
-                      objPath.filename());
-            }
-            else
-            {
-                doPort(asyncResp, path, connectionName, chassisId, id);
-            }
-            return;
-        }
-        // Couldn't find an object with that name.  return an error
-        messages::resourceNotFound(
-            asyncResp->res,
-            "#NetworkDeviceFunction.v1_9_0.NetworkDeviceFunction", chassisId);
-    },
+            // Couldn't find an object with that name.  return an error
+            messages::resourceNotFound(
+                asyncResp->res,
+                "#NetworkDeviceFunction.v1_9_0.NetworkDeviceFunction",
+                chassisId);
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",

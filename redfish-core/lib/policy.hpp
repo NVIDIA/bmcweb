@@ -44,15 +44,16 @@ inline void handleLeakDetectionPolicyHead(
         asyncResp, chassisId,
         [asyncResp,
          chassisId](const std::optional<std::string>& validChassisPath) {
-        if (!validChassisPath)
-        {
-            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-            return;
-        }
-        asyncResp->res.addHeader(
-            boost::beast::http::field::link,
-            "</redfish/v1/JsonSchemas/Policy/Policy.json>; rel=describedby");
-    });
+            if (!validChassisPath)
+            {
+                messages::resourceNotFound(asyncResp->res, "Chassis",
+                                           chassisId);
+                return;
+            }
+            asyncResp->res.addHeader(
+                boost::beast::http::field::link,
+                "</redfish/v1/JsonSchemas/Policy/Policy.json>; rel=describedby");
+        });
 }
 
 inline bool checkChassisId(const std::string& path,
@@ -118,8 +119,8 @@ inline void handleLeakDetectorPolicyPathsGet(
             "ShutdownOnLeak",
             [asyncResp](const boost::system::error_code ec,
                         const bool shutdownOnLeak) {
-            handleLeakDetectorPolicyEnabled(asyncResp, ec, shutdownOnLeak);
-        });
+                handleLeakDetectorPolicyEnabled(asyncResp, ec, shutdownOnLeak);
+            });
 
         // Add the detector as a member of PolicyCondition
         boost::urls::url propertyURI = boost::urls::format(
@@ -161,18 +162,19 @@ inline void getLeakDetectorPolicyPaths(
         [asyncResp, callback = std::move(callback)](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
-        if (ec)
-        {
-            if (ec.value() != EBADR)
+            if (ec)
             {
-                BMCWEB_LOG_ERROR("DBUS response error for getSubTreePaths {}",
-                                 ec.value());
-                messages::internalError(asyncResp->res);
+                if (ec.value() != EBADR)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "DBUS response error for getSubTreePaths {}",
+                        ec.value());
+                    messages::internalError(asyncResp->res);
+                }
+                return;
             }
-            return;
-        }
-        callback(subtreePaths);
-    });
+            callback(subtreePaths);
+        });
 }
 
 inline void doLeakDetectionPolicyGet(
@@ -300,15 +302,16 @@ inline void handlePolicyCollectionHead(
         asyncResp, chassisId,
         [asyncResp,
          chassisId](const std::optional<std::string>& validChassisPath) {
-        if (!validChassisPath)
-        {
-            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-            return;
-        }
-        asyncResp->res.addHeader(
-            boost::beast::http::field::link,
-            "</redfish/v1/JsonSchemas/PolicyCollection/PolicyCollection.json>; rel=describedby");
-    });
+            if (!validChassisPath)
+            {
+                messages::resourceNotFound(asyncResp->res, "Chassis",
+                                           chassisId);
+                return;
+            }
+            asyncResp->res.addHeader(
+                boost::beast::http::field::link,
+                "</redfish/v1/JsonSchemas/PolicyCollection/PolicyCollection.json>; rel=describedby");
+        });
 }
 
 inline void

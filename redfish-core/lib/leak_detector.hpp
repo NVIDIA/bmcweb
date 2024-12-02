@@ -41,24 +41,24 @@ inline void getValidLeakDetectorPath(
 {
     sdbusplus::message::object_path inventoryPath(
         "/xyz/openbmc_project/inventory/leakdetectors/");
-    sdbusplus::message::object_path leakDetectorPath = inventoryPath /
-                                                       leakDetectorId;
+    sdbusplus::message::object_path leakDetectorPath =
+        inventoryPath / leakDetectorId;
 
     dbus::utility::getDbusObject(
         leakDetectorPath, leakDetectorInventoryInterfaces,
         [leakDetectorPath, leakDetectorId, asyncResp,
          callback](const boost::system::error_code& ec,
                    const dbus::utility::MapperGetObject& object) {
-        if (ec || object.empty())
-        {
-            BMCWEB_LOG_ERROR("DBUS response error on getDbusObject {}",
-                             ec.value());
-            messages::internalError(asyncResp->res);
-            return;
-        }
+            if (ec || object.empty())
+            {
+                BMCWEB_LOG_ERROR("DBUS response error on getDbusObject {}",
+                                 ec.value());
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-        callback(leakDetectorPath, object.begin()->first);
-    });
+            callback(leakDetectorPath, object.begin()->first);
+        });
 }
 
 inline void addLeakDetectorCommonProperties(crow::Response& resp,
@@ -81,10 +81,9 @@ inline void addLeakDetectorCommonProperties(crow::Response& resp,
     resp.jsonValue["Name"] = std::move(leakDetectorName);
 }
 
-inline void
-    getLeakDetectorState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& leakDetectorPath,
-                         const std::string& service)
+inline void getLeakDetectorState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& leakDetectorPath, const std::string& service)
 {
     dbus::utility::getAssociatedSubTreePaths(
         leakDetectorPath + "/leak_detecting",
@@ -93,69 +92,70 @@ inline void
         [asyncResp, service](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
-        if (ec)
-        {
-            if (ec.value() != EBADR)
-            {
-                BMCWEB_LOG_ERROR(
-                    "DBUS response error for getAssociatedSubTreePaths {}",
-                    ec.value());
-                messages::internalError(asyncResp->res);
-            }
-            return;
-        }
-
-        if (subtreePaths.size() != 1)
-        {
-            BMCWEB_LOG_ERROR(
-                "Unexpected number of paths returned by getSubTree: {}",
-                subtreePaths.size());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        sdbusplus::asio::getAllProperties(
-            *crow::connections::systemBus, service, subtreePaths.front(),
-            leakDetectorStateInterface,
-            [asyncResp](
-                const boost::system::error_code& ec,
-                const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
                 if (ec.value() != EBADR)
                 {
-                    BMCWEB_LOG_ERROR("DBUS response error for State {}",
-                                     ec.value());
+                    BMCWEB_LOG_ERROR(
+                        "DBUS response error for getAssociatedSubTreePaths {}",
+                        ec.value());
                     messages::internalError(asyncResp->res);
                 }
                 return;
             }
 
-            const std::string* detectorState = nullptr;
-
-            const bool success = sdbusplus::unpackPropertiesNoThrow(
-                dbus_utils::UnpackErrorPrinter(), propertiesList,
-                "DetectorState", detectorState);
-
-            if (!success)
+            if (subtreePaths.size() != 1)
             {
+                BMCWEB_LOG_ERROR(
+                    "Unexpected number of paths returned by getSubTree: {}",
+                    subtreePaths.size());
                 messages::internalError(asyncResp->res);
                 return;
             }
 
-            if (detectorState != nullptr)
-            {
-                asyncResp->res.jsonValue["DetectorState"] = *detectorState;
-                asyncResp->res.jsonValue["Status"]["Health"] = *detectorState;
-            }
+            sdbusplus::asio::getAllProperties(
+                *crow::connections::systemBus, service, subtreePaths.front(),
+                leakDetectorStateInterface,
+                [asyncResp](
+                    const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+                    if (ec)
+                    {
+                        if (ec.value() != EBADR)
+                        {
+                            BMCWEB_LOG_ERROR("DBUS response error for State {}",
+                                             ec.value());
+                            messages::internalError(asyncResp->res);
+                        }
+                        return;
+                    }
+
+                    const std::string* detectorState = nullptr;
+
+                    const bool success = sdbusplus::unpackPropertiesNoThrow(
+                        dbus_utils::UnpackErrorPrinter(), propertiesList,
+                        "DetectorState", detectorState);
+
+                    if (!success)
+                    {
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+
+                    if (detectorState != nullptr)
+                    {
+                        asyncResp->res.jsonValue["DetectorState"] =
+                            *detectorState;
+                        asyncResp->res.jsonValue["Status"]["Health"] =
+                            *detectorState;
+                    }
+                });
         });
-    });
 }
 
-inline void
-    getLeakDetectorItem(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& leakDetectorPath,
-                        const std::string& service)
+inline void getLeakDetectorItem(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& leakDetectorPath, const std::string& service)
 {
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, service, leakDetectorPath,
@@ -163,37 +163,40 @@ inline void
         [asyncResp, leakDetectorPath](
             const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& propertiesList) {
-        if (ec.value() == EBADR)
-        {
-            messages::resourceNotFound(
-                asyncResp->res, "LeakDetector",
-                sdbusplus::message::object_path(leakDetectorPath).filename());
-            return;
-        }
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error for State {}", ec.value());
-            messages::internalError(asyncResp->res);
-            return;
-        }
+            if (ec.value() == EBADR)
+            {
+                messages::resourceNotFound(
+                    asyncResp->res, "LeakDetector",
+                    sdbusplus::message::object_path(leakDetectorPath)
+                        .filename());
+                return;
+            }
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error for State {}",
+                                 ec.value());
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-        const std::string* leakDetectorType = nullptr;
+            const std::string* leakDetectorType = nullptr;
 
-        const bool success = sdbusplus::unpackPropertiesNoThrow(
-            dbus_utils::UnpackErrorPrinter(), propertiesList,
-            "LeakDetectorType", leakDetectorType);
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), propertiesList,
+                "LeakDetectorType", leakDetectorType);
 
-        if (!success)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
+            if (!success)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-        if (leakDetectorType != nullptr)
-        {
-            asyncResp->res.jsonValue["LeakDetectorType"] = *leakDetectorType;
-        }
-    });
+            if (leakDetectorType != nullptr)
+            {
+                asyncResp->res.jsonValue["LeakDetectorType"] =
+                    *leakDetectorType;
+            }
+        });
 }
 
 inline void afterGetValidLeakDetectorPath(
@@ -206,11 +209,10 @@ inline void afterGetValidLeakDetectorPath(
     getLeakDetectorItem(asyncResp, leakDetectorPath, service);
 }
 
-inline void
-    doLeakDetectorGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& chassisId,
-                      const std::string& leakDetectorId,
-                      const std::optional<std::string>& validChassisPath)
+inline void doLeakDetectorGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& leakDetectorId,
+    const std::optional<std::string>& validChassisPath)
 {
     if (!validChassisPath)
     {
@@ -218,17 +220,16 @@ inline void
         return;
     }
 
-    getValidLeakDetectorPath(asyncResp, leakDetectorId,
-                             std::bind_front(afterGetValidLeakDetectorPath,
-                                             asyncResp, chassisId,
-                                             leakDetectorId));
+    getValidLeakDetectorPath(
+        asyncResp, leakDetectorId,
+        std::bind_front(afterGetValidLeakDetectorPath, asyncResp, chassisId,
+                        leakDetectorId));
 }
 
-inline void
-    handleLeakDetectorGet(App& app, const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& chassisId,
-                          const std::string& leakDetectorId)
+inline void handleLeakDetectorGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& leakDetectorId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -241,11 +242,10 @@ inline void
                         leakDetectorId));
 }
 
-inline void
-    handleLeakDetectorHead(App& app, const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& chassisId,
-                           const std::string& leakDetectorId)
+inline void handleLeakDetectorHead(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& leakDetectorId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -256,19 +256,20 @@ inline void
         asyncResp, chassisId,
         [asyncResp, chassisId,
          leakDetectorId](const std::optional<std::string>& validChassisPath) {
-        if (!validChassisPath)
-        {
-            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-            return;
-        }
-        getValidLeakDetectorPath(
-            asyncResp, leakDetectorId,
-            [asyncResp](const std::string&, const std::string&) {
-            asyncResp->res.addHeader(
-                boost::beast::http::field::link,
-                "</redfish/v1/JsonSchemas/LeakDetector/LeakDetector.json>; rel=describedby");
+            if (!validChassisPath)
+            {
+                messages::resourceNotFound(asyncResp->res, "Chassis",
+                                           chassisId);
+                return;
+            }
+            getValidLeakDetectorPath(
+                asyncResp, leakDetectorId,
+                [asyncResp](const std::string&, const std::string&) {
+                    asyncResp->res.addHeader(
+                        boost::beast::http::field::link,
+                        "</redfish/v1/JsonSchemas/LeakDetector/LeakDetector.json>; rel=describedby");
+                });
         });
-    });
 }
 
 inline void doLeakDetectorCollection(
@@ -330,15 +331,16 @@ inline void handleLeakDetectorCollectionHead(
         asyncResp, chassisId,
         [asyncResp,
          chassisId](const std::optional<std::string>& validChassisPath) {
-        if (!validChassisPath)
-        {
-            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-            return;
-        }
-        asyncResp->res.addHeader(
-            boost::beast::http::field::link,
-            "</redfish/v1/JsonSchemas/LeakDetectorCollection/LeakDetectorCollection.json>; rel=describedby");
-    });
+            if (!validChassisPath)
+            {
+                messages::resourceNotFound(asyncResp->res, "Chassis",
+                                           chassisId);
+                return;
+            }
+            asyncResp->res.addHeader(
+                boost::beast::http::field::link,
+                "</redfish/v1/JsonSchemas/LeakDetectorCollection/LeakDetectorCollection.json>; rel=describedby");
+        });
 }
 
 inline void requestRoutesLeakDetector(App& app)

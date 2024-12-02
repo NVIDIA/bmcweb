@@ -39,8 +39,8 @@ namespace asn1
  *  destination pointer value
  */
 template <typename T>
-inline const T* safePtrArithmeticConst(std::span<const T> safeBuf,
-                                       size_t offset)
+inline const T*
+    safePtrArithmeticConst(std::span<const T> safeBuf, size_t offset)
 {
     const T* ret = static_cast<const T*>(&safeBuf[offset]);
     return ret;
@@ -133,9 +133,9 @@ inline int hasPbesPbkdf(const unsigned char** pp, size_t length, int offset,
     while (length > 0)
     {
         op = p;
-        asn1ObjectType = ASN1_get_object(&p, &len, &asn1ObjectTag,
-                                         &asn1ObjectClass,
-                                         static_cast<long>(length));
+        asn1ObjectType =
+            ASN1_get_object(&p, &len, &asn1ObjectTag, &asn1ObjectClass,
+                            static_cast<long>(length));
         if (asn1ObjectType & 0x80)
         {
             ret = -1;

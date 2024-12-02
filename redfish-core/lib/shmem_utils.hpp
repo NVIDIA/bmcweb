@@ -29,10 +29,9 @@ namespace redfish
 namespace shmem
 {
 
-inline void
-    getShmemPlatformMetrics(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& metricId,
-                            const uint64_t& requestTimestamp = 0)
+inline void getShmemPlatformMetrics(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& metricId, const uint64_t& requestTimestamp = 0)
 {
     BMCWEB_LOG_DEBUG("getShmemPlatformMetrics :{} Requested at : {}", metricId,
                      requestTimestamp);
@@ -101,14 +100,13 @@ inline void
                 resArray.push_back(thisMetric);
             }
         }
-#endif        
+#endif
     }
     catch (const std::exception& e)
     {
         BMCWEB_LOG_ERROR("Exception while getting MRD values: {}", e.what());
         messages::resourceNotFound(asyncResp->res, "MetricReport", metricId);
     }
-
 }
 
 constexpr const char* metricReportDefinitionUri =

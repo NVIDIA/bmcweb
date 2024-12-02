@@ -1986,11 +1986,10 @@ inline void requestRoutesEventLogService(App& app)
             asyncResp->res.jsonValue["Entries"]["@odata.id"] = std::format(
                 "/redfish/v1/Systems/{}/LogServices/EventLog/Entries",
                 BMCWEB_REDFISH_SYSTEM_URI_NAME);
-            asyncResp->res
-                .jsonValue["Actions"]["#LogService.ClearLog"]["target"]
-                = std::format(
-                    "/redfish/v1/Systems/{}/LogServices/EventLog/Actions/LogService.ClearLog",
-                    BMCWEB_REDFISH_SYSTEM_URI_NAME);
+            asyncResp->res.jsonValue["Actions"]["#LogService.ClearLog"]
+                                    ["target"] = std::format(
+                "/redfish/v1/Systems/{}/LogServices/EventLog/Actions/LogService.ClearLog",
+                BMCWEB_REDFISH_SYSTEM_URI_NAME);
 
             extendSystemLogServicesGet(asyncResp);
         });
@@ -2179,7 +2178,7 @@ inline void fillEventLogLogEntryFromPropertyMap(
             BMCWEB_REDFISH_SYSTEM_URI_NAME, std::to_string(entry.Id));
     }
 
-    //Nvidia Extension for RF log
+    // Nvidia Extension for RF log
     dBusEventLogEntryGetAdditionalInfo(asyncResp, entry, objectToFillOut);
 }
 
@@ -2455,19 +2454,19 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
         .privileges(redfish::privileges::getLogEntryCollection)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& systemName) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-            if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
-            {
-                // Option currently returns no systems.  TBD
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+                {
+                    // Option currently returns no systems.  TBD
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                                systemName);
-                return;
-            }
+                    return;
+                }
                 if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
                 {
                     messages::resourceNotFound(asyncResp->res, "ComputerSystem",
@@ -2475,7 +2474,7 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                     return;
                 }
                 dBusEventLogEntryCollection(asyncResp);
-        });
+            });
 }
 
 inline void dBusEventLogEntryGet(
@@ -2571,16 +2570,16 @@ inline void requestRoutesDBusEventLogEntry(App& app)
         .privileges(redfish::privileges::getLogEntry)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& systemName, const std::string& entryId) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-            if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
-            {
-                // Option currently returns no systems.  TBD
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+                {
+                    // Option currently returns no systems.  TBD
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                                systemName);
                     return;
                 }
@@ -2588,11 +2587,11 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                 {
                     messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                                systemName);
-                return;
-            }
+                    return;
+                }
 
-            dBusEventLogEntryGet(asyncResp, entryId);
-        });
+                dBusEventLogEntryGet(asyncResp, entryId);
+            });
 
     BMCWEB_ROUTE(
         app, "/redfish/v1/Systems/<str>/LogServices/EventLog/Entries/<str>/")
@@ -2630,25 +2629,25 @@ inline void requestRoutesDBusEventLogEntry(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& systemName, const std::string& param) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-            if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
-            {
-                // Option currently returns no systems.  TBD
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
-                return;
-            }
-                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
-                    {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+                {
+                    // Option currently returns no systems.  TBD
                     messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                                systemName);
-                        return;
-                    }
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
+                    return;
+                }
                 dBusEventLogEntryDelete(asyncResp, param);
-        });
+            });
 }
 
 constexpr const char* hostLoggerFolderPath = "/var/log/console";
@@ -2791,7 +2790,8 @@ inline void handleBMCLogServicesCollectionGet(
                             member["@odata.id"] = boost::urls::format(
                                 "/redfish/v1/Managers/{}/LogServices/FaultLog",
                                 BMCWEB_REDFISH_MANAGER_URI_NAME);
-                            logServiceArrayLocal.emplace_back(std::move(member));
+                            logServiceArrayLocal.emplace_back(
+                                std::move(member));
                         }
                     }
                 }
@@ -2903,7 +2903,7 @@ inline void
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
         extendLogServiceOEMGet(asyncResp, dumpType);
-    } 
+    }
 }
 
 inline void handleLogServicesDumpServiceGet(
@@ -3464,65 +3464,65 @@ inline void
         [asyncResp, logID,
          &logEntryJson](const boost::system::error_code& ec,
                         const dbus::utility::DBusPropertiesMap& params) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("failed to get log ec: {}", ec.message());
-            if (ec.value() ==
-                boost::system::linux_error::bad_request_descriptor)
+            if (ec)
             {
+                BMCWEB_LOG_DEBUG("failed to get log ec: {}", ec.message());
+                if (ec.value() ==
+                    boost::system::linux_error::bad_request_descriptor)
+                {
                     messages::resourceNotFound(asyncResp->res, "LogEntry",
                                                logID);
+                }
+                else
+                {
+                    messages::internalError(asyncResp->res);
+                }
+                return;
             }
-            else
+
+            std::string timestamp{};
+            std::string filename{};
+            std::string logfile{};
+            parseCrashdumpParameters(params, filename, timestamp, logfile);
+
+            if (filename.empty() || timestamp.empty())
             {
-                messages::internalError(asyncResp->res);
-            }
-            return;
-        }
-
-        std::string timestamp{};
-        std::string filename{};
-        std::string logfile{};
-        parseCrashdumpParameters(params, filename, timestamp, logfile);
-
-        if (filename.empty() || timestamp.empty())
-        {
                 messages::resourceNotFound(asyncResp->res, "LogEntry", logID);
-            return;
-        }
+                return;
+            }
 
-        std::string crashdumpURI =
+            std::string crashdumpURI =
                 std::format(
                     "/redfish/v1/Systems/{}/LogServices/Crashdump/Entries/",
                     BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                 logID + "/" + filename;
-        nlohmann::json::object_t logEntry;
+            nlohmann::json::object_t logEntry;
             logEntry["@odata.type"] = "#LogEntry.v1_9_0.LogEntry";
             logEntry["@odata.id"] = boost::urls::format(
                 "/redfish/v1/Systems/{}/LogServices/Crashdump/Entries/{}",
                 BMCWEB_REDFISH_SYSTEM_URI_NAME, logID);
-        logEntry["Name"] = "CPU Crashdump";
-        logEntry["Id"] = logID;
+            logEntry["Name"] = "CPU Crashdump";
+            logEntry["Id"] = logID;
             logEntry["EntryType"] = log_entry::LogEntryType::Oem;
-        logEntry["AdditionalDataURI"] = std::move(crashdumpURI);
-        logEntry["DiagnosticDataType"] = "OEM";
-        logEntry["OEMDiagnosticDataType"] = "PECICrashdump";
-        logEntry["Created"] = std::move(timestamp);
+            logEntry["AdditionalDataURI"] = std::move(crashdumpURI);
+            logEntry["DiagnosticDataType"] = "OEM";
+            logEntry["OEMDiagnosticDataType"] = "PECICrashdump";
+            logEntry["Created"] = std::move(timestamp);
 
-        // If logEntryJson references an array of LogEntry resources
+            // If logEntryJson references an array of LogEntry resources
             // ('Members' list), then push this as a new entry, otherwise set it
             // directly
-        if (logEntryJson.is_array())
-        {
-            logEntryJson.push_back(logEntry);
-            asyncResp->res.jsonValue["Members@odata.count"] =
-                logEntryJson.size();
-        }
-        else
-        {
-            logEntryJson.update(logEntry);
-        }
-    };
+            if (logEntryJson.is_array())
+            {
+                logEntryJson.push_back(logEntry);
+                asyncResp->res.jsonValue["Members@odata.count"] =
+                    logEntryJson.size();
+            }
+            else
+            {
+                logEntryJson.update(logEntry);
+            }
+        };
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, crashdumpObject,
         crashdumpPath + std::string("/") + logID, crashdumpInterface,
@@ -3544,16 +3544,16 @@ inline void requestRoutesCrashdumpEntryCollection(App& app)
         .methods(
             boost::beast::http::verb::
                 get)([&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& systemName) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
-                {
-                    // Option currently returns no systems.  TBD
-                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+            {
+                // Option currently returns no systems.  TBD
+                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                            systemName);
                 return;
             }
@@ -3561,54 +3561,54 @@ inline void requestRoutesCrashdumpEntryCollection(App& app)
             {
                 messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                            systemName);
-                    return;
-                }
+                return;
+            }
 
-                constexpr std::array<std::string_view, 1> interfaces = {
-                    crashdumpInterface};
-                dbus::utility::getSubTreePaths(
-                    "/", 0, interfaces,
-                    [asyncResp](const boost::system::error_code& ec,
-                                const std::vector<std::string>& resp) {
-                        if (ec)
+            constexpr std::array<std::string_view, 1> interfaces = {
+                crashdumpInterface};
+            dbus::utility::getSubTreePaths(
+                "/", 0, interfaces,
+                [asyncResp](const boost::system::error_code& ec,
+                            const std::vector<std::string>& resp) {
+                    if (ec)
+                    {
+                        if (ec.value() !=
+                            boost::system::errc::no_such_file_or_directory)
                         {
-                            if (ec.value() !=
-                                boost::system::errc::no_such_file_or_directory)
-                            {
-                                BMCWEB_LOG_DEBUG("failed to get entries ec: {}",
-                                                 ec.message());
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
+                            BMCWEB_LOG_DEBUG("failed to get entries ec: {}",
+                                             ec.message());
+                            messages::internalError(asyncResp->res);
+                            return;
                         }
-                        asyncResp->res.jsonValue["@odata.type"] =
-                            "#LogEntryCollection.LogEntryCollection";
+                    }
+                    asyncResp->res.jsonValue["@odata.type"] =
+                        "#LogEntryCollection.LogEntryCollection";
                     asyncResp->res.jsonValue["@odata.id"] = std::format(
                         "/redfish/v1/Systems/{}/LogServices/Crashdump/Entries",
                         BMCWEB_REDFISH_SYSTEM_URI_NAME);
-                        asyncResp->res.jsonValue["Name"] =
-                            "Open BMC Crashdump Entries";
-                        asyncResp->res.jsonValue["Description"] =
-                            "Collection of Crashdump Entries";
-                        asyncResp->res.jsonValue["Members"] =
-                            nlohmann::json::array();
-                        asyncResp->res.jsonValue["Members@odata.count"] = 0;
+                    asyncResp->res.jsonValue["Name"] =
+                        "Open BMC Crashdump Entries";
+                    asyncResp->res.jsonValue["Description"] =
+                        "Collection of Crashdump Entries";
+                    asyncResp->res.jsonValue["Members"] =
+                        nlohmann::json::array();
+                    asyncResp->res.jsonValue["Members@odata.count"] = 0;
 
-                        for (const std::string& path : resp)
+                    for (const std::string& path : resp)
+                    {
+                        const sdbusplus::message::object_path objPath(path);
+                        // Get the log ID
+                        std::string logID = objPath.filename();
+                        if (logID.empty())
                         {
-                            const sdbusplus::message::object_path objPath(path);
-                            // Get the log ID
-                            std::string logID = objPath.filename();
-                            if (logID.empty())
-                            {
-                                continue;
-                            }
-                            // Add the log entry to the array
-                            logCrashdumpEntry(asyncResp, logID,
-                                    asyncResp->res.jsonValue["Members"]);
+                            continue;
                         }
-                    });
-            });
+                        // Add the log entry to the array
+                        logCrashdumpEntry(asyncResp, logID,
+                                          asyncResp->res.jsonValue["Members"]);
+                    }
+                });
+        });
 }
 
 inline void requestRoutesCrashdumpEntry(App& app)
@@ -3657,9 +3657,9 @@ inline void requestRoutesCrashdumpFile(App& app)
         .privileges(redfish::privileges::getLogEntry)
         .methods(boost::beast::http::verb::get)(
             [](const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                const std::string& systemName, const std::string& logID,
-                            const std::string& fileName) {
+               const std::string& fileName) {
                 // Do not call getRedfishRoute here since the crashdump file is
                 // not a Redfish resource.
 
@@ -3668,72 +3668,72 @@ inline void requestRoutesCrashdumpFile(App& app)
                     // Option currently returns no systems.  TBD
                     messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                                systemName);
-                return;
-            }
+                    return;
+                }
                 if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
-            {
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
-                return;
-            }
-
-                auto getStoredLogCallback =
-                    [asyncResp, logID, fileName,
-                                         url(boost::urls::url(req.url()))](
-                                            const boost::system::error_code& ec,
-                                            const std::vector<std::pair<
-                            std::string, dbus::utility::DbusVariantType>>&
-                            resp) {
-                if (ec)
                 {
-                            BMCWEB_LOG_DEBUG("failed to get log ec: {}",
-                                             ec.message());
-                    messages::internalError(asyncResp->res);
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
 
-                std::string dbusFilename{};
-                std::string dbusTimestamp{};
-                std::string dbusFilepath{};
+                auto getStoredLogCallback =
+                    [asyncResp, logID, fileName,
+                     url(boost::urls::url(req.url()))](
+                        const boost::system::error_code& ec,
+                        const std::vector<std::pair<
+                            std::string, dbus::utility::DbusVariantType>>&
+                            resp) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_DEBUG("failed to get log ec: {}",
+                                             ec.message());
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+
+                        std::string dbusFilename{};
+                        std::string dbusTimestamp{};
+                        std::string dbusFilepath{};
 
                         parseCrashdumpParameters(resp, dbusFilename,
                                                  dbusTimestamp, dbusFilepath);
 
-                if (dbusFilename.empty() || dbusTimestamp.empty() ||
-                    dbusFilepath.empty())
-                {
+                        if (dbusFilename.empty() || dbusTimestamp.empty() ||
+                            dbusFilepath.empty())
+                        {
                             messages::resourceNotFound(asyncResp->res,
                                                        "LogEntry", logID);
-                    return;
-                }
+                            return;
+                        }
 
-                // Verify the file name parameter is correct
-                if (fileName != dbusFilename)
-                {
+                        // Verify the file name parameter is correct
+                        if (fileName != dbusFilename)
+                        {
                             messages::resourceNotFound(asyncResp->res,
                                                        "LogEntry", logID);
-                    return;
-                }
+                            return;
+                        }
 
                         if (asyncResp->res.openFile(dbusFilepath) !=
                             crow::OpenCode::Success)
-                {
+                        {
                             messages::resourceNotFound(asyncResp->res,
                                                        "LogEntry", logID);
-                    return;
-                }
+                            return;
+                        }
 
-                // Configure this to be a file download when accessed
-                // from a browser
-                asyncResp->res.addHeader(
-                    boost::beast::http::field::content_disposition,
-                    "attachment");
-            };
-            sdbusplus::asio::getAllProperties(
-                *crow::connections::systemBus, crashdumpObject,
+                        // Configure this to be a file download when accessed
+                        // from a browser
+                        asyncResp->res.addHeader(
+                            boost::beast::http::field::content_disposition,
+                            "attachment");
+                    };
+                sdbusplus::asio::getAllProperties(
+                    *crow::connections::systemBus, crashdumpObject,
                     crashdumpPath + std::string("/") + logID,
                     crashdumpInterface, std::move(getStoredLogCallback));
-        });
+            });
 }
 
 enum class OEMDiagnosticType
@@ -3957,11 +3957,11 @@ inline void requestRoutesDBusLogServiceActionsClear(App& app)
                     return;
                 }
                 if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
-                    {
+                {
                     messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                                systemName);
-                        return;
-                    }
+                    return;
+                }
                 dBusLogServiceActionsClear(asyncResp);
             });
 }

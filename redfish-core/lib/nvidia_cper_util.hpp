@@ -21,7 +21,6 @@
 namespace redfish
 {
 
-
 inline std::string capitalizeProp(const std::string& key)
 {
     std::string ret = std::string(key);
@@ -212,4 +211,4 @@ inline void parseAdditionalDataForCPER(
     BMCWEB_LOG_DEBUG("Done {}", type->second);
 }
 
-}
+} // namespace redfish

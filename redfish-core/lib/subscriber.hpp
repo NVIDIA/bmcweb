@@ -113,8 +113,8 @@ void handleGetSubscriptionResp(crow::Response& resp, Callback&& handler)
     if (boost::iequals(contentType, "application/json") ||
         boost::iequals(contentType, "application/json; charset=utf-8"))
     {
-        nlohmann::json jsonVal = nlohmann::json::parse(*resp.body(), nullptr,
-                                                       false);
+        nlohmann::json jsonVal =
+            nlohmann::json::parse(*resp.body(), nullptr, false);
         if (jsonVal.is_discarded())
         {
             BMCWEB_LOG_ERROR("Error parsing satellite response as JSON");
@@ -187,12 +187,12 @@ inline void invokeRedfishEventListener()
 {
     crow::connections::systemBus->async_method_call(
         [](const boost::system::error_code& ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("DBUS response error: {}", ec);
-            return;
-        }
-    },
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error: {}", ec);
+                return;
+            }
+        },
         serviceName, objectPath, interfaceName, startService,
         listenerServiceName, mode);
 }
@@ -209,8 +209,8 @@ inline void querySubscriptionList(std::shared_ptr<crow::HttpClient> client,
     std::string data;
     boost::beast::http::fields httpHeader;
 
-    std::function<void(crow::Response&)> cb = std::bind_front(doSubscribe,
-                                                              client, url);
+    std::function<void(crow::Response&)> cb =
+        std::bind_front(doSubscribe, client, url);
 
     std::string path("/redfish/v1/EventService/Subscriptions");
     url.set_path(path);
@@ -267,8 +267,8 @@ inline int initRedfishEventListener(boost::asio::io_context& ioc)
     return 0;
 }
 
-inline int startRedfishEventListener(__attribute__((unused))
-                                     boost::asio::io_context& ioc)
+inline int startRedfishEventListener(
+    __attribute__((unused)) boost::asio::io_context& ioc)
 {
     const uint8_t immediateTime = 1;
 
@@ -306,8 +306,8 @@ inline void unSubscribe(
     std::string data;
     boost::beast::http::fields httpHeader;
 
-    std::function<void(crow::Response&)> cb = std::bind_front(doUnsubscribe,
-                                                              client, url);
+    std::function<void(crow::Response&)> cb =
+        std::bind_front(doUnsubscribe, client, url);
     client->sendDataWithCallback(std::move(data), url, httpHeader,
                                  boost::beast::http::verb::get, cb);
 }
@@ -324,12 +324,12 @@ inline int stopRedfishEventListener(boost::asio::io_context& ioc)
     // stop redfish event listener
     crow::connections::systemBus->async_method_call(
         [](const boost::system::error_code& ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
-            return;
-        }
-    },
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                return;
+            }
+        },
         serviceName, objectPath, interfaceName, stopService,
         listenerServiceName, mode);
     return 0;

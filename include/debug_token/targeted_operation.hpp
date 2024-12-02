@@ -55,8 +55,7 @@ class TargetedOperationHandler
     TargetedOperationHandler(const std::string& chassisId, TargetedOperation op,
                              TargetedOperationResultCallback&& cb,
                              TargetedOperationArgument arg = std::monostate()) :
-        operation(op),
-        argument(arg), callback(cb)
+        operation(op), argument(arg), callback(cb)
     {
         constexpr std::array<std::string_view, 1> interfaces = {debugTokenIntf};
         dbus::utility::getSubTree(
@@ -64,191 +63,199 @@ class TargetedOperationHandler
             [this,
              chassisId](const boost::system::error_code& ec,
                         const dbus::utility::MapperGetSubTreeResponse& resp) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("GetSubTreePaths error: {}", ec);
-                tokenUnsupportedHandler();
-                return;
-            }
-            if (resp.size() == 0)
-            {
-                BMCWEB_LOG_ERROR("No objects with DebugToken interface found");
-                tokenUnsupportedHandler();
-                return;
-            }
-            std::string objectPath;
-            std::string service;
-            for (const auto& [path, serviceMap] : resp)
-            {
-                auto pathChassis =
-                    std::filesystem::path(path).filename().string();
-                if (chassisId == pathChassis)
-                {
-                    objectPath = path;
-                    service = serviceMap[0].first;
-                    break;
-                }
-            }
-            if (objectPath.empty())
-            {
-                BMCWEB_LOG_ERROR("DebugToken interface not implemented for {}",
-                                 chassisId);
-                tokenUnsupportedHandler();
-                return;
-            }
-            tokenOperationTimer = std::make_unique<boost::asio::steady_timer>(
-                crow::connections::systemBus->get_io_context());
-            tokenOperationTimer->expires_after(
-                std::chrono::seconds(targetedOpTimeoutSeconds));
-            tokenOperationTimer->async_wait(
-                [this](const boost::system::error_code& ec) {
-                match.reset(nullptr);
-                if (!ec)
-                {
-                    BMCWEB_LOG_ERROR("Debug token operation timeout");
-                    generalErrorHandler();
-                    return;
-                }
-                if (ec != boost::asio::error::operation_aborted)
-                {
-                    BMCWEB_LOG_ERROR("async_wait error {}", ec);
-                    generalErrorHandler();
-                }
-            });
-            std::string matchRule("type='signal',"
-                                  "interface='org.freedesktop.DBus.Properties',"
-                                  "path='" +
-                                  objectPath +
-                                  "',"
-                                  "member='PropertiesChanged'");
-            match = std::make_unique<sdbusplus::bus::match_t>(
-                *crow::connections::systemBus, matchRule,
-                [this, objectPath, service](sdbusplus::message_t& msg) {
-                std::string interface;
-                std::map<std::string, dbus::utility::DbusVariantType> props;
-                msg.read(interface, props);
-                std::string opStatus;
-                if (interface == "xyz.openbmc_project.Common.Progress")
-                {
-                    auto it = props.find("Status");
-                    if (it != props.end())
-                    {
-                        auto status = std::get_if<std::string>(&(it->second));
-                        if (status)
-                        {
-                            opStatus =
-                                status->substr(status->find_last_of('.') + 1);
-                        }
-                    }
-                }
-                if (opStatus.empty())
-                {
-                    return;
-                }
-                tokenOperationTimer.reset(nullptr);
-                if (opStatus == "Completed")
-                {
-                    switch (operation)
-                    {
-                        case TargetedOperation::GenerateTokenRequest:
-                            requestHandler(objectPath, service);
-                            return;
-
-                        case TargetedOperation::GetTokenStatus:
-                            statusHandler(objectPath, service);
-                            return;
-
-                        default:
-                            successHandler();
-                            return;
-                    }
-                }
-                if (opStatus == "Aborted")
-                {
-                    errorHandler(objectPath, service);
-                    return;
-                }
-                BMCWEB_LOG_ERROR("Status received: {}", opStatus);
-                generalErrorHandler();
-            });
-            auto dbusErrorHandler =
-                [this](const boost::system::error_code& ec) {
                 if (ec)
                 {
-                    BMCWEB_LOG_ERROR("DBus error: {}", ec.message());
-                    generalErrorHandler();
+                    BMCWEB_LOG_ERROR("GetSubTreePaths error: {}", ec);
+                    tokenUnsupportedHandler();
+                    return;
                 }
-            };
-            switch (operation)
-            {
-                case TargetedOperation::DisableTokens:
+                if (resp.size() == 0)
                 {
-                    crow::connections::systemBus->async_method_call(
-                        dbusErrorHandler, service, objectPath,
-                        std::string(debugTokenIntf), "DisableTokens");
-                    break;
+                    BMCWEB_LOG_ERROR(
+                        "No objects with DebugToken interface found");
+                    tokenUnsupportedHandler();
+                    return;
                 }
-
-                case TargetedOperation::GenerateTokenRequest:
+                std::string objectPath;
+                std::string service;
+                for (const auto& [path, serviceMap] : resp)
                 {
-                    std::string* tokenOpcode =
-                        std::get_if<std::string>(&argument);
-                    if (!tokenOpcode)
+                    auto pathChassis =
+                        std::filesystem::path(path).filename().string();
+                    if (chassisId == pathChassis)
                     {
-                        BMCWEB_LOG_ERROR("Invalid argument");
-                        generalErrorHandler();
-                        return;
+                        objectPath = path;
+                        service = serviceMap[0].first;
+                        break;
                     }
-                    std::string arg = std::string(debugTokenOpcodesEnumPrefix) +
-                                      *tokenOpcode;
-                    crow::connections::systemBus->async_method_call(
-                        dbusErrorHandler, service, objectPath,
-                        std::string(debugTokenIntf), "GetRequest", arg);
-                    break;
                 }
-
-                case TargetedOperation::GetTokenStatus:
+                if (objectPath.empty())
                 {
-                    std::string* tokenType =
-                        std::get_if<std::string>(&argument);
-                    if (!tokenType)
+                    BMCWEB_LOG_ERROR(
+                        "DebugToken interface not implemented for {}",
+                        chassisId);
+                    tokenUnsupportedHandler();
+                    return;
+                }
+                tokenOperationTimer =
+                    std::make_unique<boost::asio::steady_timer>(
+                        crow::connections::systemBus->get_io_context());
+                tokenOperationTimer->expires_after(
+                    std::chrono::seconds(targetedOpTimeoutSeconds));
+                tokenOperationTimer->async_wait(
+                    [this](const boost::system::error_code& ec) {
+                        match.reset(nullptr);
+                        if (!ec)
+                        {
+                            BMCWEB_LOG_ERROR("Debug token operation timeout");
+                            generalErrorHandler();
+                            return;
+                        }
+                        if (ec != boost::asio::error::operation_aborted)
+                        {
+                            BMCWEB_LOG_ERROR("async_wait error {}", ec);
+                            generalErrorHandler();
+                        }
+                    });
+                std::string matchRule(
+                    "type='signal',"
+                    "interface='org.freedesktop.DBus.Properties',"
+                    "path='" +
+                    objectPath +
+                    "',"
+                    "member='PropertiesChanged'");
+                match = std::make_unique<sdbusplus::bus::match_t>(
+                    *crow::connections::systemBus, matchRule,
+                    [this, objectPath, service](sdbusplus::message_t& msg) {
+                        std::string interface;
+                        std::map<std::string, dbus::utility::DbusVariantType>
+                            props;
+                        msg.read(interface, props);
+                        std::string opStatus;
+                        if (interface == "xyz.openbmc_project.Common.Progress")
+                        {
+                            auto it = props.find("Status");
+                            if (it != props.end())
+                            {
+                                auto status =
+                                    std::get_if<std::string>(&(it->second));
+                                if (status)
+                                {
+                                    opStatus = status->substr(
+                                        status->find_last_of('.') + 1);
+                                }
+                            }
+                        }
+                        if (opStatus.empty())
+                        {
+                            return;
+                        }
+                        tokenOperationTimer.reset(nullptr);
+                        if (opStatus == "Completed")
+                        {
+                            switch (operation)
+                            {
+                                case TargetedOperation::GenerateTokenRequest:
+                                    requestHandler(objectPath, service);
+                                    return;
+
+                                case TargetedOperation::GetTokenStatus:
+                                    statusHandler(objectPath, service);
+                                    return;
+
+                                default:
+                                    successHandler();
+                                    return;
+                            }
+                        }
+                        if (opStatus == "Aborted")
+                        {
+                            errorHandler(objectPath, service);
+                            return;
+                        }
+                        BMCWEB_LOG_ERROR("Status received: {}", opStatus);
+                        generalErrorHandler();
+                    });
+                auto dbusErrorHandler =
+                    [this](const boost::system::error_code& ec) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR("DBus error: {}", ec.message());
+                            generalErrorHandler();
+                        }
+                    };
+                switch (operation)
+                {
+                    case TargetedOperation::DisableTokens:
                     {
-                        BMCWEB_LOG_ERROR("Invalid argument");
-                        generalErrorHandler();
-                        return;
+                        crow::connections::systemBus->async_method_call(
+                            dbusErrorHandler, service, objectPath,
+                            std::string(debugTokenIntf), "DisableTokens");
+                        break;
                     }
-                    std::string arg = std::string(debugTokenTypesEnumPrefix) +
-                                      *tokenType;
-                    crow::connections::systemBus->async_method_call(
-                        dbusErrorHandler, service, objectPath,
-                        std::string(debugTokenIntf), "GetStatus", arg);
-                    break;
-                }
 
-                case TargetedOperation::InstallToken:
-                {
-                    std::vector<uint8_t>* token =
-                        std::get_if<std::vector<uint8_t>>(&argument);
-                    if (!token)
+                    case TargetedOperation::GenerateTokenRequest:
                     {
-                        BMCWEB_LOG_ERROR("Invalid argument");
-                        generalErrorHandler();
-                        return;
+                        std::string* tokenOpcode =
+                            std::get_if<std::string>(&argument);
+                        if (!tokenOpcode)
+                        {
+                            BMCWEB_LOG_ERROR("Invalid argument");
+                            generalErrorHandler();
+                            return;
+                        }
+                        std::string arg =
+                            std::string(debugTokenOpcodesEnumPrefix) +
+                            *tokenOpcode;
+                        crow::connections::systemBus->async_method_call(
+                            dbusErrorHandler, service, objectPath,
+                            std::string(debugTokenIntf), "GetRequest", arg);
+                        break;
                     }
-                    crow::connections::systemBus->async_method_call(
-                        dbusErrorHandler, service, objectPath,
-                        std::string(debugTokenIntf), "InstallToken", *token);
-                    break;
-                }
 
-                default:
-                {
-                    BMCWEB_LOG_ERROR("Invalid token operation");
-                    generalErrorHandler();
-                    break;
+                    case TargetedOperation::GetTokenStatus:
+                    {
+                        std::string* tokenType =
+                            std::get_if<std::string>(&argument);
+                        if (!tokenType)
+                        {
+                            BMCWEB_LOG_ERROR("Invalid argument");
+                            generalErrorHandler();
+                            return;
+                        }
+                        std::string arg =
+                            std::string(debugTokenTypesEnumPrefix) + *tokenType;
+                        crow::connections::systemBus->async_method_call(
+                            dbusErrorHandler, service, objectPath,
+                            std::string(debugTokenIntf), "GetStatus", arg);
+                        break;
+                    }
+
+                    case TargetedOperation::InstallToken:
+                    {
+                        std::vector<uint8_t>* token =
+                            std::get_if<std::vector<uint8_t>>(&argument);
+                        if (!token)
+                        {
+                            BMCWEB_LOG_ERROR("Invalid argument");
+                            generalErrorHandler();
+                            return;
+                        }
+                        crow::connections::systemBus->async_method_call(
+                            dbusErrorHandler, service, objectPath,
+                            std::string(debugTokenIntf), "InstallToken",
+                            *token);
+                        break;
+                    }
+
+                    default:
+                    {
+                        BMCWEB_LOG_ERROR("Invalid token operation");
+                        generalErrorHandler();
+                        break;
+                    }
                 }
-            }
-        });
+            });
     }
 
     bool finished(int& timeout) const
@@ -277,41 +284,42 @@ class TargetedOperationHandler
             std::string(debugTokenIntf), "RequestFd",
             [this](const boost::system::error_code ec,
                    const sdbusplus::message::unix_fd& unixfd) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("DBus Get error {}", ec);
-                generalErrorHandler();
-                return;
-            }
-            BMCWEB_LOG_DEBUG("Received fd: {}", unixfd.fd);
-            std::vector<uint8_t> request;
-            if (!readNsmTokenRequestFd(unixfd.fd, request))
-            {
-                generalErrorHandler();
-                return;
-            }
-            NsmDebugTokenRequest* nsmReq =
-                reinterpret_cast<NsmDebugTokenRequest*>(request.data());
-            switch (nsmReq->status)
-            {
-                case NsmDebugTokenChallengeQueryStatus::OK:
-                    callback(EndpointState::RequestAcquired, request);
-                    break;
-                case NsmDebugTokenChallengeQueryStatus::TokenAlreadyApplied:
-                    callback(EndpointState::TokenInstalled, std::monostate());
-                    break;
-                case NsmDebugTokenChallengeQueryStatus::TokenNotSupported:
-                    callback(EndpointState::DebugTokenUnsupported,
-                             std::monostate());
-                    break;
-                default:
-                    BMCWEB_LOG_ERROR("NSM token request - status: {}",
-                                     nsmReq->status);
-                    callback(EndpointState::Error, std::monostate());
-                    break;
-            }
-            cleanup();
-        });
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("DBus Get error {}", ec);
+                    generalErrorHandler();
+                    return;
+                }
+                BMCWEB_LOG_DEBUG("Received fd: {}", unixfd.fd);
+                std::vector<uint8_t> request;
+                if (!readNsmTokenRequestFd(unixfd.fd, request))
+                {
+                    generalErrorHandler();
+                    return;
+                }
+                NsmDebugTokenRequest* nsmReq =
+                    reinterpret_cast<NsmDebugTokenRequest*>(request.data());
+                switch (nsmReq->status)
+                {
+                    case NsmDebugTokenChallengeQueryStatus::OK:
+                        callback(EndpointState::RequestAcquired, request);
+                        break;
+                    case NsmDebugTokenChallengeQueryStatus::TokenAlreadyApplied:
+                        callback(EndpointState::TokenInstalled,
+                                 std::monostate());
+                        break;
+                    case NsmDebugTokenChallengeQueryStatus::TokenNotSupported:
+                        callback(EndpointState::DebugTokenUnsupported,
+                                 std::monostate());
+                        break;
+                    default:
+                        BMCWEB_LOG_ERROR("NSM token request - status: {}",
+                                         nsmReq->status);
+                        callback(EndpointState::Error, std::monostate());
+                        break;
+                }
+                cleanup();
+            });
     }
 
     void statusHandler(const std::string& objectPath,
@@ -322,23 +330,23 @@ class TargetedOperationHandler
             std::string(debugTokenIntf), "TokenStatus",
             [this](const boost::system::error_code ec,
                    const NsmDbusTokenStatus& dbusStatus) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("DBus Get error {}", ec);
-                generalErrorHandler();
-                return;
-            }
-            try
-            {
-                NsmTokenStatus nsmStatus(dbusStatus);
-                callback(EndpointState::StatusAcquired, nsmStatus);
-                cleanup();
-            }
-            catch (const std::exception&)
-            {
-                generalErrorHandler();
-            }
-        });
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("DBus Get error {}", ec);
+                    generalErrorHandler();
+                    return;
+                }
+                try
+                {
+                    NsmTokenStatus nsmStatus(dbusStatus);
+                    callback(EndpointState::StatusAcquired, nsmStatus);
+                    cleanup();
+                }
+                catch (const std::exception&)
+                {
+                    generalErrorHandler();
+                }
+            });
     }
 
     void errorHandler(const std::string& objectPath, const std::string& service)
@@ -348,22 +356,22 @@ class TargetedOperationHandler
             std::string(debugTokenIntf), "ErrorCode",
             [this](const boost::system::error_code ec,
                    const std::tuple<uint16_t, std::string>& errorCode) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("DBus Get error {}", ec);
-                generalErrorHandler();
-                return;
-            }
-            uint16_t code = std::get<uint16_t>(errorCode);
-            if (code == debugTokenUnsupportedNsmErrorCode)
-            {
-                tokenUnsupportedHandler();
-                return;
-            }
-            BMCWEB_LOG_ERROR("NSM error code: {}", code);
-            callback(EndpointState::Error, code);
-            cleanup();
-        });
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("DBus Get error {}", ec);
+                    generalErrorHandler();
+                    return;
+                }
+                uint16_t code = std::get<uint16_t>(errorCode);
+                if (code == debugTokenUnsupportedNsmErrorCode)
+                {
+                    tokenUnsupportedHandler();
+                    return;
+                }
+                BMCWEB_LOG_ERROR("NSM error code: {}", code);
+                callback(EndpointState::Error, code);
+                cleanup();
+            });
     }
 
     void generalErrorHandler()
@@ -388,10 +396,10 @@ class TargetedOperationHandler
     {
         boost::asio::post(crow::connections::systemBus->get_io_context(),
                           [this] {
-            callback = nullptr;
-            match.reset(nullptr);
-            tokenOperationTimer.reset(nullptr);
-        });
+                              callback = nullptr;
+                              match.reset(nullptr);
+                              tokenOperationTimer.reset(nullptr);
+                          });
     }
 };
 

@@ -33,6 +33,7 @@ limitations under the License.
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <utils/nvidia_sensor_utils.hpp>
+
 #include <array>
 #include <cmath>
 #include <iterator>
@@ -2360,7 +2361,7 @@ inline void getChassisCallback(
         std::string type = path.parent_path().filename();
         std::string id = redfish::sensor_utils::getSensorId(sensorName, type);
 
-        // downstream patch to fix sensor name without the type 
+        // downstream patch to fix sensor name without the type
         id = sensorName;
 
         nlohmann::json::object_t member;
@@ -2497,12 +2498,11 @@ inline void handleSensorGet(App& app, const crow::Request& req,
         });
 }
 
-inline void handleSensorGetUsingPath(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& chassisId,
-                            const std::string& sensorId,
-                            const std::string& sensorPath)
+inline void handleSensorGetUsingPath(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& sensorId,
+    const std::string& sensorPath)
 {
-
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/Sensors/{}", chassisId, sensorId);
     BMCWEB_LOG_DEBUG("Sensor doGet enter");
@@ -2542,156 +2542,160 @@ inline void
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath](const boost::system::error_code ec,
                              std::variant<std::vector<std::string>>& resp) {
-        if (ec)
-        {
-            // Check processor link
-            crow::connections::systemBus->async_method_call(
-                [asyncResp,
-                 objPath](const boost::system::error_code ec1,
-                          std::variant<std::vector<std::string>>& resp1) {
-                nlohmann::json& itemsArray1 =
-                    asyncResp->res.jsonValue["RelatedItem"];
-                if (ec1)
-                {
-                    // Call to network adapter-related items when processor
-                    // check fails
-                    redfish::nvidia_sensor_utils::getRelatedNetworkAdapterData(
-                        asyncResp, objPath);
-                    return;
-                }
-                std::vector<std::string>* data =
-                    std::get_if<std::vector<std::string>>(&resp1);
-                if (data == nullptr)
-                {
-                    return;
-                }
-                for (const std::string& processorPath : *data)
-                {
-                    sdbusplus::message::object_path objectPath(processorPath);
-                    std::string processorId = objectPath.filename();
-                    std::string processorURI = std::format(
-                        "/redfish/v1/Systems/{}/Processors/{}",
-                        BMCWEB_REDFISH_SYSTEM_URI_NAME, processorId);
-                    itemsArray1.push_back({{"@odata.id", processorURI}});
-                }
-            },
-                "xyz.openbmc_project.ObjectMapper", objPath + "/processor",
-                "org.freedesktop.DBus.Properties", "Get",
-                "xyz.openbmc_project.Association", "endpoints");
-            return;
-        }
-        std::vector<std::string>* data =
-            std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr)
-        {
-            return;
-        }
-        for (const std::string& fabricPath : *data)
-        {
-            sdbusplus::message::object_path objectPath(fabricPath);
-            const std::string fabricId = objectPath.filename();
-            crow::connections::systemBus->async_method_call(
-                [asyncResp,
-                 fabricId](const boost::system::error_code ec1,
-                           std::variant<std::vector<std::string>>& resp1) {
-                if (ec1)
-                {
-                    return; // no switch = no failures
-                }
-                std::vector<std::string>* data1 =
-                    std::get_if<std::vector<std::string>>(&resp1);
-                if (data1 == nullptr)
-                {
-                    return;
-                }
-                nlohmann::json& itemsArray1 =
-                    asyncResp->res.jsonValue["RelatedItem"];
-                for (const std::string& switchPath : *data1)
-                {
-                    sdbusplus::message::object_path objectPath1(switchPath);
-                    std::string switchId = objectPath1.filename();
-                    std::string switchURI =
-                        boost::urls::format(
-                            "/redfish/v1/Fabrics/{}/Switches/{}", fabricId,
-                            switchId)
-                            .buffer();
-                    itemsArray1.push_back({{"@odata.id", switchURI}});
-                }
-            },
-                "xyz.openbmc_project.ObjectMapper", objPath + "/switch",
-                "org.freedesktop.DBus.Properties", "Get",
-                "xyz.openbmc_project.Association", "endpoints");
-        }
-    },
+            if (ec)
+            {
+                // Check processor link
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp,
+                     objPath](const boost::system::error_code ec1,
+                              std::variant<std::vector<std::string>>& resp1) {
+                        nlohmann::json& itemsArray1 =
+                            asyncResp->res.jsonValue["RelatedItem"];
+                        if (ec1)
+                        {
+                            // Call to network adapter-related items when
+                            // processor check fails
+                            redfish::nvidia_sensor_utils::
+                                getRelatedNetworkAdapterData(asyncResp,
+                                                             objPath);
+                            return;
+                        }
+                        std::vector<std::string>* data =
+                            std::get_if<std::vector<std::string>>(&resp1);
+                        if (data == nullptr)
+                        {
+                            return;
+                        }
+                        for (const std::string& processorPath : *data)
+                        {
+                            sdbusplus::message::object_path objectPath(
+                                processorPath);
+                            std::string processorId = objectPath.filename();
+                            std::string processorURI = std::format(
+                                "/redfish/v1/Systems/{}/Processors/{}",
+                                BMCWEB_REDFISH_SYSTEM_URI_NAME, processorId);
+                            itemsArray1.push_back(
+                                {{"@odata.id", processorURI}});
+                        }
+                    },
+                    "xyz.openbmc_project.ObjectMapper", objPath + "/processor",
+                    "org.freedesktop.DBus.Properties", "Get",
+                    "xyz.openbmc_project.Association", "endpoints");
+                return;
+            }
+            std::vector<std::string>* data =
+                std::get_if<std::vector<std::string>>(&resp);
+            if (data == nullptr)
+            {
+                return;
+            }
+            for (const std::string& fabricPath : *data)
+            {
+                sdbusplus::message::object_path objectPath(fabricPath);
+                const std::string fabricId = objectPath.filename();
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp,
+                     fabricId](const boost::system::error_code ec1,
+                               std::variant<std::vector<std::string>>& resp1) {
+                        if (ec1)
+                        {
+                            return; // no switch = no failures
+                        }
+                        std::vector<std::string>* data1 =
+                            std::get_if<std::vector<std::string>>(&resp1);
+                        if (data1 == nullptr)
+                        {
+                            return;
+                        }
+                        nlohmann::json& itemsArray1 =
+                            asyncResp->res.jsonValue["RelatedItem"];
+                        for (const std::string& switchPath : *data1)
+                        {
+                            sdbusplus::message::object_path objectPath1(
+                                switchPath);
+                            std::string switchId = objectPath1.filename();
+                            std::string switchURI =
+                                boost::urls::format(
+                                    "/redfish/v1/Fabrics/{}/Switches/{}",
+                                    fabricId, switchId)
+                                    .buffer();
+                            itemsArray1.push_back({{"@odata.id", switchURI}});
+                        }
+                    },
+                    "xyz.openbmc_project.ObjectMapper", objPath + "/switch",
+                    "org.freedesktop.DBus.Properties", "Get",
+                    "xyz.openbmc_project.Association", "endpoints");
+            }
+        },
         "xyz.openbmc_project.ObjectMapper", objPath + "/fabric",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-inline void
-    getChassisSensors(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& chassisId,
-                      const std::string& chassisPath,
-                      const std::string& sensorName)
+inline void getChassisSensors(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& chassisPath,
+    const std::string& sensorName)
 {
     // Find the sensor on the chassis
     auto getAllChassisSensors =
         [asyncResp, sensorName, chassisId](
             const boost::system::error_code ec,
             const std::variant<std::vector<std::string>>& variantEndpoints) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("getAllChassisSensors DBUS error: {}", ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        const std::vector<std::string>* sensorPaths =
-            std::get_if<std::vector<std::string>>(&(variantEndpoints));
-        if (sensorPaths == nullptr)
-        {
-            BMCWEB_LOG_ERROR("getAllChassisSensors empty sensors list");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        for (const std::string& sensorPath : *sensorPaths)
-        {
-            sdbusplus::message::object_path path(sensorPath);
-            const std::string& sensorId = path.filename();
-            if (sensorId.empty())
+            if (ec)
             {
-                BMCWEB_LOG_ERROR("Failed to find '/' in {}", sensorPath);
-                continue;
+                BMCWEB_LOG_ERROR("getAllChassisSensors DBUS error: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
             }
-            if (sensorId != sensorName)
+            const std::vector<std::string>* sensorPaths =
+                std::get_if<std::vector<std::string>>(&(variantEndpoints));
+            if (sensorPaths == nullptr)
             {
-                continue;
+                BMCWEB_LOG_ERROR("getAllChassisSensors empty sensors list");
+                messages::internalError(asyncResp->res);
+                return;
             }
-            /*
-            // Get chassis sensors
-            const std::shared_ptr<boost::container::flat_set<std::string>>
-                sensorList = std::make_shared<
-                    boost::container::flat_set<std::string>>();
+            for (const std::string& sensorPath : *sensorPaths)
+            {
+                sdbusplus::message::object_path path(sensorPath);
+                const std::string& sensorId = path.filename();
+                if (sensorId.empty())
+                {
+                    BMCWEB_LOG_ERROR("Failed to find '/' in {}", sensorPath);
+                    continue;
+                }
+                if (sensorId != sensorName)
+                {
+                    continue;
+                }
+                /*
+                // Get chassis sensors
+                const std::shared_ptr<boost::container::flat_set<std::string>>
+                    sensorList = std::make_shared<
+                        boost::container::flat_set<std::string>>();
 
-            sensorList->emplace(sensorPath);
-            processSensorList(asyncResp, sensorList);
-            */
+                sensorList->emplace(sensorPath);
+                processSensorList(asyncResp, sensorList);
+                */
 
-            asyncResp->res.jsonValue["Status"]["Health"] = "OK";
+                asyncResp->res.jsonValue["Status"]["Health"] = "OK";
 #ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-            asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
+                asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
 #endif // BMCWEB_DISABLE_HEALTH_ROLLUP
 #ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
-            asyncResp->res.jsonValue["Status"]["Conditions"] =
-                nlohmann::json::array();
+                asyncResp->res.jsonValue["Status"]["Conditions"] =
+                    nlohmann::json::array();
 #endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
 
-            handleSensorGetUsingPath(asyncResp, chassisId, sensorId, sensorPath);
-            // Add related item data
-            getRelatedItemData(asyncResp, std::string(sensorPath));
-            return;
-        }
-        messages::resourceNotFound(asyncResp->res, "Sensor", sensorName);
-    };
+                handleSensorGetUsingPath(asyncResp, chassisId, sensorId,
+                                         sensorPath);
+                // Add related item data
+                getRelatedItemData(asyncResp, std::string(sensorPath));
+                return;
+            }
+            messages::resourceNotFound(asyncResp->res, "Sensor", sensorName);
+        };
     crow::connections::systemBus->async_method_call(
         getAllChassisSensors, "xyz.openbmc_project.ObjectMapper",
         chassisPath + "/all_sensors", "org.freedesktop.DBus.Properties", "Get",
@@ -2766,13 +2770,13 @@ inline void setThresholdReadingProperty(
     crow::connections::systemBus->async_method_call(
         [asyncResp, serviceName, objectPath, interfaceName,
          propertyName](const boost::system::error_code ec) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        messages::success(asyncResp->res);
-    },
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            messages::success(asyncResp->res);
+        },
         serviceName, objectPath, "org.freedesktop.DBus.Properties", "Set",
         interfaceName, propertyName, std::variant<double>(readingValue));
 }
@@ -2870,8 +2874,8 @@ inline void requestRoutesSensor(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Sensors/<str>/")
         .privileges(redfish::privileges::getSensor)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(sensors::handleSensorGetWithChassisValidation, std::ref(app)));
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            sensors::handleSensorGetWithChassisValidation, std::ref(app)));
 }
 
 inline void requestRoutesSensorPatch(App& app)
@@ -2882,78 +2886,81 @@ inline void requestRoutesSensorPatch(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& chassisId, const std::string& sensorId) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, chassisId, sensorId,
-             req](const boost::system::error_code ec,
-                  const std::vector<std::string>& objects) {
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            for (const std::string& object : objects)
-            {
-                if (!object.ends_with(chassisId))
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
-                    continue;
+                    return;
                 }
                 crow::connections::systemBus->async_method_call(
-                    [asyncResp, sensorId, req](
-                        const boost::system::error_code ec,
-                        const std::vector<std::pair<
-                            std::string,
-                            std::vector<std::pair<std::string,
-                                                  std::vector<std::string>>>>>&
-                            subtree) {
-                    if (ec)
-                    {
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    std::string str;
-                    size_t found = 0;
-                    for (const auto& object : subtree)
-                    {
-                        str = object.first;
-                        found = str.find(sensorId);
-                        if (found != std::string::npos)
+                    [asyncResp, chassisId, sensorId,
+                     req](const boost::system::error_code ec,
+                          const std::vector<std::string>& objects) {
+                        if (ec)
                         {
-                            for (const auto& service : object.second)
-                            {
-                                processSensorThresholdValues(req, asyncResp,
-                                                             service.first,
-                                                             object.first);
-                                return;
-                            }
+                            messages::internalError(asyncResp->res);
+                            return;
                         }
-                    }
-                    messages::resourceNotFound(asyncResp->res, "Sensor",
-                                               sensorId);
-                },
+                        for (const std::string& object : objects)
+                        {
+                            if (!object.ends_with(chassisId))
+                            {
+                                continue;
+                            }
+                            crow::connections::systemBus->async_method_call(
+                                [asyncResp, sensorId,
+                                 req](const boost::system::error_code ec,
+                                      const std::vector<std::pair<
+                                          std::string,
+                                          std::vector<std::pair<
+                                              std::string,
+                                              std::vector<std::string>>>>>&
+                                          subtree) {
+                                    if (ec)
+                                    {
+                                        messages::internalError(asyncResp->res);
+                                        return;
+                                    }
+                                    std::string str;
+                                    size_t found = 0;
+                                    for (const auto& object : subtree)
+                                    {
+                                        str = object.first;
+                                        found = str.find(sensorId);
+                                        if (found != std::string::npos)
+                                        {
+                                            for (const auto& service :
+                                                 object.second)
+                                            {
+                                                processSensorThresholdValues(
+                                                    req, asyncResp,
+                                                    service.first,
+                                                    object.first);
+                                                return;
+                                            }
+                                        }
+                                    }
+                                    messages::resourceNotFound(
+                                        asyncResp->res, "Sensor", sensorId);
+                                },
+                                "xyz.openbmc_project.ObjectMapper",
+                                "/xyz/openbmc_project/object_mapper",
+                                "xyz.openbmc_project.ObjectMapper",
+                                "GetSubTree", "/xyz/openbmc_project/sensors", 2,
+                                std::array<const char*, 1>{
+                                    "xyz.openbmc_project.Sensor.Value"});
+
+                            return;
+                        }
+                        messages::resourceNotFound(asyncResp->res, "#Chassis",
+                                                   chassisId);
+                    },
                     "xyz.openbmc_project.ObjectMapper",
                     "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                    "/xyz/openbmc_project/sensors", 2,
+                    "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+                    "/xyz/openbmc_project/inventory", 0,
                     std::array<const char*, 1>{
-                        "xyz.openbmc_project.Sensor.Value"});
-
+                        "xyz.openbmc_project.Inventory.Item.Chassis"});
                 return;
-            }
-            messages::resourceNotFound(asyncResp->res, "#Chassis", chassisId);
-        },
-            "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-            "/xyz/openbmc_project/inventory", 0,
-            std::array<const char*, 1>{
-                "xyz.openbmc_project.Inventory.Item.Chassis"});
-        return;
-    });    
+            });
 }
-
 
 } // namespace redfish

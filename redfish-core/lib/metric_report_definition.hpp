@@ -1492,15 +1492,17 @@ inline void handleMetricReportGet(
         sdbusplus::asio::getAllProperties(
             *crow::connections::systemBus, telemetry::service,
             telemetry::getDbusReportPath(id), telemetry::reportInterface,
-            [asyncResp, id](const boost::system::error_code& ec,
-                            const dbus::utility::DBusPropertiesMap& properties) {
-                if (!redfish::telemetry::verifyCommonErrors(asyncResp->res, id, ec))
+            [asyncResp,
+             id](const boost::system::error_code& ec,
+                 const dbus::utility::DBusPropertiesMap& properties) {
+                if (!redfish::telemetry::verifyCommonErrors(asyncResp->res, id,
+                                                            ec))
                 {
                     return;
                 }
 
-            telemetry::fillReportDefinition(asyncResp, id, properties);
-        });
+                telemetry::fillReportDefinition(asyncResp, id, properties);
+            });
     }
 }
 

@@ -478,8 +478,7 @@ inline void doPowerSupplyGet(
     getEfficiencyPercent(asyncResp);
 
     redfish::nvidia_power_supply_utils::getNvidiaPowerSupply(
-        asyncResp, service, powerSupplyPath,
-        powerSupplyId, chassisId);
+        asyncResp, service, powerSupplyPath, powerSupplyId, chassisId);
 }
 
 inline void handlePowerSupplyHead(
@@ -516,11 +515,10 @@ inline void handlePowerSupplyGet(
         std::bind_front(doPowerSupplyGet, asyncResp, chassisId, powerSupplyId));
 }
 
-inline void
-    doPowerSupplyMetricsGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& chassisId,
-                            const std::string& powerSupplyId,
-                            const std::optional<std::string>& validChassisPath)
+inline void doPowerSupplyMetricsGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& powerSupplyId,
+    const std::optional<std::string>& validChassisPath)
 {
     if (!validChassisPath)
     {
@@ -529,12 +527,14 @@ inline void
     }
 
     // Get the correct Path and Service that match the input parameters
-    getValidPowerSupplyPath(asyncResp, *validChassisPath, powerSupplyId,
-                            [asyncResp, chassisId, powerSupplyId](
-                                const std::string& powerSupplyPath, const std::string& /*service*/) {
-        redfish::nvidia_power_supply_utils::getNvidiaPowerSupplyMetrics(
-            asyncResp, chassisId, powerSupplyId, powerSupplyPath);
-    });
+    getValidPowerSupplyPath(
+        asyncResp, *validChassisPath, powerSupplyId,
+        [asyncResp, chassisId,
+         powerSupplyId](const std::string& powerSupplyPath,
+                        const std::string& /*service*/) {
+            redfish::nvidia_power_supply_utils::getNvidiaPowerSupplyMetrics(
+                asyncResp, chassisId, powerSupplyId, powerSupplyPath);
+        });
 }
 
 inline void handlePowerSupplyMetricsGet(
@@ -574,7 +574,5 @@ inline void requestRoutesPowerSupply(App& app)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handlePowerSupplyMetricsGet, std::ref(app)));
 }
-
-
 
 } // namespace redfish

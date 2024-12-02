@@ -693,251 +693,246 @@ class Connection :
             cancelDeadlineTimer();
         }
 
-            if (!parser)
-            {
-                BMCWEB_LOG_ERROR("Parser was unexpectedly null");
-                return;
-            }
-            if (!parser->is_done())
-            {
-                doRead();
-                return;
-            }
-
-            cancelDeadlineTimer();
-            handle();
+        if (!parser)
+        {
+            BMCWEB_LOG_ERROR("Parser was unexpectedly null");
+            return;
+        }
+        if (!parser->is_done())
+        {
+            doRead();
+            return;
         }
 
-        void doRead()
+        cancelDeadlineTimer();
+        handle();
+    }
+
+    void doRead()
+    {
+        BMCWEB_LOG_DEBUG("{} doRead", logPtr(this));
+        if (!parser)
         {
-            BMCWEB_LOG_DEBUG("{} doRead", logPtr(this));
-            if (!parser)
-            {
-                return;
-            }
-            startDeadline();
-            boost::beast::http::async_read_some(
-                adaptor, buffer, *parser,
-                std::bind_front(&self_type::afterRead, this,
-                                shared_from_this()));
+            return;
+        }
+        startDeadline();
+        boost::beast::http::async_read_some(
+            adaptor, buffer, *parser,
+            std::bind_front(&self_type::afterRead, this, shared_from_this()));
+    }
+
+    void afterDoWrite(const std::shared_ptr<self_type>& /*self*/,
+                      const boost::system::error_code& ec,
+                      std::size_t bytesTransferred)
+    {
+        BMCWEB_LOG_DEBUG("{} async_write wrote {} bytes, ec={}", logPtr(this),
+                         bytesTransferred, ec);
+
+        cancelDeadlineTimer();
+
+        if (ec == boost::system::errc::operation_would_block ||
+            ec == boost::system::errc::resource_unavailable_try_again)
+        {
+            doWrite();
+            return;
+        }
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("{} from write(2)", logPtr(this));
+            return;
         }
 
-        void afterDoWrite(const std::shared_ptr<self_type>& /*self*/,
-                          const boost::system::error_code& ec,
-                          std::size_t bytesTransferred)
+        if (res.result() == boost::beast::http::status::continue_)
         {
-            BMCWEB_LOG_DEBUG("{} async_write wrote {} bytes, ec={}",
-                             logPtr(this), bytesTransferred, ec);
-
-            cancelDeadlineTimer();
-
-            if (ec == boost::system::errc::operation_would_block ||
-                ec == boost::system::errc::resource_unavailable_try_again)
-            {
-                doWrite();
-                return;
-            }
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("{} from write(2)", logPtr(this));
-                return;
-            }
-
-            if (res.result() == boost::beast::http::status::continue_)
-            {
-                // Reset the result to ok
-                res.result(boost::beast::http::status::ok);
-                doRead();
-                return;
-            }
-
-            if (!keepAlive)
-            {
-                BMCWEB_LOG_DEBUG("{} keepalive not set.  Closing socket",
-                                 logPtr(this));
-
-                gracefulClose();
-                return;
-            }
-
-            BMCWEB_LOG_DEBUG("{} Clearing response", logPtr(this));
-            res.clear();
-            initParser();
-
-            userSession = nullptr;
-
-            req->clear();
-            doReadHeaders();
+            // Reset the result to ok
+            res.result(boost::beast::http::status::ok);
+            doRead();
+            return;
         }
 
-        void doWrite()
+        if (!keepAlive)
         {
-            BMCWEB_LOG_DEBUG("{} doWrite", logPtr(this));
-            ForceChunking chunked = ForceChunking::Disabled;
+            BMCWEB_LOG_DEBUG("{} keepalive not set.  Closing socket",
+                             logPtr(this));
+
+            gracefulClose();
+            return;
+        }
+
+        BMCWEB_LOG_DEBUG("{} Clearing response", logPtr(this));
+        res.clear();
+        initParser();
+
+        userSession = nullptr;
+
+        req->clear();
+        doReadHeaders();
+    }
+
+    void doWrite()
+    {
+        BMCWEB_LOG_DEBUG("{} doWrite", logPtr(this));
+        ForceChunking chunked = ForceChunking::Disabled;
 
 #ifdef BMCWEB_BMCWEB_CHUNKING
-            if (req && req->version() == 11)
+        if (req && req->version() == 11)
+        {
+            std::string_view accept_encodings =
+                req->getHeaderValue(boost::beast::http::field::accept_encoding);
+            if (http_helpers::headerContains(accept_encodings, "chunked"))
             {
-                std::string_view accept_encodings = req->getHeaderValue(
-                    boost::beast::http::field::accept_encoding);
-                if (http_helpers::headerContains(accept_encodings, "chunked"))
-                {
-                    chunked = ForceChunking::Enabled;
-                }
+                chunked = ForceChunking::Enabled;
             }
+        }
 #endif // BMCWEB_CHUNKING
 
-            res.preparePayload(chunked);
+        res.preparePayload(chunked);
 
-            startDeadline();
-            boost::beast::async_write(
-                adaptor,
-                boost::beast::http::message_generator(std::move(res.response)),
-                std::bind_front(&self_type::afterDoWrite, this,
-                                shared_from_this()));
-        }
+        startDeadline();
+        boost::beast::async_write(
+            adaptor,
+            boost::beast::http::message_generator(std::move(res.response)),
+            std::bind_front(&self_type::afterDoWrite, this,
+                            shared_from_this()));
+    }
 
-        void cancelDeadlineTimer()
+    void cancelDeadlineTimer()
+    {
+        timer.cancel();
+    }
+
+    void afterTimerWait(const std::weak_ptr<self_type>& weakSelf,
+                        const boost::system::error_code& ec)
+    {
+        // Note, we are ignoring other types of errors here;  If the timer
+        // failed for any reason, we should still close the connection
+        std::shared_ptr<Connection<Adaptor, Handler>> self = weakSelf.lock();
+        if (!self)
         {
-            timer.cancel();
-        }
-
-        void afterTimerWait(const std::weak_ptr<self_type>& weakSelf,
-                            const boost::system::error_code& ec)
-        {
-            // Note, we are ignoring other types of errors here;  If the timer
-            // failed for any reason, we should still close the connection
-            std::shared_ptr<Connection<Adaptor, Handler>> self =
-                weakSelf.lock();
-            if (!self)
+            if (ec == boost::asio::error::operation_aborted)
             {
-                if (ec == boost::asio::error::operation_aborted)
-                {
-                    BMCWEB_LOG_DEBUG(
-                        "{} Timer canceled on connection being destroyed",
-                        logPtr(self.get()));
-                }
-                else
-                {
-                    BMCWEB_LOG_CRITICAL("{} Failed to capture connection",
-                                        logPtr(self.get()));
-                }
+                BMCWEB_LOG_DEBUG(
+                    "{} Timer canceled on connection being destroyed",
+                    logPtr(self.get()));
+            }
+            else
+            {
+                BMCWEB_LOG_CRITICAL("{} Failed to capture connection",
+                                    logPtr(self.get()));
+            }
+            return;
+        }
+
+        self->timerStarted = false;
+
+        if (ec)
+        {
+            if (ec == boost::asio::error::operation_aborted)
+            {
+                BMCWEB_LOG_DEBUG("{} Timer canceled", logPtr(self.get()));
                 return;
             }
-
-            self->timerStarted = false;
-
-            if (ec)
-            {
-                if (ec == boost::asio::error::operation_aborted)
-                {
-                    BMCWEB_LOG_DEBUG("{} Timer canceled", logPtr(self.get()));
-                    return;
-                }
-                BMCWEB_LOG_CRITICAL("{} Timer failed {}", logPtr(self.get()),
-                                    ec);
-            }
-
-            BMCWEB_LOG_WARNING("{} Connection timed out, hard closing",
-                               logPtr(self.get()));
-
-            self->hardClose();
+            BMCWEB_LOG_CRITICAL("{} Timer failed {}", logPtr(self.get()), ec);
         }
 
-        void startDeadline()
+        BMCWEB_LOG_WARNING("{} Connection timed out, hard closing",
+                           logPtr(self.get()));
+
+        self->hardClose();
+    }
+
+    void startDeadline()
+    {
+        cancelDeadlineTimer();
+
+        std::chrono::seconds timeout(BMCWEB_BMCWEB_RESPONSE_TIMEOUT);
+        // allow slow uploads for logged in users
+        bool loggedIn = userSession != nullptr;
+        if (loggedIn)
         {
-            cancelDeadlineTimer();
-
-            std::chrono::seconds timeout(BMCWEB_BMCWEB_RESPONSE_TIMEOUT);
-            // allow slow uploads for logged in users
-            bool loggedIn = userSession != nullptr;
-            if (loggedIn)
-            {
-                timeout = std::chrono::seconds(BMCWEB_BMCWEB_RESPONSE_TIMEOUT);
-                return;
-            }
-            std::weak_ptr<Connection<Adaptor, Handler>> weakSelf =
-                weak_from_this();
-            timer.expires_after(timeout);
-            timer.async_wait(std::bind_front(&self_type::afterTimerWait, this,
-                                             weak_from_this()));
-
-            timerStarted = true;
-            BMCWEB_LOG_DEBUG("{} timer started", logPtr(this));
+            timeout = std::chrono::seconds(BMCWEB_BMCWEB_RESPONSE_TIMEOUT);
+            return;
         }
-        /* @brief : This function is used to get the user from the Authorization
-         * header and return the user name If the header is not present or the
-         * header is not in the correct format then an empty string is returned
-         * The header is expected to be in the format: Authorization: Basic
-         * <base64 encoded user:password> The user name is extracted from the
-         * header and returned
-         * @param[in] req - The request object
-         * @return std::string - The user name
-         */
-        std::string getUser(crow::Request & req)
+        std::weak_ptr<Connection<Adaptor, Handler>> weakSelf = weak_from_this();
+        timer.expires_after(timeout);
+        timer.async_wait(std::bind_front(&self_type::afterTimerWait, this,
+                                         weak_from_this()));
+
+        timerStarted = true;
+        BMCWEB_LOG_DEBUG("{} timer started", logPtr(this));
+    }
+    /* @brief : This function is used to get the user from the Authorization
+     * header and return the user name If the header is not present or the
+     * header is not in the correct format then an empty string is returned
+     * The header is expected to be in the format: Authorization: Basic
+     * <base64 encoded user:password> The user name is extracted from the
+     * header and returned
+     * @param[in] req - The request object
+     * @return std::string - The user name
+     */
+    std::string getUser(crow::Request& req)
+    {
+        std::string_view authHeader = req.getHeaderValue("Authorization");
+        if (!authHeader.starts_with("Basic "))
         {
-            std::string_view authHeader = req.getHeaderValue("Authorization");
-            if (!authHeader.starts_with("Basic "))
-            {
-                return {};
-            }
-
-            std::string_view param = authHeader.substr(strlen("Basic "));
-            std::string authData;
-
-            if (!crow::utility::base64Decode(param, authData))
-            {
-                return {};
-            }
-            std::size_t separator = authData.find(':');
-            if (separator == std::string::npos)
-            {
-                return {};
-            }
-
-            std::string user = authData.substr(0, separator);
-            separator += 1;
-            if (separator > authData.size())
-            {
-                return {};
-            }
-
-            BMCWEB_LOG_DEBUG("Basic authentication user name: {}", user);
-            return user;
+            return {};
         }
 
-        Adaptor adaptor;
-        Handler* handler;
+        std::string_view param = authHeader.substr(strlen("Basic "));
+        std::string authData;
 
-        boost::asio::ip::address ip;
+        if (!crow::utility::base64Decode(param, authData))
+        {
+            return {};
+        }
+        std::size_t separator = authData.find(':');
+        if (separator == std::string::npos)
+        {
+            return {};
+        }
 
-        // Making this a std::optional allows it to be efficiently destroyed and
-        // re-created on Connection reset
-        std::optional<boost::beast::http::request_parser<bmcweb::HttpBody>>
-            parser;
+        std::string user = authData.substr(0, separator);
+        separator += 1;
+        if (separator > authData.size())
+        {
+            return {};
+        }
 
-        boost::beast::flat_static_buffer<8192> buffer;
+        BMCWEB_LOG_DEBUG("Basic authentication user name: {}", user);
+        return user;
+    }
 
-        std::shared_ptr<crow::Request> req;
-        std::string accept;
+    Adaptor adaptor;
+    Handler* handler;
 
-        crow::Response res;
+    boost::asio::ip::address ip;
 
-        std::shared_ptr<persistent_data::UserSession> userSession;
-        std::shared_ptr<persistent_data::UserSession> mtlsSession;
+    // Making this a std::optional allows it to be efficiently destroyed and
+    // re-created on Connection reset
+    std::optional<boost::beast::http::request_parser<bmcweb::HttpBody>> parser;
 
-        boost::asio::steady_timer timer;
+    boost::beast::flat_static_buffer<8192> buffer;
 
-        bool keepAlive = true;
+    std::shared_ptr<crow::Request> req;
+    std::string accept;
 
-        bool timerStarted = false;
+    crow::Response res;
 
-        std::function<std::string()>& getCachedDateStr;
+    std::shared_ptr<persistent_data::UserSession> userSession;
+    std::shared_ptr<persistent_data::UserSession> mtlsSession;
 
-        using std::enable_shared_from_this<
-            Connection<Adaptor, Handler>>::shared_from_this;
+    boost::asio::steady_timer timer;
 
-        using std::enable_shared_from_this<
-            Connection<Adaptor, Handler>>::weak_from_this;
-    };
+    bool keepAlive = true;
+
+    bool timerStarted = false;
+
+    std::function<std::string()>& getCachedDateStr;
+
+    using std::enable_shared_from_this<
+        Connection<Adaptor, Handler>>::shared_from_this;
+
+    using std::enable_shared_from_this<
+        Connection<Adaptor, Handler>>::weak_from_this;
+};
 } // namespace crow

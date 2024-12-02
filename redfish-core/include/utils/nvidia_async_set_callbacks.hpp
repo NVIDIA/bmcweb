@@ -87,8 +87,7 @@ class PatchSpeedConfigCallback
   public:
     explicit PatchSpeedConfigCallback(std::shared_ptr<bmcweb::AsyncResp> resp,
                                       uint32_t speedLimit) :
-        resp(std::move(resp)),
-        speedLimit(speedLimit)
+        resp(std::move(resp)), speedLimit(speedLimit)
     {}
 
     void operator()(const std::string& status) const
@@ -147,8 +146,7 @@ class PatchPowerCapCallback
   public:
     explicit PatchPowerCapCallback(std::shared_ptr<bmcweb::AsyncResp> resp,
                                    int64_t setpoint) :
-        resp(std::move(resp)),
-        setpoint(setpoint)
+        resp(std::move(resp)), setpoint(setpoint)
     {}
 
     void operator()(const std::string& status) const
@@ -206,8 +204,7 @@ class PatchClockLimitControlCallback
 {
   public:
     explicit PatchClockLimitControlCallback(
-        std::shared_ptr<bmcweb::AsyncResp> resp) :
-        resp(std::move(resp))
+        std::shared_ptr<bmcweb::AsyncResp> resp) : resp(std::move(resp))
     {}
 
     void operator()(const std::string& status) const
@@ -282,96 +279,107 @@ inline void patch(std::shared_ptr<bmcweb::AsyncResp> aResp,
         [aResp, path, service, property, interface, value,
          showError](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& object) {
-        if (!ec)
-        {
-            for (const auto& [serv, _] : object)
-            {
-                if (serv != service)
-                {
-                    continue;
-                }
-                BMCWEB_LOG_DEBUG(
-                    "Performing Patch using Set Async Method Call");
-                doGenericSetAsyncAndGatherResult(
-                    aResp, std::chrono::seconds(60), service, path, interface,
-                    property, std::variant<Value>(value), Callback{aResp});
-
-                return;
-            }
-        }
-        else if (showError)
-        {
-            BMCWEB_LOG_ERROR("Missing setAsyncInterface object for {}", path);
-            messages::internalError(aResp->res);
-            return;
-        }
-
-        BMCWEB_LOG_DEBUG("Performing Patch using set-property Call");
-
-        // Set the property, with handler to check error responses
-        crow::connections::systemBus->async_method_call(
-            [aResp, property, interface,
-             service](boost::system::error_code ec,
-                      sdbusplus::message::message& msg) {
             if (!ec)
             {
-                BMCWEB_LOG_DEBUG("Set {} property for {} succeeded", property,
-                                 interface);
-                return;
-            }
-            BMCWEB_LOG_WARNING("Set {} property for {} failed: {}. Serv: {}",
-                               property, interface, ec, service);
+                for (const auto& [serv, _] : object)
+                {
+                    if (serv != service)
+                    {
+                        continue;
+                    }
+                    BMCWEB_LOG_DEBUG(
+                        "Performing Patch using Set Async Method Call");
+                    doGenericSetAsyncAndGatherResult(
+                        aResp, std::chrono::seconds(60), service, path,
+                        interface, property, std::variant<Value>(value),
+                        Callback{aResp});
 
-            // Read and convert dbus error message to redfish error
-            const sd_bus_error* dbusError = msg.get_error();
-            if (dbusError == nullptr)
+                    return;
+                }
+            }
+            else if (showError)
             {
+                BMCWEB_LOG_ERROR("Missing setAsyncInterface object for {}",
+                                 path);
                 messages::internalError(aResp->res);
                 return;
             }
 
-            if (strcmp(dbusError->name, "xyz.openbmc_project.Common."
-                                        "Device.Error.WriteFailure") == 0)
-            {
-                // Service failed to change the config
-                messages::operationFailed(aResp->res);
-            }
-            else if (strcmp(dbusError->name,
+            BMCWEB_LOG_DEBUG("Performing Patch using set-property Call");
+
+            // Set the property, with handler to check error responses
+            crow::connections::systemBus->async_method_call(
+                [aResp, property, interface,
+                 service](boost::system::error_code ec,
+                          sdbusplus::message::message& msg) {
+                    if (!ec)
+                    {
+                        BMCWEB_LOG_DEBUG("Set {} property for {} succeeded",
+                                         property, interface);
+                        return;
+                    }
+                    BMCWEB_LOG_WARNING(
+                        "Set {} property for {} failed: {}. Serv: {}", property,
+                        interface, ec, service);
+
+                    // Read and convert dbus error message to redfish error
+                    const sd_bus_error* dbusError = msg.get_error();
+                    if (dbusError == nullptr)
+                    {
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+
+                    if (strcmp(dbusError->name,
+                               "xyz.openbmc_project.Common."
+                               "Device.Error.WriteFailure") == 0)
+                    {
+                        // Service failed to change the config
+                        messages::operationFailed(aResp->res);
+                    }
+                    else if (
+                        strcmp(
+                            dbusError->name,
                             "xyz.openbmc_project.Common.Error.Unavailable") ==
-                     0)
-            {
-                std::string errBusy = "0x50A";
-                std::string errBusyResolution =
-                    "SMBPBI Command failed with error busy, please try after 60 seconds";
+                        0)
+                    {
+                        std::string errBusy = "0x50A";
+                        std::string errBusyResolution =
+                            "SMBPBI Command failed with error busy, please try after 60 seconds";
 
-                // busy error
-                messages::asyncError(aResp->res, errBusy, errBusyResolution);
-            }
-            else if (strcmp(dbusError->name,
-                            "xyz.openbmc_project.Common.Error.Timeout") == 0)
-            {
-                std::string errTimeout = "0x600";
-                std::string errTimeoutResolution =
-                    "Settings may/maynot have applied, please check get response before patching";
+                        // busy error
+                        messages::asyncError(aResp->res, errBusy,
+                                             errBusyResolution);
+                    }
+                    else if (strcmp(
+                                 dbusError->name,
+                                 "xyz.openbmc_project.Common.Error.Timeout") ==
+                             0)
+                    {
+                        std::string errTimeout = "0x600";
+                        std::string errTimeoutResolution =
+                            "Settings may/maynot have applied, please check get response before patching";
 
-                // timeout error
-                messages::asyncError(aResp->res, errTimeout,
-                                     errTimeoutResolution);
-            }
-            else if (strcmp(dbusError->name,
-                            "org.freedesktop.DBus.Error.UnknownObject") == 0)
-            {
-                BMCWEB_LOG_WARNING("Serv {} didn't support this object",
-                                   service);
-            }
-            else
-            {
-                messages::internalError(aResp->res);
-            }
-        },
-            service, path, "org.freedesktop.DBus.Properties", "Set", interface,
-            property, std::variant<Value>(value));
-    });
+                        // timeout error
+                        messages::asyncError(aResp->res, errTimeout,
+                                             errTimeoutResolution);
+                    }
+                    else if (strcmp(
+                                 dbusError->name,
+                                 "org.freedesktop.DBus.Error.UnknownObject") ==
+                             0)
+                    {
+                        BMCWEB_LOG_WARNING("Serv {} didn't support this object",
+                                           service);
+                    }
+                    else
+                    {
+                        messages::internalError(aResp->res);
+                    }
+                },
+                service, path, "org.freedesktop.DBus.Properties", "Set",
+                interface, property, std::variant<Value>(value));
+        });
 }
 
 } // namespace nvidia_async_operation_utils

@@ -56,25 +56,25 @@ inline void
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const std::variant<std::string>& res) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-            if (ec.value() == boost::asio::error::host_unreachable)
+            if (ec)
             {
-                messages::resourceNotFound(asyncResp->res, "Get",
-                                           "DiagSystemConfig");
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                if (ec.value() == boost::asio::error::host_unreachable)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Get",
+                                               "DiagSystemConfig");
+                    return;
+                }
+                messages::internalError(asyncResp->res);
                 return;
             }
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        BMCWEB_LOG_DEBUG("Get Diag Config update done.");
+            BMCWEB_LOG_DEBUG("Get Diag Config update done.");
 
-        nlohmann::json& json = asyncResp->res.jsonValue;
-        const std::string& jsonString = std::get<std::string>(res);
-        nlohmann::json data = nlohmann::json::parse(jsonString);
-        json["Oem"]["Nvidia"]["ProcessorDiagSysConfig"] = data;
-    },
+            nlohmann::json& json = asyncResp->res.jsonValue;
+            const std::string& jsonString = std::get<std::string>(res);
+            nlohmann::json data = nlohmann::json::parse(jsonString);
+            json["Oem"]["Nvidia"]["ProcessorDiagSysConfig"] = data;
+        },
         "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Control.Diag", "DiagSystemConfig");
@@ -86,24 +86,25 @@ inline void
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const std::variant<std::string>& res) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-            if (ec.value() == boost::asio::error::host_unreachable)
+            if (ec)
             {
-                messages::resourceNotFound(asyncResp->res, "Get", "DiagConfig");
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                if (ec.value() == boost::asio::error::host_unreachable)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Get",
+                                               "DiagConfig");
+                    return;
+                }
+                messages::internalError(asyncResp->res);
                 return;
             }
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        BMCWEB_LOG_DEBUG("Get Diag Config update done.");
+            BMCWEB_LOG_DEBUG("Get Diag Config update done.");
 
-        nlohmann::json& json = asyncResp->res.jsonValue;
-        const std::string& jsonString = std::get<std::string>(res);
-        nlohmann::json data = nlohmann::json::parse(jsonString);
-        json["Oem"]["Nvidia"]["ProcessorDiagTidConfig"] = data;
-    },
+            nlohmann::json& json = asyncResp->res.jsonValue;
+            const std::string& jsonString = std::get<std::string>(res);
+            nlohmann::json data = nlohmann::json::parse(jsonString);
+            json["Oem"]["Nvidia"]["ProcessorDiagTidConfig"] = data;
+        },
         "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Control.Diag", "DiagConfig");
@@ -114,47 +115,49 @@ inline void
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const std::variant<std::string>& res) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-            if (ec.value() == boost::asio::error::host_unreachable)
+            if (ec)
             {
-                messages::resourceNotFound(asyncResp->res, "Get",
-                                           "Diag Result");
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                if (ec.value() == boost::asio::error::host_unreachable)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Get",
+                                               "Diag Result");
+                    return;
+                }
+                messages::internalError(asyncResp->res);
                 return;
             }
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        BMCWEB_LOG_DEBUG("Get Diag result update done.");
+            BMCWEB_LOG_DEBUG("Get Diag result update done.");
 
-        nlohmann::json& json = asyncResp->res.jsonValue;
-        const std::string& jsonString = std::get<std::string>(res);
-        nlohmann::json data = nlohmann::json::parse(jsonString);
-        json["Oem"]["Nvidia"]["ProcessorDiagResult"] = nlohmann::json::array();
+            nlohmann::json& json = asyncResp->res.jsonValue;
+            const std::string& jsonString = std::get<std::string>(res);
+            nlohmann::json data = nlohmann::json::parse(jsonString);
+            json["Oem"]["Nvidia"]["ProcessorDiagResult"] =
+                nlohmann::json::array();
 
-        for (const auto& item : data)
-        {
-            uint8_t tid = item["Tid"];
-            uint16_t result = item["Result"];
-            uint8_t resultMaskSize = item["ResultMaskSize"];
-            const std::vector<uint8_t>& resultMask = item["ResultMask"];
+            for (const auto& item : data)
+            {
+                uint8_t tid = item["Tid"];
+                uint16_t result = item["Result"];
+                uint8_t resultMaskSize = item["ResultMaskSize"];
+                const std::vector<uint8_t>& resultMask = item["ResultMask"];
 
-            // Copy the required number of bytes
-            std::vector<uint8_t> truncatedResultMask(
-                resultMask.begin(), resultMask.begin() + resultMaskSize);
+                // Copy the required number of bytes
+                std::vector<uint8_t> truncatedResultMask(
+                    resultMask.begin(), resultMask.begin() + resultMaskSize);
 
-            // Create an object with the required fields
-            nlohmann::json jsonObject;
-            jsonObject["Tid"] = tid;
-            jsonObject["Result"] = result;
-            jsonObject["ResultMaskSize"] = resultMaskSize;
-            jsonObject["ResultMask"] = truncatedResultMask;
+                // Create an object with the required fields
+                nlohmann::json jsonObject;
+                jsonObject["Tid"] = tid;
+                jsonObject["Result"] = result;
+                jsonObject["ResultMaskSize"] = resultMaskSize;
+                jsonObject["ResultMask"] = truncatedResultMask;
 
-            // Add the object to the response array
-            json["Oem"]["Nvidia"]["ProcessorDiagResult"].push_back(jsonObject);
-        }
-    },
+                // Add the object to the response array
+                json["Oem"]["Nvidia"]["ProcessorDiagResult"].push_back(
+                    jsonObject);
+            }
+        },
         "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Control.Diag", "DiagResult");
@@ -165,42 +168,43 @@ inline void
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const std::variant<uint8_t>& res) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-            if (ec.value() == boost::asio::error::host_unreachable)
+            if (ec)
             {
-                messages::resourceNotFound(asyncResp->res, "Get", "DiagStatus");
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                if (ec.value() == boost::asio::error::host_unreachable)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Get",
+                                               "DiagStatus");
+                    return;
+                }
+                messages::internalError(asyncResp->res);
                 return;
             }
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        BMCWEB_LOG_DEBUG("Get Diag Status update done.");
+            BMCWEB_LOG_DEBUG("Get Diag Status update done.");
 
-        nlohmann::json& json = asyncResp->res.jsonValue;
-        uint8_t value = std::get<uint8_t>(res);
-        if ((value == 0x1) || (value == 0x0))
-        {
-            json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]["DiagStatus"] =
-                "Inprogress";
-        }
-        else if (value == 0x2)
-        {
-            json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]["DiagStatus"] =
-                "Completed";
-        }
-        else if (value == 0x3)
-        {
-            json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]["DiagStatus"] =
-                "Abort";
-        }
-        else if (value == 0x4)
-        {
-            json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]["DiagStatus"] =
-                "Not Started";
-        }
-    },
+            nlohmann::json& json = asyncResp->res.jsonValue;
+            uint8_t value = std::get<uint8_t>(res);
+            if ((value == 0x1) || (value == 0x0))
+            {
+                json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
+                    ["DiagStatus"] = "Inprogress";
+            }
+            else if (value == 0x2)
+            {
+                json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
+                    ["DiagStatus"] = "Completed";
+            }
+            else if (value == 0x3)
+            {
+                json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
+                    ["DiagStatus"] = "Abort";
+            }
+            else if (value == 0x4)
+            {
+                json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
+                    ["DiagStatus"] = "Not Started";
+            }
+        },
         "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Control.Diag", "DiagStatus");
@@ -211,35 +215,36 @@ inline void
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const std::variant<bool>& resp) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-            if (ec.value() == boost::asio::error::host_unreachable)
+            if (ec)
             {
-                messages::resourceNotFound(asyncResp->res, "Set", "DiagMode");
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                if (ec.value() == boost::asio::error::host_unreachable)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Set",
+                                               "DiagMode");
+                    return;
+                }
+                messages::internalError(asyncResp->res);
                 return;
             }
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        BMCWEB_LOG_DEBUG("Diag mode update done.");
-        nlohmann::json& json = asyncResp->res.jsonValue;
-        bool diagMode = std::get<bool>(resp);
-        if (diagMode == 0)
-        {
-            json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]["DiagMode"] =
-                false;
-        }
-        else
-        {
-            json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]["DiagMode"] =
-                true;
-            handleDiagStatusGet(asyncResp);
-            handleDiagSysConfigGet(asyncResp);
-            handleDiagTidConfigGet(asyncResp);
-            handleDiagResultGet(asyncResp);
-        }
-    },
+            BMCWEB_LOG_DEBUG("Diag mode update done.");
+            nlohmann::json& json = asyncResp->res.jsonValue;
+            bool diagMode = std::get<bool>(resp);
+            if (diagMode == 0)
+            {
+                json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]["DiagMode"] =
+                    false;
+            }
+            else
+            {
+                json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]["DiagMode"] =
+                    true;
+                handleDiagStatusGet(asyncResp);
+                handleDiagSysConfigGet(asyncResp);
+                handleDiagTidConfigGet(asyncResp);
+                handleDiagResultGet(asyncResp);
+            }
+        },
         "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Control.Diag", "DiagMode");
@@ -253,19 +258,20 @@ inline bool initDiagStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-            if (ec.value() == boost::asio::error::host_unreachable)
+            if (ec)
             {
-                messages::resourceNotFound(asyncResp->res, "Set", "DiagStatus");
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                if (ec.value() == boost::asio::error::host_unreachable)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Set",
+                                               "DiagStatus");
+                    return;
+                }
+                messages::internalError(asyncResp->res);
                 return;
             }
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        BMCWEB_LOG_DEBUG("DiagStatus done.");
-    },
+            BMCWEB_LOG_DEBUG("DiagStatus done.");
+        },
         "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
         "org.freedesktop.DBus.Properties", "Set",
         "xyz.openbmc_project.Control.Diag", "DiagStatus", variantData);
@@ -280,19 +286,20 @@ inline bool clearDiagResult(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-            if (ec.value() == boost::asio::error::host_unreachable)
+            if (ec)
             {
-                messages::resourceNotFound(asyncResp->res, "Set", "DiagConfig");
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                if (ec.value() == boost::asio::error::host_unreachable)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Set",
+                                               "DiagConfig");
+                    return;
+                }
+                messages::internalError(asyncResp->res);
                 return;
             }
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        BMCWEB_LOG_DEBUG("DiagConfig done.");
-    },
+            BMCWEB_LOG_DEBUG("DiagConfig done.");
+        },
         "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
         "org.freedesktop.DBus.Properties", "Set",
         "xyz.openbmc_project.Control.Diag", "DiagResult", variantData);
@@ -346,19 +353,19 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     bool value = val.value();
     crow::connections::systemBus->async_method_call(
         [aResp](const boost::system::error_code ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-            if (ec.value() == boost::asio::error::host_unreachable)
+            if (ec)
             {
-                messages::resourceNotFound(aResp->res, "Set", "DiagMode");
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                if (ec.value() == boost::asio::error::host_unreachable)
+                {
+                    messages::resourceNotFound(aResp->res, "Set", "DiagMode");
+                    return;
+                }
+                messages::internalError(aResp->res);
                 return;
             }
-            messages::internalError(aResp->res);
-            return;
-        }
-        BMCWEB_LOG_DEBUG("DiagMode update done.");
-    },
+            BMCWEB_LOG_DEBUG("DiagMode update done.");
+        },
         "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
         "org.freedesktop.DBus.Properties", "Set",
         "xyz.openbmc_project.Control.Diag", "DiagMode",
@@ -456,20 +463,20 @@ inline bool handleDiagSysConfigPostReq(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-            if (ec.value() == boost::asio::error::host_unreachable)
+            if (ec)
             {
-                messages::resourceNotFound(asyncResp->res, "Set",
-                                           "DiagSystemConfig");
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                if (ec.value() == boost::asio::error::host_unreachable)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Set",
+                                               "DiagSystemConfig");
+                    return;
+                }
+                messages::internalError(asyncResp->res);
                 return;
             }
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        BMCWEB_LOG_DEBUG("DiagSystemConfig done.");
-    },
+            BMCWEB_LOG_DEBUG("DiagSystemConfig done.");
+        },
         "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
         "org.freedesktop.DBus.Properties", "Set",
         "xyz.openbmc_project.Control.Diag", "DiagSystemConfig", variantData);
@@ -593,20 +600,20 @@ inline bool handleDiagTidConfigPostReq(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-            if (ec.value() == boost::asio::error::host_unreachable)
+            if (ec)
             {
-                messages::resourceNotFound(asyncResp->res, "Set",
-                                           "DiagTidConfig");
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                if (ec.value() == boost::asio::error::host_unreachable)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Set",
+                                               "DiagTidConfig");
+                    return;
+                }
+                messages::internalError(asyncResp->res);
                 return;
             }
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        BMCWEB_LOG_DEBUG("DiagTidConfig done.");
-    },
+            BMCWEB_LOG_DEBUG("DiagTidConfig done.");
+        },
         "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
         "org.freedesktop.DBus.Properties", "Set",
         "xyz.openbmc_project.Control.Diag", "DiagConfig", variantData);

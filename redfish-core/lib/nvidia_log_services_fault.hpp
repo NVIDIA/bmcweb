@@ -148,5 +148,4 @@ inline void requestRoutesSystemFaultLogClear(App& app)
             });
 }
 
-
-}
+} // namespace redfish

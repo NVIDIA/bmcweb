@@ -157,11 +157,11 @@ inline void oocUtilServiceConditions(
          {"Message", message},
          {"MessageId", messageId},
          {"MessageArgs", msgArgs}};
-    j["LogEntry"]["@odata.id"] = "/redfish/v1/Systems/" +
-                                 std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                                 "/"
-                                 "LogServices/EventLog/Entries/" +
-                                 id;
+    j["LogEntry"]["@odata.id"] =
+        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+        "/"
+        "LogServices/EventLog/Entries/" +
+        id;
     j["@odata.type"] = "#LogEntry.v1_13_0.LogEntry";
     if (ooc.size() > 0)
     {
@@ -183,12 +183,11 @@ inline void oocUtilServiceConditions(
  * origin of condition device for system events
  */
 
-inline void oocUtil(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                    nlohmann::json& logEntry, const std::string& id,
-                    const std::string& ooc, const std::string& severity = "",
-                    const std::string& messageArgs = "",
-                    const std::string& timestamp = "",
-                    const std::string& messageId = "")
+inline void oocUtil(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    nlohmann::json& logEntry, const std::string& id, const std::string& ooc,
+    const std::string& severity = "", const std::string& messageArgs = "",
+    const std::string& timestamp = "", const std::string& messageId = "")
 {
     if (!severity.empty())
     {

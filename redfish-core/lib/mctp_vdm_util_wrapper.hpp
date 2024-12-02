@@ -127,7 +127,7 @@ struct MctpVdmUtil
                 break;
             default:
                 cmd = "";
-                break;                
+                break;
         }
 
         command = "mctp-vdm-util -t " + std::to_string(endpointId) + " -c " +
@@ -162,39 +162,39 @@ struct MctpVdmUtil
              respCallback = std::move(responseCallback),
              endpointId = this->endpointId, command = this->command](
                 const boost::system::error_code& ec, int errorCode) mutable {
-            std::string stdOut;
-            while (*dataOut)
-            {
-                std::string line;
-                std::getline(*dataOut, line);
-                stdOut += line + "\n";
-            }
-            dataOut->close();
-            std::string stdErr;
-            while (*dataErr)
-            {
-                std::string line;
-                std::getline(*dataErr, line);
-                stdErr += line + "\n";
-            }
-            dataErr->close();
-            if (ec || errorCode)
-            {
-                BMCWEB_LOG_ERROR(
-                    "Error while executing command: {} Error Code: {}", command,
-                    errorCode);
-                BMCWEB_LOG_ERROR("MCTP VDM Error Response: {}", stdErr);
-                if (ec)
+                std::string stdOut;
+                while (*dataOut)
+                {
+                    std::string line;
+                    std::getline(*dataOut, line);
+                    stdOut += line + "\n";
+                }
+                dataOut->close();
+                std::string stdErr;
+                while (*dataErr)
+                {
+                    std::string line;
+                    std::getline(*dataErr, line);
+                    stdErr += line + "\n";
+                }
+                dataErr->close();
+                if (ec || errorCode)
                 {
                     BMCWEB_LOG_ERROR(
-                        "Error while executing command: {} Message: {}",
-                        command, ec.message());
+                        "Error while executing command: {} Error Code: {}",
+                        command, errorCode);
+                    BMCWEB_LOG_ERROR("MCTP VDM Error Response: {}", stdErr);
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Error while executing command: {} Message: {}",
+                            command, ec.message());
+                    }
                 }
-            }
-            respCallback(req, asyncResp, endpointId, stdOut, stdErr, ec,
-                         errorCode);
-            return;
-        };
+                respCallback(req, asyncResp, endpointId, stdOut, stdErr, ec,
+                             errorCode);
+                return;
+            };
         bp::async_system(crow::connections::systemBus->get_io_context(),
                          std::move(exitCallback), command, bp::std_in.close(),
                          bp::std_out > *dataOut, bp::std_err > *dataErr);

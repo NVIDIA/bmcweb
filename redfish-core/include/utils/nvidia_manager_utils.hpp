@@ -25,60 +25,62 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         [aResp](const boost::system::error_code ec,
                 const std::vector<std::pair<
                     std::string, std::variant<std::string>>>& propertiesList) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("Error in getting manager service state");
-            return;
-        }
-        for (const std::pair<std::string, std::variant<std::string>>& property :
-             propertiesList)
-        {
-            if (property.first == "FeatureType")
+            if (ec)
             {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value == nullptr)
+                BMCWEB_LOG_DEBUG("Error in getting manager service state");
+                return;
+            }
+            for (const std::pair<std::string, std::variant<std::string>>&
+                     property : propertiesList)
+            {
+                if (property.first == "FeatureType")
                 {
-                    BMCWEB_LOG_ERROR("nullptr while reading FeatureType");
-                    messages::internalError(aResp->res);
-                    return;
-                }
-                if (*value ==
-                    "xyz.openbmc_project.State.FeatureReady.FeatureTypes.Manager")
-                {
-                    for (const std::pair<std::string,
-                                         std::variant<std::string>>&
-                             propertyItr : propertiesList)
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
                     {
-                        if (propertyItr.first == "State")
+                        BMCWEB_LOG_ERROR("nullptr while reading FeatureType");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    if (*value ==
+                        "xyz.openbmc_project.State.FeatureReady.FeatureTypes.Manager")
+                    {
+                        for (const std::pair<std::string,
+                                             std::variant<std::string>>&
+                                 propertyItr : propertiesList)
                         {
-                            const std::string* stateValue =
-                                std::get_if<std::string>(&propertyItr.second);
-                            if (stateValue == nullptr)
+                            if (propertyItr.first == "State")
                             {
-                                BMCWEB_LOG_DEBUG(
-                                    "Null value returned for manager service state");
-                                messages::internalError(aResp->res);
-                                return;
-                            }
-                            std::string state = redfish::chassis_utils::
-                                getFeatureReadyStateType(*stateValue);
-                            aResp->res.jsonValue["Status"]["State"] = state;
-                            if (state == "Enabled")
-                            {
-                                aResp->res.jsonValue["Status"]["Health"] = "OK";
-                            }
-                            else
-                            {
-                                aResp->res.jsonValue["Status"]["Health"] =
-                                    "Critical";
+                                const std::string* stateValue =
+                                    std::get_if<std::string>(
+                                        &propertyItr.second);
+                                if (stateValue == nullptr)
+                                {
+                                    BMCWEB_LOG_DEBUG(
+                                        "Null value returned for manager service state");
+                                    messages::internalError(aResp->res);
+                                    return;
+                                }
+                                std::string state = redfish::chassis_utils::
+                                    getFeatureReadyStateType(*stateValue);
+                                aResp->res.jsonValue["Status"]["State"] = state;
+                                if (state == "Enabled")
+                                {
+                                    aResp->res.jsonValue["Status"]["Health"] =
+                                        "OK";
+                                }
+                                else
+                                {
+                                    aResp->res.jsonValue["Status"]["Health"] =
+                                        "Critical";
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-    },
+        },
         connectionName, path, "org.freedesktop.DBus.Properties", "GetAll",
         "xyz.openbmc_project.State.FeatureReady");
 }
@@ -94,42 +96,44 @@ inline void
                 std::string,
                 std::vector<std::pair<std::string, std::vector<std::string>>>>>&
                 subtree) {
-        if (ec)
-        {
-            // if platform doesn't support FeatureReady iface then report state
-            // based on upstream only no failure reported
-            return;
-        }
-        if (!subtree.empty())
-        {
-            // Iterate over all retrieved ObjectPaths.
-            for (const std::pair<std::string,
-                                 std::vector<std::pair<
-                                     std::string, std::vector<std::string>>>>&
-                     object : subtree)
+            if (ec)
             {
-                const std::string& path = object.first;
-                const std::vector<
-                    std::pair<std::string, std::vector<std::string>>>&
-                    connectionNames = object.second;
-
-                const std::string& connectionName = connectionNames[0].first;
-                const std::vector<std::string>& interfaces =
-                    connectionNames[0].second;
-                for (const auto& interfaceName : interfaces)
+                // if platform doesn't support FeatureReady iface then report
+                // state based on upstream only no failure reported
+                return;
+            }
+            if (!subtree.empty())
+            {
+                // Iterate over all retrieved ObjectPaths.
+                for (const std::pair<
+                         std::string,
+                         std::vector<
+                             std::pair<std::string, std::vector<std::string>>>>&
+                         object : subtree)
                 {
-                    if (interfaceName == "xyz.openbmc_project.State."
-                                         "FeatureReady")
+                    const std::string& path = object.first;
+                    const std::vector<
+                        std::pair<std::string, std::vector<std::string>>>&
+                        connectionNames = object.second;
+
+                    const std::string& connectionName =
+                        connectionNames[0].first;
+                    const std::vector<std::string>& interfaces =
+                        connectionNames[0].second;
+                    for (const auto& interfaceName : interfaces)
                     {
-                        getOemManagerState(asyncResp, connectionName, path);
+                        if (interfaceName == "xyz.openbmc_project.State."
+                                             "FeatureReady")
+                        {
+                            getOemManagerState(asyncResp, connectionName, path);
+                        }
                     }
                 }
+                return;
             }
-            return;
-        }
-        BMCWEB_LOG_ERROR(
-            "Could not find interface xyz.openbmc_project.State.FeatureReady");
-    },
+            BMCWEB_LOG_ERROR(
+                "Could not find interface xyz.openbmc_project.State.FeatureReady");
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/", int32_t(0),
@@ -154,8 +158,8 @@ inline void isServiceActive(boost::system::error_code& ec1,
             [callback{std::forward<Callback>(callbackIn)}](
                 boost::system::error_code& ec2,
                 std::variant<std::string>& property2) {
-            callback(ec2, property2);
-        },
+                callback(ec2, property2);
+            },
             "org.freedesktop.systemd1",
             sdbusplus::message::object_path("/org/freedesktop/systemd1/unit") /=
             unit,
@@ -171,8 +175,8 @@ inline void isLoaded(const std::string_view& unit, Callback&& callbackIn)
         [unit, callback{std::forward<Callback>(callbackIn)}](
             boost::system::error_code& ec,
             std::variant<std::string>& property) {
-        isServiceActive(ec, property, unit, callback);
-    },
+            isServiceActive(ec, property, unit, callback);
+        },
         "org.freedesktop.systemd1",
         sdbusplus::message::object_path("/org/freedesktop/systemd1/unit") /=
         unit,
@@ -183,30 +187,33 @@ inline void isLoaded(const std::string_view& unit, Callback&& callbackIn)
 inline void
     getOemNvidiaOpenOCD(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    isLoaded("openocdon_2eservice",
-             [asyncResp](boost::system::error_code& ec,
-                         std::variant<std::string>& property) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        std::string* serviceStatus = std::get_if<std::string>(&property);
-        if (*serviceStatus == "active")
-        {
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Status"]
-                                    ["State"] = "Enabled";
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Enable"] =
-                true;
-        }
-        else
-        {
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Status"]
-                                    ["State"] = "Disabled";
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Enable"] =
-                false;
-        }
-    });
+    isLoaded(
+        "openocdon_2eservice",
+        [asyncResp](boost::system::error_code& ec,
+                    std::variant<std::string>& property) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            std::string* serviceStatus = std::get_if<std::string>(&property);
+            if (*serviceStatus == "active")
+            {
+                asyncResp->res
+                    .jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Status"]["State"] =
+                    "Enabled";
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Enable"] =
+                    true;
+            }
+            else
+            {
+                asyncResp->res
+                    .jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Status"]["State"] =
+                    "Disabled";
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Enable"] =
+                    false;
+            }
+        });
 }
 
 inline void setOemNvidiaOpenOCD(const bool value)
@@ -276,10 +283,9 @@ inline std::string getFMReportStatus(const std::string& fmReportStatusType)
  * @param[in] path - object path
  * @return none
  */
-inline void
-    getFabricManagerInformation(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                                const std::string& connectionName,
-                                const std::string& path)
+inline void getFabricManagerInformation(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& connectionName, const std::string& path)
 {
     BMCWEB_LOG_DEBUG("Get fabric manager state information.");
 
@@ -289,82 +295,86 @@ inline void
             const std::vector<
                 std::pair<std::string, std::variant<std::string, uint64_t>>>&
                 propertiesList) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Error in getting fabric manager state info");
-            messages::internalError(aResp->res);
-            return;
-        }
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Error in getting fabric manager state info");
+                messages::internalError(aResp->res);
+                return;
+            }
 
-        auto addOemNvidiaOdataType = false;
-        for (const std::pair<std::string, std::variant<std::string, uint64_t>>&
-                 property : propertiesList)
-        {
-            if (property.first == "FMState")
+            auto addOemNvidiaOdataType = false;
+            for (const std::pair<std::string,
+                                 std::variant<std::string, uint64_t>>&
+                     property : propertiesList)
             {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value == nullptr)
+                if (property.first == "FMState")
                 {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for FM state");
-                    messages::internalError(aResp->res);
-                    return;
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for FM state");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    aResp->res
+                        .jsonValue["Oem"]["Nvidia"]["FabricManagerState"] =
+                        getFMState(*value);
+                    addOemNvidiaOdataType = true;
                 }
-                aResp->res.jsonValue["Oem"]["Nvidia"]["FabricManagerState"] =
-                    getFMState(*value);
-                addOemNvidiaOdataType = true;
+                else if (property.first == "ReportStatus")
+                {
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for Report Status");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    aResp->res.jsonValue["Oem"]["Nvidia"]["ReportStatus"] =
+                        getFMReportStatus(*value);
+                    addOemNvidiaOdataType = true;
+                }
+                else if (property.first == "LastRestartDuration")
+                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for Duration Since LastRestart");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    aResp->res.jsonValue["Oem"]["Nvidia"]
+                                        ["DurationSinceLastRestartSeconds"] =
+                        *value;
+                    addOemNvidiaOdataType = true;
+                }
+                else if (property.first == "LastRestartTime")
+                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for Time Since LastRestart");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    aResp->res.jsonValue["LastResetTime"] =
+                        redfish::time_utils::getDateTimeUint(*value);
+                }
             }
-            else if (property.first == "ReportStatus")
+            if (addOemNvidiaOdataType)
             {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for Report Status");
-                    messages::internalError(aResp->res);
-                    return;
-                }
-                aResp->res.jsonValue["Oem"]["Nvidia"]["ReportStatus"] =
-                    getFMReportStatus(*value);
-                addOemNvidiaOdataType = true;
+                aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                    "#NvidiaManager.v1_4_0.NvidiaFabricManager";
             }
-            else if (property.first == "LastRestartDuration")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for Duration Since LastRestart");
-                    messages::internalError(aResp->res);
-                    return;
-                }
-                aResp->res.jsonValue["Oem"]["Nvidia"]
-                                    ["DurationSinceLastRestartSeconds"] =
-                    *value;
-                addOemNvidiaOdataType = true;
-            }
-            else if (property.first == "LastRestartTime")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for Time Since LastRestart");
-                    messages::internalError(aResp->res);
-                    return;
-                }
-                aResp->res.jsonValue["LastResetTime"] =
-                    redfish::time_utils::getDateTimeUint(*value);
-            }
-        }
-        if (addOemNvidiaOdataType)
-        {
-            aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaManager.v1_4_0.NvidiaFabricManager";
-        }
-    },
+        },
         connectionName, path, "org.freedesktop.DBus.Properties", "GetAll",
         "com.nvidia.State.FabricManager");
 }

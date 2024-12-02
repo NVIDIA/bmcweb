@@ -29,9 +29,9 @@ namespace redfish
 
 inline static std::string getLogEntryDataId(const std::string& id)
 {
-    return std::string{"/redfish/v1/Systems/" +
-                       std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                       "/LogServices/EventLog/Entries/" + id};
+    return std::string{
+        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+        "/LogServices/EventLog/Entries/" + id};
 }
 
 inline static std::string getLogEntryAdditionalDataURI(const std::string& id)

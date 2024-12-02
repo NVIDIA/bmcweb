@@ -21,23 +21,24 @@
 
 #include "app.hpp"
 #include "dbus_utility.hpp"
+#include "event_service_manager.hpp"
 #include "generated/enums/action_info.hpp"
 #include "generated/enums/manager.hpp"
 #include "generated/enums/resource.hpp"
+#include "health.hpp"
+#include "nvidia_event_service_manager.hpp"
 #include "persistentstorage_util.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/conditions_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_manager_utils.hpp"
 #include "utils/sw_utils.hpp"
 #include "utils/systemd_utils.hpp"
 #include "utils/time_utils.hpp"
-#include "utils/conditions_utils.hpp"
-#include "event_service_manager.hpp"
-#include "nvidia_event_service_manager.hpp"
-#include "health.hpp"
+
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
@@ -1700,7 +1701,8 @@ inline void
 
     // build type
     nlohmann::json& buildType = oemNvidia["FirmwareBuildType"];
-    std::ifstream buildDescriptionFile(BMCWEB_BUILD_DESCRIPTION_FILE_PATH.data());
+    std::ifstream buildDescriptionFile(
+        BMCWEB_BUILD_DESCRIPTION_FILE_PATH.data());
     if (buildDescriptionFile.good())
     {
         std::string line;
@@ -1746,7 +1748,8 @@ inline void
 
     // OTP provisioning status
     nlohmann::json& otpProvisioned = oemNvidia["OTPProvisioned"];
-    std::ifstream otpStatusFile(BMCWEB_OTP_PROVISIONING_STATUS_FILE_PATH.data());
+    std::ifstream otpStatusFile(
+        BMCWEB_OTP_PROVISIONING_STATUS_FILE_PATH.data());
     if (otpStatusFile.good())
     {
         std::string statusLine;

@@ -276,8 +276,7 @@ class Subscription : public std::enable_shared_from_this<Subscription>
     Subscription(const persistent_data::UserSubscription& userSubIn,
                  const boost::urls::url_view_base& url,
                  boost::asio::io_context& ioc) :
-        userSub(userSubIn),
-        policy(std::make_shared<crow::ConnectionPolicy>())
+        userSub(userSubIn), policy(std::make_shared<crow::ConnectionPolicy>())
     {
         userSub.destinationUrl = url;
         client.emplace(ioc, policy);

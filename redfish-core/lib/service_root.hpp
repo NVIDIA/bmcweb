@@ -20,13 +20,13 @@ limitations under the License.
 #include "app.hpp"
 #include "async_resp.hpp"
 #include "http_request.hpp"
+#include "nvidia_managers.hpp"
 #include "persistent_data.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/systemd_utils.hpp"
 
 #include <managers.hpp>
-#include "nvidia_managers.hpp"
 #include <nlohmann/json.hpp>
 #include <persistent_data.hpp>
 #include <query.hpp>
@@ -72,44 +72,44 @@ inline void getBmcAssetData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
         [objPath, asyncResp{std::move(asyncResp)}](
             const boost::system::error_code ec,
             const dbus::utility::DBusPropertiesMap& properties) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error");
-            messages::internalError(asyncResp->res);
-            return;
-        }
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error");
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-        const std::string* name = nullptr;
-        const std::string* model = nullptr;
-        const std::string* manufacturer = nullptr;
+            const std::string* name = nullptr;
+            const std::string* model = nullptr;
+            const std::string* manufacturer = nullptr;
 
-        const bool success = sdbusplus::unpackPropertiesNoThrow(
-            dbus_utils::UnpackErrorPrinter(), properties, "Name", name, "Model",
-            model, "Manufacturer", manufacturer);
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), properties, "Name", name,
+                "Model", model, "Manufacturer", manufacturer);
 
-        if (!success)
-        {
-            BMCWEB_LOG_ERROR("Unpack Error while fetching BMC Asset data");
-            return;
-        }
+            if (!success)
+            {
+                BMCWEB_LOG_ERROR("Unpack Error while fetching BMC Asset data");
+                return;
+            }
 
-        if (name != nullptr && !name->empty())
-        {
-            std::string description = "Redfish Service On ";
-            description += *name;
-            asyncResp->res.jsonValue["Description"] = description;
-        }
+            if (name != nullptr && !name->empty())
+            {
+                std::string description = "Redfish Service On ";
+                description += *name;
+                asyncResp->res.jsonValue["Description"] = description;
+            }
 
-        if ((model != nullptr) && !model->empty())
-        {
-            asyncResp->res.jsonValue["Product"] = *model;
-        }
+            if ((model != nullptr) && !model->empty())
+            {
+                asyncResp->res.jsonValue["Product"] = *model;
+            }
 
-        if (manufacturer != nullptr)
-        {
-            asyncResp->res.jsonValue["Vendor"] = *manufacturer;
-        }
-    });
+            if (manufacturer != nullptr)
+            {
+                asyncResp->res.jsonValue["Vendor"] = *manufacturer;
+            }
+        });
 }
 
 inline void getBMCObject(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -121,55 +121,55 @@ inline void getBMCObject(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
         [asyncResp](
             boost::system::error_code ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) mutable {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        for (const auto& [objectPath, serviceMap] : subtree)
-        {
-            // Ignore any objects which don't end with our desired bmcid
-            if (!objectPath.ends_with(BMCWEB_REDFISH_MANAGER_URI_NAME))
+            if (ec)
             {
-                continue;
+                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
             }
-
-            bool found = false;
-            // Filter out objects that don't have the BMC-specific
-            // interfaces to make sure we can return 404 on non-BMC
-            for (const auto& [serviceName, interfaceList] : serviceMap)
+            for (const auto& [objectPath, serviceMap] : subtree)
             {
-                if (std::find_first_of(
-                        interfaceList.begin(), interfaceList.end(),
-                        bmcInterfaces.begin(),
-                        bmcInterfaces.end()) != interfaceList.end())
+                // Ignore any objects which don't end with our desired bmcid
+                if (!objectPath.ends_with(BMCWEB_REDFISH_MANAGER_URI_NAME))
                 {
-                    found = true;
-                    break;
+                    continue;
                 }
-            }
 
-            if (!found)
-            {
-                continue;
-            }
-
-            for (const auto& [serviceName, interfaceList] : serviceMap)
-            {
-                for (const auto& interface : interfaceList)
+                bool found = false;
+                // Filter out objects that don't have the BMC-specific
+                // interfaces to make sure we can return 404 on non-BMC
+                for (const auto& [serviceName, interfaceList] : serviceMap)
                 {
-                    if (interface ==
-                        "xyz.openbmc_project.Inventory.Decorator.Asset")
+                    if (std::find_first_of(
+                            interfaceList.begin(), interfaceList.end(),
+                            bmcInterfaces.begin(), bmcInterfaces.end()) !=
+                        interfaceList.end())
                     {
-                        getBmcAssetData(asyncResp, serviceName, objectPath);
+                        found = true;
+                        break;
                     }
                 }
-            }
 
-            return;
-        }
-    },
+                if (!found)
+                {
+                    continue;
+                }
+
+                for (const auto& [serviceName, interfaceList] : serviceMap)
+                {
+                    for (const auto& interface : interfaceList)
+                    {
+                        if (interface ==
+                            "xyz.openbmc_project.Inventory.Decorator.Asset")
+                        {
+                            getBmcAssetData(asyncResp, serviceName, objectPath);
+                        }
+                    }
+                }
+
+                return;
+            }
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",

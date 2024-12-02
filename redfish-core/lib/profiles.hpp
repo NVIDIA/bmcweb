@@ -69,25 +69,24 @@ inline std::string getLastWordAfterDot(const std::string& input)
     return "";
 }
 
-inline void setProfileProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                               const std::string& profileNumber,
-                               const std::string& interface,
-                               const std::string& property,
-                               const std::string& value)
+inline void setProfileProperty(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& profileNumber, const std::string& interface,
+    const std::string& property, const std::string& value)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, profileService,
         profilePath + profileNumber, interface, property, value,
         [aResp, property, value](const boost::system::error_code ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR(
-                "DBUS response error on profile setProperty: {}, value: {}, error: {}",
-                property, value, ec);
-            messages::internalError(aResp->res);
-            return;
-        }
-    });
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "DBUS response error on profile setProperty: {}, value: {}, error: {}",
+                    property, value, ec);
+                messages::internalError(aResp->res);
+                return;
+            }
+        });
 }
 
 /**
@@ -110,36 +109,37 @@ inline void
     crow::connections::systemBus->async_method_call(
         [aResp](const boost::system::error_code ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error in get profiles, error: {} ",
-                             ec.value());
-            messages::internalError(aResp->res);
-            return;
-        }
-        nlohmann::json& members = aResp->res.jsonValue["Members"];
-        members = nlohmann::json::array();
-        std::vector<std::string> pathNames;
-        for (const auto& object : objects)
-        {
-            sdbusplus::message::object_path path(object);
-            std::string profile_number = path.filename();
-            if (profile_number.empty())
+            if (ec)
             {
-                continue;
+                BMCWEB_LOG_ERROR(
+                    "DBUS response error in get profiles, error: {} ",
+                    ec.value());
+                messages::internalError(aResp->res);
+                return;
             }
-            std::string newPath =
-                "/redfish/v1/Systems/" +
-                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                "/Oem/Nvidia/SystemConfigurationProfile/List/";
-            newPath += profile_number;
-            nlohmann::json::object_t member;
-            member["@odata.id"] = std::move(newPath);
-            members.push_back(std::move(member));
-            BMCWEB_LOG_DEBUG("Profile: {}", profile_number);
-        }
-        aResp->res.jsonValue["Members@odata.count"] = members.size();
-    },
+            nlohmann::json& members = aResp->res.jsonValue["Members"];
+            members = nlohmann::json::array();
+            std::vector<std::string> pathNames;
+            for (const auto& object : objects)
+            {
+                sdbusplus::message::object_path path(object);
+                std::string profile_number = path.filename();
+                if (profile_number.empty())
+                {
+                    continue;
+                }
+                std::string newPath =
+                    "/redfish/v1/Systems/" +
+                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                    "/Oem/Nvidia/SystemConfigurationProfile/List/";
+                newPath += profile_number;
+                nlohmann::json::object_t member;
+                member["@odata.id"] = std::move(newPath);
+                members.push_back(std::move(member));
+                BMCWEB_LOG_DEBUG("Profile: {}", profile_number);
+            }
+            aResp->res.jsonValue["Members@odata.count"] = members.size();
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", profilePath, 0,
@@ -160,17 +160,16 @@ inline void
  * @param status - status value
  * @return None
  */
-inline void
-    handlePatchSetProfileStatus(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                                const std::string& profileNumber, bool isBios,
-                                const std::string& property,
-                                const std::string& status)
+inline void handlePatchSetProfileStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& profileNumber, bool isBios, const std::string& property,
+    const std::string& status)
 {
     const std::vector<std::string> allowedUefiValues = {"BiosStarted",
                                                         "BiosFinished"};
     const std::vector<std::string> allowedUserValues = {"Failed"};
-    std::vector<std::string> allowedValues = isBios ? allowedUefiValues
-                                                    : allowedUserValues;
+    std::vector<std::string> allowedValues =
+        isBios ? allowedUefiValues : allowedUserValues;
     std::string user = isBios ? "Bios" : "User";
 
     auto it = std::find(allowedValues.begin(), allowedValues.end(), status);
@@ -224,26 +223,27 @@ inline void handlePatchProfile(crow::App& app, const crow::Request& req,
         privilege_utils::isBiosPrivilege(
             req, [req, aResp, activateStatus, deleteStatus, profileNumber](
                      const boost::system::error_code ec, const bool isBios) {
-            std::vector<std::string> allowedUefiValues = {"BiosStarted",
-                                                          "BiosFinished"};
-            std::vector<std::string> allowedUserValues = {"Failed"};
-            if (ec)
-            {
-                messages::internalError(aResp->res);
-                return;
-            }
+                std::vector<std::string> allowedUefiValues = {"BiosStarted",
+                                                              "BiosFinished"};
+                std::vector<std::string> allowedUserValues = {"Failed"};
+                if (ec)
+                {
+                    messages::internalError(aResp->res);
+                    return;
+                }
 
-            if (activateStatus)
-            {
-                handlePatchSetProfileStatus(aResp, profileNumber, isBios,
-                                            "ActivateProfile", *activateStatus);
-            }
-            else if (deleteStatus)
-            {
-                handlePatchSetProfileStatus(aResp, profileNumber, isBios,
-                                            "DeleteProfile", *deleteStatus);
-            }
-        });
+                if (activateStatus)
+                {
+                    handlePatchSetProfileStatus(aResp, profileNumber, isBios,
+                                                "ActivateProfile",
+                                                *activateStatus);
+                }
+                else if (deleteStatus)
+                {
+                    handlePatchSetProfileStatus(aResp, profileNumber, isBios,
+                                                "DeleteProfile", *deleteStatus);
+                }
+            });
     }
     if (description)
     {
@@ -284,65 +284,67 @@ inline void
         [aResp,
          profileNumber](const boost::system::error_code ec,
                         const dbus::utility::DBusPropertiesMap& properties) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-            messages::resourceNotFound(aResp->res, "Profile", profileNumber);
-            return;
-        }
-        const std::string* addStatus = nullptr;
-        const std::string* activationStatus = nullptr;
-        const std::string* deleteStatus = nullptr;
-        BMCWEB_LOG_DEBUG(" Handle get profile - getAllProperties");
-        const bool success = sdbusplus::unpackPropertiesNoThrow(
-            dbus_utils::UnpackErrorPrinter(), properties, "AddProfile",
-            addStatus, "ActivateProfile", activationStatus, "DeleteProfile",
-            deleteStatus);
-        if (!success)
-        {
-            messages::internalError(aResp->res);
-            return;
-        }
-        aResp->res.jsonValue["Status"]["AddProfile"] =
-            getLastWordAfterDot(*addStatus);
-        aResp->res.jsonValue["Status"]["ActivateProfile"] =
-            getLastWordAfterDot(*activationStatus);
-        aResp->res.jsonValue["Status"]["DeleteProfile"] =
-            getLastWordAfterDot(*deleteStatus);
-    });
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                messages::resourceNotFound(aResp->res, "Profile",
+                                           profileNumber);
+                return;
+            }
+            const std::string* addStatus = nullptr;
+            const std::string* activationStatus = nullptr;
+            const std::string* deleteStatus = nullptr;
+            BMCWEB_LOG_DEBUG(" Handle get profile - getAllProperties");
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), properties, "AddProfile",
+                addStatus, "ActivateProfile", activationStatus, "DeleteProfile",
+                deleteStatus);
+            if (!success)
+            {
+                messages::internalError(aResp->res);
+                return;
+            }
+            aResp->res.jsonValue["Status"]["AddProfile"] =
+                getLastWordAfterDot(*addStatus);
+            aResp->res.jsonValue["Status"]["ActivateProfile"] =
+                getLastWordAfterDot(*activationStatus);
+            aResp->res.jsonValue["Status"]["DeleteProfile"] =
+                getLastWordAfterDot(*deleteStatus);
+        });
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, profileService,
         profilePath + profileNumber, configurationIntrf,
         [aResp,
          profileNumber](const boost::system::error_code ec,
                         const dbus::utility::DBusPropertiesMap& properties) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error: {} ", ec);
-            messages::resourceNotFound(aResp->res, "Profile", profileNumber);
-            return;
-        }
-        const std::string* description = nullptr;
-        const std::string* owner = nullptr;
-        const std::string* uuid = nullptr;
-        const uint64_t* version = nullptr;
-        const bool* isDefault = nullptr;
-        const bool success = sdbusplus::unpackPropertiesNoThrow(
-            dbus_utils::UnpackErrorPrinter(), properties, "Description",
-            description, "Owner", owner, "UUID", uuid, "Version", version,
-            "IsDefault", isDefault);
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error: {} ", ec);
+                messages::resourceNotFound(aResp->res, "Profile",
+                                           profileNumber);
+                return;
+            }
+            const std::string* description = nullptr;
+            const std::string* owner = nullptr;
+            const std::string* uuid = nullptr;
+            const uint64_t* version = nullptr;
+            const bool* isDefault = nullptr;
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), properties, "Description",
+                description, "Owner", owner, "UUID", uuid, "Version", version,
+                "IsDefault", isDefault);
 
-        if (!success)
-        {
-            messages::internalError(aResp->res);
-            return;
-        }
-        aResp->res.jsonValue["Description"] = *description;
-        aResp->res.jsonValue["Owner"] = *owner;
-        aResp->res.jsonValue["UUID"] = *uuid;
-        aResp->res.jsonValue["Version"] = *version;
-        aResp->res.jsonValue["Default"] = *isDefault;
-    });
+            if (!success)
+            {
+                messages::internalError(aResp->res);
+                return;
+            }
+            aResp->res.jsonValue["Description"] = *description;
+            aResp->res.jsonValue["Owner"] = *owner;
+            aResp->res.jsonValue["UUID"] = *uuid;
+            aResp->res.jsonValue["Version"] = *version;
+            aResp->res.jsonValue["Default"] = *isDefault;
+        });
     aResp->res.jsonValue["Profile"]["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
         "/Oem/Nvidia/SystemConfigurationProfile/List/" + profileNumber +
@@ -368,8 +370,8 @@ inline void handleGetProfile(crow::App& app, const crow::Request& req,
         return;
     }
 
-    std::ifstream profileFile(profileFolder + "profile_" + profileNumber +
-                              ".json");
+    std::ifstream profileFile(
+        profileFolder + "profile_" + profileNumber + ".json");
     if (!profileFile.good())
     {
         BMCWEB_LOG_ERROR("Profile File not exist: {}profile_{}.json",
@@ -422,84 +424,86 @@ inline void
         pendingListIntrf,
         [aResp](const boost::system::error_code ec,
                 const dbus::utility::DBusPropertiesMap& properties) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-            messages::internalError(aResp->res);
-            return;
-        }
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                messages::internalError(aResp->res);
+                return;
+            }
 
-        const std::vector<std::string>* activationPendingList = nullptr;
-        const std::vector<std::string>* deletePendingList = nullptr;
-        const std::vector<std::string>* addPendingList = nullptr;
+            const std::vector<std::string>* activationPendingList = nullptr;
+            const std::vector<std::string>* deletePendingList = nullptr;
+            const std::vector<std::string>* addPendingList = nullptr;
 
-        const bool success = sdbusplus::unpackPropertiesNoThrow(
-            dbus_utils::UnpackErrorPrinter(), properties,
-            "ActivationPendingList", activationPendingList, "DeletePendingList",
-            deletePendingList, "AddPendingList", addPendingList);
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), properties,
+                "ActivationPendingList", activationPendingList,
+                "DeletePendingList", deletePendingList, "AddPendingList",
+                addPendingList);
 
-        if (!success)
-        {
-            messages::internalError(aResp->res);
-            return;
-        }
-        nlohmann::json& pendingListObj = aResp->res.jsonValue["PendingList"];
-        pendingListObj = nlohmann::json::object();
-        if (!activationPendingList->empty())
-        {
-            pendingListObj["Activation"] = *activationPendingList;
-        }
-        if (!deletePendingList->empty())
-        {
-            pendingListObj["Delete"] = *deletePendingList;
-        }
-        if (!addPendingList->empty())
-        {
-            pendingListObj["Add"] = *addPendingList;
-        }
-    });
+            if (!success)
+            {
+                messages::internalError(aResp->res);
+                return;
+            }
+            nlohmann::json& pendingListObj =
+                aResp->res.jsonValue["PendingList"];
+            pendingListObj = nlohmann::json::object();
+            if (!activationPendingList->empty())
+            {
+                pendingListObj["Activation"] = *activationPendingList;
+            }
+            if (!deletePendingList->empty())
+            {
+                pendingListObj["Delete"] = *deletePendingList;
+            }
+            if (!addPendingList->empty())
+            {
+                pendingListObj["Add"] = *addPendingList;
+            }
+        });
 
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, profileService, profilePath + "manager",
         managerIntrf,
         [aResp](const boost::system::error_code ec,
                 const dbus::utility::DBusPropertiesMap& properties) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error: {} ", ec);
-            messages::internalError(aResp->res);
-            return;
-        }
-
-        const uint8_t* activeProfileNumber = nullptr;
-        const uint64_t* bmcProfileVersion = nullptr;
-        const uint8_t* defaultProfileNumber = nullptr;
-        const std::string* factoryResetStatus = nullptr;
-        const bool success = sdbusplus::unpackPropertiesNoThrow(
-            dbus_utils::UnpackErrorPrinter(), properties, "ActiveProfileNumber",
-            activeProfileNumber, "BmcVersion", bmcProfileVersion,
-            "DefaultProfileNumber", defaultProfileNumber, "FactoryResetStatus",
-            factoryResetStatus);
-
-        if (!success)
-        {
-            messages::internalError(aResp->res);
-            return;
-        }
-
-        auto assignedIfValid = [aResp](int profileNumber, std::string str) {
-            if (profileNumber != invalidProfileNumber)
+            if (ec)
             {
-                aResp->res.jsonValue[str] = profileNumber;
+                BMCWEB_LOG_ERROR("DBUS response error: {} ", ec);
+                messages::internalError(aResp->res);
+                return;
             }
-        };
-        assignedIfValid(*activeProfileNumber, "ActiveProfileNumber");
-        assignedIfValid(*defaultProfileNumber, "DefaultProfileNumber");
-        aResp->res.jsonValue["DefaultNvidiaNumber"] = 0;
-        aResp->res.jsonValue["BmcProfileVersion"] = *bmcProfileVersion;
-        aResp->res.jsonValue["FactoryResetStatus"] =
-            getLastWordAfterDot(*factoryResetStatus);
-    });
+
+            const uint8_t* activeProfileNumber = nullptr;
+            const uint64_t* bmcProfileVersion = nullptr;
+            const uint8_t* defaultProfileNumber = nullptr;
+            const std::string* factoryResetStatus = nullptr;
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), properties,
+                "ActiveProfileNumber", activeProfileNumber, "BmcVersion",
+                bmcProfileVersion, "DefaultProfileNumber", defaultProfileNumber,
+                "FactoryResetStatus", factoryResetStatus);
+
+            if (!success)
+            {
+                messages::internalError(aResp->res);
+                return;
+            }
+
+            auto assignedIfValid = [aResp](int profileNumber, std::string str) {
+                if (profileNumber != invalidProfileNumber)
+                {
+                    aResp->res.jsonValue[str] = profileNumber;
+                }
+            };
+            assignedIfValid(*activeProfileNumber, "ActiveProfileNumber");
+            assignedIfValid(*defaultProfileNumber, "DefaultProfileNumber");
+            aResp->res.jsonValue["DefaultNvidiaNumber"] = 0;
+            aResp->res.jsonValue["BmcProfileVersion"] = *bmcProfileVersion;
+            aResp->res.jsonValue["FactoryResetStatus"] =
+                getLastWordAfterDot(*factoryResetStatus);
+        });
 }
 
 /**
@@ -569,14 +573,14 @@ inline bool handleTaskStatus(const std::shared_ptr<task::TaskData>& taskData,
 {
     // {task status, progress percent}
     const std::unordered_map<std::string, int> taskNotCompleted = {
-        {"Start", 0},              // Start update of a profile
-        {"StartBios", 0},          // Start update of a by Bios
+        {"Start", 0}, // Start update of a profile
+        {"StartBios", 0}, // Start update of a by Bios
         {"StartVerification", 20}, // Start Verification of profile by BMC
-        {"ProfileSaved", 30},      // Profile Saved by BMC
-        {"PendingBios", 40},       // Pending Bios to complete update of profile
-        {"BiosStarted", 50},       // Bios Started update of profile
-        {"BiosFinished", 60},      // Bios Finished update of profile
-        {"BmcStarted", 80}};       // Bmc start last stage of update of profile
+        {"ProfileSaved", 30}, // Profile Saved by BMC
+        {"PendingBios", 40}, // Pending Bios to complete update of profile
+        {"BiosStarted", 50}, // Bios Started update of profile
+        {"BiosFinished", 60}, // Bios Finished update of profile
+        {"BmcStarted", 80}}; // Bmc start last stage of update of profile
     const std::vector<std::string> taskCompleted = {"None", "Active"};
     std::string index = std::to_string(taskData->index);
 
@@ -679,9 +683,10 @@ inline void handleProfileUpdate(crow::App& app, const crow::Request& req,
         return;
     }
 
-    privilege_utils::isBiosPrivilege(
-        req,
-        [req, aResp](const boost::system::error_code ec, const bool isBios) {
+    privilege_utils::isBiosPrivilege(req, [req, aResp](
+                                              const boost::system::error_code
+                                                  ec,
+                                              const bool isBios) {
         if (ec)
         {
             messages::internalError(aResp->res);
@@ -691,69 +696,71 @@ inline void handleProfileUpdate(crow::App& app, const crow::Request& req,
         crow::connections::systemBus->async_method_call(
             [req, aResp, isBios](const boost::system::error_code ec,
                                  const uint16_t& profileNumber) {
-            if (ec)
-            {
-                messages::internalError(aResp->res);
-                BMCWEB_LOG_ERROR("Update profile Dbus error: {}", ec.what());
-                return;
-            }
-            if (profileNumber == UINT16_MAX)
-            {
-                messages::actionNotSupported(
-                    aResp->res,
-                    "Invalid action, check error log for more information");
-                BMCWEB_LOG_ERROR("Update method called failed ");
-                return;
-            }
-            aResp->res.jsonValue["ProfileNumber"] = profileNumber;
-            if (isBios)
-            {
-                BMCWEB_LOG_DEBUG("Bios requested update, no task is created");
-                return;
-            }
-            BMCWEB_LOG_DEBUG("Update Profile number: {} ",
-                             std::to_string(profileNumber));
-            std::string matchString =
-                "type='signal',interface='org.freedesktop.DBus.Properties',"
-                "member='PropertiesChanged',path='" +
-                profilePath + std::to_string(profileNumber) + "'";
-            std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
-                [profileNumber](
-                    boost::system::error_code ec, sdbusplus::message_t& msg,
-                    const std::shared_ptr<task::TaskData>& taskData) {
                 if (ec)
                 {
-                    BMCWEB_LOG_ERROR("Profile dbus error ");
-                    return finishProfileTask(taskData, "Aborted",
-                                             messages::internalError(),
-                                             " More than one changed property");
+                    messages::internalError(aResp->res);
+                    BMCWEB_LOG_ERROR("Update profile Dbus error: {}",
+                                     ec.what());
+                    return;
                 }
-                std::string iface;
-                boost::container::flat_map<std::string,
-                                           dbus::utility::DbusVariantType>
-                    values;
-                msg.read(iface, values);
-                BMCWEB_LOG_DEBUG(
-                    "Status changed on index: {}, path: {}, interface: {}",
-                    std::to_string(taskData->index),
-                    std::string(msg.get_path()), iface);
-                if (iface != "xyz.openbmc_project.Profiles.Statuses")
+                if (profileNumber == UINT16_MAX)
                 {
-                    return !task::completed;
+                    messages::actionNotSupported(
+                        aResp->res,
+                        "Invalid action, check error log for more information");
+                    BMCWEB_LOG_ERROR("Update method called failed ");
+                    return;
                 }
-                const auto& action = values.begin()->first;
-                const auto* status =
-                    std::get_if<std::string>(&values.begin()->second);
-                return handleTaskStatus(taskData, action, *status,
-                                        profileNumber);
-            },
-                matchString); // end create task
-            task->startTimer(std::chrono::minutes(60));
-            task->populateResp(aResp->res);
-            task->payload.emplace(req);
-            BMCWEB_LOG_DEBUG("Finish create task, profile number {}  ",
-                             std::to_string(profileNumber));
-        }, // end async_method_call handler
+                aResp->res.jsonValue["ProfileNumber"] = profileNumber;
+                if (isBios)
+                {
+                    BMCWEB_LOG_DEBUG(
+                        "Bios requested update, no task is created");
+                    return;
+                }
+                BMCWEB_LOG_DEBUG("Update Profile number: {} ",
+                                 std::to_string(profileNumber));
+                std::string matchString =
+                    "type='signal',interface='org.freedesktop.DBus.Properties',"
+                    "member='PropertiesChanged',path='" +
+                    profilePath + std::to_string(profileNumber) + "'";
+                std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
+                    [profileNumber](
+                        boost::system::error_code ec, sdbusplus::message_t& msg,
+                        const std::shared_ptr<task::TaskData>& taskData) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR("Profile dbus error ");
+                            return finishProfileTask(
+                                taskData, "Aborted", messages::internalError(),
+                                " More than one changed property");
+                        }
+                        std::string iface;
+                        boost::container::flat_map<
+                            std::string, dbus::utility::DbusVariantType>
+                            values;
+                        msg.read(iface, values);
+                        BMCWEB_LOG_DEBUG(
+                            "Status changed on index: {}, path: {}, interface: {}",
+                            std::to_string(taskData->index),
+                            std::string(msg.get_path()), iface);
+                        if (iface != "xyz.openbmc_project.Profiles.Statuses")
+                        {
+                            return !task::completed;
+                        }
+                        const auto& action = values.begin()->first;
+                        const auto* status =
+                            std::get_if<std::string>(&values.begin()->second);
+                        return handleTaskStatus(taskData, action, *status,
+                                                profileNumber);
+                    },
+                    matchString); // end create task
+                task->startTimer(std::chrono::minutes(60));
+                task->populateResp(aResp->res);
+                task->payload.emplace(req);
+                BMCWEB_LOG_DEBUG("Finish create task, profile number {}  ",
+                                 std::to_string(profileNumber));
+            }, // end async_method_call handler
             profileService, profileManagerPath, profileManagerInterface,
             "Update", isBios);
     }); // end  isBiosPrivilege handler

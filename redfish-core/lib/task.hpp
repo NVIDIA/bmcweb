@@ -435,7 +435,6 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         sendTaskEvent(state, index);
     }
 
-
     std::function<bool(boost::system::error_code, sdbusplus::message_t&,
                        const std::shared_ptr<TaskData>&)>
         callback;
@@ -455,7 +454,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
     int percentComplete = 0;
     std::unique_ptr<sdbusplus::bus::match_t> loggingMatch;
     std::function<nlohmann::json(const std::string_view, size_t)>
-    getMsgCallback;
+        getMsgCallback;
 };
 
 } // namespace task
@@ -665,9 +664,9 @@ inline void requestRoutesTask(App& app)
                 }
                 asyncResp->res.jsonValue["PercentComplete"] =
                     ptr->percentComplete;
-            });      
+            });
 
-    requestRoutesTaskUpdate(app);   
+    requestRoutesTaskUpdate(app);
 }
 
 inline void requestRoutesTaskCollection(App& app)

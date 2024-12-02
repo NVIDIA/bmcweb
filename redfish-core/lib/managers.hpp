@@ -2438,12 +2438,11 @@ inline void requestRoutesManager(App& app)
                     setDateTime(asyncResp, *datetime);
                 }
 
-                extendManagerPatch(req, asyncResp, managerId);             
+                extendManagerPatch(req, asyncResp, managerId);
                 if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                 {
-                    extendManagerPatchOEM(req, asyncResp,
-                                                          managerId);
-                }                
+                    extendManagerPatchOEM(req, asyncResp, managerId);
+                }
             });
 }
 
@@ -2475,7 +2474,7 @@ inline void requestRoutesManagerCollection(App& app)
 
 /**
 
-Nvidia Routes and handlers 
+Nvidia Routes and handlers
 
  */
 
@@ -2593,6 +2592,5 @@ inline void requestRoutesNvidiaManagerEmmcSecureErase(App& app)
                 doBMCGracefulRestart(asyncResp);
             });
 }
-
 
 } // namespace redfish

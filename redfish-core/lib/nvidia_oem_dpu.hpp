@@ -159,15 +159,15 @@ class DpuGetProperties : virtual public DpuCommonProperties
             [&, json, asyncResp,
              name](const boost::system::error_code ec,
                    const std::variant<std::string>& variant) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error for {}", name);
-                return;
-            }
+                if (ec)
+                {
+                    BMCWEB_LOG_DEBUG("DBUS response error for {}", name);
+                    return;
+                }
 
-            (*json)[name] = toRedfish(*std::get_if<std::string>(&variant),
-                                      name);
-        },
+                (*json)[name] =
+                    toRedfish(*std::get_if<std::string>(&variant), name);
+            },
             objectInfo.service, objectInfo.obj,
             "org.freedesktop.DBus.Properties", "Get",
             objectInfo.propertyInfo.intf, objectInfo.propertyInfo.prop);
@@ -191,8 +191,7 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
     DpuActionSetProperties(
         const std::unordered_map<std::string, ObjectInfo>& objects2,
         const std::string targetIn) :
-        DpuCommonProperties(objects2),
-        target(targetIn)
+        DpuCommonProperties(objects2), target(targetIn)
     {}
     std::string getActionTarget()
     {
@@ -279,15 +278,15 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
             auto objectInfo = objects.find(name)->second;
             crow::connections::systemBus->async_method_call(
                 [asyncResp](const boost::system::error_code ec) {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR("Set failed {}", ec);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR("Set failed {}", ec);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
 
-                messages::success(asyncResp->res);
-            },
+                    messages::success(asyncResp->res);
+                },
                 objectInfo.service, objectInfo.obj,
                 "org.freedesktop.DBus.Properties", "Set",
                 objectInfo.propertyInfo.intf, objectInfo.propertyInfo.prop,
@@ -364,13 +363,13 @@ const PropertyInfo nicTristateAttributeInfo = {
         {"Disabled",
          "xyz.openbmc_project.Control.NcSi.OEM.Nvidia.NicTristateAttribute.Modes.Disabled"}}};
 
-const std::string hostRhimTarget = "/redfish/v1/Systems/" +
-                                   std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                                   "/Oem/Nvidia/Actions/HostRshim.Set";
+const std::string hostRhimTarget =
+    "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+    "/Oem/Nvidia/Actions/HostRshim.Set";
 
-const std::string modeTarget = "/redfish/v1/Systems/" +
-                               std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                               "/Oem/Nvidia/Actions/Mode.Set";
+const std::string modeTarget =
+    "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+    "/Oem/Nvidia/Actions/Mode.Set";
 const std::string dpuStrpOptionGet =
     "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
     "/Oem/Nvidia/Connectx/StrapOptions";
@@ -572,16 +571,16 @@ inline void getIsOemNvidiaRshimEnable(
         systemdUnitIntfBf, "ActiveState",
         [asyncResp](const boost::system::error_code ec,
                     const std::string& rshimActiveState) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR(
-                "DBUS response error for getIsOemNvidiaRshimEnable");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        asyncResp->res.jsonValue["BmcRShim"]["BmcRShimEnabled"] =
-            (rshimActiveState == "active");
-    });
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "DBUS response error for getIsOemNvidiaRshimEnable");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["BmcRShim"]["BmcRShimEnabled"] =
+                (rshimActiveState == "active");
+        });
 }
 
 inline void
@@ -599,13 +598,14 @@ inline void
 
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error for rshim enable/disable");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-    },
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "DBUS response error for rshim enable/disable");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+        },
         systemdServiceBf, rshimSystemdObjBf, systemdUnitIntfBf, method.c_str(),
         "replace");
 
@@ -624,53 +624,63 @@ inline void getOemNvidiaSwitchStatus(
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
                     std::variant<std::string>& resp) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error for getting OOB status");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        const std::string* strValue = std::get_if<std::string>(&resp);
-        if (strValue == nullptr)
-        {
-            return;
-        }
-        if (*strValue ==
-            "xyz.openbmc_project.Control.TorSwitchPortsMode.Modes.All")
-        {
-            asyncResp->res.jsonValue["TorSwitchMode"]["BmcOobEnabled"] = true;
-            asyncResp->res.jsonValue["TorSwitchMode"]["DpuOobEnabled"] = true;
-            return;
-        }
-        if (*strValue ==
-            "xyz.openbmc_project.Control.TorSwitchPortsMode.Modes.BMC")
-        {
-            asyncResp->res.jsonValue["TorSwitchMode"]["BmcOobEnabled"] = true;
-            asyncResp->res.jsonValue["TorSwitchMode"]["DpuOobEnabled"] = false;
-            return;
-        }
-        if (*strValue ==
-            "xyz.openbmc_project.Control.TorSwitchPortsMode.Modes.DPU")
-        {
-            asyncResp->res.jsonValue["TorSwitchMode"]["BmcOobEnabled"] = false;
-            asyncResp->res.jsonValue["TorSwitchMode"]["DpuOobEnabled"] = true;
-            return;
-        }
-        if (*strValue ==
-            "xyz.openbmc_project.Control.TorSwitchPortsMode.Modes.None")
-        {
-            asyncResp->res.jsonValue["TorSwitchMode"]["BmcOobEnabled"] = false;
-            asyncResp->res.jsonValue["TorSwitchMode"]["DpuOobEnabled"] = false;
-            return;
-        }
-        if (*strValue ==
-            "xyz.openbmc_project.Control.TorSwitchPortsMode.Modes.Disable")
-        {
-            asyncResp->res.jsonValue["TorSwitchMode"]["BmcOobEnabled"] = false;
-            asyncResp->res.jsonValue["TorSwitchMode"]["DpuOobEnabled"] = false;
-            return;
-        }
-    },
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error for getting OOB status");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            const std::string* strValue = std::get_if<std::string>(&resp);
+            if (strValue == nullptr)
+            {
+                return;
+            }
+            if (*strValue ==
+                "xyz.openbmc_project.Control.TorSwitchPortsMode.Modes.All")
+            {
+                asyncResp->res.jsonValue["TorSwitchMode"]["BmcOobEnabled"] =
+                    true;
+                asyncResp->res.jsonValue["TorSwitchMode"]["DpuOobEnabled"] =
+                    true;
+                return;
+            }
+            if (*strValue ==
+                "xyz.openbmc_project.Control.TorSwitchPortsMode.Modes.BMC")
+            {
+                asyncResp->res.jsonValue["TorSwitchMode"]["BmcOobEnabled"] =
+                    true;
+                asyncResp->res.jsonValue["TorSwitchMode"]["DpuOobEnabled"] =
+                    false;
+                return;
+            }
+            if (*strValue ==
+                "xyz.openbmc_project.Control.TorSwitchPortsMode.Modes.DPU")
+            {
+                asyncResp->res.jsonValue["TorSwitchMode"]["BmcOobEnabled"] =
+                    false;
+                asyncResp->res.jsonValue["TorSwitchMode"]["DpuOobEnabled"] =
+                    true;
+                return;
+            }
+            if (*strValue ==
+                "xyz.openbmc_project.Control.TorSwitchPortsMode.Modes.None")
+            {
+                asyncResp->res.jsonValue["TorSwitchMode"]["BmcOobEnabled"] =
+                    false;
+                asyncResp->res.jsonValue["TorSwitchMode"]["DpuOobEnabled"] =
+                    false;
+                return;
+            }
+            if (*strValue ==
+                "xyz.openbmc_project.Control.TorSwitchPortsMode.Modes.Disable")
+            {
+                asyncResp->res.jsonValue["TorSwitchMode"]["BmcOobEnabled"] =
+                    false;
+                asyncResp->res.jsonValue["TorSwitchMode"]["DpuOobEnabled"] =
+                    false;
+                return;
+            }
+        },
         ctlBMCSwitchModeService, ctlBMCSwitchModeBMCObj, dbusPropertyInterface,
         "Get", ctlBMCSwitchModeIntf, ctlBMCSwitchMode);
 }
@@ -716,27 +726,27 @@ inline void
 
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR(
-                "DBUS response error for setting DPU OOB enable/disable");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        // Reload switch service to make the new configuration take effect
-        crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
-                    "DBUS response error for resetting switch mode service");
+                    "DBUS response error for setting DPU OOB enable/disable");
                 messages::internalError(asyncResp->res);
                 return;
             }
+            // Reload switch service to make the new configuration take effect
+            crow::connections::systemBus->async_method_call(
+                [asyncResp](const boost::system::error_code ec) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "DBUS response error for resetting switch mode service");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                },
+                systemdServiceBf, switchModeSystemdObj, systemdUnitIntfBf,
+                "Restart", "replace");
         },
-            systemdServiceBf, switchModeSystemdObj, systemdUnitIntfBf,
-            "Restart", "replace");
-    },
         ctlBMCSwitchModeService, ctlBMCSwitchModeBMCObj, dbusPropertyInterface,
         "Set", ctlBMCSwitchModeIntf, ctlBMCSwitchMode, variantValue);
 
@@ -772,14 +782,14 @@ inline void resetTorSwitch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
         "xyz.openbmc_project.Control.TorSwitchPortsMode.Modes.All");
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR(
-                "DBUS response error for setting DPU OOB enable/disable");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-    },
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "DBUS response error for setting DPU OOB enable/disable");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+        },
         ctlBMCSwitchModeService, ctlBMCSwitchModeBMCObj, dbusPropertyInterface,
         "Set", ctlBMCSwitchModeIntf, ctlBMCSwitchMode, variantValue);
 
@@ -813,9 +823,8 @@ inline void handleTruststoreCertificatesCollectionGet(
         interfaces, std::string(truststoreBiosPath).c_str());
 }
 
-inline void
-    createPendingRequest(const crow::Request& req,
-                         const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+inline void createPendingRequest(
+    const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     auto task = task::TaskData::createTask(
         [](boost::system::error_code, sdbusplus::message_t&,
@@ -864,59 +873,59 @@ inline void handleTruststoreCertificatesCollectionPost(
     privilege_utils::isBiosPrivilege(
         req, [req, asyncResp, certString, certType,
               owner](const boost::system::error_code ec, const bool isBios) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        if (isBios == false)
-        {
-            createPendingRequest(req, asyncResp);
-            return;
-        }
-
-        std::shared_ptr<CertificateFile> certFile =
-            std::make_shared<CertificateFile>(certString);
-
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, owner, certFile](const boost::system::error_code ec,
-                                         const std::string& objectPath) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);
                 return;
             }
 
-            sdbusplus::message::object_path path(objectPath);
-            std::string certId = path.filename();
-            messages::created(asyncResp->res);
-            asyncResp->res.addHeader(
-                boost::beast::http::field::location,
-                "/redfish/v1/Systems/" +
-                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                    "/Oem/Nvidia/Truststore/Certificates/" + certId);
-
-            if (owner)
+            if (isBios == false)
             {
-                crow::connections::systemBus->async_method_call(
-                    [asyncResp](const boost::system::error_code ec) {
+                createPendingRequest(req, asyncResp);
+                return;
+            }
+
+            std::shared_ptr<CertificateFile> certFile =
+                std::make_shared<CertificateFile>(certString);
+
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, owner, certFile](const boost::system::error_code ec,
+                                             const std::string& objectPath) {
                     if (ec)
                     {
                         messages::internalError(asyncResp->res);
                         return;
                     }
+
+                    sdbusplus::message::object_path path(objectPath);
+                    std::string certId = path.filename();
+                    messages::created(asyncResp->res);
+                    asyncResp->res.addHeader(
+                        boost::beast::http::field::location,
+                        "/redfish/v1/Systems/" +
+                            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                            "/Oem/Nvidia/Truststore/Certificates/" + certId);
+
+                    if (owner)
+                    {
+                        crow::connections::systemBus->async_method_call(
+                            [asyncResp](const boost::system::error_code ec) {
+                                if (ec)
+                                {
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                            },
+                            truststoreBiosService, objectPath,
+                            "org.freedesktop.DBus.Properties", "Set",
+                            "xyz.openbmc_project.Common.UUID", "UUID",
+                            dbus::utility::DbusVariantType(*owner));
+                    }
                 },
-                    truststoreBiosService, objectPath,
-                    "org.freedesktop.DBus.Properties", "Set",
-                    "xyz.openbmc_project.Common.UUID", "UUID",
-                    dbus::utility::DbusVariantType(*owner));
-            }
-        },
-            truststoreBiosService, truststoreBiosPath,
-            "xyz.openbmc_project.Certs.Install", "Install",
-            certFile->getCertFilePath());
-    });
+                truststoreBiosService, truststoreBiosPath,
+                "xyz.openbmc_project.Certs.Install", "Install",
+                certFile->getCertFilePath());
+        });
 }
 
 inline void handleTruststoreCertificatesGet(
@@ -941,76 +950,78 @@ inline void handleTruststoreCertificatesGet(
         [asyncResp,
          certId](const boost::system::error_code ec,
                  const dbus::utility::DBusPropertiesMap& propertiesList) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-            messages::resourceNotFound(asyncResp->res, "Certificate", certId);
-            return;
-        }
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                messages::resourceNotFound(asyncResp->res, "Certificate",
+                                           certId);
+                return;
+            }
 
-        const std::string* certificateString = nullptr;
-        const std::vector<std::string>* keyUsage = nullptr;
-        const std::string* issuer = nullptr;
-        const std::string* subject = nullptr;
-        const uint64_t* validNotAfter = nullptr;
-        const uint64_t* validNotBefore = nullptr;
-        const std::string* owner = nullptr;
+            const std::string* certificateString = nullptr;
+            const std::vector<std::string>* keyUsage = nullptr;
+            const std::string* issuer = nullptr;
+            const std::string* subject = nullptr;
+            const uint64_t* validNotAfter = nullptr;
+            const uint64_t* validNotBefore = nullptr;
+            const std::string* owner = nullptr;
 
-        const bool success = sdbusplus::unpackPropertiesNoThrow(
-            dbus_utils::UnpackErrorPrinter(), propertiesList,
-            "CertificateString", certificateString, "KeyUsage", keyUsage,
-            "Issuer", issuer, "Subject", subject, "ValidNotAfter",
-            validNotAfter, "ValidNotBefore", validNotBefore, "UUID", owner);
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), propertiesList,
+                "CertificateString", certificateString, "KeyUsage", keyUsage,
+                "Issuer", issuer, "Subject", subject, "ValidNotAfter",
+                validNotAfter, "ValidNotBefore", validNotBefore, "UUID", owner);
 
-        if (!success)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
+            if (!success)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-        asyncResp->res.jsonValue["CertificateString"] = "";
-        asyncResp->res.jsonValue["KeyUsage"] = nlohmann::json::array();
+            asyncResp->res.jsonValue["CertificateString"] = "";
+            asyncResp->res.jsonValue["KeyUsage"] = nlohmann::json::array();
 
-        if (certificateString != nullptr)
-        {
-            asyncResp->res.jsonValue["CertificateString"] = *certificateString;
-            asyncResp->res.jsonValue["CertificateType"] = "PEM";
-        }
+            if (certificateString != nullptr)
+            {
+                asyncResp->res.jsonValue["CertificateString"] =
+                    *certificateString;
+                asyncResp->res.jsonValue["CertificateType"] = "PEM";
+            }
 
-        if (keyUsage != nullptr)
-        {
-            asyncResp->res.jsonValue["KeyUsage"] = *keyUsage;
-        }
+            if (keyUsage != nullptr)
+            {
+                asyncResp->res.jsonValue["KeyUsage"] = *keyUsage;
+            }
 
-        if (issuer != nullptr)
-        {
-            updateCertIssuerOrSubject(asyncResp->res.jsonValue["Issuer"],
-                                      *issuer);
-        }
+            if (issuer != nullptr)
+            {
+                updateCertIssuerOrSubject(asyncResp->res.jsonValue["Issuer"],
+                                          *issuer);
+            }
 
-        if (subject != nullptr)
-        {
-            updateCertIssuerOrSubject(asyncResp->res.jsonValue["Subject"],
-                                      *subject);
-        }
+            if (subject != nullptr)
+            {
+                updateCertIssuerOrSubject(asyncResp->res.jsonValue["Subject"],
+                                          *subject);
+            }
 
-        if (validNotAfter != nullptr)
-        {
-            asyncResp->res.jsonValue["ValidNotAfter"] =
-                redfish::time_utils::getDateTimeUint(*validNotAfter);
-        }
+            if (validNotAfter != nullptr)
+            {
+                asyncResp->res.jsonValue["ValidNotAfter"] =
+                    redfish::time_utils::getDateTimeUint(*validNotAfter);
+            }
 
-        if (validNotBefore != nullptr)
-        {
-            asyncResp->res.jsonValue["ValidNotBefore"] =
-                redfish::time_utils::getDateTimeUint(*validNotBefore);
-        }
+            if (validNotBefore != nullptr)
+            {
+                asyncResp->res.jsonValue["ValidNotBefore"] =
+                    redfish::time_utils::getDateTimeUint(*validNotBefore);
+            }
 
-        if (owner != nullptr)
-        {
-            asyncResp->res.jsonValue["UefiSignatureOwner"] = *owner;
-        }
-    });
+            if (owner != nullptr)
+            {
+                asyncResp->res.jsonValue["UefiSignatureOwner"] = *owner;
+            }
+        });
 }
 
 inline void handleTruststoreCertificatesDelete(
@@ -1024,35 +1035,37 @@ inline void handleTruststoreCertificatesDelete(
     }
 
     privilege_utils::isBiosPrivilege(
-        req, [req, asyncResp, certId](const boost::system::error_code ec,
-                                      const bool isBios) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        if (isBios == false)
-        {
-            createPendingRequest(req, asyncResp);
-            return;
-        }
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, certId](const boost::system::error_code ec) {
-            if (ec.value() == EBADR)
-            {
-                messages::resourceNotFound(asyncResp->res, "certId", certId);
-                return;
-            }
+        req, [req, asyncResp,
+              certId](const boost::system::error_code ec, const bool isBios) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res.result(boost::beast::http::status::no_content);
-        },
-            truststoreBiosService, truststoreBiosPath + "/" + certId,
-            "xyz.openbmc_project.Object.Delete", "Delete");
-    });
+            if (isBios == false)
+            {
+                createPendingRequest(req, asyncResp);
+                return;
+            }
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, certId](const boost::system::error_code ec) {
+                    if (ec.value() == EBADR)
+                    {
+                        messages::resourceNotFound(asyncResp->res, "certId",
+                                                   certId);
+                        return;
+                    }
+                    if (ec)
+                    {
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.result(
+                        boost::beast::http::status::no_content);
+                },
+                truststoreBiosService, truststoreBiosPath + "/" + certId,
+                "xyz.openbmc_project.Object.Delete", "Delete");
+        });
 }
 
 inline void handleTruststoreCertificatesResetKeys(
@@ -1079,9 +1092,10 @@ inline void handleTruststoreCertificatesResetKeys(
         return;
     }
 
-    privilege_utils::isBiosPrivilege(
-        req, [req, asyncResp](const boost::system::error_code ec,
-                              const bool isBios) {
+    privilege_utils::isBiosPrivilege(req, [req, asyncResp](
+                                              const boost::system::error_code
+                                                  ec,
+                                              const bool isBios) {
         if (ec)
         {
             messages::internalError(asyncResp->res);
@@ -1120,96 +1134,101 @@ inline void handleGetOemFru([[maybe_unused]] crow::App& app,
         "/xyz/openbmc_project/control/oem_fru",
         "xyz.openbmc_project.Object.Enable", "Enabled",
         [req, asyncResp](const boost::system::error_code& ec, bool enabled) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR(
-                "DBUS response error: Checking OEM FRU Enabled error{}", ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        if (!enabled)
-        {
-            // If OEM FRU is disabled, do not report an error
-            // This is because same URL will also be used for other features
-            return;
-        }
-        // Fetch all properties of the OEM FRU object
-        sdbusplus::asio::getAllProperties(
-            *crow::connections::systemBus, oemFruService, oemFruObj, oemFruIntf,
-            [asyncResp{asyncResp}](
-                const boost::system::error_code& ec,
-                const dbus::utility::DBusPropertiesMap& propertyList) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
-                    "DBUS response error: Get All OEM FRU Property error{}",
+                    "DBUS response error: Checking OEM FRU Enabled error{}",
                     ec);
                 messages::internalError(asyncResp->res);
                 return;
             }
-            const std::string* productManufacturer = nullptr;
-            const std::string* productSerialNumber = nullptr;
-            const std::string* productPartNumber = nullptr;
-            const std::string* productVersion = nullptr;
-            const std::string* productExtra = nullptr;
-            const std::string* productManufactureDate = nullptr;
-            const std::string* ProductAssetTag = nullptr;
-            const std::string* productGUID = nullptr;
-            // Unpack properties from the property list
-            const bool success = sdbusplus::unpackPropertiesNoThrow(
-                dbus_utils::UnpackErrorPrinter(), propertyList,
-                "PRODUCT_MANUFACTURER", productManufacturer,
-                "PRODUCT_SERIAL_NUMBER", productSerialNumber,
-                "PRODUCT_PART_NUMBER", productPartNumber, "PRODUCT_VERSION",
-                productVersion, "PRODUCT_INFO_AM1", productExtra,
-                "BOARD_MANUFACTURE_DATE", productManufactureDate,
-                "PRODUCT_ASSET_TAG", ProductAssetTag, "CHASSIS_INFO_AM1",
-                productGUID);
-            if (!success)
+            if (!enabled)
             {
-                BMCWEB_LOG_ERROR("Unpack OEM FRU Property error");
-                messages::internalError(asyncResp->res);
+                // If OEM FRU is disabled, do not report an error
+                // This is because same URL will also be used for other features
                 return;
             }
-            // Populate the response with the OEM data values
-            if (productManufacturer != nullptr)
-            {
-                asyncResp->res.jsonValue["ProductManufacturer"] =
-                    *productManufacturer;
-            }
-            if (productSerialNumber != nullptr)
-            {
-                asyncResp->res.jsonValue["ProductSerialNumber"] =
-                    *productSerialNumber;
-            }
-            if (productPartNumber != nullptr)
-            {
-                asyncResp->res.jsonValue["ProductPartNumber"] =
-                    *productPartNumber;
-            }
-            if (productVersion != nullptr)
-            {
-                asyncResp->res.jsonValue["ProductVersion"] = *productVersion;
-            }
-            if (productExtra != nullptr)
-            {
-                asyncResp->res.jsonValue["ProductExtra"] = *productExtra;
-            }
-            if (productManufactureDate != nullptr)
-            {
-                asyncResp->res.jsonValue["ProductManufactureDate"] =
-                    *productManufactureDate;
-            }
-            if (ProductAssetTag != nullptr)
-            {
-                asyncResp->res.jsonValue["ProductAssetTag"] = *ProductAssetTag;
-            }
-            if (productGUID != nullptr)
-            {
-                asyncResp->res.jsonValue["ProductGUID"] = *productGUID;
-            }
+            // Fetch all properties of the OEM FRU object
+            sdbusplus::asio::getAllProperties(
+                *crow::connections::systemBus, oemFruService, oemFruObj,
+                oemFruIntf,
+                [asyncResp{asyncResp}](
+                    const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& propertyList) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "DBUS response error: Get All OEM FRU Property error{}",
+                            ec);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    const std::string* productManufacturer = nullptr;
+                    const std::string* productSerialNumber = nullptr;
+                    const std::string* productPartNumber = nullptr;
+                    const std::string* productVersion = nullptr;
+                    const std::string* productExtra = nullptr;
+                    const std::string* productManufactureDate = nullptr;
+                    const std::string* ProductAssetTag = nullptr;
+                    const std::string* productGUID = nullptr;
+                    // Unpack properties from the property list
+                    const bool success = sdbusplus::unpackPropertiesNoThrow(
+                        dbus_utils::UnpackErrorPrinter(), propertyList,
+                        "PRODUCT_MANUFACTURER", productManufacturer,
+                        "PRODUCT_SERIAL_NUMBER", productSerialNumber,
+                        "PRODUCT_PART_NUMBER", productPartNumber,
+                        "PRODUCT_VERSION", productVersion, "PRODUCT_INFO_AM1",
+                        productExtra, "BOARD_MANUFACTURE_DATE",
+                        productManufactureDate, "PRODUCT_ASSET_TAG",
+                        ProductAssetTag, "CHASSIS_INFO_AM1", productGUID);
+                    if (!success)
+                    {
+                        BMCWEB_LOG_ERROR("Unpack OEM FRU Property error");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    // Populate the response with the OEM data values
+                    if (productManufacturer != nullptr)
+                    {
+                        asyncResp->res.jsonValue["ProductManufacturer"] =
+                            *productManufacturer;
+                    }
+                    if (productSerialNumber != nullptr)
+                    {
+                        asyncResp->res.jsonValue["ProductSerialNumber"] =
+                            *productSerialNumber;
+                    }
+                    if (productPartNumber != nullptr)
+                    {
+                        asyncResp->res.jsonValue["ProductPartNumber"] =
+                            *productPartNumber;
+                    }
+                    if (productVersion != nullptr)
+                    {
+                        asyncResp->res.jsonValue["ProductVersion"] =
+                            *productVersion;
+                    }
+                    if (productExtra != nullptr)
+                    {
+                        asyncResp->res.jsonValue["ProductExtra"] =
+                            *productExtra;
+                    }
+                    if (productManufactureDate != nullptr)
+                    {
+                        asyncResp->res.jsonValue["ProductManufactureDate"] =
+                            *productManufactureDate;
+                    }
+                    if (ProductAssetTag != nullptr)
+                    {
+                        asyncResp->res.jsonValue["ProductAssetTag"] =
+                            *ProductAssetTag;
+                    }
+                    if (productGUID != nullptr)
+                    {
+                        asyncResp->res.jsonValue["ProductGUID"] = *productGUID;
+                    }
+                });
         });
-    });
 }
 
 inline void
@@ -1221,35 +1240,36 @@ inline void
     crow::connections::systemBus->async_method_call(
         [asyncResp, dbusProperty, lastProperty,
          value](const boost::system::error_code ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR(
-                "DBUS response error: Set OEM FRU Property error{}", ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        // Sync OEM FRU data only when the last property is set
-        // This is to avoid multiple SyncOemFru calls
-        if (lastProperty == dbusProperty)
-        {
-            // Make an asynchronous DBUS call to sync the OEM FRU data
-            // The FRU DBUS object and config flash will be updated
-            crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code ec) {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "DBUS response error: Sync OEM FRU Data error{}", ec);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-            },
-                oemFruService, oemFruObj, oemFruIntf, "SyncOemFru");
-            // Send success response after set last property and save the FRU
-            // data
-            messages::success(asyncResp->res);
-        }
-    },
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "DBUS response error: Set OEM FRU Property error{}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            // Sync OEM FRU data only when the last property is set
+            // This is to avoid multiple SyncOemFru calls
+            if (lastProperty == dbusProperty)
+            {
+                // Make an asynchronous DBUS call to sync the OEM FRU data
+                // The FRU DBUS object and config flash will be updated
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp](const boost::system::error_code ec) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "DBUS response error: Sync OEM FRU Data error{}",
+                                ec);
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                    },
+                    oemFruService, oemFruObj, oemFruIntf, "SyncOemFru");
+                // Send success response after set last property and save the
+                // FRU data
+                messages::success(asyncResp->res);
+            }
+        },
         oemFruService, oemFruObj, dbusPropertyInterface, "Set", oemFruIntf,
         dbusProperty, variantValue);
 }
@@ -1262,9 +1282,10 @@ inline void handleSetOemFru([[maybe_unused]] crow::App& app,
 
     // Check if the request has host interface privilege
     // The redfish host interface will be prevented to accesss the OEM FRU
-    privilege_utils::isBiosPrivilege(
-        req, [req, asyncResp](const boost::system::error_code ec,
-                              const bool isBios) {
+    privilege_utils::isBiosPrivilege(req, [req, asyncResp](
+                                              const boost::system::error_code
+                                                  ec,
+                                              const bool isBios) {
         if (ec)
         {
             messages::insufficientPrivilege(asyncResp->res);
@@ -1278,138 +1299,142 @@ inline void handleSetOemFru([[maybe_unused]] crow::App& app,
                 *crow::connections::systemBus, "xyz.openbmc_project.Settings",
                 "/xyz/openbmc_project/control/oem_fru",
                 "xyz.openbmc_project.Object.Enable", "Enabled",
-                [req, asyncResp](const boost::system::error_code& ec,
-                                 bool enabled) {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "DBUS response error: Checking OEM FRU Enabled error{}",
-                        ec);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                if (!enabled)
-                {
-                    messages::actionNotSupported(asyncResp->res,
-                                                 "OEM FRU not enabled");
-                    return;
-                }
-                // Map of property names to their corresponding DBUS property
-                // names
-                std::unordered_map<std::string, std::string> propertyMap = {
-                    {"ProductManufacturer", "PRODUCT_MANUFACTURER"},
-                    {"ProductSerialNumber", "PRODUCT_SERIAL_NUMBER"},
-                    {"ProductPartNumber", "PRODUCT_PART_NUMBER"},
-                    {"ProductVersion", "PRODUCT_VERSION"},
-                    {"ProductExtra", "PRODUCT_INFO_AM1"},
-                    {"ProductManufactureDate", "BOARD_MANUFACTURE_DATE"},
-                    {"ProductAssetTag", "PRODUCT_ASSET_TAG"},
-                    {"ProductGUID", "CHASSIS_INFO_AM1"}};
-                // Initialize the last property to be set
-                std::string lastProperty = "CHASSIS_INFO_AM1";
-                std::optional<std::string> productManufacturer;
-                std::optional<std::string> productSerialNumber;
-                std::optional<std::string> productPartNumber;
-                std::optional<std::string> productVersion;
-                std::optional<std::string> productExtra;
-                std::optional<std::string> productManufactureDate;
-                std::optional<std::string> productAssetTag;
-                std::optional<std::string> productGUID;
-                // Read the data from the post request and populate the optional
-                // variables
-                if (!json_util::readJsonPatch(
-                        req, asyncResp->res, "ProductManufacturer",
-                        productManufacturer, "ProductSerialNumber",
-                        productSerialNumber, "ProductPartNumber",
-                        productPartNumber, "ProductVersion", productVersion,
-                        "ProductExtra", productExtra, "ProductManufactureDate",
-                        productManufactureDate, "ProductAssetTag",
-                        productAssetTag, "ProductGUID", productGUID))
-                {
-                    return;
-                }
-                // Only sync the OEM FRU data one time when setting the last
-                // property Determine the last property to set based on the
-                // provided values
-                if (productManufacturer)
-                {
-                    lastProperty = propertyMap["ProductManufacturer"];
-                }
-                if (productSerialNumber)
-                {
-                    lastProperty = propertyMap["ProductSerialNumber"];
-                }
-                if (productPartNumber)
-                {
-                    lastProperty = propertyMap["ProductPartNumber"];
-                }
-                if (productVersion)
-                {
-                    lastProperty = propertyMap["ProductVersion"];
-                }
-                if (productExtra)
-                {
-                    lastProperty = propertyMap["ProductExtra"];
-                }
-                if (productManufactureDate)
-                {
-                    lastProperty = propertyMap["ProductManufactureDate"];
-                }
-                if (productAssetTag)
-                {
-                    lastProperty = propertyMap["ProductAssetTag"];
-                }
-                if (productGUID)
-                {
-                    lastProperty = propertyMap["ProductGUID"];
-                }
-                // Set each property with OEM data using the setOemFruProperty
-                // function
-                if (productManufacturer)
-                {
-                    setOemFruProperty(asyncResp,
-                                      propertyMap["ProductManufacturer"],
-                                      lastProperty, *productManufacturer);
-                }
-                if (productSerialNumber)
-                {
-                    setOemFruProperty(asyncResp,
-                                      propertyMap["ProductSerialNumber"],
-                                      lastProperty, *productSerialNumber);
-                }
-                if (productPartNumber)
-                {
-                    setOemFruProperty(asyncResp,
-                                      propertyMap["ProductPartNumber"],
-                                      lastProperty, *productPartNumber);
-                }
-                if (productVersion)
-                {
-                    setOemFruProperty(asyncResp, propertyMap["ProductVersion"],
-                                      lastProperty, *productVersion);
-                }
-                if (productExtra)
-                {
-                    setOemFruProperty(asyncResp, propertyMap["ProductExtra"],
-                                      lastProperty, *productExtra);
-                }
-                if (productManufactureDate)
-                {
-                    setOemFruProperty(asyncResp,
-                                      propertyMap["ProductManufactureDate"],
-                                      lastProperty, *productManufactureDate);
-                }
-                if (productAssetTag)
-                {
-                    setOemFruProperty(asyncResp, propertyMap["ProductAssetTag"],
-                                      lastProperty, *productAssetTag);
-                }
-                if (productGUID)
-                {
-                    setOemFruProperty(asyncResp, propertyMap["ProductGUID"],
-                                      lastProperty, *productGUID);
-                }
-            });
+                [req,
+                 asyncResp](const boost::system::error_code& ec, bool enabled) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "DBUS response error: Checking OEM FRU Enabled error{}",
+                            ec);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (!enabled)
+                    {
+                        messages::actionNotSupported(asyncResp->res,
+                                                     "OEM FRU not enabled");
+                        return;
+                    }
+                    // Map of property names to their corresponding DBUS
+                    // property names
+                    std::unordered_map<std::string, std::string> propertyMap = {
+                        {"ProductManufacturer", "PRODUCT_MANUFACTURER"},
+                        {"ProductSerialNumber", "PRODUCT_SERIAL_NUMBER"},
+                        {"ProductPartNumber", "PRODUCT_PART_NUMBER"},
+                        {"ProductVersion", "PRODUCT_VERSION"},
+                        {"ProductExtra", "PRODUCT_INFO_AM1"},
+                        {"ProductManufactureDate", "BOARD_MANUFACTURE_DATE"},
+                        {"ProductAssetTag", "PRODUCT_ASSET_TAG"},
+                        {"ProductGUID", "CHASSIS_INFO_AM1"}};
+                    // Initialize the last property to be set
+                    std::string lastProperty = "CHASSIS_INFO_AM1";
+                    std::optional<std::string> productManufacturer;
+                    std::optional<std::string> productSerialNumber;
+                    std::optional<std::string> productPartNumber;
+                    std::optional<std::string> productVersion;
+                    std::optional<std::string> productExtra;
+                    std::optional<std::string> productManufactureDate;
+                    std::optional<std::string> productAssetTag;
+                    std::optional<std::string> productGUID;
+                    // Read the data from the post request and populate the
+                    // optional variables
+                    if (!json_util::readJsonPatch(
+                            req, asyncResp->res, "ProductManufacturer",
+                            productManufacturer, "ProductSerialNumber",
+                            productSerialNumber, "ProductPartNumber",
+                            productPartNumber, "ProductVersion", productVersion,
+                            "ProductExtra", productExtra,
+                            "ProductManufactureDate", productManufactureDate,
+                            "ProductAssetTag", productAssetTag, "ProductGUID",
+                            productGUID))
+                    {
+                        return;
+                    }
+                    // Only sync the OEM FRU data one time when setting the last
+                    // property Determine the last property to set based on the
+                    // provided values
+                    if (productManufacturer)
+                    {
+                        lastProperty = propertyMap["ProductManufacturer"];
+                    }
+                    if (productSerialNumber)
+                    {
+                        lastProperty = propertyMap["ProductSerialNumber"];
+                    }
+                    if (productPartNumber)
+                    {
+                        lastProperty = propertyMap["ProductPartNumber"];
+                    }
+                    if (productVersion)
+                    {
+                        lastProperty = propertyMap["ProductVersion"];
+                    }
+                    if (productExtra)
+                    {
+                        lastProperty = propertyMap["ProductExtra"];
+                    }
+                    if (productManufactureDate)
+                    {
+                        lastProperty = propertyMap["ProductManufactureDate"];
+                    }
+                    if (productAssetTag)
+                    {
+                        lastProperty = propertyMap["ProductAssetTag"];
+                    }
+                    if (productGUID)
+                    {
+                        lastProperty = propertyMap["ProductGUID"];
+                    }
+                    // Set each property with OEM data using the
+                    // setOemFruProperty function
+                    if (productManufacturer)
+                    {
+                        setOemFruProperty(asyncResp,
+                                          propertyMap["ProductManufacturer"],
+                                          lastProperty, *productManufacturer);
+                    }
+                    if (productSerialNumber)
+                    {
+                        setOemFruProperty(asyncResp,
+                                          propertyMap["ProductSerialNumber"],
+                                          lastProperty, *productSerialNumber);
+                    }
+                    if (productPartNumber)
+                    {
+                        setOemFruProperty(asyncResp,
+                                          propertyMap["ProductPartNumber"],
+                                          lastProperty, *productPartNumber);
+                    }
+                    if (productVersion)
+                    {
+                        setOemFruProperty(asyncResp,
+                                          propertyMap["ProductVersion"],
+                                          lastProperty, *productVersion);
+                    }
+                    if (productExtra)
+                    {
+                        setOemFruProperty(asyncResp,
+                                          propertyMap["ProductExtra"],
+                                          lastProperty, *productExtra);
+                    }
+                    if (productManufactureDate)
+                    {
+                        setOemFruProperty(
+                            asyncResp, propertyMap["ProductManufactureDate"],
+                            lastProperty, *productManufactureDate);
+                    }
+                    if (productAssetTag)
+                    {
+                        setOemFruProperty(asyncResp,
+                                          propertyMap["ProductAssetTag"],
+                                          lastProperty, *productAssetTag);
+                    }
+                    if (productGUID)
+                    {
+                        setOemFruProperty(asyncResp, propertyMap["ProductGUID"],
+                                          lastProperty, *productGUID);
+                    }
+                });
             return;
         }
         // Respond with action not supported if the request is from Redfish Host
@@ -1430,111 +1455,116 @@ inline void requestRoutesNvidiaOemBf(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    [[maybe_unused]] const std::string& managerName) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        bluefield::getIsOemNvidiaRshimEnable(asyncResp);
-    });
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                bluefield::getIsOemNvidiaRshimEnable(asyncResp);
+            });
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Nvidia/")
         .privileges(redfish::privileges::patchManager)
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    [[maybe_unused]] const std::string& managerName) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        std::optional<nlohmann::json> bmcRshim;
-        if (!redfish::json_util::readJsonPatch(req, asyncResp->res, "BmcRShim",
-                                               bmcRshim))
-        {
-            BMCWEB_LOG_ERROR(
-                "Illegal Property {}",
-                asyncResp->res.jsonValue.dump(
-                    2, ' ', true, nlohmann::json::error_handler_t::replace));
-            return;
-        }
-        if (bmcRshim)
-        {
-            std::optional<bool> bmcRshimEnabled;
-            if (!redfish::json_util::readJson(*bmcRshim, asyncResp->res,
-                                              "BmcRShimEnabled",
-                                              bmcRshimEnabled))
-            {
-                BMCWEB_LOG_ERROR("Illegal Property {}",
-                                 asyncResp->res.jsonValue.dump(
-                                     2, ' ', true,
-                                     nlohmann::json::error_handler_t::replace));
-                return;
-            }
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                std::optional<nlohmann::json> bmcRshim;
+                if (!redfish::json_util::readJsonPatch(req, asyncResp->res,
+                                                       "BmcRShim", bmcRshim))
+                {
+                    BMCWEB_LOG_ERROR(
+                        "Illegal Property {}",
+                        asyncResp->res.jsonValue.dump(
+                            2, ' ', true,
+                            nlohmann::json::error_handler_t::replace));
+                    return;
+                }
+                if (bmcRshim)
+                {
+                    std::optional<bool> bmcRshimEnabled;
+                    if (!redfish::json_util::readJson(*bmcRshim, asyncResp->res,
+                                                      "BmcRShimEnabled",
+                                                      bmcRshimEnabled))
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Illegal Property {}",
+                            asyncResp->res.jsonValue.dump(
+                                2, ' ', true,
+                                nlohmann::json::error_handler_t::replace));
+                        return;
+                    }
 
-            bluefield::requestOemNvidiaRshim(asyncResp, *bmcRshimEnabled);
-        }
-    });
+                    bluefield::requestOemNvidiaRshim(asyncResp,
+                                                     *bmcRshimEnabled);
+                }
+            });
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/Switch")
         .privileges(redfish::privileges::getSwitch)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    [[maybe_unused]] const std::string& systemName) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        bluefield::getOemNvidiaSwitchStatus(asyncResp);
-    });
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                bluefield::getOemNvidiaSwitchStatus(asyncResp);
+            });
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/Switch")
         .privileges(redfish::privileges::patchSwitch)
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    [[maybe_unused]] const std::string& systemName) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        std::optional<nlohmann::json> torSwitchMode;
-        if (!redfish::json_util::readJsonPatch(req, asyncResp->res,
-                                               "TorSwitchMode", torSwitchMode))
-        {
-            BMCWEB_LOG_ERROR(
-                "Illegal Property {}",
-                asyncResp->res.jsonValue.dump(
-                    2, ' ', true, nlohmann::json::error_handler_t::replace));
-            return;
-        }
-        if (torSwitchMode)
-        {
-            std::optional<bool> bmcOobEnabled;
-            std::optional<bool> dpuOobEnabled;
-            if (!redfish::json_util::readJson(*torSwitchMode, asyncResp->res,
-                                              "BmcOobEnabled", bmcOobEnabled,
-                                              "DpuOobEnabled", dpuOobEnabled))
-            {
-                BMCWEB_LOG_ERROR("Illegal Property {}",
-                                 asyncResp->res.jsonValue.dump(
-                                     2, ' ', true,
-                                     nlohmann::json::error_handler_t::replace));
-                return;
-            }
-            bluefield::requestOemNvidiaSwitch(asyncResp, *bmcOobEnabled,
-                                              *dpuOobEnabled);
-        }
-    });
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                std::optional<nlohmann::json> torSwitchMode;
+                if (!redfish::json_util::readJsonPatch(
+                        req, asyncResp->res, "TorSwitchMode", torSwitchMode))
+                {
+                    BMCWEB_LOG_ERROR(
+                        "Illegal Property {}",
+                        asyncResp->res.jsonValue.dump(
+                            2, ' ', true,
+                            nlohmann::json::error_handler_t::replace));
+                    return;
+                }
+                if (torSwitchMode)
+                {
+                    std::optional<bool> bmcOobEnabled;
+                    std::optional<bool> dpuOobEnabled;
+                    if (!redfish::json_util::readJson(
+                            *torSwitchMode, asyncResp->res, "BmcOobEnabled",
+                            bmcOobEnabled, "DpuOobEnabled", dpuOobEnabled))
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Illegal Property {}",
+                            asyncResp->res.jsonValue.dump(
+                                2, ' ', true,
+                                nlohmann::json::error_handler_t::replace));
+                        return;
+                    }
+                    bluefield::requestOemNvidiaSwitch(asyncResp, *bmcOobEnabled,
+                                                      *dpuOobEnabled);
+                }
+            });
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/Switch.Reset")
         .privileges(redfish::privileges::postSwitch)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    [[maybe_unused]] const std::string& systemName) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        bluefield::resetTorSwitch(asyncResp);
-    });
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                bluefield::resetTorSwitch(asyncResp);
+            });
 
     BMCWEB_ROUTE(app,
                  "/redfish/v1/Systems/<str>/Oem/Nvidia/Truststore/Certificates")
@@ -1573,38 +1603,40 @@ inline void requestRoutesNvidiaOemBf(App& app)
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/SOC.ForceReset")
         .privileges(redfish::privileges::postComputerSystem)
-        .methods(boost::beast::http::verb::post)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        auto dataOut = std::make_shared<boost::process::ipstream>();
-        auto dataErr = std::make_shared<boost::process::ipstream>();
-        auto callback = [asyncResp, dataOut,
-                         dataErr](const boost::system::error_code& ec,
-                                  int errorCode) mutable {
-            if (ec)
+        .methods(
+            boost::beast::http::verb::
+                post)([&app](
+                          const crow::Request& req,
+                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          [[maybe_unused]] const std::string& systemName) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
-                BMCWEB_LOG_ERROR(
-                    "mlnx_bf_reset_control script failed with error code: {} {}",
-                    ec, errorCode);
-                messages::operationFailed(asyncResp->res);
                 return;
             }
-            BMCWEB_LOG_DEBUG("SOC Hard Reset");
-            messages::success(asyncResp->res);
-        };
+            auto dataOut = std::make_shared<boost::process::ipstream>();
+            auto dataErr = std::make_shared<boost::process::ipstream>();
+            auto callback = [asyncResp, dataOut,
+                             dataErr](const boost::system::error_code& ec,
+                                      int errorCode) mutable {
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "mlnx_bf_reset_control script failed with error code: {} {}",
+                        ec, errorCode);
+                    messages::operationFailed(asyncResp->res);
+                    return;
+                }
+                BMCWEB_LOG_DEBUG("SOC Hard Reset");
+                messages::success(asyncResp->res);
+            };
 
-        std::string command =
-            "/usr/sbin/mlnx_bf_reset_control soc_hard_reset_ignore_host";
-        boost::process::async_system(
-            crow::connections::systemBus->get_io_context(), std::move(callback),
-            command, bp::std_in.close(), bp::std_out > *dataOut,
-            bp::std_err > *dataErr);
-    });
+            std::string command =
+                "/usr/sbin/mlnx_bf_reset_control soc_hard_reset_ignore_host";
+            boost::process::async_system(
+                crow::connections::systemBus->get_io_context(),
+                std::move(callback), command, bp::std_in.close(),
+                bp::std_out > *dataOut, bp::std_err > *dataErr);
+        });
 
     if constexpr (BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)
     {
@@ -1648,108 +1680,111 @@ inline void requestRoutesNvidiaOemBf(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    [[maybe_unused]] const std::string& systemName) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        bluefield::handleSetOemFru(app, req, asyncResp);
-    });
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                bluefield::handleSetOemFru(app, req, asyncResp);
+            });
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia")
         .privileges(redfish::privileges::getComputerSystem)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    [[maybe_unused]] const std::string& systemName) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        asyncResp->res.jsonValue["@odata.id"] =
-            "/redfish/v1/Systems/" +
-            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Oem/Nvidia";
-        asyncResp->res.jsonValue["@odata.type"] =
-            "#NvidiaComputerSystem.v1_0_0.NvidiaComputerSystem";
-        auto& nvidia = asyncResp->res.jsonValue;
-        auto& actions = nvidia["Actions"];
-        auto& socForceReset = actions["#SOC.ForceReset"];
-        if constexpr (BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)
-        {
-            auto& connectx = nvidia["Connectx"];
-            auto& hostRshimAction = actions["#HostRshim.Set"];
-            auto& modeAction = actions["#Mode.Set"];
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                asyncResp->res.jsonValue["@odata.id"] =
+                    "/redfish/v1/Systems/" +
+                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Oem/Nvidia";
+                asyncResp->res.jsonValue["@odata.type"] =
+                    "#NvidiaComputerSystem.v1_0_0.NvidiaComputerSystem";
+                auto& nvidia = asyncResp->res.jsonValue;
+                auto& actions = nvidia["Actions"];
+                auto& socForceReset = actions["#SOC.ForceReset"];
+                if constexpr (BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)
+                {
+                    auto& connectx = nvidia["Connectx"];
+                    auto& hostRshimAction = actions["#HostRshim.Set"];
+                    auto& modeAction = actions["#Mode.Set"];
 
-            bluefield::mode.getProperty(&nvidia, asyncResp);
-            bluefield::hostRshim.getProperty(&nvidia, asyncResp);
-            connectx["StrapOptions"]["@odata.id"] = bluefield::dpuStrpOptionGet;
-            connectx["ExternalHostPrivilege"]["@odata.id"] =
-                bluefield::dpuHostPrivGet;
-            bluefield::mode.getActionInfo(&modeAction);
-            bluefield::hostRshim.getActionInfo(&hostRshimAction);
+                    bluefield::mode.getProperty(&nvidia, asyncResp);
+                    bluefield::hostRshim.getProperty(&nvidia, asyncResp);
+                    connectx["StrapOptions"]["@odata.id"] =
+                        bluefield::dpuStrpOptionGet;
+                    connectx["ExternalHostPrivilege"]["@odata.id"] =
+                        bluefield::dpuHostPrivGet;
+                    bluefield::mode.getActionInfo(&modeAction);
+                    bluefield::hostRshim.getActionInfo(&hostRshimAction);
 
-            nvidia["Truststore"]["Certificates"]["@odata.id"] =
-                "/redfish/v1/Systems/" +
-                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                "/Oem/Nvidia/Truststore/Certificates";
+                    nvidia["Truststore"]["Certificates"]["@odata.id"] =
+                        "/redfish/v1/Systems/" +
+                        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                        "/Oem/Nvidia/Truststore/Certificates";
 
-            actions["#TruststoreCertificates.ResetKeys"]["target"] =
-                "/redfish/v1/Systems/" +
-                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                "/Oem/Nvidia/Actions/TruststoreCertificates.ResetKeys";
+                    actions["#TruststoreCertificates.ResetKeys"]["target"] =
+                        "/redfish/v1/Systems/" +
+                        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                        "/Oem/Nvidia/Actions/TruststoreCertificates.ResetKeys";
 
-            actions["#TruststoreCertificates.ResetKeys"]
-                   ["ResetKeysType@Redfish.AllowableValues"] = {
-                       "DeleteAllKeys"};
-        }
-        socForceReset["target"] = bluefield::socForceResetTraget;
-        bluefield::handleGetOemFru(app, req, asyncResp);
-        sdbusplus::asio::getAllProperties(
-            *crow::connections::systemBus, bluefield::dpuFruObj,
-            bluefield::dpuFruPath,
-            "xyz.openbmc_project.Inventory.Host.BfFruInfo",
-            [asyncResp](
-                const boost::system::error_code ec,
-                const dbus::utility::DBusPropertiesMap& propertiesList) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-                return;
-            }
+                    actions["#TruststoreCertificates.ResetKeys"]
+                           ["ResetKeysType@Redfish.AllowableValues"] = {
+                               "DeleteAllKeys"};
+                }
+                socForceReset["target"] = bluefield::socForceResetTraget;
+                bluefield::handleGetOemFru(app, req, asyncResp);
+                sdbusplus::asio::getAllProperties(
+                    *crow::connections::systemBus, bluefield::dpuFruObj,
+                    bluefield::dpuFruPath,
+                    "xyz.openbmc_project.Inventory.Host.BfFruInfo",
+                    [asyncResp](const boost::system::error_code ec,
+                                const dbus::utility::DBusPropertiesMap&
+                                    propertiesList) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                            return;
+                        }
 
-            const std::string* baseMac = nullptr;
-            const std::string* baseGuid = nullptr;
-            const std::string* description = nullptr;
+                        const std::string* baseMac = nullptr;
+                        const std::string* baseGuid = nullptr;
+                        const std::string* description = nullptr;
 
-            const bool success = sdbusplus::unpackPropertiesNoThrow(
-                dbus_utils::UnpackErrorPrinter(), propertiesList, "Description",
-                description, "BaseGUID", baseGuid, "BaseMAC", baseMac);
+                        const bool success = sdbusplus::unpackPropertiesNoThrow(
+                            dbus_utils::UnpackErrorPrinter(), propertiesList,
+                            "Description", description, "BaseGUID", baseGuid,
+                            "BaseMAC", baseMac);
 
-            if (!success)
-            {
-                return;
-            }
+                        if (!success)
+                        {
+                            return;
+                        }
 
-            if (description != nullptr)
-            {
-                asyncResp->res.jsonValue["Description"] = *description;
-            }
+                        if (description != nullptr)
+                        {
+                            asyncResp->res.jsonValue["Description"] =
+                                *description;
+                        }
 
-            if (baseGuid != nullptr)
-            {
-                asyncResp->res.jsonValue["BaseGUID"] = *baseGuid;
-            }
+                        if (baseGuid != nullptr)
+                        {
+                            asyncResp->res.jsonValue["BaseGUID"] = *baseGuid;
+                        }
 
-            if (baseMac != nullptr)
-            {
-                asyncResp->res.jsonValue["BaseMAC"] = *baseMac;
-            }
-        });
+                        if (baseMac != nullptr)
+                        {
+                            asyncResp->res.jsonValue["BaseMAC"] = *baseMac;
+                        }
+                    });
 #ifdef BMCWEB_PROFILES
-        nvidia["Profiles"]["@odata.id"] =
-            "/redfish/v1/Systems/" +
-            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Oem/Nvidia/SystemConfigurationProfile";
+                nvidia["Profiles"]["@odata.id"] =
+                    "/redfish/v1/Systems/" +
+                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                    "/Oem/Nvidia/SystemConfigurationProfile";
 #endif
-    });
+            });
     if constexpr (BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)
     {
         BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
@@ -1759,16 +1794,18 @@ inline void requestRoutesNvidiaOemBf(App& app)
             .methods(boost::beast::http::verb::get)(
                 [&app](const crow::Request& req,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-            auto& strapOptionsJson = asyncResp->res.jsonValue["StrapOptions"];
-            auto& mask = asyncResp->res.jsonValue["Mask"];
+                    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                    {
+                        return;
+                    }
+                    auto& strapOptionsJson =
+                        asyncResp->res.jsonValue["StrapOptions"];
+                    auto& mask = asyncResp->res.jsonValue["Mask"];
 
-            bluefield::starpOptions.getProperty(&strapOptionsJson, asyncResp);
-            bluefield::starpOptionsMask.getProperty(&mask, asyncResp);
-        });
+                    bluefield::starpOptions.getProperty(&strapOptionsJson,
+                                                        asyncResp);
+                    bluefield::starpOptionsMask.getProperty(&mask, asyncResp);
+                });
 
         BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
                               std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -1777,18 +1814,20 @@ inline void requestRoutesNvidiaOemBf(App& app)
             .methods(boost::beast::http::verb::get)(
                 [&app](const crow::Request& req,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-            auto& hostPriv = asyncResp->res.jsonValue["ExternalHostPrivilege"];
-            auto& actions =
-                asyncResp->res
-                    .jsonValue["Actions"]["#ExternalHostPrivilege.Set"];
+                    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                    {
+                        return;
+                    }
+                    auto& hostPriv =
+                        asyncResp->res.jsonValue["ExternalHostPrivilege"];
+                    auto& actions =
+                        asyncResp->res
+                            .jsonValue["Actions"]["#ExternalHostPrivilege.Set"];
 
-            bluefield::externalHostPrivilege.getProperty(&hostPriv, asyncResp);
-            bluefield::externalHostPrivilege.getActionInfo(&actions);
-        });
+                    bluefield::externalHostPrivilege.getProperty(&hostPriv,
+                                                                 asyncResp);
+                    bluefield::externalHostPrivilege.getActionInfo(&actions);
+                });
     }
 }
 

@@ -296,22 +296,20 @@ void doSetAsyncAndGatherResult(
     statusInfo->timeoutTimer.expires_after(timeout);
     statusInfo->timeoutTimer.async_wait(
         [statusInfo](boost::system::error_code ec) {
-        if (ec != boost::asio::error::operation_aborted)
-        {
-            BMCWEB_LOG_INFO("Set Async : Operation timed out.");
-            messages::operationTimeout(statusInfo->aresp->res);
-        }
-    });
+            if (ec != boost::asio::error::operation_aborted)
+            {
+                BMCWEB_LOG_INFO("Set Async : Operation timed out.");
+                messages::operationTimeout(statusInfo->aresp->res);
+            }
+        });
 }
 
 template <typename Callback, typename Value>
-void doGenericSetAsyncAndGatherResult(std::shared_ptr<bmcweb::AsyncResp> resp,
-                                      const std::chrono::milliseconds timeout,
-                                      const std::string& service,
-                                      const std::string& object,
-                                      const std::string& interface,
-                                      const std::string& property,
-                                      Value&& value, Callback&& callback)
+void doGenericSetAsyncAndGatherResult(
+    std::shared_ptr<bmcweb::AsyncResp> resp,
+    const std::chrono::milliseconds timeout, const std::string& service,
+    const std::string& object, const std::string& interface,
+    const std::string& property, Value&& value, Callback&& callback)
 {
     doSetAsyncAndGatherResult(
         resp, timeout, service, object, interface, property,

@@ -64,11 +64,10 @@ using SPDMCertificates = std::vector<std::tuple<uint8_t, std::string>>;
  * @param[in] objectPath  Path of the D-Bus service object
  * @return None
  */
-inline void
-    getChassisCertificate(const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& objectPath,
-                          const std::string& certificateID)
+inline void getChassisCertificate(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath, const std::string& certificateID)
 {
     // 1) Get all the measurement object
     // 2) Measurement object have the association to the inventory object
@@ -80,99 +79,108 @@ inline void
         [req, asyncResp, objectPath,
          certificateID](const boost::system::error_code ec,
                         const dbus::utility::ManagedObjectType& objects) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        for (const auto& object : objects)
-        {
-            crow::connections::systemBus->async_method_call(
-                [req, asyncResp, object, objectPath,
-                 certificateID](const boost::system::error_code ec,
-                                std::variant<std::vector<std::string>>& resp) {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR("Didn't find the inventory object");
-                    return; // should have associoated inventory object.
-                }
-                std::vector<std::string>* data =
-                    std::get_if<std::vector<std::string>>(&resp);
-                if (data == nullptr)
-                {
-                    // Object must have associated inventory object.
-                    return;
-                }
-
-                const std::string& associatedInventoryPath = data->front();
-                if (objectPath == associatedInventoryPath)
-                {
-                    // Certificates is of collection of slot and it's
-                    // associated certificate.
-                    // Slot is the index of the slot which has to be
-                    // used by the SPDM.
-                    const uint8_t* slot = nullptr;
-                    const erot::SPDMCertificates* certs = nullptr;
-                    for (const auto& interface : object.second)
-                    {
-                        if (interface.first == erot::spdmResponderIntf)
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            for (const auto& object : objects)
+            {
+                crow::connections::systemBus->async_method_call(
+                    [req, asyncResp, object, objectPath, certificateID](
+                        const boost::system::error_code ec,
+                        std::variant<std::vector<std::string>>& resp) {
+                        if (ec)
                         {
-                            // rest of the properties are string.
-                            for (const auto& property : interface.second)
+                            BMCWEB_LOG_ERROR(
+                                "Didn't find the inventory object");
+                            return; // should have associoated inventory object.
+                        }
+                        std::vector<std::string>* data =
+                            std::get_if<std::vector<std::string>>(&resp);
+                        if (data == nullptr)
+                        {
+                            // Object must have associated inventory object.
+                            return;
+                        }
+
+                        const std::string& associatedInventoryPath =
+                            data->front();
+                        if (objectPath == associatedInventoryPath)
+                        {
+                            // Certificates is of collection of slot and it's
+                            // associated certificate.
+                            // Slot is the index of the slot which has to be
+                            // used by the SPDM.
+                            const uint8_t* slot = nullptr;
+                            const erot::SPDMCertificates* certs = nullptr;
+                            for (const auto& interface : object.second)
                             {
-                                if (property.first == "Certificate")
+                                if (interface.first == erot::spdmResponderIntf)
                                 {
-                                    certs = std::get_if<erot::SPDMCertificates>(
-                                        &property.second);
-                                }
-                                if (property.first == "Slot")
-                                {
-                                    slot =
-                                        std::get_if<uint8_t>(&property.second);
-                                    BMCWEB_LOG_DEBUG("Slot ID:{}", *slot);
+                                    // rest of the properties are string.
+                                    for (const auto& property :
+                                         interface.second)
+                                    {
+                                        if (property.first == "Certificate")
+                                        {
+                                            certs = std::get_if<
+                                                erot::SPDMCertificates>(
+                                                &property.second);
+                                        }
+                                        if (property.first == "Slot")
+                                        {
+                                            slot = std::get_if<uint8_t>(
+                                                &property.second);
+                                            BMCWEB_LOG_DEBUG("Slot ID:{}",
+                                                             *slot);
+                                        }
+                                    }
                                 }
                             }
-                        }
-                    }
-                    // Get the desired certificated and convert it into
-                    // PEM.
-                    auto chassisID =
-                        std::filesystem::path(objectPath).filename().string();
-                    asyncResp->res.jsonValue = {
-                        {"@odata.id", req.url()},
-                        {"@odata.type", "#Certificate.v1_5_0.Certificate"},
-                        {"Id", certificateID},
-                        {"Name", chassisID + " Certificate Chain"},
-                        {"CertificateType", "PEMchain"},
-                        {"CertificateUsageTypes",
-                         nlohmann::json::array({"Device"})},
-                        {"SPDM", {{"SlotId", *slot}}},
-                    };
+                            // Get the desired certificated and convert it into
+                            // PEM.
+                            auto chassisID = std::filesystem::path(objectPath)
+                                                 .filename()
+                                                 .string();
+                            asyncResp->res.jsonValue = {
+                                {"@odata.id", req.url()},
+                                {"@odata.type",
+                                 "#Certificate.v1_5_0.Certificate"},
+                                {"Id", certificateID},
+                                {"Name", chassisID + " Certificate Chain"},
+                                {"CertificateType", "PEMchain"},
+                                {"CertificateUsageTypes",
+                                 nlohmann::json::array({"Device"})},
+                                {"SPDM", {{"SlotId", *slot}}},
+                            };
 
-                    if (certs && slot && certs->size() > 0)
-                    {
-                        auto it = std::find_if(
-                            (*certs).begin(), (*certs).end(),
-                            [slot](
-                                const std::tuple<uint8_t, std::string>& cert) {
-                            return std::get<0>(cert) == (*slot);
-                        });
-                        if (it != (*certs).end())
-                        {
-                            std::cout << "Found" << std::endl;
+                            if (certs && slot && certs->size() > 0)
+                            {
+                                auto it = std::find_if(
+                                    (*certs).begin(), (*certs).end(),
+                                    [slot](
+                                        const std::tuple<uint8_t, std::string>&
+                                            cert) {
+                                        return std::get<0>(cert) == (*slot);
+                                    });
+                                if (it != (*certs).end())
+                                {
+                                    std::cout << "Found" << std::endl;
+                                }
+                                std::string certStr = std::get<1>(*it);
+                                asyncResp->res.jsonValue["CertificateString"] =
+                                    certStr;
+                            }
                         }
-                        std::string certStr = std::get<1>(*it);
-                        asyncResp->res.jsonValue["CertificateString"] = certStr;
-                    }
-                }
-            },
-                "xyz.openbmc_project.ObjectMapper",
-                std::string(object.first) + "/inventory_object",
-                "org.freedesktop.DBus.Properties", "Get",
-                "xyz.openbmc_project.Association", "endpoints");
-        }
-    },
+                    },
+                    "xyz.openbmc_project.ObjectMapper",
+                    std::string(object.first) + "/inventory_object",
+                    "org.freedesktop.DBus.Properties", "Get",
+                    "xyz.openbmc_project.Association", "endpoints");
+            }
+        },
         erot::spdmServiceName, erot::spdmObjectPath,
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
@@ -190,9 +198,9 @@ inline void getChassisOEMComponentProtected(
     const std::string& path)
 {
     std::string objPath = path + "/inventory";
-    chassis_utils::getAssociationEndpoint(
-        objPath,
-        [objPath, asyncResp](const bool& status, const std::string& ep) {
+    chassis_utils::getAssociationEndpoint(objPath, [objPath, asyncResp](
+                                                       const bool& status,
+                                                       const std::string& ep) {
         if (!status)
         {
             BMCWEB_LOG_DEBUG("Unable to get the association endpoint for {}",
@@ -214,8 +222,9 @@ inline void getChassisOEMComponentProtected(
 
             return;
         }
-        chassis_utils::getRedfishURL(
-            ep, [ep, asyncResp](const bool& status, const std::string& url) {
+        chassis_utils::getRedfishURL(ep, [ep,
+                                          asyncResp](const bool& status,
+                                                     const std::string& url) {
             std::string redfishURL = url;
             if (!status)
             {
@@ -261,230 +270,246 @@ inline void getEROTChassis(const crow::Request& req,
         [req, asyncResp, chassisId(std::string(chassisId)),
          isCpuEROT](const boost::system::error_code ec,
                     const crow::openbmc_mapper::GetSubTreeType& subtree) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        // Iterate over all retrieved ObjectPaths.
-        for (const std::pair<
-                 std::string,
-                 std::vector<std::pair<std::string, std::vector<std::string>>>>&
-                 object : subtree)
-        {
-            const std::string& path = object.first;
-            const std::vector<std::pair<std::string, std::vector<std::string>>>&
-                connectionNames = object.second;
-
-            sdbusplus::message::object_path objPath(path);
-            if (objPath.filename() != chassisId)
+            if (ec)
             {
-                continue;
+                messages::internalError(asyncResp->res);
+                return;
             }
-
-            if (connectionNames.size() < 1)
+            // Iterate over all retrieved ObjectPaths.
+            for (const std::pair<std::string,
+                                 std::vector<std::pair<
+                                     std::string, std::vector<std::string>>>>&
+                     object : subtree)
             {
-                BMCWEB_LOG_ERROR("Got 0 Connection names");
-                continue;
-            }
+                const std::string& path = object.first;
+                const std::vector<
+                    std::pair<std::string, std::vector<std::string>>>&
+                    connectionNames = object.second;
 
-            if constexpr (BMCWEB_EROT_RESET)
-            {
-                asyncResp->res
-                    .jsonValue["Actions"]["#Chassis.Reset"]["target"] =
-                    "/redfish/v1/Chassis/" + chassisId +
-                    "/Actions/Chassis.Reset";
-                asyncResp->res.jsonValue["Actions"]["#Chassis.Reset"]
-                                        ["@Redfish.ActionInfo"] =
-                    "/redfish/v1/Chassis/" + chassisId + "/ResetActionInfo";
-            }
+                sdbusplus::message::object_path objPath(path);
+                if (objPath.filename() != chassisId)
+                {
+                    continue;
+                }
 
-            if constexpr (BMCWEB_DOT_SUPPORT)
-            {
-                auto& oemActionsJsonDot =
-                    asyncResp->res.jsonValue["Actions"]["Oem"];
-                std::string oemActionsRouteDot = "/redfish/v1/Chassis/" +
-                                                 chassisId + "/Actions/Oem/";
-                oemActionsJsonDot["#CAKInstall"]["target"] =
-                    oemActionsRouteDot + "CAKInstall";
-                oemActionsJsonDot["#CAKLock"]["target"] = oemActionsRouteDot +
-                                                          "CAKLock";
-                oemActionsJsonDot["#CAKTest"]["target"] = oemActionsRouteDot +
-                                                          "CAKTest";
-                oemActionsJsonDot["#DOTDisable"]["target"] =
-                    oemActionsRouteDot + "DOTDisable";
-                oemActionsJsonDot["#DOTTokenInstall"]["target"] =
-                    oemActionsRouteDot + "DOTTokenInstall";
+                if (connectionNames.size() < 1)
+                {
+                    BMCWEB_LOG_ERROR("Got 0 Connection names");
+                    continue;
+                }
+
+                if constexpr (BMCWEB_EROT_RESET)
+                {
+                    asyncResp->res
+                        .jsonValue["Actions"]["#Chassis.Reset"]["target"] =
+                        "/redfish/v1/Chassis/" + chassisId +
+                        "/Actions/Chassis.Reset";
+                    asyncResp->res.jsonValue["Actions"]["#Chassis.Reset"]
+                                            ["@Redfish.ActionInfo"] =
+                        "/redfish/v1/Chassis/" + chassisId + "/ResetActionInfo";
+                }
+
+                if constexpr (BMCWEB_DOT_SUPPORT)
+                {
+                    auto& oemActionsJsonDot =
+                        asyncResp->res.jsonValue["Actions"]["Oem"];
+                    std::string oemActionsRouteDot =
+                        "/redfish/v1/Chassis/" + chassisId + "/Actions/Oem/";
+                    oemActionsJsonDot["#CAKInstall"]["target"] =
+                        oemActionsRouteDot + "CAKInstall";
+                    oemActionsJsonDot["#CAKLock"]["target"] =
+                        oemActionsRouteDot + "CAKLock";
+                    oemActionsJsonDot["#CAKTest"]["target"] =
+                        oemActionsRouteDot + "CAKTest";
+                    oemActionsJsonDot["#DOTDisable"]["target"] =
+                        oemActionsRouteDot + "DOTDisable";
+                    oemActionsJsonDot["#DOTTokenInstall"]["target"] =
+                        oemActionsRouteDot + "DOTTokenInstall";
+
+                    if constexpr (BMCWEB_MANUAL_BOOT_MODE_SUPPORT)
+                    {
+                        auto& oemActionsJsonManualBoot =
+                            asyncResp->res.jsonValue["Actions"]["Oem"];
+                        oemActionsJsonManualBoot
+                            ["#NvidiaChassis.BootProtectedDevice"]["target"] =
+                                "/redfish/v1/Chassis/" + chassisId +
+                                "/Actions/Oem/NvidiaChassis.BootProtectedDevice";
+                    }
+                }
+
+                if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
+                {
+                    auto health = std::make_shared<HealthRollup>(
+                        path,
+                        [asyncResp](const std::string& rootHealth,
+                                    const std::string& healthRollup) {
+                            asyncResp->res.jsonValue["Status"]["Health"] =
+                                rootHealth;
+                            if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
+                            {
+                                asyncResp->res
+                                    .jsonValue["Status"]["HealthRollup"] =
+                                    healthRollup;
+                            } // BMCWEB_DISABLE_HEALTH_ROLLUP
+                        },
+                        &health_state::ok);
+                    health->start();
+                }
+                else
+                { // ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
+                    auto health = std::make_shared<HealthPopulate>(asyncResp);
+
+                    sdbusplus::asio::getProperty<std::vector<std::string>>(
+                        *crow::connections::systemBus,
+                        "xyz.openbmc_project.ObjectMapper",
+                        path + "/all_sensors",
+                        "xyz.openbmc_project.Association", "endpoints",
+                        [health](const boost::system::error_code ec2,
+                                 const std::vector<std::string>& resp) {
+                            if (ec2)
+                            {
+                                return; // no sensors = no failures
+                            }
+                            health->inventory = resp;
+                        });
+
+                    health->populate();
+                } // ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
+
+                asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+
+                asyncResp->res.jsonValue["@odata.type"] =
+                    "#Chassis.v1_22_0.Chassis";
+                asyncResp->res.jsonValue["@odata.id"] =
+                    "/redfish/v1/Chassis/" + chassisId;
+                asyncResp->res.jsonValue["Name"] = chassisId;
+                asyncResp->res.jsonValue["Id"] = chassisId;
+                if constexpr (!BMCWEB_NVIDIA_OEM_BF_PROPERTIES)
+                {
+                    auto certsObject = std::string("/redfish/v1/Chassis/") +
+                                       chassisId + "/Certificates";
+
+                    asyncResp->res.jsonValue["Certificates"]["@odata.id"] =
+                        certsObject;
+                }
+
+                asyncResp->res.jsonValue["Links"]["ManagedBy"] = {
+                    {{"@odata.id",
+                      "/redfish/v1/Managers/" +
+                          std::string(BMCWEB_REDFISH_MANAGER_URI_NAME)}}};
+
+                asyncResp->res.jsonValue["Links"]["ComputerSystems"] = {
+                    {{"@odata.id",
+                      "/redfish/v1/Systems/" +
+                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME)}}};
+
+                firmware_info::updateProtectedComponentLink(asyncResp,
+                                                            chassisId);
+                firmware_info::updateIrreversibleConfigEnabled(asyncResp,
+                                                               chassisId);
+
+                // Might have 2+ services to support different properties
+                for (size_t serviceIdx = 0; serviceIdx < connectionNames.size();
+                     serviceIdx++)
+                {
+                    // Check if the interface exists, then go ahead getting the
+                    // property value to prevent getting an internal error
+                    for (const auto& interface :
+                         connectionNames[serviceIdx].second)
+                    {
+                        if (interface == "xyz.openbmc_project.Common.UUID")
+                        {
+                            redfish::chassis_utils::getChassisUUID(
+                                req, asyncResp,
+                                connectionNames[serviceIdx].first, path, true);
+                        }
+                        else if (
+                            interface ==
+                            "xyz.openbmc_project.Inventory.Decorator.Location")
+                        {
+                            redfish::chassis_utils::getChassisLocationType(
+                                asyncResp, connectionNames[serviceIdx].first,
+                                path);
+                        }
+                        else if (
+                            interface ==
+                            "xyz.openbmc_project.Inventory.Decorator.LocationCode")
+                        {
+                            redfish::chassis_utils::getChassisLocationCode(
+                                asyncResp, connectionNames[serviceIdx].first,
+                                path);
+                        }
+                        else if (
+                            interface ==
+                            "xyz.openbmc_project.Inventory.Decorator.LocationContext")
+                        {
+                            redfish::chassis_utils::getChassisLocationContext(
+                                asyncResp, connectionNames[serviceIdx].first,
+                                path);
+                        }
+                        else if (interface ==
+                                 "xyz.openbmc_project.Inventory.Item.Chassis")
+                        {
+                            redfish::chassis_utils::getChassisType(
+                                asyncResp, connectionNames[serviceIdx].first,
+                                path);
+                        }
+                        else if (
+                            interface ==
+                            "xyz.openbmc_project.Inventory.Decorator.Asset")
+                        {
+                            redfish::chassis_utils::getChassisManufacturer(
+                                asyncResp, connectionNames[serviceIdx].first,
+                                path);
+
+                            redfish::chassis_utils::getChassisSerialNumber(
+                                asyncResp, connectionNames[serviceIdx].first,
+                                path);
+
+                            redfish::chassis_utils::getChassisSKU(
+                                asyncResp, connectionNames[serviceIdx].first,
+                                path);
+                        }
+                        else if (
+                            interface ==
+                            "xyz.openbmc_project.Inventory.Decorator.Replaceable")
+                        {
+                            redfish::chassis_utils::getChassisReplaceable(
+                                asyncResp, connectionNames[serviceIdx].first,
+                                path);
+                        }
+                    }
+                }
+
+                getChassisOEMComponentProtected(asyncResp, path);
+
+                // Link association to parent chassis
+                redfish::chassis_utils::getChassisLinksContainedBy(asyncResp,
+                                                                   objPath);
+                if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+                {
+                    redfish::conditions_utils::populateServiceConditions(
+                        asyncResp, chassisId);
+                } // BMCWEB_DISABLE_CONDITIONS_ARRAY
 
                 if constexpr (BMCWEB_MANUAL_BOOT_MODE_SUPPORT)
                 {
-                    auto& oemActionsJsonManualBoot =
-                        asyncResp->res.jsonValue["Actions"]["Oem"];
-                    oemActionsJsonManualBoot
-                        ["#NvidiaChassis.BootProtectedDevice"]["target"] =
-                            "/redfish/v1/Chassis/" + chassisId +
-                            "/Actions/Oem/NvidiaChassis.BootProtectedDevice";
-                }
-            }
-
-            if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-            {
-                auto health = std::make_shared<HealthRollup>(
-                    path,
-                    [asyncResp](const std::string& rootHealth,
-                                const std::string& healthRollup) {
-                    asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
-                    if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
+                    if (isCpuEROT)
                     {
-                        asyncResp->res.jsonValue["Status"]["HealthRollup"] =
-                            healthRollup;
-                    } // BMCWEB_DISABLE_HEALTH_ROLLUP
-                },
-                    &health_state::ok);
-                health->start();
-            }
-            else
-            { // ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
-                auto health = std::make_shared<HealthPopulate>(asyncResp);
-
-                sdbusplus::asio::getProperty<std::vector<std::string>>(
-                    *crow::connections::systemBus,
-                    "xyz.openbmc_project.ObjectMapper", path + "/all_sensors",
-                    "xyz.openbmc_project.Association", "endpoints",
-                    [health](const boost::system::error_code ec2,
-                             const std::vector<std::string>& resp) {
-                    if (ec2)
-                    {
-                        return; // no sensors = no failures
+                        manual_boot::bootModeQuery(req, asyncResp, chassisId);
                     }
-                    health->inventory = resp;
-                });
-
-                health->populate();
-            } // ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
-
-            asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#Chassis.v1_22_0.Chassis";
-            asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Chassis/" +
-                                                    chassisId;
-            asyncResp->res.jsonValue["Name"] = chassisId;
-            asyncResp->res.jsonValue["Id"] = chassisId;
-            if constexpr (!BMCWEB_NVIDIA_OEM_BF_PROPERTIES)
-            {
-                auto certsObject = std::string("/redfish/v1/Chassis/") +
-                                   chassisId + "/Certificates";
-
-                asyncResp->res.jsonValue["Certificates"]["@odata.id"] =
-                    certsObject;
-            }
-
-            asyncResp->res.jsonValue["Links"]["ManagedBy"] = {
-                {{"@odata.id",
-                  "/redfish/v1/Managers/" +
-                      std::string(BMCWEB_REDFISH_MANAGER_URI_NAME)}}};
-
-            asyncResp->res.jsonValue["Links"]["ComputerSystems"] = {
-                {{"@odata.id",
-                  "/redfish/v1/Systems/" +
-                      std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME)}}};
-
-            firmware_info::updateProtectedComponentLink(asyncResp, chassisId);
-            firmware_info::updateIrreversibleConfigEnabled(asyncResp,
-                                                           chassisId);
-
-            // Might have 2+ services to support different properties
-            for (size_t serviceIdx = 0; serviceIdx < connectionNames.size();
-                 serviceIdx++)
-            {
-                // Check if the interface exists, then go ahead getting the
-                // property value to prevent getting an internal error
-                for (const auto& interface : connectionNames[serviceIdx].second)
+                }
+                else
                 {
-                    if (interface == "xyz.openbmc_project.Common.UUID")
-                    {
-                        redfish::chassis_utils::getChassisUUID(
-                            req, asyncResp, connectionNames[serviceIdx].first,
-                            path, true);
-                    }
-                    else if (interface ==
-                             "xyz.openbmc_project.Inventory.Decorator.Location")
-                    {
-                        redfish::chassis_utils::getChassisLocationType(
-                            asyncResp, connectionNames[serviceIdx].first, path);
-                    }
-                    else if (
-                        interface ==
-                        "xyz.openbmc_project.Inventory.Decorator.LocationCode")
-                    {
-                        redfish::chassis_utils::getChassisLocationCode(
-                            asyncResp, connectionNames[serviceIdx].first, path);
-                    }
-                    else if (
-                        interface ==
-                        "xyz.openbmc_project.Inventory.Decorator.LocationContext")
-                    {
-                        redfish::chassis_utils::getChassisLocationContext(
-                            asyncResp, connectionNames[serviceIdx].first, path);
-                    }
-                    else if (interface ==
-                             "xyz.openbmc_project.Inventory.Item.Chassis")
-                    {
-                        redfish::chassis_utils::getChassisType(
-                            asyncResp, connectionNames[serviceIdx].first, path);
-                    }
-                    else if (interface ==
-                             "xyz.openbmc_project.Inventory.Decorator.Asset")
-                    {
-                        redfish::chassis_utils::getChassisManufacturer(
-                            asyncResp, connectionNames[serviceIdx].first, path);
-
-                        redfish::chassis_utils::getChassisSerialNumber(
-                            asyncResp, connectionNames[serviceIdx].first, path);
-
-                        redfish::chassis_utils::getChassisSKU(
-                            asyncResp, connectionNames[serviceIdx].first, path);
-                    }
-                    else if (
-                        interface ==
-                        "xyz.openbmc_project.Inventory.Decorator.Replaceable")
-                    {
-                        redfish::chassis_utils::getChassisReplaceable(
-                            asyncResp, connectionNames[serviceIdx].first, path);
-                    }
+                    (void)isCpuEROT;
                 }
+                return;
             }
 
-            getChassisOEMComponentProtected(asyncResp, path);
-
-            // Link association to parent chassis
-            redfish::chassis_utils::getChassisLinksContainedBy(asyncResp,
-                                                               objPath);
-            if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
-            {
-                redfish::conditions_utils::populateServiceConditions(asyncResp,
-                                                                     chassisId);
-            } // BMCWEB_DISABLE_CONDITIONS_ARRAY
-
-            if constexpr (BMCWEB_MANUAL_BOOT_MODE_SUPPORT)
-            {
-                if (isCpuEROT)
-                {
-                    manual_boot::bootModeQuery(req, asyncResp, chassisId);
-                }
-            }
-            else 
-            {
-                (void)isCpuEROT;
-            }
-            return;
-        }
-
-        // Couldn't find an object with that name.  return an error
-        messages::resourceNotFound(asyncResp->res, "#Chassis.v1_22_0.Chassis",
-                                   chassisId);
-    },
+            // Couldn't find an object with that name.  return an error
+            messages::resourceNotFound(asyncResp->res,
+                                       "#Chassis.v1_22_0.Chassis", chassisId);
+        },
 
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -504,78 +529,84 @@ inline void requestRoutesEROTChassisCertificate(App& app)
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& chassisID,
                    const std::string& certificateID) -> void {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        redfish::chassis_utils::isEROTChassis(
-            chassisID, [req, asyncResp, chassisID, certificateID](
-                           bool isEROT, [[maybe_unused]] bool isCpuEROT) {
-            if (!isEROT)
-            {
-                BMCWEB_LOG_DEBUG("Not a EROT chassis");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            if (certificateID != "CertChain")
-            {
-                BMCWEB_LOG_DEBUG("Not a valid Certificate ID");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            BMCWEB_LOG_DEBUG("URL={}", req.url());
-
-            // Get the correct objpath based on DBus interface
-            const std::array<const char*, 2> interfaces = {
-                "xyz.openbmc_project.Inventory.Item.Chassis",
-                "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
-
-            crow::connections::systemBus->async_method_call(
-                [req, asyncResp, chassisID(std::string(chassisID)),
-                 certificateID](
-                    const boost::system::error_code ec,
-                    const crow::openbmc_mapper::GetSubTreeType& subtree) {
-                if (ec)
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
-                    messages::internalError(asyncResp->res);
                     return;
                 }
-                // Iterate over all retrieved ObjectPaths.
-                for (const std::pair<
-                         std::string,
-                         std::vector<
-                             std::pair<std::string, std::vector<std::string>>>>&
-                         object : subtree)
-                {
-                    const std::string& path = object.first;
-                    const std::vector<
-                        std::pair<std::string, std::vector<std::string>>>&
-                        connectionNames = object.second;
+                redfish::chassis_utils::isEROTChassis(
+                    chassisID,
+                    [req, asyncResp, chassisID, certificateID](
+                        bool isEROT, [[maybe_unused]] bool isCpuEROT) {
+                        if (!isEROT)
+                        {
+                            BMCWEB_LOG_DEBUG("Not a EROT chassis");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        if (certificateID != "CertChain")
+                        {
+                            BMCWEB_LOG_DEBUG("Not a valid Certificate ID");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        BMCWEB_LOG_DEBUG("URL={}", req.url());
 
-                    sdbusplus::message::object_path objectPath(path);
-                    if (objectPath.filename() != chassisID)
-                    {
-                        continue;
-                    }
+                        // Get the correct objpath based on DBus interface
+                        const std::array<const char*, 2> interfaces = {
+                            "xyz.openbmc_project.Inventory.Item.Chassis",
+                            "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
 
-                    if (connectionNames.size() < 1)
-                    {
-                        BMCWEB_LOG_ERROR("Got 0 Connection names");
-                        continue;
-                    }
+                        crow::connections::systemBus->async_method_call(
+                            [req, asyncResp, chassisID(std::string(chassisID)),
+                             certificateID](
+                                const boost::system::error_code ec,
+                                const crow::openbmc_mapper::GetSubTreeType&
+                                    subtree) {
+                                if (ec)
+                                {
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                // Iterate over all retrieved ObjectPaths.
+                                for (const std::pair<
+                                         std::string,
+                                         std::vector<std::pair<
+                                             std::string,
+                                             std::vector<std::string>>>>&
+                                         object : subtree)
+                                {
+                                    const std::string& path = object.first;
+                                    const std::vector<std::pair<
+                                        std::string, std::vector<std::string>>>&
+                                        connectionNames = object.second;
 
-                    getChassisCertificate(req, asyncResp, objectPath,
-                                          certificateID);
-                    break;
-                }
-            },
+                                    sdbusplus::message::object_path objectPath(
+                                        path);
+                                    if (objectPath.filename() != chassisID)
+                                    {
+                                        continue;
+                                    }
 
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                "/xyz/openbmc_project/inventory", 0, interfaces);
-        });
-    });
+                                    if (connectionNames.size() < 1)
+                                    {
+                                        BMCWEB_LOG_ERROR(
+                                            "Got 0 Connection names");
+                                        continue;
+                                    }
+
+                                    getChassisCertificate(req, asyncResp,
+                                                          objectPath,
+                                                          certificateID);
+                                    break;
+                                }
+                            },
+
+                            "xyz.openbmc_project.ObjectMapper",
+                            "/xyz/openbmc_project/object_mapper",
+                            "xyz.openbmc_project.ObjectMapper", "GetSubTree",
+                            "/xyz/openbmc_project/inventory", 0, interfaces);
+                    });
+            });
 
     /**
      * Collection of Chassis(EROT) certificates
@@ -586,22 +617,25 @@ inline void requestRoutesEROTChassisCertificate(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& chassisID) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        std::string url = "/redfish/v1/Chassis/" + chassisID + "/Certificates";
-        asyncResp->res.jsonValue = {
-            {"@odata.id", url},
-            {"@odata.type", "#CertificateCollection.CertificateCollection"},
-            {"Name", "Certificates Collection"}};
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                std::string url =
+                    "/redfish/v1/Chassis/" + chassisID + "/Certificates";
+                asyncResp->res.jsonValue = {
+                    {"@odata.id", url},
+                    {"@odata.type",
+                     "#CertificateCollection.CertificateCollection"},
+                    {"Name", "Certificates Collection"}};
 
-        nlohmann::json& members = asyncResp->res.jsonValue["Members"];
-        members = nlohmann::json::array();
-        members.push_back({{"@odata.id", url + "/CertChain"}});
+                nlohmann::json& members = asyncResp->res.jsonValue["Members"];
+                members = nlohmann::json::array();
+                members.push_back({{"@odata.id", url + "/CertChain"}});
 
-        asyncResp->res.jsonValue["Members@odata.count"] = members.size();
-    });
+                asyncResp->res.jsonValue["Members@odata.count"] =
+                    members.size();
+            });
 }
 
 /**
@@ -615,11 +649,10 @@ inline void requestRoutesEROTChassisCertificate(App& app)
  * @param asyncResp Pointer to object holding response data
  * @param chassisId  Chassis ID
  */
-inline void
-    handleEROTChassisPatch(const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& chassisId,
-                           [[maybe_unused]] bool isCpuEROT)
+inline void handleEROTChassisPatch(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, [[maybe_unused]] bool isCpuEROT)
 {
     if (chassisId.empty())
     {
@@ -690,58 +723,60 @@ inline void
          backgroundCopyEnabled,
          inBandEnabled](const boost::system::error_code ec,
                         const crow::openbmc_mapper::GetSubTreeType& subtree) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        // Iterate over all retrieved ObjectPaths.
-        for (const std::pair<
-                 std::string,
-                 std::vector<std::pair<std::string, std::vector<std::string>>>>&
-                 object : subtree)
-        {
-            const std::string& path = object.first;
-            const std::vector<std::pair<std::string, std::vector<std::string>>>&
-                connectionNames = object.second;
-
-            sdbusplus::message::object_path objPath(path);
-            if (objPath.filename() != chassisId)
+            if (ec)
             {
-                continue;
+                messages::internalError(asyncResp->res);
+                return;
             }
-
-            for (const auto& connection : connectionNames)
+            // Iterate over all retrieved ObjectPaths.
+            for (const std::pair<std::string,
+                                 std::vector<std::pair<
+                                     std::string, std::vector<std::string>>>>&
+                     object : subtree)
             {
-                sdbusplus::asio::getProperty<std::string>(
-                    *crow::connections::systemBus, connection.first, path,
-                    "xyz.openbmc_project.Common.UUID", "UUID",
-                    [req, asyncResp, chassisId(std::string(chassisId)),
-                     backgroundCopyEnabled,
-                     inBandEnabled](const boost::system::error_code ec,
-                                    const std::string& chassisUUID) {
-                    if (ec)
-                    {
-                        return;
-                    }
+                const std::string& path = object.first;
+                const std::vector<
+                    std::pair<std::string, std::vector<std::string>>>&
+                    connectionNames = object.second;
 
-                    if (backgroundCopyEnabled.has_value())
-                    {
-                        redfish::chassis_utils::setBackgroundCopyEnabled(
-                            req, asyncResp, chassisId, chassisUUID,
-                            backgroundCopyEnabled.value());
-                    }
+                sdbusplus::message::object_path objPath(path);
+                if (objPath.filename() != chassisId)
+                {
+                    continue;
+                }
 
-                    if (inBandEnabled.has_value())
-                    {
-                        redfish::chassis_utils::setInBandEnabled(
-                            req, asyncResp, chassisId, chassisUUID,
-                            inBandEnabled.value());
-                    }
-                });
+                for (const auto& connection : connectionNames)
+                {
+                    sdbusplus::asio::getProperty<std::string>(
+                        *crow::connections::systemBus, connection.first, path,
+                        "xyz.openbmc_project.Common.UUID", "UUID",
+                        [req, asyncResp, chassisId(std::string(chassisId)),
+                         backgroundCopyEnabled,
+                         inBandEnabled](const boost::system::error_code ec,
+                                        const std::string& chassisUUID) {
+                            if (ec)
+                            {
+                                return;
+                            }
+
+                            if (backgroundCopyEnabled.has_value())
+                            {
+                                redfish::chassis_utils::
+                                    setBackgroundCopyEnabled(
+                                        req, asyncResp, chassisId, chassisUUID,
+                                        backgroundCopyEnabled.value());
+                            }
+
+                            if (inBandEnabled.has_value())
+                            {
+                                redfish::chassis_utils::setInBandEnabled(
+                                    req, asyncResp, chassisId, chassisUUID,
+                                    inBandEnabled.value());
+                            }
+                        });
+                }
             }
-        }
-    },
+        },
 
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -828,10 +863,9 @@ inline bool getBinaryKeyFromPem(const std::string& pem,
     return true;
 }
 
-inline void
-    createDotErrorResponse(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& type,
-                           const std::string& hexErrorCode)
+inline void createDotErrorResponse(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& type, const std::string& hexErrorCode)
 {
     int decErrorCode = 0;
     try
@@ -845,18 +879,17 @@ inline void
     }
     asyncResp->res.jsonValue["@odata.type"] = "#Message.v1_1_1.Message";
     asyncResp->res.jsonValue["MessageId"] = "Nvidia.ActionError";
-    asyncResp->res.jsonValue["Message"] = "Action failed with " + type + ": " +
-                                          std::to_string(decErrorCode);
+    asyncResp->res.jsonValue["Message"] =
+        "Action failed with " + type + ": " + std::to_string(decErrorCode);
     asyncResp->res.jsonValue["MessageArgs"] = std::to_string(decErrorCode);
     asyncResp->res.jsonValue["MessageSeverity"] = "Warning";
     asyncResp->res.jsonValue["Resolution"] = "None";
 }
 
-inline void
-    executeDotCommand(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& chassisID,
-                      dot::DotMctpVdmUtilCommand command,
-                      const std::vector<uint8_t>& data)
+inline void executeDotCommand(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, dot::DotMctpVdmUtilCommand command,
+    const std::vector<uint8_t>& data)
 {
     static std::unique_ptr<dot::DotCommandHandler> dotOperation;
     auto resultHandler = [asyncResp](const std::string& output) {
@@ -894,14 +927,14 @@ inline void
         boost::asio::post(crow::connections::systemBus->get_io_context(),
                           [] { dotOperation = nullptr; });
     };
-    auto errorHandler = [asyncResp](const std::string& desc,
-                                    const std::string& error) {
-        BMCWEB_LOG_ERROR("{}: {}", desc, error);
-        messages::resourceErrorsDetectedFormatError(asyncResp->res, desc,
-                                                    error);
-        boost::asio::post(crow::connections::systemBus->get_io_context(),
-                          [] { dotOperation = nullptr; });
-    };
+    auto errorHandler =
+        [asyncResp](const std::string& desc, const std::string& error) {
+            BMCWEB_LOG_ERROR("{}: {}", desc, error);
+            messages::resourceErrorsDetectedFormatError(asyncResp->res, desc,
+                                                        error);
+            boost::asio::post(crow::connections::systemBus->get_io_context(),
+                              [] { dotOperation = nullptr; });
+        };
     dotOperation = std::make_unique<dot::DotCommandHandler>(
         chassisID, command, data, resultHandler, errorHandler);
 }
@@ -914,66 +947,68 @@ inline void requestRoutesEROTChassisDOT(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& chassisID) -> void {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        std::string cakKey;
-        std::optional<bool> lockDisable;
-        std::optional<std::string> apFirmwareSignature;
-        if (!redfish::json_util::readJsonAction(
-                req, asyncResp->res, "CAKKey", cakKey, "APFirmwareSignature",
-                apFirmwareSignature, "LockDisable", lockDisable))
-        {
-            return;
-        }
-        std::vector<uint8_t> binaryKey;
-        if (!getBinaryKeyFromPem(cakKey, binaryKey))
-        {
-            messages::actionParameterValueFormatError(asyncResp->res, cakKey,
-                                                      "CAKKey", "CAKInstall");
-            return;
-        }
-        if (binaryKey.size() != DOT_KEY_SIZE)
-        {
-            messages::propertyValueOutOfRange(asyncResp->res,
-                                              std::to_string(binaryKey.size()),
-                                              "CAKKey size");
-            return;
-        }
-        std::string binarySignature;
-        if (apFirmwareSignature)
-        {
-            if (!crow::utility::base64Decode(*apFirmwareSignature,
-                                             binarySignature))
-            {
-                messages::actionParameterValueFormatError(
-                    asyncResp->res, *apFirmwareSignature, "APFirmwareSignature",
-                    "CAKInstall");
-                return;
-            }
-            if (binarySignature.size() !=
-                (DOT_CAK_INSTALL_DATA_SIZE - DOT_KEY_SIZE - 1))
-            {
-                messages::propertyValueOutOfRange(
-                    asyncResp->res, std::to_string(binarySignature.size()),
-                    "APFirmwareSignature size");
-                return;
-            }
-        }
-        std::vector<uint8_t> data;
-        data.reserve(binaryKey.size() + binarySignature.size() + 1);
-        data.insert(data.begin(), binaryKey.begin(), binaryKey.end());
-        // lockDisable is optional and false by default
-        data.emplace_back((lockDisable && *lockDisable) ? 1 : 0);
-        if (!binarySignature.empty())
-        {
-            data.insert(data.end(), binarySignature.begin(),
-                        binarySignature.end());
-        }
-        executeDotCommand(asyncResp, chassisID,
-                          dot::DotMctpVdmUtilCommand::CAKInstall, data);
-    });
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                std::string cakKey;
+                std::optional<bool> lockDisable;
+                std::optional<std::string> apFirmwareSignature;
+                if (!redfish::json_util::readJsonAction(
+                        req, asyncResp->res, "CAKKey", cakKey,
+                        "APFirmwareSignature", apFirmwareSignature,
+                        "LockDisable", lockDisable))
+                {
+                    return;
+                }
+                std::vector<uint8_t> binaryKey;
+                if (!getBinaryKeyFromPem(cakKey, binaryKey))
+                {
+                    messages::actionParameterValueFormatError(
+                        asyncResp->res, cakKey, "CAKKey", "CAKInstall");
+                    return;
+                }
+                if (binaryKey.size() != DOT_KEY_SIZE)
+                {
+                    messages::propertyValueOutOfRange(
+                        asyncResp->res, std::to_string(binaryKey.size()),
+                        "CAKKey size");
+                    return;
+                }
+                std::string binarySignature;
+                if (apFirmwareSignature)
+                {
+                    if (!crow::utility::base64Decode(*apFirmwareSignature,
+                                                     binarySignature))
+                    {
+                        messages::actionParameterValueFormatError(
+                            asyncResp->res, *apFirmwareSignature,
+                            "APFirmwareSignature", "CAKInstall");
+                        return;
+                    }
+                    if (binarySignature.size() !=
+                        (DOT_CAK_INSTALL_DATA_SIZE - DOT_KEY_SIZE - 1))
+                    {
+                        messages::propertyValueOutOfRange(
+                            asyncResp->res,
+                            std::to_string(binarySignature.size()),
+                            "APFirmwareSignature size");
+                        return;
+                    }
+                }
+                std::vector<uint8_t> data;
+                data.reserve(binaryKey.size() + binarySignature.size() + 1);
+                data.insert(data.begin(), binaryKey.begin(), binaryKey.end());
+                // lockDisable is optional and false by default
+                data.emplace_back((lockDisable && *lockDisable) ? 1 : 0);
+                if (!binarySignature.empty())
+                {
+                    data.insert(data.end(), binarySignature.begin(),
+                                binarySignature.end());
+                }
+                executeDotCommand(asyncResp, chassisID,
+                                  dot::DotMctpVdmUtilCommand::CAKInstall, data);
+            });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Actions/Oem/CAKLock/")
         .privileges(redfish::privileges::postChassis)
@@ -981,32 +1016,34 @@ inline void requestRoutesEROTChassisDOT(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& chassisID) -> void {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        std::string key;
-        if (!redfish::json_util::readJsonAction(req, asyncResp->res, "Key",
-                                                key))
-        {
-            return;
-        }
-        std::vector<uint8_t> binaryKey;
-        if (!getBinaryKeyFromPem(key, binaryKey))
-        {
-            messages::actionParameterValueFormatError(asyncResp->res, key,
-                                                      "Key", "CAKLock");
-            return;
-        }
-        if (binaryKey.size() != DOT_KEY_SIZE)
-        {
-            messages::propertyValueOutOfRange(
-                asyncResp->res, std::to_string(binaryKey.size()), "Key size");
-            return;
-        }
-        executeDotCommand(asyncResp, chassisID,
-                          dot::DotMctpVdmUtilCommand::CAKLock, binaryKey);
-    });
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                std::string key;
+                if (!redfish::json_util::readJsonAction(req, asyncResp->res,
+                                                        "Key", key))
+                {
+                    return;
+                }
+                std::vector<uint8_t> binaryKey;
+                if (!getBinaryKeyFromPem(key, binaryKey))
+                {
+                    messages::actionParameterValueFormatError(
+                        asyncResp->res, key, "Key", "CAKLock");
+                    return;
+                }
+                if (binaryKey.size() != DOT_KEY_SIZE)
+                {
+                    messages::propertyValueOutOfRange(
+                        asyncResp->res, std::to_string(binaryKey.size()),
+                        "Key size");
+                    return;
+                }
+                executeDotCommand(asyncResp, chassisID,
+                                  dot::DotMctpVdmUtilCommand::CAKLock,
+                                  binaryKey);
+            });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Actions/Oem/CAKTest/")
         .privileges(redfish::privileges::postChassis)
@@ -1014,14 +1051,14 @@ inline void requestRoutesEROTChassisDOT(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& chassisID) -> void {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        std::vector<uint8_t> data;
-        executeDotCommand(asyncResp, chassisID,
-                          dot::DotMctpVdmUtilCommand::CAKTest, data);
-    });
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                std::vector<uint8_t> data;
+                executeDotCommand(asyncResp, chassisID,
+                                  dot::DotMctpVdmUtilCommand::CAKTest, data);
+            });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Actions/Oem/DOTDisable/")
         .privileges(redfish::privileges::postChassis)
@@ -1029,32 +1066,34 @@ inline void requestRoutesEROTChassisDOT(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& chassisID) -> void {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        std::string key;
-        if (!redfish::json_util::readJsonAction(req, asyncResp->res, "Key",
-                                                key))
-        {
-            return;
-        }
-        std::vector<uint8_t> binaryKey;
-        if (!getBinaryKeyFromPem(key, binaryKey))
-        {
-            messages::actionParameterValueFormatError(asyncResp->res, key,
-                                                      "Key", "DOTDisable");
-            return;
-        }
-        if (binaryKey.size() != DOT_KEY_SIZE)
-        {
-            messages::propertyValueOutOfRange(
-                asyncResp->res, std::to_string(binaryKey.size()), "Key size");
-            return;
-        }
-        executeDotCommand(asyncResp, chassisID,
-                          dot::DotMctpVdmUtilCommand::DOTDisable, binaryKey);
-    });
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                std::string key;
+                if (!redfish::json_util::readJsonAction(req, asyncResp->res,
+                                                        "Key", key))
+                {
+                    return;
+                }
+                std::vector<uint8_t> binaryKey;
+                if (!getBinaryKeyFromPem(key, binaryKey))
+                {
+                    messages::actionParameterValueFormatError(
+                        asyncResp->res, key, "Key", "DOTDisable");
+                    return;
+                }
+                if (binaryKey.size() != DOT_KEY_SIZE)
+                {
+                    messages::propertyValueOutOfRange(
+                        asyncResp->res, std::to_string(binaryKey.size()),
+                        "Key size");
+                    return;
+                }
+                executeDotCommand(asyncResp, chassisID,
+                                  dot::DotMctpVdmUtilCommand::DOTDisable,
+                                  binaryKey);
+            });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Actions/Oem/DOTTokenInstall/")
         .privileges(redfish::privileges::postChassis)
@@ -1062,22 +1101,24 @@ inline void requestRoutesEROTChassisDOT(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& chassisID) -> void {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        if (req.body().size() != DOT_TOKEN_SIZE)
-        {
-            BMCWEB_LOG_ERROR("Invalid DOT token size: {}", req.body().size());
-            messages::invalidUpload(asyncResp->res, "DOT token install",
-                                    "filesize has to be equal to " +
-                                        std::to_string(DOT_TOKEN_SIZE));
-            return;
-        }
-        std::vector<uint8_t> data(req.body().begin(), req.body().end());
-        executeDotCommand(asyncResp, chassisID,
-                          dot::DotMctpVdmUtilCommand::DOTTokenInstall, data);
-    });
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                if (req.body().size() != DOT_TOKEN_SIZE)
+                {
+                    BMCWEB_LOG_ERROR("Invalid DOT token size: {}",
+                                     req.body().size());
+                    messages::invalidUpload(asyncResp->res, "DOT token install",
+                                            "filesize has to be equal to " +
+                                                std::to_string(DOT_TOKEN_SIZE));
+                    return;
+                }
+                std::vector<uint8_t> data(req.body().begin(), req.body().end());
+                executeDotCommand(asyncResp, chassisID,
+                                  dot::DotMctpVdmUtilCommand::DOTTokenInstall,
+                                  data);
+            });
 }
 
 inline void requestRoutesEROTChassisManualBootMode(App& app)
@@ -1090,12 +1131,12 @@ inline void requestRoutesEROTChassisManualBootMode(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& chassisId) -> void {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        manual_boot::bootAp(req, asyncResp, chassisId);
-    });
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                manual_boot::bootAp(req, asyncResp, chassisId);
+            });
 }
 
 /**
@@ -1174,10 +1215,10 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
 
         std::string command = erotResetPath + " " + std::to_string(endpointId);
-        auto secondExitCallback = [](const boost::system::error_code& ec,
-                                     int errorCode) mutable {
-            BMCWEB_LOG_DEBUG("ec: {}  errorCode {}", ec, errorCode);
-        };
+        auto secondExitCallback =
+            [](const boost::system::error_code& ec, int errorCode) mutable {
+                BMCWEB_LOG_DEBUG("ec: {}  errorCode {}", ec, errorCode);
+            };
         BMCWEB_LOG_DEBUG("Sending ERoT self-reset command");
 
         /* During the erotReset script, ERoT performs a self reset which
@@ -1217,70 +1258,72 @@ inline void
         [req, asyncResp, chassisUUID,
          isPCIe](const boost::system::error_code ec,
                  const dbus::utility::ManagedObjectType& resp) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("ERROR DBUS response error for MCTP.Control");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        const uint32_t* eid = nullptr;
-        const std::string* uuid = nullptr;
-        bool foundEID = false;
-
-        for (auto& objectPath : resp)
-        {
-            for (auto& interfaceMap : objectPath.second)
+            if (ec)
             {
-                if (interfaceMap.first == "xyz.openbmc_project.Common.UUID")
+                BMCWEB_LOG_DEBUG("ERROR DBUS response error for MCTP.Control");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            const uint32_t* eid = nullptr;
+            const std::string* uuid = nullptr;
+            bool foundEID = false;
+
+            for (auto& objectPath : resp)
+            {
+                for (auto& interfaceMap : objectPath.second)
                 {
-                    for (auto& propertyMap : interfaceMap.second)
+                    if (interfaceMap.first == "xyz.openbmc_project.Common.UUID")
                     {
-                        if (propertyMap.first == "UUID")
+                        for (auto& propertyMap : interfaceMap.second)
                         {
-                            uuid =
-                                std::get_if<std::string>(&propertyMap.second);
+                            if (propertyMap.first == "UUID")
+                            {
+                                uuid = std::get_if<std::string>(
+                                    &propertyMap.second);
+                            }
+                        }
+                    }
+
+                    if (interfaceMap.first ==
+                        "xyz.openbmc_project.MCTP.Endpoint")
+                    {
+                        for (auto& propertyMap : interfaceMap.second)
+                        {
+                            if (propertyMap.first == "EID")
+                            {
+                                eid =
+                                    std::get_if<uint32_t>(&propertyMap.second);
+                            }
                         }
                     }
                 }
 
-                if (interfaceMap.first == "xyz.openbmc_project.MCTP.Endpoint")
+                if ((*uuid) == chassisUUID)
                 {
-                    for (auto& propertyMap : interfaceMap.second)
-                    {
-                        if (propertyMap.first == "EID")
-                        {
-                            eid = std::get_if<uint32_t>(&propertyMap.second);
-                        }
-                    }
+                    foundEID = true;
+                    break;
                 }
             }
 
-            if ((*uuid) == chassisUUID)
+            if (foundEID)
             {
-                foundEID = true;
-                break;
-            }
-        }
-
-        if (foundEID)
-        {
-            gracefulRestart(asyncResp, *eid);
-        }
-        else
-        {
-            if (isPCIe)
-            {
-                findEIDforEROTReset(req, asyncResp, chassisUUID, false);
+                gracefulRestart(asyncResp, *eid);
             }
             else
             {
-                BMCWEB_LOG_DEBUG(
-                    "ERROR Can not find relevant MCTP endpoint for chassis {}",
-                    chassisUUID);
+                if (isPCIe)
+                {
+                    findEIDforEROTReset(req, asyncResp, chassisUUID, false);
+                }
+                else
+                {
+                    BMCWEB_LOG_DEBUG(
+                        "ERROR Can not find relevant MCTP endpoint for chassis {}",
+                        chassisUUID);
+                }
             }
-        }
-    },
+        },
         serviceName, "/xyz/openbmc_project/mctp",
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
@@ -1322,60 +1365,62 @@ inline void handleEROTChassisResetAction(
         [req, asyncResp, chassisId(std::string(chassisId))](
             const boost::system::error_code ec,
             const crow::openbmc_mapper::GetSubTreeType& subtree) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        bool chassisIdFound = false;
-
-        // Iterate over all retrieved ObjectPaths.
-        for (const std::pair<
-                 std::string,
-                 std::vector<std::pair<std::string, std::vector<std::string>>>>&
-                 object : subtree)
-        {
-            const std::string& path = object.first;
-            const std::vector<std::pair<std::string, std::vector<std::string>>>&
-                connectionNames = object.second;
-
-            sdbusplus::message::object_path objPath(path);
-            if (objPath.filename() != chassisId)
+            if (ec)
             {
-                continue;
+                messages::internalError(asyncResp->res);
+                return;
             }
 
-            if (connectionNames.size() < 1)
+            bool chassisIdFound = false;
+
+            // Iterate over all retrieved ObjectPaths.
+            for (const std::pair<std::string,
+                                 std::vector<std::pair<
+                                     std::string, std::vector<std::string>>>>&
+                     object : subtree)
             {
-                BMCWEB_LOG_ERROR("ERROR Got 0 Connection names");
-                continue;
-            }
+                const std::string& path = object.first;
+                const std::vector<
+                    std::pair<std::string, std::vector<std::string>>>&
+                    connectionNames = object.second;
 
-            chassisIdFound = true;
-
-            sdbusplus::asio::getProperty<std::string>(
-                *crow::connections::systemBus, connectionNames[0].first, path,
-                "xyz.openbmc_project.Common.UUID", "UUID",
-                [req, asyncResp](const boost::system::error_code ec,
-                                 const std::string& chassisUUID) {
-                if (ec)
+                sdbusplus::message::object_path objPath(path);
+                if (objPath.filename() != chassisId)
                 {
-                    BMCWEB_LOG_DEBUG("ERROR DBUS response error for UUID");
-                    messages::internalError(asyncResp->res);
-                    return;
+                    continue;
                 }
-                findEIDforEROTReset(req, asyncResp, chassisUUID, false);
-            });
-        }
 
-        /* Couldn't find an object with that name. Return an error */
-        if (chassisIdFound == false)
-        {
-            messages::resourceNotFound(asyncResp->res,
-                                       "#Chassis.v1_17_0.Chassis", chassisId);
-        }
-    },
+                if (connectionNames.size() < 1)
+                {
+                    BMCWEB_LOG_ERROR("ERROR Got 0 Connection names");
+                    continue;
+                }
+
+                chassisIdFound = true;
+
+                sdbusplus::asio::getProperty<std::string>(
+                    *crow::connections::systemBus, connectionNames[0].first,
+                    path, "xyz.openbmc_project.Common.UUID", "UUID",
+                    [req, asyncResp](const boost::system::error_code ec,
+                                     const std::string& chassisUUID) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_DEBUG(
+                                "ERROR DBUS response error for UUID");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        findEIDforEROTReset(req, asyncResp, chassisUUID, false);
+                    });
+            }
+
+            /* Couldn't find an object with that name. Return an error */
+            if (chassisIdFound == false)
+            {
+                messages::resourceNotFound(
+                    asyncResp->res, "#Chassis.v1_17_0.Chassis", chassisId);
+            }
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",

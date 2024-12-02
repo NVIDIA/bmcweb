@@ -530,8 +530,9 @@ inline bool processOnly(crow::App& app, crow::Response& res,
     bool needToCallHandlers = false;
     if constexpr (BMCWEB_REDFISH_AGGREGATION)
     {
-        needToCallHandlers = RedfishAggregator::beginAggregation(
-                                 *newReq, asyncResp) == Result::LocalHandle;
+        needToCallHandlers =
+            RedfishAggregator::beginAggregation(*newReq, asyncResp) ==
+            Result::LocalHandle;
     }
 
     BMCWEB_LOG_DEBUG("setting completion handler on {}",

@@ -8,8 +8,9 @@
 #include "nvidia_persistent_data.hpp"
 #include "privileges.hpp"
 #include "routing.hpp"
-#include "utility.hpp"
 #include "routing/dynamicrule.hpp"
+#include "utility.hpp"
+
 #include <systemd/sd-daemon.h>
 
 #include <boost/asio/io_context.hpp>

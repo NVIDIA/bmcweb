@@ -8,6 +8,7 @@
 #include "gzfile.hpp"
 #include "http_utility.hpp"
 #include "human_sort.hpp"
+#include "nvidia_cper_util.hpp"
 #include "nvidia_messages.hpp"
 #include "query.hpp"
 #include "registries.hpp"
@@ -16,10 +17,10 @@
 #include "registries/privilege_registry.hpp"
 #include "task.hpp"
 #include "task_messages.hpp"
+#include "utils/dbus_event_log_entry.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/time_utils.hpp"
-#include "utils/dbus_event_log_entry.hpp"
 
 #include <systemd/sd-id128.h>
 #include <tinyxml2.h>
@@ -54,7 +55,7 @@
 #include <utils/log_services_util.hpp>
 #include <utils/origin_utils.hpp>
 #include <utils/time_utils.hpp>
-#include "nvidia_cper_util.hpp"
+
 #include <array>
 #include <charconv>
 #include <chrono>
@@ -306,12 +307,11 @@ inline void handleLogServicesDumpServiceComputerSystemPatch(
         return;
     }
 
-
-    // Nvidia OEM code 
+    // Nvidia OEM code
     std::optional<bool> retimerDebugModeEnabled;
     if (!json_util::readJsonPatch(req, asyncResp->res,
-                             "Oem/Nvidia/RetimerDebugModeEnabled",
-                             retimerDebugModeEnabled))
+                                  "Oem/Nvidia/RetimerDebugModeEnabled",
+                                  retimerDebugModeEnabled))
     {
         return;
     }
@@ -326,8 +326,8 @@ inline void handleLogServicesDumpServiceComputerSystemPatch(
             [asyncResp](const boost::system::error_code ec) {
                 if (ec)
                 {
-                    BMCWEB_LOG_ERROR("DBUS response error DebugMode setProperty {}",
-                                    ec);
+                    BMCWEB_LOG_ERROR(
+                        "DBUS response error DebugMode setProperty {}", ec);
                     messages::internalError(asyncResp->res);
                     return;
                 }
@@ -506,15 +506,17 @@ inline void extendSystemLogServicesGet(
     } /* BMCWEB_NVIDIA_OEM_PROPERTIES */
 }
 
-inline void extendLogServiceOEMGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& dumpType)
+inline void
+    extendLogServiceOEMGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& dumpType)
 {
     if (dumpType == "System")
     {
         if constexpr (BMCWEB_NVIDIA_RETIMER_DEBUGMODE)
         {
             sdbusplus::asio::getProperty<bool>(
-                *crow::connections::systemBus, "xyz.openbmc_project.Dump.Manager",
+                *crow::connections::systemBus,
+                "xyz.openbmc_project.Dump.Manager",
                 "/xyz/openbmc_project/dump/retimer",
                 "xyz.openbmc_project.Dump.DebugMode", "DebugMode",
                 [asyncResp](const boost::system::error_code ec,
@@ -533,7 +535,7 @@ inline void extendLogServiceOEMGet(const std::shared_ptr<bmcweb::AsyncResp>& asy
                         .jsonValue["Oem"]["Nvidia"]["RetimerDebugModeEnabled"] =
                         DebugModeEnabled;
                 });
-        } // BMCWEB_NVIDIA_RETIMER_DEBUGMODE    
+        } // BMCWEB_NVIDIA_RETIMER_DEBUGMODE
     }
 }
 
@@ -579,7 +581,7 @@ inline void dBusEventLogEntryGetAdditionalInfo(
         if (!cper.empty())
         {
             objectToFillOut.update(cper);
-        }        
+        }
     }
 
     if (isMessageRegistry)
@@ -594,7 +596,8 @@ inline void dBusEventLogEntryGetAdditionalInfo(
             redfish::time_utils::getDateTimeStdtime(
                 redfish::time_utils::getTimestamp(entry.Timestamp)),
             messageId, messageArgs, *entry.Resolution, entry.Resolved,
-            (entry.eventId == nullptr) ? "" : *entry.eventId, deviceName, entry.Severity);
+            (entry.eventId == nullptr) ? "" : *entry.eventId, deviceName,
+            entry.Severity);
 
         if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
         {
@@ -611,9 +614,9 @@ inline void dBusEventLogEntryGetAdditionalInfo(
         {
             nlohmann::json oem = {
                 {"Oem",
-                    {{"Nvidia",
-                    {{"@odata.type",
-                        "#NvidiaLogEntry.v1_1_0.NvidiaLogEntry"}}}}}};
+                 {{"Nvidia",
+                   {{"@odata.type",
+                     "#NvidiaLogEntry.v1_1_0.NvidiaLogEntry"}}}}}};
             if (!deviceName.empty())
             {
                 oem["Oem"]["Nvidia"]["Device"] = deviceName;
@@ -668,12 +671,12 @@ inline void requestRoutesEventLogServicePatch(App& app)
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
         BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                                "/LogServices/EventLog/")
+                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                              "/LogServices/EventLog/")
             .privileges(redfish::privileges::patchLogService)
             .methods(boost::beast::http::verb::patch)(
                 [&app](const crow::Request& req,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
                     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                     {
                         return;
@@ -681,7 +684,7 @@ inline void requestRoutesEventLogServicePatch(App& app)
                     std::optional<nlohmann::json> oemObject;
 
                     if (!json_util::readJsonPatch(req, asyncResp->res, "Oem",
-                                                    oemObject))
+                                                  oemObject))
                     {
                         return;
                     }
@@ -689,7 +692,7 @@ inline void requestRoutesEventLogServicePatch(App& app)
                     std::optional<nlohmann::json> oemNvidiaObject;
 
                     if (!json_util::readJson(*oemObject, asyncResp->res,
-                                                "Nvidia", oemNvidiaObject))
+                                             "Nvidia", oemNvidiaObject))
                     {
                         return;
                     }
@@ -697,8 +700,8 @@ inline void requestRoutesEventLogServicePatch(App& app)
                     std::optional<bool> autoClearResolvedLogEnabled;
 
                     if (!json_util::readJson(*oemNvidiaObject, asyncResp->res,
-                                                "AutoClearResolvedLogEnabled",
-                                                autoClearResolvedLogEnabled))
+                                             "AutoClearResolvedLogEnabled",
+                                             autoClearResolvedLogEnabled))
                     {
                         return;
                     }
@@ -711,7 +714,7 @@ inline void requestRoutesEventLogServicePatch(App& app)
                                 if (ec)
                                 {
                                     BMCWEB_LOG_DEBUG("DBUS response error {}",
-                                                        ec);
+                                                     ec);
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
@@ -728,4 +731,4 @@ inline void requestRoutesEventLogServicePatch(App& app)
     }
 }
 
-}
+} // namespace redfish

@@ -84,35 +84,35 @@ inline std::vector<uint8_t>
     {
         wrappedRequest.emplace_back(dist(gen)); // nonce
     }
-    wrappedRequest.emplace_back(0x00);          // slot ID param
+    wrappedRequest.emplace_back(0x00); // slot ID param
     // response
-    wrappedRequest.emplace_back(0x11);             // version 1.1
-    wrappedRequest.emplace_back(0x60);             // SPDM_MEASUREMENTS
-    wrappedRequest.emplace_back(0x00);             // param 1
-    wrappedRequest.emplace_back(0x00);             // param 2
-    wrappedRequest.emplace_back(1);                // number of blocks
+    wrappedRequest.emplace_back(0x11); // version 1.1
+    wrappedRequest.emplace_back(0x60); // SPDM_MEASUREMENTS
+    wrappedRequest.emplace_back(0x00); // param 1
+    wrappedRequest.emplace_back(0x00); // param 2
+    wrappedRequest.emplace_back(1); // number of blocks
     wrappedRequest.emplace_back(recordLen & 0xFF); // measurement record length
-    wrappedRequest.emplace_back((recordLen >> 8) &
-                                0xFF);             // measurement record length
-    wrappedRequest.emplace_back((recordLen >> 16) &
-                                0xFF);             // measurement record length
-    wrappedRequest.emplace_back(0x32);             // measurement index
-    wrappedRequest.emplace_back(0x01);             // measurement specification
+    wrappedRequest.emplace_back(
+        (recordLen >> 8) & 0xFF); // measurement record length
+    wrappedRequest.emplace_back(
+        (recordLen >> 16) & 0xFF); // measurement record length
+    wrappedRequest.emplace_back(0x32); // measurement index
+    wrappedRequest.emplace_back(0x01); // measurement specification
     wrappedRequest.emplace_back(measurementLen & 0xFF); // measurement size
-    wrappedRequest.emplace_back((measurementLen >> 8) &
-                                0xFF);                  // measurement size
+    wrappedRequest.emplace_back(
+        (measurementLen >> 8) & 0xFF); // measurement size
     wrappedRequest.emplace_back(0x85); // DMTF spec measurement value type
-    wrappedRequest.emplace_back(request.size() &
-                                0xFF); // DMTF spec measurement value size
-    wrappedRequest.emplace_back((request.size() >> 8) &
-                                0xFF); // DMTF spec measurement value size
+    wrappedRequest.emplace_back(
+        request.size() & 0xFF); // DMTF spec measurement value size
+    wrappedRequest.emplace_back(
+        (request.size() >> 8) & 0xFF); // DMTF spec measurement value size
     wrappedRequest.insert(wrappedRequest.end(), request.begin(), request.end());
     for (size_t i = 0; i < 32; ++i)
     {
         wrappedRequest.emplace_back(dist(gen)); // nonce
     }
-    wrappedRequest.emplace_back(0);             // opaque data length
-    wrappedRequest.emplace_back(0);             // opaque data length
+    wrappedRequest.emplace_back(0); // opaque data length
+    wrappedRequest.emplace_back(0); // opaque data length
 
     return wrappedRequest;
 }

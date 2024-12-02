@@ -57,8 +57,8 @@ inline int copyMfgTestOutputFile(std::string& path)
     }
     else
     {
-        std::string filename = mfgTestPrefix +
-                               std::to_string(scriptExecOutputFiles.size());
+        std::string filename =
+            mfgTestPrefix + std::to_string(scriptExecOutputFiles.size());
         std::string targetPath = redfishLogDir + filename;
         BMCWEB_LOG_DEBUG("Copying output to {}", targetPath);
         std::filesystem::copy(path, targetPath, ec);
@@ -144,90 +144,99 @@ inline void requestRoutesEventLogDiagnosticDataCollect(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    [[maybe_unused]] const std::string& systemName) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        std::string diagnosticDataType;
-        std::string oemDiagnosticDataType;
-        if (!redfish::json_util::readJsonAction(
-                req, asyncResp->res, "DiagnosticDataType", diagnosticDataType,
-                "OEMDiagnosticDataType", oemDiagnosticDataType))
-        {
-            return;
-        }
-
-        if (diagnosticDataType != "OEM")
-        {
-            BMCWEB_LOG_ERROR(
-                "Only OEM DiagnosticDataType supported for EventLog");
-            messages::actionParameterValueFormatError(
-                asyncResp->res, diagnosticDataType, "DiagnosticDataType",
-                "CollectDiagnosticData");
-            return;
-        }
-
-        if (oemDiagnosticDataType == "Manufacturing")
-        {
-            if (mfgTestTask == nullptr)
-            {
-                mfgTestTask = task::TaskData::createTask(
-                    [](boost::system::error_code, sdbusplus::message::message&,
-                       const std::shared_ptr<task::TaskData>& taskData) {
-                    mfgTestProc = nullptr;
-                    mfgTestTask = nullptr;
-                    if (taskData->percentComplete != 100)
-                    {
-                        taskData->state = "Exception";
-                        taskData->messages.emplace_back(messages::taskAborted(
-                            std::to_string(taskData->index)));
-                    }
-                    return task::completed;
-                },
-                    "0");
-                mfgTestTask->payload.emplace(req);
-                mfgTestTask->startTimer(
-                    std::chrono::seconds(BMCWEB_MANUFACTURING_TEST_TIMEOUT));
-                try
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
-                    mfgTestProc = std::make_shared<boost::process::child>(
-                        "/usr/bin/mfg-script-exec.sh",
-                        "/usr/share/mfg-script-exec/config.yml",
-                        boost::process::std_out >
-                            boost::asio::buffer(mfgTestProcOutput),
-                        crow::connections::systemBus->get_io_context(),
-                        boost::process::on_exit = mfgTestProcExitHandler);
+                    return;
                 }
-                catch (const std::runtime_error& e)
+                std::string diagnosticDataType;
+                std::string oemDiagnosticDataType;
+                if (!redfish::json_util::readJsonAction(
+                        req, asyncResp->res, "DiagnosticDataType",
+                        diagnosticDataType, "OEMDiagnosticDataType",
+                        oemDiagnosticDataType))
                 {
-                    mfgTestTask->state = "Exception";
+                    return;
+                }
+
+                if (diagnosticDataType != "OEM")
+                {
                     BMCWEB_LOG_ERROR(
-                        "Manufacturing script failed with error: {}", e.what());
-                    mfgTestTask->messages.emplace_back(messages::taskAborted(
-                        std::to_string(mfgTestTask->index)));
-                    mfgTestProc = nullptr;
+                        "Only OEM DiagnosticDataType supported for EventLog");
+                    messages::actionParameterValueFormatError(
+                        asyncResp->res, diagnosticDataType,
+                        "DiagnosticDataType", "CollectDiagnosticData");
+                    return;
                 }
-                mfgTestTask->populateResp(asyncResp->res);
-                if (mfgTestProc == nullptr)
+
+                if (oemDiagnosticDataType == "Manufacturing")
                 {
-                    mfgTestTask = nullptr;
+                    if (mfgTestTask == nullptr)
+                    {
+                        mfgTestTask = task::TaskData::createTask(
+                            [](boost::system::error_code,
+                               sdbusplus::message::message&,
+                               const std::shared_ptr<task::TaskData>&
+                                   taskData) {
+                                mfgTestProc = nullptr;
+                                mfgTestTask = nullptr;
+                                if (taskData->percentComplete != 100)
+                                {
+                                    taskData->state = "Exception";
+                                    taskData->messages.emplace_back(
+                                        messages::taskAborted(
+                                            std::to_string(taskData->index)));
+                                }
+                                return task::completed;
+                            },
+                            "0");
+                        mfgTestTask->payload.emplace(req);
+                        mfgTestTask->startTimer(std::chrono::seconds(
+                            BMCWEB_MANUFACTURING_TEST_TIMEOUT));
+                        try
+                        {
+                            mfgTestProc =
+                                std::make_shared<boost::process::child>(
+                                    "/usr/bin/mfg-script-exec.sh",
+                                    "/usr/share/mfg-script-exec/config.yml",
+                                    boost::process::std_out >
+                                        boost::asio::buffer(mfgTestProcOutput),
+                                    crow::connections::systemBus
+                                        ->get_io_context(),
+                                    boost::process::on_exit =
+                                        mfgTestProcExitHandler);
+                        }
+                        catch (const std::runtime_error& e)
+                        {
+                            mfgTestTask->state = "Exception";
+                            BMCWEB_LOG_ERROR(
+                                "Manufacturing script failed with error: {}",
+                                e.what());
+                            mfgTestTask->messages.emplace_back(
+                                messages::taskAborted(
+                                    std::to_string(mfgTestTask->index)));
+                            mfgTestProc = nullptr;
+                        }
+                        mfgTestTask->populateResp(asyncResp->res);
+                        if (mfgTestProc == nullptr)
+                        {
+                            mfgTestTask = nullptr;
+                        }
+                    }
+                    else
+                    {
+                        mfgTestTask->populateResp(asyncResp->res);
+                    }
                 }
-            }
-            else
-            {
-                mfgTestTask->populateResp(asyncResp->res);
-            }
-        }
-        else
-        {
-            BMCWEB_LOG_ERROR("Unsupported OEMDiagnosticDataType: {}",
-                             oemDiagnosticDataType);
-            messages::actionParameterValueFormatError(
-                asyncResp->res, oemDiagnosticDataType, "OEMDiagnosticDataType",
-                "CollectDiagnosticData");
-            return;
-        }
-    });
+                else
+                {
+                    BMCWEB_LOG_ERROR("Unsupported OEMDiagnosticDataType: {}",
+                                     oemDiagnosticDataType);
+                    messages::actionParameterValueFormatError(
+                        asyncResp->res, oemDiagnosticDataType,
+                        "OEMDiagnosticDataType", "CollectDiagnosticData");
+                    return;
+                }
+            });
 }
 
 inline void requestRoutesEventLogDiagnosticDataEntry(App& app)
@@ -236,47 +245,49 @@ inline void requestRoutesEventLogDiagnosticDataEntry(App& app)
         app,
         "/redfish/v1/Systems/<str>/LogServices/EventLog/DiagnosticData/<str>/attachment")
         .privileges(redfish::privileges::getLogEntry)
-        .methods(boost::beast::http::verb::get)(
-            [](const crow::Request&,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               [[maybe_unused]] const std::string& systemName,
-               const std::string& idParam) {
-        uint32_t id = 0;
-        std::string_view paramSV(idParam);
-        auto it = std::from_chars(paramSV.begin(), paramSV.end(), id);
-        if (it.ec != std::errc())
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
+        .methods(
+            boost::beast::http::verb::
+                get)([](const crow::Request&,
+                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                        [[maybe_unused]] const std::string& systemName,
+                        const std::string& idParam) {
+            uint32_t id = 0;
+            std::string_view paramSV(idParam);
+            auto it = std::from_chars(paramSV.begin(), paramSV.end(), id);
+            if (it.ec != std::errc())
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-        auto files = scriptExecOutputFiles.size();
-        if (files == 0 || id > files - 1)
-        {
-            messages::resourceMissingAtURI(
-                asyncResp->res,
-                boost::urls::format(
-                    "/redfish/v1/Systems/{}/LogServices/EventLog/DiagnosticData/{}/attachment",
-                    BMCWEB_REDFISH_SYSTEM_URI_NAME, std::to_string(id)));
-            return;
-        }
-        std::ifstream file(scriptExecOutputFiles[id]);
-        if (!file.good())
-        {
-            messages::resourceMissingAtURI(
-                asyncResp->res,
-                boost::urls::format(
-                    "/redfish/v1/Systems/{}/LogServices/EventLog/DiagnosticData/{}/attachment",
-                    BMCWEB_REDFISH_SYSTEM_URI_NAME, std::to_string(id)));
-            return;
-        }
-        std::stringstream ss;
-        ss << file.rdbuf();
-        auto output = ss.str();
+            auto files = scriptExecOutputFiles.size();
+            if (files == 0 || id > files - 1)
+            {
+                messages::resourceMissingAtURI(
+                    asyncResp->res,
+                    boost::urls::format(
+                        "/redfish/v1/Systems/{}/LogServices/EventLog/DiagnosticData/{}/attachment",
+                        BMCWEB_REDFISH_SYSTEM_URI_NAME, std::to_string(id)));
+                return;
+            }
+            std::ifstream file(scriptExecOutputFiles[id]);
+            if (!file.good())
+            {
+                messages::resourceMissingAtURI(
+                    asyncResp->res,
+                    boost::urls::format(
+                        "/redfish/v1/Systems/{}/LogServices/EventLog/DiagnosticData/{}/attachment",
+                        BMCWEB_REDFISH_SYSTEM_URI_NAME, std::to_string(id)));
+                return;
+            }
+            std::stringstream ss;
+            ss << file.rdbuf();
+            auto output = ss.str();
 
-        asyncResp->res.addHeader("Content-Type", "application/octet-stream");
-        asyncResp->res.addHeader("Content-Transfer-Encoding", "Binary");
-        asyncResp->res.write(std::move(output));
-    });
+            asyncResp->res.addHeader("Content-Type",
+                                     "application/octet-stream");
+            asyncResp->res.addHeader("Content-Transfer-Encoding", "Binary");
+            asyncResp->res.write(std::move(output));
+        });
 }
 } // namespace redfish

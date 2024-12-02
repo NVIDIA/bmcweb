@@ -22,7 +22,6 @@
 namespace redfish
 {
 
-
 inline void requestRoutesSystemFDREntryCollection(App& app)
 {
     /**
@@ -34,23 +33,23 @@ inline void requestRoutesSystemFDREntryCollection(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    [[maybe_unused]] const std::string& systemName) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
 
-        asyncResp->res.jsonValue["@odata.type"] =
-            "#LogEntryCollection.LogEntryCollection";
-        asyncResp->res.jsonValue["@odata.id"] =
-            "/redfish/v1/Systems/" +
-            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/LogServices/FDR/Entries";
-        asyncResp->res.jsonValue["Name"] = "System FDR Entries";
-        asyncResp->res.jsonValue["Description"] =
-            "Collection of System FDR Entries";
+                asyncResp->res.jsonValue["@odata.type"] =
+                    "#LogEntryCollection.LogEntryCollection";
+                asyncResp->res.jsonValue["@odata.id"] =
+                    "/redfish/v1/Systems/" +
+                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                    "/LogServices/FDR/Entries";
+                asyncResp->res.jsonValue["Name"] = "System FDR Entries";
+                asyncResp->res.jsonValue["Description"] =
+                    "Collection of System FDR Entries";
 
-        getDumpEntryCollection(asyncResp, "FDR");
-    });
+                getDumpEntryCollection(asyncResp, "FDR");
+            });
 }
 
 inline void requestRoutesSystemFDREntry(App& app)
@@ -63,13 +62,13 @@ inline void requestRoutesSystemFDREntry(App& app)
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    [[maybe_unused]] const std::string& systemName,
                    const std::string& param) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
 
-        getDumpEntryById(asyncResp, param, "FDR");
-    });
+                getDumpEntryById(asyncResp, param, "FDR");
+            });
 
     BMCWEB_ROUTE(app,
                  "/redfish/v1/Systems/<str>/LogServices/FDR/Entries/<str>/")
@@ -79,12 +78,12 @@ inline void requestRoutesSystemFDREntry(App& app)
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    [[maybe_unused]] const std::string& systemName,
                    const std::string& param) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        deleteDumpEntry(asyncResp, param, "FDR");
-    });
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                deleteDumpEntry(asyncResp, param, "FDR");
+            });
 }
 
 inline void requestRoutesSystemFDREntryDownload(App& app)
@@ -98,25 +97,27 @@ inline void requestRoutesSystemFDREntryDownload(App& app)
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    [[maybe_unused]] const std::string& systemName,
                    const std::string& entryID) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
 
-        auto downloadDumpEntryHandler =
-            [asyncResp, entryID](const boost::system::error_code& ec,
-                                 const sdbusplus::message::unix_fd& unixfd) {
-            downloadEntryCallback(asyncResp, entryID, "FDR", ec, unixfd);
-        };
+                auto downloadDumpEntryHandler =
+                    [asyncResp,
+                     entryID](const boost::system::error_code& ec,
+                              const sdbusplus::message::unix_fd& unixfd) {
+                        downloadEntryCallback(asyncResp, entryID, "FDR", ec,
+                                              unixfd);
+                    };
 
-        sdbusplus::message::object_path entry(
-            "/xyz/openbmc_project/dump/fdr/entry");
-        entry /= entryID;
-        crow::connections::systemBus->async_method_call(
-            std::move(downloadDumpEntryHandler),
-            "xyz.openbmc_project.Dump.Manager", entry,
-            "xyz.openbmc_project.Dump.Entry", "GetFileHandle");
-    });
+                sdbusplus::message::object_path entry(
+                    "/xyz/openbmc_project/dump/fdr/entry");
+                entry /= entryID;
+                crow::connections::systemBus->async_method_call(
+                    std::move(downloadDumpEntryHandler),
+                    "xyz.openbmc_project.Dump.Manager", entry,
+                    "xyz.openbmc_project.Dump.Entry", "GetFileHandle");
+            });
 }
 
 inline void handleLogServicesFDRDumpCollectDiagnosticDataPost(
@@ -152,36 +153,38 @@ void inline requestRoutesSystemFDRClear(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    [[maybe_unused]] const std::string& systemName) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
 
-        std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
-            createDumpParamVec;
+                std::vector<
+                    std::pair<std::string, std::variant<std::string, uint64_t>>>
+                    createDumpParamVec;
 
-        createDumpParamVec.emplace_back("DiagnosticType", "FDR");
-        createDumpParamVec.emplace_back("Action", "Clean");
+                createDumpParamVec.emplace_back("DiagnosticType", "FDR");
+                createDumpParamVec.emplace_back("Action", "Clean");
 
-        crow::connections::systemBus->async_method_call(
-            [asyncResp](
-                const boost::system::error_code ec,
-                const sdbusplus::message::message& msg,
-                const sdbusplus::message::object_path& objPath) mutable {
-            (void)msg;
-            (void)objPath;
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp](const boost::system::error_code ec,
+                                const sdbusplus::message::message& msg,
+                                const sdbusplus::message::object_path&
+                                    objPath) mutable {
+                        (void)msg;
+                        (void)objPath;
 
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            messages::success(asyncResp->res);
-        },
-            "xyz.openbmc_project.Dump.Manager", "/xyz/openbmc_project/dump/fdr",
-            "xyz.openbmc_project.Dump.Create", "CreateDump",
-            createDumpParamVec);
-    });
+                        if (ec)
+                        {
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        messages::success(asyncResp->res);
+                    },
+                    "xyz.openbmc_project.Dump.Manager",
+                    "/xyz/openbmc_project/dump/fdr",
+                    "xyz.openbmc_project.Dump.Create", "CreateDump",
+                    createDumpParamVec);
+            });
 }
 
 inline void getFDRServiceState(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
@@ -385,33 +388,36 @@ void inline requestRoutesSystemFDRGenBirthCert(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    [[maybe_unused]] const std::string& systemName) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
 
-        std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
-            createDumpParamVec;
+                std::vector<
+                    std::pair<std::string, std::variant<std::string, uint64_t>>>
+                    createDumpParamVec;
 
-        createDumpParamVec.emplace_back("DiagnosticType", "FDR");
-        createDumpParamVec.emplace_back("Action", "GenBirthCert");
+                createDumpParamVec.emplace_back("DiagnosticType", "FDR");
+                createDumpParamVec.emplace_back("Action", "GenBirthCert");
 
-        crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code ec,
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp](
+                        const boost::system::error_code ec,
                         [[maybe_unused]] const sdbusplus::message::message& msg,
                         [[maybe_unused]] const sdbusplus::message::object_path&
                             objPath) mutable {
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            messages::success(asyncResp->res);
-        },
-            "xyz.openbmc_project.Dump.Manager", "/xyz/openbmc_project/dump/fdr",
-            "xyz.openbmc_project.Dump.Create", "CreateDump",
-            createDumpParamVec);
-    });
+                        if (ec)
+                        {
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        messages::success(asyncResp->res);
+                    },
+                    "xyz.openbmc_project.Dump.Manager",
+                    "/xyz/openbmc_project/dump/fdr",
+                    "xyz.openbmc_project.Dump.Create", "CreateDump",
+                    createDumpParamVec);
+            });
 }
 
-}
+} // namespace redfish

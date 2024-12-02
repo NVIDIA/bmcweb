@@ -55,8 +55,8 @@ inline nlohmann::json updateInProgress()
         {"Severity", "OK"},
         {"Resolution", "None."}};
 }
-inline nlohmann::json transferringToComponent(const std::string& arg1,
-                                              const std::string& arg2)
+inline nlohmann::json
+    transferringToComponent(const std::string& arg1, const std::string& arg2)
 {
     return nlohmann::json{
         {"@odata.type", "#MessageRegistry.v1_4_1.MessageRegistry"},
@@ -79,8 +79,8 @@ inline nlohmann::json verifyingAtComponent(const std::string& arg1,
         {"Severity", "OK"},
         {"Resolution", "None."}};
 }
-inline nlohmann::json installingOnComponent(const std::string& arg1,
-                                            const std::string& arg2)
+inline nlohmann::json
+    installingOnComponent(const std::string& arg1, const std::string& arg2)
 {
     return nlohmann::json{
         {"@odata.type", "#MessageRegistry.v1_4_1.MessageRegistry"},
@@ -204,8 +204,8 @@ inline nlohmann::json operationTransitionedToJob(const std::string& arg1)
          "Follow the referenced job and monitor the job for further updates."}};
 }
 
-inline nlohmann::json resourceErrorsDetected(const std::string& arg1,
-                                             const std::string& arg2)
+inline nlohmann::json
+    resourceErrorsDetected(const std::string& arg1, const std::string& arg2)
 {
     return nlohmann::json{
         {"@odata.type", "#MessageRegistry.v1_4_1.MessageRegistry"},
@@ -217,8 +217,8 @@ inline nlohmann::json resourceErrorsDetected(const std::string& arg1,
         {"Resolution", "None."}};
 }
 
-inline nlohmann::json componentUpdateSkipped(const std::string& arg1,
-                                             const std::string& arg2)
+inline nlohmann::json
+    componentUpdateSkipped(const std::string& arg1, const std::string& arg2)
 {
     return nlohmann::json{
         {"@odata.type", "#MessageRegistry.v1_4_1.MessageRegistry"},

@@ -169,39 +169,40 @@ inline void populatePersistentStorageSettingStatus(
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
                     const std::variant<int32_t>& property) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error getting service status: {}",
-                             ec.message());
-            redfish::messages::internalError(asyncResp->res);
-            return;
-        }
-        const int32_t* serviceStatus = std::get_if<int32_t>(&property);
-        if (serviceStatus == nullptr)
-        {
-            BMCWEB_LOG_ERROR("Invalid service exit status code");
-            redfish::messages::internalError(asyncResp->res);
-            return;
-        }
-        if (*serviceStatus == emmcPartitionMounted)
-        {
-            asyncResp->res
-                .jsonValue["Oem"]["Nvidia"]["PersistentStorageSettings"]
-                          ["Status"]["State"] = "Enabled";
-        }
-        else if (*serviceStatus == eudaProgrammedNotActivated)
-        {
-            asyncResp->res
-                .jsonValue["Oem"]["Nvidia"]["PersistentStorageSettings"]
-                          ["Status"]["State"] = "StandbyOffline";
-        }
-        else
-        {
-            asyncResp->res
-                .jsonValue["Oem"]["Nvidia"]["PersistentStorageSettings"]
-                          ["Status"]["State"] = "Disabled";
-        }
-    },
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "DBUS response error getting service status: {}",
+                    ec.message());
+                redfish::messages::internalError(asyncResp->res);
+                return;
+            }
+            const int32_t* serviceStatus = std::get_if<int32_t>(&property);
+            if (serviceStatus == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Invalid service exit status code");
+                redfish::messages::internalError(asyncResp->res);
+                return;
+            }
+            if (*serviceStatus == emmcPartitionMounted)
+            {
+                asyncResp->res
+                    .jsonValue["Oem"]["Nvidia"]["PersistentStorageSettings"]
+                              ["Status"]["State"] = "Enabled";
+            }
+            else if (*serviceStatus == eudaProgrammedNotActivated)
+            {
+                asyncResp->res
+                    .jsonValue["Oem"]["Nvidia"]["PersistentStorageSettings"]
+                              ["Status"]["State"] = "StandbyOffline";
+            }
+            else
+            {
+                asyncResp->res
+                    .jsonValue["Oem"]["Nvidia"]["PersistentStorageSettings"]
+                              ["Status"]["State"] = "Disabled";
+            }
+        },
         "org.freedesktop.systemd1",
         "/org/freedesktop/systemd1/unit/nvidia_2demmc_2dpartition_2eservice",
         "org.freedesktop.DBus.Properties", "Get",

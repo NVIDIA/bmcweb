@@ -214,7 +214,8 @@ inline void processSensorsValue(
                             {
                                 // difference between requestTimestamp and
                                 // lastUpdateTime stamp should be within
-                                // BMCWEB_STALESENSOR_UPPER_LIMIT_MILISECOND for fresh metric
+                                // BMCWEB_STALESENSOR_UPPER_LIMIT_MILISECOND for
+                                // fresh metric
                                 BMCWEB_LOG_DEBUG(
                                     "Stalesensor upper limit is:{}",
                                     BMCWEB_STALESENSOR_UPPER_LIMIT_MILISECOND);
@@ -240,11 +241,12 @@ inline void processChassisSensors(
     const std::string& chassisPath, const std::string& metricsType,
     const uint64_t& sensingInterval = 0, const uint64_t& requestTimestamp = 0)
 {
-    auto getAllChassisHandler =
-        [asyncResp, chassisPath, managedObjectsResp, sensingInterval,
-         requestTimestamp,
-         metricsType](const boost::system::error_code ec,
-                      std::variant<std::vector<std::string>>& chassisLinks) {
+    auto getAllChassisHandler = [asyncResp, chassisPath, managedObjectsResp,
+                                 sensingInterval, requestTimestamp,
+                                 metricsType](
+                                    const boost::system::error_code ec,
+                                    std::variant<std::vector<std::string>>&
+                                        chassisLinks) {
         std::vector<std::string> chassisPaths;
         if (ec)
         {
@@ -272,12 +274,14 @@ inline void processChassisSensors(
             sdbusplus::message::object_path path(objectPath);
             const std::string& chassisId = path.filename();
 
-            auto getAllChassisSensors =
-                [asyncResp, chassisId, managedObjectsResp, sensingInterval,
-                 requestTimestamp, objectPath,
-                 metricsType](const boost::system::error_code ec,
-                              const std::variant<std::vector<std::string>>&
-                                  variantEndpoints) {
+            auto getAllChassisSensors = [asyncResp, chassisId,
+                                         managedObjectsResp, sensingInterval,
+                                         requestTimestamp, objectPath,
+                                         metricsType](
+                                            const boost::system::error_code ec,
+                                            const std::variant<
+                                                std::vector<std::string>>&
+                                                variantEndpoints) {
                 if (ec)
                 {
                     BMCWEB_LOG_DEBUG(
@@ -321,17 +325,17 @@ inline void getServiceRootManagedObjects(
         [asyncResp, connection, chassisPath, sensingInterval, requestTimestamp,
          metricsType](const boost::system::error_code ec,
                       ManagedObjectsVectorType& resp) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR(
-                "getServiceRootManagedObjects for connection:{} error: {}",
-                connection, ec);
-            return;
-        }
-        std::sort(resp.begin(), resp.end());
-        processChassisSensors(asyncResp, resp, chassisPath, metricsType,
-                              sensingInterval, requestTimestamp);
-    },
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "getServiceRootManagedObjects for connection:{} error: {}",
+                    connection, ec);
+                return;
+            }
+            std::sort(resp.begin(), resp.end());
+            processChassisSensors(asyncResp, resp, chassisPath, metricsType,
+                                  sensingInterval, requestTimestamp);
+        },
         connection, "/", "org.freedesktop.DBus.ObjectManager",
         "GetManagedObjects");
 }
@@ -346,21 +350,21 @@ inline void getServiceManagedObjects(
         [asyncResp, connection, chassisPath, sensingInterval, requestTimestamp,
          metricsType](const boost::system::error_code ec,
                       ManagedObjectsVectorType& resp) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG(
-                "GetManagedObjects is not at sensor path for connection:{}",
-                connection);
-            // Check managed objects on service root
-            getServiceRootManagedObjects(asyncResp, connection, chassisPath,
-                                         metricsType, sensingInterval,
-                                         requestTimestamp);
-            return;
-        }
-        std::sort(resp.begin(), resp.end());
-        processChassisSensors(asyncResp, resp, chassisPath, metricsType,
-                              sensingInterval, requestTimestamp);
-    },
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG(
+                    "GetManagedObjects is not at sensor path for connection:{}",
+                    connection);
+                // Check managed objects on service root
+                getServiceRootManagedObjects(asyncResp, connection, chassisPath,
+                                             metricsType, sensingInterval,
+                                             requestTimestamp);
+                return;
+            }
+            std::sort(resp.begin(), resp.end());
+            processChassisSensors(asyncResp, resp, chassisPath, metricsType,
+                                  sensingInterval, requestTimestamp);
+        },
         connection, "/xyz/openbmc_project/sensors",
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }
@@ -589,71 +593,75 @@ inline void requestRoutesThermalMetrics(App& app)
     BMCWEB_ROUTE(app,
                  "/redfish/v1/Chassis/<str>/ThermalSubsystem/ThermalMetrics/")
         .privileges({{"Login"}})
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& param) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        const std::string& chassisId = param;
-        // Identify chassis
-        const std::array<const char*, 1> interface = {
-            "xyz.openbmc_project.Inventory.Item.Chassis"};
-
-        auto respHandler = [asyncResp, chassisId](
-                               const boost::system::error_code ec,
-                               const std::vector<std::string>& chassisPaths) {
-                                
-            if (ec)
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& param) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
-                BMCWEB_LOG_ERROR("thermal metrics respHandler DBUS error: {}",
-                                 ec);
-                messages::internalError(asyncResp->res);
                 return;
             }
-            // Identify the chassis
-            for (const std::string& chassisPath : chassisPaths)
-            {
-                sdbusplus::message::object_path path(chassisPath);
-                const std::string& chassisName = path.filename();
-                if (chassisName.empty())
-                {
-                    BMCWEB_LOG_ERROR("Failed to find '/' in {}", chassisPath);
-                    continue;
-                }
-                if (chassisName != chassisId)
-                {
-                    continue;
-                }
-                // Process response
+            const std::string& chassisId = param;
+            // Identify chassis
+            const std::array<const char*, 1> interface = {
+                "xyz.openbmc_project.Inventory.Item.Chassis"};
 
-                asyncResp->res.addHeader(
-                    boost::beast::http::field::link,
-                    "</redfish/v1/JsonSchemas/ThermalMetrics/ThermalMetrics.json>; rel=describedby");
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#ThermalMetrics.v1_0_0.ThermalMetrics";
-                asyncResp->res.jsonValue["@odata.id"] =
-                    "/redfish/v1/Chassis/" + chassisId +
-                    "/ThermalSubsystem/ThermalMetrics";
-                asyncResp->res.jsonValue["Id"] = "ThermalMetrics";
-                asyncResp->res.jsonValue["Name"] = "Chassis Thermal Metrics";
-                asyncResp->res.jsonValue["TemperatureReadingsCelsius"] =
-                    nlohmann::json::array();
+            auto respHandler = [asyncResp,
+                                chassisId](const boost::system::error_code ec,
+                                           const std::vector<std::string>&
+                                               chassisPaths) {
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "thermal metrics respHandler DBUS error: {}", ec);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                // Identify the chassis
+                for (const std::string& chassisPath : chassisPaths)
+                {
+                    sdbusplus::message::object_path path(chassisPath);
+                    const std::string& chassisName = path.filename();
+                    if (chassisName.empty())
+                    {
+                        BMCWEB_LOG_ERROR("Failed to find '/' in {}",
+                                         chassisPath);
+                        continue;
+                    }
+                    if (chassisName != chassisId)
+                    {
+                        continue;
+                    }
+                    // Process response
 
-                // Identify sensor services for sensor readings
-                processSensorServices(asyncResp, chassisPath, "thermal");
-                return;
-            }
-            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-        };
-        // Get the Chassis Collection
-        crow::connections::systemBus->async_method_call(
-            respHandler, "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-            "/xyz/openbmc_project/inventory", 0, interface);
-    });
+                    asyncResp->res.addHeader(
+                        boost::beast::http::field::link,
+                        "</redfish/v1/JsonSchemas/ThermalMetrics/ThermalMetrics.json>; rel=describedby");
+                    asyncResp->res.jsonValue["@odata.type"] =
+                        "#ThermalMetrics.v1_0_0.ThermalMetrics";
+                    asyncResp->res.jsonValue["@odata.id"] =
+                        "/redfish/v1/Chassis/" + chassisId +
+                        "/ThermalSubsystem/ThermalMetrics";
+                    asyncResp->res.jsonValue["Id"] = "ThermalMetrics";
+                    asyncResp->res.jsonValue["Name"] =
+                        "Chassis Thermal Metrics";
+                    asyncResp->res.jsonValue["TemperatureReadingsCelsius"] =
+                        nlohmann::json::array();
+
+                    // Identify sensor services for sensor readings
+                    processSensorServices(asyncResp, chassisPath, "thermal");
+                    return;
+                }
+                messages::resourceNotFound(asyncResp->res, "Chassis",
+                                           chassisId);
+            };
+            // Get the Chassis Collection
+            crow::connections::systemBus->async_method_call(
+                respHandler, "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+                "/xyz/openbmc_project/inventory", 0, interface);
+        });
 }
 } // namespace redfish

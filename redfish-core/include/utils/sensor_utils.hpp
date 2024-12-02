@@ -4,11 +4,12 @@
 #include "generated/enums/resource.hpp"
 #include "generated/enums/sensor.hpp"
 #include "generated/enums/thermal.hpp"
+#include "nvidia_sensor_utils.hpp"
 #include "str_utility.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/time_utils.hpp"
-#include "nvidia_sensor_utils.hpp"
+
 #include <boost/url/format.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
@@ -200,7 +201,7 @@ inline std::string_view toReadingUnits(std::string_view sensorType)
     if (sensorType == "frequency")
     {
         return "Hz";
-    }    
+    }
     return "";
 }
 

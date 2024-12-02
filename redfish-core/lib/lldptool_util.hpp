@@ -86,10 +86,9 @@ class LldpToolUtil
      *
      * @return string with the command to be executed.
      */
-    inline static std::string
-        translateOperationToCommand(const std::string& ifName, LldpTlv lldpTlv,
-                                    LldpCommandType lldpCommandType,
-                                    bool isReceived);
+    inline static std::string translateOperationToCommand(
+        const std::string& ifName, LldpTlv lldpTlv,
+        LldpCommandType lldpCommandType, bool isReceived);
 };
 
 /**
@@ -128,7 +127,6 @@ inline std::string LldpToolUtil::translateOperationToCommand(
         default:
             cmdAction = " ";
             break;
-    
     }
 
     switch (lldpTlv)
@@ -163,7 +161,7 @@ inline std::string LldpToolUtil::translateOperationToCommand(
         case LldpTlv::ALL:
             break;
         default:
-            break;            
+            break;
     }
 
     if (isReceived)
@@ -176,11 +174,10 @@ inline std::string LldpToolUtil::translateOperationToCommand(
     return command;
 }
 
-inline void
-    LldpToolUtil::run(const std::string& ifName, LldpTlv lldpTlv,
-                      LldpCommandType lldpCommandType, bool isReceived,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      LldpResponseCallback responseCallback)
+inline void LldpToolUtil::run(
+    const std::string& ifName, LldpTlv lldpTlv, LldpCommandType lldpCommandType,
+    bool isReceived, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    LldpResponseCallback responseCallback)
 {
     std::string command = translateOperationToCommand(
         ifName, lldpTlv, lldpCommandType, isReceived);

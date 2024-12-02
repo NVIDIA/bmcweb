@@ -36,8 +36,8 @@ constexpr const char* mrdConfigFile = "/usr/share/bmcweb/";
 inline int mrdConfigRead(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const std::string& deviceType, const std::string& id)
 {
-    asyncResp->res.jsonValue["@odata.id"] = metricReportDefinitionUri +
-                                            std::string("/") + id;
+    asyncResp->res.jsonValue["@odata.id"] =
+        metricReportDefinitionUri + std::string("/") + id;
     asyncResp->res.jsonValue["@odata.type"] =
         "#MetricReportDefinition.v1_4_1.MetricReportDefinition";
     asyncResp->res.jsonValue["Id"] = id;

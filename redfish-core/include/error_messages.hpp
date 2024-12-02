@@ -1211,10 +1211,9 @@ nlohmann::json actionParameterValueError(const std::string& arg1,
 nlohmann::json resourceErrorsDetectedFormatError(const std::string& arg1,
                                                  const std::string& arg2);
 
-void resourceErrorsDetectedFormatError(crow::Response& res,
-                                       const std::string& arg1,
-                                       const std::string& arg2,
-                                       const std::string& resolution = {});
+void resourceErrorsDetectedFormatError(
+    crow::Response& res, const std::string& arg1, const std::string& arg2,
+    const std::string& resolution = {});
 
 /**
  * @brief message registry entry for update in progress

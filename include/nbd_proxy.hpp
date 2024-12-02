@@ -42,8 +42,7 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
     NbdProxyServer(crow::websocket::Connection& connIn,
                    const std::string& socketIdIn,
                    const std::string& endpointIdIn, const std::string& pathIn) :
-        socketId(socketIdIn),
-        endpointId(endpointIdIn), path(pathIn),
+        socketId(socketIdIn), endpointId(endpointIdIn), path(pathIn),
 
         peerSocket(connIn.getIoContext()),
         acceptor(connIn.getIoContext(), stream_protocol::endpoint(socketId)),
@@ -81,25 +80,25 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
         acceptor.async_accept(
             [weak(weak_from_this())](const boost::system::error_code& ec,
                                      stream_protocol::socket socket) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("UNIX socket: async_accept error = {}",
-                                 ec.message());
-                return;
-            }
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("UNIX socket: async_accept error = {}",
+                                     ec.message());
+                    return;
+                }
 
-            BMCWEB_LOG_DEBUG("Connection opened");
-            std::shared_ptr<NbdProxyServer> self = weak.lock();
-            if (self == nullptr)
-            {
-                return;
-            }
+                BMCWEB_LOG_DEBUG("Connection opened");
+                std::shared_ptr<NbdProxyServer> self = weak.lock();
+                if (self == nullptr)
+                {
+                    return;
+                }
 
-            self->connection.resumeRead();
-            self->peerSocket = std::move(socket);
-            //  Start reading from socket
-            self->doRead();
-        });
+                self->connection.resumeRead();
+                self->peerSocket = std::move(socket);
+                //  Start reading from socket
+                self->doRead();
+            });
 
         auto mountHandler = [weak(weak_from_this())](
                                 const boost::system::error_code& ec, bool) {
@@ -140,32 +139,32 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
             ux2wsBuf.prepare(nbdBufferSize),
             [weak(weak_from_this())](const boost::system::error_code& ec,
                                      size_t bytesRead) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("UNIX socket: async_read_some error = {}",
-                                 ec.message());
-                return;
-            }
-            std::shared_ptr<NbdProxyServer> self = weak.lock();
-            if (self == nullptr)
-            {
-                return;
-            }
-
-            // Send to websocket
-            self->ux2wsBuf.commit(bytesRead);
-            self->connection.sendEx(
-                crow::websocket::MessageType::Binary,
-                boost::beast::buffers_to_string(self->ux2wsBuf.data()),
-                [weak(self->weak_from_this())]() {
-                std::shared_ptr<NbdProxyServer> self2 = weak.lock();
-                if (self2 != nullptr)
+                if (ec)
                 {
-                    self2->ux2wsBuf.consume(self2->ux2wsBuf.size());
-                    self2->doRead();
+                    BMCWEB_LOG_ERROR("UNIX socket: async_read_some error = {}",
+                                     ec.message());
+                    return;
                 }
+                std::shared_ptr<NbdProxyServer> self = weak.lock();
+                if (self == nullptr)
+                {
+                    return;
+                }
+
+                // Send to websocket
+                self->ux2wsBuf.commit(bytesRead);
+                self->connection.sendEx(
+                    crow::websocket::MessageType::Binary,
+                    boost::beast::buffers_to_string(self->ux2wsBuf.data()),
+                    [weak(self->weak_from_this())]() {
+                        std::shared_ptr<NbdProxyServer> self2 = weak.lock();
+                        if (self2 != nullptr)
+                        {
+                            self2->ux2wsBuf.consume(self2->ux2wsBuf.size());
+                            self2->doRead();
+                        }
+                    });
             });
-        });
     }
 
     void doWrite(std::function<void()>&& onDone)
@@ -188,30 +187,31 @@ struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
             [weak(weak_from_this()),
              onDone(std::move(onDone))](const boost::system::error_code& ec,
                                         size_t bytesWritten) mutable {
-            std::shared_ptr<NbdProxyServer> self = weak.lock();
-            if (self == nullptr)
-            {
-                return;
-            }
+                std::shared_ptr<NbdProxyServer> self = weak.lock();
+                if (self == nullptr)
+                {
+                    return;
+                }
 
-            self->ws2uxBuf.consume(bytesWritten);
-            self->uxWriteInProgress = false;
+                self->ws2uxBuf.consume(bytesWritten);
+                self->uxWriteInProgress = false;
 
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("UNIX: async_write error = {}", ec.message());
-                self->connection.close("Internal error");
-                return;
-            }
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("UNIX: async_write error = {}",
+                                     ec.message());
+                    self->connection.close("Internal error");
+                    return;
+                }
 
-            // Retrigger doWrite if there is something in buffer
-            if (self->ws2uxBuf.size() > 0)
-            {
-                self->doWrite(std::move(onDone));
-                return;
-            }
-            onDone();
-        });
+                // Retrigger doWrite if there is something in buffer
+                if (self->ws2uxBuf.size() > 0)
+                {
+                    self->doWrite(std::move(onDone));
+                    return;
+                }
+                onDone();
+            });
     }
 
     // Keeps UNIX socket endpoint file path
@@ -241,10 +241,9 @@ using SessionMap = boost::container::flat_map<crow::websocket::Connection*,
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static SessionMap sessions;
 
-inline void
-    afterGetManagedObjects(crow::websocket::Connection& conn,
-                           const boost::system::error_code& ec,
-                           const dbus::utility::ManagedObjectType& objects)
+inline void afterGetManagedObjects(
+    crow::websocket::Connection& conn, const boost::system::error_code& ec,
+    const dbus::utility::ManagedObjectType& objects)
 {
     const std::string* socketValue = nullptr;
     const std::string* endpointValue = nullptr;
@@ -331,8 +330,8 @@ inline void onOpen(crow::websocket::Connection& conn)
         "xyz.openbmc_project.VirtualMedia", path,
         [&conn](const boost::system::error_code& ec,
                 const dbus::utility::ManagedObjectType& objects) {
-        afterGetManagedObjects(conn, ec, objects);
-    });
+            afterGetManagedObjects(conn, ec, objects);
+        });
 
     // We need to wait for dbus and the websockets to hook up before data is
     // sent/received.  Tell the core to hold off messages until the sockets are

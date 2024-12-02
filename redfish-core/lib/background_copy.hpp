@@ -201,11 +201,10 @@ inline void updateBackgroundCopyStatus(
  *
  * @return exit code form mctp-vdm-tool.
  */
-inline void
-    enableBackgroundCopy(const crow::Request& req,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         uint32_t endpointId, bool enabled,
-                         const std::string& chassisId)
+inline void enableBackgroundCopy(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t endpointId,
+    bool enabled, const std::string& chassisId)
 {
     MctpVdmUtil mctpVdmUtilWrapper(endpointId);
 
@@ -266,13 +265,13 @@ inline void
 {
     MctpVdmUtil mctpVdmUtilWrapper(endpointId);
     auto responseCallback =
-        [inventoryURI]([[maybe_unused]] const crow::Request& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       [[maybe_unused]] uint32_t endpointId,
-                       [[maybe_unused]] const std::string& stdOut,
-                       [[maybe_unused]] const std::string& stdErr,
-                       const boost::system::error_code& ec,
-                       int errorCode) -> void {
+        [inventoryURI](
+            [[maybe_unused]] const crow::Request& req,
+            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+            [[maybe_unused]] uint32_t endpointId,
+            [[maybe_unused]] const std::string& stdOut,
+            [[maybe_unused]] const std::string& stdErr,
+            const boost::system::error_code& ec, int errorCode) -> void {
         if (ec || errorCode)
         {
             redfish::messages::resourceErrorsDetectedFormatError(

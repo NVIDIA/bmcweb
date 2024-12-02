@@ -32,11 +32,10 @@
  *
  * @return
  */
-inline void
-    updateInBandEnabled(const crow::Request& req,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        uint32_t endpointId,
-                        const std::function<void()>& callback = {})
+inline void updateInBandEnabled(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t endpointId,
+    const std::function<void()>& callback = {})
 {
     MctpVdmUtil mctpVdmUtilWrapper(endpointId);
     auto responseCallback =

@@ -628,14 +628,12 @@ inline std::string translateAccumlatedDuration(const uint64_t& reading)
     return metricValue;
 }
 
-inline void getMetricValue(const std::string& deviceType,
-                           const std::string& deviceName,
-                           const std::string& subDeviceName,
-                           const std::string& devicePath,
-                           const std::string& metricName,
-                           const std::string& ifaceName,
-                           const dbus::utility::DbusVariantType& value,
-                           const uint64_t& t, nlohmann::json& resArray)
+inline void getMetricValue(
+    const std::string& deviceType, const std::string& deviceName,
+    const std::string& subDeviceName, const std::string& devicePath,
+    const std::string& metricName, const std::string& ifaceName,
+    const dbus::utility::DbusVariantType& value, const uint64_t& t,
+    nlohmann::json& resArray)
 {
     nlohmann::json thisMetric = nlohmann::json::object();
     /*
@@ -666,9 +664,9 @@ inline void getMetricValue(const std::string& deviceType,
         {
             std::string val = translateReading(ifaceName, metricName, reading);
             thisMetric["MetricValue"] = val;
-            std::string metricProp = generateURI(deviceType, deviceName,
-                                                 subDeviceName, devicePath,
-                                                 metricName, ifaceName);
+            std::string metricProp =
+                generateURI(deviceType, deviceName, subDeviceName, devicePath,
+                            metricName, ifaceName);
             metricProp += "/";
             metricProp += std::to_string(i);
             thisMetric["MetricProperty"] = metricProp;
@@ -689,9 +687,9 @@ inline void getMetricValue(const std::string& deviceType,
         {
             // double val = translateReading(ifaceName, metricName, reading);
             thisMetric["MetricValue"] = std::to_string(reading);
-            std::string metricProp = generateURI(deviceType, deviceName,
-                                                 subDeviceName, devicePath,
-                                                 metricName, ifaceName);
+            std::string metricProp =
+                generateURI(deviceType, deviceName, subDeviceName, devicePath,
+                            metricName, ifaceName);
             metricProp += "/";
             metricProp += std::to_string(i);
             thisMetric["MetricProperty"] = metricProp;
@@ -703,9 +701,9 @@ inline void getMetricValue(const std::string& deviceType,
     }
     else
     {
-        const std::string metricURI = generateURI(deviceType, deviceName,
-                                                  subDeviceName, devicePath,
-                                                  metricName, ifaceName);
+        const std::string metricURI =
+            generateURI(deviceType, deviceName, subDeviceName, devicePath,
+                        metricName, ifaceName);
         if (metricURI.empty())
         {
             return;
@@ -750,8 +748,8 @@ inline void getMetricValue(const std::string& deviceType,
             }
             else
             {
-                std::string val = translateThrottleDuration(metricName,
-                                                            *reading);
+                std::string val =
+                    translateThrottleDuration(metricName, *reading);
                 thisMetric["MetricValue"] = val;
             }
         }

@@ -64,30 +64,29 @@ class DotCommandHandler
                       const std::vector<uint8_t>& data,
                       ResultCallback&& resultCallback,
                       ErrorCallback&& errorCallback, int timeoutSec = 3) :
-        resCallback(resultCallback),
-        errCallback(errorCallback)
+        resCallback(resultCallback), errCallback(errorCallback)
     {
         mctp_utils::enumerateMctpEndpoints(
             [this, command, data, timeoutSec](
                 const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
                     endpoints) {
-            if (endpoints && endpoints->size() != 0)
-            {
-                runCommand(endpoints->begin()->getMctpEid(), command, data,
-                           timeoutSec);
-            }
-            else
-            {
-                errCallback("Endpoint enumeration", "no endpoints found");
-            }
-        },
+                if (endpoints && endpoints->size() != 0)
+                {
+                    runCommand(endpoints->begin()->getMctpEid(), command, data,
+                               timeoutSec);
+                }
+                else
+                {
+                    errCallback("Endpoint enumeration", "no endpoints found");
+                }
+            },
             [this](bool critical, const std::string& desc,
                    const std::string& msg) {
-            if (critical)
-            {
-                errCallback(desc, msg);
-            }
-        },
+                if (critical)
+                {
+                    errCallback(desc, msg);
+                }
+            },
             erot);
     }
 
@@ -155,15 +154,15 @@ class DotCommandHandler
         subprocessTimer->expires_after(std::chrono::seconds(timeout));
         subprocessTimer->async_wait(
             [this, desc](const boost::system::error_code ec) {
-            if (ec && ec != boost::asio::error::operation_aborted)
-            {
-                if (subprocess)
+                if (ec && ec != boost::asio::error::operation_aborted)
                 {
-                    subprocess.reset(nullptr);
-                    errCallback(desc, "Timeout");
+                    if (subprocess)
+                    {
+                        subprocess.reset(nullptr);
+                        errCallback(desc, "Timeout");
+                    }
                 }
-            }
-        });
+            });
 
         std::vector<std::string> args = {"-c", commandsMap[command], "-t",
                                          std::to_string(eid)};

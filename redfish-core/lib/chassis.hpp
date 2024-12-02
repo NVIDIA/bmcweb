@@ -556,11 +556,12 @@ inline void handleChassisGetSubTree(
         std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
             objPath, [asyncResp](const std::string& rootHealth,
                                  const std::string& healthRollup) {
-            asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
+                asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
 #ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-            asyncResp->res.jsonValue["Status"]["HealthRollup"] = healthRollup;
+                asyncResp->res.jsonValue["Status"]["HealthRollup"] =
+                    healthRollup;
 #endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-        });
+            });
         health->start();
 #endif // ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
 
@@ -673,7 +674,7 @@ inline void handleChassisGetSubTree(
                                 return;
                             }
                             asyncResp->res.jsonValue["AssetTag"] = property;
-                    });
+                        });
                 }
                 else if (interface == replaceableInterface)
                 {
@@ -686,18 +687,19 @@ inline void handleChassisGetSubTree(
                         [asyncResp,
                          chassisId](const boost::system::error_code& ec2,
                                     const bool property) {
-                        if (ec2)
-                        {
-                            BMCWEB_LOG_ERROR(
-                                "DBus response error for HotPluggable: {}",
-                                ec2);
-                            // not abort the resource display
-                        }
-                        else
-                        {
-                            asyncResp->res.jsonValue["HotPluggable"] = property;
-                        }
-                    });
+                            if (ec2)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "DBus response error for HotPluggable: {}",
+                                    ec2);
+                                // not abort the resource display
+                            }
+                            else
+                            {
+                                asyncResp->res.jsonValue["HotPluggable"] =
+                                    property;
+                            }
+                        });
                 }
                 else if (interface == revisionInterface)
                 {
@@ -707,15 +709,15 @@ inline void handleChassisGetSubTree(
                         [asyncResp,
                          chassisId](const boost::system::error_code& ec2,
                                     const std::string& property) {
-                        if (ec2)
-                        {
-                            BMCWEB_LOG_ERROR(
-                                "DBus response error for Version: {}", ec2);
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-                        asyncResp->res.jsonValue["Version"] = property;
-                    });
+                            if (ec2)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "DBus response error for Version: {}", ec2);
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+                            asyncResp->res.jsonValue["Version"] = property;
+                        });
                 }
             }
 
@@ -749,12 +751,13 @@ inline void handleChassisGetSubTree(
                 [asyncResp, chassisId, connectionName,
                  path](const boost::system::error_code&,
                        const dbus::utility::DBusPropertiesMap& propertiesList) {
-                redfish::nvidia_chassis_utils::handleChassisGetAllProperties(
-                    asyncResp, chassisId, path, propertiesList);
-                getChassisStateWrapper(asyncResp, propertiesList,
-                                       connectionName, path);
-                getStorageLink(asyncResp, path);
-            });
+                    redfish::nvidia_chassis_utils::
+                        handleChassisGetAllProperties(asyncResp, chassisId,
+                                                      path, propertiesList);
+                    getChassisStateWrapper(asyncResp, propertiesList,
+                                           connectionName, path);
+                    getStorageLink(asyncResp, path);
+                });
 
             for (const auto& interface : interfaces2)
             {
@@ -799,11 +802,11 @@ inline void handleChassisGetSubTree(
             }
 
             // Links association to underneath chassis
-            redfish::nvidia_chassis_utils::getChassisLinksContains(asyncResp,
-                                                                   objPath);
+            redfish::nvidia_chassis_utils::getChassisLinksContains(
+                asyncResp, objPath);
             // Links association to underneath processors
-            redfish::nvidia_chassis_utils::getChassisProcessorLinks(asyncResp,
-                                                                    objPath);
+            redfish::nvidia_chassis_utils::getChassisProcessorLinks(
+                asyncResp, objPath);
             // Links association to connected fabric switches
             redfish::nvidia_chassis_utils::getChassisFabricSwitchesLinks(
                 asyncResp, objPath);
@@ -865,16 +868,16 @@ inline void handleChassisGetPreCheck(
     }
     redfish::chassis_utils::isEROTChassis(
         chassisId, [req, asyncResp, chassisId](bool isEROT, bool isCpuEROT) {
-        if (isEROT)
-        {
-            BMCWEB_LOG_DEBUG(" EROT chassis");
-            getEROTChassis(req, asyncResp, chassisId, isCpuEROT);
-        }
-        else
-        {
-            handleChassisGet(asyncResp, chassisId);
-        }
-    });
+            if (isEROT)
+            {
+                BMCWEB_LOG_DEBUG(" EROT chassis");
+                getEROTChassis(req, asyncResp, chassisId, isCpuEROT);
+            }
+            else
+            {
+                handleChassisGet(asyncResp, chassisId);
+            }
+        });
 }
 
 inline void
@@ -1108,7 +1111,7 @@ inline void
             }
 
             messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-    });
+        });
 }
 
 inline void
@@ -1122,16 +1125,16 @@ inline void
     }
     redfish::chassis_utils::isEROTChassis(
         param, [req, asyncResp, param](bool isEROT, bool isCpuEROT) {
-        if (isEROT)
-        {
-            BMCWEB_LOG_DEBUG(" EROT chassis");
-            handleEROTChassisPatch(req, asyncResp, param, isCpuEROT);
-        }
-        else
-        {
-            handleChassisPatch(req, asyncResp, param);
-        }
-    });
+            if (isEROT)
+            {
+                BMCWEB_LOG_DEBUG(" EROT chassis");
+                handleEROTChassisPatch(req, asyncResp, param, isCpuEROT);
+            }
+            else
+            {
+                handleChassisPatch(req, asyncResp, param);
+            }
+        });
 }
 
 /**
@@ -1198,57 +1201,62 @@ inline void powerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
                     const std::vector<std::string>& hostList) {
-        if (ec)
-        {
-            doChassisPowerCycle(asyncResp);
-        }
-        std::string objectPath = "/xyz/openbmc_project/state/host_system0";
-        if ((std::find(hostList.begin(), hostList.end(), objectPath)) ==
-            hostList.end())
-        {
-            objectPath = "/xyz/openbmc_project/state/host0";
-        }
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, objectPath](const boost::system::error_code ec,
-                                    const std::variant<std::string>& state) {
             if (ec)
-            {
-                BMCWEB_LOG_DEBUG("[mapper] Bad D-Bus request error: ", ec);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            const std::string* hostState = std::get_if<std::string>(&state);
-            if (*hostState ==
-                "xyz.openbmc_project.State.Host.HostState.Running")
-            {
-                crow::connections::systemBus->async_method_call(
-                    [asyncResp,
-                     objectPath](const boost::system::error_code ec) {
-                    // Use "Set" method to set the property value.
-                    if (ec)
-                    {
-                        BMCWEB_LOG_DEBUG("[Set] Bad D-Bus request error: ", ec);
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-
-                    messages::success(asyncResp->res);
-                },
-                    "xyz.openbmc_project.State.Host", objectPath,
-                    "org.freedesktop.DBus.Properties", "Set",
-                    "xyz.openbmc_project.State.Host", "RequestedHostTransition",
-                    dbus::utility::DbusVariantType{
-                        "xyz.openbmc_project.State.Host.Transition.Reboot"});
-            }
-            else
             {
                 doChassisPowerCycle(asyncResp);
             }
+            std::string objectPath = "/xyz/openbmc_project/state/host_system0";
+            if ((std::find(hostList.begin(), hostList.end(), objectPath)) ==
+                hostList.end())
+            {
+                objectPath = "/xyz/openbmc_project/state/host0";
+            }
+            crow::connections::systemBus->async_method_call(
+                [asyncResp,
+                 objectPath](const boost::system::error_code ec,
+                             const std::variant<std::string>& state) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_DEBUG("[mapper] Bad D-Bus request error: ",
+                                         ec);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    const std::string* hostState =
+                        std::get_if<std::string>(&state);
+                    if (*hostState ==
+                        "xyz.openbmc_project.State.Host.HostState.Running")
+                    {
+                        crow::connections::systemBus->async_method_call(
+                            [asyncResp,
+                             objectPath](const boost::system::error_code ec) {
+                                // Use "Set" method to set the property value.
+                                if (ec)
+                                {
+                                    BMCWEB_LOG_DEBUG(
+                                        "[Set] Bad D-Bus request error: ", ec);
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+
+                                messages::success(asyncResp->res);
+                            },
+                            "xyz.openbmc_project.State.Host", objectPath,
+                            "org.freedesktop.DBus.Properties", "Set",
+                            "xyz.openbmc_project.State.Host",
+                            "RequestedHostTransition",
+                            dbus::utility::DbusVariantType{
+                                "xyz.openbmc_project.State.Host.Transition.Reboot"});
+                    }
+                    else
+                    {
+                        doChassisPowerCycle(asyncResp);
+                    }
+                },
+                "xyz.openbmc_project.State.Host", objectPath,
+                "org.freedesktop.DBus.Properties", "Get",
+                "xyz.openbmc_project.State.Host", "CurrentHostState");
         },
-            "xyz.openbmc_project.State.Host", objectPath,
-            "org.freedesktop.DBus.Properties", "Get",
-            "xyz.openbmc_project.State.Host", "CurrentHostState");
-    },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", "/", 0,
@@ -1273,34 +1281,34 @@ inline void handleChassisResetActionInfoPost(
     redfish::chassis_utils::isEROTChassis(
         chassisId,
         [req, asyncResp, chassisId](bool isEROT, bool /*isCpuEROT*/) {
-        if (isEROT)
-        {
-            handleEROTChassisResetAction(req, asyncResp, chassisId);
-        }
-        else
-        {
+            if (isEROT)
+            {
+                handleEROTChassisResetAction(req, asyncResp, chassisId);
+            }
+            else
+            {
 #endif // BMCWEB_EROT_RESET
-            std::string resetType;
+                std::string resetType;
 
-            if (!json_util::readJsonAction(req, asyncResp->res, "ResetType",
-                                           resetType))
-            {
-                return;
-            }
+                if (!json_util::readJsonAction(req, asyncResp->res, "ResetType",
+                                               resetType))
+                {
+                    return;
+                }
 
-            if (resetType != "PowerCycle")
-            {
-                BMCWEB_LOG_DEBUG("Invalid property value for ResetType: {}",
-                                 resetType);
-                messages::actionParameterNotSupported(asyncResp->res, resetType,
-                                                      "ResetType");
+                if (resetType != "PowerCycle")
+                {
+                    BMCWEB_LOG_DEBUG("Invalid property value for ResetType: {}",
+                                     resetType);
+                    messages::actionParameterNotSupported(
+                        asyncResp->res, resetType, "ResetType");
 
-                return;
-            }
-            powerCycle(asyncResp);
+                    return;
+                }
+                powerCycle(asyncResp);
 #ifdef BMCWEB_EROT_RESET
-        }
-    });
+            }
+        });
 #endif // BMCWEB_EROT_RESET
 }
 
@@ -1341,50 +1349,50 @@ inline void handleOemChassisResetActionInfoPost(
             "xyz.openbmc_project.State.Host", "CurrentHostState",
             [asyncResp](const boost::system::error_code& ec,
                         const std::string& hostState) {
-            if (ec)
-            {
-                if (ec == boost::system::errc::host_unreachable)
+                if (ec)
                 {
-                    // Service not available, no error, just don't
-                    // return host state info
-                    BMCWEB_LOG_DEBUG("Service not available {}", ec);
-                    return;
-                }
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            if (hostState == "xyz.openbmc_project.State.Host.HostState.Off")
-            {
-                crow::connections::systemBus->async_method_call(
-                    [asyncResp](const boost::system::error_code& ec) {
-                    if (ec)
+                    if (ec == boost::system::errc::host_unreachable)
                     {
-                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
-                        messages::internalError(asyncResp->res);
+                        // Service not available, no error, just don't
+                        // return host state info
+                        BMCWEB_LOG_DEBUG("Service not available {}", ec);
                         return;
                     }
-                },
-                    "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
-                    "org.freedesktop.systemd1.Manager", "StartUnit",
-                    "nvidia-aux-power.service", "replace");
-            }
-            else
-            {
-                messages::chassisPowerStateOffRequired(asyncResp->res, "0");
-            }
-        });
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                if (hostState == "xyz.openbmc_project.State.Host.HostState.Off")
+                {
+                    crow::connections::systemBus->async_method_call(
+                        [asyncResp](const boost::system::error_code& ec) {
+                            if (ec)
+                            {
+                                BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+                        },
+                        "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager", "StartUnit",
+                        "nvidia-aux-power.service", "replace");
+                }
+                else
+                {
+                    messages::chassisPowerStateOffRequired(asyncResp->res, "0");
+                }
+            });
     }
     else
     {
         crow::connections::systemBus->async_method_call(
             [asyncResp](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-        },
+                if (ec)
+                {
+                    BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+            },
             "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
             "org.freedesktop.systemd1.Manager", "StartUnit",
             "nvidia-aux-power-force.service", "replace");

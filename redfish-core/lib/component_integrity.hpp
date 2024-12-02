@@ -180,17 +180,17 @@ inline void asyncGetSPDMMeasurementData(const std::string& objectPath,
     crow::connections::systemBus->async_method_call(
         [objectPath, callback](const boost::system::error_code ec,
                                GetManagedPropertyType& resp) {
-        SPDMMeasurementData config{};
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Get all function failed for object = {}",
-                             objectPath);
+            SPDMMeasurementData config{};
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Get all function failed for object = {}",
+                                 objectPath);
+                callback(std::move(config), ec);
+                return;
+            }
+            config = parseSPDMInterfaceProperties(resp);
             callback(std::move(config), ec);
-            return;
-        }
-        config = parseSPDMInterfaceProperties(resp);
-        callback(std::move(config), ec);
-    },
+        },
         "xyz.openbmc_project.SPDM", objectPath,
         "org.freedesktop.DBus.Properties", "GetAll", "");
 }
@@ -287,68 +287,72 @@ inline void handleSPDMGETSignedMeasurement(
         [id, objPath](boost::system::error_code ec,
                       sdbusplus::message::message& msg,
                       const std::shared_ptr<task::TaskData>& taskData) {
-        if (ec)
-        {
-            if (ec != boost::asio::error::operation_aborted)
+            if (ec)
             {
+                if (ec != boost::asio::error::operation_aborted)
+                {
+                    taskData->state = "Aborted";
+                    taskData->messages.emplace_back(
+                        messages::resourceErrorsDetectedFormatError(
+                            "GetSignedMeasurement task", ec.message()));
+                    taskData->finishTask();
+                }
+                spdmMeasurementData.erase(objPath);
+                return task::completed;
+            }
+
+            std::string interface;
+            std::map<std::string, dbus::utility::DbusVariantType> props;
+
+            msg.read(interface, props);
+            auto it = props.find("Status");
+            if (it == props.end())
+            {
+                BMCWEB_LOG_DEBUG("Did not receive an SPDM Status value");
+                return !task::completed;
+            }
+            auto value = std::get_if<std::string>(&(it->second));
+            if (!value)
+            {
+                BMCWEB_LOG_ERROR("Received SPDM Status is not a string");
+                return !task::completed;
+            }
+
+            if (*value ==
+                "xyz.openbmc_project.SPDM.Responder.SPDMStatus.Success")
+            {
+                std::string location =
+                    "Location: /redfish/v1/"
+                    "ComponentIntegrity/" +
+                    id +
+                    "/Actions/ComponentIntegrity.SPDMGetSignedMeasurements/data";
+                taskData->payload->httpHeaders.emplace_back(
+                    std::move(location));
+                taskData->state = "Completed";
+                taskData->percentComplete = 100;
+                taskData->messages.emplace_back(
+                    messages::taskCompletedOK(std::to_string(taskData->index)));
+                taskData->finishTask();
+                spdmMeasurementData.erase(objPath);
+                return task::completed;
+            }
+            if (startsWithPrefix(
+                    *value,
+                    "xyz.openbmc_project.SPDM.Responder.SPDMStatus.Error_"))
+            {
+                BMCWEB_LOG_ERROR("Received SPDM Error: {}", *value);
                 taskData->state = "Aborted";
                 taskData->messages.emplace_back(
-                    messages::resourceErrorsDetectedFormatError(
-                        "GetSignedMeasurement task", ec.message()));
+                    messages::resourceErrorsDetectedFormatError("Status",
+                                                                *value));
                 taskData->finishTask();
+                spdmMeasurementData.erase(objPath);
+                return task::completed;
             }
-            spdmMeasurementData.erase(objPath);
-            return task::completed;
-        }
-
-        std::string interface;
-        std::map<std::string, dbus::utility::DbusVariantType> props;
-
-        msg.read(interface, props);
-        auto it = props.find("Status");
-        if (it == props.end())
-        {
-            BMCWEB_LOG_DEBUG("Did not receive an SPDM Status value");
+            // other intermediate states are ignored
+            BMCWEB_LOG_DEBUG("Ignoring SPDM Status update: {}", *value);
             return !task::completed;
-        }
-        auto value = std::get_if<std::string>(&(it->second));
-        if (!value)
-        {
-            BMCWEB_LOG_ERROR("Received SPDM Status is not a string");
-            return !task::completed;
-        }
-
-        if (*value == "xyz.openbmc_project.SPDM.Responder.SPDMStatus.Success")
-        {
-            std::string location =
-                "Location: /redfish/v1/"
-                "ComponentIntegrity/" +
-                id +
-                "/Actions/ComponentIntegrity.SPDMGetSignedMeasurements/data";
-            taskData->payload->httpHeaders.emplace_back(std::move(location));
-            taskData->state = "Completed";
-            taskData->percentComplete = 100;
-            taskData->messages.emplace_back(
-                messages::taskCompletedOK(std::to_string(taskData->index)));
-            taskData->finishTask();
-            spdmMeasurementData.erase(objPath);
-            return task::completed;
-        }
-        if (startsWithPrefix(
-                *value, "xyz.openbmc_project.SPDM.Responder.SPDMStatus.Error_"))
-        {
-            BMCWEB_LOG_ERROR("Received SPDM Error: {}", *value);
-            taskData->state = "Aborted";
-            taskData->messages.emplace_back(
-                messages::resourceErrorsDetectedFormatError("Status", *value));
-            taskData->finishTask();
-            spdmMeasurementData.erase(objPath);
-            return task::completed;
-        }
-        // other intermediate states are ignored
-        BMCWEB_LOG_DEBUG("Ignoring SPDM Status update: {}", *value);
-        return !task::completed;
-    },
+        },
         "type='signal',member='PropertiesChanged',"
         "interface='org.freedesktop.DBus.Properties',"
         "path='" +
@@ -361,18 +365,19 @@ inline void handleSPDMGETSignedMeasurement(
 
     crow::connections::systemBus->async_method_call(
         [objPath, task](const boost::system::error_code ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Failed to refresh the SPDM measurement {}", ec);
-            task->state = "Aborted";
-            task->messages.emplace_back(
-                messages::resourceErrorsDetectedFormatError("SPDM refresh",
-                                                            ec.message()));
-            task->finishTask();
-            spdmMeasurementData.erase(objPath);
-            return;
-        }
-    },
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Failed to refresh the SPDM measurement {}",
+                                 ec);
+                task->state = "Aborted";
+                task->messages.emplace_back(
+                    messages::resourceErrorsDetectedFormatError("SPDM refresh",
+                                                                ec.message()));
+                task->finishTask();
+                spdmMeasurementData.erase(objPath);
+                return;
+            }
+        },
         spdmBusName, objPath, spdmResponderIntf, "Refresh", *slotID, nonceVec,
         *indices, static_cast<uint32_t>(0));
 } // namespace redfish
@@ -381,189 +386,216 @@ inline void requestRoutesComponentIntegrity(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/ComponentIntegrity/")
         .privileges(redfish::privileges::getManagerAccountCollection)
-        .methods(boost::beast::http::verb::get)(
-            [&app](
-                const crow::Request& req,
-                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) -> void {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        asyncResp->res.jsonValue = {
-            {"@odata.id", "/redfish/v1/ComponentIntegrity"},
-            {"@odata.type", "#ComponentIntegrityCollection."
-                            "ComponentIntegrityCollection"},
-            {"Name", "ComponentIntegrity Collection"}};
-
-        const std::array<const char*, 1> interface = {
-            "xyz.openbmc_project.SPDM.Responder"};
-
-        crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code ec,
-                        const crow::openbmc_mapper::GetSubTreeType& subtree) {
-            if (ec)
+        .methods(boost::beast::http::verb::get)([&app](const crow::Request& req,
+                                                       const std::shared_ptr<
+                                                           bmcweb::AsyncResp>&
+                                                           asyncResp) -> void {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
-                messages::internalError(asyncResp->res);
                 return;
             }
-            nlohmann::json& memberArray = asyncResp->res.jsonValue["Members"];
-            memberArray = nlohmann::json::array();
-            asyncResp->res.jsonValue["Members@odata.count"] = 0;
-            for (const std::pair<std::string,
-                                 std::vector<std::pair<
-                                     std::string, std::vector<std::string>>>>&
-                     object : subtree)
-            {
-                auto objPathString = object.first;
-                sdbusplus::asio::getProperty<bool>(
-                    *crow::connections::systemBus, object.second[0].first,
-                    objPathString, "xyz.openbmc_project.Object.Enable",
-                    "Enabled",
-                    [asyncResp, objPathString,
-                     &memberArray](const boost::system::error_code ec,
-                                   const bool& enabled) {
+            asyncResp->res.jsonValue = {
+                {"@odata.id", "/redfish/v1/ComponentIntegrity"},
+                {"@odata.type", "#ComponentIntegrityCollection."
+                                "ComponentIntegrityCollection"},
+                {"Name", "ComponentIntegrity Collection"}};
+
+            const std::array<const char*, 1> interface = {
+                "xyz.openbmc_project.SPDM.Responder"};
+
+            crow::connections::systemBus->async_method_call(
+                [asyncResp](
+                    const boost::system::error_code ec,
+                    const crow::openbmc_mapper::GetSubTreeType& subtree) {
                     if (ec)
                     {
-                        BMCWEB_LOG_ERROR(
-                            "DBUS response error for enabled property, error={}",
-                            ec.what());
+                        messages::internalError(asyncResp->res);
                         return;
                     }
-
-                    if (!enabled)
+                    nlohmann::json& memberArray =
+                        asyncResp->res.jsonValue["Members"];
+                    memberArray = nlohmann::json::array();
+                    asyncResp->res.jsonValue["Members@odata.count"] = 0;
+                    for (const std::pair<
+                             std::string,
+                             std::vector<std::pair<std::string,
+                                                   std::vector<std::string>>>>&
+                             object : subtree)
                     {
-                        return;
-                    }
+                        auto objPathString = object.first;
+                        sdbusplus::asio::getProperty<bool>(
+                            *crow::connections::systemBus,
+                            object.second[0].first, objPathString,
+                            "xyz.openbmc_project.Object.Enable", "Enabled",
+                            [asyncResp, objPathString,
+                             &memberArray](const boost::system::error_code ec,
+                                           const bool& enabled) {
+                                if (ec)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "DBUS response error for enabled property, error={}",
+                                        ec.what());
+                                    return;
+                                }
 
-                    sdbusplus::message::object_path objPath(objPathString);
-                    memberArray.push_back(
-                        {{"@odata.id", "/redfish/v1/ComponentIntegrity/" +
-                                           objPath.filename()}});
-                    asyncResp->res.jsonValue["Members@odata.count"] =
-                        memberArray.size();
-                });
-            }
-        },
-            dbus_utils::mapperBusName, dbus_utils::mapperObjectPath,
-            dbus_utils::mapperIntf, "GetSubTree", rootSPDMDbusPath, 0,
-            interface);
-    });
+                                if (!enabled)
+                                {
+                                    return;
+                                }
+
+                                sdbusplus::message::object_path objPath(
+                                    objPathString);
+                                memberArray.push_back(
+                                    {{"@odata.id",
+                                      "/redfish/v1/ComponentIntegrity/" +
+                                          objPath.filename()}});
+                                asyncResp->res
+                                    .jsonValue["Members@odata.count"] =
+                                    memberArray.size();
+                            });
+                    }
+                },
+                dbus_utils::mapperBusName, dbus_utils::mapperObjectPath,
+                dbus_utils::mapperIntf, "GetSubTree", rootSPDMDbusPath, 0,
+                interface);
+        });
 
     BMCWEB_ROUTE(app, "/redfish/v1/ComponentIntegrity/<str>/")
         .privileges(redfish::privileges::getManagerAccount)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& id) -> void {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        std::string objectPath = std::string(rootSPDMDbusPath) + "/" + id;
-        asyncGetSPDMMeasurementData(
-            objectPath,
-            [asyncResp, id, objectPath](const SPDMMeasurementData& data,
-                                        const boost::system::error_code ec) {
-            if (ec)
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& id) -> void {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
-                if (ec.value() == EBADR)
-                {
-                    messages::resourceNotFound(asyncResp->res,
-                                               "ComponentIntegrity", id);
-                }
-                else
-                {
-                    messages::internalError(asyncResp->res);
-                }
                 return;
             }
-
-            asyncResp->res.jsonValue = {
-                {"@odata.type",
-                 "#ComponentIntegrity.v1_0_0.ComponentIntegrity"},
-                {"@odata.id", "/redfish/v1/ComponentIntegrity/" + id},
-                {"Id", id},
-                {"Name", "SPDM Integrity for " + id},
-                {"ComponentIntegrityType", "SPDM"},
-                {"ComponentIntegrityEnabled", true},
-                {"SPDM",
-                 {{"Requester",
-                   {{"@odata.id",
-                     "/redfish/v1/Managers/" +
-                         std::string(BMCWEB_REDFISH_MANAGER_URI_NAME)}}}}},
-                {"Actions",
-                 {{"#ComponentIntegrity.SPDMGetSignedMeasurements",
-                   {{"target",
-                     "/redfish/v1/ComponentIntegrity/" + id +
-                         "/Actions/ComponentIntegrity.SPDMGetSignedMeasurements"},
-                    {"@Redfish.ActionInfo",
-                     "/redfish/v1/ComponentIntegrity/" + id +
-                         "/SPDMGetSignedMeasurementsActionInfo"}}}}},
-                {"ComponentIntegrityTypeVersion", getVersionStr(data.version)},
-            };
-
-            chassis_utils::getAssociationEndpoint(
-                objectPath + "/inventory_object",
-                [asyncResp](const bool& status, const std::string& endpoint) {
-                if (!status)
+            std::string objectPath = std::string(rootSPDMDbusPath) + "/" + id;
+            asyncGetSPDMMeasurementData(objectPath, [asyncResp, id, objectPath](
+                                                        const SPDMMeasurementData&
+                                                            data,
+                                                        const boost::system::
+                                                            error_code ec) {
+                if (ec)
                 {
-                    BMCWEB_LOG_DEBUG("Unable to get the association endpoint");
-                }
-                sdbusplus::message::object_path erotInvObjectPath(endpoint);
-                const std::string& objName = erotInvObjectPath.filename();
-                std::string chassisURI =
-                    boost::urls::format("/redfish/v1/Chassis/{}", objName)
-                        .buffer();
-                std::string certificateURI = chassisURI +
-                                             "/Certificates/CertChain";
-                asyncResp->res.jsonValue["TargetComponentURI"] = chassisURI;
-                asyncResp->res.jsonValue["SPDM"]["IdentityAuthentication"] = {
-                    {"ResponderAuthentication",
-                     {{"ComponentCertificate",
-                       {{"@odata.id", certificateURI}}}}}};
-                std::string objPath = endpoint + "/inventory";
-                chassis_utils::getAssociationEndpoint(
-                    objPath, [objPath, asyncResp](const bool& status,
-                                                  const std::string& ep) {
-                    if (!status)
+                    if (ec.value() == EBADR)
                     {
-                        BMCWEB_LOG_DEBUG(
-                            "Unable to get the association endpoint for ",
-                            objPath);
-                        nlohmann::json& componentsProtectedArray =
-                            asyncResp->res
-                                .jsonValue["Links"]["ComponentsProtected"];
-                        componentsProtectedArray = nlohmann::json::array();
-
-                        return;
+                        messages::resourceNotFound(asyncResp->res,
+                                                   "ComponentIntegrity", id);
                     }
+                    else
+                    {
+                        messages::internalError(asyncResp->res);
+                    }
+                    return;
+                }
 
-                    chassis_utils::getRedfishURL(
-                        ep, [ep, asyncResp](const bool& status,
-                                            const std::string& url) {
-                        nlohmann::json& componentsProtectedArray =
-                            asyncResp->res
-                                .jsonValue["Links"]["ComponentsProtected"];
-                        componentsProtectedArray = nlohmann::json::array();
+                asyncResp->res.jsonValue = {
+                    {"@odata.type",
+                     "#ComponentIntegrity.v1_0_0.ComponentIntegrity"},
+                    {"@odata.id", "/redfish/v1/ComponentIntegrity/" + id},
+                    {"Id", id},
+                    {"Name", "SPDM Integrity for " + id},
+                    {"ComponentIntegrityType", "SPDM"},
+                    {"ComponentIntegrityEnabled", true},
+                    {"SPDM",
+                     {{"Requester",
+                       {{"@odata.id",
+                         "/redfish/v1/Managers/" +
+                             std::string(BMCWEB_REDFISH_MANAGER_URI_NAME)}}}}},
+                    {"Actions",
+                     {{"#ComponentIntegrity.SPDMGetSignedMeasurements",
+                       {{"target",
+                         "/redfish/v1/ComponentIntegrity/" + id +
+                             "/Actions/ComponentIntegrity.SPDMGetSignedMeasurements"},
+                        {"@Redfish.ActionInfo",
+                         "/redfish/v1/ComponentIntegrity/" + id +
+                             "/SPDMGetSignedMeasurementsActionInfo"}}}}},
+                    {"ComponentIntegrityTypeVersion",
+                     getVersionStr(data.version)},
+                };
 
-                        // if (!status || url.empty()) In curent
-                        // implementation of getRedfishURL
-                        // function never returns empty URL with
-                        // status = true
+                chassis_utils::getAssociationEndpoint(
+                    objectPath + "/inventory_object",
+                    [asyncResp](const bool& status,
+                                const std::string& endpoint) {
                         if (!status)
                         {
                             BMCWEB_LOG_DEBUG(
-                                "Unable to get the Redfish URL for {}", ep);
-                            return;
+                                "Unable to get the association endpoint");
                         }
+                        sdbusplus::message::object_path erotInvObjectPath(
+                            endpoint);
+                        const std::string& objName =
+                            erotInvObjectPath.filename();
+                        std::string chassisURI =
+                            boost::urls::format("/redfish/v1/Chassis/{}",
+                                                objName)
+                                .buffer();
+                        std::string certificateURI =
+                            chassisURI + "/Certificates/CertChain";
+                        asyncResp->res.jsonValue["TargetComponentURI"] =
+                            chassisURI;
+                        asyncResp->res
+                            .jsonValue["SPDM"]["IdentityAuthentication"] = {
+                            {"ResponderAuthentication",
+                             {{"ComponentCertificate",
+                               {{"@odata.id", certificateURI}}}}}};
+                        std::string objPath = endpoint + "/inventory";
+                        chassis_utils::getAssociationEndpoint(
+                            objPath,
+                            [objPath, asyncResp](const bool& status,
+                                                 const std::string& ep) {
+                                if (!status)
+                                {
+                                    BMCWEB_LOG_DEBUG(
+                                        "Unable to get the association endpoint for ",
+                                        objPath);
+                                    nlohmann::json& componentsProtectedArray =
+                                        asyncResp->res
+                                            .jsonValue["Links"]
+                                                      ["ComponentsProtected"];
+                                    componentsProtectedArray =
+                                        nlohmann::json::array();
 
-                        componentsProtectedArray.push_back(
-                            {nlohmann::json::array({"@odata.id", url})});
+                                    return;
+                                }
+
+                                chassis_utils::getRedfishURL(ep, [ep,
+                                                                  asyncResp](
+                                                                     const bool&
+                                                                         status,
+                                                                     const std::
+                                                                         string&
+                                                                             url) {
+                                    nlohmann::json& componentsProtectedArray =
+                                        asyncResp->res
+                                            .jsonValue["Links"]
+                                                      ["ComponentsProtected"];
+                                    componentsProtectedArray =
+                                        nlohmann::json::array();
+
+                                    // if (!status || url.empty()) In curent
+                                    // implementation of getRedfishURL
+                                    // function never returns empty URL with
+                                    // status = true
+                                    if (!status)
+                                    {
+                                        BMCWEB_LOG_DEBUG(
+                                            "Unable to get the Redfish URL for {}",
+                                            ep);
+                                        return;
+                                    }
+
+                                    componentsProtectedArray.push_back(
+                                        {nlohmann::json::array(
+                                            {"@odata.id", url})});
+                                });
+                            });
                     });
-                });
             });
         });
-    });
 
     BMCWEB_ROUTE(app, "/redfish/v1/ComponentIntegrity/<str>/"
                       "Actions/ComponentIntegrity.SPDMGetSignedMeasurements/")
@@ -579,114 +611,122 @@ inline void requestRoutesComponentIntegrity(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& id) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        const std::string objPath = std::string(rootSPDMDbusPath) + "/" + id;
-        asyncGetSPDMMeasurementData(
-            objPath,
-            [asyncResp, id, objPath](const SPDMMeasurementData& config,
-                                     const boost::system::error_code ec) {
-            if (ec)
-            {
-                if (ec.value() == EBADR)
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
-                    messages::resourceNotFound(asyncResp->res,
-                                               "ComponentIntegrity", id);
+                    return;
                 }
-                else
-                {
-                    messages::internalError(asyncResp->res);
-                }
-                return;
-            }
+                const std::string objPath =
+                    std::string(rootSPDMDbusPath) + "/" + id;
+                asyncGetSPDMMeasurementData(
+                    objPath, [asyncResp, id,
+                              objPath](const SPDMMeasurementData& config,
+                                       const boost::system::error_code ec) {
+                        if (ec)
+                        {
+                            if (ec.value() == EBADR)
+                            {
+                                messages::resourceNotFound(
+                                    asyncResp->res, "ComponentIntegrity", id);
+                            }
+                            else
+                            {
+                                messages::internalError(asyncResp->res);
+                            }
+                            return;
+                        }
 
-            asyncResp->res.jsonValue["SignedMeasurements"] = config.measurement;
-            asyncResp->res.jsonValue["Version"] = getVersionStr(config.version);
-            asyncResp->res.jsonValue["HashingAlgorithm"] = config.hashAlgo;
-            asyncResp->res.jsonValue["SigningAlgorithm"] = config.signAlgo;
-        });
-    });
+                        asyncResp->res.jsonValue["SignedMeasurements"] =
+                            config.measurement;
+                        asyncResp->res.jsonValue["Version"] =
+                            getVersionStr(config.version);
+                        asyncResp->res.jsonValue["HashingAlgorithm"] =
+                            config.hashAlgo;
+                        asyncResp->res.jsonValue["SigningAlgorithm"] =
+                            config.signAlgo;
+                    });
+            });
 
     BMCWEB_ROUTE(app, "/redfish/v1/ComponentIntegrity/<str>/"
                       "SPDMGetSignedMeasurementsActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& compIntegrityID) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        constexpr std::array<std::string_view, 1> interfaces = {
-            spdmResponderIntf};
-        dbus::utility::getSubTreePaths(
-            rootSPDMDbusPath, 0, interfaces,
-            [compIntegrityID, asyncResp](
-                const boost::system::error_code& ec,
-                const dbus::utility::MapperGetSubTreePathsResponse& resp) {
-            if (ec)
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& compIntegrityID) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
-                BMCWEB_LOG_ERROR("GetSubTreePaths error: {}", ec);
-                messages::internalError(asyncResp->res);
                 return;
             }
-            if (resp.size() == 0)
-            {
-                BMCWEB_LOG_ERROR("No objects with SPDM interface found for {}",
-                                 compIntegrityID);
-                messages::resourceMissingAtURI(
-                    asyncResp->res,
-                    boost::urls::format(
-                        "/redfish/v1/ComponentIntegrity/{}/SPDMGetSignedMeasurementsActionInfo",
-                        compIntegrityID));
-                return;
-            }
-            bool found{};
-            for (const auto& path : resp)
-            {
-                if (path.find(compIntegrityID) != std::string::npos)
-                {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found)
-            {
-                BMCWEB_LOG_ERROR("SPDM interface not implemented for {}",
-                                 compIntegrityID);
-                messages::resourceMissingAtURI(
-                    asyncResp->res,
-                    boost::urls::format(
-                        "/redfish/v1/ComponentIntegrity/{}/SPDMGetSignedMeasurementsActionInfo",
-                        compIntegrityID));
-                return;
-            }
-            asyncResp->res.jsonValue = {
-                {"@odata.type", "#ActionInfo.v1_1_2.ActionInfo"},
-                {"@odata.id", "/redfish/v1/ComponentIntegrity/" +
-                                  compIntegrityID +
-                                  "/SPDMGetSignedMeasurementsActionInfo"},
-                {"Name", "SPDMGetSignedMeasurementsActionInfo"},
-                {"Id", "SPDMGetSignedMeasurementsActionInfo"},
-                {"Parameters",
-                 {{{"Name", "MeasurementIndices"},
-                   {"Required", false},
-                   {"DataType", "NumberArray"},
-                   {"MinimumValue", 0},
-                   {"MaximumValue", 255}},
-                  {{"Name", "Nonce"},
-                   {"Required", false},
-                   {"DataType", "String"}},
-                  {{"Name", "SlotId"},
-                   {"Required", false},
-                   {"DataType", "Number"},
-                   {"MinimumValue", 0},
-                   {"MaximumValue", 7}}}}};
+            constexpr std::array<std::string_view, 1> interfaces = {
+                spdmResponderIntf};
+            dbus::utility::getSubTreePaths(
+                rootSPDMDbusPath, 0, interfaces,
+                [compIntegrityID, asyncResp](
+                    const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreePathsResponse& resp) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR("GetSubTreePaths error: {}", ec);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (resp.size() == 0)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "No objects with SPDM interface found for {}",
+                            compIntegrityID);
+                        messages::resourceMissingAtURI(
+                            asyncResp->res,
+                            boost::urls::format(
+                                "/redfish/v1/ComponentIntegrity/{}/SPDMGetSignedMeasurementsActionInfo",
+                                compIntegrityID));
+                        return;
+                    }
+                    bool found{};
+                    for (const auto& path : resp)
+                    {
+                        if (path.find(compIntegrityID) != std::string::npos)
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "SPDM interface not implemented for {}",
+                            compIntegrityID);
+                        messages::resourceMissingAtURI(
+                            asyncResp->res,
+                            boost::urls::format(
+                                "/redfish/v1/ComponentIntegrity/{}/SPDMGetSignedMeasurementsActionInfo",
+                                compIntegrityID));
+                        return;
+                    }
+                    asyncResp->res.jsonValue = {
+                        {"@odata.type", "#ActionInfo.v1_1_2.ActionInfo"},
+                        {"@odata.id",
+                         "/redfish/v1/ComponentIntegrity/" + compIntegrityID +
+                             "/SPDMGetSignedMeasurementsActionInfo"},
+                        {"Name", "SPDMGetSignedMeasurementsActionInfo"},
+                        {"Id", "SPDMGetSignedMeasurementsActionInfo"},
+                        {"Parameters",
+                         {{{"Name", "MeasurementIndices"},
+                           {"Required", false},
+                           {"DataType", "NumberArray"},
+                           {"MinimumValue", 0},
+                           {"MaximumValue", 255}},
+                          {{"Name", "Nonce"},
+                           {"Required", false},
+                           {"DataType", "String"}},
+                          {{"Name", "SlotId"},
+                           {"Required", false},
+                           {"DataType", "Number"},
+                           {"MinimumValue", 0},
+                           {"MaximumValue", 7}}}}};
+                });
         });
-    });
 
 } // routes component integrity
 

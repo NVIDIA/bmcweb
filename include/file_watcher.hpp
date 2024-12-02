@@ -77,8 +77,8 @@ class InotifyFileWatcher
             BMCWEB_LOG_ERROR("Error initializing inotify.");
             return;
         }
-        sd = std::make_unique<boost::asio::posix::stream_descriptor>(*io,
-                                                                     inotifyFd);
+        sd = std::make_unique<boost::asio::posix::stream_descriptor>(
+            *io, inotifyFd);
     }
 
     void addPath(const std::string& path, uint32_t mask)

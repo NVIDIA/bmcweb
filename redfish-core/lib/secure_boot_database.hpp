@@ -86,8 +86,8 @@ inline std::string getCertObjectPath(const std::string& databaseId,
 {
     if (certId.empty())
     {
-        return std::string("/xyz/openbmc_project/secureBootDatabase/" +
-                           databaseId);
+        return std::string(
+            "/xyz/openbmc_project/secureBootDatabase/" + databaseId);
     }
     return std::string("/xyz/openbmc_project/secureBootDatabase/" + databaseId +
                        "/certs/" + certId);
@@ -98,8 +98,8 @@ inline std::string getSigObjectPath(const std::string& databaseId,
 {
     if (sigId.empty())
     {
-        return std::string("/xyz/openbmc_project/secureBootDatabase/" +
-                           databaseId);
+        return std::string(
+            "/xyz/openbmc_project/secureBootDatabase/" + databaseId);
     }
     return std::string("/xyz/openbmc_project/secureBootDatabase/" + databaseId +
                        "/signature/" + sigId);
@@ -115,9 +115,8 @@ inline bool hasSignature(const std::string& databaseId)
     return !regex_match(databaseId, std::regex(R"((PK|KEK).*)"));
 }
 
-inline void
-    createPendingRequest(const crow::Request& req,
-                         const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+inline void createPendingRequest(
+    const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     auto task = task::TaskData::createTask(
         [](boost::system::error_code, sdbusplus::message_t&,
@@ -148,53 +147,54 @@ inline void handleSecureBootDatabaseCollectionGet(
     crow::connections::systemBus->async_method_call(
         [aResp](const boost::system::error_code ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
-        if (ec == boost::system::errc::io_error)
-        {
-            aResp->res.jsonValue["Members"] = nlohmann::json::array();
-            aResp->res.jsonValue["Members@odata.count"] = 0;
-            return;
-        }
-
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("DBUS response error {}", ec.value());
-            messages::internalError(aResp->res);
-            return;
-        }
-
-        std::vector<std::string> pathNames;
-        for (const auto& object : objects)
-        {
-            sdbusplus::message::object_path path(object);
-            std::string leaf = path.filename();
-            if (leaf == "certs")
+            if (ec == boost::system::errc::io_error)
             {
-                leaf = path.parent_path().filename();
+                aResp->res.jsonValue["Members"] = nlohmann::json::array();
+                aResp->res.jsonValue["Members@odata.count"] = 0;
+                return;
             }
-            if (leaf.empty())
-            {
-                continue;
-            }
-            pathNames.push_back(leaf);
-        }
-        std::sort(pathNames.begin(), pathNames.end(),
-                  AlphanumLess<std::string>());
 
-        nlohmann::json& members = aResp->res.jsonValue["Members"];
-        members = nlohmann::json::array();
-        for (const std::string& leaf : pathNames)
-        {
-            std::string newPath = "/redfish/v1/Systems/" +
-                                  std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                                  "/SecureBoot/SecureBootDatabases";
-            newPath += '/';
-            newPath += leaf;
-            nlohmann::json::object_t member;
-            member["@odata.id"] = std::move(newPath);
-            members.push_back(std::move(member));
-        }
-        aResp->res.jsonValue["Members@odata.count"] = members.size();
-    },
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error {}", ec.value());
+                messages::internalError(aResp->res);
+                return;
+            }
+
+            std::vector<std::string> pathNames;
+            for (const auto& object : objects)
+            {
+                sdbusplus::message::object_path path(object);
+                std::string leaf = path.filename();
+                if (leaf == "certs")
+                {
+                    leaf = path.parent_path().filename();
+                }
+                if (leaf.empty())
+                {
+                    continue;
+                }
+                pathNames.push_back(leaf);
+            }
+            std::sort(pathNames.begin(), pathNames.end(),
+                      AlphanumLess<std::string>());
+
+            nlohmann::json& members = aResp->res.jsonValue["Members"];
+            members = nlohmann::json::array();
+            for (const std::string& leaf : pathNames)
+            {
+                std::string newPath =
+                    "/redfish/v1/Systems/" +
+                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                    "/SecureBoot/SecureBootDatabases";
+                newPath += '/';
+                newPath += leaf;
+                nlohmann::json::object_t member;
+                member["@odata.id"] = std::move(newPath);
+                members.push_back(std::move(member));
+            }
+            aResp->res.jsonValue["Members@odata.count"] = members.size();
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
@@ -202,11 +202,11 @@ inline void handleSecureBootDatabaseCollectionGet(
         std::array<const char*, 1>{"xyz.openbmc_project.Certs.Install"});
 }
 
-inline void
-    handleSecureBootDatabaseGet(crow::App& app, const crow::Request& req,
-                                const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                                [[maybe_unused]] const std::string& systemName,
-                                const std::string& databaseId)
+inline void handleSecureBootDatabaseGet(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    [[maybe_unused]] const std::string& systemName,
+    const std::string& databaseId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
@@ -219,8 +219,8 @@ inline void
         "#SecureBootDatabase.v1_0_1.SecureBootDatabase";
     aResp->res.jsonValue["Id"] = databaseId;
     aResp->res.jsonValue["Name"] = databaseId + " Database";
-    aResp->res.jsonValue["Description"] = "UEFI " + databaseId +
-                                          " Secure Boot Database";
+    aResp->res.jsonValue["Description"] =
+        "UEFI " + databaseId + " Secure Boot Database";
     aResp->res.jsonValue["DatabaseId"] = databaseId;
     aResp->res.jsonValue["Certificates"]["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -250,20 +250,21 @@ inline void
             [aResp](
                 const boost::system::error_code ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error {}", ec.value());
-                // No error if default database does not exist
-                return;
-            }
+                if (ec)
+                {
+                    BMCWEB_LOG_DEBUG("DBUS response error {}", ec.value());
+                    // No error if default database does not exist
+                    return;
+                }
 
-            if (objects.size() > 0)
-            {
-                aResp->res.jsonValue["Actions"]["#SecureBootDatabase.ResetKeys"]
-                                    ["ResetKeysType@Redfish.AllowableValues"] =
-                    {"ResetAllKeysToDefault", "DeleteAllKeys"};
-            }
-        },
+                if (objects.size() > 0)
+                {
+                    aResp->res
+                        .jsonValue["Actions"]["#SecureBootDatabase.ResetKeys"]
+                                  ["ResetKeysType@Redfish.AllowableValues"] = {
+                        "ResetAllKeysToDefault", "DeleteAllKeys"};
+                }
+            },
             "xyz.openbmc_project.ObjectMapper",
             "/xyz/openbmc_project/object_mapper",
             "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
@@ -303,27 +304,27 @@ inline void handleSecureBootDatabaseResetKeys(
     privilege_utils::isBiosPrivilege(
         req, [req, aResp, databaseId](const boost::system::error_code ec,
                                       const bool isBios) {
-        if (ec)
-        {
-            messages::internalError(aResp->res);
-            return;
-        }
-        if (isBios == false)
-        {
-            if (isDefaultDatabase(databaseId))
+            if (ec)
             {
-                messages::insufficientPrivilege(aResp->res);
+                messages::internalError(aResp->res);
                 return;
             }
-            createPendingRequest(req, aResp);
-            return;
-        }
+            if (isBios == false)
+            {
+                if (isDefaultDatabase(databaseId))
+                {
+                    messages::insufficientPrivilege(aResp->res);
+                    return;
+                }
+                createPendingRequest(req, aResp);
+                return;
+            }
 
-        // BIOS does use action. It DELETE and POST certificates and
-        // signatures
-        messages::actionNotSupported(aResp->res, "ResetKeys");
-        return;
-    });
+            // BIOS does use action. It DELETE and POST certificates and
+            // signatures
+            messages::actionNotSupported(aResp->res, "ResetKeys");
+            return;
+        });
 }
 
 inline void handleCertificateCollectionGet(
@@ -350,8 +351,8 @@ inline void handleCertificateCollectionGet(
         "xyz.openbmc_project.Certs.Certificate"};
     collection_util::getCollectionMembers(
         aResp, boost::urls::url(certURI), interfaces,
-        std::string("/xyz/openbmc_project/secureBootDatabase/" + databaseId +
-                    "/certs")
+        std::string(
+            "/xyz/openbmc_project/secureBootDatabase/" + databaseId + "/certs")
             .c_str());
 }
 
@@ -394,75 +395,75 @@ inline void handleCertificateCollectionPost(
     privilege_utils::isBiosPrivilege(
         req, [req, aResp, databaseId, certString,
               owner](const boost::system::error_code ec, const bool isBios) {
-        if (ec)
-        {
-            messages::internalError(aResp->res);
-            return;
-        }
-        if (isBios == false)
-        {
-            if (isDefaultDatabase(databaseId))
-            {
-                messages::insufficientPrivilege(aResp->res);
-                return;
-            }
-            createPendingRequest(req, aResp);
-            return;
-        }
-
-        std::shared_ptr<CertificateFile> certFile =
-            std::make_shared<CertificateFile>(certString);
-
-        crow::connections::systemBus->async_method_call(
-            [aResp, databaseId, owner,
-             certFile](const boost::system::error_code ec,
-                       const std::string& objectPath) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
                 messages::internalError(aResp->res);
                 return;
             }
-
-            sdbusplus::message::object_path path(objectPath);
-            std::string certId = path.filename();
-            messages::created(aResp->res);
-            aResp->res.addHeader(
-                boost::beast::http::field::location,
-                "/redfish/v1/Systems/" +
-                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                    "/SecureBoot/SecureBootDatabases/" + databaseId +
-                    "/Certificates/" + certId);
-
-            if (owner)
+            if (isBios == false)
             {
-                crow::connections::systemBus->async_method_call(
-                    [aResp](const boost::system::error_code ec) {
+                if (isDefaultDatabase(databaseId))
+                {
+                    messages::insufficientPrivilege(aResp->res);
+                    return;
+                }
+                createPendingRequest(req, aResp);
+                return;
+            }
+
+            std::shared_ptr<CertificateFile> certFile =
+                std::make_shared<CertificateFile>(certString);
+
+            crow::connections::systemBus->async_method_call(
+                [aResp, databaseId, owner,
+                 certFile](const boost::system::error_code ec,
+                           const std::string& objectPath) {
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
                         messages::internalError(aResp->res);
                         return;
                     }
+
+                    sdbusplus::message::object_path path(objectPath);
+                    std::string certId = path.filename();
+                    messages::created(aResp->res);
+                    aResp->res.addHeader(
+                        boost::beast::http::field::location,
+                        "/redfish/v1/Systems/" +
+                            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                            "/SecureBoot/SecureBootDatabases/" + databaseId +
+                            "/Certificates/" + certId);
+
+                    if (owner)
+                    {
+                        crow::connections::systemBus->async_method_call(
+                            [aResp](const boost::system::error_code ec) {
+                                if (ec)
+                                {
+                                    BMCWEB_LOG_ERROR("DBUS response error: {}",
+                                                     ec);
+                                    messages::internalError(aResp->res);
+                                    return;
+                                }
+                            },
+                            getServiceName(databaseId), objectPath,
+                            "org.freedesktop.DBus.Properties", "Set",
+                            "xyz.openbmc_project.Common.UUID", "UUID",
+                            dbus::utility::DbusVariantType(*owner));
+                    }
                 },
-                    getServiceName(databaseId), objectPath,
-                    "org.freedesktop.DBus.Properties", "Set",
-                    "xyz.openbmc_project.Common.UUID", "UUID",
-                    dbus::utility::DbusVariantType(*owner));
-            }
-        },
-            getServiceName(databaseId), getCertObjectPath(databaseId),
-            "xyz.openbmc_project.Certs.Install", "Install",
-            certFile->getCertFilePath());
-    });
+                getServiceName(databaseId), getCertObjectPath(databaseId),
+                "xyz.openbmc_project.Certs.Install", "Install",
+                certFile->getCertFilePath());
+        });
 }
 
-inline void
-    handleCertificateGet(crow::App& app, const crow::Request& req,
-                         const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                         [[maybe_unused]] const std::string& systemName,
-                         const std::string& databaseId,
-                         const std::string& certId)
+inline void handleCertificateGet(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    [[maybe_unused]] const std::string& systemName,
+    const std::string& databaseId, const std::string& certId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
@@ -482,83 +483,83 @@ inline void
         [aResp,
          certId](const boost::system::error_code ec,
                  const dbus::utility::DBusPropertiesMap& propertiesList) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-            messages::resourceNotFound(aResp->res, "Certificate", certId);
-            return;
-        }
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                messages::resourceNotFound(aResp->res, "Certificate", certId);
+                return;
+            }
 
-        const std::string* certificateString = nullptr;
-        const std::vector<std::string>* keyUsage = nullptr;
-        const std::string* issuer = nullptr;
-        const std::string* subject = nullptr;
-        const uint64_t* validNotAfter = nullptr;
-        const uint64_t* validNotBefore = nullptr;
-        const std::string* owner = nullptr;
+            const std::string* certificateString = nullptr;
+            const std::vector<std::string>* keyUsage = nullptr;
+            const std::string* issuer = nullptr;
+            const std::string* subject = nullptr;
+            const uint64_t* validNotAfter = nullptr;
+            const uint64_t* validNotBefore = nullptr;
+            const std::string* owner = nullptr;
 
-        const bool success = sdbusplus::unpackPropertiesNoThrow(
-            dbus_utils::UnpackErrorPrinter(), propertiesList,
-            "CertificateString", certificateString, "KeyUsage", keyUsage,
-            "Issuer", issuer, "Subject", subject, "ValidNotAfter",
-            validNotAfter, "ValidNotBefore", validNotBefore, "UUID", owner);
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), propertiesList,
+                "CertificateString", certificateString, "KeyUsage", keyUsage,
+                "Issuer", issuer, "Subject", subject, "ValidNotAfter",
+                validNotAfter, "ValidNotBefore", validNotBefore, "UUID", owner);
 
-        if (!success)
-        {
-            messages::internalError(aResp->res);
-            return;
-        }
+            if (!success)
+            {
+                messages::internalError(aResp->res);
+                return;
+            }
 
-        aResp->res.jsonValue["CertificateString"] = "";
-        aResp->res.jsonValue["KeyUsage"] = nlohmann::json::array();
+            aResp->res.jsonValue["CertificateString"] = "";
+            aResp->res.jsonValue["KeyUsage"] = nlohmann::json::array();
 
-        if (certificateString != nullptr)
-        {
-            aResp->res.jsonValue["CertificateString"] = *certificateString;
-            aResp->res.jsonValue["CertificateType"] = "PEM";
-        }
+            if (certificateString != nullptr)
+            {
+                aResp->res.jsonValue["CertificateString"] = *certificateString;
+                aResp->res.jsonValue["CertificateType"] = "PEM";
+            }
 
-        if (keyUsage != nullptr)
-        {
-            aResp->res.jsonValue["KeyUsage"] = *keyUsage;
-        }
+            if (keyUsage != nullptr)
+            {
+                aResp->res.jsonValue["KeyUsage"] = *keyUsage;
+            }
 
-        if (issuer != nullptr)
-        {
-            updateCertIssuerOrSubject(aResp->res.jsonValue["Issuer"], *issuer);
-        }
+            if (issuer != nullptr)
+            {
+                updateCertIssuerOrSubject(aResp->res.jsonValue["Issuer"],
+                                          *issuer);
+            }
 
-        if (subject != nullptr)
-        {
-            updateCertIssuerOrSubject(aResp->res.jsonValue["Subject"],
-                                      *subject);
-        }
+            if (subject != nullptr)
+            {
+                updateCertIssuerOrSubject(aResp->res.jsonValue["Subject"],
+                                          *subject);
+            }
 
-        if (validNotAfter != nullptr)
-        {
-            aResp->res.jsonValue["ValidNotAfter"] =
-                redfish::time_utils::getDateTimeUint(*validNotAfter);
-        }
+            if (validNotAfter != nullptr)
+            {
+                aResp->res.jsonValue["ValidNotAfter"] =
+                    redfish::time_utils::getDateTimeUint(*validNotAfter);
+            }
 
-        if (validNotBefore != nullptr)
-        {
-            aResp->res.jsonValue["ValidNotBefore"] =
-                redfish::time_utils::getDateTimeUint(*validNotBefore);
-        }
+            if (validNotBefore != nullptr)
+            {
+                aResp->res.jsonValue["ValidNotBefore"] =
+                    redfish::time_utils::getDateTimeUint(*validNotBefore);
+            }
 
-        if (owner != nullptr)
-        {
-            aResp->res.jsonValue["UefiSignatureOwner"] = *owner;
-        }
-    });
+            if (owner != nullptr)
+            {
+                aResp->res.jsonValue["UefiSignatureOwner"] = *owner;
+            }
+        });
 }
 
-inline void
-    handleCertificateDelete(crow::App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                            [[maybe_unused]] const std::string& systemName,
-                            const std::string& databaseId,
-                            const std::string& certId)
+inline void handleCertificateDelete(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    [[maybe_unused]] const std::string& systemName,
+    const std::string& databaseId, const std::string& certId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
@@ -568,34 +569,35 @@ inline void
     privilege_utils::isBiosPrivilege(
         req, [req, aResp, databaseId,
               certId](const boost::system::error_code ec, const bool isBios) {
-        if (ec)
-        {
-            messages::internalError(aResp->res);
-            return;
-        }
-        if (isBios == false)
-        {
-            if (isDefaultDatabase(databaseId))
-            {
-                messages::insufficientPrivilege(aResp->res);
-                return;
-            }
-            createPendingRequest(req, aResp);
-            return;
-        }
-
-        crow::connections::systemBus->async_method_call(
-            [aResp](const boost::system::error_code ec) {
             if (ec)
             {
                 messages::internalError(aResp->res);
                 return;
             }
-            aResp->res.result(boost::beast::http::status::no_content);
-        },
-            getServiceName(databaseId), getCertObjectPath(databaseId, certId),
-            "xyz.openbmc_project.Object.Delete", "Delete");
-    });
+            if (isBios == false)
+            {
+                if (isDefaultDatabase(databaseId))
+                {
+                    messages::insufficientPrivilege(aResp->res);
+                    return;
+                }
+                createPendingRequest(req, aResp);
+                return;
+            }
+
+            crow::connections::systemBus->async_method_call(
+                [aResp](const boost::system::error_code ec) {
+                    if (ec)
+                    {
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    aResp->res.result(boost::beast::http::status::no_content);
+                },
+                getServiceName(databaseId),
+                getCertObjectPath(databaseId, certId),
+                "xyz.openbmc_project.Object.Delete", "Delete");
+        });
 }
 
 inline void handleSignatureCollectionGet(
@@ -654,10 +656,10 @@ inline void handleSignatureCollectionPost(
     std::string sigType;
     std::string sigTypeRegistry;
     std::optional<std::string> owner;
-    if (!json_util::readJsonPatch(req, aResp->res, "SignatureString", sigString,
-                                  "SignatureType", sigType,
-                                  "SignatureTypeRegistry", sigTypeRegistry,
-                                  "UefiSignatureOwner", owner))
+    if (!json_util::readJsonPatch(
+            req, aResp->res, "SignatureString", sigString, "SignatureType",
+            sigType, "SignatureTypeRegistry", sigTypeRegistry,
+            "UefiSignatureOwner", owner))
     {
         BMCWEB_LOG_DEBUG("Certificate POST readJsonPatch error");
         return;
@@ -684,9 +686,11 @@ inline void handleSignatureCollectionPost(
         return;
     }
 
-    privilege_utils::isBiosPrivilege(
-        req, [req, aResp, databaseId, sigString, sigTypeDbus,
-              owner](const boost::system::error_code ec, const bool isBios) {
+    privilege_utils::isBiosPrivilege(req, [req, aResp, databaseId, sigString,
+                                           sigTypeDbus, owner](
+                                              const boost::system::error_code
+                                                  ec,
+                                              const bool isBios) {
         if (ec)
         {
             messages::internalError(aResp->res);
@@ -706,40 +710,40 @@ inline void handleSignatureCollectionPost(
         crow::connections::systemBus->async_method_call(
             [aResp, databaseId, owner](const boost::system::error_code ec,
                                        const std::string& objectPath) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-                messages::internalError(aResp->res);
-                return;
-            }
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                    messages::internalError(aResp->res);
+                    return;
+                }
 
-            sdbusplus::message::object_path path(objectPath);
-            std::string sigId = path.filename();
-            messages::created(aResp->res);
-            aResp->res.addHeader(
-                boost::beast::http::field::location,
-                "/redfish/v1/Systems/" +
-                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                    "/SecureBoot/SecureBootDatabases/" + databaseId +
-                    "/Signatures/" + sigId);
+                sdbusplus::message::object_path path(objectPath);
+                std::string sigId = path.filename();
+                messages::created(aResp->res);
+                aResp->res.addHeader(
+                    boost::beast::http::field::location,
+                    "/redfish/v1/Systems/" +
+                        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                        "/SecureBoot/SecureBootDatabases/" + databaseId +
+                        "/Signatures/" + sigId);
 
-            if (owner)
-            {
-                crow::connections::systemBus->async_method_call(
-                    [aResp](const boost::system::error_code ec) {
-                    if (ec)
-                    {
-                        BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                },
-                    getServiceName(databaseId), objectPath,
-                    "org.freedesktop.DBus.Properties", "Set",
-                    "xyz.openbmc_project.Common.UUID", "UUID",
-                    dbus::utility::DbusVariantType(*owner));
-            }
-        },
+                if (owner)
+                {
+                    crow::connections::systemBus->async_method_call(
+                        [aResp](const boost::system::error_code ec) {
+                            if (ec)
+                            {
+                                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                                messages::internalError(aResp->res);
+                                return;
+                            }
+                        },
+                        getServiceName(databaseId), objectPath,
+                        "org.freedesktop.DBus.Properties", "Set",
+                        "xyz.openbmc_project.Common.UUID", "UUID",
+                        dbus::utility::DbusVariantType(*owner));
+                }
+            },
             getServiceName(databaseId), getSigObjectPath(databaseId),
             "xyz.openbmc_project.BIOSConfig.SecureBootDatabase.AddSignature",
             "Add", sigString, sigTypeDbus);
@@ -775,54 +779,54 @@ inline void handleSignatureGet(crow::App& app, const crow::Request& req,
         getSigObjectPath(databaseId, sigId), "",
         [aResp, sigId](const boost::system::error_code ec,
                        const dbus::utility::DBusPropertiesMap& propertiesList) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-            messages::resourceNotFound(aResp->res, "Signature", sigId);
-            return;
-        }
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                messages::resourceNotFound(aResp->res, "Signature", sigId);
+                return;
+            }
 
-        const std::string* signatureString = nullptr;
-        const std::string* format = nullptr;
-        const std::string* owner = nullptr;
+            const std::string* signatureString = nullptr;
+            const std::string* format = nullptr;
+            const std::string* owner = nullptr;
 
-        const bool success = sdbusplus::unpackPropertiesNoThrow(
-            dbus_utils::UnpackErrorPrinter(), propertiesList, "SignatureString",
-            signatureString, "Format", format, "UUID", owner);
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), propertiesList,
+                "SignatureString", signatureString, "Format", format, "UUID",
+                owner);
 
-        if (!success)
-        {
-            messages::internalError(aResp->res);
-            return;
-        }
+            if (!success)
+            {
+                messages::internalError(aResp->res);
+                return;
+            }
 
-        aResp->res.jsonValue["SignatureString"] = "";
-        aResp->res.jsonValue["SignatureTypeRegistry"] = "UEFI";
+            aResp->res.jsonValue["SignatureString"] = "";
+            aResp->res.jsonValue["SignatureTypeRegistry"] = "UEFI";
 
-        if (signatureString != nullptr)
-        {
-            aResp->res.jsonValue["SignatureString"] = *signatureString;
-        }
+            if (signatureString != nullptr)
+            {
+                aResp->res.jsonValue["SignatureString"] = *signatureString;
+            }
 
-        if (format != nullptr)
-        {
-            aResp->res.jsonValue["SignatureType"] =
-                signatureFormatDbusToRf(*format);
-        }
+            if (format != nullptr)
+            {
+                aResp->res.jsonValue["SignatureType"] =
+                    signatureFormatDbusToRf(*format);
+            }
 
-        if (owner != nullptr)
-        {
-            aResp->res.jsonValue["UefiSignatureOwner"] = *owner;
-        }
-    });
+            if (owner != nullptr)
+            {
+                aResp->res.jsonValue["UefiSignatureOwner"] = *owner;
+            }
+        });
 }
 
-inline void
-    handleSignatureDelete(crow::App& app, const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                          [[maybe_unused]] const std::string& systemName,
-                          const std::string& databaseId,
-                          const std::string& sigId)
+inline void handleSignatureDelete(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    [[maybe_unused]] const std::string& systemName,
+    const std::string& databaseId, const std::string& sigId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
@@ -835,36 +839,36 @@ inline void
     }
 
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, databaseId, sigId](const boost::system::error_code ec,
-                                             const bool isBios) {
-        if (ec)
-        {
-            messages::internalError(aResp->res);
-            return;
-        }
-        if (isBios == false)
-        {
-            if (isDefaultDatabase(databaseId))
-            {
-                messages::insufficientPrivilege(aResp->res);
-                return;
-            }
-            createPendingRequest(req, aResp);
-            return;
-        }
-
-        crow::connections::systemBus->async_method_call(
-            [aResp](const boost::system::error_code ec) {
+        req, [req, aResp, databaseId,
+              sigId](const boost::system::error_code ec, const bool isBios) {
             if (ec)
             {
                 messages::internalError(aResp->res);
                 return;
             }
-            aResp->res.result(boost::beast::http::status::no_content);
-        },
-            getServiceName(databaseId), getSigObjectPath(databaseId, sigId),
-            "xyz.openbmc_project.Object.Delete", "Delete");
-    });
+            if (isBios == false)
+            {
+                if (isDefaultDatabase(databaseId))
+                {
+                    messages::insufficientPrivilege(aResp->res);
+                    return;
+                }
+                createPendingRequest(req, aResp);
+                return;
+            }
+
+            crow::connections::systemBus->async_method_call(
+                [aResp](const boost::system::error_code ec) {
+                    if (ec)
+                    {
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    aResp->res.result(boost::beast::http::status::no_content);
+                },
+                getServiceName(databaseId), getSigObjectPath(databaseId, sigId),
+                "xyz.openbmc_project.Object.Delete", "Delete");
+        });
 }
 
 } // namespace secure_boot

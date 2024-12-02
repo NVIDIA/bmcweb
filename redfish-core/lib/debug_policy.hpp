@@ -138,21 +138,21 @@ inline void
     auto propCallback =
         [asyncResp](const boost::system::error_code ec,
                     const dbus::utility::DBusPropertiesMap& prop) {
-        if (ec)
-        {
-            if (ec == boost::system::errc::host_unreachable)
+            if (ec)
             {
-                // Service not available, no error, just don't return
-                // chassis state info
-                BMCWEB_LOG_ERROR("Service not available {}", ec);
+                if (ec == boost::system::errc::host_unreachable)
+                {
+                    // Service not available, no error, just don't return
+                    // chassis state info
+                    BMCWEB_LOG_ERROR("Service not available {}", ec);
+                    return;
+                }
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                messages::internalError(asyncResp->res);
                 return;
             }
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        debugPropertiesFill(asyncResp->res, prop);
-    };
+            debugPropertiesFill(asyncResp->res, prop);
+        };
 
     sdbusplus::asio::getAllProperties(*crow::connections::systemBus, svc, path,
                                       policy::impl::remoteDebugIntfc,
@@ -161,8 +161,8 @@ inline void
 
 using findDebugInterfaceCallback =
     std::function<void(std::shared_ptr<bmcweb::AsyncResp>, // Async response
-                       const std::string&,                 // Service
-                       const std::string&)>;               // Path
+                       const std::string&, // Service
+                       const std::string&)>; // Path
 
 inline void
     findDebugInterface(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -172,33 +172,33 @@ inline void
         [asyncResp,
          dbgCallback](const boost::system::error_code ec,
                       const dbus::utility::MapperGetSubTreeResponse& subtree) {
-        if (ec.value() == EBADR)
-        {
-            messages::resourceNotFound(asyncResp->res, "DebugInterface",
-                                       policy::impl::remoteDebugIntfc);
-            return;
-        }
-
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        for (const auto& [path, object] : subtree)
-        {
-            for (const auto& [svc, ifcs] : object)
+            if (ec.value() == EBADR)
             {
-                if (std::find(ifcs.begin(), ifcs.end(),
-                              policy::impl::remoteDebugIntfc) != ifcs.end())
+                messages::resourceNotFound(asyncResp->res, "DebugInterface",
+                                           policy::impl::remoteDebugIntfc);
+                return;
+            }
+
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            for (const auto& [path, object] : subtree)
+            {
+                for (const auto& [svc, ifcs] : object)
                 {
-                    dbgCallback(asyncResp, svc, path);
-                    return;
+                    if (std::find(ifcs.begin(), ifcs.end(),
+                                  policy::impl::remoteDebugIntfc) != ifcs.end())
+                    {
+                        dbgCallback(asyncResp, svc, path);
+                        return;
+                    }
                 }
             }
-        }
-        dbgCallback(asyncResp, "", "");
-    };
+            dbgCallback(asyncResp, "", "");
+        };
     crow::connections::systemBus->async_method_call(
         respHandler, "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -214,19 +214,19 @@ inline void
     auto getPropCallback =
         [](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
            const std::string& svc, const std::string& path) {
-        if (path.empty())
-        {
-            // Not an error :: partial success
-            // propertyMissing:Indicates that a required property was not
-            // supplied as part of the request.
-            nlohmann::json missingProperty = messages::propertyMissing(
-                "Oem/Nvidia/ProcessorDebugCapabilities");
-            messages::moveErrorsToErrorJson(asyncResp->res.jsonValue,
-                                            missingProperty);
-            return;
-        }
-        debugPropertiesGet(asyncResp, svc, path);
-    };
+            if (path.empty())
+            {
+                // Not an error :: partial success
+                // propertyMissing:Indicates that a required property was not
+                // supplied as part of the request.
+                nlohmann::json missingProperty = messages::propertyMissing(
+                    "Oem/Nvidia/ProcessorDebugCapabilities");
+                messages::moveErrorsToErrorJson(asyncResp->res.jsonValue,
+                                                missingProperty);
+                return;
+            }
+            debugPropertiesGet(asyncResp, svc, path);
+        };
     findDebugInterface(asyncResp, getPropCallback);
 }
 
@@ -237,41 +237,39 @@ inline void debugCapabilitiesProcess(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, method, caps](const boost::system::error_code ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error: Set {} {}", method, ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        messages::success(asyncResp->res, method);
-    },
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error: Set {} {}", method, ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            messages::success(asyncResp->res, method);
+        },
         svc, path, "xyz.openbmc_project.Control.Processor.RemoteDebug", method,
         caps);
 }
 
-inline void
-    debugPropertySet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& svc, const std::string& path,
-                     const std::string& prop, unsigned value)
+inline void debugPropertySet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& svc,
+    const std::string& path, const std::string& prop, unsigned value)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, prop](const boost::system::error_code ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error: Set {} {}", prop, ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        messages::success(asyncResp->res, prop);
-    },
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error: Set {} {}", prop, ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            messages::success(asyncResp->res, prop);
+        },
         svc, path, "org.freedesktop.DBus.Properties", "Set",
         "xyz.openbmc_project.Control.Processor.RemoteDebug", prop,
         dbus::utility::DbusVariantType(value));
 }
 
-inline bool fetchDebugPropertyFromJson(nlohmann::json& json,
-                                       std::string_view prop,
-                                       std::optional<bool>& val)
+inline bool fetchDebugPropertyFromJson(
+    nlohmann::json& json, std::string_view prop, std::optional<bool>& val)
 {
     using namespace std::string_literals;
     std::string propStr;
@@ -316,12 +314,13 @@ inline void handleDebugPolicyPatchReq(
     nlohmann::json& procCap)
 {
     using namespace std::string_literals;
-    const std::vector<std::string> caps{"DeviceDebug",
-                                        "InvasiveDebug",
-                                        "JtagDebug",
-                                        "NonInvasiveDebug",
-                                        "SecurePrivilegeInvasiveDebug",
-                                        "SecurePrivilegeNonInvasiveDebug"};
+    const std::vector<std::string> caps{
+        "DeviceDebug",
+        "InvasiveDebug",
+        "JtagDebug",
+        "NonInvasiveDebug",
+        "SecurePrivilegeInvasiveDebug",
+        "SecurePrivilegeNonInvasiveDebug"};
     std::optional<unsigned> timeout;
     std::vector<std::string> capsToEnable;
     std::vector<std::string> capsToDisable;
@@ -360,26 +359,26 @@ inline void handleDebugPolicyPatchReq(
         [capsToEnable, capsToDisable,
          timeout](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                   const std::string& svc, const std::string& path) {
-        if (path.empty())
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        if (!capsToEnable.empty())
-        {
-            debugCapabilitiesProcess(asyncResp, svc, path, "Enable"s,
-                                     capsToEnable);
-        }
-        if (!capsToDisable.empty())
-        {
-            debugCapabilitiesProcess(asyncResp, svc, path, "Disable"s,
-                                     capsToDisable);
-        }
-        if (timeout)
-        {
-            debugPropertySet(asyncResp, svc, path, "Timeout", *timeout);
-        }
-    };
+            if (path.empty())
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            if (!capsToEnable.empty())
+            {
+                debugCapabilitiesProcess(asyncResp, svc, path, "Enable"s,
+                                         capsToEnable);
+            }
+            if (!capsToDisable.empty())
+            {
+                debugCapabilitiesProcess(asyncResp, svc, path, "Disable"s,
+                                         capsToDisable);
+            }
+            if (timeout)
+            {
+                debugPropertySet(asyncResp, svc, path, "Timeout", *timeout);
+            }
+        };
 
     findDebugInterface(asyncResp, propSetCallback);
 }

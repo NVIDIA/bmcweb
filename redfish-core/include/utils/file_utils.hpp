@@ -47,8 +47,8 @@ inline int readFile2Json(const std::string& filePath, nlohmann::json& j)
         {
             auto now = std::chrono::steady_clock::now();
             auto elapsed =
-                std::chrono::duration_cast<std::chrono::milliseconds>(now -
-                                                                      start)
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - start)
                     .count();
 
             if (elapsed >= FLOCK_TIMEOUT)

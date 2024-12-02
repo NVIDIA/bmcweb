@@ -26,8 +26,9 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
-#include "utils/nvidia_async_set_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
+#include "utils/nvidia_async_set_utils.hpp"
+
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
@@ -45,9 +46,8 @@ using OperatingConfigProperties =
 
 using ErrorInjectionPatchMap = std::map<std::string, bool>;
 
-inline ErrorInjectionPatchMap
-    parseErrorInjectionJson(const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+inline ErrorInjectionPatchMap parseErrorInjectionJson(
+    const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     ErrorInjectionPatchMap properties;
 
@@ -111,40 +111,40 @@ inline void getErrorInjectionCapabilityData(
     crow::connections::systemBus->async_method_call(
         [aResp, capability](const boost::system::error_code ec,
                             const OperatingConfigProperties& properties) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error");
-            messages::internalError(aResp->res);
-            return;
-        }
-        auto& json =
-            aResp->res.jsonValue["ErrorInjectionCapabilities"][capability];
-        for (const auto& property : properties)
-        {
-            if (property.first == "Supported")
+            if (ec)
             {
-                const bool* supported = std::get_if<bool>(&property.second);
-                if (supported == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Get Supported property failed");
-                    messages::internalError(aResp->res);
-                    return;
-                }
-                json["Supported"] = *supported;
+                BMCWEB_LOG_ERROR("DBUS response error");
+                messages::internalError(aResp->res);
+                return;
             }
-            else if (property.first == "Enabled")
+            auto& json =
+                aResp->res.jsonValue["ErrorInjectionCapabilities"][capability];
+            for (const auto& property : properties)
             {
-                const bool* enabled = std::get_if<bool>(&property.second);
-                if (enabled == nullptr)
+                if (property.first == "Supported")
                 {
-                    BMCWEB_LOG_ERROR("Get Enabled property failed");
-                    messages::internalError(aResp->res);
-                    return;
+                    const bool* supported = std::get_if<bool>(&property.second);
+                    if (supported == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Get Supported property failed");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    json["Supported"] = *supported;
                 }
-                json["Enabled"] = *enabled;
+                else if (property.first == "Enabled")
+                {
+                    const bool* enabled = std::get_if<bool>(&property.second);
+                    if (enabled == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Get Enabled property failed");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    json["Enabled"] = *enabled;
+                }
             }
-        }
-    },
+        },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
         "com.nvidia.ErrorInjection.ErrorInjectionCapability");
 }
@@ -167,64 +167,64 @@ inline void getErrorInjectionData(
         [aResp, baseUri, service,
          objPath](const boost::system::error_code ec,
                   const OperatingConfigProperties& properties) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error");
-            messages::internalError(aResp->res);
-            return;
-        }
-        nlohmann::json& json = aResp->res.jsonValue;
-        json["@odata.type"] =
-            "#NvidiaErrorInjection.v1_0_0.NvidiaErrorInjection";
-        json["@odata.id"] = baseUri + "/Oem/Nvidia/ErrorInjection";
-        json["Id"] = "ErrorInjection";
-        json["Name"] = baseUri.substr(baseUri.find_last_of('/') + 1) +
-                       " Error Injection";
-        for (const auto& property : properties)
-        {
-            if (property.first == "ErrorInjectionModeEnabled")
+            if (ec)
             {
-                const bool* errorInjectionModeEnabled =
-                    std::get_if<bool>(&property.second);
-                if (errorInjectionModeEnabled == nullptr)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "Get ErrorInjectionModeEnabled property failed");
-                    messages::internalError(aResp->res);
-                    return;
-                }
-                json["ErrorInjectionModeEnabled"] = *errorInjectionModeEnabled;
+                BMCWEB_LOG_ERROR("DBUS response error");
+                messages::internalError(aResp->res);
+                return;
             }
-            else if (property.first == "PersistentDataModified")
+            nlohmann::json& json = aResp->res.jsonValue;
+            json["@odata.type"] =
+                "#NvidiaErrorInjection.v1_0_0.NvidiaErrorInjection";
+            json["@odata.id"] = baseUri + "/Oem/Nvidia/ErrorInjection";
+            json["Id"] = "ErrorInjection";
+            json["Name"] = baseUri.substr(baseUri.find_last_of('/') + 1) +
+                           " Error Injection";
+            for (const auto& property : properties)
             {
-                const bool* persistentDataModified =
-                    std::get_if<bool>(&property.second);
-                if (persistentDataModified == nullptr)
+                if (property.first == "ErrorInjectionModeEnabled")
                 {
-                    BMCWEB_LOG_ERROR(
-                        "Get PersistentDataModified property failed");
-                    messages::internalError(aResp->res);
-                    return;
+                    const bool* errorInjectionModeEnabled =
+                        std::get_if<bool>(&property.second);
+                    if (errorInjectionModeEnabled == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Get ErrorInjectionModeEnabled property failed");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    json["ErrorInjectionModeEnabled"] =
+                        *errorInjectionModeEnabled;
                 }
-                json["PersistentDataModified"] = *persistentDataModified;
+                else if (property.first == "PersistentDataModified")
+                {
+                    const bool* persistentDataModified =
+                        std::get_if<bool>(&property.second);
+                    if (persistentDataModified == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Get PersistentDataModified property failed");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    json["PersistentDataModified"] = *persistentDataModified;
+                }
             }
-        }
-        std::vector<std::string> capabilities = {
-            "MemoryErrors", "PCIeErrors", "NVLinkErrors", "ThermalErrors"};
-        for (auto& cap : capabilities)
-        {
-            getErrorInjectionCapabilityData(aResp, cap, service,
-                                            objPath + "/" + cap);
-        }
-    },
+            std::vector<std::string> capabilities = {
+                "MemoryErrors", "PCIeErrors", "NVLinkErrors", "ThermalErrors"};
+            for (auto& cap : capabilities)
+            {
+                getErrorInjectionCapabilityData(aResp, cap, service,
+                                                objPath + "/" + cap);
+            }
+        },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
         "com.nvidia.ErrorInjection.ErrorInjection");
 }
 
-inline void patchErrorInjectionData(std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                    const std::string& service,
-                                    const std::string& path,
-                                    const ErrorInjectionPatchMap& properties)
+inline void patchErrorInjectionData(
+    std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& service,
+    const std::string& path, const ErrorInjectionPatchMap& properties)
 {
     for (const auto& [name, value] : properties)
     {
@@ -253,25 +253,25 @@ inline void getErrorInjectionService(std::shared_ptr<bmcweb::AsyncResp> aResp,
         [aResp, eiPath, handler{std::forward<Handler>(handler)}](
             const boost::system::error_code ec,
             const dbus::utility::MapperServiceMap& serviceMap) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Error while fetching service for {}", eiPath);
-            messages::internalError(aResp->res);
-            return;
-        }
-
-        for (const auto& [service, interfaces] : serviceMap)
-        {
-            if (std::find(interfaces.begin(), interfaces.end(),
-                          "com.nvidia.ErrorInjection.ErrorInjection") ==
-                interfaces.end())
+            if (ec)
             {
-                continue;
+                BMCWEB_LOG_ERROR("Error while fetching service for {}", eiPath);
+                messages::internalError(aResp->res);
+                return;
             }
-            handler(service, eiPath);
-            return;
-        }
-    },
+
+            for (const auto& [service, interfaces] : serviceMap)
+            {
+                if (std::find(interfaces.begin(), interfaces.end(),
+                              "com.nvidia.ErrorInjection.ErrorInjection") ==
+                    interfaces.end())
+                {
+                    continue;
+                }
+                handler(service, eiPath);
+                return;
+            }
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject", eiPath,
@@ -286,36 +286,37 @@ inline void getProcessor(std::shared_ptr<bmcweb::AsyncResp> aResp,
         [processorId, aResp, handler{std::forward<Handler>(handler)}](
             const boost::system::error_code ec,
             const dbus::utility::MapperGetSubTreePathsResponse& paths) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error");
-            messages::internalError(aResp->res);
-
-            return;
-        }
-        for (const auto& path : paths)
-        {
-            if (!path.ends_with(processorId))
+            if (ec)
             {
-                continue;
-            }
+                BMCWEB_LOG_ERROR("DBUS response error");
+                messages::internalError(aResp->res);
 
-            getErrorInjectionService(
-                aResp, path,
-                [processorId, aResp, handler](const std::string& service,
-                                              const std::string& path) {
-                handler("/redfish/v1/Systems/" +
-                            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                            "/Processors/" + processorId,
-                        service, path);
-            });
-            return;
-        }
-        // Object not found
-        messages::resourceNotFound(
-            aResp->res, "#NvidiaErrorInjection.v1_0_0.NvidiaErrorInjection",
-            processorId);
-    },
+                return;
+            }
+            for (const auto& path : paths)
+            {
+                if (!path.ends_with(processorId))
+                {
+                    continue;
+                }
+
+                getErrorInjectionService(
+                    aResp, path,
+                    [processorId, aResp, handler](const std::string& service,
+                                                  const std::string& path) {
+                        handler(
+                            "/redfish/v1/Systems/" +
+                                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                                "/Processors/" + processorId,
+                            service, path);
+                    });
+                return;
+            }
+            // Object not found
+            messages::resourceNotFound(
+                aResp->res, "#NvidiaErrorInjection.v1_0_0.NvidiaErrorInjection",
+                processorId);
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
@@ -325,10 +326,9 @@ inline void getProcessor(std::shared_ptr<bmcweb::AsyncResp> aResp,
             "xyz.openbmc_project.Inventory.Item.Cpu"});
 }
 
-inline void
-    getProcessorErrorInjectionData(App& app, const crow::Request& req,
-                                   std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                   const std::string& processorId)
+inline void getProcessorErrorInjectionData(
+    App& app, const crow::Request& req,
+    std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& processorId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
@@ -337,14 +337,13 @@ inline void
     getProcessor(aResp, processorId,
                  [aResp](const std::string& uri, const std::string& service,
                          const std::string& path) {
-        getErrorInjectionData(aResp, uri, service, path);
-    });
+                     getErrorInjectionData(aResp, uri, service, path);
+                 });
 }
 
-inline void
-    patchProcessorErrorInjectionData(App& app, const crow::Request& req,
-                                     std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                     const std::string& processorId)
+inline void patchProcessorErrorInjectionData(
+    App& app, const crow::Request& req,
+    std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& processorId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
@@ -355,51 +354,50 @@ inline void
                  [aResp, properties]([[maybe_unused]] const std::string& uri,
                                      const std::string& service,
                                      const std::string& path) {
-        patchErrorInjectionData(aResp, service, path, properties);
-    });
+                     patchErrorInjectionData(aResp, service, path, properties);
+                 });
 }
 
 template <typename Handler>
-inline void getNetworkAdapter(std::shared_ptr<bmcweb::AsyncResp> aResp,
-                              const std::string& chassisId,
-                              const std::string& networkAdapterId,
-                              Handler&& handler)
+inline void getNetworkAdapter(
+    std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& chassisId,
+    const std::string& networkAdapterId, Handler&& handler)
 {
     crow::connections::systemBus->async_method_call(
         [chassisId, networkAdapterId, aResp,
          handler{std::forward<Handler>(handler)}](
             const boost::system::error_code ec,
             const dbus::utility::MapperGetSubTreePathsResponse& paths) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error");
-            messages::internalError(aResp->res);
-
-            return;
-        }
-        for (const auto& path : paths)
-        {
-            if (!path.ends_with(networkAdapterId) ||
-                path.find(chassisId) == path.npos)
+            if (ec)
             {
-                continue;
-            }
+                BMCWEB_LOG_ERROR("DBUS response error");
+                messages::internalError(aResp->res);
 
-            getErrorInjectionService(
-                aResp, path,
-                [chassisId, networkAdapterId, aResp,
-                 handler](const std::string& service, const std::string& path) {
-                handler("/redfish/v1/Chassis/" + chassisId +
-                            "/NetworkAdapters/" + networkAdapterId,
-                        service, path);
-            });
-            return;
-        }
-        // Object not found
-        messages::resourceNotFound(
-            aResp->res, "#NvidiaErrorInjection.v1_0_0.NvidiaErrorInjection",
-            networkAdapterId);
-    },
+                return;
+            }
+            for (const auto& path : paths)
+            {
+                if (!path.ends_with(networkAdapterId) ||
+                    path.find(chassisId) == path.npos)
+                {
+                    continue;
+                }
+
+                getErrorInjectionService(
+                    aResp, path,
+                    [chassisId, networkAdapterId, aResp, handler](
+                        const std::string& service, const std::string& path) {
+                        handler("/redfish/v1/Chassis/" + chassisId +
+                                    "/NetworkAdapters/" + networkAdapterId,
+                                service, path);
+                    });
+                return;
+            }
+            // Object not found
+            messages::resourceNotFound(
+                aResp->res, "#NvidiaErrorInjection.v1_0_0.NvidiaErrorInjection",
+                networkAdapterId);
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
@@ -417,12 +415,12 @@ inline void getNetworkAdapterErrorInjectionData(
     {
         return;
     }
-    getNetworkAdapter(aResp, chassisId, networkAdapterId,
-                      [aResp](const std::string& uri,
-                              const std::string& service,
-                              const std::string& path) {
-        getErrorInjectionData(aResp, uri, service, path);
-    });
+    getNetworkAdapter(
+        aResp, chassisId, networkAdapterId,
+        [aResp](const std::string& uri, const std::string& service,
+                const std::string& path) {
+            getErrorInjectionData(aResp, uri, service, path);
+        });
 }
 inline void patchNetworkAdapterErrorInjectionData(
     App& app, const crow::Request& req,
@@ -434,12 +432,13 @@ inline void patchNetworkAdapterErrorInjectionData(
         return;
     }
     auto properties = parseErrorInjectionJson(req, aResp);
-    getNetworkAdapter(aResp, chassisId, networkAdapterId,
-                      [aResp, properties](
-                          [[maybe_unused]] const std::string& uri,
-                          const std::string& service, const std::string& path) {
-        patchErrorInjectionData(aResp, service, path, properties);
-    });
+    getNetworkAdapter(
+        aResp, chassisId, networkAdapterId,
+        [aResp,
+         properties]([[maybe_unused]] const std::string& uri,
+                     const std::string& service, const std::string& path) {
+            patchErrorInjectionData(aResp, service, path, properties);
+        });
 }
 
 template <typename Handler>
@@ -451,35 +450,36 @@ inline void getSwitch(std::shared_ptr<bmcweb::AsyncResp> aResp,
         [fabricId, switchId, aResp, handler{std::forward<Handler>(handler)}](
             const boost::system::error_code ec,
             const dbus::utility::MapperGetSubTreePathsResponse& paths) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error");
-            messages::internalError(aResp->res);
-
-            return;
-        }
-        for (const auto& path : paths)
-        {
-            if (!path.ends_with(switchId) || path.find(fabricId) == path.npos)
+            if (ec)
             {
-                continue;
-            }
+                BMCWEB_LOG_ERROR("DBUS response error");
+                messages::internalError(aResp->res);
 
-            getErrorInjectionService(
-                aResp, path,
-                [fabricId, switchId, aResp, handler](const std::string& service,
-                                                     const std::string& path) {
-                handler("/redfish/v1/Fabrics/" + fabricId + "/Switches/" +
-                            switchId,
-                        service, path);
-            });
-            return;
-        }
-        // Object not found
-        messages::resourceNotFound(
-            aResp->res, "#NvidiaErrorInjection.v1_0_0.NvidiaErrorInjection",
-            switchId);
-    },
+                return;
+            }
+            for (const auto& path : paths)
+            {
+                if (!path.ends_with(switchId) ||
+                    path.find(fabricId) == path.npos)
+                {
+                    continue;
+                }
+
+                getErrorInjectionService(
+                    aResp, path,
+                    [fabricId, switchId, aResp, handler](
+                        const std::string& service, const std::string& path) {
+                        handler("/redfish/v1/Fabrics/" + fabricId +
+                                    "/Switches/" + switchId,
+                                service, path);
+                    });
+                return;
+            }
+            // Object not found
+            messages::resourceNotFound(
+                aResp->res, "#NvidiaErrorInjection.v1_0_0.NvidiaErrorInjection",
+                switchId);
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
@@ -488,11 +488,10 @@ inline void getSwitch(std::shared_ptr<bmcweb::AsyncResp> aResp,
             "xyz.openbmc_project.Inventory.Item.NvSwitch"});
 }
 
-inline void
-    getSwitchErrorInjectionData(App& app, const crow::Request& req,
-                                std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                const std::string& fabricId,
-                                const std::string& switchId)
+inline void getSwitchErrorInjectionData(
+    App& app, const crow::Request& req,
+    std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& fabricId,
+    const std::string& switchId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
@@ -501,14 +500,13 @@ inline void
     getSwitch(aResp, fabricId, switchId,
               [aResp](const std::string& uri, const std::string& service,
                       const std::string& path) {
-        getErrorInjectionData(aResp, uri, service, path);
-    });
+                  getErrorInjectionData(aResp, uri, service, path);
+              });
 }
-inline void
-    patchSwitchErrorInjectionData(App& app, const crow::Request& req,
-                                  std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                  const std::string& fabricId,
-                                  const std::string& switchId)
+inline void patchSwitchErrorInjectionData(
+    App& app, const crow::Request& req,
+    std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& fabricId,
+    const std::string& switchId)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
@@ -519,8 +517,8 @@ inline void
               [aResp, properties]([[maybe_unused]] const std::string& uri,
                                   const std::string& service,
                                   const std::string& path) {
-        patchErrorInjectionData(aResp, service, path, properties);
-    });
+                  patchErrorInjectionData(aResp, service, path, properties);
+              });
 }
 
 inline void requestRoutesErrorInjection(App& app)

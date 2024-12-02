@@ -33,8 +33,8 @@ namespace privilege_utils
  * bool isRedfishHostInterface).
  */
 template <typename Callback>
-inline void isRedfishHostInterfaceUser(const std::string& username,
-                                       Callback&& callback)
+inline void
+    isRedfishHostInterfaceUser(const std::string& username, Callback&& callback)
 {
     BMCWEB_LOG_DEBUG("isRedfishHostInterfaceUser enter {}", username);
 
@@ -43,47 +43,49 @@ inline void isRedfishHostInterfaceUser(const std::string& username,
             const boost::system::error_code ec,
             const std::map<std::string, dbus::utility::DbusVariantType>&
                 userInfo) {
-        BMCWEB_LOG_DEBUG("isRedfishHostInterfaceUser respHandler enter");
+            BMCWEB_LOG_DEBUG("isRedfishHostInterfaceUser respHandler enter");
 
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR(
-                "isRedfishHostInterfaceUser respHandler DBUS error: {}", ec);
-            callback(ec, false);
-            return;
-        }
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "isRedfishHostInterfaceUser respHandler DBUS error: {}",
+                    ec);
+                callback(ec, false);
+                return;
+            }
 
-        // Get UserGroups
-        const std::vector<std::string>* userGroupPtr = nullptr;
-        auto userInfoIter = userInfo.find("UserGroups");
-        if (userInfoIter != userInfo.end())
-        {
-            userGroupPtr =
-                std::get_if<std::vector<std::string>>(&userInfoIter->second);
-        }
+            // Get UserGroups
+            const std::vector<std::string>* userGroupPtr = nullptr;
+            auto userInfoIter = userInfo.find("UserGroups");
+            if (userInfoIter != userInfo.end())
+            {
+                userGroupPtr = std::get_if<std::vector<std::string>>(
+                    &userInfoIter->second);
+            }
 
-        if (userGroupPtr == nullptr)
-        {
-            BMCWEB_LOG_ERROR("User Group not found");
-            callback(boost::system::errc::make_error_code(
-                         boost::system::errc::function_not_supported),
-                     false);
-            return;
-        }
+            if (userGroupPtr == nullptr)
+            {
+                BMCWEB_LOG_ERROR("User Group not found");
+                callback(boost::system::errc::make_error_code(
+                             boost::system::errc::function_not_supported),
+                         false);
+                return;
+            }
 
-        // Check if user in redfish-hostiface group
-        auto found = std::find_if(userGroupPtr->begin(), userGroupPtr->end(),
-                                  [](const auto& group) {
-            return (group == "redfish-hostiface") ? true : false;
-        });
-        if (found == userGroupPtr->end())
-        {
-            callback({}, false);
-            return;
-        }
+            // Check if user in redfish-hostiface group
+            auto found = std::find_if(
+                userGroupPtr->begin(), userGroupPtr->end(),
+                [](const auto& group) {
+                    return (group == "redfish-hostiface") ? true : false;
+                });
+            if (found == userGroupPtr->end())
+            {
+                callback({}, false);
+                return;
+            }
 
-        callback({}, true);
-    };
+            callback({}, true);
+        };
 
     crow::connections::systemBus->async_method_call(
         respHandler, "xyz.openbmc_project.User.Manager",
