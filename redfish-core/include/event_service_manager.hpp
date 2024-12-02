@@ -1709,10 +1709,8 @@ class EventServiceManager
                 BMCWEB_LOG_DEBUG("Filter didn't match");
                 continue;
             }
-            std::string strMsg =
-                nlohmann::json(std::move(msg))
-                    .dump(2, ' ', true,
-                          nlohmann::json::error_handler_t::replace);
+            std::string strMsg = nlohmann::json(msg).dump(
+                2, ' ', true, nlohmann::json::error_handler_t::replace);
             entry->sendEvent(std::move(strMsg));
         }
         eventId++; // increament the eventId

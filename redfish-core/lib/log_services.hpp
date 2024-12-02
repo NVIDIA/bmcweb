@@ -7890,7 +7890,8 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
             return;
         }
 
-        debug_token::RequestType type;
+        debug_token::RequestType type =
+            debug_token::RequestType::DebugTokenRequest;
         if (oemDiagnosticDataType != "DebugTokenStatus")
         {
             if (oemDiagnosticDataType == "GetDebugTokenRequest")
