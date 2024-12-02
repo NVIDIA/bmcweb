@@ -1,42 +1,43 @@
-#include "assembly.hpp"
 #include "redfish_nvidia.hpp"
+
 #include "bmcweb_config.h"
+
+#include "assembly.hpp"
+#include "control.hpp"
+#include "environment_metrics.hpp"
+#include "erot_chassis.hpp"
+#include "fabric.hpp"
+#include "log_services_manufacturing_test.hpp"
+#include "memory.hpp"
+#include "network_adapters.hpp"
+#include "network_adapters_generic.hpp"
 #include "nvidia_debug_token.hpp"
 #include "nvidia_error_injection.hpp"
 #include "nvidia_log_services.hpp"
 #include "nvidia_log_services_debug_token.hpp"
+#include "nvidia_log_services_fault.hpp"
 #include "nvidia_log_services_fdr.hpp"
 #include "nvidia_log_services_sel.hpp"
 #include "nvidia_log_services_xid.hpp"
-#include "nvidia_log_services_fault.hpp"
-#include "log_services_manufacturing_test.hpp"
+#include "nvidia_managers.hpp"
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_power_smoothing.hpp"
 #include "nvidia_protected_component.hpp"
 #include "nvidia_workload_power_profiles.hpp"
-#include "pcieslots.hpp"
 #include "pcie.hpp"
+#include "pcieslots.hpp"
 #include "ports.hpp"
-#include "network_adapters.hpp"
-#include "network_adapters_generic.hpp"
-#include "update_service.hpp"
-#include "erot_chassis.hpp"
-#include "nvidia_managers.hpp"
-#include "trigger.hpp"
-#include "environment_metrics.hpp"
 #include "processor.hpp"
-#include "fabric.hpp"
-#include "trusted_components.hpp"
-#include "control.hpp"
-#include "memory.hpp"
-#include "system_host_eth.hpp"
 #include "service_conditions.hpp"
+#include "system_host_eth.hpp"
+#include "trigger.hpp"
+#include "trusted_components.hpp"
+#include "update_service.hpp"
 
 namespace redfish
 {
 void requestRoutesNvidia(crow::App& app)
-{ 
-
+{
     requestAssemblyRoutes(app);
     requestPcieSlotsRoutes(app);
     requestRoutesSensorPatch(app);
@@ -180,7 +181,7 @@ void requestRoutesNvidia(crow::App& app)
     }
 
 #if defined(BMCWEB_INSECURE_ENABLE_REDFISH_FW_TFTP_UPDATE) ||                  \
-    defined(BMCWEB_REDFISH_FW_SCP_UPDATE) ||                            \
+    defined(BMCWEB_REDFISH_FW_SCP_UPDATE) ||                                   \
     defined(BMCWEB_REDFISH_FW_HTTP_HTTPS_UPDATE)
     requestRoutesUpdateServiceActionsSimpleUpdate(app);
 #endif

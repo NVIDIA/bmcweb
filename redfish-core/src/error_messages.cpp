@@ -533,8 +533,8 @@ void createFailedMissingReqProperties(crow::Response& res,
 nlohmann::json propertyValueFormatError(const nlohmann::json& arg1,
                                         std::string_view arg2)
 {
-    std::string arg1Str = arg1.dump(2, ' ', true,
-                                    nlohmann::json::error_handler_t::replace);
+    std::string arg1Str =
+        arg1.dump(2, ' ', true, nlohmann::json::error_handler_t::replace);
     arg1Str = std::regex_replace(arg1Str, std::regex("\""), "");
     return getLog(redfish::registries::base::Index::propertyValueFormatError,
                   std::to_array<std::string_view>({arg1Str, arg2}));
@@ -559,8 +559,8 @@ void propertyValueFormatError(crow::Response& res, const nlohmann::json& arg1,
 nlohmann::json propertyValueNotInList(const nlohmann::json& arg1,
                                       std::string_view arg2)
 {
-    std::string arg1Str = arg1.dump(-1, ' ', true,
-                                    nlohmann::json::error_handler_t::replace);
+    std::string arg1Str =
+        arg1.dump(-1, ' ', true, nlohmann::json::error_handler_t::replace);
     arg1Str = std::regex_replace(arg1Str, std::regex("\""), "");
     return getLog(redfish::registries::base::Index::propertyValueNotInList,
                   std::to_array<std::string_view>({arg1Str, arg2}));
@@ -2062,14 +2062,13 @@ nlohmann::json resourceErrorsDetectedFormatError(const std::string& arg1,
         {"Resolution", "Resolution dependent upon error type."}};
 }
 
-void resourceErrorsDetectedFormatError(crow::Response& res,
-                                       const std::string& arg1,
-                                       const std::string& arg2,
-                                       const std::string& resolution)
+void resourceErrorsDetectedFormatError(
+    crow::Response& res, const std::string& arg1, const std::string& arg2,
+    const std::string& resolution)
 {
     res.result(boost::beast::http::status::internal_server_error);
-    nlohmann::json responseMessage = resourceErrorsDetectedFormatError(arg1,
-                                                                       arg2);
+    nlohmann::json responseMessage =
+        resourceErrorsDetectedFormatError(arg1, arg2);
     if (!resolution.empty())
     {
         responseMessage["Resolution"] = resolution;

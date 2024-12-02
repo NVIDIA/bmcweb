@@ -1,6 +1,11 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http/message.hpp>
+#include <boost/beast/http/message_generator.hpp>
+#include <boost/beast/http/parser.hpp>
+#include <boost/beast/http/read.hpp>
 #include <boost/beast/http/string_body.hpp>
+#include <boost/beast/http/write.hpp>
+#include <boost/beast/version.hpp>
 #include <boost/config.hpp>
 #include <elog_entry.hpp>
 #include <nlohmann/json.hpp>
@@ -8,12 +13,6 @@
 #include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/server/manager.hpp>
-#include <boost/beast/version.hpp>
-#include <boost/beast/http/message.hpp>
-#include <boost/beast/http/message_generator.hpp>
-#include <boost/beast/http/parser.hpp>
-#include <boost/beast/http/read.hpp>
-#include <boost/beast/http/write.hpp>
 
 #include <algorithm>
 #include <cstdlib>
@@ -23,9 +22,9 @@
 #include <string>
 #include <vector>
 
-namespace beast = boost::beast;   // from <boost/beast.hpp>
-namespace http = beast::http;     // from <boost/beast/http.hpp>
-namespace net = boost::asio;      // from <boost/asio.hpp>
+namespace beast = boost::beast; // from <boost/beast.hpp>
+namespace http = beast::http; // from <boost/beast/http.hpp>
+namespace net = boost::asio; // from <boost/asio.hpp>
 
 using tcp = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
 using Level = sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level;
@@ -242,10 +241,11 @@ class session : public std::enable_shared_from_this<session>
             self_.res_ = sp;
 
             // Write the response
-            boost::beast::http::async_write(self_.stream_, *sp,
-                              beast::bind_front_handler(
-                                  &session::on_write, self_.shared_from_this(),
-                                  sp->need_eof()));
+            boost::beast::http::async_write(
+                self_.stream_, *sp,
+                beast::bind_front_handler(&session::on_write,
+                                          self_.shared_from_this(),
+                                          sp->need_eof()));
         }
     };
 
@@ -260,8 +260,7 @@ class session : public std::enable_shared_from_this<session>
     // Take ownership of the stream
     session(tcp::socket&& socket,
             std::shared_ptr<sdbusplus::asio::connection> bus) :
-        stream_(std::move(socket)),
-        bus_(bus), lambda_(*this)
+        stream_(std::move(socket)), bus_(bus), lambda_(*this)
     {
         redfishEventMgr::incSessNum();
     }
@@ -357,8 +356,7 @@ class listener : public std::enable_shared_from_this<listener>
     listener(net::io_context& ioc,
              std::shared_ptr<sdbusplus::asio::connection>&& conn,
              tcp::endpoint& endpoint) :
-        ioc_(ioc),
-        conn_(conn), acceptor_(ioc), endpoint_(endpoint)
+        ioc_(ioc), conn_(conn), acceptor_(ioc), endpoint_(endpoint)
     {}
 
     void init()

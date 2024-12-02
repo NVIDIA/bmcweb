@@ -25,13 +25,14 @@
 #include "metadata.hpp"
 #include "metric_report.hpp"
 #include "metric_report_definition.hpp"
-//#include "network_protocol.hpp"
+// #include "network_protocol.hpp"
 #include "odata.hpp"
 #include "pcie.hpp"
 #include "power.hpp"
 #include "power_subsystem.hpp"
 #include "power_supply.hpp"
 #include "processor.hpp"
+#include "redfish_nvidia.hpp"
 #include "redfish_sessions.hpp"
 #include "redfish_v1.hpp"
 #include "roles.hpp"
@@ -49,7 +50,6 @@
 #include "trigger.hpp"
 #include "update_service.hpp"
 #include "virtual_media.hpp"
-#include "redfish_nvidia.hpp"
 namespace redfish
 {
 
@@ -75,7 +75,7 @@ RedfishService::RedfishService(App& app)
     }
 
     requestRoutesServiceRoot(app);
-    //requestRoutesNetworkProtocol(app);
+    // requestRoutesNetworkProtocol(app);
     requestEthernetInterfacesRoutes(app);
 
     if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL)
@@ -95,7 +95,7 @@ RedfishService::RedfishService(App& app)
         requestRoutesThermalMetrics(app);
         requestRoutesThermalSubsystem(app);
         requestRoutesFan(app);
-        requestRoutesFanCollection(app);      
+        requestRoutesFanCollection(app);
     }
     requestRoutesManagerCollection(app);
     requestRoutesManager(app);
@@ -175,7 +175,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesMemory(app);
 
     requestRoutesSystems(app);
-    
+
 #ifdef BMCWEB_BIOS
     requestRoutesBiosService(app);
     requestRoutesBiosSettings(app);
@@ -220,7 +220,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesSystemPCIeFunction(app);
     requestRoutesSystemPCIeDeviceCollection(app);
     requestRoutesSystemPCIeDevice(app);
-    
+
     requestRoutesSensorCollection(app);
     requestRoutesSensor(app);
 
@@ -252,7 +252,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesTriggerCollection(app);
     requestRoutesTrigger(app);
 #endif
-    
+
     requestRoutesNvidia(app);
     // Note, this must be the last route registered
     requestRoutesRedfish(app);

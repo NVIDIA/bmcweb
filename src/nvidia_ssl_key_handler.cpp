@@ -40,8 +40,8 @@ void encryptCredentials(const std::string& filename)
         BMCWEB_LOG_ERROR("Cannot open filename for reading: {}", filename);
         return;
     }
-    auto pkey = PEM_read_PrivateKey(fp, nullptr, lsp::emptyPasswordCallback,
-                                    nullptr);
+    auto pkey =
+        PEM_read_PrivateKey(fp, nullptr, lsp::emptyPasswordCallback, nullptr);
     if (pkey == nullptr)
     {
         BMCWEB_LOG_ERROR("Could not read private key from file: {}", filename);

@@ -403,6 +403,9 @@ inline void doNDF(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         std::string(BMCWEB_PLATFORM_NETWORK_ADAPTER) +
         "/NetworkDeviceFunctions/" + ndfId;
     asyncResp->res.jsonValue["Id"] = ndfId;
+    using GetManagedPropertyType = boost::container::flat_map<
+        std::string,
+        std::variant<std::string, bool, double, uint64_t, uint32_t>>;
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
                     const GetManagedPropertyType& properties) {
