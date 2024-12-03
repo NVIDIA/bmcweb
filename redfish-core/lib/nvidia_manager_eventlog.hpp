@@ -118,7 +118,7 @@ inline void fillManagerEventLogLogEntryFromPropertyMap(
 
     objectToFillOut["@odata.type"] = "#LogEntry.v1_15_0.LogEntry";
     objectToFillOut["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Manager/{}/LogServices/EventLog/Entries/{}",
+        "/redfish/v1/Managers/{}/LogServices/EventLog/Entries/{}",
         BMCWEB_REDFISH_MANAGER_URI_NAME, std::to_string(entry.Id));
     objectToFillOut["Name"] = "Manager Event Log Entry";
     objectToFillOut["Id"] = std::to_string(entry.Id);
@@ -151,7 +151,7 @@ inline void fillManagerEventLogLogEntryFromPropertyMap(
     if (entry.Path != nullptr)
     {
         objectToFillOut["AdditionalDataURI"] = boost::urls::format(
-            "/redfish/v1/Manager/{}/LogServices/EventLog/Entries/{}/attachment",
+            "/redfish/v1/Managers/{}/LogServices/EventLog/Entries/{}/attachment",
             BMCWEB_REDFISH_MANAGER_URI_NAME, std::to_string(entry.Id));
     }
 
@@ -249,7 +249,7 @@ inline void dbusManagerEventLogEntryCollection(
     asyncResp->res.jsonValue["@odata.type"] =
         "#LogEntryCollection.LogEntryCollection";
     asyncResp->res.jsonValue["@odata.id"] =
-        std::format("/redfish/v1/Manager/{}/LogServices/EventLog/Entries",
+        std::format("/redfish/v1/Managers/{}/LogServices/EventLog/Entries",
                     BMCWEB_REDFISH_MANAGER_URI_NAME);
     asyncResp->res.jsonValue["Name"] = "Manager Event Log Entries";
     asyncResp->res.jsonValue["Description"] =
