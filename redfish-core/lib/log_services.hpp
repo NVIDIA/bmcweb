@@ -4061,6 +4061,10 @@ inline void requestRoutesDBusSELLogServiceActionsClear(App& app)
                     }
                 }
             }
+            // Add a log entry to journal log when using redfish commend to
+            // clear the SEL. This entry in journal log will be captured and
+            // generate a SEL Clear Event.
+            BMCWEB_LOG_INFO("Deleting all log entries");
         },
             "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
             "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
