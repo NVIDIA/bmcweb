@@ -128,7 +128,6 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesProcessorWorkloadPower(app);
         requestRoutesProcessorWorkloadPowerProfile(app);
         requestRoutesProcessorWorkloadPowerProfileCollection(app);
-        requestRoutesSplitUpdateService(app);
         requestRoutesSwitchPowerMode(app);
         requestRoutesClearPCIeAerErrorStatus(app);
         requestRoutesSwitchHistogramCollection(app);
