@@ -146,7 +146,6 @@ string_options = [
     'rfa-hmc-update-target',
     'tls-cacert-path',
     'update-service-image-location',
-    'update-service-stage-location',
 ]
 
 int_options = [
