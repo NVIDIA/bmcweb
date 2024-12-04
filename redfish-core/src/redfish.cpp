@@ -12,6 +12,7 @@
 #include "chassis.hpp"
 #include "component_integrity.hpp"
 #include "control.hpp"
+#include "cper_utils.hpp"
 #include "environment_metrics.hpp"
 #include "ethernet.hpp"
 #include "event_service.hpp"
