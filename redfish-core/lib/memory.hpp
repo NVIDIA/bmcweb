@@ -70,6 +70,11 @@ inline std::string translateMemoryTypeToRedfish(const std::string& memoryType)
         return "DDR5";
     }
     if (memoryType ==
+        "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.LPDDR5_SDRAM")
+    {
+        return "LPDDR5_SDRAM";
+    }
+    if (memoryType ==
         "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.LPDDR4_SDRAM")
     {
         return "LPDDR4_SDRAM";
@@ -151,7 +156,6 @@ inline std::string translateMemoryTypeToRedfish(const std::string& memoryType)
     // FBD2
     // LPDDR_SDRAM
     // LPDDR2_SDRAM
-    // LPDDR5_SDRAM
     return "";
 }
 
@@ -902,7 +906,7 @@ inline void getDimmData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
             return;
         }
         // Set @odata only if object is found
-        asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_11_0.Memory";
+        asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_20_0.Memory";
         asyncResp->res.jsonValue["@odata.id"] =
             boost::urls::format("/redfish/v1/Systems/{}/Memory/{}",
                                 BMCWEB_REDFISH_SYSTEM_URI_NAME, dimmId);
@@ -1315,7 +1319,7 @@ inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
             return;
         }
         // Object not found
-        messages::resourceNotFound(aResp->res, "#Memory.v1_11_0.Memory",
+        messages::resourceNotFound(aResp->res, "#Memory.v1_20_0.Memory",
                                    dimmId);
     },
         "xyz.openbmc_project.ObjectMapper",
