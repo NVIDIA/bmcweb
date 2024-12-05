@@ -8,13 +8,13 @@ namespace nvidia_processor
 enum class MLNVLPeerType{
     Invalid,
     Bridge,
-    Peer,
+    Direct,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(MLNVLPeerType, {
     {MLNVLPeerType::Invalid, "Invalid"},
     {MLNVLPeerType::Bridge, "Bridge"},
-    {MLNVLPeerType::Peer, "Peer"},
+    {MLNVLPeerType::Direct, "Direct"},
 });
 
 }

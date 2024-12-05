@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaChassis  v1.4.0                                           -->
+<!--# Redfish OEM Schema:  NvidiaChassis  v1.6.0                                           -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2024 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -31,6 +31,9 @@
   </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaDebugToken_v1.xml">
     <edmx:Include Namespace="NvidiaDebugToken"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPolicyCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaPolicyCollection"/>
   </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis">
@@ -259,6 +262,16 @@
           <Annotation Term="OData.Description" String="An indication that the AP will be held in reset until the BootProtectedDevice action is executed."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate that the BootProtectedDevice action is required to boot the device behind the ERoT. Default state is false."/>
         </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_6_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_4_0.NvidiaChassis">
+        <NavigationProperty Name="Policies" Type="NvidiaPolicyCollection.NvidiaPolicyCollection">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the collection of policies for this chassis."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type NvidiaPolicyCollection."/>
+        </NavigationProperty>
       </ComplexType>
     </Schema>
   </edmx:DataServices>
