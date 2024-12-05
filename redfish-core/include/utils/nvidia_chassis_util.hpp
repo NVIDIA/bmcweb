@@ -1375,6 +1375,75 @@ inline void setChassisWriteProtectProtectEnable(
     });
 }
 
+template <typename Callback>
+inline void validLeakDetectionCallback(
+    const boost::system::error_code& ec,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const dbus::utility::MapperGetSubTreePathsResponse& chassisPaths,
+    const std::string& chassisId, Callback&& callback)
+{
+    BMCWEB_LOG_DEBUG("validLeakDetectionCallback respHandler enter");
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "validLeakDetectionCallback respHandler DBUS error: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    std::optional<std::string> chassisPath;
+    for (const std::string& chassis : chassisPaths)
+    {
+        sdbusplus::message::object_path path(chassis);
+        std::string chassisName = path.parent_path().filename();
+        if (chassisName.empty())
+        {
+            BMCWEB_LOG_ERROR("Failed to find '/' in {}", chassis);
+            continue;
+        }
+        if (chassisName == chassisId)
+        {
+            chassisPath = chassis;
+            break;
+        }
+    }
+    callback(chassisPath);
+}
+
+template <typename Callback>
+void getValidLeakDetectionPath(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, Callback&& callback)
+{
+    constexpr std::array<std::string_view, 1> interfaces = {
+        "xyz.openbmc_project.Configuration.VoltageLeakDetector"};
+
+    // Get the Chassis Collection
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
+        [callback = std::forward<Callback>(callback), asyncResp,
+         chassisId](const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreePathsResponse&
+                        chassisPaths) mutable {
+        validLeakDetectionCallback(ec, asyncResp, chassisPaths, chassisId,
+                                   callback);
+    });
+}
+
+inline void doLeakDetectionPolicyGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        BMCWEB_LOG_DEBUG("{}: No Leak Detection policy", chassisId);
+        return;
+    }
+    asyncResp->res.jsonValue["Policies"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/Policies", chassisId);
+}
+
 inline void handleChassisGetAllProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& path,
@@ -1601,8 +1670,9 @@ inline void handleChassisGetAllProperties(
 
 #ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
     // Policy Collection
-    asyncResp->res.jsonValue["Policies"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/Policies", chassisId);
+    getValidLeakDetectionPath(
+        asyncResp, chassisId,
+        std::bind_front(doLeakDetectionPolicyGet, asyncResp, chassisId));
 #endif
 
     nlohmann::json::array_t computerSystems;

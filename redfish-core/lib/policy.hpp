@@ -40,7 +40,7 @@ inline void handleLeakDetectionPolicyHead(
         return;
     }
 
-    redfish::chassis_utils::getValidChassisPath(
+    redfish::nvidia_chassis_utils::getValidLeakDetectionPath(
         asyncResp, chassisId,
         [asyncResp,
          chassisId](const std::optional<std::string>& validChassisPath) {
@@ -201,7 +201,7 @@ inline void handleLeakDetectionPolicyGet(
         return;
     }
 
-    redfish::chassis_utils::getValidChassisPath(
+    redfish::nvidia_chassis_utils::getValidLeakDetectionPath(
         asyncResp, chassisId,
         std::bind_front(doLeakDetectionPolicyGet, asyncResp, chassisId));
 }
@@ -261,7 +261,7 @@ inline void handleLeakDetectionPolicyPatch(
 
     if (policyEnabled)
     {
-        redfish::chassis_utils::getValidChassisPath(
+        redfish::nvidia_chassis_utils::getValidLeakDetectionPath(
             asyncResp, chassisId,
             std::bind_front(doLeakDetectionPolicyEnabledPatch, asyncResp,
                             chassisId, *policyEnabled));
@@ -296,7 +296,7 @@ inline void handlePolicyCollectionHead(
         return;
     }
 
-    redfish::chassis_utils::getValidChassisPath(
+    redfish::nvidia_chassis_utils::getValidLeakDetectionPath(
         asyncResp, chassisId,
         [asyncResp,
          chassisId](const std::optional<std::string>& validChassisPath) {
@@ -358,7 +358,7 @@ inline void handlePolicyCollectionGet(
         return;
     }
 
-    redfish::chassis_utils::getValidChassisPath(
+    redfish::nvidia_chassis_utils::getValidLeakDetectionPath(
         asyncResp, chassisId,
         std::bind_front(doPolicyCollection, asyncResp, chassisId));
 }
