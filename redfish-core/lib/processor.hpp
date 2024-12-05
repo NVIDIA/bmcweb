@@ -1782,7 +1782,7 @@ inline void
             if (key == "CacheSizeInKiB")
             {
                 const uint64_t* value = std::get_if<uint64_t>(&variant);
-                if (value != nullptr)
+                if (value != nullptr && *value != 0)
                 {
                     json["MemorySummary"]["TotalCacheSizeMiB"] = (*value) >> 10;
                 }
