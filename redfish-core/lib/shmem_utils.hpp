@@ -313,6 +313,12 @@ inline void metricsReplacementsNonPlatformMetrics(
         }
         if (deviceType == "HealthMetrics")
         {
+            std::regex cpuProcessorPattern(cpuProcessor + "(\\d+)");
+            if (std::regex_search(e, match, cpuProcessorPattern))
+            {
+                int number = std::stoi(match[1].str());
+                cpuId.insert(number);
+            }
             std::regex gpuPattern(gpuPrefix + "(\\d+)");
             if (std::regex_search(e, match, gpuPattern))
             {
@@ -475,7 +481,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             {"Values", devCountnvlinkId},
         });
     }
-    if (deviceType == "CpuProcessorMetrics")
+    if (deviceType == "CpuProcessorMetrics" || deviceType == "HealthMetrics")
     {
         nlohmann::json devCountCpuId = nlohmann::json::array();
         for (const auto& e : cpuId)
@@ -486,6 +492,9 @@ inline void metricsReplacementsNonPlatformMetrics(
             {"Name", "CpuId"},
             {"Values", devCountCpuId},
         });
+    }
+    if (deviceType == "CpuProcessorMetrics")
+    {
         nlohmann::json devCountProcessorId = nlohmann::json::array();
         for (const auto& e : processorId)
         {
