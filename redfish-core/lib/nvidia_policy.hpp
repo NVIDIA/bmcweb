@@ -30,31 +30,6 @@ static constexpr auto voltageLeakDetectorConfigInterface =
 static constexpr std::array<std::string_view, 1> leakDetectorConfigInterfaces =
     {voltageLeakDetectorConfigInterface};
 
-inline void handleLeakDetectionPolicyHead(
-    App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    redfish::nvidia_chassis_utils::getValidLeakDetectionPath(
-        asyncResp, chassisId,
-        [asyncResp,
-         chassisId](const std::optional<std::string>& validChassisPath) {
-        if (!validChassisPath)
-        {
-            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-            return;
-        }
-        asyncResp->res.addHeader(
-            boost::beast::http::field::link,
-            "</redfish/v1/JsonSchemas/Policy/Policy.json>; rel=describedby");
-    });
-}
-
 static inline bool checkChassisId(const std::string& path,
                                   const std::string& chassisId)
 {
@@ -86,12 +61,11 @@ inline void handleLeakDetectorPolicyPathsGet(
     const std::string& chassisId,
     const dbus::utility::MapperGetSubTreePathsResponse& leakDetectorPaths)
 {
-    asyncResp->res.addHeader(
-        boost::beast::http::field::link,
-        "</redfish/v1/JsonSchemas/Policy/Policy.json>; rel=describedby");
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Chassis/{}/Policies/LeakDetectionPolicy", chassisId);
-    asyncResp->res.jsonValue["@odata.type"] = "#Policy.v1_0_0.Policy";
+        "/redfish/v1/Chassis/{}/Oem/Nvidia/Policies/LeakDetectionPolicy",
+        chassisId);
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#NvidiaPolicy.v1_0_0.NvidiaPolicy";
     asyncResp->res.jsonValue["Name"] = "Policy for Leak Detection";
     asyncResp->res.jsonValue["Id"] = "LeakDetectionPolicy";
 
@@ -270,45 +244,19 @@ inline void handleLeakDetectionPolicyPatch(
 
 inline void requestRoutesLeakDetectionPolicy(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Policies/LeakDetectionPolicy/")
-        .privileges(redfish::privileges::privilegeSetLogin)
-        .methods(boost::beast::http::verb::head)(
-            std::bind_front(handleLeakDetectionPolicyHead, std::ref(app)));
-
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Policies/LeakDetectionPolicy/")
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/Oem/Nvidia/Policies/LeakDetectionPolicy/")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleLeakDetectionPolicyGet, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Policies/LeakDetectionPolicy/")
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/Oem/Nvidia/Policies/LeakDetectionPolicy/")
         .privileges(redfish::privileges::privilegeSetConfigureManager)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleLeakDetectionPolicyPatch, std::ref(app)));
-}
-
-inline void handlePolicyCollectionHead(
-    App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    redfish::nvidia_chassis_utils::getValidLeakDetectionPath(
-        asyncResp, chassisId,
-        [asyncResp,
-         chassisId](const std::optional<std::string>& validChassisPath) {
-        if (!validChassisPath)
-        {
-            messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-            return;
-        }
-        asyncResp->res.addHeader(
-            boost::beast::http::field::link,
-            "</redfish/v1/JsonSchemas/PolicyCollection/PolicyCollection.json>; rel=describedby");
-    });
 }
 
 inline void
@@ -321,13 +269,10 @@ inline void
         messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
         return;
     }
-    asyncResp->res.addHeader(
-        boost::beast::http::field::link,
-        "</redfish/v1/JsonSchemas/PolicyCollection/PolicyCollection.json>; rel=describedby");
     asyncResp->res.jsonValue["@odata.type"] =
-        "#PolicyCollection.PolicyCollection";
-    asyncResp->res.jsonValue["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/Policies", chassisId);
+        "#NvidiaPolicyCollection.NvidiaPolicyCollection";
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Oem/Nvidia/Policies", chassisId);
     asyncResp->res.jsonValue["Name"] = "Policy Collection";
     asyncResp->res.jsonValue["Description"] =
         "Collection of Policies for Chassis " + chassisId;
@@ -338,7 +283,8 @@ inline void
 
 #ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
     boost::urls::url leakDetectionPolicyUrl = boost::urls::format(
-        "/redfish/v1/Chassis/{}/Policies/LeakDetectionPolicy", chassisId);
+        "/redfish/v1/Chassis/{}/Oem/Nvidia/Policies/LeakDetectionPolicy",
+        chassisId);
 
     nlohmann::json::object_t leakDetectionPolicyObject;
     leakDetectionPolicyObject.emplace("@odata.id", leakDetectionPolicyUrl);
@@ -365,12 +311,7 @@ inline void handlePolicyCollectionGet(
 
 inline void requestPolicyCollection(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Policies/")
-        .privileges(redfish::privileges::privilegeSetLogin)
-        .methods(boost::beast::http::verb::head)(
-            std::bind_front(handlePolicyCollectionHead, std::ref(app)));
-
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Policies/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Oem/Nvidia/Policies/")
         .privileges(redfish::privileges::privilegeSetLogin)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handlePolicyCollectionGet, std::ref(app)));

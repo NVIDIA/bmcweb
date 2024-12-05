@@ -1440,8 +1440,9 @@ inline void doLeakDetectionPolicyGet(
         BMCWEB_LOG_DEBUG("{}: No Leak Detection policy", chassisId);
         return;
     }
-    asyncResp->res.jsonValue["Policies"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/Policies", chassisId);
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["Policies"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/Oem/Nvidia/Policies",
+                            chassisId);
 }
 
 inline void handleChassisGetAllProperties(
@@ -1577,7 +1578,7 @@ inline void handleChassisGetAllProperties(
     {
         // default oem data
         nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
-        oem["@odata.type"] = "#NvidiaChassis.v1_4_0.NvidiaChassis";
+        oem["@odata.type"] = "#NvidiaChassis.v1_6_0.NvidiaChassis";
 
         if (writeProtected != nullptr)
         {
@@ -1611,6 +1612,13 @@ inline void handleChassisGetAllProperties(
                 .jsonValue["Oem"]["Nvidia"]["PCIeReferenceClockCount"] =
                 *pCIeReferenceClockCount;
         }
+
+#ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
+        // Policy Collection
+        getValidLeakDetectionPath(
+            asyncResp, chassisId,
+            std::bind_front(doLeakDetectionPolicyGet, asyncResp, chassisId));
+#endif
     }
     if (std::find(interfaces.begin(), interfaces.end(),
                   "xyz.openbmc_project.Inventory.Item.Chassis") !=
@@ -1667,13 +1675,6 @@ inline void handleChassisGetAllProperties(
     // Controls Collection
     asyncResp->res.jsonValue["Controls"] = {
         {"@odata.id", "/redfish/v1/Chassis/" + chassisId + "/Controls"}};
-
-#ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
-    // Policy Collection
-    getValidLeakDetectionPath(
-        asyncResp, chassisId,
-        std::bind_front(doLeakDetectionPolicyGet, asyncResp, chassisId));
-#endif
 
     nlohmann::json::array_t computerSystems;
     nlohmann::json::object_t system;
