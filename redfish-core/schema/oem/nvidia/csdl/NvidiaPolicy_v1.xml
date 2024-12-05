@@ -81,12 +81,12 @@
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="OData.Description" String="Condition for the policy."/>
         <Annotation Term="OData.LongDescription" String="This property shall contain a condition for the policy."/>
-        <NavigationProperty Name="Property" Type="Edm.String" Nullable="false">
+        <Property Name="Property" Type="Edm.String" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The link to a property which provides the value for the condition."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain a link to a property that provides the value for the condition."/>
           <Annotation Term="OData.IsURL"/>
-        </NavigationProperty>
+        </Property>
         <Property Name="PropertyStringValue" Type="Edm.String" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The string value which when matched by the value of Property is interpreted as a condition."/>

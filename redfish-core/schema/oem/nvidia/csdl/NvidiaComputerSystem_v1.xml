@@ -97,9 +97,6 @@
         </Property>
       </ComplexType>
     </Schema>
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem">
-      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-    </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_2_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <ComplexType Name="NvidiaComputerSystem" BaseType="NvidiaComputerSystem.v1_1_0.NvidiaComputerSystem">
