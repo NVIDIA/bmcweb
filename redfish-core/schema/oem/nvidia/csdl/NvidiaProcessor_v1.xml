@@ -294,10 +294,10 @@
           <Annotation Term="OData.Description" String="Multi-Node NVLink Chassis Serial Number."/>
           <Annotation Term="OData.LongDescription" String="Multi-Node NVLink Chassis Serial Number."/>
         </Property>
-        <Property Name="Node" Type="Edm.Int64" Nullable="true">
+        <Property Name="HostID" Type="Edm.Int64" Nullable="true">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="Multi-Node NVLink Node Index."/>
-          <Annotation Term="OData.LongDescription" String="Multi-Node NVLink Node Index."/>
+          <Annotation Term="OData.Description" String="Multi-Node NVLink Host ID."/>
+          <Annotation Term="OData.LongDescription" String="Multi-Node NVLink Host ID."/>
         </Property>
         <Property Name="PeerType" Type="NvidiaProcessor.v1_3_0.MLNVLPeerType" Nullable="true">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -309,12 +309,14 @@
           <Annotation Term="OData.Description" String="Multi-Node NVLink Module ID."/>
           <Annotation Term="OData.LongDescription" String="Multi-Node NVLink Module ID."/>
         </Property>
-        <Property Name="SystemGUID" Type="Edm.Guid" Nullable="true">
+        <Property Name="SystemGUID" Type="Edm.String" Nullable="true">
+          <Annotation Term="Validation.Pattern" String="^[0-9a-fA-F]{16}$"/>
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Multi-Node NVLink system global unique identifier."/>
           <Annotation Term="OData.LongDescription" String="Multi-Node NVLink system global unique identifier."/>
         </Property>
-        <Property Name="IBGUID" Type="Edm.Guid" Nullable="true">
+        <Property Name="IBGUID" Type="Edm.String" Nullable="true">
+          <Annotation Term="Validation.Pattern" String="^[0-9a-fA-F]{16}$"/>
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Multi-Node NVLink IB globally unique identifier."/>
           <Annotation Term="OData.LongDescription" String="Multi-Node NVLink IB globally unique identifier."/>
@@ -325,7 +327,7 @@
           <Annotation Term="OData.Description" String="Multi-Node NVLink Bridge Type."/>
           <Annotation Term="OData.LongDescription" String="Multi-Node NVLink Bridge Type."/>
         </Member>
-        <Member Name="Peer">
+        <Member Name="Direct">
           <Annotation Term="OData.Description" String="Multi-Node NVLink Peer Type."/>
           <Annotation Term="OData.LongDescription" String="Multi-Node NVLink Peer Type."/>
         </Member>
