@@ -2924,6 +2924,12 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                             messageArgs = additional["REDFISH_MESSAGE_ARGS"];
                         }
                     }
+                    if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
+                    {
+                        originOfCondition =
+                            additional["REDFISH_ORIGIN_OF_CONDITION"];
+                    }
+
                     if (additional.count("DEVICE_NAME") > 0)
                     {
                         deviceName = additional["DEVICE_NAME"];
@@ -2957,6 +2963,11 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                         messageId, messageArgs, *resolution, resolved,
                         (eventId == nullptr) ? "" : *eventId, deviceName,
                         *severity);
+#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
+                    origin_utils::convertDbusObjectToOriginOfCondition(
+                        originOfCondition, std::to_string(*id), asyncResp,
+                        thisEntry, deviceName);
+#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
                 }
 
                 // generateMessageRegistry will not create the entry if
@@ -3126,6 +3137,12 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                         messageArgs = additional["REDFISH_MESSAGE_ARGS"];
                     }
                 }
+                if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
+                {
+                    originOfCondition =
+                        additional["REDFISH_ORIGIN_OF_CONDITION"];
+                }
+
                 if (additional.count("DEVICE_NAME") > 0)
                 {
                     deviceName = additional["DEVICE_NAME"];
@@ -3151,6 +3168,11 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                     messageId, messageArgs, *resolution, resolved,
                     (eventId == nullptr) ? "" : *eventId, deviceName,
                     *severity);
+#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
+                origin_utils::convertDbusObjectToOriginOfCondition(
+                    originOfCondition, std::to_string(*id), asyncResp,
+                    asyncResp->res.jsonValue, deviceName);
+#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
             }
 
             // generateMessageRegistry will not create the entry if
