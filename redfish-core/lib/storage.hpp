@@ -1055,50 +1055,40 @@ static void addAllDriveInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 // for the case of Drives under sub-chassis Need to ensure this Chassis includes
 // the drive endpoints
 inline void getChassisID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& driveId)
+                         const std::string& driveId, const std::string& path)
 {
-    constexpr std::array<std::string_view, 2> interfaces = {
-        "xyz.openbmc_project.Inventory.Item.Board",
-        "xyz.openbmc_project.Inventory.Item.Chassis"};
-
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
-        [asyncResp,
-         driveId](const boost::system::error_code ec,
-                  const dbus::utility::MapperGetSubTreeResponse& subtree) {
-        if (ec)
+    dbus::utility::getAssociationEndPoints(
+        path + "/chassis",
+        [asyncResp, driveId](const boost::system::error_code& ec3,
+                             const dbus::utility::MapperEndPoints& resp) {
+        if (ec3)
         {
-            messages::internalError(asyncResp->res);
+            BMCWEB_LOG_ERROR("Error in chassis ID association ");
             return;
         }
 
-        // Iterate over all retrieved ObjectPaths.
-        for (const auto& [path, connectionNames] : subtree)
+        if (resp.empty())
         {
-            if (connectionNames.empty())
-            {
-                BMCWEB_LOG_ERROR("Got 0 Connection names");
-                continue;
-            }
-
-            sdbusplus::message::object_path objPath(path);
-            sdbusplus::asio::getProperty<std::vector<std::string>>(
-                *crow::connections::systemBus,
-                "xyz.openbmc_project.ObjectMapper", path + "/drive",
-                "xyz.openbmc_project.Association", "endpoints",
-                [asyncResp, objPath](const boost::system::error_code ec3,
-                                     const std::vector<std::string>& resp) {
-                if (ec3 || resp.empty())
-                {
-                    return; // no drives = no
-                            // failures
-                }
-                asyncResp->res.jsonValue["Links"]["Chassis"]["@odata.id"] =
-                    "/redfish/v1/Chassis/" + objPath.filename();
-
-                return;
-            });
+            // No ChassisID associated
+            return;
         }
+
+        // Find the chassisId that contains this driveId
+        sdbusplus::message::object_path chassis_path(resp[0]);
+        auto chassisId = std::string(chassis_path.filename());
+
+        asyncResp->res.jsonValue["Links"]["Chassis"]["@odata.id"] =
+            "/redfish/v1/Chassis/" + chassisId;
+
+        asyncResp->res.jsonValue["Actions"]["#Drive.SecureErase"]["target"] =
+            boost::urls::format(
+                "/redfish/v1/Chassis/{}/Drives/{}/Actions/Drive.SecureErase",
+                chassisId, driveId);
+
+        asyncResp->res.jsonValue["Actions"]["#Drive.SecureErase"]
+                                ["@Redfish.ActionInfo"] = boost::urls::format(
+            "/redfish/v1/Chassis/{}/Drives/{}/SanitizeActionInfo", chassisId,
+            driveId);
     });
 }
 
@@ -1491,7 +1481,7 @@ inline void afterGetSubtreeSystemsStorageDrive(
         return;
     }
 
-    getChassisID(asyncResp, driveId);
+    getChassisID(asyncResp, driveId, path);
 
     // default it to Enabled
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
