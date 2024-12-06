@@ -1424,7 +1424,6 @@ inline void patchPortDisableFuture(
         BMCWEB_LOG_ERROR(
             "NVLinkDisableFuture interface not found while {} patch",
             propertyName);
-        messages::internalError(aResp->res);
         return;
     }
 
@@ -1517,7 +1516,7 @@ inline void patchPortDisableFuture(
             "org.freedesktop.DBus.Properties", "Get",
             "xyz.openbmc_project.Association", "endpoints");
     },
-        serviceMap.front().first, objectPath, "org.freedesktop.DBus.Properties",
+        *inventoryService, objectPath, "org.freedesktop.DBus.Properties",
         "GetAll", "com.nvidia.NVLink.NVLinkDisableFuture");
 }
 inline void
