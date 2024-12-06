@@ -847,9 +847,10 @@ inline void
     });
 }
 
-inline void getDriveVersion(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& connectionName,
-                            const std::string& path)
+inline void
+    getDriveFWVersion(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                      const std::string& connectionName,
+                      const std::string& path)
 {
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
@@ -860,7 +861,8 @@ inline void getDriveVersion(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         {
             return;
         }
-        asyncResp->res.jsonValue["Revision"] = version;
+
+        asyncResp->res.jsonValue["FirmwareVersion"] = version;
     });
 }
 
@@ -1033,7 +1035,7 @@ static void addAllDriveInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         else if (interface == "xyz.openbmc_project.Software.Version")
         {
-            getDriveVersion(asyncResp, connectionName, path);
+            getDriveFWVersion(asyncResp, connectionName, path);
         }
         else if (interface == "xyz.openbmc_project.Nvme.Status")
         {
@@ -1982,6 +1984,8 @@ inline void populateStorageController(
                         propertiesList) {
         getStorageControllerAsset(asyncResp, ec, propertiesList);
     });
+
+    getDriveFWVersion(asyncResp, connectionName, path);
 }
 
 inline void getStorageControllerHandler(
