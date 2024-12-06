@@ -434,6 +434,14 @@ option(
 )
 
 option(
+    'redfish-sw-einj',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable SWEINJ Actions through Redfish. The Schema definition reference is
+                    /schemas/v1/JsonSchemas/NvidiaManager.v1_4_0.json#/definitions/SWErrorInjection''',
+)
+
+option(
     'power-control-type-percentage',
     type: 'feature',
     value: 'disabled',

@@ -74,6 +74,7 @@
 #ifdef BMCWEB_ENABLE_NETWORK_ADAPTERS
 #include "network_adapters.hpp"
 #endif
+#include "nvidia_sweinj.hpp"
 #include "pcie_slots.hpp"
 #include "pcieslots.hpp"
 #include "ports.hpp"
@@ -473,6 +474,10 @@ RedfishService::RedfishService(App& app)
     {
         requestRoutesComputeDigestPost(app);
         requestRoutesErrorInjection(app);
+        if constexpr (BMCWEB_REDFISH_SW_EINJ)
+        {
+            nvidia::sweinj::requestRoutesSwEinjAction(app);
+        }
     }
 
 #ifdef BMCWEB_ENABLE_NVIDIA_OEM_BF_PROPERTIES

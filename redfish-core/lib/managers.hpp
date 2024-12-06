@@ -3619,6 +3619,20 @@ inline void requestRoutesManager(App& app)
             nlohmann::json& oemActions =
                 asyncResp->res.jsonValue["Actions"]["Oem"];
 
+            if constexpr (BMCWEB_REDFISH_SW_EINJ)
+            {
+                nlohmann::json& oemActionsEinj =
+                    oemActions["#NvidiaManager.SWErrorInjection"];
+
+                oemActionsEinj["target"] = boost::urls::format(
+                    "/redfish/v1/Managers/{}/Actions/Oem/NvidiaManager.SWErrorInjection",
+                    BMCWEB_REDFISH_MANAGER_URI_NAME);
+
+                oemActionsEinj["@Redfish.ActionInfo"] = boost::urls::format(
+                    "/redfish/v1/Managers/{}/Oem/Nvidia/SWErrorInjectionActionInfo",
+                    BMCWEB_REDFISH_MANAGER_URI_NAME);
+            }
+
 #ifdef BMCWEB_COMMAND_SMBPBI_OOB
             oemActions["#NvidiaManager.SyncOOBRawCommand"]["target"] =
                 "/redfish/v1/Managers/" +
