@@ -187,7 +187,7 @@ inline std::optional<boost::urls::url>
         {
             return std::nullopt;
         }
-        return std::nullopt;
+        return origin;
     }
 
     BMCWEB_LOG_ERROR("OriginOfCondition not supported");
