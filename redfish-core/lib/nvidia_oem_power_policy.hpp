@@ -87,6 +87,7 @@ inline void afterGetPowerPolicyProperties(
     }
 
     bool autoDeassertPowerBrake = false;
+    std::string dwellTime;
     uint64_t maxThreshold = 0;
     uint64_t minThreshold = 0;
     std::string name;
@@ -97,7 +98,7 @@ inline void afterGetPowerPolicyProperties(
     // clang-format off
     bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), properties, "AutoDeassertPowerBrake",
-        autoDeassertPowerBrake, "Max", maxThreshold, "Min",
+        autoDeassertPowerBrake, "DwellTime", dwellTime, "Max", maxThreshold, "Min",
         minThreshold, "Name", name, "PolicyActions", policyActions, "Type",
         type, "Unit", unit);
     // clang-format on
@@ -117,6 +118,7 @@ inline void afterGetPowerPolicyProperties(
     asyncResp->res.jsonValue["Max"] = maxThreshold;
     asyncResp->res.jsonValue["Unit"] = unit;
     asyncResp->res.jsonValue["Type"] = type;
+    asyncResp->res.jsonValue["DwellTime"] = dwellTime;
     asyncResp->res.jsonValue["AutoDeassertPowerBrake"] = autoDeassertPowerBrake;
     asyncResp->res.jsonValue["PolicyActions"] = policyActions;
 }
@@ -301,16 +303,17 @@ inline void handlePowerPolicyPatchRequest(
     dbusPath /= "power_policy";
     dbusPath /= powerPolicyId;
 
+    std::optional<std::string> newDwellTime;
     std::optional<bool> newAutoDeassertPowerBrake;
     std::optional<uint64_t> newMin;
     std::optional<uint64_t> newMax;
     std::optional<std::string> newType;
     std::optional<std::vector<std::string>> newPolicyActions;
 
-    if (!json_util::readJsonPatch(req, asyncResp->res, "AutoDeassertPowerBrake",
-                                  newAutoDeassertPowerBrake, "Min", newMin,
-                                  "Max", newMax, "PolicyActions",
-                                  newPolicyActions, "Type", newType))
+    if (!json_util::readJsonPatch(
+            req, asyncResp->res, "AutoDeassertPowerBrake",
+            newAutoDeassertPowerBrake, "DwellTime", newDwellTime, "Min", newMin,
+            "Max", newMax, "PolicyActions", newPolicyActions, "Type", newType))
     {
         return;
     }
@@ -321,6 +324,23 @@ inline void handlePowerPolicyPatchRequest(
                         "com.Nvidia.RackPowerCompliance", dbusPath,
                         "com.Nvidia.State.PowerCompliance.PowerPolicy",
                         "AutoDeassertPowerBrake", *newAutoDeassertPowerBrake);
+    }
+
+    if (newDwellTime)
+    {
+        std::optional<std::chrono::milliseconds> dwellTime =
+            time_utils::fromDurationString(*newDwellTime);
+        if (!dwellTime)
+        {
+            messages::propertyValueIncorrect(asyncResp->res, "DwellTime",
+                                             newDwellTime.value());
+            return;
+        }
+
+        setDbusProperty(asyncResp, "DwellTime",
+                        "com.Nvidia.RackPowerCompliance", dbusPath,
+                        "com.Nvidia.State.PowerCompliance.PowerPolicy",
+                        "DwellTime", *newDwellTime);
     }
 
     if (newMin)

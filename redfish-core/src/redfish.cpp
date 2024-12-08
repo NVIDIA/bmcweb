@@ -523,18 +523,6 @@ RedfishService::RedfishService(App& app)
         requestRoutesSystemOemNvidiaProcessorVariableSpiActions(app);
     }
 
-#ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
-    requestRoutesLeakDetection(app);
-    requestRoutesLeakDetector(app);
-    requestRoutesLeakDetectionPolicy(app);
-    requestPolicyCollection(app);
-#endif
-    // Note, this must be the last route registered
-    requestRoutesRedfish(app);
-#ifdef BMCWEB_ENABLE_PROFILES_FEATURE
-    requestRoutesProfiles(app);
-#endif
-
     if constexpr (BMCWEB_NVIDIA_OEM_PMC)
     {
         nvidia_oem_managers_pmc::
@@ -548,6 +536,18 @@ RedfishService::RedfishService(App& app)
             app);
         nvidia_oem_managed_entity::requestRoutesNvidiaManagedEntity(app);
     }
+
+#ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
+    requestRoutesLeakDetection(app);
+    requestRoutesLeakDetector(app);
+    requestRoutesLeakDetectionPolicy(app);
+    requestPolicyCollection(app);
+#endif
+    // Note, this must be the last route registered
+    requestRoutesRedfish(app);
+#ifdef BMCWEB_ENABLE_PROFILES_FEATURE
+    requestRoutesProfiles(app);
+#endif
 }
 
 } // namespace redfish

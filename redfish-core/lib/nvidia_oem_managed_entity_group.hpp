@@ -142,7 +142,7 @@ inline void handleManagedEntityGroupPatchRequest(
 
     std::optional<std::string> newCurrentManagedEntityId;
 
-    if (!json_util::readJsonPatch(req, asyncResp->res, "CurrentManagedEnttiyId",
+    if (!json_util::readJsonPatch(req, asyncResp->res, "CurrentManagedEntityId",
                                   newCurrentManagedEntityId))
     {
         return;
@@ -218,7 +218,7 @@ inline void requestRoutesNvidiaManagedEntityGroup(App& app)
         app,
         "/redfish/v1/Managers/<str>/Oem/Nvidia_PowerCompliance/ManagedEntityGroups/<str>/")
         .privileges(redfish::privileges::patchManager)
-        .methods(boost::beast::http::verb::get)(std::bind_front(
+        .methods(boost::beast::http::verb::patch)(std::bind_front(
             handleManagedEntityGroupPatchRequest, std::ref(app)));
 }
 

@@ -48,7 +48,6 @@ inline void afterGetPowerDomainProperties(
         return;
     }
 
-    std::string dwellTime;
     std::string name;
     std::string sensorReadingType;
     std::string sensorImpl;
@@ -59,7 +58,7 @@ inline void afterGetPowerDomainProperties(
 
     // clang-format off
     bool success = sdbusplus::unpackPropertiesNoThrow(
-        dbus_utils::UnpackErrorPrinter(), properties, "DwellTime", dwellTime,
+        dbus_utils::UnpackErrorPrinter(), properties,
         "Name", name, "PowerPolicies", powerPoliciesDbusPath,
         "SensorImpl", sensorImpl, "SensorReadingType", sensorReadingType,
         "Type", type, "Unit", unit, "Value", value);
@@ -83,7 +82,6 @@ inline void afterGetPowerDomainProperties(
     asyncResp->res.jsonValue["Unit"] = unit;
     asyncResp->res.jsonValue["SensorReadingType"] = sensorReadingType;
     asyncResp->res.jsonValue["SensorImpl"] = sensorImpl;
-    asyncResp->res.jsonValue["DwellTime"] = dwellTime;
 
     if (!powerPoliciesDbusPath.str.empty())
     {
@@ -170,30 +168,11 @@ inline void handlePowerDomainPatchRequest(
         "/com/nvidia/state/power_compliance/power_domain");
     dbusPath /= powerDomainId;
 
-    std::optional<std::string> newDwellTime;
     std::optional<uint64_t> newValue;
 
-    if (!json_util::readJsonPatch(req, asyncResp->res, "Value", newValue,
-                                  "DwellTime", newDwellTime))
+    if (!json_util::readJsonPatch(req, asyncResp->res, "Value", newValue))
     {
         return;
-    }
-
-    if (newDwellTime)
-    {
-        std::optional<std::chrono::milliseconds> dwellTime =
-            time_utils::fromDurationString(*newDwellTime);
-        if (!dwellTime)
-        {
-            messages::propertyValueIncorrect(asyncResp->res, "DwellTime",
-                                             newDwellTime.value());
-            return;
-        }
-
-        setDbusProperty(asyncResp, "DwellTime",
-                        "com.Nvidia.RackPowerCompliance", dbusPath,
-                        "com.Nvidia.State.PowerCompliance.PowerDomain",
-                        "DwellTime", *newDwellTime);
     }
 
     if (newValue)

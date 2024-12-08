@@ -61,7 +61,7 @@ inline void afterGetPowerStateGroupProperties(
     bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), properties, "Name", name,
         "PscId", pscId, "GeneratedWatts", generatedWatts, "NumberOfPscs",
-        numOfPscs, "NumberOfPsus", numOfPsus, "PowerShelfControllers",
+        numOfPscs, "NumberOfLocalPsus", numOfPsus, "PowerShelfControllers",
         pscsDbusPath, "PowerSupplies", psusDbusPath);
     // clang-format on
 
@@ -81,7 +81,7 @@ inline void afterGetPowerStateGroupProperties(
     asyncResp->res.jsonValue["PscId"] = pscId;
     asyncResp->res.jsonValue["GeneratedWatts"] = generatedWatts;
     asyncResp->res.jsonValue["NumberOfPscs"] = numOfPscs;
-    asyncResp->res.jsonValue["NumberOfPsus"] = numOfPsus;
+    asyncResp->res.jsonValue["NumberOfLocalPsus"] = numOfPsus;
 
     // Create the "PowerShelfControllers" array
     if (!pscsDbusPath.str.empty())

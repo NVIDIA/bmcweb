@@ -67,7 +67,7 @@ inline void afterGetManagedEntityProperties(
     }
 
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Managers/{}/ManagedEntityGroups/{}/ManagedEntities/{}",
+        "/redfish/v1/Managers/{}/Oem/Nvidia_PowerCompliance/ManagedEntityGroups/{}/ManagedEntities/{}",
         BMCWEB_REDFISH_MANAGER_URI_NAME, entityGroupId, entityId);
     asyncResp->res.jsonValue["@odata.type"] =
         "#NvidiaManagedEntity.v1_0_0.NvidiaManagedEntity";
@@ -201,6 +201,7 @@ inline void handleManagedEntityCollectionGetRequest(
 
     asyncResp->res.jsonValue["@odata.type"] =
         "#NvidiaManagedEntityCollection.NvidiaManagedEntityCollection";
+    asyncResp->res.jsonValue["Name"] = "Managed Entities Collection";
 
     // Dynamically construct the D-Bus paths based on the powerPolicyId
     sdbusplus::message::object_path dbusPath(
