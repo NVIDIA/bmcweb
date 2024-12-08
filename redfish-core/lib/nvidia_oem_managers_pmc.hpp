@@ -86,6 +86,7 @@ inline void afterGetPowerComplianceManagerProperties(
         return;
     }
 
+    sdbusplus::message::object_path managedEntityGroupsDbusPath;
     sdbusplus::message::object_path powerDomainsDbusPath;
     sdbusplus::message::object_path powerPoliciesDbusPath;
     sdbusplus::message::object_path powerStateGroupDbusPath;
@@ -93,6 +94,7 @@ inline void afterGetPowerComplianceManagerProperties(
     // clang-format off
     bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), properties,
+        "ManagedEntityGroups", managedEntityGroupsDbusPath,
         "PowerDomains", powerDomainsDbusPath,
         "PowerPolicies", powerPoliciesDbusPath,
         "PowerStateGroup", powerStateGroupDbusPath);
@@ -111,6 +113,13 @@ inline void afterGetPowerComplianceManagerProperties(
         "#NvidiaPowerComplianceManager.v1_0_0.NvidiaPowerComplianceManager";
     oemNvidia["ManagerType"] =
         nvidia_power_compliance_manager::NvidiaManagerType::PowerManager;
+
+    if (!managedEntityGroupsDbusPath.str.empty())
+    {
+        oemNvidia["ManagedEntityGroups"]["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Managers/{}/Oem/Nvidia_PowerCompliance/ManagedEntityGroups",
+            BMCWEB_REDFISH_MANAGER_URI_NAME);
+    }
 
     if (!powerDomainsDbusPath.str.empty())
     {

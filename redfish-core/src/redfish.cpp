@@ -36,6 +36,8 @@
 #include "nvidia_fabric.hpp"
 #include "nvidia_manager_eventlog.hpp"
 #include "nvidia_oem_dpu.hpp"
+#include "nvidia_oem_managed_entity.hpp"
+#include "nvidia_oem_managed_entity_group.hpp"
 #include "nvidia_oem_managers_pmc.hpp"
 #include "nvidia_oem_power_domain.hpp"
 #include "nvidia_oem_power_policy.hpp"
@@ -542,6 +544,9 @@ RedfishService::RedfishService(App& app)
         nvidia_oem_power_state_group::requestRoutesNvidiaPowerStateGroup(app);
         nvidia_oem_psc_state::requestRoutesNvidiaPscState(app);
         nvidia_oem_psu_state::requestRoutesNvidiaPsuState(app);
+        nvidia_oem_managed_entity_group::requestRoutesNvidiaManagedEntityGroup(
+            app);
+        nvidia_oem_managed_entity::requestRoutesNvidiaManagedEntity(app);
     }
 }
 
