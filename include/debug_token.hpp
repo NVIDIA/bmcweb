@@ -577,6 +577,7 @@ class StatusQueryHandler : public OperationHandler
         if (!endpoints || endpoints->size() == 0)
         {
             errCallback(true, desc, "No valid debug token status responses");
+            return;
         }
 
         int completedRequestsCount = 0;
