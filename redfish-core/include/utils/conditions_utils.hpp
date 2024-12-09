@@ -296,7 +296,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
     int rc = file_utils::readFile2Json(deviceStatusPath, jStatus);
     if (rc != 0)
     {
-        BMCWEB_LOG_ERROR("Condtions: read {} status file failed!", deviceId);
+        BMCWEB_LOG_WARNING("Condtions: read {} status file failed!", deviceId);
         // No need to report error since no status file means device is OK.
         return;
     }
@@ -357,7 +357,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
 
             if (originOfCondition.length() == 0)
             {
-                BMCWEB_LOG_ERROR("getDeviceRedfishURI of {} failed!", ooc);
+                BMCWEB_LOG_WARNING("getDeviceRedfishURI of {} failed!", ooc);
             }
             else
             {
@@ -398,7 +398,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
             std::string resolution = *jResolution;
             if (resolution.length() == 0)
             {
-                BMCWEB_LOG_ERROR("Get {} Resolution failed!", deviceId);
+                BMCWEB_LOG_WARNING("Get {} Resolution failed!", deviceId);
             }
             else
             {
@@ -413,7 +413,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
             std::string severity = *jSeverity;
             if (severity.length() == 0)
             {
-                BMCWEB_LOG_ERROR("Get {} Severity failed!", deviceId);
+                BMCWEB_LOG_WARNING("Get {} Severity failed!", deviceId);
             }
             else
             {
@@ -428,7 +428,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
             std::string timestamp = *jTimestamp;
             if (timestamp.length() == 0)
             {
-                BMCWEB_LOG_ERROR("Get {} Timestamp failed!", deviceId);
+                BMCWEB_LOG_WARNING("Get {} Timestamp failed!", deviceId);
             }
             else
             {
