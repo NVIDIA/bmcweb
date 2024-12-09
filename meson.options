@@ -541,6 +541,12 @@ option(
     description: 'Enable OEM Nvidia common properties.',
 )
 option(
+    'nvidia-oem-pmc',
+    type : 'feature',
+    value : 'disabled',
+    description : 'Enable Nvidia Power Compliance Managers',
+)
+option(
     'nvidia-retimer-debugmode',
     type: 'feature',
     value: 'disabled',

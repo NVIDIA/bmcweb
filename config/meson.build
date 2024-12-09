@@ -136,6 +136,7 @@ feature_options = [
     'mutual-tls-auth',
     'nsm-raw-command-enable',
     'nvidia-oem-openocd',
+    'nvidia-oem-pmc',
     'redfish-aggregation',
     'redfish-allow-deprecated-power-thermal',
     'redfish-bmc-journal',

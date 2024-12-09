@@ -162,6 +162,7 @@ RedfishService::RedfishService(App& app)
         requestRoutesFan(app);
         requestRoutesFanCollection(app);
     }
+
     requestRoutesManagerCollection(app);
     requestRoutesManager(app);
     requestRoutesManagerResetAction(app);
@@ -525,6 +526,12 @@ RedfishService::RedfishService(App& app)
 #ifdef BMCWEB_ENABLE_PROFILES
     requestRoutesProfiles(app);
 #endif
+
+    if constexpr (BMCWEB_NVIDIA_OEM_PMC)
+    {
+        nvidia_oem_managers_pmc::
+            requestRoutesNvidiaPowerComplianceManagerActions(app);
+    }
 }
 
 } // namespace redfish

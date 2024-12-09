@@ -22,6 +22,7 @@
 #include "dbus_utility.hpp"
 #include "event_service_manager.hpp"
 #include "health.hpp"
+#include "nvidia_oem_managers_pmc.hpp"
 #include "persistentstorage_util.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
@@ -3589,6 +3590,12 @@ inline void requestRoutesManager(App& app)
 #endif
 
             populatePersistentStorageSettingStatus(asyncResp);
+
+            if constexpr (BMCWEB_NVIDIA_OEM_PMC)
+            {
+                nvidia_oem_managers_pmc::
+                    processPowerComplianceManagerGetRequest(asyncResp);
+            }
         }
 
         // Manager.Reset (an action) can be many values, OpenBMC only
@@ -4178,6 +4185,7 @@ inline void requestRoutesManagerCollection(App& app)
         const std::array<const char*, 1> interface = {
             "xyz.openbmc_project.Inventory.Item.ManagementService"};
         const std::string collectionPath = "/redfish/v1/Managers";
+
         // Collections don't include the static data added by SubRoute
         // because it has a duplicate entry for members
         asyncResp->res.jsonValue["@odata.id"] = collectionPath;
@@ -4190,6 +4198,7 @@ inline void requestRoutesManagerCollection(App& app)
         members.push_back(
             {{"@odata.id", "/redfish/v1/Managers/" +
                                std::string(BMCWEB_REDFISH_MANAGER_URI_NAME)}});
+
         // Collect additional management services
         crow::connections::systemBus->async_method_call(
             [collectionPath,
