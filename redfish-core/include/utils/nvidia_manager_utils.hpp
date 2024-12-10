@@ -38,13 +38,17 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                const std::string& path)
 {
     BMCWEB_LOG_DEBUG("Get manager service Telemetry state.");
-    crow::connections::systemBus->async_method_call(
+    using namespace std::chrono_literals;
+    uint64_t timeout =
+        std::chrono::duration_cast<std::chrono::microseconds>(1s).count();
+    crow::connections::systemBus->async_method_call_timed(
         [aResp](const boost::system::error_code ec,
                 const std::vector<std::pair<
                     std::string, std::variant<std::string>>>& propertiesList) {
         if (ec)
         {
-            BMCWEB_LOG_DEBUG("Error in getting manager service state");
+            BMCWEB_LOG_ERROR("Error in getting manager service state");
+            aResp->res.jsonValue["Status"]["State"] = "Starting";
             return;
         }
         for (const std::pair<std::string, std::variant<std::string>>& property :
@@ -84,6 +88,8 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             if (state == "Enabled")
                             {
                                 aResp->res.jsonValue["Status"]["Health"] = "OK";
+                                aResp->res.jsonValue["Status"]["State"] =
+                                    "Enabled";
                             }
                             else
                             {
@@ -97,7 +103,7 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         }
     },
         connectionName, path, "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.State.FeatureReady");
+        timeout, "xyz.openbmc_project.State.FeatureReady");
 }
 
 inline void
