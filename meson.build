@@ -223,13 +223,10 @@ if not openssl.found() or get_option('b_sanitize') != 'none'
 endif
 bmcweb_dependencies += [openssl]
 
-nvtal = dependency(
-    'nvidia-tal',
-    required: get_option('shmem-platform-metrics').allowed(),
-)
-if nvtal.found()
-    add_project_arguments(['-DHAVE_NVIDIA_TAL'], language: 'cpp')
-    bmcweb_dependencies += nvtal
+if get_option('shmem-platform-metrics').enabled()
+  nvtal = dependency('nvidia-tal', required : true)
+  add_project_arguments('-DNVIDIA_HAVE_TAL', language: 'cpp')
+  bmcweb_dependencies += nvtal
 endif
 
 nghttp2 = dependency('libnghttp2', version: '>=1.52.0', required: false)
@@ -441,7 +438,7 @@ srcfiles_unittest = files(
     'test/redfish-core/include/filter_expr_executor_test.cpp',
     'test/redfish-core/include/filter_expr_parser_test.cpp',
     'test/redfish-core/include/privileges_test.cpp',
-    #'test/redfish-core/include/redfish_aggregator_test.cpp',
+    'test/redfish-core/include/redfish_aggregator_test.cpp',
     'test/redfish-core/include/registries_test.cpp',
     'test/redfish-core/include/utils/dbus_utils.cpp',
     'test/redfish-core/include/utils/hex_utils_test.cpp',
@@ -462,7 +459,7 @@ srcfiles_unittest = files(
     'test/redfish-core/lib/system_test.cpp',
     'test/redfish-core/lib/systems_logservices_postcode.cpp',
     'test/redfish-core/lib/thermal_subsystem_test.cpp',
-    #'test/redfish-core/lib/update_service_test.cpp',
+    'test/redfish-core/lib/update_service_test.cpp',
 )
 
 if (get_option('tests').allowed())
