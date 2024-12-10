@@ -60,7 +60,6 @@ inline void getShmemPlatformMetrics(
         nlohmann::json& resArray = asyncResp->res.jsonValue["MetricValues"];
         nlohmann::json thisMetric = nlohmann::json::object();
 
-        const auto& values = tal::TelemetryAggregator::getAllMrds(metricId);
         if (metricId == BMCWEB_PLATFORM_METRICS_ID)
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
@@ -653,13 +652,8 @@ inline void getShmemMetricsDefinitionWildCard(
         BMCWEB_LOG_CRITICAL("Attempt to access tal but not available");
         return;
 #else
-
-        const auto& values = tal::TelemetryAggregator::getAllMrds(metricId);
-
-        std::vector<std::string> inputMetricProperties;
         std::unordered_set<std::string> inputMetricPropertiesSet;
         std::vector<std::string> inputMetricProperties;
-#ifdef NVIDIA_HAVE_TAL
         const auto& values = tal::TelemetryAggregator::getAllMrds(metricId);
         nlohmann::json wildCards = nlohmann::json::array();
         asyncResp->res.jsonValue["Wildcards"] = wildCards;
@@ -684,7 +678,7 @@ inline void getShmemMetricsDefinitionWildCard(
                 inputMetricProperties.push_back(e.metricProperty);
             }
         }
-#endif
+        
         if (deviceType == "NVSwitchPortMetrics" ||
             deviceType == "ProcessorPortMetrics" ||
             deviceType == "NetworkAdapterPortMetrics" ||
@@ -759,7 +753,6 @@ inline void getShmemMetricsReportCollection(
         BMCWEB_LOG_CRITICAL("Attempt to access tal but not available");
         return;
 #else
-        const auto& values = tal::TelemetryAggregator::getMrdNamespaces();
 
         nlohmann::json& addMembers = asyncResp->res.jsonValue["Members"];
 #ifdef NVIDIA_HAVE_TAL
