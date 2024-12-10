@@ -2499,7 +2499,7 @@ class EventServiceManager
             if (messageId == "")
             {
                 // it happens when removing entries
-                BMCWEB_LOG_WARNING("Invalid Dbus log entry.");
+                BMCWEB_LOG_DEBUG("Invalid Dbus log entry.");
                 return;
             }
             else
