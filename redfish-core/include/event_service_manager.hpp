@@ -2371,7 +2371,7 @@ class EventServiceManager
                                     }
                                     else
                                     {
-                                        BMCWEB_LOG_ERROR(
+                                        BMCWEB_LOG_WARNING(
                                             "property mapping not found for {}",
                                             messageArgs[0]);
                                     }
@@ -2389,11 +2389,16 @@ class EventServiceManager
                         }
                         else
                         {
-                            BMCWEB_LOG_ERROR(
-                                "There should be exactly one MessageId in the Dbus signal message. Found ",
-                                std::to_string(
-                                    additional.count("REDFISH_MESSAGE_ID")));
-                            return;
+                            auto counter =
+                                additional.count("REDFISH_MESSAGE_ID");
+                            // when removing entries counter will be 0
+                            if (counter > 0)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "There should be exactly one MessageId in the Dbus signal message. Found {}",
+                                    std::to_string(counter));
+                                return;
+                            }
                         }
 
                         nlohmann::json::object_t oem;
@@ -2493,7 +2498,8 @@ class EventServiceManager
 
             if (messageId == "")
             {
-                BMCWEB_LOG_ERROR("Invalid Dbus log entry.");
+                // it happens when removing entries
+                BMCWEB_LOG_WARNING("Invalid Dbus log entry.");
                 return;
             }
             else
@@ -2542,8 +2548,8 @@ class EventServiceManager
                 }
                 else
                 {
-                    BMCWEB_LOG_ERROR(
-                        "no OriginOfCondition in event log. MsgId: ",
+                    BMCWEB_LOG_WARNING(
+                        "no OriginOfCondition in event log. MsgId: {}",
                         messageId);
                     sendEventWithOOC(std::string{""}, event);
                 }
@@ -2602,7 +2608,7 @@ class EventServiceManager
             }
         }
 
-        BMCWEB_LOG_ERROR(
+        BMCWEB_LOG_WARNING(
             "No Matching prefix found for OriginOfCondition Object Path: '{}' sending empty OriginOfCondition",
             path);
 
