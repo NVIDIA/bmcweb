@@ -369,15 +369,8 @@ inline void
                               "com.nvidia.PowerSmoothing.PowerSmoothing") ==
                     interfaces.end())
                 {
-                    // Object not found
-                    BMCWEB_LOG_ERROR(
-                        "Resource not found #NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing for {}",
-                        processorId);
-                    messages::resourceNotFound(
-                        aResp->res,
-                        "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
-                        processorId);
-                    return;
+                    // no interface = no failures
+                    continue;
                 }
                 getProcessorPowerSmoothingControlData(aResp, service, path,
                                                       presetProfileURI);
@@ -410,9 +403,10 @@ inline void
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void getAdminProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
@@ -598,9 +592,10 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void getProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
@@ -780,9 +775,10 @@ inline void getProcessorPowerSmoothingPresetProfileData(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void getProcessorPowerSmoothingPresetProfileCollectionData(
@@ -863,9 +859,10 @@ inline void getProcessorPowerSmoothingPresetProfileCollectionData(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void patchPowerSmoothingFeature(std::shared_ptr<bmcweb::AsyncResp> aResp,
@@ -907,8 +904,7 @@ inline void patchPowerSmoothingFeature(std::shared_ptr<bmcweb::AsyncResp> aResp,
             }
             if (inventoryService == nullptr)
             {
-                BMCWEB_LOG_ERROR(" PowerSmoothing interface not found ");
-                messages::internalError(aResp->res);
+                // no interface = no failures
                 return;
             }
             dbus::utility::getDbusObject(
@@ -947,9 +943,10 @@ inline void patchPowerSmoothingFeature(std::shared_ptr<bmcweb::AsyncResp> aResp,
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void patchAdminOverrideProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
@@ -1052,9 +1049,10 @@ inline void patchAdminOverrideProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void patchPresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
@@ -1167,9 +1165,10 @@ inline void patchPresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void
@@ -1248,12 +1247,8 @@ inline void postApplyAdminOverride(std::shared_ptr<bmcweb::AsyncResp> aResp,
                               "com.nvidia.PowerSmoothing.ProfileActionAsync") ==
                     interfaces.end())
                 {
-                    // Object not found
-                    messages::resourceNotFound(
-                        aResp->res,
-                        "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
-                        processorId);
-                    return;
+                    // no interface = no failures
+                    continue;
                 }
                 applyAdminOverride(aResp, service, path);
             }
@@ -1268,9 +1263,10 @@ inline void postApplyAdminOverride(std::shared_ptr<bmcweb::AsyncResp> aResp,
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void
@@ -1354,12 +1350,8 @@ inline void postActivatePresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
                               "com.nvidia.PowerSmoothing.ProfileActionAsync") ==
                     interfaces.end())
                 {
-                    // Object not found
-                    messages::resourceNotFound(
-                        aResp->res,
-                        "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
-                        processorId);
-                    return;
+                    // no interface = no failures
+                    continue;
                 }
                 activatePresetProfile(aResp, service, path, profileId);
             }
@@ -1374,9 +1366,10 @@ inline void postActivatePresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void requestRoutesProcessorPowerSmoothing(App& app)
