@@ -1339,6 +1339,7 @@ inline void handleOemChassisResetActionInfoPost(
                         messages::internalError(asyncResp->res);
                         return;
                     }
+                    messages::success(asyncResp->res);
                 },
                     "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
                     "org.freedesktop.systemd1.Manager", "StartUnit",
