@@ -82,6 +82,10 @@ conf_data.set_quoted(
     'FW_UUID_MAPPING_JSON',
     join_paths(package_datadir, 'fw_uuid_mapping.json'),
 )
+conf_data.set_quoted(
+    'ROT_CHASSIS_ALLOWLIST_JSON',
+    join_paths(package_datadir, 'rot_chassis_properties_allowlist.json'),
+)
 conf_data.set(
     'BUILD_DESCRIPTION_FILE_PATH',
     get_option('build-description-file-path'),

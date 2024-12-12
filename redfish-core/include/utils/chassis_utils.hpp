@@ -12,6 +12,7 @@
 #include <utils/dbus_utils.hpp>
 
 #include <array>
+#include <filesystem>
 #include <string_view>
 namespace redfish
 {
@@ -46,6 +47,8 @@ using GetSubTreeType = std::vector<
               std::vector<std::pair<std::string, std::vector<std::string>>>>>;
 using GetObjectType =
     std::vector<std::pair<std::string, std::vector<std::string>>>;
+
+using AllowListMap = std::map<std::string, std::vector<std::string>>;
 
 static constexpr uint8_t mctpTypeVDMIANA = 0x7f;
 
@@ -93,6 +96,37 @@ inline std::string getPowerStateType(const std::string& stateType)
     }
     // Unknown or others
     return "";
+}
+
+inline AllowListMap getRoTChassisAllowListMap()
+{
+    using Json = nlohmann::json;
+    namespace fs = std::filesystem;
+    static std::map<std::string, std::vector<std::string>> allowListMap{};
+
+    if (not allowListMap.empty())
+    {
+        return allowListMap;
+    }
+
+    std::string configPath = ROTCHASSISALLOWLISTJSON;
+    if (!fs::exists(configPath))
+    {
+        BMCWEB_LOG_ERROR("The file doesn't exist: {}", configPath);
+        return allowListMap;
+    }
+    BMCWEB_LOG_DEBUG("Found config file path {}", configPath);
+
+    std::ifstream jsonFile(configPath);
+    auto data = Json::parse(jsonFile, nullptr, false);
+    if (data.is_discarded())
+    {
+        BMCWEB_LOG_ERROR("Unable to parse json data {}", configPath);
+        return allowListMap;
+    }
+
+    allowListMap = data.get<std::map<std::string, std::vector<std::string>>>();
+    return allowListMap;
 }
 
 inline void resetPowerLimit(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -592,6 +626,29 @@ enum class InBandOption
 };
 
 /**
+ *@brief Function to check if the chassis id belongs in
+ *       the allow list for the property
+ *
+ * @param chassisId   Chassis Id
+ * @param property   Chassis property to check for
+ *
+ * @return bool True if the id is present in the allow list,
+ *              False otherwise
+ */
+inline bool isChassisIdInAllowList(const std::string& chassisId,
+                                   const std::string& property)
+{
+    const auto& allowListMap = getRoTChassisAllowListMap();
+    if (allowListMap.find(property) == allowListMap.end())
+    {
+        return false;
+    }
+    return (std::find(allowListMap.at(property).begin(),
+                      allowListMap.at(property).end(),
+                      chassisId) != allowListMap.at(property).end());
+}
+
+/**
  *@brief handles all calls to ERoT mctp UUID for
  *      setBackgroundCopyEnabled, setInBandEnabled,
  *      and getBackgroundCopyAndInBandInfo
@@ -628,13 +685,19 @@ inline void
                 "DBUS response error during getting of service name: {}", ec);
             return;
         }
+        auto chassisProcessed = std::make_shared<bool>(false);
         for (auto it = resp.begin(); it != resp.end(); ++it)
         {
+            if (*chassisProcessed)
+            {
+                return;
+            }
             std::string serviceName = it->first;
             crow::connections::systemBus->async_method_call(
                 [req, asyncResp, chassisUUID, serviceName, option, enabled,
-                 chassisId](const boost::system::error_code& ec,
-                            const dbus::utility::ManagedObjectType& resp) {
+                 chassisId, chassisProcessed](
+                    const boost::system::error_code& ec,
+                    const dbus::utility::ManagedObjectType& resp) {
                 if (ec)
                 {
                     BMCWEB_LOG_DEBUG("DBUS response error for MCTP.Control");
@@ -705,12 +768,15 @@ inline void
                     }
                 }
 
-                if (foundEID)
+                if (foundEID and not *chassisProcessed)
                 {
+                    *chassisProcessed = true;
                     switch (option)
                     {
                         case InBandOption::BackgroundCopyStatus:
                         {
+                            const auto& allowListMap =
+                                getRoTChassisAllowListMap();
                             nlohmann::json& oem =
                                 asyncResp->res.jsonValue["Oem"]["Nvidia"];
                             oem["@odata.type"] =
@@ -730,25 +796,51 @@ inline void
                             // sequentially instead of simultaneously.
 
                             uint32_t endpointId = *eid;
-                            updateInBandEnabled(req, asyncResp, endpointId,
-                                                [req, asyncResp, endpointId]() {
+                            updateInBandEnabled(
+                                req, asyncResp, endpointId,
+                                allowListMap.at("InbandUpdatePolicyEnabled"),
+                                chassisId,
+                                [req, asyncResp, endpointId, allowListMap,
+                                 chassisId]() {
                                 updateBackgroundCopyEnabled(
                                     req, asyncResp, endpointId,
-                                    [req, asyncResp, endpointId]() {
-                                    updateBackgroundCopyStatus(req, asyncResp,
-                                                               endpointId);
+                                    allowListMap.at(
+                                        "AutomaticBackgroundCopyEnabled"),
+                                    chassisId,
+                                    [req, asyncResp, endpointId, allowListMap,
+                                     chassisId]() {
+                                    updateBackgroundCopyStatus(
+                                        req, asyncResp, endpointId,
+                                        allowListMap.at("BackgroundCopyStatus"),
+                                        chassisId);
                                 });
                             });
                             break;
                         }
                         case InBandOption::setBackgroundCopyEnabled:
-                            enableBackgroundCopy(req, asyncResp, *eid, enabled,
-                                                 chassisId);
-                            break;
+                            if (isChassisIdInAllowList(
+                                    chassisId,
+                                    "AutomaticBackgroundCopyEnabled"))
+                            {
+                                enableBackgroundCopy(req, asyncResp, *eid,
+                                                     enabled, chassisId);
+                                break;
+                            }
+                            messages::propertyUnknown(
+                                asyncResp->res,
+                                "AutomaticBackgroundCopyEnabled");
+                            return;
                         case InBandOption::setInBandEnabled:
-                            enableInBand(req, asyncResp, *eid, enabled,
-                                         chassisId);
-                            break;
+                            if (isChassisIdInAllowList(
+                                    chassisId, "InbandUpdatePolicyEnabled"))
+                            {
+                                enableInBand(req, asyncResp, *eid, enabled,
+                                             chassisId);
+                                break;
+                            }
+                            messages::propertyUnknown(
+                                asyncResp->res, "InbandUpdatePolicyEnabled");
+                            return;
                         default:
                             BMCWEB_LOG_DEBUG(
                                 "Invalid enum provided for inNand mctp access");
@@ -896,17 +988,19 @@ inline void
  *
  * @param req   Pointer to object holding request data
  * @param asyncResp   Pointer to object holding response data
- * @param chassisUUID  Chassis ID
+ * @param chassisUUID  Chassis UUID
+ * @param chassisID  Chassis ID
  *
  * @return None.
  */
 inline void getBackgroundCopyAndInBandInfo(
     const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisUUID)
+    const std::string& chassisUUID, const std::string& chassisId)
 {
     handleMctpInBandActions(req, asyncResp, chassisUUID,
-                            InBandOption::BackgroundCopyStatus);
+                            InBandOption::BackgroundCopyStatus, false,
+                            chassisId);
 }
 
 /**
@@ -926,8 +1020,8 @@ inline void getChassisUUID(const crow::Request& req,
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Common.UUID", "UUID",
-        [req, asyncResp, isERoT](const boost::system::error_code ec,
-                                 const std::string& chassisUUID) {
+        [req, asyncResp, isERoT, path](const boost::system::error_code ec,
+                                       const std::string& chassisUUID) {
         if (ec)
         {
             BMCWEB_LOG_DEBUG("DBUS response error for UUID");
@@ -938,7 +1032,9 @@ inline void getChassisUUID(const crow::Request& req,
 
         if (isERoT)
         {
-            getBackgroundCopyAndInBandInfo(req, asyncResp, chassisUUID);
+            auto chassisId = sdbusplus::message::object_path(path).filename();
+            getBackgroundCopyAndInBandInfo(req, asyncResp, chassisUUID,
+                                           chassisId);
         }
     });
 }

@@ -27,6 +27,8 @@
  * @param asyncResp - Pointer to object holding response data
  * @param endpointId the EID which is used by mctp-vdm-util tool to call request
  *on MCTP
+ * @param allowList - List containing allowable chassis Ids
+ * @param chassisId - chassisId
  * @param[in] callback - A callback function to be called after update
  *InbandUpdatePolicyEnabled property
  *
@@ -35,7 +37,8 @@
 inline void
     updateInBandEnabled(const crow::Request& req,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        uint32_t endpointId,
+                        uint32_t endpointId, const auto& allowListMap,
+                        const std::string& chassisId,
                         const std::function<void()>& callback = {})
 {
     MctpVdmUtil mctpVdmUtilWrapper(endpointId);
@@ -70,8 +73,20 @@ inline void
         return;
     };
 
-    mctpVdmUtilWrapper.run(MctpVdmUtilCommand::INBAND_STATUS, std::monostate(),
-                           req, asyncResp, responseCallback);
+    if (std::find(allowListMap.begin(), allowListMap.end(), chassisId) ==
+        allowListMap.end())
+    {
+        if (callback)
+        {
+            callback();
+        }
+    }
+    else
+    {
+        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::INBAND_STATUS,
+                               std::monostate(), req, asyncResp,
+                               responseCallback);
+    }
 
     return;
 }
