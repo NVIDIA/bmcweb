@@ -177,15 +177,16 @@ inline void validateProcessorAndGetWorkloadPowerInfo(
                               "com.nvidia.PowerProfile.ProfileInfo") ==
                     interfaces.end())
                 {
-                    // Object not found
-                    messages::resourceNotFound(
-                        aResp->res,
-                        "#NvidiaWorkloadPower.v1_0_0.NvidiaWorkloadPower",
-                        processorId);
-                    return;
+                    // no interface = no failures
+                    continue;
                 }
                 getProcessorWorkloadPowerInfo(aResp, service, path);
+                return;
             }
+            // Object not found
+            messages::resourceNotFound(
+                aResp->res, "#NvidiaWorkloadPower.v1_0_0.NvidiaWorkloadPower",
+                processorId);
             return;
         }
         // Object not found
@@ -197,9 +198,10 @@ inline void validateProcessorAndGetWorkloadPowerInfo(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerProfile.ProfileInfo"});
 }
 
 inline void getWorkLoadProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
@@ -544,17 +546,12 @@ inline void
                               "com.nvidia.PowerProfile.ProfileInfoAsync") ==
                     interfaces.end())
                 {
-                    // Object not found
-                    messages::resourceNotFound(
-                        aResp->res,
-                        "#NvidiaWorkloadPower.v1_0_0.NvidiaWorkloadPower",
-                        processorId);
-                    return;
+                    // no interface = no failures
+                    continue;
                 }
                 enableWorkLoadPowerProfile(aResp, service, path, profileMask);
+                return;
             }
-
-            return;
         }
         // Object not found
         messages::resourceNotFound(
@@ -565,9 +562,10 @@ inline void
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerProfile.ProfileInfoAsync"});
 }
 
 inline void disableWorkLoadPowerProfile(
@@ -651,17 +649,12 @@ inline void
                               "com.nvidia.PowerProfile.ProfileInfoAsync") ==
                     interfaces.end())
                 {
-                    // Object not found
-                    messages::resourceNotFound(
-                        aResp->res,
-                        "#NvidiaWorkloadPower.v1_0_0.NvidiaWorkloadPower",
-                        processorId);
-                    return;
+                    // no interface = no failures
+                    continue;
                 }
                 disableWorkLoadPowerProfile(aResp, service, path, profileMask);
+                return;
             }
-
-            return;
         }
         // Object not found
         messages::resourceNotFound(
@@ -672,9 +665,10 @@ inline void
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerProfile.ProfileInfoAsync"});
 }
 
 inline void requestRoutesProcessorWorkloadPower(App& app)

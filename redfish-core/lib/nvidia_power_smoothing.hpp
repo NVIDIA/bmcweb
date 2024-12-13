@@ -379,19 +379,19 @@ inline void
                         "com.nvidia.PowerSmoothing.CurrentPowerProfile") ==
                     interfaces.end())
                 {
-                    // Object not found
-                    BMCWEB_LOG_ERROR(
-                        "Resource not found #NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing for {}",
-                        processorId);
-                    messages::resourceNotFound(
-                        aResp->res,
-                        "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
-                        processorId);
-                    return;
+                    continue;
                 }
                 getProcessorCurrentProfileData(aResp, service, path,
                                                presetProfileURI);
+                return;
             }
+            // Object not found
+            BMCWEB_LOG_ERROR(
+                "Resource not found #NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing for {}",
+                processorId);
+            messages::resourceNotFound(
+                aResp->res, "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
+                processorId);
             return;
         }
         // Object not found
@@ -1251,8 +1251,8 @@ inline void postApplyAdminOverride(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     continue;
                 }
                 applyAdminOverride(aResp, service, path);
+                return;
             }
-            return;
         }
         // Object not found
         messages::resourceNotFound(
@@ -1354,8 +1354,8 @@ inline void postActivatePresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     continue;
                 }
                 activatePresetProfile(aResp, service, path, profileId);
+                return;
             }
-            return;
         }
         // Object not found
         messages::resourceNotFound(
