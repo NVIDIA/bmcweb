@@ -180,6 +180,8 @@ inline void populateRsyslogClientSettings(
     asyncResp->res.jsonValue["Oem"]["Nvidia"] = nlohmann::json::object();
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"] =
         nlohmann::json::object();
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+        "#NvidiaNetworkProtocol.v1_0_0.NetworkProtocol";
 
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, service, path, "",
