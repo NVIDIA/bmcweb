@@ -2976,8 +2976,8 @@ inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     getProcessorEgmModeData(aResp, processorId, serviceName,
                                             objectPath);
                 }
-                getResetMetricsInfo(aResp, processorId, serviceName,
-                                    objectPath);
+                //getResetMetricsInfo(aResp, processorId, serviceName,
+                //                    objectPath);
             }
         }
     }
