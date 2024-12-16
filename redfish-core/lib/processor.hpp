@@ -2976,8 +2976,13 @@ inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     getMNNVLinkTopologyInfo(aResp, processorId, serviceName,
                                             objectPath, interface);
                 }
-                getResetMetricsInfo(aResp, processorId, serviceName,
-                                    objectPath);
+                else if (
+                    interface ==
+                    "com.nvidia.ResetCounters.ResetCounterMetricsSupported")
+                {
+                    getResetMetricsInfo(aResp, processorId, serviceName,
+                                        objectPath);
+                }
             }
         }
     }

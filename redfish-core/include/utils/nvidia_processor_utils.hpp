@@ -945,11 +945,20 @@ inline void getResetMetricsInfo(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                       const std::variant<std::vector<std::string>>& resp) {
         if (ec)
         {
+            if (ec == boost::system::errc::no_such_file_or_directory)
+            {
+                // Log and skip if associated object path not found
+                BMCWEB_LOG_INFO(
+                    "No ResetMetrics association endpoints found for processor: {}",
+                    processorId);
+                return;
+            }
+
+            // For all other errors, log and return an internal error
             BMCWEB_LOG_ERROR(
                 "Failed to get ResetMetrics association endpoints: {}",
                 ec.message());
             messages::internalError(aResp->res);
-            // No associated ResetMetrics found
             return;
         }
 
