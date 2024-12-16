@@ -796,22 +796,52 @@ inline void
                             // sequentially instead of simultaneously.
 
                             uint32_t endpointId = *eid;
+                            if (allowListMap.empty())
+                            {
+                                break;
+                            }
+                            std::vector<std::string>
+                                inbandUpdatePolicyAllowList{};
+                            std::vector<std::string>
+                                automaticBackgroundCopyAllowList{};
+                            std::vector<std::string>
+                                backgroundCopyStatusAllowList{};
+                            if (allowListMap.find(
+                                    "InbandUpdatePolicyEnabled") !=
+                                allowListMap.end())
+                            {
+                                inbandUpdatePolicyAllowList = allowListMap.at(
+                                    "InbandUpdatePolicyEnabled");
+                            }
+                            if (allowListMap.find(
+                                    "AutomaticBackgroundCopyEnabled") !=
+                                allowListMap.end())
+                            {
+                                automaticBackgroundCopyAllowList =
+                                    allowListMap.at(
+                                        "AutomaticBackgroundCopyEnabled");
+                            }
+                            if (allowListMap.find("BackgroundCopyStatus") !=
+                                allowListMap.end())
+                            {
+                                backgroundCopyStatusAllowList =
+                                    allowListMap.at("BackgroundCopyStatus");
+                            }
                             updateInBandEnabled(
                                 req, asyncResp, endpointId,
-                                allowListMap.at("InbandUpdatePolicyEnabled"),
-                                chassisId,
-                                [req, asyncResp, endpointId, allowListMap,
-                                 chassisId]() {
+                                inbandUpdatePolicyAllowList, chassisId,
+                                [req, asyncResp, endpointId,
+                                 automaticBackgroundCopyAllowList,
+                                 backgroundCopyStatusAllowList, chassisId]() {
                                 updateBackgroundCopyEnabled(
                                     req, asyncResp, endpointId,
-                                    allowListMap.at(
-                                        "AutomaticBackgroundCopyEnabled"),
-                                    chassisId,
-                                    [req, asyncResp, endpointId, allowListMap,
+                                    automaticBackgroundCopyAllowList, chassisId,
+                                    [req, asyncResp, endpointId,
+                                     backgroundCopyStatusAllowList,
                                      chassisId]() {
                                     updateBackgroundCopyStatus(
                                         req, asyncResp, endpointId,
-                                        allowListMap.at("BackgroundCopyStatus"),
+                                        backgroundCopyStatusAllowList,
                                         chassisId);
                                 });
                             });
