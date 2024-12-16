@@ -28,6 +28,7 @@
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_policy.hpp"
 #include "nvidia_power_smoothing.hpp"
+#include "nvidia_processor_port.hpp"
 #include "nvidia_protected_component.hpp"
 #include "nvidia_sweinj.hpp"
 #include "nvidia_update_service.hpp"
@@ -44,6 +45,7 @@
 #include "trigger.hpp"
 #include "trusted_components.hpp"
 #include "update_service.hpp"
+
 namespace redfish
 {
 void requestRoutesNvidia(crow::App& app)
