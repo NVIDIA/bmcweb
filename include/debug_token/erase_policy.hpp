@@ -31,14 +31,15 @@ constexpr const std::string_view erasePolicyEnumPrefix{
     "com.nvidia.DebugToken.ErasePolicy.PolicyTypes."};
 
 template <typename Callback>
-static inline void getErasePolicyObjectPath(Callback&& callback)
+static inline void getErasePolicyObjectPath(
+    Callback&& callback, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     constexpr std::array<std::string_view, 1> interfaces = {erasePolicyIntf};
     dbus::utility::getSubTree(
         "/com/nvidia/debug_token/", 0, interfaces,
-        [callback{std::forward<Callback>(callback)}](
-            const boost::system::error_code& ec,
-            const dbus::utility::MapperGetSubTreeResponse& subtree) {
+        [callback{std::forward<Callback>(callback)},
+         asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
         std::string path, service;
         if (ec)
         {
@@ -58,47 +59,42 @@ static inline void getErasePolicyObjectPath(Callback&& callback)
             path = subtree[0].first;
             service = subtree[0].second[0].first;
         }
+        if (service.empty() || path.empty())
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
         callback(service, path);
     });
 }
 
-template <typename Callback>
-inline void getErasePolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           Callback&& callback)
+inline void getErasePolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    auto getCallback = [asyncResp, callback{std::forward<Callback>(callback)}](
-                           const boost::system::error_code ec,
-                           const std::string& policy) {
+    auto getCallback = [asyncResp](const boost::system::error_code ec,
+                                   const std::string& policy) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("Erase policy get error: {}", ec.message());
             messages::internalError(asyncResp->res);
             return;
         }
-        callback(policy.substr(policy.find_last_of('.') + 1));
+        std::string policyStr = policy.substr(policy.find_last_of('.') + 1);
+        bool erasePolicy = policyStr == "Automatic" ? true : false;
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["AutomaticDebugTokenErased"] =
+            erasePolicy;
     };
     auto pathCallback = [asyncResp, getCallback](std::string service,
                                                  std::string path) {
-        if (service.empty() || path.empty())
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
         sdbusplus::asio::getProperty<std::string>(
             *crow::connections::systemBus, service, path,
             std::string(erasePolicyIntf), "Policy", getCallback);
     };
-    getErasePolicyObjectPath(pathCallback);
+    getErasePolicyObjectPath(pathCallback, asyncResp);
 }
 
 inline void setErasePolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           std::string value)
+                           bool value)
 {
-    if (value != "Automatic" && value != "Manual")
-    {
-        messages::propertyValueError(asyncResp->res, "ErasePolicy");
-        return;
-    }
     auto setCallback = [asyncResp](const boost::system::error_code ec) {
         if (ec)
         {
@@ -110,17 +106,14 @@ inline void setErasePolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     };
     auto pathCallback = [asyncResp, value, setCallback](std::string service,
                                                         std::string path) {
-        if (service.empty() || path.empty())
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        std::string dbusValue = std::string(erasePolicyEnumPrefix) + value;
+        std::string erasePolicy = value == true ? "Automatic" : "Manual";
+        std::string dbusValue = std::string(erasePolicyEnumPrefix) +
+                                erasePolicy;
         sdbusplus::asio::setProperty(*crow::connections::systemBus, service,
                                      path, std::string(erasePolicyIntf),
                                      "Policy", dbusValue, setCallback);
     };
-    getErasePolicyObjectPath(pathCallback);
+    getErasePolicyObjectPath(pathCallback, asyncResp);
 }
 
 } // namespace redfish::debug_token

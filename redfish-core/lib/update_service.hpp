@@ -19,6 +19,7 @@
 
 #include "background_copy.hpp"
 #include "commit_image.hpp"
+#include "debug_token/erase_policy.hpp"
 #include "persistentstorage_util.hpp"
 
 #include <http_client.hpp>
@@ -2805,7 +2806,7 @@ inline void requestRoutesUpdateService(App& app)
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"] = {
                 {"@odata.type",
-                 "#NvidiaUpdateService.v1_2_0.NvidiaUpdateService"},
+                 "#NvidiaUpdateService.v1_3_0.NvidiaUpdateService"},
                 {"PersistentStorage",
                  {{"@odata.id",
                    "/redfish/v1/UpdateService/Oem/Nvidia/PersistentStorage"}}},
@@ -2818,6 +2819,7 @@ inline void requestRoutesUpdateService(App& app)
 #endif
                 }
             };
+            debug_token::getErasePolicy(asyncResp);
         }
 
 #if defined(BMCWEB_INSECURE_ENABLE_REDFISH_FW_TFTP_UPDATE) ||                  \
@@ -2996,11 +2998,18 @@ inline void requestRoutesUpdateService(App& app)
 
         std::optional<nlohmann::json> pushUriOptions;
         std::optional<std::vector<std::string>> imgTargets;
-        if (!json_util::readJsonPatch(req, asyncResp->res, "HttpPushUriTargets",
-                                      imgTargets))
+        std::optional<bool> erasePolicy;
+        if (!json_util::readJsonPatch(
+                req, asyncResp->res, "HttpPushUriTargets", imgTargets,
+                "Oem/Nvidia/AutomaticDebugTokenErased", erasePolicy))
         {
             BMCWEB_LOG_ERROR("UpdateService doPatch: Invalid request body");
             return;
+        }
+
+        if (erasePolicy)
+        {
+            debug_token::setErasePolicy(asyncResp, *erasePolicy);
         }
 
         if (imgTargets)
