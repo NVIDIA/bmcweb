@@ -283,10 +283,10 @@ static void handleManagersOemNvidiaSwErrorInjectionInfo(
     asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}"
-                            "/Oem/Nvidia/SWErrorInjectionInfo",
+                            "/Oem/Nvidia/SWErrorInjectionActionInfo",
                             bmcId);
     asyncResp->res.jsonValue["Name"] = "SWErrorInjection Action Info";
-    asyncResp->res.jsonValue["Id"] = "NvidiaSWErrorInjectionInfo";
+    asyncResp->res.jsonValue["Id"] = "NvidiaSWErrorInjectionActionInfo";
     asyncResp->res.jsonValue["Parameters"] = {
         {{"Name", "RequestType"},
          {"Required", true},
@@ -311,8 +311,9 @@ void requestRoutesSwEinjAction(App& app)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(createRequest, std::ref(app)));
 
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Managers/<str>/Oem/Nvidia/SWErrorInjectionInfo/")
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/SWErrorInjectionActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleManagersOemNvidiaSwErrorInjectionInfo, std::ref(app)));
