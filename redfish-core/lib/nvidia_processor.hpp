@@ -540,6 +540,7 @@ inline void getProcessorFPGAPCIeInterface(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
+// TODO: move to oem
 inline void getPowerBreakThrottleData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath, const std::string& deviceType)
@@ -1241,6 +1242,7 @@ inline void getEccPendingData(
         "xyz.openbmc_project.Memory.MemoryECC");
 }
 
+// TODO: move to oem
 inline void getProcessorPerformanceData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath, const std::string& deviceType)
@@ -1399,7 +1401,7 @@ inline void getProcessorPerformanceData(
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
         "xyz.openbmc_project.State.ProcessorPerformance");
 }
-
+// TODO: move to oem
 inline void getGPUNvlinkMetricsData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath, const std::string& nvlinkMetricsIface)
@@ -1481,6 +1483,7 @@ inline void getGPUNvlinkMetricsData(
         });
 }
 
+// TODO: move to oem
 inline void getPowerSystemInputsData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath, const std::string& deviceType)
@@ -1528,7 +1531,7 @@ inline void getPowerSystemInputsData(
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
         "xyz.openbmc_project.State.Decorator.PowerSystemInputs");
 }
-
+// TODO: move to oem
 inline void getMemorySpareChannelPresenceData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath, const std::string& deviceType)
@@ -1570,6 +1573,7 @@ inline void getMemorySpareChannelPresenceData(
         "com.nvidia.MemorySpareChannel", "MemorySpareChannelPresence");
 }
 
+// TODO: move to oem
 inline void getMemoryPageRetirementCountData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath, const std::string& deviceType)
@@ -1610,7 +1614,7 @@ inline void getMemoryPageRetirementCountData(
         service, objPath, "org.freedesktop.DBus.Properties", "Get",
         "com.nvidia.MemoryPageRetirementCount", "MemoryPageRetirementCount");
 }
-
+// TODO: move to oem
 inline void getMigModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                            const std::string& cpuId, const std::string& service,
                            const std::string& objPath)
@@ -1646,6 +1650,7 @@ inline void getMigModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         "com.nvidia.MigMode");
 }
 
+// TODO: move to oem
 inline void getProcessorRemoteDebugState(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath)
@@ -1743,6 +1748,7 @@ inline void getRemoteDebugState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         "xyz.openbmc_project.Association", "endpoints");
 }
 
+// TODO: move to oem
 inline void getGPMMetricsData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath, const std::string& gpmMetricsIface)
