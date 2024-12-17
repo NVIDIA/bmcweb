@@ -1617,10 +1617,10 @@ inline void getMNNVLinkTopologyInfo(
         const std::string* traySerialNumber = nullptr;
         const std::string* systemGUID = nullptr;
         const std::string* peerType = nullptr;
-        const uint64_t* moduleID = nullptr;
-        const uint64_t* hostID = nullptr;
-        const uint64_t* traySlotIndex = nullptr;
-        const uint64_t* traySlotNumber = nullptr;
+        const uint32_t* moduleID = nullptr;
+        const uint32_t* hostID = nullptr;
+        const uint32_t* traySlotIndex = nullptr;
+        const uint32_t* traySlotNumber = nullptr;
 
         const bool success = sdbusplus::unpackPropertiesNoThrow(
             dbus_utils::UnpackErrorPrinter(), resp, "ChassisSerialNumber",
