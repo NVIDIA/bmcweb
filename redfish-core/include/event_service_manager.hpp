@@ -252,7 +252,40 @@ void parseAdditionalDataForCPER(nlohmann::json::object_t& entry,
                                 const nlohmann::json::object_t& oem,
                                 const AdditionalData& additional,
                                 std::string& origin);
-
+struct TestEvent
+{
+    std::optional<int64_t> eventGroupId;
+    std::optional<std::string> eventId;
+    std::optional<std::string> eventTimestamp;
+    std::optional<std::string> message;
+    std::optional<std::vector<std::string>> messageArgs;
+    std::optional<std::string> messageId;
+    std::optional<std::string> originOfCondition;
+    std::optional<std::string> resolution;
+    std::optional<std::string> severity;
+    // default constructor
+    TestEvent() = default;
+    // default assignment operator
+    TestEvent& operator=(const TestEvent&) = default;
+    // default copy constructor
+    TestEvent(const TestEvent&) = default;
+    // constructor with all the aruments
+    TestEvent(std::optional<int64_t> eventGroupId,
+              std::optional<std::string> eventId,
+              std::optional<std::string> eventTimestamp,
+              std::optional<std::string> message,
+              std::optional<std::vector<std::string>> messageArgs,
+              std::optional<std::string> messageId,
+              std::optional<std::string> originOfCondition,
+              std::optional<std::string> resolution,
+              std::optional<std::string> severity) :
+        eventGroupId(eventGroupId),
+        eventId(eventId), eventTimestamp(eventTimestamp), message(message),
+        messageArgs(messageArgs), messageId(messageId),
+        originOfCondition(originOfCondition), resolution(resolution),
+        severity(severity)
+    {}
+};
 /*
  * Structure for an event which is based on Event v1.7.0 in "Redfish Schema
  * Supplement(DSP0268)".
@@ -279,7 +312,6 @@ class Event
     std::string logEntryId = "";
     std::string satBMCLogEntryUrl = "";
     redfish_bool specificEventExistsInGroup = redfishBoolNa;
-
     // derived properties
     std::string registryPrefix;
     std::string resourceType;
@@ -891,31 +923,67 @@ class Subscription : public persistent_data::UserSubscription
         return true;
     }
 
-    bool sendTestEventLog()
+    bool sendTestEventLog(TestEvent& testEvent)
     {
         nlohmann::json::array_t logEntryArray;
-        nlohmann::json& logEntryJson = logEntryArray.emplace_back();
-        uint64_t memberId = 0;
+        nlohmann::json& logEntryJson =
+            logEntryArray.emplace_back(nlohmann::json::object());
 
-        logEntryJson = {{"EventId", "TestID"},
-                        {"EventType", "Event"},
-                        {"Severity", "OK"},
-                        {"Message", "Generated test event"},
-                        {"MessageId", "OpenBMC.0.2.TestEventLog"},
-                        {"MemberId", memberId},
-                        {"MessageArgs", nlohmann::json::array()},
-                        {"EventTimestamp",
-                         redfish::time_utils::getDateTimeOffsetNow().first},
-                        {"Context", customText}};
+        if (testEvent.eventGroupId)
+        {
+            logEntryJson["EventGroupId"] = *testEvent.eventGroupId;
+        }
 
-        nlohmann::json msg;
+        if (testEvent.eventId)
+        {
+            logEntryJson["EventId"] = *testEvent.eventId;
+        }
+
+        if (testEvent.eventTimestamp)
+        {
+            logEntryJson["EventTimestamp"] = *testEvent.eventTimestamp;
+        }
+
+        if (testEvent.originOfCondition)
+        {
+            logEntryJson["OriginOfCondition"]["@odata.id"] =
+                *testEvent.originOfCondition;
+        }
+        if (testEvent.severity)
+        {
+            logEntryJson["Severity"] = *testEvent.severity;
+        }
+
+        if (testEvent.message)
+        {
+            logEntryJson["Message"] = *testEvent.message;
+        }
+
+        if (testEvent.resolution)
+        {
+            logEntryJson["Resolution"] = *testEvent.resolution;
+        }
+
+        if (testEvent.messageId)
+        {
+            logEntryJson["MessageId"] = *testEvent.messageId;
+        }
+
+        if (testEvent.messageArgs)
+        {
+            logEntryJson["MessageArgs"] = *testEvent.messageArgs;
+        }
+        // MemberId is 0 : since we are sending one event record.
+        logEntryJson["MemberId"] = "0";
+
+        nlohmann::json::object_t msg;
         msg["@odata.type"] = "#Event.v1_4_0.Event";
         msg["Id"] = std::to_string(eventSeqNum);
         msg["Name"] = "Event Log";
         msg["Events"] = logEntryArray;
 
-        std::string strMsg = msg.dump(2, ' ', true,
-                                      nlohmann::json::error_handler_t::replace);
+        std::string strMsg = nlohmann::json(msg).dump(
+            2, ' ', true, nlohmann::json::error_handler_t::replace);
         return sendEvent(std::move(strMsg));
     }
 
@@ -1614,12 +1682,12 @@ class EventServiceManager
         return idList;
     }
 
-    bool sendTestEventLog()
+    bool sendTestEventLog(TestEvent& testEvent)
     {
         for (const auto& it : subscriptionsMap)
         {
             std::shared_ptr<Subscription> entry = it.second;
-            if (!entry->sendTestEventLog())
+            if (!entry->sendTestEventLog(testEvent))
             {
                 return false;
             }
