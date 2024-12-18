@@ -25,6 +25,7 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_memory.hpp"
 
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
@@ -1314,6 +1315,7 @@ inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                             "#NvidiaMemoryMetrics.v1_2_0.NvidiaGPUMemoryMetrics";
                         getMemoryRowRemappings(aResp, service, path);
                     }
+                    getStateSensors(aResp, path);
                 }
             }
             return;
