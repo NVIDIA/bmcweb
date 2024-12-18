@@ -42,9 +42,13 @@ inline void handleDeviceServiceConditions(
             const dbus::utility::ManagedObjectType& resp) {
         if (ec)
         {
-            messages::internalError(asyncResp->res);
-            BMCWEB_LOG_ERROR("getLogEntriesIfaceData resp_handler got error {}",
-                             ec);
+            // ignore the error while BMC is booting
+            if (ec.value() != boost::system::errc::no_such_device_or_address)
+            {
+                BMCWEB_LOG_ERROR(
+                    "getLogEntriesIfaceData resp_handler got error {}", ec);
+                messages::internalError(asyncResp->res);
+            }
             return;
         }
 
