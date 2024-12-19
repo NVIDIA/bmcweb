@@ -151,6 +151,7 @@ inline void getChassisState(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
         });
 }
 
+// TODO: move to new file
 /**
  * @brief Wrapper function to retrieves chassis state properties over dbus
  *
@@ -867,6 +868,7 @@ inline void
         std::bind_front(handlePhysicalSecurityGetSubTree, asyncResp));
 }
 
+// TODO: move to new file
 inline void handleChassisGetPreCheck(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1124,6 +1126,7 @@ inline void
         });
 }
 
+// TODO: move to new file
 inline void
     handleChassisPatchReq(App& app, const crow::Request& req,
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1206,6 +1209,7 @@ inline void
         });
 }
 
+// TODO: move to new file
 inline void powerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
