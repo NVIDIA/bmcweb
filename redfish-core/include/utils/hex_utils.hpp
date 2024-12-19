@@ -142,10 +142,9 @@ inline std::vector<uint8_t>
     }
 
     // Check for even length
-    if (processedString.length() % 2 != 0)
+    if (processedString.length() > 64)
     {
-        throw std::invalid_argument(
-            "Input string must have an even number of characters");
+        throw std::invalid_argument("Input string is too long");
     }
 
     // Validate hexadecimal characters
@@ -156,16 +155,14 @@ inline std::vector<uint8_t>
             "Input string contains invalid hexadecimal characters");
     }
 
-    // Calculate how many bytes we can extract from the string
-    size_t bytesToProcess = std::min(processedString.length() / 2,
-                                     static_cast<size_t>(32));
+    // Pad the string with leading zeros if necessary
+    processedString = std::string(64 - processedString.length(), '0') +
+                      processedString;
 
-    // Process the validated string
-    for (size_t i = 0; i < bytesToProcess; ++i)
+    for (size_t i = 0; i < 32; ++i)
     {
         std::string byteString = processedString.substr(i * 2, 2);
-        result[31 - i] =
-            static_cast<uint8_t>(std::stoi(byteString, nullptr, 16));
+        result[i] = static_cast<uint8_t>(std::stoi(byteString, nullptr, 16));
     }
 
     return result;

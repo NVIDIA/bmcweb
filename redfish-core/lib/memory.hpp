@@ -1181,7 +1181,7 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     return;
                 }
                 aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"]
-                                    ["HighAvailablityBankCount"] = *value;
+                                    ["HighAvailabilityBankCount"] = *value;
             }
             else if (property.first == "LowRemappingAvailablityBankCount")
             {
@@ -1194,7 +1194,7 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     return;
                 }
                 aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"]
-                                    ["LowAvailablityBankCount"] = *value;
+                                    ["LowAvailabilityBankCount"] = *value;
             }
             else if (property.first == "MaxRemappingAvailablityBankCount")
             {
@@ -1207,7 +1207,7 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     return;
                 }
                 aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"]
-                                    ["MaxAvailablityBankCount"] = *value;
+                                    ["MaxAvailabilityBankCount"] = *value;
             }
             else if (property.first == "NoRemappingAvailablityBankCount")
             {
@@ -1220,7 +1220,7 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     return;
                 }
                 aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"]
-                                    ["NoAvailablityBankCount"] = *value;
+                                    ["NoAvailabilityBankCount"] = *value;
             }
             else if (property.first == "PartialRemappingAvailablityBankCount")
             {
@@ -1233,7 +1233,7 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     return;
                 }
                 aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"]
-                                    ["PartialAvailablityBankCount"] = *value;
+                                    ["PartialAvailabilityBankCount"] = *value;
             }
         }
     },
@@ -1311,7 +1311,7 @@ inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         interfaces.end())
                     {
                         aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                            "#NvidiaMemoryMetrics.v1_1_0.NvidiaGPUMemoryMetrics";
+                            "#NvidiaMemoryMetrics.v1_2_0.NvidiaGPUMemoryMetrics";
                         getMemoryRowRemappings(aResp, service, path);
                     }
                 }
