@@ -108,23 +108,30 @@ inline std::string vectorTo256BitHexString(const std::vector<uint8_t>& value)
     }
 
     // Convert the vector to a hex string
-    bool allZero = true;
     std::stringstream ss;
     ss << "0x";
     for (const auto& byte : value)
     {
-        if (byte != 0)
-        {
-            allZero = false;
-            ss << std::hex << std::setw(2) << std::setfill('0')
-               << static_cast<int>(byte);
-        }
+        ss << std::hex << std::setw(2) << std::setfill('0')
+           << static_cast<int>(byte);
     }
-    if (allZero)
+    // add logic to remove leading 0s
+    std::string result = ss.str();
+    // Remove leading zeros
+    size_t firstNonZero = 2; // Start after "0x"
+    while (firstNonZero < result.length() && result[firstNonZero] == '0')
     {
-        return "0x00";
+        ++firstNonZero;
     }
-    return ss.str();
+
+    // If all digits are zero, return ""
+    if (firstNonZero == result.length())
+    {
+        return "0x0";
+    }
+
+    // Return the result with leading zeros removed
+    return "0x" + result.substr(firstNonZero);
 }
 
 inline std::vector<uint8_t>
