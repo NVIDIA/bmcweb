@@ -3254,10 +3254,11 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                         asyncResp->res.jsonValue.update(oem);
                     }
                 }
-                if (filePath != nullptr)
-                {
+            }
+            if ((filePath != nullptr) && (id != nullptr))
+            {
+                asyncResp->res.jsonValue["AdditionalDataURI"] =
                     getLogEntryAdditionalDataURI(std::to_string(*id));
-                }
             }
             // add CPER to entry if it is present
             if (!cper.empty())
