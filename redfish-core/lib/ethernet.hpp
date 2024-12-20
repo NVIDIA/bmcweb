@@ -1776,10 +1776,13 @@ inline void handleIPv4StaticPatch(
             break;
         }
     }
+    // Defaultgateway was cleared in handleDHCPPatch function.
+    bool dhcpCleared = translateDhcpEnabledToBool(ethData.dhcpEnabled, true);
 
     // now update to the new gateway.
     // Default gateway is already empty, so no need to update if we're clearing
-    if (!gatewayOut.empty() && ethData.defaultGateway != gatewayOut)
+    if ((!gatewayOut.empty() && ethData.defaultGateway != gatewayOut) ||
+        (dhcpCleared))
     {
         updateIPv4DefaultGateway(ifaceId, gatewayOut, asyncResp);
     }
