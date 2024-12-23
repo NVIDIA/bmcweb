@@ -27,6 +27,7 @@
 #include "hypervisor_system.hpp"
 #include "led.hpp"
 #include "nvidia_cpu_debug_token.hpp"
+#include "nvidia_system.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
@@ -4127,9 +4128,11 @@ inline void
     if constexpr (BMCWEB_ENABLE_IST_MODE)
     {
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaComputerSystem.v1_1_0.NvidiaComputerSystem";
+            "#NvidiaComputerSystem.v1_2_0.NvidiaComputerSystem";
         ist_mode_utils::getIstMode(asyncResp);
         debug_token::getSystemsCpuDebugToken(asyncResp, systemName);
+
+        getSystemsOemNvidiaProperties(asyncResp, systemName);
     }
 
 #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
