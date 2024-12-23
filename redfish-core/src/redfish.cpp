@@ -184,11 +184,6 @@ RedfishService::RedfishService(App& app)
         requestRoutesCpuDebugToken(app);
     }
     requestRoutesUpdateService(app);
-    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-    {
-        requestRoutesSplitUpdateService(app);
-    }
-
     requestRoutesChassisDrive(app);
     requestRoutesChassisDriveName(app);
     requestRoutesStorageCollection(app);

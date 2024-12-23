@@ -865,12 +865,6 @@ option(
     value: '/tmp/images/',
     description: 'Update service image location',
 )
-option(
-    'update-service-stage-location',
-    type: 'string',
-    value: '',
-    description: 'Update service stage location',
-)
 
 option(
     'redfish-new-powersubsystem',

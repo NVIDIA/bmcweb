@@ -20,10 +20,6 @@ conf_data.set(
     get_option('update-service-image-location'),
 )
 conf_data.set(
-    'UPDATE_SERVICE_STAGE_LOCATION',
-    get_option('update-service-stage-location'),
-)
-conf_data.set(
     'UPDATE_SERVICE_TASK_TIMEOUT',
     get_option('update-service-task-timeout'),
 )

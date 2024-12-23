@@ -38,8 +38,6 @@ constexpr const int updateServiceTaskTimeout = @UPDATE_SERVICE_TASK_TIMEOUT@;
 
 constexpr const char* updateServiceImageLocation = "@UPDATE_SERVICE_IMAGE_LOCATION@";
 
-constexpr const char* updateServiceStageLocation = "@UPDATE_SERVICE_STAGE_LOCATION@";
-
 constexpr const char* buildDescriptionFilePath = "@BUILD_DESCRIPTION_FILE_PATH@";
 
 constexpr const char* otpProvisioningStatusFilePath = "@OTP_PROVISIONING_STATUS_FILE_PATH@";
