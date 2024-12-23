@@ -39,6 +39,7 @@
 #include "nvidia_policy.hpp"
 #include "nvidia_power_reset_metrics.hpp"
 #include "nvidia_protected_component.hpp"
+#include "nvidia_system_variable_spi_erase.hpp"
 #include "odata.hpp"
 #include "pcie.hpp"
 #include "power.hpp"
@@ -503,6 +504,8 @@ RedfishService::RedfishService(App& app)
         requestRoutesProcessorWorkloadPower(app);
         requestRoutesProcessorWorkloadPowerProfileCollection(app);
         requestRoutesProcessorWorkloadPowerProfile(app);
+
+        requestRoutesSystemOemNvidiaProcessorVariableSpiActions(app);
     }
 
 #ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
