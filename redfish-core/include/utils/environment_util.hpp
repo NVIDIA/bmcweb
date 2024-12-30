@@ -1035,6 +1035,7 @@ inline void
                 }
                 for (const std::string& ctrlPath : *data)
                 {
+                    getPowerCap(asyncResp, connectionName, ctrlPath);
                     getPowerCap(asyncResp, resourceId, ctrlPath);
                     // Skip getControlMode if it does not support the Control
                     // Mode

@@ -603,7 +603,7 @@ inline std::string getPowerModeType(const std::string& dbusAction)
     if (dbusAction ==
         "xyz.openbmc_project.Control.Power.Mode.PowerMode.MaximumPerformance")
     {
-        return "MaxP";
+        return "Custom";
     }
     if (dbusAction ==
         "xyz.openbmc_project.Control.Power.Mode.PowerMode.PowerSaving")
