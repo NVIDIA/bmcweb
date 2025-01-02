@@ -3613,7 +3613,7 @@ inline void getFabricsPortMetricsData(
         if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaPortMetrics.v1_3_0.NvidiaNVLinkPortMetrics";
+                "#NvidiaPortMetrics.v1_4_0.NvidiaNVLinkPortMetrics";
         }
         for (const auto& property : properties)
         {
@@ -3872,7 +3872,7 @@ inline void getFabricsPortMetricsData(
                     if (value == nullptr)
                     {
                         BMCWEB_LOG_ERROR("Null value returned "
-                                         "for VL15 dropped packets");
+                                         "for malformed packets");
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -3900,7 +3900,7 @@ inline void getFabricsPortMetricsData(
                     if (value == nullptr)
                     {
                         BMCWEB_LOG_ERROR("Null value returned "
-                                         "for VL15 dropped packets");
+                                         "for VL15 transmit packets");
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -3914,7 +3914,7 @@ inline void getFabricsPortMetricsData(
                     if (value == nullptr)
                     {
                         BMCWEB_LOG_ERROR("Null value returned "
-                                         "for VL15 dropped packets");
+                                         "for VL15 transmit data");
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -3928,7 +3928,7 @@ inline void getFabricsPortMetricsData(
                     if (value == nullptr)
                     {
                         BMCWEB_LOG_ERROR("Null value returned "
-                                         "for VL15 dropped packets");
+                                         "for MTU discard packets");
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -3969,7 +3969,7 @@ inline void getFabricsPortMetricsData(
                     if (value == nullptr)
                     {
                         BMCWEB_LOG_ERROR("Null value returned "
-                                         "for link error recovery count");
+                                         "for link down count");
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -4011,7 +4011,7 @@ inline void getFabricsPortMetricsData(
                     if (value == nullptr)
                     {
                         BMCWEB_LOG_ERROR("Null value returned "
-                                         "for receive switch replay error");
+                                         "for QP1 dropped packets");
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -4025,12 +4025,26 @@ inline void getFabricsPortMetricsData(
                     if (value == nullptr)
                     {
                         BMCWEB_LOG_ERROR("Null value returned "
-                                         "for receive switch replay error");
+                                         "for transmit wait");
                         messages::internalError(asyncResp->res);
                         return;
                     }
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]["TXWait"] =
                         *value;
+                }
+                else if (property.first == "EffectiveError")
+                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for effective error count");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res
+                        .jsonValue["Oem"]["Nvidia"]["EffectiveError"] = *value;
                 }
             }
             if (property.first == "ceCount")
