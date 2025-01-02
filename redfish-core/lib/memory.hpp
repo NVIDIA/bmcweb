@@ -25,6 +25,7 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_memory.hpp"
 
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
@@ -1241,173 +1242,6 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
         "com.nvidia.MemoryRowRemapping");
 }
 
-inline void
-    getMemoryPerformanceData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                             const std::string& service,
-                             const std::string& objPath)
-{
-    BMCWEB_LOG_DEBUG("Get memory performance data");
-    crow::connections::systemBus->async_method_call(
-        [aResp, objPath](const boost::system::error_code ec,
-                         const dbus::utility::DBusPropertiesMap& properties) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("DBUS response error");
-            return;
-        }
-        nlohmann::json& json = aResp->res.jsonValue;
-        for (const auto& property : properties)
-        {
-            if (property.first == "Value")
-            {
-                const std::string* state =
-                    std::get_if<std::string>(&property.second);
-                if (state == nullptr)
-                {
-                    messages::internalError(aResp->res);
-                    return;
-                }
-                bool performanceDegrade = false;
-                if (redfish::dbus_utils::toPerformanceStateType(*state) !=
-                    "Normal")
-                {
-                    performanceDegrade = true;
-                }
-                json["HealthData"]["PerformanceDegraded"] = performanceDegrade;
-            }
-        }
-    },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.State.ProcessorPerformance");
-}
-
-inline void
-    getMemoryPerformanceState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                              const std::string& objPath)
-{
-    BMCWEB_LOG_DEBUG("Get memory performance state");
-    crow::connections::systemBus->async_method_call(
-        [aResp, objPath](const boost::system::error_code& ec,
-                         std::variant<std::vector<std::string>>& resp) {
-        if (ec)
-        {
-            // No state sensors attached.
-            return;
-        }
-        std::vector<std::string>* data =
-            std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr)
-        {
-            return;
-        }
-
-        for (const std::string& sensorPath : *data)
-        {
-            BMCWEB_LOG_DEBUG("State Sensor Object Path {}", sensorPath);
-            if (sensorPath.find("MemCntl_0_PerformanceDegrade") ==
-                std::string::npos)
-            {
-                continue;
-            }
-
-            const std::array<const char*, 1> sensorInterfaces = {
-                "xyz.openbmc_project.State.ProcessorPerformance"};
-            // Process sensor reading
-            crow::connections::systemBus->async_method_call(
-                [aResp, sensorPath](
-                    const boost::system::error_code ec,
-                    const std::vector<std::pair<
-                        std::string, std::vector<std::string>>>& object) {
-                if (ec)
-                {
-                    // The path does not implement any state interfaces.
-                    return;
-                }
-
-                for (const auto& [service, interfaces] : object)
-                {
-                    if (std::find(
-                            interfaces.begin(), interfaces.end(),
-                            "xyz.openbmc_project.State.ProcessorPerformance") !=
-                        interfaces.end())
-                    {
-                        getMemoryPerformanceData(aResp, service, sensorPath);
-                    }
-                }
-            },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetObject", sensorPath,
-                sensorInterfaces);
-        }
-    },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/all_states",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
-}
-
-inline void getMemoryHealthByCpu(std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                 const std::string cpuId)
-{
-    BMCWEB_LOG_DEBUG("Get memory health data for cpu");
-    crow::connections::systemBus->async_method_call(
-        [aResp, cpuId](const boost::system::error_code ec,
-                       const std::vector<std::string>& paths) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("DBUS response error");
-            return;
-        }
-        for (const auto& path : paths)
-        {
-            if (!boost::ends_with(path, cpuId))
-            {
-                continue;
-            }
-            getMemoryPerformanceState(aResp, path);
-        }
-    },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-        "/xyz/openbmc_project/inventory/", 0,
-        std::array<const char*, 1>{"xyz.openbmc_project.Inventory.Item.Cpu"});
-}
-
-inline void getMemoryHealthData(std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                const std::string& service,
-                                const std::string& objPath)
-{
-    BMCWEB_LOG_DEBUG("Get memory health data");
-    crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
-                const boost::container::flat_map<
-                    std::string, dbus::utility::DbusVariantType>& properties) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("DBUS response error");
-            return;
-        }
-        for (const auto& [key, variant] : properties)
-        {
-            if (key == "LocationContext")
-            {
-                const std::string* value = std::get_if<std::string>(&variant);
-                if (value == nullptr)
-                {
-                    messages::internalError(aResp->res);
-                    return;
-                }
-                const std::string loc = *value;
-                std::string cpuId = loc.substr(loc.rfind('/') + 1);
-                getMemoryHealthByCpu(aResp, cpuId);
-            }
-        }
-    },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.Inventory.Decorator.LocationContext");
-}
-
 inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                  const std::string& dimmId)
 {
@@ -1426,7 +1260,6 @@ inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
 
             return;
         }
-        bool found = false;
         for (const auto& [path, object] : subtree)
         {
             if (!boost::ends_with(path, dimmId))
@@ -1454,15 +1287,6 @@ inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                               "xyz.openbmc_project.Inventory.Item.Dimm") !=
                     interfaces.end())
                 {
-                    if (std::find(
-                            interfaces.begin(), interfaces.end(),
-                            "xyz.openbmc_project.Inventory.Decorator.LocationContext") !=
-                        interfaces.end())
-                    {
-                        getMemoryHealthData(aResp, service, path);
-                        continue;
-                    }
-
                     getMemoryDataByService(aResp, service, path);
                 }
                 if (std::find(interfaces.begin(), interfaces.end(),
@@ -1491,16 +1315,14 @@ inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                             "#NvidiaMemoryMetrics.v1_2_0.NvidiaGPUMemoryMetrics";
                         getMemoryRowRemappings(aResp, service, path);
                     }
+                    getStateSensors(aResp, path);
                 }
             }
-            found = true;
+            return;
         }
-        if (!found)
-        {
-            // Object not found
-            messages::resourceNotFound(aResp->res, "#Memory.v1_20_0.Memory",
-                                       dimmId);
-        }
+        // Object not found
+        messages::resourceNotFound(aResp->res, "#Memory.v1_20_0.Memory",
+                                   dimmId);
     },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
