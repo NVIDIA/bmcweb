@@ -2905,6 +2905,7 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
 
                 // Determine if it's a message registry format or not.
                 bool isMessageRegistry = false;
+                bool device_event_data = false;
                 std::string messageId;
                 std::string messageArgs;
                 std::string originOfCondition;
@@ -2928,6 +2929,10 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                     {
                         originOfCondition =
                             additional["REDFISH_ORIGIN_OF_CONDITION"];
+                    }
+                    if (additional.count("DEVICE_EVENT_DATA") > 0)
+                    {
+                        device_event_data = true;
                     }
 
                     if (additional.count("DEVICE_NAME") > 0)
@@ -3024,11 +3029,13 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                 {
                     thisEntry.update(cper);
                 }
-                if (filePath != nullptr)
+
+                if (device_event_data && (filePath != nullptr))
                 {
                     thisEntry["AdditionalDataURI"] =
                         getLogEntryAdditionalDataURI(std::to_string(*id));
                 }
+
                 entriesArray.push_back(thisEntry);
             }
             if constexpr (BMCWEB_SORT_EVENT_LOG)
@@ -3131,6 +3138,7 @@ inline void requestRoutesDBusEventLogEntry(App& app)
 
             // Determine if it's a message registry format or not.
             bool isMessageRegistry = false;
+            bool device_event_data = false;
             std::string messageId;
             std::string messageArgs;
             std::string originOfCondition;
@@ -3154,6 +3162,10 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                 {
                     originOfCondition =
                         additional["REDFISH_ORIGIN_OF_CONDITION"];
+                }
+                if (additional.count("DEVICE_EVENT_DATA") > 0)
+                {
+                    device_event_data = true;
                 }
 
                 if (additional.count("DEVICE_NAME") > 0)
@@ -3255,15 +3267,17 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                     }
                 }
             }
-            if ((filePath != nullptr) && (id != nullptr))
-            {
-                asyncResp->res.jsonValue["AdditionalDataURI"] =
-                    getLogEntryAdditionalDataURI(std::to_string(*id));
-            }
+
             // add CPER to entry if it is present
             if (!cper.empty())
             {
                 asyncResp->res.jsonValue.update(cper);
+            }
+
+            if (device_event_data && (filePath != nullptr) && (id != nullptr))
+            {
+                asyncResp->res.jsonValue["AdditionalDataURI"] =
+                    getLogEntryAdditionalDataURI(std::to_string(*id));
             }
         });
     });
