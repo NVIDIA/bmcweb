@@ -31,6 +31,7 @@
 #include "nvidia_manager_eventlog.hpp"
 #include "nvidia_persistent_data.hpp"
 #include "odata.hpp"
+#include "openbmc/openbmc_managers.hpp"
 #include "pcie.hpp"
 #include "power.hpp"
 #include "power_subsystem.hpp"
@@ -265,6 +266,10 @@ RedfishService::RedfishService(App& app)
     requestRoutesNvidia(app);
     // Note, this must be the last route registered
     requestRoutesRedfish(app);
+
+    requestRoutesOpenBmcManager(*this);
+
+    validate();
 }
 
 } // namespace redfish

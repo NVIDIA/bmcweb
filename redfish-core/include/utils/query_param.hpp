@@ -17,7 +17,9 @@
 #include "logging.hpp"
 #include "nvidia_persistent_data.hpp"
 #include "redfish_aggregator.hpp"
+#include "redfishoemrule.hpp"
 #include "str_utility.hpp"
+#include "utils/json_utils.hpp"
 
 #include <unistd.h>
 
@@ -767,7 +769,11 @@ class MultiAsyncResp : public std::enable_shared_from_this<MultiAsyncResp>
     // class manages the final "merge" of the json resources.
     MultiAsyncResp(crow::App& appIn,
                    std::shared_ptr<bmcweb::AsyncResp> finalResIn) :
-        app(appIn), finalRes(std::move(finalResIn))
+        app(&appIn), finalRes(std::move(finalResIn))
+    {}
+
+    explicit MultiAsyncResp(std::shared_ptr<bmcweb::AsyncResp> finalResIn) :
+        app(nullptr), finalRes(std::move(finalResIn))
     {}
 
     void addAwaitingResponse(
@@ -835,7 +841,41 @@ class MultiAsyncResp : public std::enable_shared_from_this<MultiAsyncResp>
                              logPtr(&asyncResp->res));
 
             addAwaitingResponse(asyncResp, node.location);
-            app.handle(newReq, asyncResp);
+            if (app != nullptr)
+            {
+                app->handle(newReq, asyncResp);
+            }
+        }
+    }
+
+    static void startMultiFragmentHandle(
+        const std::shared_ptr<crow::Request>& req,
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        const std::shared_ptr<std::vector<OemBaseRule*>>& fragments,
+        const std::shared_ptr<std::vector<std::string>>& params,
+        const crow::Response& resIn)
+    {
+        asyncResp->res.jsonValue = resIn.jsonValue;
+        auto multi = std::make_shared<MultiAsyncResp>(asyncResp);
+        for (OemBaseRule* fragment : *fragments)
+        {
+            if (fragment != nullptr)
+            {
+                OemBaseRule& fragmentRule = *fragment;
+                auto rsp = std::make_shared<bmcweb::AsyncResp>();
+                BMCWEB_LOG_DEBUG("Matched fragment GET rule '{}' {}",
+                                 fragmentRule.rule, req->methodString());
+                BMCWEB_LOG_DEBUG(
+                    "Handling fragment rules: setting completion handler on {}",
+                    logPtr(&rsp->res));
+                std::optional<nlohmann::json::json_pointer> jsonFragmentPtr =
+                    json_util::createJsonPointerFromFragment(fragmentRule.rule);
+                if (jsonFragmentPtr)
+                {
+                    multi->addAwaitingResponse(rsp, *jsonFragmentPtr);
+                    fragmentRule.handle(*req, rsp, *params);
+                }
+            }
         }
     }
 
@@ -848,7 +888,7 @@ class MultiAsyncResp : public std::enable_shared_from_this<MultiAsyncResp>
         multi->placeResult(locationToPlace, res);
     }
 
-    crow::App& app;
+    crow::App* app;
     std::shared_ptr<bmcweb::AsyncResp> finalRes;
 };
 
