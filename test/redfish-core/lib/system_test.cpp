@@ -49,7 +49,6 @@ TEST(GetAllowedHostTransition, NoPropOnDbus)
     nlohmann::json::array_t allowed;
     allowed.emplace_back(resource::ResetType::ForceOff);
     allowed.emplace_back(resource::ResetType::PowerCycle);
-    allowed.emplace_back(resource::ResetType::Nmi);
     allowed.emplace_back(resource::ResetType::On);
     allowed.emplace_back(resource::ResetType::ForceOn);
     allowed.emplace_back(resource::ResetType::ForceRestart);
@@ -82,7 +81,6 @@ TEST(GetAllowedHostTransition, NoForceRestart)
     nlohmann::json::array_t allowed;
     allowed.emplace_back(resource::ResetType::ForceOff);
     allowed.emplace_back(resource::ResetType::PowerCycle);
-    allowed.emplace_back(resource::ResetType::Nmi);
     allowed.emplace_back(resource::ResetType::On);
     allowed.emplace_back(resource::ResetType::ForceOn);
     allowed.emplace_back(resource::ResetType::GracefulShutdown);
@@ -115,7 +113,6 @@ TEST(GetAllowedHostTransition, AllSupported)
     nlohmann::json::array_t allowed;
     allowed.emplace_back(resource::ResetType::ForceOff);
     allowed.emplace_back(resource::ResetType::PowerCycle);
-    allowed.emplace_back(resource::ResetType::Nmi);
     allowed.emplace_back(resource::ResetType::On);
     allowed.emplace_back(resource::ResetType::ForceOn);
     allowed.emplace_back(resource::ResetType::GracefulShutdown);
