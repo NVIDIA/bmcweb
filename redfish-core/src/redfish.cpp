@@ -33,6 +33,7 @@
 #include "metric_report_definition.hpp"
 #include "network_protocol.hpp"
 #include "nvidia_cpu_debug_token.hpp"
+#include "nvidia_fabric.hpp"
 #include "nvidia_manager_eventlog.hpp"
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_policy.hpp"
@@ -445,6 +446,10 @@ RedfishService::RedfishService(App& app)
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
         requestRoutesSwitchPowerMode(app);
+        requestRoutesSwitchHistogramCollection(app);
+        requestRoutesSwitchHistogram(app);
+        requestRoutesSwitchHistogramBucketCollection(app);
+        requestRoutesSwitchHistogramBucket(app);
     }
 
 #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
