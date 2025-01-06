@@ -4,29 +4,24 @@ namespace redfish
 {
 namespace nvidia_systems_utils
 {
-inline void
-    getChassisNMIStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+template <typename CallbackFunc>
+inline void getChassisNMIStatus(CallbackFunc&& callback)
 {
-    crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code& ec,
-                    const std::variant<bool>& resp) {
+    sdbusplus::asio::getProperty<bool>(
+        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+        "/xyz/openbmc_project/Control/ChassisCapabilities",
+        "xyz.openbmc_project.Control.ChassisCapabilities", "ChassisNMIEnabled",
+        [callback](const boost::system::error_code& ec, const bool enabledNmi) {
         if (ec)
         {
             BMCWEB_LOG_DEBUG("DBUS response error, {}", ec);
+            callback(false);
             return;
         }
 
-        bool enabledNmi = std::get<bool>(resp);
-        if (enabledNmi == true)
-        {
-            asyncResp->res.jsonValue["Parameters"][0]["AllowableValues"]
-                .emplace_back("Nmi");
-        }
-    },
-        "xyz.openbmc_project.Settings",
-        "/xyz/openbmc_project/Control/ChassisCapabilities",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Control.ChassisCapabilities", "ChassisNMIEnabled");
+        callback(enabledNmi);
+        return;
+    });
 }
 } // namespace nvidia_systems_utils
 } // namespace redfish

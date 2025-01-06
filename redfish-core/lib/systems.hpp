@@ -3831,7 +3831,18 @@ inline void handleComputerSystemResetActionPost(
     }
     else if (resetType == "Nmi")
     {
-        doNMI(asyncResp);
+        redfish::nvidia_systems_utils::getChassisNMIStatus(
+            [asyncResp, resetType](bool isEnabledNmi) {
+            if (isEnabledNmi == true)
+            {
+                doNMI(asyncResp);
+            }
+            else
+            {
+                messages::actionParameterUnknown(asyncResp->res, "Reset",
+                                                 resetType);
+            }
+        });
         return;
     }
     else
@@ -4661,7 +4672,6 @@ inline void afterGetAllowedHostTransitions(
     // Supported on all systems currently
     allowableValues.emplace_back(resource::ResetType::ForceOff);
     allowableValues.emplace_back(resource::ResetType::PowerCycle);
-    allowableValues.emplace_back(resource::ResetType::Nmi);
 
     if (ec)
     {
@@ -4744,8 +4754,6 @@ inline void handleSystemCollectionResetActionGet(
     asyncResp->res.jsonValue["Name"] = "Reset Action Info";
     asyncResp->res.jsonValue["Id"] = "ResetActionInfo";
 
-    redfish::nvidia_systems_utils::getChassisNMIStatus(asyncResp);
-
     // Look to see if system defines AllowedHostTransitions
     sdbusplus::asio::getProperty<std::vector<std::string>>(
         *crow::connections::systemBus, "xyz.openbmc_project.State.Host",
@@ -4754,6 +4762,28 @@ inline void handleSystemCollectionResetActionGet(
         [asyncResp](const boost::system::error_code& ec,
                     const std::vector<std::string>& allowedHostTransitions) {
         afterGetAllowedHostTransitions(asyncResp, ec, allowedHostTransitions);
+
+        // Check Nmi support status
+        redfish::nvidia_systems_utils::getChassisNMIStatus(
+            [asyncResp](bool isEnabledNmi) {
+            if (isEnabledNmi == true)
+            {
+                // Add 'Nmi' into AllowableValues if it's enabled
+                auto& parameters = asyncResp->res.jsonValue["Parameters"];
+                auto it = std::find_if(parameters.begin(), parameters.end(),
+                                       [](const nlohmann::json& param) {
+                    return param.contains("Name") &&
+                           param["Name"] == "ResetType" &&
+                           param.contains("AllowableValues") &&
+                           param["AllowableValues"].is_array();
+                });
+                if (it != parameters.end())
+                {
+                    auto& allowableValues = it->at("AllowableValues");
+                    allowableValues.emplace_back(resource::ResetType::Nmi);
+                }
+            }
+        });
     });
 }
 #ifdef BMCWEB_ENABLE_CPU_DIAG_FEATURE
