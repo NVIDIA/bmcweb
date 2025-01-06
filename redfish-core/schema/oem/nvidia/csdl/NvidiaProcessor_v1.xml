@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaProcessor  v1.3.0                                         -->
+<!--# Redfish OEM Schema:  NvidiaProcessor  v1.4.0                                         -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2024 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -32,6 +32,9 @@
   </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaWorkloadPower_v1.xml">
     <edmx:Include Namespace="NvidiaWorkloadPower"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaProcessorResetMetrics_v1.xml">
+    <edmx:Include Namespace="NvidiaProcessorResetMetrics"/>
   </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor">
@@ -333,6 +336,17 @@
           <Annotation Term="OData.LongDescription" String="Multi-Node NVLink Peer Type."/>
         </Member>
       </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_3_0.NvidiaGPU">
+        <NavigationProperty Name="ProcessorResetMetrics" Type="NvidiaProcessorResetMetrics.NvidiaProcessorResetMetrics" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the reset metrics resource for this processor."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaProcessorResetMetrics."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

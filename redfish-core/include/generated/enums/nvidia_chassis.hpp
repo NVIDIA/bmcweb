@@ -20,6 +20,11 @@ enum class StaticPowerHintOutputState{
     Invalid,
 };
 
+enum class AuxPowerResetType{
+    Invalid,
+    AuxPowerCycle,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(BackgroundCopyStatus, {
     {BackgroundCopyStatus::Invalid, "Invalid"},
     {BackgroundCopyStatus::Pending, "Pending"},
@@ -33,6 +38,11 @@ NLOHMANN_JSON_SERIALIZE_ENUM(StaticPowerHintOutputState, {
     {StaticPowerHintOutputState::Failed, "Failed"},
     {StaticPowerHintOutputState::InvalidArgument, "InvalidArgument"},
     {StaticPowerHintOutputState::Invalid, "Invalid"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(AuxPowerResetType, {
+    {AuxPowerResetType::Invalid, "Invalid"},
+    {AuxPowerResetType::AuxPowerCycle, "AuxPowerCycle"},
 });
 
 }

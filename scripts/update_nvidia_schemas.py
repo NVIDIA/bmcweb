@@ -9,7 +9,7 @@ import generate_schema_enums
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
-SHA1 = '7bda9d6b917789854e5de995c63c356179ad52b7'
+SHA1 = 'dd2b7a0a619e8d13ee8cd214d548517136328d61'
 
 def main():
     with tempfile.TemporaryDirectory() as repo_dir:
