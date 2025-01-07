@@ -25,7 +25,7 @@
 #include "metadata.hpp"
 #include "metric_report.hpp"
 #include "metric_report_definition.hpp"
-// #include "network_protocol.hpp"
+#include "network_protocol.hpp"
 #include "odata.hpp"
 #include "pcie.hpp"
 #include "power.hpp"
@@ -75,7 +75,7 @@ RedfishService::RedfishService(App& app)
     }
 
     requestRoutesServiceRoot(app);
-    // requestRoutesNetworkProtocol(app);
+    requestRoutesNetworkProtocol(app);
     requestEthernetInterfacesRoutes(app);
 
     if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL)

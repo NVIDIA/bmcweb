@@ -225,7 +225,7 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
         }
 #ifndef BMCWEB_IPMI
-        if (protocolName == "IPMI")
+        if (nwkProtocol.first == "IPMI")
         {
             continue;
         }
@@ -244,8 +244,8 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     getEthernetIfaceData([hostName, asyncResp](
                              const bool& success,
-                             const std::vector<std::string>& ntpServers,
-                             const std::vector<std::string>& dynamicNtpServers,
+                             [[maybe_unused]] const std::vector<std::string>& ntpServers,
+                             [[maybe_unused]] const std::vector<std::string>& dynamicNtpServers,
                              const std::vector<std::string>& domainNames) {
         if (!success)
         {

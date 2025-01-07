@@ -1774,7 +1774,7 @@ inline void handleNetworkAdapterResetNext(
                         resetType));
 }
 
-inline void handleNetworkAdapterReset(
+inline void handleNetworkAdapterResetGeneric(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& networkAdapterId)
@@ -1806,6 +1806,16 @@ inline void requestRoutesNetworkAdaptersGeneric(App& app)
         .privileges(redfish::privileges::getNetworkAdapterCollection)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleNetworkAdaptersGenericCollectionGet, std::ref(app)));
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/")
+        .privileges(redfish::privileges::getNetworkAdapter)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleNetworkAdapterGetGeneric, std::ref(app)));   
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Actions/NetworkAdapter.Reset/")
+        .privileges(redfish::privileges::getNetworkAdapter)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleNetworkAdapterResetGeneric, std::ref(app)));                     
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Ports/")
         .privileges(redfish::privileges::getPortCollection)
         .methods(boost::beast::http::verb::get)(

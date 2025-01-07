@@ -32,7 +32,6 @@ constexpr const char* metricReportUri =
 
 constexpr const char* mrdConfigFile = "/usr/share/bmcweb/";
 
-#ifdef BMCWEB_SHMEM_PLATFORM_METRICS
 inline int mrdConfigRead(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const std::string& deviceType, const std::string& id)
 {
@@ -94,45 +93,50 @@ inline std::string metricId(const std::string& input,
     }
     return result;
 }
-#endif
 
 inline void validateAndGetMetricReportDefinition(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& id)
 {
-#ifdef BMCWEB_SHMEM_PLATFORM_METRICS
-    static std::string platformDevicePrefix(PLATFORMDEVICEPREFIX);
-    std::string deviceType = metricId(id, platformDevicePrefix);
-    int rc = mrdConfigRead(asyncResp, deviceType, id);
-    if (rc != 0)
+    if constexpr (BMCWEB_SHMEM_PLATFORM_METRICS)
     {
-        messages::resourceNotFound(
-            asyncResp->res, "MetricReportDefinition Config File Not Present",
-            id);
+        static std::string platformDevicePrefix(BMCWEB_PLATFORM_DEVICE_PREFIX);
+        std::string deviceType = metricId(id, platformDevicePrefix);
+        int rc = mrdConfigRead(asyncResp, deviceType, id);
+        if (rc != 0)
+        {
+            messages::resourceNotFound(
+                asyncResp->res,
+                "MetricReportDefinition Config File Not Present", id);
+            return;
+        }
+        redfish::shmem::getShmemMetricsDefinitionWildCard(asyncResp, id,
+                                                          deviceType);
         return;
     }
-    redfish::shmem::getShmemMetricsDefinitionWildCard(asyncResp, id,
-                                                      deviceType);
-    return;
-#else
-
-    messages::resourceNotFound(asyncResp->res, "Enable Shmem to get the MRD",
-                               id);
-    return;
-#endif
+    else
+    {
+        messages::resourceNotFound(asyncResp->res,
+                                   "Enable Shmem to get the MRD", id);
+        return;
+    }
 }
 
 inline void getMetricReportCollection(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-#ifdef BMCWEB_SHMEM_PLATFORM_METRICS
-    redfish::shmem::getShmemMetricsReportCollection(asyncResp,
-                                                    "MetricReportDefinitions");
-    return;
-#else
-    messages::resourceNotFound(asyncResp->res, "Enable Shmem to get the MRD",
-                               "MetricReportDefinitions");
-    return;
-#endif
+    if constexpr (BMCWEB_SHMEM_PLATFORM_METRICS)
+    {
+        redfish::shmem::getShmemMetricsReportCollection(
+            asyncResp, "MetricReportDefinitions");
+        return;
+    }
+    else
+    {
+        messages::resourceNotFound(asyncResp->res,
+                                   "Enable Shmem to get the MRD",
+                                   "MetricReportDefinitions");
+        return;
+    }
 }
 } // namespace nvidia_metric_report_def_utils
 } // namespace redfish
