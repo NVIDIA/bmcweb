@@ -104,4 +104,30 @@ inline nlohmann::json debugTokenEraseFailed(std::string_view arg1,
         redfish::registries::nvidia::Index::debugTokenEraseFailed, args);
 }
 
+inline nlohmann::json dotActionResponseError(std::string_view arg1)
+{
+    std::array<std::string_view, 1> args{arg1};
+    return getLogNvidia(
+        redfish::registries::nvidia::Index::dotActionResponseError, args);
+}
+
+inline void dotActionResponseError(crow::Response& res, std::string_view arg1)
+{
+    res.result(boost::beast::http::status::internal_server_error);
+    addMessageToErrorJson(res.jsonValue, dotActionResponseError(arg1));
+}
+
+inline nlohmann::json dotMctpStatusError(std::string_view arg1)
+{
+    std::array<std::string_view, 1> args{arg1};
+    return getLogNvidia(redfish::registries::nvidia::Index::dotMctpStatusError,
+                        args);
+}
+
+inline void dotMctpStatusError(crow::Response& res, std::string_view arg1)
+{
+    res.result(boost::beast::http::status::internal_server_error);
+    addMessageToErrorJson(res.jsonValue, dotMctpStatusError(arg1));
+}
+
 } // namespace redfish::messages
