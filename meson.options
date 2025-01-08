@@ -690,6 +690,12 @@ option(
     description: 'Enables feature specific to host os.',
 )
 option(
+    'hide-host-os-features-init-value',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enables feature specific to host os with an initial value',
+)
+option(
     'host-auxpower-features',
     type: 'feature',
     value: 'disabled',
