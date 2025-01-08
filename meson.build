@@ -139,6 +139,7 @@ feature_map = {
     'patch-ssh'                                   : '-DBMCWEB_ENABLE_PATCH_SSH',
     'dhcp-configuration-update'                   : '-DBMCWEB_DHCP_CONFIGURATION_UPDATE',
     'host-os-features'                            : '-DBMCWEB_ENABLE_HOST_OS_FEATURE',
+    'hide-host-os-features-init-value'            : '-DBMCWEB_HIDE_HOST_OS_INIT_VALUE',
     'fencing-privilege'                           : '-DBMCWEB_ENABLE_FENCING_PRIVILEGE',
     'host-auxpower-features'                            : '-DBMCWEB_ENABLE_HOST_AUX_POWER',
     'nic-configuration-update'                    : '-DBMCWEB_NIC_CONFIGURATION_UPDATE',
