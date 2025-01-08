@@ -1646,26 +1646,26 @@ inline void
 {
     // default oem data
     nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
-#ifdef BMCWEB_HOST_OS_FEATURES
-    nlohmann::json& oemOpenbmc = oem["OpenBmc"];
+    if constexpr (BMCWEB_HOST_OS_FEATURES)
+    {
+        nlohmann::json& oemOpenbmc = oem["OpenBmc"];
 
-    oemOpenbmc["@odata.type"] = "#OpenBMCManager.OpenBmc";
-    oemOpenbmc["@odata.id"] =
-        "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-        "#/Oem/OpenBmc";
+        oemOpenbmc["@odata.type"] = "#OpenBMCManager.OpenBmc";
+        oemOpenbmc["@odata.id"] =
+            "/redfish/v1/Managers/" +
+            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) + "#/Oem/OpenBmc";
 
-    oemOpenbmc["Certificates"] = {
-        {"@odata.id", "/redfish/v1/Managers/" +
-                          std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                          "/Truststore/Certificates"}};
+        oemOpenbmc["Certificates"] = {
+            {"@odata.id", "/redfish/v1/Managers/" +
+                              std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                              "/Truststore/Certificates"}};
 
 #ifdef BMCWEB_NVIDIA_OEM_COMMON_PROPERTIES
-    oem["Nvidia"]["@odata.id"] =
-        "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-        "/Oem/Nvidia";
+        oem["Nvidia"]["@odata.id"] =
+            "/redfish/v1/Managers/" +
+            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) + "/Oem/Nvidia";
 #endif // BMCWEB_NVIDIA_OEM_COMMON_PROPERTIES
-
-#endif // BMCWEB_HOST_OS_FEATURES
+    }
 
 #ifdef BMCWEB_NVIDIA_OEM_GB200NVL_PROPERTIES
     oem["Nvidia"]["UptimeSeconds"] = [asyncResp]() -> double {
