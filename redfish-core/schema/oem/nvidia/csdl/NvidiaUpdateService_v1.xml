@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaUpdateService  v1.2.0                                     -->
+<!--# Redfish OEM Schema:  NvidiaUpdateService  v1.3.0                                     -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2024 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -99,6 +99,16 @@
           <Annotation Term="OData.LongDescription" String="This value shall indicate the provided firmware images should be transferred to the non-volatile storage of the target devices followed by the ActivateFirmware command defined in the PLDM for Firmware Update Specification. If the provided firmware images had been staged on the target devices previously, the firmware images shall not be transferred to the devices additionally."/>
         </Member>
       </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaUpdateService.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaUpdateService" BaseType="NvidiaUpdateService.v1_2_0.NvidiaUpdateService">
+        <Property Name="AutomaticDebugTokenErased" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether debug tokens will be erased automatically from devices if token files are not provided in the firmware bundle for firmware updates."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether debug tokens will be erased automatically from devices if token files are not provided in the firmware bundle for firmware updates.  If this property is not present, the default is true."/>
+        </Property>
+      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

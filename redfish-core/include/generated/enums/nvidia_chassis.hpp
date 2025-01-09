@@ -10,6 +10,7 @@ enum class BackgroundCopyStatus{
     Pending,
     InProgress,
     Completed,
+    Failed,
 };
 
 enum class StaticPowerHintOutputState{
@@ -30,6 +31,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(BackgroundCopyStatus, {
     {BackgroundCopyStatus::Pending, "Pending"},
     {BackgroundCopyStatus::InProgress, "InProgress"},
     {BackgroundCopyStatus::Completed, "Completed"},
+    {BackgroundCopyStatus::Failed, "Failed"},
 });
 
 NLOHMANN_JSON_SERIALIZE_ENUM(StaticPowerHintOutputState, {

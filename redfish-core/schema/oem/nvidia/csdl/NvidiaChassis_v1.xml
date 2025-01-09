@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaChassis  v1.6.0                                           -->
+<!--# Redfish OEM Schema:  NvidiaChassis  v1.7.0                                           -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2024 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -115,6 +115,17 @@
         </Member>
         <Member Name="Completed">
           <Annotation Term="OData.Description" String="Background copy is completed.  This value shall represent that the background copy operation is completed successfully."/>
+        </Member>
+        <Member Name="Failed">
+          <Annotation Term="OData.Description" String="Background copy has failed.  This value shall represent that the background copy operation has failed."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_7_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
         </Member>
       </EnumType>
     </Schema>
@@ -296,6 +307,10 @@
           <Annotation Term="OData.Description" String="Perform auxiliary power reset."/>
         </Member>
       </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_7_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaRoTChassis" BaseType="NvidiaChassis.v1_5_0.NvidiaRoTChassis"/>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
