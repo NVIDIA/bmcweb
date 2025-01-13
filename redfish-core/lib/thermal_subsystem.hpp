@@ -47,9 +47,10 @@ inline void doThermalSubsystemCollection(
 #endif
 
 #ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
-    asyncResp->res.jsonValue["LeakDetection"]["@odata.id"] =
-        boost::urls::format(
-            "/redfish/v1/Chassis/{}/ThermalSubsystem/LeakDetection", chassisId);
+    redfish::nvidia_chassis_utils::getValidLeakDetectionPath(
+        asyncResp, chassisId,
+        std::bind_front(redfish::nvidia_chassis_utils::doLeakDetectionUrlGet,
+                        asyncResp, chassisId));
 #endif
 
     asyncResp->res.jsonValue["ThermalMetrics"]["@odata.id"] =

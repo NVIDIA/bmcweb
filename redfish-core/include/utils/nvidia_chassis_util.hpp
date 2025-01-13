@@ -1430,6 +1430,22 @@ void getValidLeakDetectionPath(
     });
 }
 
+inline void
+    doLeakDetectionUrlGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const std::string& chassisId,
+                          const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        BMCWEB_LOG_DEBUG("{}: No leak detection", chassisId);
+        return;
+    }
+
+    asyncResp->res.jsonValue["LeakDetection"]["@odata.id"] =
+        boost::urls::format(
+            "/redfish/v1/Chassis/{}/ThermalSubsystem/LeakDetection", chassisId);
+}
+
 inline void doLeakDetectionPolicyGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId,
