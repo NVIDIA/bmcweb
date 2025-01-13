@@ -20,7 +20,8 @@
 
 #include "background_copy.hpp"
 #include "commit_image.hpp"
-
+#include "query.hpp"
+#include "registries/privilege_registry.hpp"
 #include <utils/fw_utils.hpp>
 
 #include <memory>
@@ -58,14 +59,17 @@ inline void
              {{"@odata.id",
                "/redfish/v1/UpdateService/Oem/Nvidia/PersistentStorage"}}},
             {"MultipartHttpPushUriOptions",
-             {{"UpdateOptionSupport",
-#ifdef BMCWEB_NVIDIA_OEM_FW_UPDATE_STAGING
-               {"StageAndActivate", "StageOnly"}}}
-#else
-               {"StageAndActivate"}}}
-#endif
-            }
-        };
+             {{"UpdateOptionSupport", [&]() {
+                   if constexpr (BMCWEB_NVIDIA_OEM_FW_UPDATE_STAGING)
+                   {
+                       return std::vector<std::string>{"StageAndActivate",
+                                                       "StageOnly"};
+                   }
+                   else
+                   {
+                       return std::vector<std::string>{"StageAndActivate"};
+                   }
+               }()}}}};
     }
 }
 
@@ -577,9 +581,10 @@ inline void extendSoftwareInventoryGet(
 {
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-#ifdef BMCWEB_NVIDIA_OEM_FW_UPDATE_STAGING
-        fw_util::getFWSlotInformation(asyncResp, objectPath);
-#endif
+        if constexpr (BMCWEB_NVIDIA_OEM_FW_UPDATE_STAGING)
+        {
+            fw_util::getFWSlotInformation(asyncResp, objectPath);
+        }
 
         updateOemActionComputeDigest(asyncResp, *swId);
     }

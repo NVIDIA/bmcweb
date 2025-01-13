@@ -105,10 +105,11 @@ RedfishService::RedfishService(App& app)
     requestRoutesManagerDiagnosticData(app);
     requestRoutesChassisCollection(app);
     requestRoutesChassis(app);
-#ifdef BMCWEB_HOST_OS_FEATURES
-    requestRoutesChassisResetAction(app);
-    requestRoutesChassisResetActionInfo(app);
-#endif
+    if constexpr (BMCWEB_HOST_OS_FEATURES)
+    {
+        requestRoutesChassisResetAction(app);
+        requestRoutesChassisResetActionInfo(app);
+    }
     requestRoutesChassisDrive(app);
     requestRoutesChassisDriveName(app);
     requestRoutesUpdateService(app);
@@ -176,11 +177,12 @@ RedfishService::RedfishService(App& app)
 
     requestRoutesSystems(app);
 
-#ifdef BMCWEB_BIOS
-    requestRoutesBiosService(app);
-    requestRoutesBiosSettings(app);
-    requestRoutesBiosReset(app);
-#endif
+    if constexpr (BMCWEB_BIOS)
+    {
+        requestRoutesBiosService(app);
+        requestRoutesBiosSettings(app);
+        requestRoutesBiosReset(app);
+    }
 
     if constexpr (BMCWEB_VM_NBDPROXY)
     {
@@ -229,9 +231,10 @@ RedfishService::RedfishService(App& app)
     requestRoutesTaskCollection(app);
     requestRoutesTask(app);
     requestRoutesEventService(app);
-#ifdef BMCWEB_SSE
-    requestRoutesEventServiceSse(app);
-#endif
+    if constexpr (BMCWEB_ENABLE_SSE)
+    {
+        requestRoutesEventServiceSse(app);
+    }
     requestRoutesEventDestinationCollection(app);
     requestRoutesEventDestination(app);
     requestRoutesFabricAdapters(app);
@@ -248,10 +251,11 @@ RedfishService::RedfishService(App& app)
     requestRoutesMetricReportDefinition(app);
     requestRoutesMetricReportCollection(app);
     requestRoutesMetricReport(app);
-#ifdef BMCWEB_HOST_OS_FEATURES
-    requestRoutesTriggerCollection(app);
-    requestRoutesTrigger(app);
-#endif
+    if constexpr (BMCWEB_HOST_OS_FEATURES)
+    {
+        requestRoutesTriggerCollection(app);
+        requestRoutesTrigger(app);
+    }
 
     requestRoutesNvidia(app);
     // Note, this must be the last route registered

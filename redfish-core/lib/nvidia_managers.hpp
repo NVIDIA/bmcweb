@@ -74,8 +74,6 @@ const std::string hexPrefix = "0x";
 
 const int invalidDataOutSizeErr = 0x116;
 
-#ifdef BMCWEB_TLS_AUTH_OPT_IN
-
 /**
  * Helper to enable the AuthenticationTLSRequired
  */
@@ -143,8 +141,6 @@ inline void enableTLSAuth()
                          e.what());
     }
 }
-
-#endif // BMCWEB_TLS_AUTH_OPT_IN
 
 /**
  * Function shutdowns the BMC.
@@ -1351,24 +1347,28 @@ inline void
                 }
                 getLinkManagerForSwitches(asyncResp, path);
 
-#ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
-                redfish::conditions_utils::populateServiceConditions(asyncResp,
-                                                                     managerId);
-#endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
+                if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+                {
+                    redfish::conditions_utils::populateServiceConditions(
+                        asyncResp, managerId);
+                }
 
-#ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
-                auto health = std::make_shared<HealthRollup>(
-                    path, [asyncResp](const std::string& rootHealth,
-                                      const std::string& healthRollup) {
-                        asyncResp->res.jsonValue["Status"]["Health"] =
-                            rootHealth;
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-                        asyncResp->res.jsonValue["Status"]["HealthRollup"] =
-                            healthRollup;
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-                    });
-                health->start();
-#endif
+                if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
+                {
+                    auto health = std::make_shared<HealthRollup>(
+                        path, [asyncResp](const std::string& rootHealth,
+                                          const std::string& healthRollup) {
+                            asyncResp->res.jsonValue["Status"]["Health"] =
+                                rootHealth;
+                            if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
+                            {
+                                asyncResp->res
+                                    .jsonValue["Status"]["HealthRollup"] =
+                                    healthRollup;
+                            }
+                        });
+                    health->start();
+                }
                 return;
             }
             messages::resourceNotFound(asyncResp->res,
@@ -1407,87 +1407,81 @@ inline void
                           const std::string& /*managerId*/)
 {
     std::optional<std::string> serviceIdentification;
-
-#ifdef BMCWEB_FENCING_PRIVILEGE
     std::optional<std::string> privilege;
-#endif // BMCWEB_FENCING_PRIVILEGE
-#ifdef BMCWEB_TLS_AUTH_OPT_IN
     std::optional<bool> tlsAuth;
-#endif // BMCWEB_TLS_AUTH_OPT_IN
+    
     std::optional<bool> openocdValue;
 
     if (!json_util::readJsonPatch(
-            req, asyncResp->res,
-#ifdef BMCWEB_FENCING_PRIVILEGE
-            "Oem/Nvidia/SMBPBIFencingPrivilege", privilege,
-#endif // BMCWEB_FENCING_PRIVILEGE
-#ifdef BMCWEB_TLS_AUTH_OPT_IN
+            req, asyncResp->res, "Oem/Nvidia/SMBPBIFencingPrivilege", privilege,
             "Oem/Nvidia/AuthenticationTLSRequired", tlsAuth,
-#endif // BMCWEB_TLS_AUTH_OPT_IN
             "Oem/Nvidia/OpenOCD/Enable", openocdValue))
     {
         return;
     }
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-#ifdef BMCWEB_FENCING_PRIVILEGE
-        if (privilege)
+        if constexpr (BMCWEB_FENCING_PRIVILEGE)
         {
-            crow::connections::systemBus->async_method_call(
-                [asyncResp,
-                 privilege](const boost::system::error_code ec,
-                            const MapperGetSubTreeResponse& subtree) {
-                    if (ec)
-                    {
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    for (const auto& [objectPath, serviceMap] : subtree)
-                    {
-                        if (serviceMap.size() < 1)
+            if (privilege)
+            {
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp,
+                     privilege](const boost::system::error_code ec,
+                                const MapperGetSubTreeResponse& subtree) {
+                        if (ec)
                         {
-                            BMCWEB_LOG_ERROR("Got 0 service "
-                                             "names");
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        const std::string& serviceName = serviceMap[0].first;
-                        // Patch SMBPBI Fencing Privilege
-                        patchFencingPrivilege(asyncResp, *privilege,
-                                              serviceName, objectPath);
-                    }
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/",
-                int32_t(0),
-                std::array<const char*, 1>{
-                    "xyz.openbmc_project.GpuOobRecovery.Server"});
+                        for (const auto& [objectPath, serviceMap] : subtree)
+                        {
+                            if (serviceMap.size() < 1)
+                            {
+                                BMCWEB_LOG_ERROR("Got 0 service "
+                                                 "names");
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+                            const std::string& serviceName =
+                                serviceMap[0].first;
+                            // Patch SMBPBI Fencing Privilege
+                            patchFencingPrivilege(asyncResp, *privilege,
+                                                  serviceName, objectPath);
+                        }
+                    },
+                    "xyz.openbmc_project.ObjectMapper",
+                    "/xyz/openbmc_project/object_mapper",
+                    "xyz.openbmc_project.ObjectMapper", "GetSubTree", "/",
+                    int32_t(0),
+                    std::array<const char*, 1>{
+                        "xyz.openbmc_project.GpuOobRecovery.Server"});
+            }
         }
-#endif // BMCWEB_FENCING_PRIVILEGE
-#ifdef BMCWEB_TLS_AUTH_OPT_IN
-        if (tlsAuth)
+        if constexpr (BMCWEB_TLS_AUTH_OPT_IN)
         {
-            if (*tlsAuth ==
-                persistent_data::nvidia::getConfig().isTLSAuthEnabled())
+            if (tlsAuth)
             {
-                BMCWEB_LOG_DEBUG(
-                    "Ignoring redundant patch of AuthenticationTLSRequired.");
-            }
-            else if (!*tlsAuth)
-            {
-                BMCWEB_LOG_ERROR(
-                    "Disabling AuthenticationTLSRequired is not allowed.");
-                messages::propertyValueIncorrect(
-                    asyncResp->res, "AuthenticationTLSRequired", "false");
-                return;
-            }
-            else
-            {
-                enableTLSAuth();
+                if (*tlsAuth ==
+                    persistent_data::nvidia::getConfig().isTLSAuthEnabled())
+                {
+                    BMCWEB_LOG_DEBUG(
+                        "Ignoring redundant patch of AuthenticationTLSRequired.");
+                }
+                else if (!*tlsAuth)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "Disabling AuthenticationTLSRequired is not allowed.");
+                    messages::propertyValueIncorrect(
+                        asyncResp->res, "AuthenticationTLSRequired", "false");
+                    return;
+                }
+                else
+                {
+                    enableTLSAuth();
+                }
             }
         }
-#endif // BMCWEB_TLS_AUTH_OPT_IN
         if constexpr (BMCWEB_NVIDIA_OEM_OPENOCD)
         {
             if (openocdValue)
@@ -1503,27 +1497,31 @@ inline void
                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const std::string& managerId)
 {
-#ifdef BMCWEB_LLDP_DEDICATED_PORTS
-    asyncResp->res.jsonValue["DedicatedNetworkPorts"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/{}/DedicatedNetworkPorts",
-                            BMCWEB_REDFISH_MANAGER_URI_NAME);
-#endif
-#ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
-    redfish::conditions_utils::populateServiceConditions(
-        asyncResp, std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
-#endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
+    if constexpr (BMCWEB_LLDP_DEDICATED_PORTS)
+    {
+        asyncResp->res.jsonValue["DedicatedNetworkPorts"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Managers/{}/DedicatedNetworkPorts",
+                                BMCWEB_REDFISH_MANAGER_URI_NAME);
+    }
+    if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+    {
+        redfish::conditions_utils::populateServiceConditions(
+            asyncResp, std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
+    }
 
-#ifdef BMCWEB_HOST_IFACE
-    asyncResp->res.jsonValue["HostInterfaces"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/{}/HostInterfaces",
-                            BMCWEB_REDFISH_MANAGER_URI_NAME);
-#endif
+    if constexpr (BMCWEB_HOST_IFACE)
+    {
+        asyncResp->res.jsonValue["HostInterfaces"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Managers/{}/HostInterfaces",
+                                BMCWEB_REDFISH_MANAGER_URI_NAME);
+    }
 
-#ifdef BMCWEB_RMEDIA
-    asyncResp->res.jsonValue["VirtualMedia"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Managers/{}/VirtualMedia",
-                            BMCWEB_REDFISH_MANAGER_URI_NAME);
-#endif
+    if constexpr (BMCWEB_RMEDIA)
+    {
+        asyncResp->res.jsonValue["VirtualMedia"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Managers/{}/VirtualMedia",
+                                BMCWEB_REDFISH_MANAGER_URI_NAME);
+    }
 
     asyncResp->res.jsonValue["Links"]["ManagerForServers@odata.count"] = 1;
 
@@ -1539,11 +1537,13 @@ inline void
     auto health = std::make_shared<HealthPopulate>(asyncResp);
     health->isManagersHealth = true;
     health->populate();
-#ifdef BMCWEB_IPMI_SOL
-    asyncResp->res.jsonValue["CommandShell"]["MaxConcurrentSessions"] = 1;
-    asyncResp->res.jsonValue["CommandShell"]["ConnectTypesSupported"] = {"SSH"};
-    getIsCommandShellEnable(asyncResp);
-#endif
+    if constexpr (BMCWEB_COMMAND_SHELL)
+    {
+        asyncResp->res.jsonValue["CommandShell"]["MaxConcurrentSessions"] = 1;
+        asyncResp->res.jsonValue["CommandShell"]["ConnectTypesSupported"] = {
+            "SSH"};
+        getIsCommandShellEnable(asyncResp);
+    }
     // Get Managers Chassis ID
     crow::connections::systemBus->async_method_call(
         [asyncResp, managerId](
@@ -1660,29 +1660,31 @@ inline void
                               std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                               "/Truststore/Certificates"}};
 
-#ifdef BMCWEB_NVIDIA_OEM_COMMON_PROPERTIES
-        oem["Nvidia"]["@odata.id"] =
-            "/redfish/v1/Managers/" +
-            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) + "/Oem/Nvidia";
-#endif // BMCWEB_NVIDIA_OEM_COMMON_PROPERTIES
+        if constexpr (BMCWEB_NVIDIA_OEM_COMMON_PROPERTIES)
+        {
+            oem["Nvidia"]["@odata.id"] =
+                "/redfish/v1/Managers/" +
+                std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) + "/Oem/Nvidia";
+        }
     }
 
-#ifdef BMCWEB_NVIDIA_OEM_GB200NVL_PROPERTIES
-    oem["Nvidia"]["UptimeSeconds"] = [asyncResp]() -> double {
-        double uptime = 0;
-        auto ifs = std::ifstream("/proc/uptime", std::ifstream::in);
-        if (ifs.good())
-        {
-            ifs >> uptime;
-        }
-        else
-        {
-            BMCWEB_LOG_ERROR("Failed to get uptime from /proc/uptime.");
-            messages::internalError(asyncResp->res);
-        }
-        return uptime;
-    }();
-#endif // BMCWEB_NVIDIA_OEM_GB200NVL_PROPERTIES
+    if constexpr (BMCWEB_NVIDIA_OEM_GB200NVL_PROPERTIES)
+    {
+        oem["Nvidia"]["UptimeSeconds"] = [asyncResp]() -> double {
+            double uptime = 0;
+            auto ifs = std::ifstream("/proc/uptime", std::ifstream::in);
+            if (ifs.good())
+            {
+                ifs >> uptime;
+            }
+            else
+            {
+                BMCWEB_LOG_ERROR("Failed to get uptime from /proc/uptime.");
+                messages::internalError(asyncResp->res);
+            }
+            return uptime;
+        }();
+    }
 
     if constexpr (BMCWEB_NVIDIA_OEM_OPENOCD)
     {
@@ -1775,36 +1777,40 @@ inline void
     }
     getFencingPrivilege(asyncResp);
 
-#ifdef BMCWEB_TLS_AUTH_OPT_IN
-    oemNvidia["AuthenticationTLSRequired"] =
-        persistent_data::nvidia::getConfig().isTLSAuthEnabled();
-#endif
+    if constexpr (BMCWEB_TLS_AUTH_OPT_IN)
+    {
+        oemNvidia["AuthenticationTLSRequired"] =
+            persistent_data::nvidia::getConfig().isTLSAuthEnabled();
+    }
 
     populatePersistentStorageSettingStatus(asyncResp);
 
     nlohmann::json& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
 
-#ifdef BMCWEB_COMMAND_SMBPBI_OOB
-    nlohmann::json& oemActionsNvidia = oemActions["Nvidia"];
+    if constexpr (BMCWEB_COMMAND_SMBPBI_OOB)
+    {
+        nlohmann::json& oemActionsNvidia = oemActions["Nvidia"];
 
-    oemActionsNvidia["#NvidiaManager.SyncOOBRawCommand"]["target"] =
-        "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-        "/Actions/Oem/NvidiaManager.SyncOOBRawCommand";
-    oemActionsNvidia["#NvidiaManager.SyncOOBRawCommand"]
-                    ["@Redfish.ActionInfo"] =
-                        "/redfish/v1/Managers/" +
-                        std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                        "/Oem/Nvidia/SyncOOBRawCommandActionInfo";
+        oemActionsNvidia["#NvidiaManager.SyncOOBRawCommand"]["target"] =
+            "/redfish/v1/Managers/" +
+            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+            "/Actions/Oem/NvidiaManager.SyncOOBRawCommand";
+        oemActionsNvidia["#NvidiaManager.SyncOOBRawCommand"]
+                        ["@Redfish.ActionInfo"] =
+                            "/redfish/v1/Managers/" +
+                            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                            "/Oem/Nvidia/SyncOOBRawCommandActionInfo";
 
-    oemActionsNvidia["#NvidiaManager.AsyncOOBRawCommand"]["target"] =
-        "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-        "/Actions/Oem/NvidiaManager.AsyncOOBRawCommand";
-    oemActionsNvidia["#NvidiaManager.AsyncOOBRawCommand"]
-                    ["@Redfish.ActionInfo"] =
-                        "/redfish/v1/Managers/" +
-                        std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                        "/Oem/Nvidia/AsyncOOBRawCommandActionInfo";
-#endif // BMCWEB_COMMAND_SMBPBI_OOB
+        oemActionsNvidia["#NvidiaManager.AsyncOOBRawCommand"]["target"] =
+            "/redfish/v1/Managers/" +
+            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+            "/Actions/Oem/NvidiaManager.AsyncOOBRawCommand";
+        oemActionsNvidia["#NvidiaManager.AsyncOOBRawCommand"]
+                        ["@Redfish.ActionInfo"] =
+                            "/redfish/v1/Managers/" +
+                            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                            "/Oem/Nvidia/AsyncOOBRawCommandActionInfo";
+    }
 
     oemActions["#eMMC.SecureErase"]["target"] =
         "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +

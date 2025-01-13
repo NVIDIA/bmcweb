@@ -2290,167 +2290,168 @@ inline void requestEthernetInterfacesRoutes(App& app)
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/<str>/")
         .privileges(redfish::privileges::patchEthernetInterface)
-        .methods(boost::beast::http::verb::patch)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& managerId, const std::string& ifaceId) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
+        .methods(
+            boost::beast::http::verb::
+                patch)([&app](
+                           const crow::Request& req,
+                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& managerId,
+                           const std::string& ifaceId) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
 
-                if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-                {
-                    messages::resourceNotFound(asyncResp->res, "Manager",
-                                               managerId);
-                    return;
-                }
+            if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "Manager",
+                                           managerId);
+                return;
+            }
 
-                std::optional<std::string> hostname;
-                std::optional<std::string> fqdn;
-                std::optional<std::string> macAddress;
-                std::optional<std::string> ipv6DefaultGateway;
-                std::optional<std::vector<
-                    std::variant<nlohmann::json::object_t, std::nullptr_t>>>
-                    ipv4StaticAddresses;
-                std::optional<std::vector<
-                    std::variant<nlohmann::json::object_t, std::nullptr_t>>>
-                    ipv6StaticAddresses;
-                std::optional<std::vector<
-                    std::variant<nlohmann::json::object_t, std::nullptr_t>>>
-                    ipv6StaticDefaultGateways;
-                std::optional<std::vector<std::string>> staticNameServers;
-                std::optional<bool> ipv6AutoConfigEnabled;
-                std::optional<bool> interfaceEnabled;
-                std::optional<size_t> mtuSize;
-                DHCPParameters v4dhcpParms;
-                DHCPParameters v6dhcpParms;
+            std::optional<std::string> hostname;
+            std::optional<std::string> fqdn;
+            std::optional<std::string> macAddress;
+            std::optional<std::string> ipv6DefaultGateway;
+            std::optional<std::vector<
+                std::variant<nlohmann::json::object_t, std::nullptr_t>>>
+                ipv4StaticAddresses;
+            std::optional<std::vector<
+                std::variant<nlohmann::json::object_t, std::nullptr_t>>>
+                ipv6StaticAddresses;
+            std::optional<std::vector<
+                std::variant<nlohmann::json::object_t, std::nullptr_t>>>
+                ipv6StaticDefaultGateways;
+            std::optional<std::vector<std::string>> staticNameServers;
+            std::optional<bool> ipv6AutoConfigEnabled;
+            std::optional<bool> interfaceEnabled;
+            std::optional<size_t> mtuSize;
+            DHCPParameters v4dhcpParms;
+            DHCPParameters v6dhcpParms;
 
-                if (!json_util::readJsonPatch( //
-                        req, asyncResp->res, //
-                        "DHCPv4/DHCPEnabled", v4dhcpParms.dhcpv4Enabled, //
-                        "DHCPv4/UseDNSServers", v4dhcpParms.useDnsServers, //
-                        "DHCPv4/UseDomainName", v4dhcpParms.useDomainName, //
-                        "DHCPv4/UseNTPServers", v4dhcpParms.useNtpServers, //
-                        "DHCPv6/OperatingMode",
-                        v6dhcpParms.dhcpv6OperatingMode, //
-                        "DHCPv6/UseDNSServers", v6dhcpParms.useDnsServers, //
-                        "DHCPv6/UseDomainName", v6dhcpParms.useDomainName, //
-                        "DHCPv6/UseNTPServers", v6dhcpParms.useNtpServers, //
-                        "FQDN", fqdn, //
-                        "HostName", hostname, //
-                        "InterfaceEnabled", interfaceEnabled, //
-                        "IPv4StaticAddresses", ipv4StaticAddresses, //
-                        "IPv6DefaultGateway", ipv6DefaultGateway, //
-                        "IPv6StaticAddresses", ipv6StaticAddresses, //
-                        "IPv6StaticDefaultGateways",
-                        ipv6StaticDefaultGateways, //
-                        "InterfaceEnabled", interfaceEnabled, //
-                        "MACAddress", macAddress, //
-                        "MTUSize", mtuSize, //
-                        "StatelessAddressAutoConfig/IPv6AutoConfigEnabled",
-                        ipv6AutoConfigEnabled, //
-                        "StaticNameServers", staticNameServers //
-                        ))
-                {
-                    return;
-                }
-#ifndef BMCWEB_DHCP_CONFIGURATION_UPDATE
+            if (!json_util::readJsonPatch( //
+                    req, asyncResp->res, //
+                    "DHCPv4/DHCPEnabled", v4dhcpParms.dhcpv4Enabled, //
+                    "DHCPv4/UseDNSServers", v4dhcpParms.useDnsServers, //
+                    "DHCPv4/UseDomainName", v4dhcpParms.useDomainName, //
+                    "DHCPv4/UseNTPServers", v4dhcpParms.useNtpServers, //
+                    "DHCPv6/OperatingMode",
+                    v6dhcpParms.dhcpv6OperatingMode, //
+                    "DHCPv6/UseDNSServers", v6dhcpParms.useDnsServers, //
+                    "DHCPv6/UseDomainName", v6dhcpParms.useDomainName, //
+                    "DHCPv6/UseNTPServers", v6dhcpParms.useNtpServers, //
+                    "FQDN", fqdn, //
+                    "HostName", hostname, //
+                    "InterfaceEnabled", interfaceEnabled, //
+                    "IPv4StaticAddresses", ipv4StaticAddresses, //
+                    "IPv6DefaultGateway", ipv6DefaultGateway, //
+                    "IPv6StaticAddresses", ipv6StaticAddresses, //
+                    "IPv6StaticDefaultGateways",
+                    ipv6StaticDefaultGateways, //
+                    "InterfaceEnabled", interfaceEnabled, //
+                    "MACAddress", macAddress, //
+                    "MTUSize", mtuSize, //
+                    "StatelessAddressAutoConfig/IPv6AutoConfigEnabled",
+                    ipv6AutoConfigEnabled, //
+                    "StaticNameServers", staticNameServers //
+                    ))
+            {
+                return;
+            }
+            if constexpr (!BMCWEB_DHCP_CONFIGURATION_UPDATE)
+            {
                 if (v4dhcpParms.dhcpv4Enabled)
                 {
                     messages::propertyNotWritable(asyncResp->res, "DHCPv4");
                     return;
                 }
-#endif
-                // Get single eth interface data, and call the below callback
-                // for JSON preparation
-                getEthernetIfaceData(
-                    ifaceId,
-                    [asyncResp, ifaceId, hostname = std::move(hostname),
-                     fqdn = std::move(fqdn), macAddress = std::move(macAddress),
-                     ipv4StaticAddresses = std::move(ipv4StaticAddresses),
-                     ipv6DefaultGateway = std::move(ipv6DefaultGateway),
-                     ipv6StaticAddresses = std::move(ipv6StaticAddresses),
-                     ipv6StaticDefaultGateway =
-                         std::move(ipv6StaticDefaultGateways),
-                     staticNameServers = std::move(staticNameServers), mtuSize,
-                     ipv6AutoConfigEnabled,
-                     v4dhcpParms = std::move(v4dhcpParms),
-                     v6dhcpParms = std::move(v6dhcpParms), interfaceEnabled](
-                        const bool success,
-                        const EthernetInterfaceData& ethData,
-                        const std::vector<IPv4AddressData>& ipv4Data,
-                        const std::vector<IPv6AddressData>& ipv6Data,
-                        const std::vector<StaticGatewayData>&
-                            ipv6GatewayData) mutable {
-                        if (!success)
-                        {
-                            // ... otherwise return error
-                            // TODO(Pawel)consider distinguish between non
-                            // existing object, and other errors
-                            messages::resourceNotFound(
-                                asyncResp->res, "EthernetInterface", ifaceId);
-                            return;
-                        }
+            }
+            // Get single eth interface data, and call the below callback
+            // for JSON preparation
+            getEthernetIfaceData(
+                ifaceId,
+                [asyncResp, ifaceId, hostname = std::move(hostname),
+                 fqdn = std::move(fqdn), macAddress = std::move(macAddress),
+                 ipv4StaticAddresses = std::move(ipv4StaticAddresses),
+                 ipv6DefaultGateway = std::move(ipv6DefaultGateway),
+                 ipv6StaticAddresses = std::move(ipv6StaticAddresses),
+                 ipv6StaticDefaultGateway =
+                     std::move(ipv6StaticDefaultGateways),
+                 staticNameServers = std::move(staticNameServers), mtuSize,
+                 ipv6AutoConfigEnabled, v4dhcpParms = std::move(v4dhcpParms),
+                 v6dhcpParms = std::move(v6dhcpParms), interfaceEnabled](
+                    const bool success, const EthernetInterfaceData& ethData,
+                    const std::vector<IPv4AddressData>& ipv4Data,
+                    const std::vector<IPv6AddressData>& ipv6Data,
+                    const std::vector<StaticGatewayData>&
+                        ipv6GatewayData) mutable {
+                    if (!success)
+                    {
+                        // ... otherwise return error
+                        // TODO(Pawel)consider distinguish between non
+                        // existing object, and other errors
+                        messages::resourceNotFound(
+                            asyncResp->res, "EthernetInterface", ifaceId);
+                        return;
+                    }
 
-                        handleDHCPPatch(ifaceId, ethData, v4dhcpParms,
-                                        v6dhcpParms, asyncResp);
+                    handleDHCPPatch(ifaceId, ethData, v4dhcpParms, v6dhcpParms,
+                                    asyncResp);
 
-                        if (hostname)
-                        {
-                            handleHostnamePatch(*hostname, asyncResp);
-                        }
+                    if (hostname)
+                    {
+                        handleHostnamePatch(*hostname, asyncResp);
+                    }
 
-                        if (ipv6AutoConfigEnabled)
-                        {
-                            handleSLAACAutoConfigPatch(
-                                ifaceId, *ipv6AutoConfigEnabled, asyncResp);
-                        }
+                    if (ipv6AutoConfigEnabled)
+                    {
+                        handleSLAACAutoConfigPatch(
+                            ifaceId, *ipv6AutoConfigEnabled, asyncResp);
+                    }
 
-                        if (fqdn)
-                        {
-                            handleFqdnPatch(ifaceId, *fqdn, asyncResp);
-                        }
+                    if (fqdn)
+                    {
+                        handleFqdnPatch(ifaceId, *fqdn, asyncResp);
+                    }
 
-                        if (macAddress)
-                        {
-                            handleMACAddressPatch(ifaceId, *macAddress,
-                                                  asyncResp);
-                        }
+                    if (macAddress)
+                    {
+                        handleMACAddressPatch(ifaceId, *macAddress, asyncResp);
+                    }
 
-                        if (ipv4StaticAddresses)
-                        {
-                            handleIPv4StaticPatch(ifaceId, *ipv4StaticAddresses,
-                                                  ethData, ipv4Data, asyncResp);
-                        }
+                    if (ipv4StaticAddresses)
+                    {
+                        handleIPv4StaticPatch(ifaceId, *ipv4StaticAddresses,
+                                              ethData, ipv4Data, asyncResp);
+                    }
 
-                        if (staticNameServers)
-                        {
-                            handleStaticNameServersPatch(
-                                ifaceId, *staticNameServers, asyncResp);
-                        }
+                    if (staticNameServers)
+                    {
+                        handleStaticNameServersPatch(
+                            ifaceId, *staticNameServers, asyncResp);
+                    }
 
-                        if (ipv6DefaultGateway)
-                        {
-                            messages::propertyNotWritable(asyncResp->res,
-                                                          "IPv6DefaultGateway");
-                        }
+                    if (ipv6DefaultGateway)
+                    {
+                        messages::propertyNotWritable(asyncResp->res,
+                                                      "IPv6DefaultGateway");
+                    }
 
-                        if (ipv6StaticAddresses)
+                    if (ipv6StaticAddresses)
+                    {
+                        handleIPv6StaticAddressesPatch(
+                            ifaceId, *ipv6StaticAddresses, ipv6Data, asyncResp);
+                    }
+                    if (ipv6StaticDefaultGateway)
+                    {
+                        handleIPv6DefaultGateway(ifaceId,
+                                                 *ipv6StaticDefaultGateway,
+                                                 ipv6GatewayData, asyncResp);
+                    }
+                    if (interfaceEnabled)
+                    {
+                        if constexpr (BMCWEB_NIC_CONFIGURATION_UPDATE)
                         {
-                            handleIPv6StaticAddressesPatch(ifaceId,
-                                                           *ipv6StaticAddresses,
-                                                           ipv6Data, asyncResp);
-                        }
-                        if (ipv6StaticDefaultGateway)
-                        {
-                            handleIPv6DefaultGateway(
-                                ifaceId, *ipv6StaticDefaultGateway,
-                                ipv6GatewayData, asyncResp);
-                        }
-                        if (interfaceEnabled)
-                        {
-#ifdef BMCWEB_NIC_CONFIGURATION_UPDATE
                             setDbusProperty(
                                 asyncResp, "InterfaceEnabled",
                                 "xyz.openbmc_project.Network",
@@ -2459,19 +2460,21 @@ inline void requestEthernetInterfacesRoutes(App& app)
                                     ifaceId,
                                 "xyz.openbmc_project.Network.EthernetInterface",
                                 "NICEnabled", *interfaceEnabled);
-#else
+                        }
+                        else
+                        {
                             messages::propertyNotWritable(asyncResp->res,
                                                           "InterfaceEnabled");
                             return;
-#endif
                         }
+                    }
 
-                        if (mtuSize)
-                        {
-                            handleMTUSizePatch(ifaceId, *mtuSize, asyncResp);
-                        }
-                    });
-            });
+                    if (mtuSize)
+                    {
+                        handleMTUSizePatch(ifaceId, *mtuSize, asyncResp);
+                    }
+                });
+        });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/<str>/")
         .privileges(redfish::privileges::deleteEthernetInterface)

@@ -339,15 +339,16 @@ inline void
     nlohmann::json& membersArray = asyncResp->res.jsonValue["Members"];
     membersArray = nlohmann::json::array();
 
-#ifdef BMCWEB_REDFISH_LEAK_DETECT
-    boost::urls::url leakDetectionPolicyUrl = boost::urls::format(
-        "/redfish/v1/Chassis/{}/Policies/LeakDetectionPolicy", chassisId);
+    if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
+    {
+        boost::urls::url leakDetectionPolicyUrl = boost::urls::format(
+            "/redfish/v1/Chassis/{}/Policies/LeakDetectionPolicy", chassisId);
 
-    nlohmann::json::object_t leakDetectionPolicyObject;
-    leakDetectionPolicyObject.emplace("@odata.id", leakDetectionPolicyUrl);
+        nlohmann::json::object_t leakDetectionPolicyObject;
+        leakDetectionPolicyObject.emplace("@odata.id", leakDetectionPolicyUrl);
 
-    membersArray.emplace_back(std::move(leakDetectionPolicyObject));
-#endif
+        membersArray.emplace_back(std::move(leakDetectionPolicyObject));
+    }
     asyncResp->res.jsonValue["Members@odata.count"] = membersArray.size();
 }
 

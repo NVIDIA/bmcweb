@@ -50,9 +50,10 @@ inline void doLeakDetection(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
     asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-    asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
+    if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
+    {
+        asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
+    }
 }
 
 inline void

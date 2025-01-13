@@ -17,26 +17,20 @@ limitations under the License.
 
 #include "bmcweb_config.h"
 
-#include "persistentstorage_util.hpp"
-
-#include <http_client.hpp>
-#include <http_connection.hpp>
-#ifdef BMCWEB_REDFISH_AGGREGATION
-#include "redfish_aggregator.hpp"
-#endif
-
 #include "app.hpp"
 #include "component_integrity.hpp"
 #include "dbus_utility.hpp"
 #include "multipart_parser.hpp"
+#include "nvidia_update_service.hpp"
 #include "ossl_random.hpp"
+#include "persistentstorage_util.hpp"
 #include "query.hpp"
+#include "redfish_aggregator.hpp"
 #include "registries/privilege_registry.hpp"
 #include "task.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/sw_utils.hpp"
-#include "nvidia_update_service.hpp"
 
 #include <sys/mman.h>
 
@@ -46,6 +40,8 @@ limitations under the License.
 #include <boost/url/format.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <http_client.hpp>
+#include <http_connection.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/bus/match.hpp>
 #include <sdbusplus/unpack_properties.hpp>
@@ -85,7 +81,8 @@ constexpr auto maxStagedUpdatesPerHour = 16;
 // one hour.
 constexpr auto stageRateLimitDurationInSeconds = 3600;
 // allowed firmware image size
-constexpr const size_t firmwareImageLimitBytes = BMCWEB_FIRMWARE_IMAGE_LIMIT * 1024 * 1024;
+constexpr const size_t firmwareImageLimitBytes =
+    BMCWEB_FIRMWARE_IMAGE_LIMIT * 1024 * 1024;
 // staged update counter for rate limit
 static uint8_t stagedUpdateCount = 0;
 // staged update time stamp for rate limit
@@ -746,10 +743,11 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
             {
                 supportedProtocols.push_back("SCP");
             }
-#ifdef BMCWEB_REDFISH_UPDATESERVICE_HTTP_PULL
-            supportedProtocols.push_back("HTTP");
-            supportedProtocols.push_back("HTTPS");
-#endif
+            if constexpr (BMCWEB_REDFISH_UPDATESERVICE_HTTP_PULL)
+            {
+                supportedProtocols.push_back("HTTP");
+                supportedProtocols.push_back("HTTPS");
+            }
 
             // OpenBMC currently only supports TFTP and SCP
             if (std::find(supportedProtocols.begin(), supportedProtocols.end(),
@@ -1696,29 +1694,33 @@ inline bool parseMultipartForm(
 
                 try
                 {
-#ifdef BMCWEB_NVIDIA_OEM_FW_UPDATE_STAGING
-                    std::optional<nlohmann::json> oemObject;
-                    json_util::readJson(content, asyncResp->res, "Targets",
-                                        targets, "@Redfish.OperationApplyTime",
-                                        applyTime, "ForceUpdate", forceUpdate,
-                                        "Oem", oemObject);
-
-                    if (oemObject)
+                    if constexpr (BMCWEB_NVIDIA_OEM_FW_UPDATE_STAGING)
                     {
-                        std::optional<nlohmann::json> oemNvidiaObject;
-                        if (json_util::readJson(*oemObject, asyncResp->res,
-                                                "Nvidia", oemNvidiaObject))
+                        std::optional<nlohmann::json> oemObject;
+                        json_util::readJson(
+                            content, asyncResp->res, "Targets", targets,
+                            "@Redfish.OperationApplyTime", applyTime,
+                            "ForceUpdate", forceUpdate, "Oem", oemObject);
+
+                        if (oemObject)
                         {
-                            json_util::readJson(*oemNvidiaObject,
-                                                asyncResp->res, "UpdateOption",
-                                                oemUpdateOption);
+                            std::optional<nlohmann::json> oemNvidiaObject;
+                            if (json_util::readJson(*oemObject, asyncResp->res,
+                                                    "Nvidia", oemNvidiaObject))
+                            {
+                                json_util::readJson(
+                                    *oemNvidiaObject, asyncResp->res,
+                                    "UpdateOption", oemUpdateOption);
+                            }
                         }
                     }
-#else
-                    json_util::readJson(content, asyncResp->res, "Targets",
-                                        targets, "@Redfish.OperationApplyTime",
-                                        applyTime, "ForceUpdate", forceUpdate);
-#endif
+                    else
+                    {
+                        json_util::readJson(
+                            content, asyncResp->res, "Targets", targets,
+                            "@Redfish.OperationApplyTime", applyTime,
+                            "ForceUpdate", forceUpdate);
+                    }
                 }
                 catch (const std::exception& e)
                 {
@@ -1820,7 +1822,6 @@ inline bool validateUpdateFileFormData(
     return true;
 }
 
-#ifdef BMCWEB_REDFISH_AGGREGATION
 /**
  * @brief retry handler of the aggregation post request.
  *
@@ -1968,7 +1969,7 @@ inline void forwardImage(
         return;
     }
 
-    const auto& sat = satelliteInfo.find(BMCWEB_REDFISH_AGGREGATION_PREFIX);
+    const auto& sat = satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
     if (sat == satelliteInfo.end())
     {
         BMCWEB_LOG_ERROR("satellite BMC is not there.");
@@ -2049,17 +2050,18 @@ inline void forwardImage(
                         // we don't remove the prefix if the resource's
                         // prefix from FirmwareInventory is the same with
                         // RFA prefix.
-#ifdef RAF_PREFIX_REMOVAL
-                        // remove prefix before the update request is
-                        // forwarded.
-                        std::string file =
-                            std::filesystem::path(uri).filename();
-                        size_t pos = uri.find(urlPrefix + "_");
-                        if (pos != std::string::npos)
+                        if constexpr (BMCWEB_REDFISH_AGGREGATION_PREFIX_REMOVAL)
                         {
-                            uri.erase(pos, urlPrefix.size() + 1);
+                            // remove prefix before the update request is
+                            // forwarded.
+                            std::string file =
+                                std::filesystem::path(uri).filename();
+                            size_t pos = uri.find(urlPrefix + "_");
+                            if (pos != std::string::npos)
+                            {
+                                uri.erase(pos, urlPrefix.size() + 1);
+                            }
                         }
-#endif
                         BMCWEB_LOG_DEBUG("uri in Targets: {}", uri);
                         paramJson["Targets"].push_back(uri);
                     }
@@ -2094,11 +2096,10 @@ inline void forwardImage(
             req.clearHeader(boost::beast::http::field::expect);
         }
         BMCWEB_LOG_INFO("Expect header value {}", req.getHeaderValue("Expect"));
-        client.sendDataWithCallback(std::move(data), url, req.fields(),
+        client.sendDataWithCallback(std::move(data), url, ensuressl::VerifyCertificate::Verify, req.fields(),
                                     boost::beast::http::verb::post, cb);
     }
 }
-#endif
 
 /**
  * @brief Sets the ForceUpdate flag in the update policy.
@@ -2212,77 +2213,79 @@ inline void processMultipartFormData(
     }
 
     std::vector<std::string> uriTargets{*targets};
-#ifdef BMCWEB_REDFISH_AGGREGATION
-    bool updateAll = false;
-    uint8_t count = 0;
-    std::string rfaPrefix = std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX);
-    if (uriTargets.size() > 0)
+    if constexpr (BMCWEB_REDFISH_AGGREGATION)
     {
-        for (const auto& uri : uriTargets)
+        bool updateAll = false;
+        uint8_t count = 0;
+        std::string rfaPrefix = std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX);
+        if (uriTargets.size() > 0)
         {
-            std::string file = std::filesystem::path(uri).filename();
-            std::string prefix = rfaPrefix + "_";
-            if (file.starts_with(prefix))
+            for (const auto& uri : uriTargets)
             {
-                count++;
-            }
+                std::string file = std::filesystem::path(uri).filename();
+                std::string prefix = rfaPrefix + "_";
+                if (file.starts_with(prefix))
+                {
+                    count++;
+                }
 
-            auto parsed = boost::urls::parse_relative_ref(uri);
-            if (!parsed)
+                auto parsed = boost::urls::parse_relative_ref(uri);
+                if (!parsed)
+                {
+                    BMCWEB_LOG_DEBUG("Couldn't parse URI from resource ", uri);
+                    return;
+                }
+
+                boost::urls::url_view thisUrl = *parsed;
+
+                // this is the Chassis resource from satellite BMC for all
+                // component firmware update.
+                if (crow::utility::readUrlSegments(
+                        thisUrl, "redfish", "v1", "Chassis",
+                        std::string(BMCWEB_RFA_HMC_UPDATE_TARGET)))
+                {
+                    updateAll = true;
+                }
+            }
+            // There is one URI at least for satellite BMC.
+            if (count > 0)
             {
-                BMCWEB_LOG_DEBUG("Couldn't parse URI from resource ", uri);
+                // further check if there is mixed targets and some are not
+                // for satellite BMC.
+                if (count != uriTargets.size())
+                {
+                    boost::urls::url_view targetURL("Target");
+                    messages::invalidObject(asyncResp->res, targetURL);
+                }
+                else
+                {
+                    // All URIs in Target has the prepended prefix
+                    BMCWEB_LOG_DEBUG("forward image {}", uriTargets[0]);
+
+                    // clear up the body buffer of the request to save memory
+                    req.clearBody();
+                    RedfishAggregator::getSatelliteConfigs(std::bind_front(
+                        forwardImage, req, parser, updateAll, asyncResp));
+                }
                 return;
             }
-
-            boost::urls::url_view thisUrl = *parsed;
-
-            // this is the Chassis resource from satellite BMC for all
-            // component firmware update.
-            if (crow::utility::readUrlSegments(
-                    thisUrl, "redfish", "v1", "Chassis",
-                    std::string(BMCWEB_RFA_HMC_UPDATE_TARGET)))
-            {
-                updateAll = true;
-            }
         }
-        // There is one URI at least for satellite BMC.
-        if (count > 0)
+        // the update request is for BMC so only allow one FW update at a time
+        if (fwUpdateInProgress != false)
         {
-            // further check if there is mixed targets and some are not
-            // for satellite BMC.
-            if (count != uriTargets.size())
+            if (asyncResp)
             {
-                boost::urls::url_view targetURL("Target");
-                messages::invalidObject(asyncResp->res, targetURL);
-            }
-            else
-            {
-                // All URIs in Target has the prepended prefix
-                BMCWEB_LOG_DEBUG("forward image {}", uriTargets[0]);
-
-                // clear up the body buffer of the request to save memory
-                req.clearBody();
-                RedfishAggregator::getSatelliteConfigs(std::bind_front(
-                    forwardImage, req, parser, updateAll, asyncResp));
+                // don't copy the image, update already in progress.
+                std::string resolution =
+                    "Another update is in progress. Retry"
+                    " the update operation once it is complete.";
+                redfish::messages::updateInProgressMsg(asyncResp->res,
+                                                       resolution);
+                BMCWEB_LOG_ERROR("Update already in progress.");
             }
             return;
         }
     }
-    // the update request is for BMC so only allow one FW update at a time
-    if (fwUpdateInProgress != false)
-    {
-        if (asyncResp)
-        {
-            // don't copy the image, update already in progress.
-            std::string resolution =
-                "Another update is in progress. Retry"
-                " the update operation once it is complete.";
-            redfish::messages::updateInProgressMsg(asyncResp->res, resolution);
-            BMCWEB_LOG_ERROR("Update already in progress.");
-        }
-        return;
-    }
-#endif
     auto sharedReq = std::make_shared<const crow::Request>(req);
 
     setForceUpdate(asyncResp, "/xyz/openbmc_project/software",
@@ -2496,10 +2499,11 @@ class BMCStatusAsyncResp
         {
             asyncResp->res.jsonValue["Status"]["State"] = "UnavailableOffline";
         }
-#ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
-        asyncResp->res.jsonValue["Status"]["Conditions"] =
-            nlohmann::json::array();
-#endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
+        if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+        {
+            asyncResp->res.jsonValue["Status"]["Conditions"] =
+                nlohmann::json::array();
+        }
     }
 
     BMCStatusAsyncResp(const BMCStatusAsyncResp&) = delete;
@@ -2535,8 +2539,8 @@ inline void requestRoutesUpdateService(App& app)
                 "Service for Software Update";
             asyncResp->res.jsonValue["Name"] = "Update Service";
 
-        asyncResp->res.jsonValue["HttpPushUri"] =
-            "/redfish/v1/UpdateService/update";
+            asyncResp->res.jsonValue["HttpPushUri"] =
+                "/redfish/v1/UpdateService/update";
 
             // UpdateService cannot be disabled
             asyncResp->res.jsonValue["ServiceEnabled"] = true;
@@ -2576,7 +2580,7 @@ inline void requestRoutesUpdateService(App& app)
                 {"target",
                  "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.RevokeAllRemoteServerPublicKeys"}};
 
-        extendUpdateServiceGet(asyncResp);
+            extendUpdateServiceGet(asyncResp);
 
 #if defined(BMCWEB_INSECURE_TFTP_UPDATE) || defined(BMCWEB_SCP_UPDATE) ||      \
     defined(BMCWEB_REDFISH_UPDATESERVICE_HTTP_PULL)
@@ -2600,12 +2604,13 @@ inline void requestRoutesUpdateService(App& app)
                 updateSvcSimpleUpdate
                     ["TransferProtocol@Redfish.AllowableValues"] += "SCP";
             }
-#ifdef BMCWEB_REDFISH_UPDATESERVICE_HTTP_PULL
-            updateSvcSimpleUpdate["TransferProtocol@Redfish.AllowableValues"] +=
-                "HTTP";
-            updateSvcSimpleUpdate["TransferProtocol@Redfish.AllowableValues"] +=
-                "HTTPS";
-#endif
+            if constexpr (BMCWEB_REDFISH_UPDATESERVICE_HTTP_PULL)
+            {
+                updateSvcSimpleUpdate
+                    ["TransferProtocol@Redfish.AllowableValues"] += "HTTP";
+                updateSvcSimpleUpdate
+                    ["TransferProtocol@Redfish.AllowableValues"] += "HTTPS";
+            }
 #endif
             asyncResp->res.jsonValue["HttpPushUriOptions"]
                                     ["HttpPushUriApplyTime"]["ApplyTime"] =
@@ -2916,30 +2921,29 @@ inline void requestRoutesUpdateService(App& app)
             }
         } // namespace redfish
         );
-// The "old" behavior of the update service URI causes redfish-service validator
-// failures when the Allow header is supported, given that in the spec,
-// UpdateService does not allow POST.  in openbmc, we unfortunately reused that
-// resource as our HttpPushUri as well.  A number of services, including the
-// openbmc tests, and documentation have hardcoded that erroneous API, instead
-// of relying on HttpPushUri as the spec requires.  This option will exist
-// temporarily to allow the old behavior until Q4 2022, at which time it will be
-// removed.
-if constexpr(BMCWEB_REDFISH_POST_TO_OLD_UPDATESERVICE)
-{
-    BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/")
-        .privileges(redfish::privileges::postUpdateService)
-        .methods(
-            boost::beast::http::verb::
-                post)([&app](
-                          const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-            asyncResp->res.addHeader(
-                boost::beast::http::field::warning,
-                "299 - \"POST to /redfish/v1/UpdateService is deprecated. Use "
-                "the value contained within HttpPushUri.\"");
-            handleUpdateServicePost(app, req, asyncResp);
-        });
-}
+    // The "old" behavior of the update service URI causes redfish-service
+    // validator failures when the Allow header is supported, given that in the
+    // spec, UpdateService does not allow POST.  in openbmc, we unfortunately
+    // reused that resource as our HttpPushUri as well.  A number of services,
+    // including the openbmc tests, and documentation have hardcoded that
+    // erroneous API, instead of relying on HttpPushUri as the spec requires.
+    // This option will exist temporarily to allow the old behavior until Q4
+    // 2022, at which time it will be removed.
+    if constexpr (BMCWEB_REDFISH_POST_TO_OLD_UPDATESERVICE)
+    {
+        BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/")
+            .privileges(redfish::privileges::postUpdateService)
+            .methods(boost::beast::http::verb::
+                         post)([&app](const crow::Request& req,
+                                      const std::shared_ptr<bmcweb::AsyncResp>&
+                                          asyncResp) {
+                asyncResp->res.addHeader(
+                    boost::beast::http::field::warning,
+                    "299 - \"POST to /redfish/v1/UpdateService is deprecated. Use "
+                    "the value contained within HttpPushUri.\"");
+                handleUpdateServicePost(app, req, asyncResp);
+            });
+    }
     BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/update/")
         .privileges(redfish::privileges::postUpdateService)
         .methods(boost::beast::http::verb::post)(
@@ -4180,27 +4184,29 @@ inline void requestRoutesSoftwareInventory(App& app)
                         }
 
                         asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-                        asyncResp->res.jsonValue["Status"]["HealthRollup"] =
-                            "OK";
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-#ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
-                        asyncResp->res.jsonValue["Status"]["Conditions"] =
-                            nlohmann::json::array();
-#endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
+                        if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
+                        {
+                            asyncResp->res.jsonValue["Status"]["HealthRollup"] =
+                                "OK";
+                        }
+                        if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+                        {
+                            asyncResp->res.jsonValue["Status"]["Conditions"] =
+                                nlohmann::json::array();
+                        }
 
-                extendSoftwareInventoryGet(asyncResp, obj.first, swId);
+                        extendSoftwareInventoryGet(asyncResp, obj.first, swId);
 
-                if (!statusService.empty())
-                {
-                    fw_util::getFwRecoveryStatus(asyncResp, swId,
-                                                 statusService);
-                }
-                else
-                {
-                    asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-                }
-            }
+                        if (!statusService.empty())
+                        {
+                            fw_util::getFwRecoveryStatus(asyncResp, swId,
+                                                         statusService);
+                        }
+                        else
+                        {
+                            asyncResp->res.jsonValue["Status"]["Health"] = "OK";
+                        }
+                    }
 
                     if (!foundVersionObject and !foundStatusObject)
                     {
@@ -4222,9 +4228,8 @@ inline void requestRoutesSoftwareInventory(App& app)
                     asyncResp->res.jsonValue["@odata.type"] =
                         "#SoftwareInventory.v1_4_0.SoftwareInventory";
                     asyncResp->res.jsonValue["Name"] = "Software Inventory";
-
+                });
         });
-    });
 }
 
 inline void requestRoutesInventorySoftware(App& app)
@@ -4281,14 +4286,16 @@ inline void requestRoutesInventorySoftware(App& app)
 
                         asyncResp->res.jsonValue["Id"] = *swId;
                         asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-                        asyncResp->res.jsonValue["Status"]["HealthRollup"] =
-                            "OK";
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-#ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
-                        asyncResp->res.jsonValue["Status"]["Conditions"] =
-                            nlohmann::json::array();
-#endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
+                        if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
+                        {
+                            asyncResp->res.jsonValue["Status"]["HealthRollup"] =
+                                "OK";
+                        }
+                        if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+                        {
+                            asyncResp->res.jsonValue["Status"]["Conditions"] =
+                                nlohmann::json::array();
+                        }
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, swId, path, searchPath](
                                 const boost::system::error_code errorCode,

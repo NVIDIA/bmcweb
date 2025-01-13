@@ -628,15 +628,16 @@ class EventServiceManager
             // Update retry configuration.
             subValue->updateRetryConfig(retryAttempts, retryTimeoutInterval);
         }
-#ifdef BMCWEB_REDFISH_AGGREGATION
-        redfish::subscribeSatBmc::getInstance().createSubscribeTimer();
-
-        if (getNumberOfSubscriptions() > 0)
+        if constexpr (BMCWEB_REDFISH_AGGREGATION)
         {
-            // start RF event listener and subscribe HMC eventService.
-            initRedfishEventListener(ioc);
+            redfish::subscribeSatBmc::getInstance().createSubscribeTimer();
+
+            if (getNumberOfSubscriptions() > 0)
+            {
+                // start RF event listener and subscribe HMC eventService.
+                initRedfishEventListener(ioc);
+            }
         }
-#endif
 
         if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
         {
@@ -2044,16 +2045,17 @@ class EventServiceManager
     inline void eventServiceOOC(const std::string& path,
                                 const std::string& devName, DsEvent& event)
     {
-#ifdef BMCWEB_REDFISH_AGGREGATION
-        // OOC Path in HMC events is already converted to Redfish path.
-        if (path.starts_with("/redfish/v1/"))
+        if constexpr (BMCWEB_REDFISH_AGGREGATION)
         {
-            std::string oocPath(path);
-            addPrefixToStringItem(oocPath, redfishAggregationPrefix);
-            sendEventWithOOC(oocPath, event);
-            return;
+            // OOC Path in HMC events is already converted to Redfish path.
+            if (path.starts_with("/redfish/v1/"))
+            {
+                std::string oocPath(path);
+                addPrefixToStringItem(oocPath, BMCWEB_REDFISH_AGGREGATION_PREFIX);
+                sendEventWithOOC(oocPath, event);
+                return;
+            }
         }
-#endif
         sdbusplus::message::object_path objPath(path);
         std::string deviceName = objPath.filename();
         if (false == deviceName.empty())
@@ -2108,9 +2110,10 @@ class EventServiceManager
         urlProto = std::string(match[1].first, match[1].second);
         if (urlProto == "http")
         {
-#ifndef BMCWEB_INSECURE_ENABLE_HTTP_PUSH_STYLE_EVENTING
-            return false;
-#endif
+            if constexpr (!BMCWEB_INSECURE_PUSH_STYLE_NOTIFICATION)
+            {
+                return false;
+            }
         }
 
         host = std::string(match[2].first, match[2].second);

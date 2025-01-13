@@ -476,6 +476,14 @@ option(
     description: 'Allows this BMC to aggregate resources from satellite BMCs',
 )
 
+# BMCWEB_REDFISH_AGGREGATION_PREFIX_REMOVAL
+option(
+    'redfish-aggregation-prefix-removal',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Remove the prefix if the resources prefix from FirmwareInventory is the same with RFA prefix.'
+)
+
 # BMCWEB_HYPERVISOR_COMPUTER_SYSTEM
 option(
     'hypervisor-computer-system',

@@ -1624,17 +1624,21 @@ inline void requestRoutesSwitch(App& app)
                                                            fabricId);
                                     // Link association to manager
                                     getManagerLink(asyncResp, path);
-#ifdef BMCWEB_DEVICE_STATUS_FROM_ASSOCIATION
-                                    // get health by association
-                                    getHealthByAssociatedChassis(
-                                        asyncResp, path, switchId);
-#endif // BMCWEB_DEVICE_STATUS_FROM_ASSOCIATION
+                                    if constexpr (
+                                        BMCWEB_NVIDIA_DEVICE_STATUS_FROM_ASSOCIATION)
+                                    {
+                                        // get health by association
+                                        getHealthByAssociatedChassis(
+                                            asyncResp, path, switchId);
+                                    }
 
-#ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
-                                    redfish::conditions_utils::
-                                        populateServiceConditions(asyncResp,
-                                                                  switchId);
-#endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
+                                    if constexpr (
+                                        !BMCWEB_DISABLE_CONDITIONS_ARRAY)
+                                    {
+                                        redfish::conditions_utils::
+                                            populateServiceConditions(asyncResp,
+                                                                      switchId);
+                                    }
                                     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                                     {
                                         redfish::nvidia_fabric_utils::
@@ -1697,23 +1701,24 @@ inline void requestRoutesSwitch(App& app)
                     {
                         if (isolationMode)
                         {
-#ifdef BMCWEB_NVIDIA_OEM_PROPERTIES
-                            redfish::nvidia_fabric_utils::getSwitchObject(
-                                asyncResp, fabricId, switchId,
-                                [isolationMode](
-                                    const std::shared_ptr<bmcweb::AsyncResp>&
-                                        asyncResp1,
-                                    const std::string& fabricId1,
-                                    const std::string& switchId1,
-                                    const std::string& objectPath,
-                                    const MapperServiceMap& serviceMap) {
-                                    redfish::nvidia_fabric_utils::
-                                        patchSwitchIsolationMode(
-                                            asyncResp1, fabricId1, switchId1,
-                                            *isolationMode, objectPath,
-                                            serviceMap);
-                                });
-#endif
+                            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                            {
+                                redfish::nvidia_fabric_utils::getSwitchObject(
+                                    asyncResp, fabricId, switchId,
+                                    [isolationMode](
+                                        const std::shared_ptr<
+                                            bmcweb::AsyncResp>& asyncResp1,
+                                        const std::string& fabricId1,
+                                        const std::string& switchId1,
+                                        const std::string& objectPath,
+                                        const MapperServiceMap& serviceMap) {
+                                        redfish::nvidia_fabric_utils::
+                                            patchSwitchIsolationMode(
+                                                asyncResp1, fabricId1,
+                                                switchId1, *isolationMode,
+                                                objectPath, serviceMap);
+                                    });
+                            }
                         }
                     }
                 }

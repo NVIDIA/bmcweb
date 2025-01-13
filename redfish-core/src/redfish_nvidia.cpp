@@ -3,10 +3,15 @@
 #include "bmcweb_config.h"
 
 #include "assembly.hpp"
+#include "bios.hpp"
+#include "boot_options.hpp"
 #include "control.hpp"
 #include "environment_metrics.hpp"
 #include "erot_chassis.hpp"
 #include "fabric.hpp"
+#include "host_interface.hpp"
+#include "leak_detector.hpp"
+#include "leak_detection.hpp"
 #include "log_services_manufacturing_test.hpp"
 #include "memory.hpp"
 #include "network_adapters.hpp"
@@ -23,17 +28,21 @@
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_power_smoothing.hpp"
 #include "nvidia_protected_component.hpp"
+#include "nvidia_update_service.hpp"
 #include "nvidia_workload_power_profiles.hpp"
 #include "pcie.hpp"
 #include "pcieslots.hpp"
 #include "ports.hpp"
+#include "profiles.hpp"
+#include "policy.hpp"
 #include "processor.hpp"
 #include "service_conditions.hpp"
+#include "secure_boot.hpp"
+#include "secure_boot_database.hpp"
 #include "system_host_eth.hpp"
 #include "trigger.hpp"
 #include "trusted_components.hpp"
 #include "update_service.hpp"
-#include "nvidia_update_service.hpp"
 
 namespace redfish
 {
@@ -192,10 +201,11 @@ void requestRoutesNvidia(crow::App& app)
     requestRoutesInventorySoftwareCollection(app);
     requestRoutesInventorySoftware(app);
 
-#ifdef BMCWEB_MFG_TEST_API
-    requestRoutesEventLogDiagnosticDataCollect(app);
-    requestRoutesEventLogDiagnosticDataEntry(app);
-#endif
+    if constexpr (BMCWEB_MANUFACTURING_TEST)
+    {
+        requestRoutesEventLogDiagnosticDataCollect(app);
+        requestRoutesEventLogDiagnosticDataEntry(app);
+    }
 
     if constexpr (BMCWEB_REDFISH_DUMP_LOG)
     {
@@ -215,19 +225,22 @@ void requestRoutesNvidia(crow::App& app)
 
     requestRoutesMemoryMetrics(app);
 
-#ifdef BMCWEB_BIOS
-    requestRoutesBiosSettings(app);
-    requestRoutesBiosChangePassword(app);
-    requestRoutesBootOptions(app);
-    requestRoutesSecureBoot(app);
-    requestRoutesSecureBootDatabase(app);
-#endif
-#ifdef BMCWEB_DPU_BIOS
-    requestRoutesBiosAttrRegistryService(app);
-#endif
-#ifdef BMCWEB_HOST_IFACE
-    requestHostInterfacesRoutes(app);
-#endif
+    if constexpr (BMCWEB_BIOS)
+    {
+        requestRoutesBiosSettings(app);
+        requestRoutesBiosChangePassword(app);
+        requestRoutesBootOptions(app);
+        requestRoutesSecureBoot(app);
+        requestRoutesSecureBootDatabase(app);
+    }
+    if constexpr (BMCWEB_DPU_BIOS)
+    {
+        requestRoutesBiosAttrRegistryService(app);
+    }
+    if constexpr (BMCWEB_HOST_IFACE)
+    {
+        requestHostInterfacesRoutes(app);
+    }
 
     requestRoutesChassisPCIeFunctionCollection(app);
     requestRoutesChassisPCIeFunction(app);
@@ -258,16 +271,18 @@ void requestRoutesNvidia(crow::App& app)
     requestRoutesChassisControlsReset(app);
     requestRoutesTrustedComponents(app);
 
-#ifdef BMCWEB_REDFISH_LEAK_DETECT
-    requestRoutesLeakDetection(app);
-    requestRoutesLeakDetector(app);
-    requestRoutesLeakDetectionPolicy(app);
-    requestPolicyCollection(app);
-#endif
+    if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
+    {
+        requestRoutesLeakDetection(app);
+        requestRoutesLeakDetector(app);
+        requestRoutesLeakDetectionPolicy(app);
+        requestPolicyCollection(app);
+    }
 
-#ifdef BMCWEB_PROFILES
-    requestRoutesProfiles(app);
-#endif
+    if constexpr (BMCWEB_PROFILE_CONFIGURATION)
+    {
+        requestRoutesProfiles(app);
+    }
 }
 
 } // namespace redfish

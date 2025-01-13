@@ -678,7 +678,7 @@ inline void getShmemMetricsDefinitionWildCard(
                 inputMetricProperties.push_back(e.metricProperty);
             }
         }
-        
+
         if (deviceType == "NVSwitchPortMetrics" ||
             deviceType == "ProcessorPortMetrics" ||
             deviceType == "NetworkAdapterPortMetrics" ||

@@ -416,9 +416,11 @@ inline void assembleDimmProperties(
     asyncResp->res.jsonValue[jsonPtr]["Status"]["HealthRollup"] = "OK";
 
     std::string dimmIdStr{dimmId};
-#ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
-    redfish::conditions_utils::populateServiceConditions(asyncResp, dimmIdStr);
-#endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
+    if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+    {
+        redfish::conditions_utils::populateServiceConditions(asyncResp,
+                                                             dimmIdStr);
+    }
     const uint16_t* memoryDataWidth = nullptr;
     const size_t* memorySizeInKB = nullptr;
     const std::string* partNumber = nullptr;

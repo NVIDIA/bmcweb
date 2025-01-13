@@ -333,39 +333,40 @@ inline void requestRoutes(App& app)
             handlers.erase(handler);
             handler->second->outputBuffer.clear();
         });
-#ifdef BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
-                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                          "/LogServices/FaultLog/Entries/<str>/attachment/")
-        .privileges({{"ConfigureComponents", "ConfigureManager"}})
-        .streamingResponse()
-        .onopen([](crow::streaming_response::Connection& conn) {
-            std::string url(conn.req.target());
-            std::filesystem::path dumpIdPath(
-                url.substr(0, url.find("/attachment")));
-            std::string dumpId = dumpIdPath.filename();
-            std::string dumpType = "faultlog";
-            boost::asio::io_context* ioCon = conn.getIoContext();
+    if constexpr (BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG)
+    {
+        BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
+                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                              "/LogServices/FaultLog/Entries/<str>/attachment/")
+            .privileges({{"ConfigureComponents", "ConfigureManager"}})
+            .streamingResponse()
+            .onopen([](crow::streaming_response::Connection& conn) {
+                std::string url(conn.req.target());
+                std::filesystem::path dumpIdPath(
+                    url.substr(0, url.find("/attachment")));
+                std::string dumpId = dumpIdPath.filename();
+                std::string dumpType = "faultlog";
+                boost::asio::io_context* ioCon = conn.getIoContext();
 
-            std::string unixSocketPath =
-                unixSocketPathDir + dumpType + "_dump_" + dumpId;
+                std::string unixSocketPath =
+                    unixSocketPathDir + dumpType + "_dump_" + dumpId;
 
-            handlers[&conn] = std::make_shared<Handler>(
-                *ioCon, dumpId, dumpType, unixSocketPath);
-            handlers[&conn]->connection = conn.getSharedReference();
-            handlers[&conn]->getDumpSize(dumpId, dumpType);
-        })
-        .onclose([](crow::streaming_response::Connection& conn) {
-            auto handler = handlers.find(&conn);
-            if (handler == handlers.end())
-            {
-                BMCWEB_LOG_DEBUG("No handler to cleanup");
-                return;
-            }
-            handlers.erase(handler);
-            handler->second->outputBuffer.clear();
-        });
-#endif // BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
+                handlers[&conn] = std::make_shared<Handler>(
+                    *ioCon, dumpId, dumpType, unixSocketPath);
+                handlers[&conn]->connection = conn.getSharedReference();
+                handlers[&conn]->getDumpSize(dumpId, dumpType);
+            })
+            .onclose([](crow::streaming_response::Connection& conn) {
+                auto handler = handlers.find(&conn);
+                if (handler == handlers.end())
+                {
+                    BMCWEB_LOG_DEBUG("No handler to cleanup");
+                    return;
+                }
+                handlers.erase(handler);
+                handler->second->outputBuffer.clear();
+            });
+    }
 
     if constexpr (BMCWEB_REDFISH_AGGREGATION)
     {
@@ -385,15 +386,16 @@ inline void requestRoutes(App& app)
             .methods(boost::beast::http::verb::get)(std::bind_front(
                 handleSetUpRedfishRoute, std::ref(app), "System"));
 
-#ifdef BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
-        BMCWEB_ROUTE(app,
-                     "/redfish/v1/Systems/" +
+        if constexpr (BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG)
+        {
+            BMCWEB_ROUTE(
+                app, "/redfish/v1/Systems/" +
                          std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX) +
                          "<str>/LogServices/FaultLog/Entries/<str>/attachment/")
-            .privileges({{"ConfigureComponents", "ConfigureManager"}})
-            .methods(boost::beast::http::verb::get)(std::bind_front(
-                handleSetUpRedfishRoute, std::ref(app), "FaultLog"));
-#endif
+                .privileges({{"ConfigureComponents", "ConfigureManager"}})
+                .methods(boost::beast::http::verb::get)(std::bind_front(
+                    handleSetUpRedfishRoute, std::ref(app), "FaultLog"));
+        }
     }
 }
 

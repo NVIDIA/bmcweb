@@ -56,12 +56,13 @@ inline void handleMessageRegistryFileCollectionGet(
              {"Base", "TaskEvent", "ResourceEvent", "OpenBMC", "Telemetry",
               "Platform", "Update", "BiosAttributeRegistry"}))
     {
-#ifndef BMCWEB_BIOS
-        if (std::string(memberName) == "BiosAttributeRegistry")
+        if constexpr (!BMCWEB_BIOS)
         {
-            continue;
+            if (std::string(memberName) == "BiosAttributeRegistry")
+            {
+                continue;
+            }
         }
-#endif
         nlohmann::json::object_t member;
         member["@odata.id"] =
             boost::urls::format("/redfish/v1/Registries/{}", memberName);
@@ -118,13 +119,14 @@ inline void handleMessageRoutesMessageRegistryFileGet(
         header = &registries::update::header;
         url = registries::update::url;
     }
-#ifdef BMCWEB_BIOS
     else if (registry == "BiosAttributeRegistry")
     {
-        header = &registries::bios::header;
-        dmtf.clear();
+        if constexpr (BMCWEB_BIOS)
+        {
+            header = &registries::bios::header;
+            dmtf.clear();
+        }
     }
-#endif
     else if (registry == "Platform")
     {
         header = &registries::platform::header;
@@ -242,18 +244,20 @@ inline void handleMessageRegistryGet(
             registryEntries.emplace_back(&entry);
         }
     }
-#ifdef BMCWEB_BIOS
     else if (registry == "BiosAttributeRegistry")
     {
-        header = &registries::bios::header;
-        for (const registries::MessageEntry& entry : registries::bios::registry)
+        if constexpr (BMCWEB_BIOS)
         {
-            registryEntries.emplace_back(&entry);
+            header = &registries::bios::header;
+            for (const registries::MessageEntry& entry :
+                 registries::bios::registry)
+            {
+                registryEntries.emplace_back(&entry);
+            }
+            handleBiosAttrRegistryGet(app, req, asyncResp);
+            return;
         }
-        handleBiosAttrRegistryGet(app, req, asyncResp);
-        return;
     }
-#endif
     else if (registry == "Telemetry")
     {
         header = &registries::telemetry::header;

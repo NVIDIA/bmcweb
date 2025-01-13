@@ -2086,11 +2086,11 @@ inline void requestRoutesManager(App& app)
 
             if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
             {
-                    nlohmann::json::object_t certificates;
-                    certificates["@odata.id"] = boost::urls::format(
-                        "/redfish/v1/Managers/{}/Truststore/Certificates",
-                        BMCWEB_REDFISH_MANAGER_URI_NAME);    
-                    oemOpenbmc["Certificates"] = std::move(certificates);
+                nlohmann::json::object_t certificates;
+                certificates["@odata.id"] = boost::urls::format(
+                    "/redfish/v1/Managers/{}/Truststore/Certificates",
+                    BMCWEB_REDFISH_MANAGER_URI_NAME);
+                oemOpenbmc["Certificates"] = std::move(certificates);
             }
 
             // Manager.Reset (an action) can be many values, OpenBMC only

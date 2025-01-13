@@ -1778,12 +1778,13 @@ inline void requestRoutesNvidiaOemBf(App& app)
                             asyncResp->res.jsonValue["BaseMAC"] = *baseMac;
                         }
                     });
-#ifdef BMCWEB_PROFILES
-                nvidia["Profiles"]["@odata.id"] =
-                    "/redfish/v1/Systems/" +
-                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                    "/Oem/Nvidia/SystemConfigurationProfile";
-#endif
+                if constexpr (BMCWEB_PROFILE_CONFIGURATION)
+                {
+                    nvidia["Profiles"]["@odata.id"] =
+                        "/redfish/v1/Systems/" +
+                        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                        "/Oem/Nvidia/SystemConfigurationProfile";
+                }
             });
     if constexpr (BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)
     {

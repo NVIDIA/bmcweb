@@ -491,11 +491,12 @@ inline void handleDecoratorAssetProperties(
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
-#ifdef BMCWEB_REDFISH_LEAK_DETECT
-    // PolicyCollection
-    asyncResp->res.jsonValue["Policies"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/Policies", chassisId);
-#endif
+    if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
+    {
+        // PolicyCollection
+        asyncResp->res.jsonValue["Policies"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Chassis/{}/Policies", chassisId);
+    }
 
     nlohmann::json::array_t computerSystems;
     nlohmann::json::object_t system;
@@ -552,35 +553,42 @@ inline void handleChassisGetSubTree(
             // get debug token resource
             redfish::debug_token::getChassisDebugToken(asyncResp, chassisId);
         }
-#ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
-        std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
-            objPath, [asyncResp](const std::string& rootHealth,
-                                 const std::string& healthRollup) {
-                asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-                asyncResp->res.jsonValue["Status"]["HealthRollup"] =
-                    healthRollup;
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-            });
-        health->start();
-#endif // ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
+        if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
+        {
+            std::shared_ptr<HealthRollup> health =
+                std::make_shared<HealthRollup>(
+                    objPath, [asyncResp](const std::string& rootHealth,
+                                         const std::string& healthRollup) {
+                        asyncResp->res.jsonValue["Status"]["Health"] =
+                            rootHealth;
+                        if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
+                        {
+                            asyncResp->res.jsonValue["Status"]["HealthRollup"] =
+                                healthRollup;
+                        }
+                    });
+            health->start();
+        }
 
-#ifdef BMCWEB_DEVICE_STATUS_FROM_FILE
-        /** NOTES: This is a temporary solution to avoid performance issues may
-         * impact other Redfish services. Please call for architecture decisions
-         * from all NvBMC teams if want to use it in other places.
-         */
+        if constexpr (BMCWEB_NVIDIA_OEM_DEVICE_STATUS_FROM_FILE)
+        {
+            /** NOTES: This is a temporary solution to avoid performance issues
+             * may impact other Redfish services. Please call for architecture
+             * decisions from all NvBMC teams if want to use it in other places.
+             */
 
-#ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
-#error "Conflicts! Please set health-rollup-alternative=disabled."
-#endif
+            if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
+            {
+//#error "Conflicts! Please set health-rollup-alternative=disabled."
+            }
 
-#ifdef BMCWEB_DISABLE_HEALTH_ROLLUP
-#error "Conflicts! Please set disable-health-rollup=disabled."
-#endif
+            if constexpr (BMCWEB_DISABLE_HEALTH_ROLLUP)
+            {
+//#error "Conflicts! Please set disable-health-rollup=disabled."
+            }
 
-        health_utils::getDeviceHealthInfo(asyncResp->res, chassisId);
-#endif // BMCWEB_DEVICE_STATUS_FROM_FILE
+            health_utils::getDeviceHealthInfo(asyncResp->res, chassisId);
+        }
 
         if (connectionNames.empty())
         {
@@ -594,37 +602,41 @@ inline void handleChassisGetSubTree(
         asyncResp->res.jsonValue["Name"] = "Chassis Collection";
         asyncResp->res.jsonValue["ChassisType"] =
             chassis::ChassisType::RackMount;
-#ifdef BMCWEB_HOST_OS_FEATURE
-        asyncResp->res.jsonValue["Actions"]["#Chassis.Reset"]["target"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/Actions/Chassis.Reset",
-                                chassisId);
-        asyncResp->res
-            .jsonValue["Actions"]["#Chassis.Reset"]["@Redfish.ActionInfo"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/ResetActionInfo",
-                                chassisId);
-#endif
-#ifdef BMCWEB_HOST_AUX_POWER
-        if (chassisId == PLATFORMCHASSISNAME)
+        if constexpr (BMCWEB_HOST_OS_FEATURES)
         {
-            asyncResp->res.jsonValue["Actions"]["Oem"]
-                                    ["#NvidiaChassis.AuxPowerReset"]["target"] =
-                "/redfish/v1/Chassis/" + chassisId +
-                "/Actions/Oem/NvidiaChassis.AuxPowerReset";
+            asyncResp->res.jsonValue["Actions"]["#Chassis.Reset"]["target"] =
+                boost::urls::format(
+                    "/redfish/v1/Chassis/{}/Actions/Chassis.Reset", chassisId);
             asyncResp->res
-                .jsonValue["Actions"]["Oem"]["#NvidiaChassis.AuxPowerReset"]
-                          ["@Redfish.ActionInfo"] =
-                "/redfish/v1/Chassis/" + chassisId +
-                "/Oem/Nvidia/AuxPowerResetActionInfo";
+                .jsonValue["Actions"]["#Chassis.Reset"]["@Redfish.ActionInfo"] =
+                boost::urls::format("/redfish/v1/Chassis/{}/ResetActionInfo",
+                                    chassisId);
         }
-#endif
+        if constexpr (BMCWEB_HOST_AUXPOWER_FEATURES)
+        {
+            if (chassisId == BMCWEB_PLATFORM_CHASSIS_NAME)
+            {
+                asyncResp->res
+                    .jsonValue["Actions"]["Oem"]["#NvidiaChassis.AuxPowerReset"]
+                              ["target"] =
+                    "/redfish/v1/Chassis/" + chassisId +
+                    "/Actions/Oem/NvidiaChassis.AuxPowerReset";
+                asyncResp->res
+                    .jsonValue["Actions"]["Oem"]["#NvidiaChassis.AuxPowerReset"]
+                              ["@Redfish.ActionInfo"] =
+                    "/redfish/v1/Chassis/" + chassisId +
+                    "/Oem/Nvidia/AuxPowerResetActionInfo";
+            }
+        }
         asyncResp->res.jsonValue["PCIeDevices"]["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}/PCIeDevices",
                                 chassisId);
-#ifdef BMCWEB_NVIDIA_OEM_LOGSERVICES
-
-        asyncResp->res.jsonValue["LogServices"] = {
-            {"@odata.id", "/redfish/v1/Chassis/" + chassisId + "/LogServices"}};
-#endif // BMCWEB_NVIDIA_OEM_LOGSERVICES
+        if constexpr (BMCWEB_NVIDIA_OEM_LOGSERVICES)
+        {
+            asyncResp->res.jsonValue["LogServices"] = {
+                {"@odata.id",
+                 "/redfish/v1/Chassis/" + chassisId + "/LogServices"}};
+        }
 
         dbus::utility::getAssociationEndPoints(
             path + "/drive",
@@ -789,10 +801,11 @@ inline void handleChassisGetSubTree(
                 }
             }
 
-#ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
-            redfish::conditions_utils::populateServiceConditions(asyncResp,
-                                                                 chassisId);
-#endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
+            if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+            {
+                redfish::conditions_utils::populateServiceConditions(asyncResp,
+                                                                     chassisId);
+            }
             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
                 // Baseboard Chassis OEM properties if exist, search by
@@ -817,12 +830,13 @@ inline void handleChassisGetSubTree(
             // get network adapter
             redfish::nvidia_chassis_utils::getNetworkAdapters(
                 asyncResp, path, interfaces2, chassisId);
-#ifdef BMCWEB_DEVICE_STATUS_FROM_ASSOCIATION
-            // get health for network adapter and nvswitches chassis by
-            // association
-            redfish::nvidia_chassis_utils::getHealthByAssociation(
-                asyncResp, path, "all_states", chassisId);
-#endif // BMCWEB_DEVICE_STATUS_FROM_ASSOCIATION
+            if constexpr (BMCWEB_NVIDIA_DEVICE_STATUS_FROM_ASSOCIATION)
+            {
+                // get health for network adapter and nvswitches chassis by
+                // association
+                redfish::nvidia_chassis_utils::getHealthByAssociation(
+                    asyncResp, path, "all_states", chassisId);
+            }
         }
         isFoundChassisObject = true;
         // need to check all objpath because a few configs are set by another
@@ -1263,62 +1277,61 @@ inline void powerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
         std::array<std::string, 1>{"xyz.openbmc_project.State.Host"});
 }
 
+inline void doChassisReset(const crow::Request& req,
+                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    std::string resetType;
+
+    if (!json_util::readJsonAction(req, asyncResp->res, "ResetType", resetType))
+    {
+        return;
+    }
+
+    if (resetType != "PowerCycle")
+    {
+        BMCWEB_LOG_DEBUG("Invalid property value for ResetType: {}", resetType);
+        messages::actionParameterNotSupported(asyncResp->res, resetType,
+                                              "ResetType");
+
+        return;
+    }
+    powerCycle(asyncResp);
+}
+
 inline void handleChassisResetActionInfoPost(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-#ifdef BMCWEB_EROT_RESET
-    const std::string& chassisId)
-#else
-    const std::string& /*chassisId*/)
-#endif // BMCWEB_EROT_RESET
+    const std::string& chassisId [[maybe_unused]])
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
     BMCWEB_LOG_DEBUG("Post Chassis Reset.");
-#ifdef BMCWEB_EROT_RESET
-    redfish::chassis_utils::isEROTChassis(
-        chassisId,
-        [req, asyncResp, chassisId](bool isEROT, bool /*isCpuEROT*/) {
+
+    if constexpr (BMCWEB_EROT_RESET)
+    {
+        redfish::chassis_utils::isEROTChassis(
+            chassisId,
+            [req, asyncResp, chassisId](bool isEROT, bool /*isCpuEROT*/) {
             if (isEROT)
             {
                 handleEROTChassisResetAction(req, asyncResp, chassisId);
             }
             else
             {
-#endif // BMCWEB_EROT_RESET
-                std::string resetType;
-
-                if (!json_util::readJsonAction(req, asyncResp->res, "ResetType",
-                                               resetType))
-                {
-                    return;
-                }
-
-                if (resetType != "PowerCycle")
-                {
-                    BMCWEB_LOG_DEBUG("Invalid property value for ResetType: {}",
-                                     resetType);
-                    messages::actionParameterNotSupported(
-                        asyncResp->res, resetType, "ResetType");
-
-                    return;
-                }
-                powerCycle(asyncResp);
-#ifdef BMCWEB_EROT_RESET
+                doChassisReset(req, asyncResp);
             }
         });
-#endif // BMCWEB_EROT_RESET
+    }
 }
 
-#ifdef BMCWEB_HOST_AUX_POWER
 inline void handleOemChassisResetActionInfoPost(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId)
 {
-    if (chassisId != PLATFORMCHASSISNAME)
+    if (chassisId != BMCWEB_PLATFORM_CHASSIS_NAME)
     {
         messages::internalError(asyncResp->res);
         return;
@@ -1398,7 +1411,6 @@ inline void handleOemChassisResetActionInfoPost(
             "nvidia-aux-power-force.service", "replace");
     }
 }
-#endif
 
 /**
  * ChassisResetAction class supports the POST method for the Reset
@@ -1413,15 +1425,15 @@ inline void requestRoutesChassisResetAction(App& app)
         .privileges(redfish::privileges::postChassis)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleChassisResetActionInfoPost, std::ref(app)));
-#ifdef BMCWEB_HOST_AUX_POWER
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Chassis/<str>/Actions/Oem/NvidiaChassis.AuxPowerReset/")
-        .privileges(redfish::privileges::postChassis)
-        .methods(boost::beast::http::verb::post)(std::bind_front(
-            handleOemChassisResetActionInfoPost, std::ref(app)));
-
-#endif
+    if constexpr (BMCWEB_HOST_AUXPOWER_FEATURES)
+    {
+        BMCWEB_ROUTE(
+            app,
+            "/redfish/v1/Chassis/<str>/Actions/Oem/NvidiaChassis.AuxPowerReset/")
+            .privileges(redfish::privileges::postChassis)
+            .methods(boost::beast::http::verb::post)(std::bind_front(
+                handleOemChassisResetActionInfoPost, std::ref(app)));
+    }
 }
 
 inline void handleChassisResetActionInfoGet(
@@ -1452,13 +1464,12 @@ inline void handleChassisResetActionInfoGet(
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
 }
 
-#ifdef BMCWEB_HOST_AUX_POWER
 inline void handleOemChassisResetActionInfoGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId)
 {
-    if (chassisId != PLATFORMCHASSISNAME)
+    if (chassisId != BMCWEB_PLATFORM_CHASSIS_NAME)
     {
         messages::internalError(asyncResp->res);
         return;
@@ -1486,7 +1497,6 @@ inline void handleOemChassisResetActionInfoGet(
 
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
 }
-#endif
 /**
  * ChassisResetActionInfo derived class for delivering Chassis
  * ResetType AllowableValues using ResetInfo schema.
@@ -1497,13 +1507,15 @@ inline void requestRoutesChassisResetActionInfo(App& app)
         .privileges(redfish::privileges::getActionInfo)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleChassisResetActionInfoGet, std::ref(app)));
-#ifdef BMCWEB_HOST_AUX_POWER
-    BMCWEB_ROUTE(
-        app, "/redfish/v1/Chassis/<str>/Oem/Nvidia/AuxPowerResetActionInfo/")
-        .privileges(redfish::privileges::getActionInfo)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleOemChassisResetActionInfoGet, std::ref(app)));
-#endif
+    if constexpr (BMCWEB_HOST_AUXPOWER_FEATURES)
+    {
+        BMCWEB_ROUTE(
+            app,
+            "/redfish/v1/Chassis/<str>/Oem/Nvidia/AuxPowerResetActionInfo/")
+            .privileges(redfish::privileges::getActionInfo)
+            .methods(boost::beast::http::verb::get)(std::bind_front(
+                handleOemChassisResetActionInfoGet, std::ref(app)));
+    }
 }
 
 } // namespace redfish

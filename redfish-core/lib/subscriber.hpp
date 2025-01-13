@@ -29,7 +29,6 @@ constexpr unsigned int subscribeBodyLimit = 5 * 1024 * 1024; // 5MB
 
 namespace redfish
 {
-#ifdef BMCWEB_REDFISH_AGGREGATION
 class subscribeSatBmc
 {
   public:
@@ -48,7 +47,7 @@ class subscribeSatBmc
     {
         subscribeTimer = std::make_shared<boost::asio::steady_timer>(
             crow::connections::systemBus->get_io_context(),
-            std::chrono::seconds(rfaDeferSubscribeTime));
+            std::chrono::seconds(BMCWEB_RFA_DELAY_SUBSCRIBE_TIME));
     }
 
     std::shared_ptr<boost::asio::steady_timer> getTimer()
@@ -148,7 +147,7 @@ inline void doSubscribe(std::shared_ptr<crow::HttpClient> client,
 
                 auto data = postJson.dump();
                 url.set_path(path);
-                client->sendDataWithCallback(std::move(data), url, httpHeader,
+                client->sendDataWithCallback(std::move(data), url, ensuressl::VerifyCertificate::Verify, httpHeader,
                                              boost::beast::http::verb::post,
                                              cb);
             }
@@ -174,7 +173,7 @@ inline void doUnsubscribe(std::shared_ptr<crow::HttpClient> client,
                 std::string data;
                 boost::beast::http::fields httpHeader;
                 url.set_path(satMem["@odata.id"]);
-                client->sendDataWithCallback(std::move(data), url, httpHeader,
+                client->sendDataWithCallback(std::move(data), url, ensuressl::VerifyCertificate::Verify, httpHeader,
                                              boost::beast::http::verb::delete_,
                                              cb);
             }
@@ -214,7 +213,7 @@ inline void querySubscriptionList(std::shared_ptr<crow::HttpClient> client,
 
     std::string path("/redfish/v1/EventService/Subscriptions");
     url.set_path(path);
-    client->sendDataWithCallback(std::move(data), url, httpHeader,
+    client->sendDataWithCallback(std::move(data), url, ensuressl::VerifyCertificate::Verify, httpHeader,
                                  boost::beast::http::verb::get, cb);
     auto subscribeTimer = subscribeSatBmc::getInstance().getTimer();
     // check HMC subscription periodically in case of HMC
@@ -308,7 +307,7 @@ inline void unSubscribe(
 
     std::function<void(crow::Response&)> cb =
         std::bind_front(doUnsubscribe, client, url);
-    client->sendDataWithCallback(std::move(data), url, httpHeader,
+    client->sendDataWithCallback(std::move(data), url, ensuressl::VerifyCertificate::Verify, httpHeader,
                                  boost::beast::http::verb::get, cb);
 }
 
@@ -335,5 +334,4 @@ inline int stopRedfishEventListener(boost::asio::io_context& ioc)
     return 0;
 }
 
-#endif
 } // namespace redfish

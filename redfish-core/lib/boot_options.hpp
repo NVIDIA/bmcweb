@@ -23,6 +23,7 @@
 #include <query.hpp>
 #include <registries/privilege_registry.hpp>
 #include <utils/privilege_utils.hpp>
+#include "utils/collection.hpp"
 
 #include <fstream>
 #include <iostream>

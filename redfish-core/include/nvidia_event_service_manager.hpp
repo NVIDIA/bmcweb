@@ -1,4 +1,5 @@
 #pragma once
+#include "bmcweb_config.h"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "event_matches_filter.hpp"
@@ -57,6 +58,7 @@ enum redfish_bool
     redfishBoolTrue,
     redfishBoolFalse
 };
+
 
 // Error constants of class Event
 static constexpr int redfishInvalidEvent = -1;
@@ -267,17 +269,18 @@ class DsEvent
         if (!logEntryId.empty())
         {
             eventLogEntry["LogEntry"] = nlohmann::json::object();
-#ifdef BMCWEB_REDFISH_AGGREGATION
-            if (!satBMCLogEntryUrl.empty())
+            if constexpr (BMCWEB_REDFISH_AGGREGATION)
             {
-                // the URL is from the satellite BMC so URL fixup will be
-                // performed.
-                addPrefixToStringItem(satBMCLogEntryUrl,
-                                      redfishAggregationPrefix);
-                eventLogEntry["LogEntry"]["@odata.id"] = satBMCLogEntryUrl;
+                if (!satBMCLogEntryUrl.empty())
+                {
+                    // the URL is from the satellite BMC so URL fixup will be
+                    // performed.
+                    addPrefixToStringItem(satBMCLogEntryUrl,
+                                          BMCWEB_REDFISH_AGGREGATION_PREFIX);
+                    eventLogEntry["LogEntry"]["@odata.id"] = satBMCLogEntryUrl;
+                }
             }
             else
-#endif
             {
                 eventLogEntry["LogEntry"]["@odata.id"] =
                     redfish::getLogEntryDataId(logEntryId);

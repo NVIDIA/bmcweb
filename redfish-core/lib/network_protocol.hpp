@@ -224,12 +224,13 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 continue;
             }
         }
-#ifndef BMCWEB_IPMI
-        if (nwkProtocol.first == "IPMI")
+        if constexpr (!BMCWEB_IPMI)
         {
-            continue;
+            if (nwkProtocol.first == "IPMI")
+            {
+                continue;
+            }
         }
-#endif
         asyncResp->res.jsonValue[nwkProtocol.first]["Port"] = nullptr;
         asyncResp->res.jsonValue[nwkProtocol.first]["ProtocolEnabled"] = false;
     }
@@ -238,38 +239,42 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     asyncResp->res.jsonValue["HostName"] = hostName;
 
-#ifdef BMCWEB_NTP
-    getNTPProtocolEnabled(asyncResp);
-#endif
+    if constexpr (BMCWEB_NTP)
+    {
+        getNTPProtocolEnabled(asyncResp);
+    }
 
-    getEthernetIfaceData([hostName, asyncResp](
-                             const bool& success,
-                             [[maybe_unused]] const std::vector<std::string>& ntpServers,
-                             [[maybe_unused]] const std::vector<std::string>& dynamicNtpServers,
-                             const std::vector<std::string>& domainNames) {
-        if (!success)
-        {
-            messages::resourceNotFound(asyncResp->res, "ManagerNetworkProtocol",
-                                       "NetworkProtocol");
-            return;
-        }
-
-#ifdef BMCWEB_NTP
-        asyncResp->res.jsonValue["NTP"]["NTPServers"] = ntpServers;
-        asyncResp->res.jsonValue["NTP"]["NetworkSuppliedServers"] =
-            dynamicNtpServers;
-#endif
-        if (!hostName.empty())
-        {
-            std::string fqdn = hostName;
-            if (!domainNames.empty())
+    getEthernetIfaceData(
+        [hostName, asyncResp](
+            const bool& success,
+            [[maybe_unused]] const std::vector<std::string>& ntpServers,
+            [[maybe_unused]] const std::vector<std::string>& dynamicNtpServers,
+            const std::vector<std::string>& domainNames) {
+            if (!success)
             {
-                fqdn += ".";
-                fqdn += domainNames[0];
+                messages::resourceNotFound(asyncResp->res,
+                                           "ManagerNetworkProtocol",
+                                           "NetworkProtocol");
+                return;
             }
-            asyncResp->res.jsonValue["FQDN"] = std::move(fqdn);
-        }
-    });
+
+            if constexpr (BMCWEB_NTP)
+            {
+                asyncResp->res.jsonValue["NTP"]["NTPServers"] = ntpServers;
+                asyncResp->res.jsonValue["NTP"]["NetworkSuppliedServers"] =
+                    dynamicNtpServers;
+            }
+            if (!hostName.empty())
+            {
+                std::string fqdn = hostName;
+                if (!domainNames.empty())
+                {
+                    fqdn += ".";
+                    fqdn += domainNames[0];
+                }
+                asyncResp->res.jsonValue["FQDN"] = std::move(fqdn);
+            }
+        });
 
     if constexpr (!BMCWEB_TLS_AUTH_OPT_IN)
     {
