@@ -1796,7 +1796,7 @@ inline void
                     sdbusplus::message::object_path path1(sensorpath);
                     if (path1.filename() != portId)
                     {
-                        return;
+                        continue;
                     }
 
                     crow::connections::systemBus->async_method_call(
