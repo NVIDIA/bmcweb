@@ -1634,7 +1634,36 @@ inline void
         asyncResp->res.jsonValue["PowerRestorePolicy"] = policyMapsIt->second;
     });
 }
-
+/**
+ * @brief Retrieves power on restore delay over DBUS.
+ *
+ * @param[in] asyncResp     Shared pointer for generating response message.
+ *
+ * @return None.
+ */
+inline void
+    getPowerOnDelaySeconds(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    sdbusplus::asio::getProperty<uint64_t>(
+        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+        "/xyz/openbmc_project/control/host0/power_restore_policy",
+        "xyz.openbmc_project.Control.Power.RestorePolicy", "PowerRestoreDelay",
+        [asyncResp](const boost::system::error_code& ec,
+                    const uint64_t& restoreDelay) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+            return;
+        }
+        // Response from dbus will be in microseconds convert it to seconds
+        auto powerOnRestoreDelayUsec = std::chrono::microseconds(restoreDelay);
+        auto powerOnRestoreDelaySec =
+            std::chrono::duration_cast<std::chrono::seconds>(
+                powerOnRestoreDelayUsec);
+        asyncResp->res.jsonValue["PowerOnDelaySeconds"] =
+            powerOnRestoreDelaySec.count();
+    });
+}
 /**
  * @brief Stop Boot On Fault over DBUS.
  *
@@ -2536,6 +2565,29 @@ inline void
             "/xyz/openbmc_project/control/host0/power_restore_policy"),
         "xyz.openbmc_project.Control.Power.RestorePolicy", "PowerRestorePolicy",
         powerRestorePolicy);
+}
+
+/**
+ * @brief Sets power on delay seconds properties.
+ *
+ * @param[in] asyncResp   Shared pointer for generating response message.
+ * @param[in] restoreDelay  power on restore delay in seconds properties from
+ * request.
+ *
+ * @return None.
+ */
+inline void
+    setPowerOnDelaySeconds(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           uint64_t restoreDelay)
+{
+    // Convert from seconds to microseconds for DBus
+    const uint64_t powerRestoreDelayUSec = restoreDelay * 1000 * 1000;
+    setDbusProperty(
+        asyncResp, "PowerRestoreDelay", "xyz.openbmc_project.Settings",
+        sdbusplus::message::object_path(
+            "/xyz/openbmc_project/control/host0/power_restore_policy"),
+        "xyz.openbmc_project.Control.Power.RestorePolicy", "PowerRestoreDelay",
+        powerRestoreDelayUSec);
 }
 
 /**
@@ -4278,6 +4330,7 @@ inline void
     getHostWatchdogTimer(asyncResp);
 #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
     getPowerRestorePolicy(asyncResp);
+    getPowerOnDelaySeconds(asyncResp);
     getStopBootOnFault(asyncResp);
     getAutomaticRetryPolicy(asyncResp);
 #endif // BMCWEB_ENABLE_HOST_OS_FEATURE
@@ -4372,6 +4425,7 @@ inline void handleComputerSystemPatch(
     std::optional<std::string> indicatorLed;
     std::optional<std::string> assetTag;
     std::optional<std::string> powerRestorePolicy;
+    std::optional<uint64_t> powerOnDelaySeconds;
     std::optional<std::string> powerMode;
     std::optional<bool> wdtEnable;
     std::optional<std::string> wdtTimeOutAction;
@@ -4410,6 +4464,7 @@ inline void handleComputerSystemPatch(
                         "AssetTag", assetTag,
 #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
                         "PowerRestorePolicy", powerRestorePolicy,
+                        "PowerOnDelaySeconds", powerOnDelaySeconds,
 #endif
                         "PowerMode", powerMode,
                         "HostWatchdogTimer/FunctionEnabled", wdtEnable,
@@ -4514,6 +4569,11 @@ inline void handleComputerSystemPatch(
     {
         setPowerRestorePolicy(asyncResp, *powerRestorePolicy);
     }
+    if (powerOnDelaySeconds)
+    {
+        setPowerOnDelaySeconds(asyncResp, *powerOnDelaySeconds);
+    }
+
     if (bootOrder)
     {
         setBootOrder(asyncResp, req, *bootOrder);
