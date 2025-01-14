@@ -159,6 +159,7 @@ feature_options = [
     'vm-websocket',
     'vm-nbdproxy',
     'xtoken-auth',
+    'enable-ist-mode',
 ]
 
 string_options = [
