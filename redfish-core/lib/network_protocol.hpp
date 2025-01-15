@@ -568,7 +568,7 @@ inline void handleManagersNetworkProtocolPatch(
             "NTP/NTPServers", ntpServerObjects, //
             "NTP/ProtocolEnabled", ntpEnabled, //
             "IPMI/ProtocolEnabled", ipmiEnabled, //
-            "SSH/ProtocolEnabled", sshEnabled //
+            "SSH/ProtocolEnabled", sshEnabled, //
             "Oem/Nvidia/Rsyslog/State", state,
             "Oem/Nvidia/Rsyslog/Address", address,
             "Oem/Nvidia/Rsyslog/Port", port,

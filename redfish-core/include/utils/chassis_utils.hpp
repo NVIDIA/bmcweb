@@ -109,7 +109,7 @@ inline AllowListMap getRoTChassisAllowListMap()
         return allowListMap;
     }
 
-    std::string configPath = ROTCHASSISALLOWLISTJSON;
+    std::string configPath(BMCWEB_FW_ROT_CHASSIS_ALLOWLIST_JSON);
     if (!fs::exists(configPath))
     {
         BMCWEB_LOG_ERROR("The file doesn't exist: {}", configPath);
@@ -147,24 +147,21 @@ inline void resetPowerLimit(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 {
                     BMCWEB_LOG_DEBUG("Performing Post using Async Method Call");
 
-                    nvidia_async_operation_utils::
-                        doGenericCallAsyncAndGatherResult<int>(
-                            asyncResp, std::chrono::seconds(60), connection,
-                            path, clearPowerCapAsyncIntf, "ClearPowerCap",
-                            [asyncResp](const std::string& status,
-                                        [[maybe_unused]] const int* retValue) {
-                                if (status == nvidia_async_operation_utils::
-                                                  asyncStatusValueSuccess)
-                                {
-                                    BMCWEB_LOG_DEBUG(
-                                        "PowerLimit Reset Succeeded");
-                                    messages::success(asyncResp->res);
-                                    return;
-                                }
-                                BMCWEB_LOG_ERROR("resetPowerLimit error {}",
-                                                 status);
-                                messages::internalError(asyncResp->res);
-                            });
+                nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+                    int>(asyncResp, std::chrono::seconds(60), serv, path,
+                         clearPowerCapAsyncIntf, "ClearPowerCap",
+                         [asyncResp](const std::string& status,
+                                     [[maybe_unused]] const int* retValue) {
+                    if (status ==
+                        nvidia_async_operation_utils::asyncStatusValueSuccess)
+                    {
+                        BMCWEB_LOG_DEBUG("PowerLimit Reset Succeeded");
+                        messages::success(asyncResp->res);
+                        return;
+                    }
+                    BMCWEB_LOG_ERROR("resetPowerLimit error {}", status);
+                    messages::internalError(asyncResp->res);
+                });
 
                     return;
                 }

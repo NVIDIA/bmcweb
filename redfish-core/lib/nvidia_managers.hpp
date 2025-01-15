@@ -1829,8 +1829,6 @@ inline void
         nvidia_manager_util::getNSMRawCommandActions(asyncResp);
     }
 
-    nlohmann::json& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
-
     if constexpr (BMCWEB_REDFISH_SW_EINJ)
     {
         nlohmann::json& oemActionsEinj =

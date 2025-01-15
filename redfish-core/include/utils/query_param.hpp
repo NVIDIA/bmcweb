@@ -12,7 +12,7 @@
 #include "logging.hpp"
 #include "redfish_aggregator.hpp"
 #include "str_utility.hpp"
-
+#include "nvidia_persistent_data.hpp"
 #include <sys/types.h>
 
 #include <boost/beast/http/message.hpp>
@@ -896,7 +896,7 @@ class MultiAsyncResp : public std::enable_shared_from_this<MultiAsyncResp>
             }
             // Copy the session from the original request
             if (req->session == nullptr &&
-                persistent_data::getConfig().isTLSAuthEnabled())
+                persistent_data::nvidia::getConfig().isTLSAuthEnabled())
             {
                 BMCWEB_LOG_ERROR("Session is null");
                 messages::internalError(finalRes->res);

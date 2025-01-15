@@ -22,7 +22,7 @@
 #include "registries/base_message_registry.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/time_utils.hpp"
-
+#include "utils/dbus_event_log_entry.hpp"
 #include <boost/beast/http/verb.hpp>
 
 #include <array>
@@ -32,51 +32,6 @@
 
 namespace redfish
 {
-struct DbusEventLogEntry
-{
-    // represents a subset of an instance of dbus interface
-    // xyz.openbmc_project.Logging.Entry
-
-    uint32_t Id = 0;
-    std::string Message;
-    const std::string* Path = nullptr;
-    const std::string* Resolution = nullptr;
-    bool Resolved = false;
-    std::string ServiceProviderNotify;
-    std::string Severity;
-    const std::string* EventId = nullptr;
-    const uint64_t* Timestamp = nullptr;
-    const uint64_t* UpdateTimestamp = nullptr;
-    const std::vector<std::string>* AdditionalData = nullptr;
-};
-
-inline std::optional<DbusEventLogEntry> fillDbusEventLogEntryFromPropertyMap(
-    const dbus::utility::DBusPropertiesMap& resp)
-{
-    DbusEventLogEntry entry;
-
-    // clang-format off
-        bool success = sdbusplus::unpackPropertiesNoThrow(
-            dbus_utils::UnpackErrorPrinter(), resp,
-            "Id", entry.Id,
-            "Message", entry.Message,
-            "Path", entry.Path,
-            "Resolution", entry.Resolution,
-            "Resolved", entry.Resolved,
-            "ServiceProviderNotify", entry.ServiceProviderNotify,
-            "Severity", entry.Severity,
-            "Timestamp", entry.Timestamp,
-            "UpdateTimestamp", entry.UpdateTimestamp,
-            "AdditionalData", entry.AdditionalData
-        );
-
-    // clang-format on
-    if (!success)
-    {
-        return std::nullopt;
-    }
-    return entry;
-}
 
 inline void managerLogServiceEventLogGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -138,15 +93,15 @@ inline void fillManagerEventLogLogEntryFromPropertyMap(
     objectToFillOut["Severity"] =
         translateSeverityDbusToRedfish(entry.Severity);
 
-    if (entry.Timestamp != nullptr)
+    if (entry.Timestamp)
     {
         objectToFillOut["Created"] =
-            redfish::time_utils::getDateTimeUintMs(*entry.Timestamp);
+            redfish::time_utils::getDateTimeUintMs(entry.Timestamp);
     }
-    if (entry.UpdateTimestamp != nullptr)
+    if (entry.UpdateTimestamp)
     {
         objectToFillOut["Modified"] =
-            redfish::time_utils::getDateTimeUintMs(*entry.UpdateTimestamp);
+            redfish::time_utils::getDateTimeUintMs(entry.UpdateTimestamp);
     }
     if (entry.Path != nullptr)
     {
@@ -159,9 +114,9 @@ inline void fillManagerEventLogLogEntryFromPropertyMap(
     bool isMessageRegistry = false;
     std::string messageId;
     std::string messageArgs;
-    if (entry.AdditionalData != nullptr)
+    if (entry.additionalDataRaw != nullptr)
     {
-        AdditionalData additional(*entry.AdditionalData);
+        AdditionalData additional(*entry.additionalDataRaw);
         if (additional.count("REDFISH_MESSAGE_ID") > 0)
         {
             isMessageRegistry = true;
@@ -184,75 +139,15 @@ inline void fillManagerEventLogLogEntryFromPropertyMap(
                 "/LogServices/"
                 "EventLog/Entries/",
             "v1_15_0", std::to_string(entry.Id), "Manager Event Log Entry",
-            (entry.Timestamp == nullptr)
+            (entry.Timestamp == 0)
                 ? ""
                 : redfish::time_utils::getDateTimeStdtime(
-                      static_cast<time_t>(*entry.Timestamp)),
+                      static_cast<time_t>(entry.Timestamp)),
             messageId, messageArgs,
             (entry.Resolution == nullptr) ? "" : *entry.Resolution,
-            entry.Resolved, (entry.EventId == nullptr) ? "" : *entry.EventId,
+            entry.Resolved, (entry.Id == 0) ? "" : std::to_string(entry.Id),
             "", entry.Severity);
     }
-}
-
-inline void afterLogEntriesGetManagedObjects(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec,
-    const dbus::utility::ManagedObjectType& resp)
-{
-    if (ec)
-    {
-        // TODO Handle for specific error code
-        BMCWEB_LOG_ERROR("getLogEntriesIfaceData resp_handler got error {}",
-                         ec);
-        messages::internalError(asyncResp->res);
-        return;
-    }
-    nlohmann::json::array_t entriesArray;
-    for (const auto& objectPath : resp)
-    {
-        dbus::utility::DBusPropertiesMap propsFlattened;
-        auto isEntry = std::ranges::find_if(objectPath.second,
-                                            [](const auto& object) {
-            return object.first == "xyz.openbmc_project.Logging.Entry";
-        });
-        if (isEntry == objectPath.second.end())
-        {
-            continue;
-        }
-        for (const auto& interfaceMap : objectPath.second)
-        {
-            for (const auto& propertyMap : interfaceMap.second)
-            {
-                BMCWEB_LOG_ERROR("propertyMap.first: {}", propertyMap.first);
-                propsFlattened.emplace_back(propertyMap.first,
-                                            propertyMap.second);
-            }
-        }
-        fillManagerEventLogLogEntryFromPropertyMap(asyncResp, propsFlattened,
-                                                   entriesArray.emplace_back());
-    }
-
-    if constexpr (BMCWEB_SORT_EVENT_LOG)
-    {
-        std::sort(entriesArray.begin(), entriesArray.end(),
-                    [](const nlohmann::json& left,
-                        const nlohmann::json& right) {
-            int leftId = std::stoi(left["Id"].get<std::string>());
-            int rightId = std::stoi(right["Id"].get<std::string>());
-            return (leftId < rightId);
-        });
-    }
-    else
-    {
-        std::sort(entriesArray.begin(), entriesArray.end(),
-                    [](const nlohmann::json& left,
-                        const nlohmann::json& right) {
-            return (left["Id"] <= right["Id"]);
-        });
-    }
-    asyncResp->res.jsonValue["Members@odata.count"] = entriesArray.size();
-    asyncResp->res.jsonValue["Members"] = std::move(entriesArray);
 }
 
 inline void dbusManagerEventLogEntryCollection(

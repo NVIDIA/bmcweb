@@ -25,6 +25,7 @@
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_utils.hpp>
 #include <utils/port_utils.hpp>
+#include "utils/pcie_util.hpp"
 
 #include <map>
 #include <optional>
@@ -1416,7 +1417,7 @@ inline void doPortWithValidChassisId(
 
     getValidNetworkAdapterPath(
         asyncResp, networkAdapterId, chassisIntfList, *validChassisPath,
-        std::bind_front(doPort, asyncResp, chassisId, networkAdapterId,
+        std::bind_front(doPortGeneric, asyncResp, chassisId, networkAdapterId,
                         portId));
 }
 
@@ -1995,7 +1996,7 @@ inline void handleNetworkAdapterResetNext(
 
     getValidNetworkAdapterPath(
         asyncResp, networkAdapterId, chassisIntfList, *validChassisPath,
-        std::bind_front(doNetworkAdapterReset, asyncResp, networkAdapterId,
+        std::bind_front(doNetworkAdapterResetGeneric, asyncResp, networkAdapterId,
                         resetType));
 }
 

@@ -9,6 +9,7 @@
 @BMCWEB_OPTIONS@
 
 constexpr std::string_view BMCWEB_FW_MCTP_MAPPING_JSON = @FW_MCTP_MAPPING_JSON@;
+constexpr std::string_view BMCWEB_FW_ROT_CHASSIS_ALLOWLIST_JSON = @ROT_CHASSIS_ALLOWLIST_JSON@;
 
 // NOLINTEND(readability-identifier-naming)
 // clang-format on

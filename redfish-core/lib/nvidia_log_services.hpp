@@ -8,7 +8,7 @@
 #include "gzfile.hpp"
 #include "http_utility.hpp"
 #include "human_sort.hpp"
-#include "nvidia_cper_util.hpp"
+#include "cper_utils.hpp"
 #include "nvidia_messages.hpp"
 #include "query.hpp"
 #include "registries.hpp"
@@ -580,7 +580,7 @@ inline void dBusEventLogEntryGetAdditionalInfo(
         }
         // populate CPER section (checks are in the fn)
         nlohmann::json::object_t oem;
-        parseAdditionalDataForCPER(cper, oem, additional);
+        parseAdditionalDataForCPER(cper, oem, additional, originOfCondition);
         // add CPER to entry if it is present
         if (!cper.empty())
         {

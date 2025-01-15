@@ -60,8 +60,8 @@ inline void
         return;
     }
 
-    if (!(strlen(PLATFORMDEVICEPREFIX) > 0) ||
-        !(boost::starts_with(chassisPath.filename(), PLATFORMDEVICEPREFIX)))
+    if (!(BMCWEB_PLATFORM_DEVICE_PREFIX.length() > 0) ||
+        !(boost::starts_with(chassisPath.filename(), BMCWEB_PLATFORM_DEVICE_PREFIX)))
     {
         defaultSystemURI(asyncResp);
         return;

@@ -34,7 +34,7 @@
 #include "pcieslots.hpp"
 #include "ports.hpp"
 #include "profiles.hpp"
-#include "policy.hpp"
+#include "nvidia_policy.hpp"
 #include "processor.hpp"
 #include "service_conditions.hpp"
 #include "secure_boot.hpp"
@@ -43,7 +43,7 @@
 #include "trigger.hpp"
 #include "trusted_components.hpp"
 #include "update_service.hpp"
-
+#include "nvidia_sweinj.hpp"
 namespace redfish
 {
 void requestRoutesNvidia(crow::App& app)

@@ -9,7 +9,7 @@
 #include "http_response.hpp"
 #include "logging.hpp"
 #include "utils/query_param.hpp"
-
+#include "nvidia_persistent_data.hpp"
 #include <boost/beast/http/verb.hpp>
 #include <boost/url/params_view.hpp>
 #include <boost/url/url_view.hpp>
@@ -145,7 +145,7 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
     // Handle unauthorized expand query parameters for service root example
     // /redfish/v1/?$expand=< >
     if (req.session == nullptr &&
-        persistent_data::getConfig().isTLSAuthEnabled() &&
+        persistent_data::nvidia::getConfig().isTLSAuthEnabled() &&
         queryOpt->expandType != query_param::ExpandType::None)
     {
         messages::resourceAtUriUnauthorized(asyncResp->res, req.url(),

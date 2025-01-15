@@ -26,7 +26,7 @@
 #include <string>
 #include <variant>
 #include "openbmc_dbus_rest.hpp"
-
+#include <health.hpp>
 #include <boost/container/flat_set.hpp>
 #include <boost/system/linux_error.hpp>
 

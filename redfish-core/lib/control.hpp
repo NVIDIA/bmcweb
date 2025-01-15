@@ -140,11 +140,9 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
-                                for (const std::pair<
-                                         std::string,
-                                         std::variant<size_t, std::string,
-                                                      bool>>& property :
-                                     propertiesList)
+                                for (const std::pair<std::string,
+                                                    std::variant<size_t, std::string>>&
+                                        property : propertiesList)
                                 {
                                     std::string propertyName = property.first;
                                     if (propertyName == "MaxPowerCapValue")
@@ -1172,27 +1170,28 @@ inline void requestRoutesChassisControls(App& app)
                                     }
                                     for (auto [service, interfaces] : objType)
                                     {
-                                        if (std::find(
+                                        if ((std::find(
                                                 interfaces.begin(),
                                                 interfaces.end(),
                                                 "xyz.openbmc_project.Inventory.Item.Accelerator") !=
-                                 interfaces.end()) ||
+                                            interfaces.end()) ||
                                 (std::find(interfaces.begin(), interfaces.end(),
                                            "com.nvidia.GPMMetrics") !=
                                  interfaces.end()))
-                                        {
-                                            auto processorName =
-                                                processorPath.substr(
-                                                    processorPath.find_last_of(
-                                                        '/') +
-                                                    1);
-                                            redfish::nvidia_control_utils::
-                                                getClockLimitControl(
-                                                    asyncResp, chassisID,
-                                                    controlID, validChassisPath,
-                                                    processorName);
-                                            return;
-                                        }
+                                            {
+                                                auto processorName =
+                                                    processorPath.substr(
+                                                        processorPath
+                                                            .find_last_of('/') +
+                                                        1);
+                                                redfish::nvidia_control_utils::
+                                                    getClockLimitControl(
+                                                        asyncResp, chassisID,
+                                                        controlID,
+                                                        validChassisPath,
+                                                        processorName);
+                                                return;
+                                            }
                                     }
                                 },
                                 "xyz.openbmc_project.ObjectMapper",
@@ -1424,7 +1423,7 @@ inline void requestRoutesChassisControls(App& app)
                                     }
                                     for (auto [service, interfaces] : objType)
                                     {
-                                        if (std::find(
+                                        if ((std::find(
                                                 interfaces.begin(),
                                                 interfaces.end(),
                                                 "xyz.openbmc_project.Inventory.Item.Accelerator") !=
@@ -1750,7 +1749,7 @@ inline void requestRoutesChassisControlsReset(App& app)
                                     }
                                     for (auto [service, interfaces] : objType)
                                     {
-                                        if (std::find(
+                                        if ((std::find(
                                                 interfaces.begin(),
                                                 interfaces.end(),
                                                 "xyz.openbmc_project.Inventory.Item.Accelerator") !=

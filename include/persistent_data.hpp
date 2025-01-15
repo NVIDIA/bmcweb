@@ -343,7 +343,7 @@ class ConfigFile
         persistent_data::nvidia::getConfig().toJson(data);
         std::string out = nlohmann::json(data).dump(
             -1, ' ', true, nlohmann::json::error_handler_t::replace);
-        size_t writeBytes = persistentFile.write(dump.data(), dump.size(), ec);
+        size_t writeBytes = persistentFile.write(out.data(), out.size(), ec);
         if (ec || !writeBytes)
         {
             BMCWEB_LOG_ERROR("Failed to write file {}", ec.message());

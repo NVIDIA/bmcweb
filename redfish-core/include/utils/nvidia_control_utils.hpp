@@ -64,7 +64,7 @@ inline void getClockLimitControlObjects(
 
 inline void getChassisClockLimit(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& path, const std::string& chassisPath)
+    const std::string& path, const std::string& /*chassisPath*/)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, path](

@@ -26,7 +26,7 @@ limitations under the License.
 #include "nvidia_event_service_manager.hpp"
 #include "ossl_random.hpp"
 #include "persistent_data.hpp"
-#include "redfish-core/lib/nvidia_cper_util.hpp"
+#include "cper_utils.hpp"
 #include "registries.hpp"
 #include "registries_selector.hpp"
 #include "str_utility.hpp"
@@ -446,7 +446,7 @@ class Subscription : public std::enable_shared_from_this<Subscription>
 
         std::string strMsg = nlohmann::json(msg).dump(
             2, ' ', true, nlohmann::json::error_handler_t::replace);
-        return sendEvent(std::move(strMsg));
+        return sendEventToSubscriber(std::move(strMsg));
     }
 
     void filterAndSendEventLogs(

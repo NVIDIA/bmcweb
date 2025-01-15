@@ -25,6 +25,56 @@ namespace redfish
 
 namespace nvidia_manager_util
 {
+
+void processFeatureReadyPropertiesList(
+    const boost::system::error_code& ec,
+    const std::vector<std::pair<std::string, std::variant<std::string>>>& propertiesList,
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
+    if (ec) {
+        BMCWEB_LOG_ERROR("Error in getting manager service state");
+        aResp->res.jsonValue["Status"]["State"] = "Starting";
+        return;
+    }
+
+    const std::string* featureType = nullptr;
+    const std::string* stateValue = nullptr;
+
+    for (const auto& property : propertiesList) {
+        if (property.first == "FeatureType") {
+            featureType = std::get_if<std::string>(&property.second);
+        } else if (property.first == "State") {
+            stateValue = std::get_if<std::string>(&property.second);
+        }
+
+        if (featureType && stateValue) {
+            break; // Exit early if both values are found
+        }
+    }
+
+
+    if (!featureType || *featureType != "xyz.openbmc_project.State.FeatureReady.FeatureTypes.Manager") {
+        BMCWEB_LOG_ERROR("Invalid or missing FeatureType");
+        messages::internalError(aResp->res);
+        return;
+    }
+
+    if (!stateValue) {
+        BMCWEB_LOG_DEBUG("Null value returned for manager service state");
+        messages::internalError(aResp->res);
+        return;
+    }
+
+    std::string state = redfish::chassis_utils::getFeatureReadyStateType(*stateValue);
+    aResp->res.jsonValue["Status"]["State"] = state;
+
+    if (state == "Enabled") {
+        aResp->res.jsonValue["Status"]["Health"] = "OK";
+    } else {
+        aResp->res.jsonValue["Status"]["Health"] = "Critical";
+    }
+}
+
+
 /**
  * @brief Retrieves telemetry ready state data over DBus
  *
@@ -43,65 +93,8 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         std::chrono::duration_cast<std::chrono::microseconds>(1s).count();
     crow::connections::systemBus->async_method_call_timed(
         [aResp](const boost::system::error_code ec,
-                const std::vector<std::pair<
-                    std::string, std::variant<std::string>>>& propertiesList) {
-            if (ec)
-            {
-            BMCWEB_LOG_ERROR("Error in getting manager service state");
-            aResp->res.jsonValue["Status"]["State"] = "Starting";
-                return;
-            }
-            for (const std::pair<std::string, std::variant<std::string>>&
-                     property : propertiesList)
-            {
-                if (property.first == "FeatureType")
-                {
-                    const std::string* value =
-                        std::get_if<std::string>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("nullptr while reading FeatureType");
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    if (*value ==
-                        "xyz.openbmc_project.State.FeatureReady.FeatureTypes.Manager")
-                    {
-                        for (const std::pair<std::string,
-                                             std::variant<std::string>>&
-                                 propertyItr : propertiesList)
-                        {
-                            if (propertyItr.first == "State")
-                            {
-                                const std::string* stateValue =
-                                    std::get_if<std::string>(
-                                        &propertyItr.second);
-                                if (stateValue == nullptr)
-                                {
-                                    BMCWEB_LOG_DEBUG(
-                                        "Null value returned for manager service state");
-                                    messages::internalError(aResp->res);
-                                    return;
-                                }
-                                std::string state = redfish::chassis_utils::
-                                    getFeatureReadyStateType(*stateValue);
-                                aResp->res.jsonValue["Status"]["State"] = state;
-                                if (state == "Enabled")
-                                {
-                                aResp->res.jsonValue["Status"]["Health"] = "OK";
-                                aResp->res.jsonValue["Status"]["State"] =
-                                    "Enabled";
-                                }
-                                else
-                                {
-                                    aResp->res.jsonValue["Status"]["Health"] =
-                                        "Critical";
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+           const std::vector<std::pair<std::string, std::variant<std::string>>>& propertiesList) {
+            processFeatureReadyPropertiesList(ec, propertiesList, aResp);
         },
         connectionName, path, "org.freedesktop.DBus.Properties", "GetAll",
         timeout, "xyz.openbmc_project.State.FeatureReady");
