@@ -1132,9 +1132,21 @@ inline void updateUserProperties(
                     // If password is invalid
                     messages::propertyValueFormatError(asyncResp->res, nullptr,
                                                        "Password");
+                // update the resolution message
+                std::string resolution;
+                if (!checkPasswordQuality(username, *password, resolution))
+                {
+                    redfish::message_registries::updateResolution(
+                        asyncResp, "Password", resolution);
                     BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
                     handle_nvidia_resolution(asyncResp, password);
                 }
+                else
+                {
+                    BMCWEB_LOG_DEBUG("checkPasswordQuality passed");
+                }
+            }
+
                 else if (retval != PAM_SUCCESS)
                 {
                     messages::internalError(asyncResp->res);
@@ -1802,10 +1814,18 @@ inline void processAfterCreateUser(
 
         if (retval == PAM_AUTHTOK_ERR)
         {
-            // update the resolution message and add the
-            // password policy too
-            handle_nvidia_resolution(asyncResp, password);
-            BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
+            // update the resolution message
+            std::string resolution;
+            if (!checkPasswordQuality(username, password, resolution))
+            {
+                redfish::message_registries::updateResolution(
+                    asyncResp, "Password", resolution);
+                BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("checkPasswordQuality passed");
+            }
         }
 
         // At this point we have a user that's been

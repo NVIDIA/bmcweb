@@ -749,6 +749,13 @@ static inline void
                     {
                         const std::string* value =
                             std::get_if<std::string>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("property {} value not found.",
+                                     propertyName);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
                         std::optional<std::string> generationInUse =
                             pcie_util::redfishPcieGenerationStringFromDbus(
                                 *value);

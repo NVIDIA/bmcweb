@@ -31,6 +31,7 @@ limitations under the License.
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/sw_utils.hpp"
+#include "debug_token/erase_policy.hpp"
 
 #include <sys/mman.h>
 
@@ -140,11 +141,6 @@ inline void cleanUp()
 {
     fwUpdateInProgress = false;
     fwUpdateMatcher = nullptr;
-}
-
-inline void cleanUpStageObjects()
-{
-    fwImageIsStaging = false;
 }
 
 inline void activateImage(const std::string& objPath,
@@ -683,6 +679,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
             std::optional<std::string> transferProtocol;
             std::optional<std::vector<std::string>> targets;
             std::optional<std::string> username;
+        std::optional<bool> forceUpdate;
 
             BMCWEB_LOG_DEBUG("Enter UpdateService.SimpleUpdate doPost");
 
@@ -695,7 +692,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
             if (!json_util::readJsonAction(
                     req, asyncResp->res, "TransferProtocol", transferProtocol,
                     "ImageURI", imageURI, "Targets", targets, "Username",
-                    username) &&
+                    username, "ForceUpdate", forceUpdate) &&
                 imageURI.empty())
             {
                 messages::createFailedMissingReqProperties(asyncResp->res,
@@ -749,9 +746,10 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                 supportedProtocols.push_back("HTTPS");
             }
 
-            // OpenBMC currently only supports TFTP and SCP
-            if (std::find(supportedProtocols.begin(), supportedProtocols.end(),
-                          *transferProtocol) == supportedProtocols.end())
+        auto searchProtocol = std::find(supportedProtocols.begin(),
+                                        supportedProtocols.end(),
+                                        *transferProtocol);
+        if (searchProtocol == supportedProtocols.end())
             {
                 messages::actionParameterNotSupported(
                     asyncResp->res, "TransferProtocol",
@@ -761,8 +759,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                 return;
             }
 
-            if ((*transferProtocol == "SCP") || (*transferProtocol == "HTTP") ||
-                (*transferProtocol == "HTTPS"))
+        if (isProtocolScpOrHttp(*transferProtocol))
             {
                 if (!targets.has_value())
                 {
@@ -850,9 +847,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                     "xyz.openbmc_project.Common.TFTP", "DownloadViaTFTP",
                     fwFile, server);
             }
-            else if ((*transferProtocol == "SCP") ||
-                     (*transferProtocol == "HTTP") ||
-                     (*transferProtocol == "HTTPS"))
+        else if (isProtocolScpOrHttp(*transferProtocol))
             {
                 // Take the first target as only one target is supported
                 std::string targetURI = targets.value()[0];
@@ -868,7 +863,16 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                 }
                 std::string objName = "/xyz/openbmc_project/software/" +
                                       targetURI.substr(firmwarePrefix.length());
-
+            BMCWEB_LOG_INFO("Object path: {}", objName);
+            // pack SimpleUpdate parameters in shared pointer to allow safe
+            // usage during the sequence of asynchronous method calls.
+            // The value of forceUpdate is false by default.
+            const auto params = std::make_shared<const SimpleUpdateParams>(
+                server, fwFile, *transferProtocol, forceUpdate.value_or(false),
+                username);
+            // wrap crow::Request in a shared pointer to pass securely to
+            // asynchronous method calls.
+            const auto sharedReq = std::make_shared<const crow::Request>(req);
                 // Search for the version object related to the given target URI
                 crow::connections::systemBus->async_method_call(
                     [req, asyncResp, objName, fwFile, server, transferProtocol,
@@ -1012,6 +1016,9 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                     std::array<const char*, 2>{
                         "xyz.openbmc_project.Software.Version",
                         "xyz.openbmc_project.Common.FilePath"});
+
+                // Search for the version object related to the given target URI
+                findAssociatedUpdaterService(sharedReq, asyncResp, params, objName);
             }
 
             BMCWEB_LOG_DEBUG("Exit UpdateService.SimpleUpdate doPost");
@@ -1734,6 +1741,16 @@ inline bool parseMultipartForm(
             }
             else if (param.second == "UpdateFile")
             {
+                boost::beast::http::fields::const_iterator contentTypeIt =
+                    formpart.fields.find("Content-Type");
+                if (contentTypeIt == formpart.fields.end() ||
+                    contentTypeIt->value() != "application/octet-stream")
+                {
+                    BMCWEB_LOG_ERROR(
+                        "UpdateFile parameter must be of type 'application/octet-stream'");
+                    messages::unsupportedMediaType(asyncResp->res);
+                    return false;
+                }
                 hasFile = true;
             }
         }
@@ -1900,8 +1917,7 @@ inline void handleSatBMCResponse(
             return;
         }
         BMCWEB_LOG_DEBUG("Successfully parsed satellite response");
-        nlohmann::json::object_t* object =
-            jsonVal.get_ptr<nlohmann::json::object_t*>();
+        auto* object = jsonVal.get_ptr<nlohmann::json::object_t*>();
         if (object == nullptr)
         {
             BMCWEB_LOG_ERROR("Parsed JSON was not an object?");
@@ -1915,7 +1931,7 @@ inline void handleSatBMCResponse(
             std::string* strValue = prop.second.get_ptr<std::string*>();
             if (strValue == nullptr)
             {
-                BMCWEB_LOG_CRITICAL("Field wasn't a string????");
+                BMCWEB_LOG_CRITICAL("Item is not a string");
                 continue;
             }
             if (prop.first == "@odata.id")
@@ -2770,12 +2786,19 @@ inline void requestRoutesUpdateService(App& app)
 
             std::optional<nlohmann::json> pushUriOptions;
             std::optional<std::vector<std::string>> imgTargets;
-            if (!json_util::readJsonPatch(req, asyncResp->res,
-                                          "HttpPushUriTargets", imgTargets))
+        std::optional<bool> erasePolicy;
+        if (!json_util::readJsonPatch(
+                req, asyncResp->res, "HttpPushUriTargets", imgTargets,
+                "Oem/Nvidia/AutomaticDebugTokenErased", erasePolicy))
             {
                 BMCWEB_LOG_ERROR("UpdateService doPatch: Invalid request body");
                 return;
             }
+
+        if (erasePolicy)
+        {
+            debug_token::setErasePolicy(asyncResp, *erasePolicy);
+        }
 
             if (imgTargets)
             {
@@ -3806,6 +3829,13 @@ inline void requestRoutesUpdateServiceCommitImage(App& app)
                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
             BMCWEB_LOG_DEBUG("doPost...");
 
+#ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
+            if (!handleSatBMCCommitImagePost(req, asyncResp))
+            {
+                return;
+            }
+#endif
+
             if (fwUpdateInProgress == true)
             {
                 redfish::messages::updateInProgressMsg(
@@ -4017,6 +4047,7 @@ inline void requestRoutesSoftwareInventory(App& app)
                             fw_util::getFwWriteProtectedStatus(asyncResp, swId,
                                                                settingService);
                         }
+                asyncResp->res.jsonValue["Id"] = *swId;
 
                         if (!versionService.empty())
                         {
@@ -4118,9 +4149,12 @@ inline void requestRoutesSoftwareInventory(App& app)
                                                 asyncResp->res);
                                             return;
                                         }
+                            if (!softwareId->empty())
+                            {
                                         asyncResp->res.jsonValue["SoftwareId"] =
                                             *softwareId;
                                     }
+                        }
 
                                     asyncResp->res.jsonValue["Version"] =
                                         *version;

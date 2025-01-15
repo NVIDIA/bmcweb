@@ -1497,6 +1497,11 @@ inline void
                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const std::string& managerId)
 {
+    // Default Health State. 
+    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+    asyncResp->res.jsonValue["Status"]["Health"] = "OK";
+    asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
+
     if constexpr (BMCWEB_LLDP_DEDICATED_PORTS)
     {
         asyncResp->res.jsonValue["DedicatedNetworkPorts"]["@odata.id"] =
@@ -1818,6 +1823,27 @@ inline void
     oemActions["#eMMC.SecureErase"]["@Redfish.ActionInfo"] =
         "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
         "/Oem/EmmcSecureEraseActionInfo";
+
+    if constexpr (BMCWEB_NSM_RAW_COMMAND_ENABLE)
+    {
+        nvidia_manager_util::getNSMRawCommandActions(asyncResp);
+    }
+
+    nlohmann::json& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
+
+    if constexpr (BMCWEB_REDFISH_SW_EINJ)
+    {
+        nlohmann::json& oemActionsEinj =
+            oemActions["#NvidiaManager.SWErrorInjection"];
+
+        oemActionsEinj["target"] = boost::urls::format(
+            "/redfish/v1/Managers/{}/Actions/Oem/NvidiaManager.SWErrorInjection",
+            BMCWEB_REDFISH_MANAGER_URI_NAME);
+
+        oemActionsEinj["@Redfish.ActionInfo"] = boost::urls::format(
+            "/redfish/v1/Managers/{}/Oem/Nvidia/SWErrorInjectionActionInfo",
+            BMCWEB_REDFISH_MANAGER_URI_NAME);
+    }
 }
 
 } // namespace redfish

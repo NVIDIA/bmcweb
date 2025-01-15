@@ -24,14 +24,16 @@ namespace redfish
 {
 static constexpr auto leakDetectorStateInterface =
     "xyz.openbmc_project.State.LeakDetector";
+static constexpr auto leakDetectorOpStatusInterface =
+    "xyz.openbmc_project.State.Decorator.OperationalStatus";
 static constexpr auto leakDetectorInventoryInterface =
     "xyz.openbmc_project.Inventory.Item.LeakDetector";
 
 constexpr std::array<std::string_view, 1> leakDetectorInventoryInterfaces = {
     leakDetectorInventoryInterface};
 
-constexpr std::array<std::string_view, 1> leakDetectorStateInterfaces = {
-    leakDetectorStateInterface};
+constexpr std::array<std::string_view, 2> leakDetectorStateInterfaces = {
+    leakDetectorStateInterface, leakDetectorOpStatusInterface};
 
 inline void getValidLeakDetectorPath(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -81,9 +83,77 @@ inline void addLeakDetectorCommonProperties(crow::Response& resp,
     resp.jsonValue["Name"] = std::move(leakDetectorName);
 }
 
-inline void getLeakDetectorState(
+inline void afterDetectorStatePropertyGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& leakDetectorPath, const std::string& service)
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& propertiesList)
+{
+    if (ec)
+    {
+        if (ec.value() != EBADR)
+        {
+            BMCWEB_LOG_ERROR("DBUS response error for State {}", ec.value());
+            messages::internalError(asyncResp->res);
+        }
+        return;
+    }
+
+    const std::string* detectorState = nullptr;
+
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), propertiesList, "DetectorState",
+        detectorState);
+
+    if (!success)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (detectorState != nullptr)
+    {
+        asyncResp->res.jsonValue["DetectorState"] = *detectorState;
+        asyncResp->res.jsonValue["Status"]["Health"] = *detectorState;
+    }
+}
+
+inline void afterDetectorStatusPropertyGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& propertiesList)
+{
+    if (ec)
+    {
+        if (ec.value() != EBADR)
+        {
+            BMCWEB_LOG_ERROR("DBUS response error for State {}", ec.value());
+            messages::internalError(asyncResp->res);
+        }
+        return;
+    }
+
+    const std::string* detectorOpStatus = nullptr;
+
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), propertiesList, "State",
+        detectorOpStatus);
+
+    if (!success)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    if (detectorOpStatus != nullptr)
+    {
+        asyncResp->res.jsonValue["Status"]["State"] = *detectorOpStatus;
+    }
+}
+
+inline void
+    getLeakDetectorState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                         const std::string& leakDetectorPath,
+                         const std::string& service)
 {
     dbus::utility::getAssociatedSubTreePaths(
         leakDetectorPath + "/leak_detecting",
@@ -119,36 +189,16 @@ inline void getLeakDetectorState(
                 [asyncResp](
                     const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
-                    if (ec)
-                    {
-                        if (ec.value() != EBADR)
-                        {
-                            BMCWEB_LOG_ERROR("DBUS response error for State {}",
-                                             ec.value());
-                            messages::internalError(asyncResp->res);
-                        }
-                        return;
-                    }
+            afterDetectorStatePropertyGet(asyncResp, ec, propertiesList);
+        });
 
-                    const std::string* detectorState = nullptr;
-
-                    const bool success = sdbusplus::unpackPropertiesNoThrow(
-                        dbus_utils::UnpackErrorPrinter(), propertiesList,
-                        "DetectorState", detectorState);
-
-                    if (!success)
-                    {
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-
-                    if (detectorState != nullptr)
-                    {
-                        asyncResp->res.jsonValue["DetectorState"] =
-                            *detectorState;
-                        asyncResp->res.jsonValue["Status"]["Health"] =
-                            *detectorState;
-                    }
+        sdbusplus::asio::getAllProperties(
+            *crow::connections::systemBus, service, subtreePaths.front(),
+            leakDetectorOpStatusInterface,
+            [asyncResp](
+                const boost::system::error_code& ec,
+                const dbus::utility::DBusPropertiesMap& propertiesList) {
+            afterDetectorStatusPropertyGet(asyncResp, ec, propertiesList);
                 });
         });
 }

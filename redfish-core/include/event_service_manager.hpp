@@ -78,6 +78,41 @@ static constexpr const char* eventServiceFile =
 static constexpr const uint8_t maxNoOfSubscriptions = 20;
 static constexpr const uint8_t maxNoOfSSESubscriptions = 10;
 
+struct TestEvent
+{
+    std::optional<int64_t> eventGroupId;
+    std::optional<std::string> eventId;
+    std::optional<std::string> eventTimestamp;
+    std::optional<std::string> message;
+    std::optional<std::vector<std::string>> messageArgs;
+    std::optional<std::string> messageId;
+    std::optional<std::string> originOfCondition;
+    std::optional<std::string> resolution;
+    std::optional<std::string> severity;
+    // default constructor
+    TestEvent() = default;
+    // default assignment operator
+    TestEvent& operator=(const TestEvent&) = default;
+    // default copy constructor
+    TestEvent(const TestEvent&) = default;
+    // constructor with all the aruments
+    TestEvent(std::optional<int64_t> eventGroupId,
+              std::optional<std::string> eventId,
+              std::optional<std::string> eventTimestamp,
+              std::optional<std::string> message,
+              std::optional<std::vector<std::string>> messageArgs,
+              std::optional<std::string> messageId,
+              std::optional<std::string> originOfCondition,
+              std::optional<std::string> resolution,
+              std::optional<std::string> severity) :
+        eventGroupId(eventGroupId),
+        eventId(eventId), eventTimestamp(eventTimestamp), message(message),
+        messageArgs(messageArgs), messageId(messageId),
+        originOfCondition(originOfCondition), resolution(resolution),
+        severity(severity)
+    {}
+};
+
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::optional<boost::asio::posix::stream_descriptor> inotifyConn;
 static constexpr const char* redfishEventLogDir = "/var/log";
@@ -350,31 +385,68 @@ class Subscription : public std::enable_shared_from_this<Subscription>
         return true;
     }
 
-    bool sendTestEventLog()
+    bool sendTestEventLog(TestEvent& testEvent)
     {
         nlohmann::json::array_t logEntryArray;
-        nlohmann::json& logEntryJson = logEntryArray.emplace_back();
+        nlohmann::json& logEntryJson =
+            logEntryArray.emplace_back(nlohmann::json::object());
 
-        logEntryJson["EventId"] = "TestID";
-        logEntryJson["Severity"] = log_entry::EventSeverity::OK;
-        logEntryJson["Message"] = "Generated test event";
-        logEntryJson["MessageId"] = "OpenBMC.0.2.TestEventLog";
+        if (testEvent.eventGroupId)
+        {
+            logEntryJson["EventGroupId"] = *testEvent.eventGroupId;
+        }
+
+        if (testEvent.eventId)
+        {
+            logEntryJson["EventId"] = *testEvent.eventId;
+        }
+
+        if (testEvent.eventTimestamp)
+        {
+            logEntryJson["EventTimestamp"] = *testEvent.eventTimestamp;
+        }
+
+        if (testEvent.originOfCondition)
+        {
+            logEntryJson["OriginOfCondition"]["@odata.id"] =
+                *testEvent.originOfCondition;
+        }
+        if (testEvent.severity)
+        {
+            logEntryJson["Severity"] = *testEvent.severity;
+        }
+
+        if (testEvent.message)
+        {
+            logEntryJson["Message"] = *testEvent.message;
+        }
+
+        if (testEvent.resolution)
+        {
+            logEntryJson["Resolution"] = *testEvent.resolution;
+        }
+
+        if (testEvent.messageId)
+        {
+            logEntryJson["MessageId"] = *testEvent.messageId;
+        }
+
+        if (testEvent.messageArgs)
+        {
+            logEntryJson["MessageArgs"] = *testEvent.messageArgs;
+        }
         // MemberId is 0 : since we are sending one event record.
         logEntryJson["MemberId"] = "0";
-        logEntryJson["MessageArgs"] = nlohmann::json::array();
-        logEntryJson["EventTimestamp"] =
-            redfish::time_utils::getDateTimeOffsetNow().first;
-        logEntryJson["Context"] = userSub.customText;
 
-        nlohmann::json msg;
+        nlohmann::json::object_t msg;
         msg["@odata.type"] = "#Event.v1_4_0.Event";
         msg["Id"] = std::to_string(eventSeqNum);
         msg["Name"] = "Event Log";
         msg["Events"] = logEntryArray;
 
-        std::string strMsg =
-            msg.dump(2, ' ', true, nlohmann::json::error_handler_t::replace);
-        return sendEventToSubscriber(std::move(strMsg));
+        std::string strMsg = nlohmann::json(msg).dump(
+            2, ' ', true, nlohmann::json::error_handler_t::replace);
+        return sendEvent(std::move(strMsg));
     }
 
     void filterAndSendEventLogs(
@@ -1074,12 +1146,12 @@ class EventServiceManager
         return idList;
     }
 
-    bool sendTestEventLog()
+    bool sendTestEventLog(TestEvent& testEvent)
     {
         for (const auto& it : subscriptionsMap)
         {
             std::shared_ptr<Subscription> entry = it.second;
-            if (!entry->sendTestEventLog())
+            if (!entry->sendTestEventLog(testEvent))
             {
                 return false;
             }
@@ -1852,7 +1924,7 @@ class EventServiceManager
                                         }
                                         else
                                         {
-                                            BMCWEB_LOG_ERROR(
+                                        BMCWEB_LOG_WARNING(
                                                 "property mapping not found for {}",
                                                 messageArgs[0]);
                                         }
@@ -1870,15 +1942,21 @@ class EventServiceManager
                             }
                             else
                             {
+                            auto counter =
+                                additional.count("REDFISH_MESSAGE_ID");
+                            // when removing entries counter will be 0
+                            if (counter > 0)
+                            {
                                 BMCWEB_LOG_ERROR(
-                                    "There should be exactly one MessageId in the Dbus signal message. Found ",
-                                    std::to_string(additional.count(
-                                        "REDFISH_MESSAGE_ID")));
+                                    "There should be exactly one MessageId in the Dbus signal message. Found {}",
+                                    std::to_string(counter));
                                 return;
                             }
+                        }
 
                             nlohmann::json::object_t oem;
-                            parseAdditionalDataForCPER(cper, oem, additional);
+                        parseAdditionalDataForCPER(cper, oem, additional,
+                                                   originOfCondition);
                         }
                         else
                         {
@@ -1973,7 +2051,8 @@ class EventServiceManager
 
                 if (messageId == "")
                 {
-                    BMCWEB_LOG_ERROR("Invalid Dbus log entry.");
+                // it happens when removing entries
+                BMCWEB_LOG_DEBUG("Invalid Dbus log entry.");
                     return;
                 }
                 else
@@ -2023,8 +2102,8 @@ class EventServiceManager
                     }
                     else
                     {
-                        BMCWEB_LOG_ERROR(
-                            "no OriginOfCondition in event log. MsgId: ",
+                    BMCWEB_LOG_WARNING(
+                        "no OriginOfCondition in event log. MsgId: {}",
                             messageId);
                         sendEventWithOOC(std::string{""}, event);
                     }
@@ -2086,7 +2165,7 @@ class EventServiceManager
             }
         }
 
-        BMCWEB_LOG_ERROR(
+        BMCWEB_LOG_WARNING(
             "No Matching prefix found for OriginOfCondition Object Path: '{}' sending empty OriginOfCondition",
             path);
 

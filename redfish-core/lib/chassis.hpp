@@ -491,13 +491,6 @@ inline void handleDecoratorAssetProperties(
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
-    if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
-    {
-        // PolicyCollection
-        asyncResp->res.jsonValue["Policies"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/Policies", chassisId);
-    }
-
     nlohmann::json::array_t computerSystems;
     nlohmann::json::object_t system;
     system["@odata.id"] =
@@ -760,12 +753,12 @@ inline void handleChassisGetSubTree(
 
             sdbusplus::asio::getAllProperties(
                 *crow::connections::systemBus, connectionName, path, "",
-                [asyncResp, chassisId, connectionName,
-                 path](const boost::system::error_code&,
+                [asyncResp, chassisId, connectionName, path, interfaces2](
+                    const boost::system::error_code&,
                        const dbus::utility::DBusPropertiesMap& propertiesList) {
-                    redfish::nvidia_chassis_utils::
-                        handleChassisGetAllProperties(asyncResp, chassisId,
-                                                      path, propertiesList);
+                redfish::nvidia_chassis_utils::handleChassisGetAllProperties(
+                    asyncResp, chassisId, path, propertiesList, connectionName,
+                    interfaces2);
                     getChassisStateWrapper(asyncResp, propertiesList,
                                            connectionName, path);
                     getStorageLink(asyncResp, path);
@@ -1384,6 +1377,7 @@ inline void handleOemChassisResetActionInfoPost(
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
+                    messages::success(asyncResp->res);
                         },
                         "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager", "StartUnit",

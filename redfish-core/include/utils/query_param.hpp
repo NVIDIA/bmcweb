@@ -867,7 +867,8 @@ class MultiAsyncResp : public std::enable_shared_from_this<MultiAsyncResp>
 
     // Handles the very first level of Expand, and starts a chain of sub-queries
     // for deeper levels.
-    void startQuery(const Query& query, const Query& delegated)
+    void startQuery(const Query& query, const Query& delegated,
+                    const std::shared_ptr<crow::Request>& req)
     {
         std::vector<ExpandNode> nodes = findNavigationReferences(
             query.expandType, query.expandLevel, delegated.expandLevel,
@@ -893,6 +894,15 @@ class MultiAsyncResp : public std::enable_shared_from_this<MultiAsyncResp>
                 messages::internalError(finalRes->res);
                 return;
             }
+            // Copy the session from the original request
+            if (req->session == nullptr &&
+                persistent_data::getConfig().isTLSAuthEnabled())
+            {
+                BMCWEB_LOG_ERROR("Session is null");
+                messages::internalError(finalRes->res);
+                return;
+            }
+            newReq->session = req->session;
 
             auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
             BMCWEB_LOG_DEBUG("setting completion handler on {}",
@@ -1036,7 +1046,8 @@ inline void processSelect(crow::Response& intermediateResponse,
 inline void
     processAllParams(crow::App& app, const Query& query, const Query& delegated,
                      std::function<void(crow::Response&)>& completionHandler,
-                     crow::Response& intermediateResponse)
+                     crow::Response& intermediateResponse,
+                     const std::shared_ptr<crow::Request>& req)
 {
     if (!completionHandler)
     {
@@ -1072,7 +1083,7 @@ inline void
 
         asyncResp->res.setCompleteRequestHandler(std::move(completionHandler));
         auto multi = std::make_shared<MultiAsyncResp>(app, asyncResp);
-        multi->startQuery(query, delegated);
+        multi->startQuery(query, delegated, req);
         return;
     }
 

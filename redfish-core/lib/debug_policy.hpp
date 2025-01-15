@@ -216,13 +216,7 @@ inline void
            const std::string& svc, const std::string& path) {
             if (path.empty())
             {
-                // Not an error :: partial success
-                // propertyMissing:Indicates that a required property was not
-                // supplied as part of the request.
-                nlohmann::json missingProperty = messages::propertyMissing(
-                    "Oem/Nvidia/ProcessorDebugCapabilities");
-                messages::moveErrorsToErrorJson(asyncResp->res.jsonValue,
-                                                missingProperty);
+            /* There is no PLDM effecter when AC On with system off */
                 return;
             }
             debugPropertiesGet(asyncResp, svc, path);
@@ -243,6 +237,7 @@ inline void debugCapabilitiesProcess(
                 messages::internalError(asyncResp->res);
                 return;
             }
+        asyncResp->res.result(boost::beast::http::status::ok);
             messages::success(asyncResp->res, method);
         },
         svc, path, "xyz.openbmc_project.Control.Processor.RemoteDebug", method,
@@ -261,6 +256,7 @@ inline void debugPropertySet(
                 messages::internalError(asyncResp->res);
                 return;
             }
+        asyncResp->res.result(boost::beast::http::status::ok);
             messages::success(asyncResp->res, prop);
         },
         svc, path, "org.freedesktop.DBus.Properties", "Set",

@@ -550,6 +550,7 @@ inline void dBusEventLogEntryGetAdditionalInfo(
     std::string originOfCondition;
     std::string deviceName;
     nlohmann::json::object_t cper;
+    bool deviceEventData = false;
 
     if (entry.additionalDataRaw != nullptr)
     {
@@ -573,7 +574,10 @@ inline void dBusEventLogEntryGetAdditionalInfo(
         {
             deviceName = additional["DEVICE_NAME"];
         }
-
+        if (additional.count("DEVICE_EVENT_DATA") > 0)
+        {
+            deviceEventData = true;
+        }
         // populate CPER section (checks are in the fn)
         nlohmann::json::object_t oem;
         parseAdditionalDataForCPER(cper, oem, additional);
@@ -583,6 +587,12 @@ inline void dBusEventLogEntryGetAdditionalInfo(
             objectToFillOut.update(cper);
         }
     }
+
+    if (deviceEventData && (entry.Path != nullptr) && (entry.Id))
+    {
+        asyncResp->res.jsonValue["AdditionalDataURI"] =
+            getLogEntryAdditionalDataURI(std::to_string(entry.Id));
+    }     
 
     if (isMessageRegistry)
     {

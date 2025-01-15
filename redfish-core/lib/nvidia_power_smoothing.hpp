@@ -376,15 +376,8 @@ inline void getProcessorPowerSmoothingData(
                                   "com.nvidia.PowerSmoothing.PowerSmoothing") ==
                         interfaces.end())
                     {
-                        // Object not found
-                        BMCWEB_LOG_ERROR(
-                            "Resource not found #NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing for {}",
-                            processorId);
-                        messages::resourceNotFound(
-                            aResp->res,
-                            "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
-                            processorId);
-                        return;
+                    // no interface = no failures
+                    continue;
                     }
                     getProcessorPowerSmoothingControlData(aResp, service, path,
                                                           presetProfileURI);
@@ -393,21 +386,21 @@ inline void getProcessorPowerSmoothingData(
                             "com.nvidia.PowerSmoothing.CurrentPowerProfile") ==
                         interfaces.end())
                     {
+                    continue;
+                }
+                getProcessorCurrentProfileData(aResp, service, path,
+                                               presetProfileURI);
+                return;
+            }
                         // Object not found
                         BMCWEB_LOG_ERROR(
                             "Resource not found #NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing for {}",
                             processorId);
                         messages::resourceNotFound(
-                            aResp->res,
-                            "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
+                aResp->res, "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
                             processorId);
                         return;
                     }
-                    getProcessorCurrentProfileData(aResp, service, path,
-                                                   presetProfileURI);
-                }
-                return;
-            }
             // Object not found
             messages::resourceNotFound(
                 aResp->res, "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
@@ -417,9 +410,10 @@ inline void getProcessorPowerSmoothingData(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void getAdminProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
@@ -614,9 +608,10 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void getProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
@@ -717,7 +712,7 @@ inline void getProcessorPowerSmoothingPresetProfileData(
                 aResp->res.jsonValue["@odata.type"] =
                     "#NvidiaPowerSmoothingPresetProfile.v1_0_0.NvidiaPowerSmoothingPresetProfile";
                 aResp->res.jsonValue["@odata.id"] = profileURI;
-                aResp->res.jsonValue["Id"] = "Presetprofile";
+            aResp->res.jsonValue["Id"] = profileId;
 
                 std::string profileName = processorId;
                 profileName += " PowerSmoothing PresetProfile ";
@@ -750,9 +745,7 @@ inline void getProcessorPowerSmoothingPresetProfileData(
                                 continue;
                             }
                             profileExists = true;
-                            std::string objectPathToGetProfileData =
-                                profilePath;
-                            BMCWEB_LOG_ERROR("Profile ID: {}", profileId);
+                    std::string objectPathToGetProfileData = profilePath;
                             crow::connections::systemBus->async_method_call(
                                 [processorId, objectPathToGetProfileData,
                                  aResp{std::move(aResp)}](
@@ -800,9 +793,10 @@ inline void getProcessorPowerSmoothingPresetProfileData(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void getProcessorPowerSmoothingPresetProfileCollectionData(
@@ -888,9 +882,10 @@ inline void getProcessorPowerSmoothingPresetProfileCollectionData(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void patchPowerSmoothingFeature(
@@ -918,69 +913,62 @@ inline void patchPowerSmoothingFeature(
                 {
                     continue;
                 }
-
+            const std::string* inventoryService = nullptr;
                 for (const auto& [service, interfaces] : object)
                 {
                     if (std::find(interfaces.begin(), interfaces.end(),
                                   "com.nvidia.PowerSmoothing.PowerSmoothing") !=
                         interfaces.end())
                     {
-                        // Set the property, with handler to check error
-                        // responses
-                        crow::connections::systemBus->async_method_call(
-                            [aResp, propName,
-                             processorId](boost::system::error_code ec,
-                                          sdbusplus::message::message& msg) {
-                                if (!ec)
-                                {
-                                    BMCWEB_LOG_DEBUG(
-                                        "Toggle Power Smoothing feature state succeeded");
-                                    return;
-                                }
-
-                                BMCWEB_LOG_DEBUG(
-                                    "Toggle Immediate Rampdown failed: {}, {}",
-                                    processorId, propName, ec);
-                                // Read and convert dbus error message to
-                                // redfish error
-                                const sd_bus_error* dbusError = msg.get_error();
-                                if (dbusError == nullptr)
-                                {
-                                    messages::internalError(aResp->res);
-                                    return;
-                                }
-
-                                if (strcmp(dbusError->name,
-                                           "xyz.openbmc_project.Common."
-                                           "Device.Error.WriteFailure") == 0)
-                                {
-                                    // Service failed to change the config
-                                    messages::operationFailed(aResp->res);
-                                }
-                                else
-                                {
-                                    messages::internalError(aResp->res);
-                                }
-                            },
-                            service, path, "org.freedesktop.DBus.Properties",
-                            "Set", "com.nvidia.PowerSmoothing.PowerSmoothing",
-                            propName, std::variant<bool>(propValue));
-                    }
+                    inventoryService = &service;
+                    break;
                 }
+            }
+            if (inventoryService == nullptr)
+            {
+                // no interface = no failures
                 return;
             }
-            // Object not found
-            messages::resourceNotFound(
-                aResp->res, "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
-                processorId);
-        },
+            dbus::utility::getDbusObject(
+                path,
+                std::array<std::string_view, 1>{
+                    nvidia_async_operation_utils::setAsyncInterfaceName},
+                [aResp, propValue, propName, processorId, path,
+                 service = *inventoryService](
+                    const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetObject& object) {
+                                if (!ec)
+                                {
+                    for (const auto& [serv, _] : object)
+                    {
+                        if (serv != service)
+                        {
+                            continue;
+                        }
+                                    BMCWEB_LOG_DEBUG(
+                            "Performing Patch using Set Async Method Call");
+                        nvidia_async_operation_utils::
+                            doGenericSetAsyncAndGatherResult(
+                                aResp, std::chrono::seconds(60), service, path,
+                                "com.nvidia.PowerSmoothing.PowerSmoothing",
+                                propName, std::variant<bool>(propValue),
+                                nvidia_async_operation_utils::
+                                    PatchGenericCallback{aResp});
+
+                                    return;
+                                }
+                                }
+            });
+                                }
+                            },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void patchAdminOverrideProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
@@ -1034,37 +1022,23 @@ inline void patchAdminOverrideProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                         for (const std::string& profilePath :
                                              *data)
                                         {
-                                            sdbusplus::message::object_path
-                                                objectPath(profilePath);
-                                            std::string processorName =
-                                                objectPath.filename();
-                                            if (processorName.empty())
-                                            {
-                                                messages::internalError(
-                                                    aResp->res);
-                                                return;
-                                            }
-                                            crow::
-                                                connections::
-                                                    systemBus
-                                                        ->async_method_call(
-                                                            [processorId,
-                                                             propName,
-                                                             profilePath,
-                                                             propValue,
-                                                             aResp{std::move(
-                                                                 aResp)}](
-                                                                const boost::
-                                                                    system::
-                                                                        error_code
-                                                                            ec,
-                                                                const boost::
-                                                                    container::
-                                                                        flat_map<
-                                                                            std::
-                                                                                string,
-                                                                            boost::container::flat_map<std::string, std::
-                                                                                                                        vector<std::string>>>& subtree) {
+                    sdbusplus::message::object_path objectPath(profilePath);
+                    std::string adminProfile = objectPath.filename();
+                    if (adminProfile.empty())
+                    {
+                        messages::internalError(aResp->res);
+                        BMCWEB_LOG_ERROR("Empty adminProfile");
+                        return;
+                    }
+                    const std::array<const char*, 1> adminProfileIface = {
+                        "com.nvidia.PowerSmoothing.AdminPowerProfile"};
+                    crow::connections::systemBus->async_method_call(
+                        [processorId, propName, profilePath, propValue,
+                         aResp{std::move(aResp)}](
+                            const boost::system::error_code ec,
+                            const std::vector<std::pair<
+                                std::string, std::vector<std::string>>>&
+                                object) {
                                                                 if (ec)
                                                                 {
                                                                     BMCWEB_LOG_ERROR(
@@ -1075,112 +1049,24 @@ inline void patchAdminOverrideProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
 
                                                                     return;
                                                                 }
-                                                                for (
-                                                                    const auto& [path,
-                                                                                 object] :
-                                                                    subtree)
-                                                                {
-                                                                    BMCWEB_LOG_ERROR(
-                                                                        "DBUS path {}",
-                                                                        profilePath);
-                                                                    if (path !=
-                                                                        profilePath)
-                                                                    {
-                                                                        continue;
-                                                                    }
-                                                                    for (
-                                                                        const auto& [service,
-                                                                                     interfaces] :
-                                                                        object)
-                                                                    {
-                                                                        if (std::find(
-                                                                                interfaces
-                                                                                    .begin(),
-                                                                                interfaces
-                                                                                    .end(),
-                                                                                "com.nvidia.PowerSmoothing.AdminPowerProfile") !=
-                                                                            interfaces
-                                                                                .end())
-                                                                        {
-                                                                            // Set the property, with handler to check
-                                                                            // error responses
-                                                                            crow::connections::systemBus
-                                                                                ->async_method_call(
-                                                                                    [aResp,
-                                                                                     processorId](
-                                                                                        boost::system::
-                                                                                            error_code
-                                                                                                ec,
-                                                                                        sdbusplus::message::
-                                                                                            message&
-                                                                                                msg) {
-                                                                                        if (!ec)
-                                                                                        {
-                                                                                            BMCWEB_LOG_DEBUG(
-                                                                                                "Admin Power profile update succeeded");
-                                                                                            return;
-                                                                                        }
-
-                                                                                        BMCWEB_LOG_DEBUG(
-                                                                                            "Admin Power profile update failed: {}",
-                                                                                            processorId,
-                                                                                            ec);
-                                                                                        // Read and convert dbus error message
-                                                                                        // to redfish error
-                                                                                        const sd_bus_error*
-                                                                                            dbusError =
-                                                                                                msg.get_error();
-                                                                                        if (dbusError ==
-                                                                                            nullptr)
-                                                                                        {
-                                                                                            messages::internalError(
-                                                                                                aResp
-                                                                                                    ->res);
-                                                                                            return;
-                                                                                        }
-
-                                                                                        if (strcmp(
-                                                                                                dbusError
-                                                                                                    ->name,
-                                                                                                "xyz.openbmc_project.Common."
-                                                                                                "Device.Error.WriteFailure") ==
-                                                                                            0)
-                                                                                        {
-                                                                                            // Service failed to change the
-                                                                                            // config
-                                                                                            messages::operationFailed(
-                                                                                                aResp
-                                                                                                    ->res);
-                                                                                        }
-                                                                                        else
-                                                                                        {
-                                                                                            messages::internalError(
-                                                                                                aResp
-                                                                                                    ->res);
-                                                                                        }
-                                                                                    },
-                                                                                    service,
-                                                                                    path,
-                                                                                    "org.freedesktop.DBus.Properties",
-                                                                                    "Set",
-                                                                                    "com.nvidia.PowerSmoothing.AdminPowerProfile",
-                                                                                    propName,
-                                                                                    std::variant<
-                                                                                        double>(
-                                                                                        propValue));
-                                                                        }
-                                                                    }
+                        for (const auto& [service, interfaces] : object)
+                        {
+                            BMCWEB_LOG_DEBUG(
+                                "Performing Patch using Set Async Method Call");
+                            nvidia_async_operation_utils::
+                                doGenericSetAsyncAndGatherResult(
+                                    aResp, std::chrono::seconds(60), service,
+                                    profilePath,
+                                    "com.nvidia.PowerSmoothing.AdminPowerProfile",
+                                    propName, std::variant<double>(propValue),
+                                    nvidia_async_operation_utils::
+                                        PatchGenericCallback{aResp});
                                                                 }
                                                             },
                                                             "xyz.openbmc_project.ObjectMapper",
                                                             "/xyz/openbmc_project/object_mapper",
-                                                            "xyz.openbmc_project.ObjectMapper",
-                                                            "GetSubTree",
-                                                            "/xyz/openbmc_project/inventory",
-                                                            0,
-                                                            std::array<
-                                                                const char*, 1>{
-                                                                "com.nvidia.PowerSmoothing.AdminPowerProfile"});
+                        "xyz.openbmc_project.ObjectMapper", "GetObject",
+                        profilePath, adminProfileIface);
                                         }
                                     },
                                     "xyz.openbmc_project.ObjectMapper",
@@ -1200,9 +1086,10 @@ inline void patchAdminOverrideProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
             "/xyz/openbmc_project/object_mapper",
             "xyz.openbmc_project.ObjectMapper", "GetSubTree",
             "/xyz/openbmc_project/inventory", 0,
-            std::array<const char*, 2>{
+        std::array<const char*, 3>{
                 "xyz.openbmc_project.Inventory.Item.Accelerator",
-                "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void patchPresetProfile(
@@ -1229,7 +1116,8 @@ inline void patchPresetProfile(
                     }
                     for (const auto& [path, object] : subtree)
                     {
-                        if (!path.ends_with(processorId))
+            BMCWEB_LOG_ERROR("path : {}", boost::ends_with(path, processorId));
+            if (!boost::ends_with(path, processorId))
                         {
                             continue;
                         }
@@ -1270,157 +1158,40 @@ inline void patchPresetProfile(
                                                     continue;
                                                 }
                                                 profileExists = true;
-                                                BMCWEB_LOG_ERROR(
-                                                    "Profile ID: {}",
-                                                    profileId);
-                                                crow::connections::systemBus
-                                                    ->async_method_call(
-                                                        [processorId, profileId,
-                                                         propName, propValue,
-                                                         profilePath,
-                                                         aResp{std::move(
-                                                             aResp)}](const boost::
-                                                                          system::error_code
-                                                                              ec,
-                                                                      const boost::
-                                                                          container::
-                                                                              flat_map<
-                                                                                  std::string, boost::
-                                                                                                   container::flat_map<std::string, std::vector<std::string>>>& subtree) {
-                                                            if (ec)
-                                                            {
-                                                                BMCWEB_LOG_ERROR(
-                                                                    "DBUS response error");
-                                                                messages::
-                                                                    internalError(
-                                                                        aResp
-                                                                            ->res);
-
-                                                                return;
-                                                            }
-                                                            for (
-                                                                const auto& [path,
-                                                                             object] :
-                                                                subtree)
-                                                            {
-                                                                sdbusplus::message::
-                                                                    object_path
-                                                                        objectPath(
-                                                                            path);
-                                                                BMCWEB_LOG_ERROR(
-                                                                    "Profile ID as per objectpath: {}",
-                                                                    objectPath
-                                                                        .filename());
-                                                                if (objectPath
-                                                                        .filename() !=
-                                                                    profileId)
-                                                                {
-                                                                    continue;
-                                                                }
-                                                                for (
-                                                                    const auto& [service,
-                                                                                 interfaces] :
-                                                                    object)
-                                                                {
-                                                                    if (std::find(
-                                                                            interfaces
-                                                                                .begin(),
-                                                                            interfaces
-                                                                                .end(),
-                                                                            "com.nvidia.PowerSmoothing.PowerProfile") !=
-                                                                        interfaces
-                                                                            .end())
-                                                                    {
-                                                                        // Set
-                                                                        // the
-                                                                        // property,
-                                                                        // with
-                                                                        // handler
-                                                                        // to
-                                                                        // check
-                                                                        // error
-                                                                        // responses
-                                                                        crow::connections::systemBus
-                                                                            ->async_method_call(
-                                                                                [aResp,
-                                                                                 processorId,
-                                                                                 propName,
-                                                                                 profileId](
-                                                                                    boost::system::
-                                                                                        error_code
-                                                                                            ec,
-                                                                                    sdbusplus::message::
-                                                                                        message&
-                                                                                            msg) {
-                                                                                    if (!ec)
-                                                                                    {
+                    const std::array<const char*, 1> powerProfileIface = {
+                        "com.nvidia.PowerSmoothing.PowerProfile"};
+                    crow::connections::systemBus->async_method_call(
+                        [processorId, profileId, propName, propValue,
+                         profilePath, aResp{std::move(aResp)}](
+                            const boost::system::error_code ec,
+                            const std::vector<std::pair<
+                                std::string, std::vector<std::string>>>&
+                                object) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR("DBUS response error");
+                            messages::internalError(aResp->res);
+                            return;
+                        }
+                        for (const auto& [service, interfaces] : object)
+                        {
                                                                                         BMCWEB_LOG_DEBUG(
-                                                                                            "Preset Power profile update succeeded");
-                                                                                        return;
-                                                                                    }
+                                "Performing Patch using Set Async Method Call");
 
-                                                                                    BMCWEB_LOG_DEBUG(
-                                                                                        "Preset Power profile update failed  for processor {}, profileId {}, property {}",
-                                                                                        processorId,
-                                                                                        profileId,
-                                                                                        propName,
-                                                                                        ec);
-                                                                                    // Read and convert dbus error message
-                                                                                    // to redfish error
-                                                                                    const sd_bus_error*
-                                                                                        dbusError =
-                                                                                            msg.get_error();
-                                                                                    if (dbusError ==
-                                                                                        nullptr)
-                                                                                    {
-                                                                                        messages::internalError(
-                                                                                            aResp
-                                                                                                ->res);
-                                                                                        return;
-                                                                                    }
-
-                                                                                    if (strcmp(
-                                                                                            dbusError
-                                                                                                ->name,
-                                                                                            "xyz.openbmc_project.Common."
-                                                                                            "Device.Error.WriteFailure") ==
-                                                                                        0)
-                                                                                    {
-                                                                                        // Service failed to change the
-                                                                                        // config
-                                                                                        messages::operationFailed(
-                                                                                            aResp
-                                                                                                ->res);
-                                                                                    }
-                                                                                    else
-                                                                                    {
-                                                                                        messages::internalError(
-                                                                                            aResp
-                                                                                                ->res);
-                                                                                    }
-                                                                                },
-                                                                                service,
-                                                                                path,
-                                                                                "org.freedesktop.DBus.Properties",
-                                                                                "Set",
-                                                                                "com.nvidia.PowerSmoothing.PowerProfile",
-                                                                                propName,
-                                                                                std::variant<
-                                                                                    double>(
-                                                                                    propValue));
-                                                                    }
-                                                                }
+                            nvidia_async_operation_utils::
+                                doGenericSetAsyncAndGatherResult(
+                                    aResp, std::chrono::seconds(60), service,
+                                    profilePath,
+                                    "com.nvidia.PowerSmoothing.PowerProfile",
+                                    propName, std::variant<double>(propValue),
+                                    nvidia_async_operation_utils::
+                                        PatchGenericCallback{aResp});
                                                             }
                                                         },
                                                         "xyz.openbmc_project.ObjectMapper",
                                                         "/xyz/openbmc_project/object_mapper",
-                                                        "xyz.openbmc_project.ObjectMapper",
-                                                        "GetSubTree",
-                                                        "/xyz/openbmc_project/inventory",
-                                                        0,
-                                                        std::array<const char*,
-                                                                   1>{
-                                                            "com.nvidia.PowerSmoothing.PowerProfile"});
+                        "xyz.openbmc_project.ObjectMapper", "GetObject",
+                        profilePath, powerProfileIface);
                                             }
                                             // Object not found
                                             if (!profileExists)
@@ -1449,9 +1220,10 @@ inline void patchPresetProfile(
                 "/xyz/openbmc_project/object_mapper",
                 "xyz.openbmc_project.ObjectMapper", "GetSubTree",
                 "/xyz/openbmc_project/inventory", 0,
-                std::array<const char*, 2>{
+        std::array<const char*, 3>{
                     "xyz.openbmc_project.Inventory.Item.Accelerator",
-                    "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void
@@ -1535,17 +1307,13 @@ inline void postApplyAdminOverride(std::shared_ptr<bmcweb::AsyncResp> aResp,
                             "com.nvidia.PowerSmoothing.ProfileActionAsync") ==
                         interfaces.end())
                     {
-                        // Object not found
-                        messages::resourceNotFound(
-                            aResp->res,
-                            "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
-                            processorId);
-                        return;
+                    // no interface = no failures
+                    continue;
                     }
                     applyAdminOverride(aResp, service, path);
-                }
                 return;
             }
+        }
             // Object not found
             messages::resourceNotFound(
                 aResp->res, "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
@@ -1555,9 +1323,10 @@ inline void postApplyAdminOverride(std::shared_ptr<bmcweb::AsyncResp> aResp,
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void
@@ -1645,17 +1414,13 @@ inline void postActivatePresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
                             "com.nvidia.PowerSmoothing.ProfileActionAsync") ==
                         interfaces.end())
                     {
-                        // Object not found
-                        messages::resourceNotFound(
-                            aResp->res,
-                            "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
-                            processorId);
-                        return;
+                    // no interface = no failures
+                    continue;
                     }
                     activatePresetProfile(aResp, service, path, profileId);
-                }
                 return;
             }
+        }
             // Object not found
             messages::resourceNotFound(
                 aResp->res, "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
@@ -1665,9 +1430,10 @@ inline void postActivatePresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
 inline void requestRoutesProcessorPowerSmoothing(App& app)

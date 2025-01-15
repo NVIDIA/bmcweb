@@ -227,6 +227,38 @@ inline void getPowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "xyz.openbmc_project.Control.Power.Mode");
 }
 
+inline void
+    getClearPowerCap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                     const std::string& resourceId, const std::string& objPath)
+{
+    const std::array<const char*, 2> clearPowerCapInterfaces = {
+        "com.nvidia.Common.ClearPowerCap",
+        "com.nvidia.Common.ClearPowerCapAsync"};
+
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, resourceId, objPath](
+            const boost::system::error_code ec,
+            [[maybe_unused]] const std::vector<
+                std::pair<std::string, std::vector<std::string>>>& objInfo) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("ObjectMapper::GetObject call failed: {}", ec);
+            return;
+        }
+
+        asyncResp->res
+            .jsonValue["Actions"]["Oem"]
+                      ["#NvidiaEnvironmentMetrics.ClearOOBSetPoint"] = {
+            {"target",
+             "/redfish/v1/Chassis/" + resourceId +
+                 "/EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ClearOOBSetPoint"}};
+    },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
+        clearPowerCapInterfaces);
+}
+
 inline void getPowerWattsBySensorName(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisID, const std::string& sensorName)
@@ -634,11 +666,6 @@ inline void getPowerCap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 return;
             }
 
-            sdbusplus::message::object_path path(objPath);
-            const std::string name = path.filename();
-            asyncResp->res.jsonValue["PowerLimitWatts"]["DataSourceUri"] =
-                "/redfish/v1/Chassis/" + chassisID + "/Controls/" + name;
-
             for (const auto& element : objInfo)
             {
                 crow::connections::systemBus->async_method_call(
@@ -836,12 +863,50 @@ inline void getPowerLimitPersistency(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            for (const auto& [key, variant] : properties)
+        for (const auto& property : properties)
             {
-                if (key == "Persistency")
+            const std::string& propertyName = property.first;
+            if (propertyName == "Persistency")
                 {
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                            ["PowerLimitPersistency"] = {};
+                const bool* value = std::get_if<bool>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for Persistency");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                        ["PowerLimitPersistency"] = *value;
+            }
+            else if (propertyName == "PersistentPowerLimit")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for Persistent Power Limit");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                        ["RequestedPersistentPowerLimitWatts"] =
+                    *value;
+            }
+            else if (propertyName == "OneShotPowerLimit")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for OneShot Power Limit");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                        ["RequestedOneshotPowerLimitWatts"] =
+                    *value;
                 }
             }
         },
@@ -1016,6 +1081,7 @@ inline void
                         }
                         for (const std::string& ctrlPath : *data)
                         {
+                    getPowerCap(asyncResp, connectionName, ctrlPath);
                             getPowerCap(asyncResp, resourceId, ctrlPath);
                             // Skip getControlMode if it does not support the
                             // Control Mode
@@ -1028,14 +1094,8 @@ inline void
                             }
                             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                             {
-                                getPowerMode(asyncResp, connectionName,
-                                             ctrlPath);
-                                asyncResp->res.jsonValue
-                                    ["Actions"]["Oem"]
-                                    ["#NvidiaEnvironmentMetrics.ClearOOBSetPoint"] =
-                                    {{"target",
-                                      "/redfish/v1/Chassis/" + resourceId +
-                                          "/EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ClearOOBSetPoint"}};
+                                getPowerMode(asyncResp, connectionName, ctrlPath);
+                                getClearPowerCap(asyncResp, resourceId, ctrlPath);
                             }
                             getPowerReadings(asyncResp, connectionName,
                                              ctrlPath, resourceId);
@@ -1688,7 +1748,15 @@ inline void getProcessorEnvironmentMetricsData(
                             getPowerLimitPersistency(aResp, service, path);
                             aResp->res
                                 .jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                                "#NvidiaEnvironmentMetrics.v1_2_0.NvidiaEnvironmentMetrics";
+                                "#NvidiaEnvironmentMetrics.v1_3_0.NvidiaEnvironmentMetrics";
+                        }
+
+                        if (std::find(interfaces.begin(), interfaces.end(),
+                                      "com.nvidia.GPMMetrics") !=
+                            interfaces.end())
+                        {
+                            getEnvironmentMetricsDataByService(
+                                aResp, service, path, resourceType);
                         }
                     }
 
@@ -1720,9 +1788,9 @@ inline void getProcessorEnvironmentMetricsData(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu", "com.nvidia.GPMMetrics"});
 }
 
 inline void getMemoryEnvironmentMetricsData(

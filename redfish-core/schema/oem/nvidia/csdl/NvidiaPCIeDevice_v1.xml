@@ -13,6 +13,7 @@
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
     <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
     <edmx:Include Namespace="Resource"/>
@@ -21,7 +22,7 @@
     <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/PCIeDevice_v1.xml">
-    <edmx:Include Namespace="PCIeDevice.v1_0_0"/>
+    <edmx:Include Namespace="PCIeDevice.v1_1_0"/>
   </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPCIeDevice">
@@ -29,7 +30,7 @@
       <Action Name="ClearAERErrorStatus" IsBound="true">
         <Annotation Term="OData.Description" String="This action is used to clear PCI Express Advanced Error Reporting (AER) Error Status."/>
         <Annotation Term="OData.LongDescription" String="This action shall clear PCI Express Advanced Error Reporting (AER) Error Status."/>
-        <Parameter Name="PCIeDevice" Type="PCIeDevice.v1_0_0.OemActions"/>
+        <Parameter Name="PCIeDevice" Type="PCIeDevice.v1_1_0.OemActions"/>
       </Action>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPCIeDevice.v1_0_0">

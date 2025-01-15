@@ -1582,17 +1582,38 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
 
-        auto it = std::find(std::begin(BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE),
-                            std::end(BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE),
-                            oemDiagnosticDataType);
-        if ((std::string(*oemDiagnosticDataType).empty()) ||
-            (it == std::end(BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE)))
+        if constexpr (BMCWEB_CHECK_OEM_DIAGNOSTIC_TYPE)
         {
-            BMCWEB_LOG_ERROR("Wrong parameter values passed");
-            messages::actionParameterValueError(
-                asyncResp->res, "OEMDiagnosticDataType",
-                "LogService.CollectDiagnosticData");
-            return;
+            bool isValidParam = false;
+            for (const auto& dumpPara : createDumpParamVec)
+            {
+                if (dumpPara.first == "DiagnosticType")
+                {
+                    const std::string* oemDiagType =
+                        std::get_if<std::string>(&dumpPara.second);
+                    if (oemDiagType == nullptr)
+                    {
+                        continue;
+                    }
+                    auto it = std::ranges::find(
+                        BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE, *oemDiagType);
+                    if (it !=
+                        std::ranges::end(BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE))
+                    {
+                        isValidParam = true;
+                        break;
+                    }
+                }
+            }
+
+            if (isValidParam == false)
+            {
+                BMCWEB_LOG_ERROR("Wrong parameter values passed");
+                messages::actionParameterValueError(
+                    asyncResp->res, "OEMDiagnosticDataType",
+                    "LogService.CollectDiagnosticData");
+                return;
+            }
         }
 
         dumpPath = std::format("/redfish/v1/Systems/{}/LogServices/Dump/",
@@ -1622,13 +1643,31 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
 
-        if (*oemDiagnosticDataType != "FDR")
+        if constexpr (BMCWEB_CHECK_OEM_DIAGNOSTIC_TYPE)
         {
-            BMCWEB_LOG_ERROR("Wrong parameter values passed");
-            messages::actionParameterValueError(
-                asyncResp->res, "OEMDiagnosticDataType",
-                "LogService.CollectDiagnosticData");
-            return;
+            bool isValidParam = false;
+            for (const auto& dumpPara : createDumpParamVec)
+            {
+                if (dumpPara.first == "DiagnosticType")
+                {
+                    const std::string* oemDiagType =
+                        std::get_if<std::string>(&dumpPara.second);
+                    if (*oemDiagType == "FDR")
+                    {
+                        isValidParam = true;
+                        break;
+                    }
+                }
+            }
+
+            if (isValidParam == false)
+            {
+                BMCWEB_LOG_ERROR("Wrong parameter values passed");
+                messages::actionParameterValueError(
+                    asyncResp->res, "OEMDiagnosticDataType",
+                    "LogService.CollectDiagnosticData");
+                return;
+            }
         }
 
         dumpPath = "/redfish/v1/Systems/" +
@@ -2219,10 +2258,25 @@ inline void afterLogEntriesGetManagedObjects(
                                             entriesArray.emplace_back());
     }
 
-    std::ranges::sort(entriesArray, [](const nlohmann::json& left,
-                                       const nlohmann::json& right) {
-        return (left["Id"] <= right["Id"]);
-    });
+    if constexpr (BMCWEB_SORT_EVENT_LOG)
+    {
+        std::sort(entriesArray.begin(), entriesArray.end(),
+                    [](const nlohmann::json& left,
+                        const nlohmann::json& right) {
+            int leftId = std::stoi(left["Id"].get<std::string>());
+            int rightId = std::stoi(right["Id"].get<std::string>());
+            return (leftId < rightId);
+        });
+    }
+    else
+    {
+        std::sort(entriesArray.begin(), entriesArray.end(),
+                    [](const nlohmann::json& left,
+                        const nlohmann::json& right) {
+            return (left["Id"] <= right["Id"]);
+        });
+    }
+
     asyncResp->res.jsonValue["Members@odata.count"] = entriesArray.size();
     asyncResp->res.jsonValue["Members"] = std::move(entriesArray);
 }
@@ -2745,6 +2799,14 @@ inline void handleBMCLogServicesCollectionGet(
             boost::urls::format("/redfish/v1/Managers/{}/LogServices/Journal",
                                 BMCWEB_REDFISH_MANAGER_URI_NAME);
         logServiceArray.emplace_back(std::move(journal));
+    }
+
+    if constexpr (BMCWEB_REDFISH_MANAGER_EVENT_LOG)
+    {
+        logServiceArray.push_back(
+            {{"@odata.id", boost::urls::format(
+                               "/redfish/v1/Managers/{}/LogServices/EventLog",
+                               BMCWEB_REDFISH_MANAGER_URI_NAME)}});
     }
 
     asyncResp->res.jsonValue["Members@odata.count"] = logServiceArray.size();

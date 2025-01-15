@@ -220,6 +220,12 @@ inline void convertDbusObjectToOriginOfCondition(
     const std::string& severity = "", const std::string& messageArgs = "",
     const std::string& timestamp = "", const std::string& messageId = "")
 {
+    if (path.empty())
+    {
+        BMCWEB_LOG_WARNING("Empty path/OriginOfCondition");
+        return;
+    }
+
     // if redfish URI is already provided in path, no need to compute, just use
     // it
     if (path.starts_with(redfishPrefix))

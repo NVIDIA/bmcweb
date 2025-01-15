@@ -44,6 +44,7 @@ limitations under the License.
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_async_set_utils.hpp>
 #include <utils/nvidia_processor_utils.hpp>
+#include <utils/nvidia_utils.hpp>
 #include <utils/port_utils.hpp>
 #include <utils/processor_utils.hpp>
 #include <utils/time_utils.hpp>
@@ -1830,7 +1831,7 @@ inline void getProcessorMemoryData(
                     if (key == "CacheSizeInKiB")
                     {
                         const uint64_t* value = std::get_if<uint64_t>(&variant);
-                        if (value != nullptr)
+                if (value != nullptr && *value != 0)
                         {
                             json["MemorySummary"]["TotalCacheSizeMiB"] =
                                 (*value) >> 10;
@@ -2430,9 +2431,8 @@ inline void getMigModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             return;
                         }
                         json["Oem"]["Nvidia"]["@odata.type"] =
-                            "#NvidiaProcessor.v1_3_0.NvidiaGPU";
-                        json["Oem"]["Nvidia"]["MIGModeEnabled"] =
-                            *migModeEnabled;
+                    "#NvidiaProcessor.v1_4_0.NvidiaGPU";
+                json["Oem"]["Nvidia"]["MIGModeEnabled"] = *migModeEnabled;
                     }
                 }
             },
@@ -2446,6 +2446,15 @@ inline void getProcessorMigModeData(
 {
         BMCWEB_LOG_DEBUG(" get GpuMIGMode data");
         getMigModeData(aResp, cpuId, service, objPath);
+}
+
+inline void getProcessorEgmModeData(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
+    const std::string& service, const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG(" get EGMMode data");
+    redfish::nvidia_processor_utils::getEgmModeData(aResp, cpuId, service,
+                                                    objPath);
 }
 
 inline void getPortDisableFutureStatus(
@@ -2468,9 +2477,20 @@ inline void getProcessorSystemGUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                                                     objPath);
 }
 
-inline void getProcessorCCModeData(
+inline void getMNNVLinkTopologyInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
-    const std::string& service, const std::string& objPath)
+    const std::string& service, const std::string& objPath,
+    const std::string& interface)
+{
+    BMCWEB_LOG_DEBUG("Get MNNVLinkTopologyInfo");
+    redfish::nvidia_processor_utils::getMNNVLinkTopologyInfo(
+        aResp, cpuId, service, objPath, interface);
+}
+
+inline void
+    getProcessorCCModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                           const std::string& cpuId, const std::string& service,
+                           const std::string& objPath)
 {
         BMCWEB_LOG_DEBUG(" get GpuCCMode data");
         redfish::nvidia_processor_utils::getCCModeData(aResp, cpuId, service,
@@ -2486,8 +2506,19 @@ inline void getPowerSmoothingInfo(
             aResp, processorId, service, objPath);
 }
 
-inline void getWorkLoadPowerInfo(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, std::string processorId)
+inline void getResetMetricsInfo(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                                std::string processorId,
+                                const std::string& service,
+                                const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG(" get getResetMetricsInfo data");
+    redfish::nvidia_processor_utils::getResetMetricsInfo(aResp, processorId,
+                                                         service, objPath);
+}
+
+inline void
+    getWorkLoadPowerInfo(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                         std::string processorId)
 {
         BMCWEB_LOG_DEBUG(" get getWorkLoadPowerInfo data");
         redfish::nvidia_processor_utils::getWorkLoadPowerInfo(
@@ -3029,6 +3060,23 @@ inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     {
                         getProcessorSystemGUID(aResp, serviceName, objectPath);
                     }
+                else if (interface == "com.nvidia.EgmMode")
+                {
+                    getProcessorEgmModeData(aResp, processorId, serviceName,
+                                            objectPath);
+                }
+                else if (interface == "com.nvidia.NVLink.MNNVLinkTopology")
+                {
+                    getMNNVLinkTopologyInfo(aResp, processorId, serviceName,
+                                            objectPath, interface);
+                }
+                else if (
+                    interface ==
+                    "com.nvidia.ResetCounters.ResetCounterMetricsSupported")
+                {
+                    getResetMetricsInfo(aResp, processorId, serviceName,
+                                        objectPath);
+                }
                 }
             }
         }
@@ -4577,45 +4625,11 @@ inline void getPowerBreakThrottle(
             "xyz.openbmc_project.Association", "endpoints");
 }
 
-inline void getStateSensorMetric(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
-    const std::string& path, const std::string& deviceType)
+inline void
+    getStateSensorMetric(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                         const std::string& service, const std::string& objPath,
+                         const std::string& deviceType)
 {
-        // Get the Processors Associations to cover all processors' cases,
-        // to ensure the object has `all_processors` and go ahead.
-        sdbusplus::asio::getProperty<
-            std::vector<std::tuple<std::string, std::string, std::string>>>(
-            *crow::connections::systemBus, service, path,
-            "xyz.openbmc_project.Association.Definitions", "Associations",
-            [aResp, service, path,
-             deviceType](const boost::system::error_code ec,
-                         const std::vector<std::tuple<std::string, std::string,
-                                                      std::string>>& property) {
-                std::string objPath;
-                std::string redirectObjPath;
-
-                if (ec)
-                {
-                    BMCWEB_LOG_DEBUG("DBUS response error");
-                    return;
-                }
-
-                for (const auto& assoc : property)
-                {
-                    if (std::get<1>(assoc) == "all_processors")
-                    {
-                        redirectObjPath = std::get<2>(assoc);
-                    }
-                }
-                if (!redirectObjPath.empty())
-                {
-                    objPath = redirectObjPath;
-                }
-                else
-                {
-                    objPath = path;
-                }
-
                 crow::connections::systemBus->async_method_call(
                     [aResp, service, objPath,
                      deviceType](const boost::system::error_code& e,
@@ -4665,8 +4679,7 @@ inline void getStateSensorMetric(
                                                 "xyz.openbmc_project.State.ProcessorPerformance") !=
                                             interfaces.end())
                                         {
-                                            getProcessorPerformanceData(
-                                                aResp, service, sensorPath,
+                        getProcessorPerformanceData(aResp, service, sensorPath,
                                                 deviceType);
                                         }
                                         if (std::find(
@@ -4703,7 +4716,6 @@ inline void getStateSensorMetric(
                     "xyz.openbmc_project.ObjectMapper", objPath + "/all_states",
                     "org.freedesktop.DBus.Properties", "Get",
                     "xyz.openbmc_project.Association", "endpoints");
-            });
 }
 
 inline void getNumericSensorMetric(
@@ -4844,15 +4856,6 @@ inline void getProcessorMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         }
                         if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                         {
-                            if (std::find(
-                                    interfaces.begin(), interfaces.end(),
-                                    "xyz.openbmc_project.State.ProcessorPerformance") !=
-                                interfaces.end())
-                            {
-                                getProcessorPerformanceData(aResp, service,
-                                                            path, deviceType);
-                            }
-
                             if (std::find(interfaces.begin(), interfaces.end(),
                                           "com.nvidia.NVLink.NVLinkMetrics") !=
                                 interfaces.end())
@@ -4866,6 +4869,10 @@ inline void getProcessorMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                           "com.nvidia.GPMMetrics") !=
                                 interfaces.end())
                             {
+                        // Assign the device type to Accelerator because we have
+                        // found the GPMMetrics interface here
+                        deviceType =
+                            "xyz.openbmc_project.Inventory.Item.Accelerator";
                                 getGPMMetricsData(aResp, service, path,
                                                   "com.nvidia.GPMMetrics");
                             }
@@ -4877,6 +4884,16 @@ inline void getProcessorMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                 nvidia_processor_utils::getSMUtilizationData(
                                     aResp, service, path);
                             }
+
+                    // Move to the end because deviceType might be reassigned
+                    if (std::find(
+                            interfaces.begin(), interfaces.end(),
+                            "xyz.openbmc_project.State.ProcessorPerformance") !=
+                        interfaces.end())
+                    {
+                        getProcessorPerformanceData(aResp, service, path,
+                                                    deviceType);
+                    }
                         }
                         getSensorMetric(aResp, service, path);
 
@@ -4898,9 +4915,9 @@ inline void getProcessorMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
             "/xyz/openbmc_project/object_mapper",
             "xyz.openbmc_project.ObjectMapper", "GetSubTree",
             "/xyz/openbmc_project/inventory", 0,
-            std::array<const char*, 2>{
+        std::array<const char*, 3>{
                 "xyz.openbmc_project.Inventory.Item.Accelerator",
-                "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu", "com.nvidia.GPMMetrics"});
 }
 
 inline void requestRoutesProcessorMetrics(App& app)
@@ -4958,8 +4975,10 @@ inline void getProcessorMemoryDataByService(
                         BMCWEB_LOG_ERROR("Got 0 Connection names");
                         continue;
                     }
-                    const std::string& connectionName =
-                        connectionNames[0].first;
+
+            for (size_t i = 0; i < connectionNames.size(); i++)
+            {
+                const std::string& connectionName = connectionNames[i].first;
                     crow::connections::systemBus->async_method_call(
                         [aResp{aResp}, processorCECount, processorUECount](
                             const boost::system::error_code ec1,
@@ -4968,7 +4987,6 @@ inline void getProcessorMemoryDataByService(
                             {
                                 BMCWEB_LOG_DEBUG("DBUS response error");
                                 messages::internalError(aResp->res);
-
                                 return;
                             }
                             for (const auto& property : properties)
@@ -5007,8 +5025,7 @@ inline void getProcessorMemoryDataByService(
                                         messages::internalError(aResp->res);
                                         return;
                                     }
-                                    aResp->res
-                                        .jsonValue["LifeTime"]
+                            aResp->res.jsonValue["LifeTime"]
                                                   ["CorrectableECCErrorCount"] =
                                         *value + processorCECount;
                                 }
@@ -5030,6 +5047,7 @@ inline void getProcessorMemoryDataByService(
                         },
                         connectionName, memoryPath,
                         "org.freedesktop.DBus.Properties", "GetAll", "");
+            }
                 }
             },
             "xyz.openbmc_project.ObjectMapper",
@@ -5232,8 +5250,9 @@ inline void getProcessorMemoryMetricsData(
             "/xyz/openbmc_project/object_mapper",
             "xyz.openbmc_project.ObjectMapper", "GetSubTree",
             "/xyz/openbmc_project/inventory", 0,
-            std::array<const char*, 1>{
-                "xyz.openbmc_project.Inventory.Item.Accelerator"});
+        std::array<const char*, 2>{
+            "xyz.openbmc_project.Inventory.Item.Accelerator",
+            "com.nvidia.GPMMetrics"});
 }
 
 inline void requestRoutesProcessorMemoryMetrics(App& app)
@@ -5321,6 +5340,12 @@ inline void
                                     getCCModePendingData(aResp, processorId,
                                                          service, path);
                             }
+                    if (std::find(interfaces.begin(), interfaces.end(),
+                                  "com.nvidia.EgmMode") != interfaces.end())
+                    {
+                        redfish::nvidia_processor_utils::getEgmModePendingData(
+                            aResp, processorId, service, path);
+                    }
                         }
                         if (std::find(
                                 interfaces.begin(), interfaces.end(),
@@ -5375,9 +5400,10 @@ inline void
             "/xyz/openbmc_project/object_mapper",
             "xyz.openbmc_project.ObjectMapper", "GetSubTree",
             "/xyz/openbmc_project/inventory", 0,
-            std::array<const char*, 2>{
+        std::array<const char*, 3>{
                 "xyz.openbmc_project.Inventory.Item.Cpu",
-                "xyz.openbmc_project.Inventory.Item.Accelerator"});
+            "xyz.openbmc_project.Inventory.Item.Accelerator",
+            "com.nvidia.GPMMetrics"});
 }
 
 inline void patchEccMode(
@@ -5583,11 +5609,12 @@ inline void requestRoutesProcessorSettings(App& app)
                     {
                         std::optional<bool> ccMode;
                         std::optional<bool> ccDevMode;
+                std::optional<bool> egmMode;
                         if (oemNvidiaObject &&
                             redfish::json_util::readJson(
-                                *oemNvidiaObject, asyncResp->res,
-                                "CCModeEnabled", ccMode, "CCDevModeEnabled",
-                                ccDevMode))
+                        *oemNvidiaObject, asyncResp->res, "CCModeEnabled",
+                        ccMode, "CCDevModeEnabled", ccDevMode, "EGMModeEnabled",
+                        egmMode))
                         {
                             if (ccMode && ccDevMode)
                             {
@@ -5632,6 +5659,22 @@ inline void requestRoutesProcessorSettings(App& app)
                                                 serviceMap);
                                     });
                             }
+                    if (egmMode)
+                    {
+                        redfish::processor_utils::getProcessorObject(
+                            asyncResp, processorId,
+                            [egmMode](const std::shared_ptr<bmcweb::AsyncResp>&
+                                          asyncResp1,
+                                      const std::string& processorId1,
+                                      const std::string& objectPath,
+                                      const MapperServiceMap& serviceMap,
+                                      [[maybe_unused]] const std::string&
+                                          deviceType) {
+                            redfish::nvidia_processor_utils::patchEgmMode(
+                                asyncResp1, processorId1, *egmMode, objectPath,
+                                serviceMap);
+                        });
+                    }
                         }
                     }
                 }
@@ -6876,8 +6919,7 @@ inline void getProcessorPortMetricsData(
                     }
                     if (property.first == "ceCount")
                     {
-                        const int64_t* value =
-                            std::get_if<int64_t>(&property.second);
+                const double* value = std::get_if<double>(&property.second);
                         if (value == nullptr)
                         {
                             messages::internalError(asyncResp->res);
@@ -6885,110 +6927,97 @@ inline void getProcessorPortMetricsData(
                         }
                         asyncResp->res
                             .jsonValue["PCIeErrors"]["CorrectableErrorCount"] =
-                            *value;
-                    }
-                    else if (property.first == "nonfeCount")
-                    {
-                        const int64_t* value =
-                            std::get_if<int64_t>(&property.second);
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
+            }
+            else if (property.first == "nonfeCount")
+            {
+                const double* value = std::get_if<double>(&property.second);
                         if (value == nullptr)
                         {
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        asyncResp->res
-                            .jsonValue["PCIeErrors"]["NonFatalErrorCount"] =
-                            *value;
-                    }
-                    else if (property.first == "feCount")
-                    {
-                        const int64_t* value =
-                            std::get_if<int64_t>(&property.second);
+                asyncResp->res.jsonValue["PCIeErrors"]["NonFatalErrorCount"] =
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
+            }
+            else if (property.first == "feCount")
+            {
+                const double* value = std::get_if<double>(&property.second);
                         if (value == nullptr)
                         {
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        asyncResp->res
-                            .jsonValue["PCIeErrors"]["FatalErrorCount"] =
-                            *value;
-                    }
-                    else if (property.first == "L0ToRecoveryCount")
-                    {
-                        const int64_t* value =
-                            std::get_if<int64_t>(&property.second);
+                asyncResp->res.jsonValue["PCIeErrors"]["FatalErrorCount"] =
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
+            }
+            else if (property.first == "L0ToRecoveryCount")
+            {
+                const double* value = std::get_if<double>(&property.second);
                         if (value == nullptr)
                         {
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        asyncResp->res
-                            .jsonValue["PCIeErrors"]["L0ToRecoveryCount"] =
-                            *value;
-                    }
-                    else if (property.first == "ReplayCount")
-                    {
-                        const int64_t* value =
-                            std::get_if<int64_t>(&property.second);
+                asyncResp->res.jsonValue["PCIeErrors"]["L0ToRecoveryCount"] =
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
+            }
+            else if (property.first == "ReplayCount")
+            {
+                const double* value = std::get_if<double>(&property.second);
                         if (value == nullptr)
                         {
                             messages::internalError(asyncResp->res);
                             return;
                         }
                         asyncResp->res.jsonValue["PCIeErrors"]["ReplayCount"] =
-                            *value;
-                    }
-                    else if (property.first == "ReplayRolloverCount")
-                    {
-                        const int64_t* value =
-                            std::get_if<int64_t>(&property.second);
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
+            }
+            else if (property.first == "ReplayRolloverCount")
+            {
+                const double* value = std::get_if<double>(&property.second);
                         if (value == nullptr)
                         {
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        asyncResp->res
-                            .jsonValue["PCIeErrors"]["ReplayRolloverCount"] =
-                            *value;
-                    }
-                    else if (property.first == "NAKSentCount")
-                    {
-                        const int64_t* value =
-                            std::get_if<int64_t>(&property.second);
+                asyncResp->res.jsonValue["PCIeErrors"]["ReplayRolloverCount"] =
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
+            }
+            else if (property.first == "NAKSentCount")
+            {
+                const double* value = std::get_if<double>(&property.second);
                         if (value == nullptr)
                         {
                             messages::internalError(asyncResp->res);
                             return;
                         }
                         asyncResp->res.jsonValue["PCIeErrors"]["NAKSentCount"] =
-                            *value;
-                    }
-                    else if (property.first == "NAKReceivedCount")
-                    {
-                        const int64_t* value =
-                            std::get_if<int64_t>(&property.second);
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
+            }
+            else if (property.first == "NAKReceivedCount")
+            {
+                const double* value = std::get_if<double>(&property.second);
                         if (value == nullptr)
                         {
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        asyncResp->res
-                            .jsonValue["PCIeErrors"]["NAKReceivedCount"] =
-                            *value;
-                    }
-                    else if (property.first == "UnsupportedRequestCount")
-                    {
-                        const int64_t* value =
-                            std::get_if<int64_t>(&property.second);
+                asyncResp->res.jsonValue["PCIeErrors"]["NAKReceivedCount"] =
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
+            }
+            else if (property.first == "UnsupportedRequestCount")
+            {
+                const double* value = std::get_if<double>(&property.second);
                         if (value == nullptr)
                         {
                             BMCWEB_LOG_ERROR("Invalid Data Type");
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        asyncResp->res.jsonValue["PCIeErrors"]
-                                                ["UnsupportedRequestCount"] =
-                            *value;
+                asyncResp->res
+                    .jsonValue["PCIeErrors"]["UnsupportedRequestCount"] =
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
                     }
                 }
             },

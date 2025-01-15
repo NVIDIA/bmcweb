@@ -57,7 +57,7 @@ inline void getDeviceHealthInfo(crow::Response& resp,
     int rc = file_utils::readFile2Json(deviceStatusPath, jStatus);
     if (rc != 0)
     {
-        BMCWEB_LOG_ERROR("Health: read {} status file failed!", deviceId);
+        BMCWEB_LOG_WARNING("Health: read {} status file failed!", deviceId);
         // No need to report error since no status file means device is OK.
         resp.jsonValue["Status"]["Health"] = health;
         resp.jsonValue["Status"]["HealthRollup"] = rollup;
@@ -78,7 +78,7 @@ inline void getDeviceHealthInfo(crow::Response& resp,
         std::string value = *h;
         if (value.length() == 0)
         {
-            BMCWEB_LOG_ERROR("Get {} Health failed!", deviceId);
+            BMCWEB_LOG_WARNING("Get {} Health failed!", deviceId);
         }
         else
         {
@@ -93,7 +93,7 @@ inline void getDeviceHealthInfo(crow::Response& resp,
         std::string value = *r;
         if (value.length() == 0)
         {
-            BMCWEB_LOG_ERROR("Get {} HealthRollup failed!", deviceId);
+            BMCWEB_LOG_WARNING("Get {} HealthRollup failed!", deviceId);
         }
         else
         {

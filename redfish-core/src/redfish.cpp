@@ -9,6 +9,7 @@
 #include "cable.hpp"
 #include "certificate_service.hpp"
 #include "chassis.hpp"
+#include "cper_utils.hpp"
 #include "environment_metrics.hpp"
 #include "ethernet.hpp"
 #include "event_service.hpp"
@@ -156,6 +157,10 @@ RedfishService::RedfishService(App& app)
     if constexpr (BMCWEB_REDFISH_BMC_JOURNAL)
     {
         requestRoutesBMCJournalLogService(app);
+    }
+    if constexpr (BMCWEB_REDFISH_MANAGER_EVENT_LOG)
+    {
+        requestRoutesMangersEventLogService(app);
     }
 
     if constexpr (BMCWEB_REDFISH_CPU_LOG)

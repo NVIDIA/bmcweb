@@ -28,6 +28,8 @@
  * @param asyncResp - Pointer to object holding response data
  * @param endpointId the EID which is used
  * by mctp-vdm-util tool to call request on MCTP
+ * @param allowList - List containing allowable chassis Ids
+ * @param chassisId - chassisId
  * @param[in] callback - A callback function to be called after update
  *AutomaticBackgroundCopyEnabled property
  * @return
@@ -35,6 +37,7 @@
 inline void updateBackgroundCopyEnabled(
     const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t endpointId,
+    const auto& allowList, const std::string& chassisId,
     const std::function<void()>& callback = {})
 {
     MctpVdmUtil mctpVdmUtilWrapper(endpointId);
@@ -69,9 +72,22 @@ inline void updateBackgroundCopyEnabled(
 
         return;
     };
+    if (std::find(allowList.begin(), allowList.end(), chassisId) ==
+        allowList.end())
+    {
+        if (callback)
+        {
+            callback();
+        }
+    }
+    else
+    {
+        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_STATUS,
+                               std::monostate(), req, asyncResp,
+                               responseCallback);
+    }
 
-    mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_STATUS, req,
-                           asyncResp, responseCallback);
+    return;
 }
 
 /**
@@ -81,6 +97,8 @@ inline void updateBackgroundCopyEnabled(
  * @param asyncResp - Pointer to object holding response data
  * @param endpointId the EID which is used by mctp-vdm-util tool to call request
  *on MCTP
+ * @param allowList - List containing allowable chassis Ids
+ * @param chassisId - chassisId
  * @param[in] callback - A callback function to be called after update
  *BackgroundCopyStatus property
  *
@@ -89,6 +107,7 @@ inline void updateBackgroundCopyEnabled(
 inline void updateBackgroundCopyStatusPending(
     const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t endpointId,
+    const auto& allowList, const std::string& chassisId,
     const std::function<void()>& callback = {})
 {
     MctpVdmUtil mctpVdmUtilWrapper(endpointId);
@@ -121,10 +140,21 @@ inline void updateBackgroundCopyStatusPending(
 
         return;
     };
-
+    if (std::find(allowList.begin(), allowList.end(), chassisId) ==
+        allowList.end())
+    {
+        if (callback)
+        {
+            callback();
+        }
+    }
+    else
+    {
     mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_QUERY_PENDING,
-                           req, asyncResp,
+                               std::monostate(), req, asyncResp,
                            std::move(bgCopyQueryResponseCallback));
+    }
+
     return;
 }
 
@@ -135,6 +165,8 @@ inline void updateBackgroundCopyStatusPending(
  * @param asyncResp - Pointer to object holding response data
  * @param endpointId the EID which is used
  * by mctp-vdm-util tool to call request on MCTP
+ * @param allowList - List containing allowable chassis Ids
+ * @param chassisId - chassisId
  * @param[in] callback - A callback function to be called after update
  *BackgroundCopyStatus property
  *
@@ -143,14 +175,15 @@ inline void updateBackgroundCopyStatusPending(
 inline void updateBackgroundCopyStatus(
     const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t endpointId,
+    const auto& allowList, const std::string& chassisId,
     const std::function<void()>& callback = {})
 {
     MctpVdmUtil mctpVdmUtilWrapper(endpointId);
     auto bgCopyQueryResponseCallback =
-        [callback]([[maybe_unused]] const crow::Request& req,
+        [callback, allowList, chassisId](
+            [[maybe_unused]] const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] uint32_t endpointId,
-                   const std::string& stdOut,
+            [[maybe_unused]] uint32_t endpointId, const std::string& stdOut,
                    [[maybe_unused]] const std::string& stdErr,
                    const boost::system::error_code& ec, int errorCode) -> void {
         if (ec || errorCode)
@@ -163,7 +196,8 @@ inline void updateBackgroundCopyStatus(
         std::string rxTemplateInProgress = "(.|\n)*RX:( \\d\\d){9} 02(.|\n)*";
         if (std::regex_match(stdOut, std::regex(rxTemplateCompleted)))
         {
-            updateBackgroundCopyStatusPending(req, asyncResp, endpointId);
+            updateBackgroundCopyStatusPending(req, asyncResp, endpointId,
+                                              allowList, chassisId);
         }
         else if (std::regex_match(stdOut, std::regex(rxTemplateInProgress)))
         {
@@ -184,8 +218,20 @@ inline void updateBackgroundCopyStatus(
         return;
     };
 
-    mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_QUERY_PROGRESS,
+    if (std::find(allowList.begin(), allowList.end(), chassisId) ==
+        allowList.end())
+    {
+        if (callback)
+        {
+            callback();
+        }
+    }
+    else
+    {
+        mctpVdmUtilWrapper.run(
+            MctpVdmUtilCommand::BACKGROUNDCOPY_QUERY_PROGRESS, std::monostate(),
                            req, asyncResp, bgCopyQueryResponseCallback);
+    }
     return;
 }
 
@@ -236,13 +282,15 @@ inline void enableBackgroundCopy(
 
     if (enabled)
     {
-        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_ENABLE, req,
-                               asyncResp, responseCallback);
+        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_ENABLE,
+                               std::monostate(), req, asyncResp,
+                               responseCallback);
     }
     else
     {
-        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_DISABLE, req,
-                               asyncResp, responseCallback);
+        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_DISABLE,
+                               std::monostate(), req, asyncResp,
+                               responseCallback);
     }
     return;
 }
@@ -293,7 +341,7 @@ inline void
     };
     BMCWEB_LOG_INFO("Initializing background init for inventoryURI:{}",
                     inventoryURI);
-    mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_INIT, req,
-                           asyncResp, responseCallback);
+    mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_INIT,
+                           std::monostate(), req, asyncResp, responseCallback);
     return;
 }

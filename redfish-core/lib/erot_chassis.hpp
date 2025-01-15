@@ -33,7 +33,6 @@
 #include <app.hpp>
 #include <boost/container/flat_map.hpp>
 #include <dbus_utility.hpp>
-#include <health.hpp>
 #include <openbmc_dbus_rest.hpp>
 #include <registries/privilege_registry.hpp>
 #include <sdbusplus/asio/property.hpp>
@@ -139,11 +138,13 @@ inline void getChassisCertificate(
                                     }
                                 }
                             }
+                    }
                             // Get the desired certificated and convert it into
                             // PEM.
-                            auto chassisID = std::filesystem::path(objectPath)
-                                                 .filename()
-                                                 .string();
+                    auto chassisID =
+                        std::filesystem::path(objectPath).filename().string();
+                    if (slot)
+                    {
                             asyncResp->res.jsonValue = {
                                 {"@odata.id", req.url()},
                                 {"@odata.type",
@@ -155,6 +156,7 @@ inline void getChassisCertificate(
                                  nlohmann::json::array({"Device"})},
                                 {"SPDM", {{"SlotId", *slot}}},
                             };
+                    }
 
                             if (certs && slot && certs->size() > 0)
                             {

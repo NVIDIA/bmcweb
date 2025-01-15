@@ -28,6 +28,7 @@ limitations under the License.
 #include "generated/enums/resource.hpp"
 #include "hypervisor_system.hpp"
 #include "led.hpp"
+#include "nvidia_cpu_debug_token.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
@@ -1428,9 +1429,12 @@ inline void getAutomaticRebootAttempts(
             const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
-                if (ec.value() != EBADR)
+            BMCWEB_LOG_ERROR("DBUS response error {}, {}", ec.value(),
+                             ec.message());
+            // handle the error while BMC is booting
+            if (ec.value() != EBADR &&
+                ec.value() != boost::system::errc::host_unreachable)
                 {
-                    BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
                     messages::internalError(asyncResp->res);
                 }
                 return;
@@ -4088,6 +4092,10 @@ inline void
         asyncResp->res.jsonValue["ProcessorSummary"]["Count"] = 0;
     }
     asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"] = int(0);
+#ifdef BMCWEB_HIDE_HOST_OS_INIT_VALUE
+    asyncResp->res.jsonValue.erase("ProcessorSummary");
+    asyncResp->res.jsonValue.erase("MemorySummary");
+#endif // end of BMCWEB_HIDE_HOST_OS_INIT_VALUE
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME);
 
@@ -4103,6 +4111,7 @@ inline void
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             "#NvidiaComputerSystem.v1_1_0.NvidiaComputerSystem";
         ist_mode_utils::getIstMode(asyncResp);
+        debug_token::getSystemsCpuDebugToken(asyncResp, systemName);
     }
 
     if constexpr (BMCWEB_HOST_OS_FEATURES)

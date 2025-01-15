@@ -22,6 +22,7 @@
 #include "debug_token/endpoint.hpp"
 #include "debug_token/request_utils.hpp"
 #include "debug_token/status_utils.hpp"
+#include "nvidia_cpu_debug_token.hpp"
 #include "openbmc_dbus_rest.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/mctp_utils.hpp"
@@ -188,9 +189,12 @@ class StatusQueryHandler : public OperationHandler
         BMCWEB_LOG_DEBUG("StatusQueryHandler constructor");
         resCallback = resultCallback;
         errCallback = errorCallback;
+        getCpuObjectPath([this, errorCallback](const boost::system::error_code&,
+                                               const std::string cpuPath) {
         mctp_utils::enumerateMctpEndpoints(
-            [this](const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
-                       mctpEndpoints) {
+                [this, cpuPath](
+                    const std::shared_ptr<
+                        std::vector<mctp_utils::MctpEndpoint>>& mctpEndpoints) {
                 spdmEnumerationFinished = true;
                 const std::string desc = "SPDM endpoint enumeration";
                 BMCWEB_LOG_DEBUG("{}", desc);
@@ -208,6 +212,15 @@ class StatusQueryHandler : public OperationHandler
                 }
                 for (auto& ep : *mctpEndpoints)
                 {
+                    if (!ep.isEnabled())
+                    {
+                        continue;
+                    }
+                    // ignore satmc (CPU debug token) endpoint
+                    if (ep.getSpdmObject() == cpuPath)
+                    {
+                        continue;
+                    }
                     const auto& msgTypes = ep.getMctpMessageTypes();
                     if (std::find(msgTypes.begin(), msgTypes.end(),
                                   mctp_utils::mctpMessageTypeVdm) !=
@@ -227,7 +240,9 @@ class StatusQueryHandler : public OperationHandler
                 errorCallback(false, desc, error);
                 finalize();
             },
-            "", static_cast<uint64_t>(statusQueryTimeoutSeconds) * 1000000u);
+                "",
+                static_cast<uint64_t>(statusQueryTimeoutSeconds) * 1000000u);
+        });
 
         if (!useNsm)
         {
@@ -347,7 +362,7 @@ class StatusQueryHandler : public OperationHandler
                 return;
             }
             DebugTokenNsmEndpoint* nsmEp =
-                dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
+                static_cast<DebugTokenNsmEndpoint*>(ep.get());
             if (status == "Aborted")
             {
                 sdbusplus::asio::getProperty<std::tuple<uint16_t, std::string>>(
@@ -420,7 +435,7 @@ class StatusQueryHandler : public OperationHandler
                 continue;
             }
             DebugTokenNsmEndpoint* nsmEp =
-                dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
+                static_cast<DebugTokenNsmEndpoint*>(ep.get());
             auto objectPath = ep->getObject();
             crow::connections::systemBus->async_method_call(
                 [this, nsmEp, objectPath](const boost::system::error_code& ec) {
@@ -501,7 +516,7 @@ class StatusQueryHandler : public OperationHandler
                 continue;
             }
             DebugTokenSpdmEndpoint* spdmEp =
-                dynamic_cast<DebugTokenSpdmEndpoint*>(ep->get());
+                static_cast<DebugTokenSpdmEndpoint*>(ep->get());
             spdmEp->setStatus(std::make_unique<VdmTokenStatus>(vdmStatus));
         }
         finalize();
@@ -576,6 +591,7 @@ class StatusQueryHandler : public OperationHandler
         if (!endpoints || endpoints->size() == 0)
         {
             errCallback(true, desc, "No valid debug token status responses");
+            return;
         }
 
         int completedRequestsCount = 0;
@@ -598,31 +614,6 @@ class StatusQueryHandler : public OperationHandler
     }
 };
 
-enum class TokenFileType
-{
-    TokenRequest = 1,
-    DebugToken = 2
-};
-
-#pragma pack(1)
-struct FileHeader
-{
-    /* Set to 0x01 */
-    uint8_t version;
-    /* Either 1 for token request or 2 for token data */
-    uint8_t type;
-    /* Count of stored debug tokens / requests */
-    uint16_t numberOfRecords;
-    /* Equal to sizeof(struct FileHeader) for version 0x01. */
-    uint16_t offsetToListOfStructs;
-    /* Equal to sum of sizes of a given structure type +
-     * sizeof(struct FileHeader) */
-    uint32_t fileSize;
-    /* Padding */
-    std::array<uint8_t, 6> reserved;
-};
-
-#pragma pack()
 class RequestHandler : public OperationHandler
 {
   public:
@@ -668,44 +659,20 @@ class RequestHandler : public OperationHandler
 
     void getResult(std::string& result) const override
     {
-        size_t size = 0;
-        uint16_t recordCount = 0;
-        if (endpoints)
+        if (!endpoints)
         {
+            return;
+        }
+        std::vector<std::vector<uint8_t>> requests;
             for (const auto& ep : *endpoints)
             {
                 if (ep->getState() == EndpointState::RequestAcquired)
                 {
-                    size += ep->getRequest().size();
-                    ++recordCount;
+                requests.emplace_back(std::move(ep->getRequest()));
                 }
             }
-        }
-
-        if (size != 0)
-        {
-            size += sizeof(FileHeader);
-            auto header = std::make_unique<FileHeader>();
-            header->version = 0x01;
-            header->type = static_cast<uint8_t>(TokenFileType::TokenRequest);
-            header->numberOfRecords = recordCount;
-            header->offsetToListOfStructs = sizeof(FileHeader);
-            header->fileSize = static_cast<uint32_t>(size);
-
-            std::vector<uint8_t> output;
-            output.reserve(size);
-            output.resize(sizeof(FileHeader));
-            std::memcpy(output.data(), header.get(), sizeof(FileHeader));
-            for (const auto& ep : *endpoints)
-            {
-                if (ep->getState() == EndpointState::RequestAcquired)
-                {
-                    const auto& request = ep->getRequest();
-                    output.insert(output.end(), request.begin(), request.end());
-                }
-            }
-            result = std::string(output.begin(), output.end());
-        }
+        auto file = generateTokenRequestFile(requests);
+        result = std::string(file.begin(), file.end());
     }
 
   private:
@@ -743,7 +710,7 @@ class RequestHandler : public OperationHandler
                 continue;
             }
             DebugTokenNsmEndpoint* nsmEp =
-                dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
+                static_cast<DebugTokenNsmEndpoint*>(ep.get());
             auto objectPath = ep->getObject();
             crow::connections::systemBus->async_method_call(
                 [this, nsmEp, objectPath](const boost::system::error_code& ec) {
@@ -790,7 +757,7 @@ class RequestHandler : public OperationHandler
                 continue;
             }
             DebugTokenSpdmEndpoint* spdmEp =
-                dynamic_cast<DebugTokenSpdmEndpoint*>(ep.get());
+                static_cast<DebugTokenSpdmEndpoint*>(ep.get());
             auto objectPath = ep->getObject();
             const std::string desc = "SPDM refresh call for " + objectPath;
             BMCWEB_LOG_DEBUG("{}", desc);
@@ -849,7 +816,7 @@ class RequestHandler : public OperationHandler
             return;
         }
         DebugTokenNsmEndpoint* nsmEp =
-            dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
+            static_cast<DebugTokenNsmEndpoint*>(ep.get());
         if (status == "Aborted")
         {
             sdbusplus::asio::getProperty<std::tuple<uint16_t, std::string>>(
@@ -940,7 +907,7 @@ class RequestHandler : public OperationHandler
         else if (status == "Success")
         {
             DebugTokenSpdmEndpoint* spdmEp =
-                dynamic_cast<DebugTokenSpdmEndpoint*>(ep.get());
+                static_cast<DebugTokenSpdmEndpoint*>(ep.get());
             crow::connections::systemBus->async_method_call(
                 [this, spdmEp](
                     const boost::system::error_code ec,

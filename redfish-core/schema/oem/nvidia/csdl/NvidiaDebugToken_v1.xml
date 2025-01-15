@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaDebugToken   v1.0.0                                    -->
+<!--# Redfish OEM Schema:  NvidiaDebugToken   v1.1.0                                       -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2024 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -126,15 +126,26 @@
           <Annotation Term="OData.Description" String="CRDT token."/>
         </Member>
         <Member Name="DebugFirmwareRunning">
-          <Annotation Term="OData.Description" String="Debug firmware running."/>
+          <Annotation Term="OData.Description" String="Debug firmware is running."/>
         </Member>
       </EnumType>
       <EnumType Name="TokenStatus">
         <Member Name="Failed">
-          <Annotation Term="OData.Description" String="Failed to execute the query operation. Refer to the AdditionalInfo property for details."/>
+          <Annotation Term="OData.Description" String="Failed to execute the operation. Refer to the AdditionalInfo property for details."/>
+        </Member>
+        <Member Name="DebugSessionEnded">
+          <Annotation Term="OData.Description" String="Debug session ended successfully."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
         </Member>
         <Member Name="DebugSessionActive">
-          <Annotation Term="OData.Description" String="Debug session active. Refer to the TokenType property for details."/>
+          <Annotation Term="OData.Description" String="Debug session is active. Refer to the TokenType property for details."/>
         </Member>
         <Member Name="NoTokenApplied">
           <Annotation Term="OData.Description" String="No token applied."/>
@@ -151,19 +162,38 @@
       </EnumType>
       <EnumType Name="AdditionalInfo">
         <Member Name="None">
-          <Annotation Term="OData.Description" String="No additional information available."/>
+          <Annotation Term="OData.Description" String="No additional information is available."/>
         </Member>
         <Member Name="NoDebugSessionInProgress">
           <Annotation Term="OData.Description" String="There is no debug session in progress."/>
         </Member>
-        <Member Name="NoTokenApplied">
-          <Annotation Term="OData.Description" String="No token applied."/>
+        <Member Name="InsecureFirmware">
+          <Annotation Term="OData.Description" String="Firmware is not secured. Debug session cannot be ended."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="DebugEndRequestFailed">
+          <Annotation Term="OData.Description" String="Debug end request cannot be accepted."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
         </Member>
         <Member Name="QueryDebugSessionFailed">
           <Annotation Term="OData.Description" String="Device is not allowed to query debug session."/>
         </Member>
         <Member Name="DebugSessionActive">
-          <Annotation Term="OData.Description" String="Debug session active."/>
+          <Annotation Term="OData.Description" String="Debug session is active."/>
         </Member>
       </EnumType>
       <ComplexType Name="GenerateTokenResponse">
@@ -178,6 +208,10 @@
           <Annotation Term="OData.IsURL"/>
         </Property>
       </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaDebugToken.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaDebugToken" BaseType="NvidiaDebugToken.v1_0_0.NvidiaDebugToken"/>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

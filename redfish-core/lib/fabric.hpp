@@ -28,6 +28,7 @@
 #include <utils/conditions_utils.hpp>
 #include <utils/nvidia_async_set_utils.hpp>
 #include <utils/nvidia_fabric_utils.hpp>
+#include <utils/nvidia_utils.hpp>
 #include <utils/port_utils.hpp>
 #include <utils/processor_utils.hpp>
 
@@ -1688,10 +1689,10 @@ inline void requestRoutesSwitch(App& app)
                 {
                     return;
                 }
-                if (std::optional<nlohmann::json> oemNvidiaObject;
-                    oemObject &&
-                    redfish::json_util::readJson(*oemObject, asyncResp->res,
-                                                 "Nvidia", oemNvidiaObject))
+        std::optional<nlohmann::json> oemNvidiaObject;
+        if (oemObject &&
+            redfish::json_util::readJson(*oemObject, asyncResp->res, "Nvidia",
+                                         oemNvidiaObject))
                 {
                     std::optional<std::string> isolationMode;
                     if (oemNvidiaObject &&
@@ -1714,9 +1715,8 @@ inline void requestRoutesSwitch(App& app)
                                         const MapperServiceMap& serviceMap) {
                                         redfish::nvidia_fabric_utils::
                                             patchSwitchIsolationMode(
-                                                asyncResp1, fabricId1,
-                                                switchId1, *isolationMode,
-                                                objectPath, serviceMap);
+                                    asyncResp1, fabricId1, switchId1,
+                                    *isolationMode, objectPath, serviceMap);
                                     });
                             }
                         }
@@ -3889,10 +3889,11 @@ inline void getFabricsPortMetricsData(
         {"Id", "Metrics"}};
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](
+            const boost::system::error_code ec,
                     const boost::container::flat_map<
-                        std::string, std::variant<uint16_t, uint32_t, uint64_t,
-                                                  int64_t>>& properties) {
+                std::string, std::variant<uint16_t, uint32_t, uint64_t, int64_t,
+                                          double>>& properties) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -4243,14 +4244,13 @@ inline void getFabricsPortMetricsData(
                             .jsonValue["Oem"]["Nvidia"]["NeighborMTUDiscards"] =
                             *value;
                     }
-                    else if (property.first == "SymbolError")
+                else if (property.first == "BitErrorRate")
                     {
-                        const uint64_t* value =
-                            std::get_if<uint64_t>(&property.second);
+                    const double* value = std::get_if<double>(&property.second);
                         if (value == nullptr)
                         {
                             BMCWEB_LOG_ERROR("Null value returned "
-                                             "for symbol error");
+                                         "for bit error rate");
                             messages::internalError(asyncResp->res);
                             return;
                         }
@@ -4350,8 +4350,7 @@ inline void getFabricsPortMetricsData(
                 }
                 if (property.first == "ceCount")
                 {
-                    const int64_t* value =
-                        std::get_if<int64_t>(&property.second);
+                const double* value = std::get_if<double>(&property.second);
                     if (value == nullptr)
                     {
                         messages::internalError(asyncResp->res);
@@ -4359,92 +4358,96 @@ inline void getFabricsPortMetricsData(
                     }
                     asyncResp->res
                         .jsonValue["PCIeErrors"]["CorrectableErrorCount"] =
-                        *value;
-                }
-                else if (property.first == "nonfeCount")
-                {
-                    const int64_t* value =
-                        std::get_if<int64_t>(&property.second);
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
+            }
+            else if (property.first == "nonfeCount")
+            {
+                const double* value = std::get_if<double>(&property.second);
                     if (value == nullptr)
                     {
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    asyncResp->res
-                        .jsonValue["PCIeErrors"]["NonFatalErrorCount"] = *value;
-                }
-                else if (property.first == "feCount")
-                {
-                    const int64_t* value =
-                        std::get_if<int64_t>(&property.second);
+                asyncResp->res.jsonValue["PCIeErrors"]["NonFatalErrorCount"] =
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
+            }
+            else if (property.first == "feCount")
+            {
+                const double* value = std::get_if<double>(&property.second);
                     if (value == nullptr)
                     {
                         messages::internalError(asyncResp->res);
                         return;
                     }
                     asyncResp->res.jsonValue["PCIeErrors"]["FatalErrorCount"] =
-                        *value;
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
                 }
                 else if (property.first == "L0ToRecoveryCount")
                 {
-                    const int64_t* value =
-                        std::get_if<int64_t>(&property.second);
+                const double* value = std::get_if<double>(&property.second);
                     if (value == nullptr)
                     {
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    asyncResp->res
-                        .jsonValue["PCIeErrors"]["L0ToRecoveryCount"] = *value;
-                }
-                else if (property.first == "ReplayCount")
-                {
-                    const int64_t* value =
-                        std::get_if<int64_t>(&property.second);
+                asyncResp->res.jsonValue["PCIeErrors"]["L0ToRecoveryCount"] =
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
+            }
+            else if (property.first == "ReplayCount")
+            {
+                const double* value = std::get_if<double>(&property.second);
                     if (value == nullptr)
                     {
                         messages::internalError(asyncResp->res);
                         return;
                     }
                     asyncResp->res.jsonValue["PCIeErrors"]["ReplayCount"] =
-                        *value;
-                }
-                else if (property.first == "ReplayRolloverCount")
-                {
-                    const int64_t* value =
-                        std::get_if<int64_t>(&property.second);
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
+            }
+            else if (property.first == "ReplayRolloverCount")
+            {
+                const double* value = std::get_if<double>(&property.second);
                     if (value == nullptr)
                     {
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    asyncResp->res
-                        .jsonValue["PCIeErrors"]["ReplayRolloverCount"] =
-                        *value;
-                }
-                else if (property.first == "NAKSentCount")
-                {
-                    const int64_t* value =
-                        std::get_if<int64_t>(&property.second);
+                asyncResp->res.jsonValue["PCIeErrors"]["ReplayRolloverCount"] =
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
+            }
+            else if (property.first == "NAKSentCount")
+            {
+                const double* value = std::get_if<double>(&property.second);
                     if (value == nullptr)
                     {
                         messages::internalError(asyncResp->res);
                         return;
                     }
                     asyncResp->res.jsonValue["PCIeErrors"]["NAKSentCount"] =
-                        *value;
-                }
-                else if (property.first == "NAKReceivedCount")
-                {
-                    const int64_t* value =
-                        std::get_if<int64_t>(&property.second);
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
+            }
+            else if (property.first == "NAKReceivedCount")
+            {
+                const double* value = std::get_if<double>(&property.second);
                     if (value == nullptr)
                     {
                         messages::internalError(asyncResp->res);
                         return;
                     }
                     asyncResp->res.jsonValue["PCIeErrors"]["NAKReceivedCount"] =
-                        *value;
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
+            }
+            else if (property.first == "UnsupportedRequestCount")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                asyncResp->res
+                    .jsonValue["PCIeErrors"]["UnsupportedRequestCount"] =
+                    nvidia::nsm_utils::tryConvertToInt64(*value);
                 }
             }
         },

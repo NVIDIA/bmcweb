@@ -107,6 +107,12 @@ feature_options = [
     'xtoken-auth',
     'nvidia-oem-openocd',
     'systems-lastresettime',
+    'rsyslog-client',
+    'check-oem-diagnostic-type',
+    'sort-event-log',
+    'redfish-sw-einj',
+    'redfish-manager-event-log',
+    'nsm-raw-command-enable',    
 ]
 
 string_options = [

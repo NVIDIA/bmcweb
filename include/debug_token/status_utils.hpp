@@ -23,6 +23,7 @@
 #include <optional>
 #include <sstream>
 #include <tuple>
+#include <unordered_map>
 #include <vector>
 
 namespace redfish::debug_token
@@ -382,8 +383,9 @@ struct VdmTokenStatus
 
     VdmResponseStatus responseStatus;
     std::optional<uint8_t> errorCode;
-    VdmTokenInstallationStatus tokenStatus;
-    VdmTokenFuseType fuseType;
+    VdmTokenInstallationStatus tokenStatus =
+        VdmTokenInstallationStatus::NOT_INSTALLED;
+    VdmTokenFuseType fuseType = VdmTokenFuseType::INVALID;
     std::vector<uint8_t> deviceId;
     std::optional<uint32_t> tokenType;
     std::optional<uint16_t> validityCounter;
@@ -670,13 +672,63 @@ struct NsmTokenStatus
     uint32_t timeLeft;
 };
 
+/**
+ * @brief Get Mapping for nsm debug token status
+ *
+ * @param[in] additionalInfo
+ * @return std::string
+ */
+inline std::string getNsmTokenStatus(const std::string& tokenStatus)
+{
+    const static std::unordered_map<std::string, std::string>
+        nsmTokenStatusMapping{
+            {"DebugSessionEnded", "DebugSessionEnded"},
+            {"OperationFailure", "Failed"},
+            {"DebugSessionActive", "DebugSessionActive"},
+            {"NoTokenApplied", "NoTokenApplied"},
+            {"ChallengeProvided", "ChallengeProvidedNoTokenInstalled"},
+            {"InstallationTimeout", "TimeoutBeforeTokenInstalled"},
+            {"TokenTimeout", "ActiveTokenTimeout"},
+        };
+    if (nsmTokenStatusMapping.find(tokenStatus) != nsmTokenStatusMapping.end())
+    {
+        return nsmTokenStatusMapping.at(tokenStatus);
+    }
+    return tokenStatus;
+}
+
+/**
+ * @brief Get Mapping for nsm debug token AdditionalInfo
+ *
+ * @param[in] additionalInfo
+ * @return std::string
+ */
+inline std::string getNsmTokenAdditionalInfo(const std::string& additionalInfo)
+{
+    const static std::unordered_map<std::string, std::string>
+        nsmTokenadditionalInfoMapping{
+            {"None", "None"},
+            {"NoDebugSession", "NoDebugSessionInProgress"},
+            {"FirmwareNotSecured", "InsecureFirmware"},
+            {"DebugSessionEndRequestNotAccepted", "DebugEndRequestFailed"},
+            {"DebugSessionQueryDisallowed", "QueryDebugSessionFailed"},
+            {"DebugSessionActive", "DebugSessionActive"},
+        };
+    if (nsmTokenadditionalInfoMapping.find(additionalInfo) !=
+        nsmTokenadditionalInfoMapping.end())
+    {
+        return nsmTokenadditionalInfoMapping.at(additionalInfo);
+    }
+    return additionalInfo;
+}
+
 inline void nsmTokenStatusToJson(const NsmTokenStatus& status,
                                  nlohmann::json& json)
 {
     json["TokenType"] = status.tokenType;
-    json["Status"] = status.tokenStatus;
-    json["AdditionalInfo"] = status.additionalInfo;
-    json["TimeLeft"] = status.timeLeft;
+    json["Status"] = getNsmTokenStatus(status.tokenStatus);
+    json["AdditionalInfo"] = getNsmTokenAdditionalInfo(status.additionalInfo);
+    json["TimeLeftSeconds"] = status.timeLeft;
 }
 
 } // namespace redfish::debug_token

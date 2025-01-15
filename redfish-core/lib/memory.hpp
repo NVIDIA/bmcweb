@@ -27,6 +27,7 @@ limitations under the License.
 #include "utils/dbus_utils.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_memory.hpp"
 
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
@@ -70,6 +71,11 @@ inline std::string translateMemoryTypeToRedfish(const std::string& memoryType)
     if (memoryType == "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR5")
     {
         return "DDR5";
+    }
+    if (memoryType ==
+        "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.LPDDR5_SDRAM")
+    {
+        return "LPDDR5_SDRAM";
     }
     if (memoryType ==
         "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.LPDDR4_SDRAM")
@@ -153,7 +159,6 @@ inline std::string translateMemoryTypeToRedfish(const std::string& memoryType)
     // FBD2
     // LPDDR_SDRAM
     // LPDDR2_SDRAM
-    // LPDDR5_SDRAM
     return "";
 }
 
@@ -915,7 +920,7 @@ inline void getDimmData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 return;
             }
             // Set @odata only if object is found
-            asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_11_0.Memory";
+        asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_20_0.Memory";
             asyncResp->res.jsonValue["@odata.id"] =
                 boost::urls::format("/redfish/v1/Systems/{}/Memory/{}",
                                     BMCWEB_REDFISH_SYSTEM_URI_NAME, dimmId);
@@ -1201,7 +1206,7 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         return;
                     }
                     aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"]
-                                        ["HighAvailablityBankCount"] = *value;
+                                    ["HighAvailabilityBankCount"] = *value;
                 }
                 else if (property.first == "LowRemappingAvailablityBankCount")
                 {
@@ -1215,7 +1220,7 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         return;
                     }
                     aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"]
-                                        ["LowAvailablityBankCount"] = *value;
+                                    ["LowAvailabilityBankCount"] = *value;
                 }
                 else if (property.first == "MaxRemappingAvailablityBankCount")
                 {
@@ -1229,7 +1234,7 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         return;
                     }
                     aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"]
-                                        ["MaxAvailablityBankCount"] = *value;
+                                    ["MaxAvailabilityBankCount"] = *value;
                 }
                 else if (property.first == "NoRemappingAvailablityBankCount")
                 {
@@ -1243,7 +1248,7 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         return;
                     }
                     aResp->res.jsonValue["Oem"]["Nvidia"]["RowRemapping"]
-                                        ["NoAvailablityBankCount"] = *value;
+                                    ["NoAvailabilityBankCount"] = *value;
                 }
                 else if (property.first ==
                          "PartialRemappingAvailablityBankCount")
@@ -1336,17 +1341,17 @@ inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                       "com.nvidia.MemoryRowRemapping") !=
                             interfaces.end())
                         {
-                            aResp->res
-                                .jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                                "#NvidiaMemoryMetrics.v1_1_0.NvidiaGPUMemoryMetrics";
+                        aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                            "#NvidiaMemoryMetrics.v1_2_0.NvidiaGPUMemoryMetrics";
                             getMemoryRowRemappings(aResp, service, path);
                         }
+                    getStateSensors(aResp, path);
                     }
                 }
                 return;
             }
             // Object not found
-            messages::resourceNotFound(aResp->res, "#Memory.v1_11_0.Memory",
+        messages::resourceNotFound(aResp->res, "#Memory.v1_20_0.Memory",
                                        dimmId);
         },
         "xyz.openbmc_project.ObjectMapper",

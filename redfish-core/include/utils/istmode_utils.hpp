@@ -64,8 +64,14 @@ inline void getIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
                     }
                     bool istModeEnabled = false;
                     nlohmann::json& json = aResp->res.jsonValue;
-                    auto mode = dbus_utils::getRedfishIstMode(
-                        *std::get_if<std::string>(&istMode));
+            auto modePtr = std::get_if<std::string>(&istMode);
+            if (modePtr == nullptr)
+            {
+                BMCWEB_LOG_ERROR("ISTMode not received");
+                messages::internalError(aResp->res);
+                return;
+            }
+            auto mode = dbus_utils::getRedfishIstMode(*modePtr);
 
                     if (mode == "Enabled")
                     {

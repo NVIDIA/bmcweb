@@ -22,6 +22,7 @@ limitations under the License.
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
+#include "rsyslog_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/stl_utils.hpp"
 
@@ -43,13 +44,15 @@ std::string getHostName();
 
 static constexpr std::string_view sshServiceName = "dropbear";
 static constexpr std::string_view httpsServiceName = "bmcweb";
+static constexpr std::string_view httpServiceName = "bmcweb";
 static constexpr std::string_view ipmiServiceName = "phosphor-ipmi-net";
 
 // Mapping from Redfish NetworkProtocol key name to backend service that hosts
 // that protocol.
-static constexpr std::array<std::pair<std::string_view, std::string_view>, 3>
+static constexpr std::array<std::pair<std::string_view, std::string_view>, 4>
     networkProtocolToDbus = {{{"SSH", sshServiceName},
                               {"HTTPS", httpsServiceName},
+                              {"HTTP", httpServiceName},
                               {"IPMI", ipmiServiceName}}};
 
 inline void extractNTPServersAndDomainNamesData(
@@ -296,6 +299,12 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     getPortStatusAndPath(std::span(networkProtocolToDbus),
                          std::bind_front(afterNetworkPortRequest, asyncResp));
+
+    // Populate Rsyslog client settings from D-Bus
+    if constexpr (BMCWEB_RSYSLOG_CLIENT)
+    {
+        redfish::rsyslog::populateRsyslogClientSettings(asyncResp);
+    }
 } // namespace redfish
 
 inline void afterSetNTP(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -545,6 +554,13 @@ inline void handleManagersNetworkProtocolPatch(
     std::optional<bool> ntpEnabled;
     std::optional<bool> ipmiEnabled;
     std::optional<bool> sshEnabled;
+    std::optional<std::string> state;
+    std::optional<std::string> address;
+    std::optional<uint16_t> port;
+    std::optional<std::string> protocol;
+    std::optional<std::string> tls;
+    std::optional<std::vector<std::string>> facility;
+    std::optional<std::string> severity;
 
     if (!json_util::readJsonPatch(
             req, asyncResp->res, //
@@ -553,7 +569,13 @@ inline void handleManagersNetworkProtocolPatch(
             "NTP/ProtocolEnabled", ntpEnabled, //
             "IPMI/ProtocolEnabled", ipmiEnabled, //
             "SSH/ProtocolEnabled", sshEnabled //
-            ))
+            "Oem/Nvidia/Rsyslog/State", state,
+            "Oem/Nvidia/Rsyslog/Address", address,
+            "Oem/Nvidia/Rsyslog/Port", port,
+            "Oem/Nvidia/Rsyslog/Protocol", protocol,
+            "Oem/Nvidia/Rsyslog/TLS", tls,
+            "Oem/Nvidia/Rsyslog/Filter/Facilities", facility,
+            "Oem/Nvidia/Rsyslog/Filter/LowestSeverity", severity))            
     {
         return;
     }
@@ -597,6 +619,20 @@ inline void handleManagersNetworkProtocolPatch(
     {
         handleProtocolEnabled(*sshEnabled, asyncResp,
                               encodeServiceObjectPath(sshServiceName));
+    }
+    if constexpr (BMCWEB_RSYSLOG_CLIENT)
+    {
+        // Call the function to process the settings
+        if (!redfish::rsyslog::sanityCheck(*address, port))
+        {
+            BMCWEB_LOG_ERROR("Invalid Ip or Port");
+            std::string err = *address + ":" + std::to_string(*port);
+            messages::propertyValueIncorrect(asyncResp->res, "Address or Port",
+                                             err);
+            return;
+        }
+        redfish::rsyslog::processRsyslogClientSettings(
+            asyncResp, address, port, state, tls, facility, severity, protocol);
     }
 }
 

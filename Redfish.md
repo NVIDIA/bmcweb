@@ -477,6 +477,16 @@ Fields common to all schemas
 #### EventService
 
 - Actions
+- SubmitTestEvent
+  - eventGroupId
+  - eventId
+  - eventTimestamp
+  - message
+  - messageArgs
+  - messageId
+  - originOfCondition
+  - resolution
+  - severity
 - DeliveryRetryAttempts
   - Defaults to 3
 - DeliveryRetryIntervalSeconds

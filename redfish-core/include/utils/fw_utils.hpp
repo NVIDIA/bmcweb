@@ -701,13 +701,13 @@ inline void populateSlotInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                                     auto it = firmwareState.find(*value);
                                     if (it != firmwareState.end())
                                     {
-                                        BMCWEB_LOG_ERROR(
-                                            "FirmwareState '{}' not found in map",
-                                            *value);
                                         oemSlot["FirmwareState"] = it->second;
                                     }
                                     else
                                     {
+                                BMCWEB_LOG_ERROR(
+                                    "FirmwareState '{}' not found in map",
+                                    *value);
                                         oemSlot["FirmwareState"] = "";
                                     }
                                 }

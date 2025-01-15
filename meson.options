@@ -176,6 +176,15 @@ option(
                     phosphor-hostlogger through Redfish.  Paths are under
                     /redfish/v1/Systems/system/LogServices/HostLogger''',
 )
+
+option(
+    'redfish-manager-event-log',
+    type: 'feature',
+    value: 'enabled',
+    description: '''Enable Manager Event log service transactions through Redfish. Paths
+                   are under /redfish/v1/Managers/bmc/LogServices/Eventlog''',
+)
+
 option(
     'redfish-dbus-event',
     type: 'feature',
@@ -258,6 +267,13 @@ option(
     type: 'integer',
     value: 60,
     description: 'The bmcweb response timeout in seconds.',
+)
+
+option(
+    'rsyslog-client',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable rsyslog client',
 )
 
 option(
@@ -503,6 +519,14 @@ option(
 )
 
 option(
+    'redfish-sw-einj',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable SWEINJ Actions through Redfish. The Schema definition reference is
+                    /schemas/v1/JsonSchemas/NvidiaManager.v1_4_0.json#/definitions/SWErrorInjection''',
+)
+
+option(
     'power-control-type-percentage',
     type: 'feature',
     value: 'disabled',
@@ -744,6 +768,12 @@ option(
     description: 'Enables feature specific to host os.',
 )
 option(
+    'hide-host-os-features-init-value',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enables feature specific to host os with an initial value',
+)
+option(
     'host-auxpower-features',
     type: 'feature',
     value: 'disabled',
@@ -896,6 +926,7 @@ option(
     value: '/tmp/images/',
     description: 'Update service image location',
 )
+
 option(
     'update-service-stage-location',
     type: 'string',
@@ -1005,6 +1036,7 @@ option(
     value: 'disabled',
     description: 'Enable/disable IPMI SOL.',
 )
+
 option(
     'min-ucase-characters',
     type: 'integer',
@@ -1143,4 +1175,25 @@ option(
     type : 'array',
     value : ['EROT', 'ROT', 'FirmwareAttributes'],
     description : 'OEM diagnostic data allowable type'
+)
+
+option(
+    'check-oem-diagnostic-type',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Enable the check mechanism of OEM diagnostic data allowable type',
+)
+
+option(
+    'sort-event-log',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable/Disable event log sorting based upon ID.',
+)
+
+option(
+    'nsm-raw-command-enable',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable/Disable NSM raw command',
 )

@@ -3,6 +3,7 @@ if get_option('nvidia-oem-properties').allowed()
     schemas = [
         'NvidiaChassis_v1.xml',
         'NvidiaComputerSystem_v1.xml',
+        'NvidiaDebugToken_v1.xml',
         'NvidiaEnvironmentMetrics_v1.xml',
         'NvidiaErrorInjection_v1.xml',
         'NvidiaEvent_v1.xml',
@@ -19,6 +20,8 @@ if get_option('nvidia-oem-properties').allowed()
         'NvidiaPCIeDevice_v1.xml',
         'NvidiaPCIeSlots_v1.xml',
         'NvidiaPersistentStorage_v1.xml',
+        'NvidiaPolicyCollection_v1.xml',
+        'NvidiaPolicy_v1.xml',
         'NvidiaPortMetrics_v1.xml',
         'NvidiaPort_v1.xml',
         'NvidiaPowerSmoothingPresetProfileCollection_v1.xml',

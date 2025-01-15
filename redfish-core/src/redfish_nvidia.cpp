@@ -283,6 +283,18 @@ void requestRoutesNvidia(crow::App& app)
     {
         requestRoutesProfiles(app);
     }
+
+    if constexpr (BMCWEB_NSM_RAW_COMMAND_ENABLE)
+    {
+        nvidia_manager_util::requestRouteNSMRawCommand(app);
+        nvidia_manager_util::requestRouteNSMRawCommandActionInfo(app);
+    }
+    
+    if constexpr (BMCWEB_REDFISH_SW_EINJ)
+    {
+        nvidia::sweinj::requestRoutesSwEinjAction(app);
+    }
+
 }
 
 } // namespace redfish

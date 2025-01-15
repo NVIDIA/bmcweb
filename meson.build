@@ -282,6 +282,12 @@ add_project_arguments(
 zlib = dependency('zlib')
 bmcweb_dependencies += [libsystemd, zlib]
 
+pwquality_dep = dependency('pwquality', required: false)
+if pwquality_dep.found()
+    add_project_arguments('-DHAVE_PWQUALITY', language: 'cpp')
+endif
+bmcweb_dependencies += pwquality_dep
+
 nlohmann_json_dep = dependency(
     'nlohmann_json',
     version: '>=3.11.3',
@@ -366,6 +372,7 @@ srcfiles_bmcweb = files(
     'redfish-core/src/utils/dbus_utils.cpp',
     'redfish-core/src/utils/json_utils.cpp',
     'redfish-core/src/utils/time_utils.cpp',
+    'redfish-core/src/utils/nsm_cmd_support.cpp',
     'src/boost_asio.cpp',
     'src/boost_asio_ssl.cpp',
     'src/boost_beast.cpp',

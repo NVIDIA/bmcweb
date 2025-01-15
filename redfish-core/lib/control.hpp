@@ -26,6 +26,7 @@
 #include <utils/chassis_utils.hpp>
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_async_set_utils.hpp>
+#include <utils/nvidia_chassis_util.hpp>
 #include <utils/nvidia_control_utils.hpp>
 
 namespace redfish
@@ -97,7 +98,7 @@ inline void getPowercontrolObjects(
 
 inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& path,
-                            const std::string& chassisPath)
+                            const std::string& /*chassisPath*/)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, path](
@@ -127,9 +128,9 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, path, interface](
                                 const boost::system::error_code errorno,
-                                const std::vector<std::pair<
-                                    std::string,
-                                    std::variant<size_t, std::string, bool>>>&
+                            const std::vector<
+                                std::pair<std::string,
+                                          std::variant<size_t, std::string>>>&
                                     propertiesList) {
                                 if (errorno)
                                 {
@@ -225,32 +226,23 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                                     *physicalcontext);
                                         continue;
                                     }
-                                    else if (propertyName == "PowerCapEnable")
+                            else if (propertyName == "PowerMode")
                                     {
-                                        const bool* value =
-                                            std::get_if<bool>(&property.second);
-                                        if (value == nullptr)
+                                propertyName = "ControlMode";
+                                const std::string* mode =
+                                    std::get_if<std::string>(&property.second);
+                                std::map<std::string, std::string>::iterator
+                                    itr;
+                                for (auto& itr : modes)
                                         {
-                                            BMCWEB_LOG_ERROR(
-                                                "Null value returned "
-                                                "for type");
-                                            messages::internalError(
-                                                asyncResp->res);
-                                            return;
-                                        }
+                                    if (*mode == itr.first)
+                                    {
+                                        asyncResp->res.jsonValue[propertyName] =
+                                            itr.second;
+                                        break;
+                                    }
+                                }
 
-                                        if (*value)
-                                        {
-                                            asyncResp->res
-                                                .jsonValue["ControlMode"] =
-                                                "Automatic";
-                                        }
-                                        else
-                                        {
-                                            asyncResp->res
-                                                .jsonValue["ControlMode"] =
-                                                "Disabled";
-                                        }
                                         continue;
                                     }
                                 }
@@ -266,21 +258,6 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject", path, powerinterfaces);
-
-    auto health = std::make_shared<HealthPopulate>(asyncResp);
-    sdbusplus::asio::getProperty<std::vector<std::string>>(
-        *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
-        chassisPath + "/all_sensors", "xyz.openbmc_project.Association",
-        "endpoints",
-        [health](const boost::system::error_code ec2,
-                 const std::vector<std::string>& resp) {
-            if (ec2)
-            {
-                return; // no sensors = no failures
-            }
-            health->inventory = resp;
-        });
-    health->populate();
 }
 
 inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -494,6 +471,13 @@ inline void
                             {
                                 const auto* physicalcontext =
                                     std::get_if<std::string>(&value);
+                        if (physicalcontext == nullptr)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "PropertyName resource not found.");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
                                 asyncResp->res.jsonValue[propertyName] =
                                     redfish::dbus_utils::toPhysicalContext(
                                         *physicalcontext);
@@ -534,9 +518,10 @@ inline void
                             {
                                 return;
                             }
-                            relatedItemsArray.push_back(
-                                {{"@odata.id",
-                                  "/redfish/v1/Chassis/" + chassisName}});
+                    redfish::nvidia_chassis_utils::getChassisRelatedItem(
+                        asyncResp, objectPath, chassisName,
+                        redfish::nvidia_control_utils::
+                            getControlSettingRelatedItems);
                         }
                     },
                     "xyz.openbmc_project.ObjectMapper", path + "/chassis",
@@ -1191,7 +1176,10 @@ inline void requestRoutesChassisControls(App& app)
                                                 interfaces.begin(),
                                                 interfaces.end(),
                                                 "xyz.openbmc_project.Inventory.Item.Accelerator") !=
-                                            interfaces.end())
+                                 interfaces.end()) ||
+                                (std::find(interfaces.begin(), interfaces.end(),
+                                           "com.nvidia.GPMMetrics") !=
+                                 interfaces.end()))
                                         {
                                             auto processorName =
                                                 processorPath.substr(
@@ -1256,6 +1244,8 @@ inline void requestRoutesChassisControls(App& app)
                                 return;
                             }
                         }
+                redfish::nvidia_control_utils::getControlCpuObjects(
+                    asyncResp, getControlCpu, validChassisPath);
                         // Not a CPU
                         getChassisControl(validChassisPath);
                     },
@@ -1438,7 +1428,10 @@ inline void requestRoutesChassisControls(App& app)
                                                 interfaces.begin(),
                                                 interfaces.end(),
                                                 "xyz.openbmc_project.Inventory.Item.Accelerator") !=
-                                            interfaces.end())
+                                 interfaces.end()) ||
+                                (std::find(interfaces.begin(), interfaces.end(),
+                                           "com.nvidia.GPMMetrics") !=
+                                 interfaces.end()))
                                         {
                                             auto processorName =
                                                 processorPath.substr(
@@ -1761,7 +1754,10 @@ inline void requestRoutesChassisControlsReset(App& app)
                                                 interfaces.begin(),
                                                 interfaces.end(),
                                                 "xyz.openbmc_project.Inventory.Item.Accelerator") !=
-                                            interfaces.end())
+                                 interfaces.end()) ||
+                                (std::find(interfaces.begin(), interfaces.end(),
+                                           "com.nvidia.GPMMetrics") !=
+                                 interfaces.end()))
                                         {
                                             auto processorName =
                                                 processorPath.substr(

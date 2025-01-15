@@ -180,15 +180,16 @@ inline void validateProcessorAndGetWorkloadPowerInfo(
                                   "com.nvidia.PowerProfile.ProfileInfo") ==
                         interfaces.end())
                     {
-                        // Object not found
-                        messages::resourceNotFound(
-                            aResp->res,
-                            "#NvidiaWorkloadPower.v1_0_0.NvidiaWorkloadPower",
-                            processorId);
-                        return;
+                    // no interface = no failures
+                    continue;
                     }
                     getProcessorWorkloadPowerInfo(aResp, service, path);
+                return;
                 }
+            // Object not found
+            messages::resourceNotFound(
+                aResp->res, "#NvidiaWorkloadPower.v1_0_0.NvidiaWorkloadPower",
+                processorId);
                 return;
             }
             // Object not found
@@ -200,9 +201,10 @@ inline void validateProcessorAndGetWorkloadPowerInfo(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerProfile.ProfileInfo"});
 }
 
 inline void getWorkLoadProfileData(
@@ -557,12 +559,8 @@ inline void postEnableWorkLoadPowerProfile(
                                   "com.nvidia.PowerProfile.ProfileInfoAsync") ==
                         interfaces.end())
                     {
-                        // Object not found
-                        messages::resourceNotFound(
-                            aResp->res,
-                            "#NvidiaWorkloadPower.v1_0_0.NvidiaWorkloadPower",
-                            processorId);
-                        return;
+                    // no interface = no failures
+                    continue;
                     }
                     enableWorkLoadPowerProfile(aResp, service, path,
                                                profileMask);
@@ -570,6 +568,7 @@ inline void postEnableWorkLoadPowerProfile(
 
                 return;
             }
+        }
             // Object not found
             messages::resourceNotFound(
                 aResp->res, "#NvidiaWorkloadPower.v1_0_0.NvidiaWorkloadPower",
@@ -579,9 +578,10 @@ inline void postEnableWorkLoadPowerProfile(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerProfile.ProfileInfoAsync"});
 }
 
 inline void disableWorkLoadPowerProfile(
@@ -666,12 +666,8 @@ inline void postDisableWorkLoadPowerProfile(
                                   "com.nvidia.PowerProfile.ProfileInfoAsync") ==
                         interfaces.end())
                     {
-                        // Object not found
-                        messages::resourceNotFound(
-                            aResp->res,
-                            "#NvidiaWorkloadPower.v1_0_0.NvidiaWorkloadPower",
-                            processorId);
-                        return;
+                    // no interface = no failures
+                    continue;
                     }
                     disableWorkLoadPowerProfile(aResp, service, path,
                                                 profileMask);
@@ -679,6 +675,7 @@ inline void postDisableWorkLoadPowerProfile(
 
                 return;
             }
+        }
             // Object not found
             messages::resourceNotFound(
                 aResp->res, "#NvidiaWorkloadPower.v1_0_0.NvidiaWorkloadPower",
@@ -688,9 +685,10 @@ inline void postDisableWorkLoadPowerProfile(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
+        std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "com.nvidia.PowerProfile.ProfileInfoAsync"});
 }
 
 inline void requestRoutesProcessorWorkloadPower(App& app)
@@ -727,17 +725,29 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
                 {
                     return;
                 }
-                std::optional<std::vector<uint8_t>> profileMask;
+        std::optional<std::string> profileMaskAsStr;
 
                 if (!redfish::json_util::readJsonAction(
                         req, asyncResp->res, "ProfileMask", profileMask))
                 {
                     return;
                 }
-                if (profileMask)
+        if (profileMaskAsStr)
                 {
+            try
+            {
+                std::vector<uint8_t> profileMask =
+                    stringNibbleToVector(*profileMaskAsStr);
                     postEnableWorkLoadPowerProfile(asyncResp, processorId,
-                                                   *profileMask);
+                                               profileMask);
+            }
+            catch (const std::exception& /*e*/)
+            {
+                messages::actionParameterValueError(
+                    asyncResp->res, *profileMaskAsStr,
+                    "NvidiaWorkloadPower.EnableProfiles");
+                return;
+            }
                 }
             });
 
@@ -790,17 +800,29 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
                 {
                     return;
                 }
-                std::optional<std::vector<uint8_t>> profileMask;
 
+                std::optional<std::string> profileMaskAsStr;
                 if (!redfish::json_util::readJsonAction(
-                        req, asyncResp->res, "ProfileMask", profileMask))
+                        req, asyncResp->res, "ProfileMask", profileMaskAsStr))
                 {
                     return;
                 }
-                if (profileMask)
+                if (profileMaskAsStr)
                 {
-                    postDisableWorkLoadPowerProfile(asyncResp, processorId,
-                                                    *profileMask);
+                    try
+                    {
+                        std::vector<uint8_t> profileMask =
+                            stringNibbleToVector(*profileMaskAsStr);
+                        postDisableWorkLoadPowerProfile(asyncResp, processorId,
+                                                        profileMask);
+                    }
+                    catch (const std::exception& /*e*/)
+                    {
+                        messages::actionParameterValueError(
+                            asyncResp->res, *profileMaskAsStr,
+                            "NvidiaWorkloadPower.DisableProfiles");
+                        return;
+                    }
                 }
             });
 

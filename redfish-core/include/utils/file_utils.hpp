@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <filesystem>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -34,9 +35,11 @@ inline int readFile2Json(const std::string& filePath, nlohmann::json& j)
 {
     try
     {
-        // Create the file if not exist
-        std::ofstream outfile(filePath, std::ios_base::app);
-        outfile.close();
+        if (false == std::filesystem::exists(filePath))
+        {
+            BMCWEB_LOG_WARNING("File '{}' does not exist", filePath);
+            return -2;
+        }
 
         boost::interprocess::file_lock fileLock(filePath.c_str());
         auto start = std::chrono::steady_clock::now();
@@ -53,7 +56,7 @@ inline int readFile2Json(const std::string& filePath, nlohmann::json& j)
 
             if (elapsed >= FLOCK_TIMEOUT)
             {
-                BMCWEB_LOG_ERROR("Get flock of {} timeout!\n", filePath);
+                BMCWEB_LOG_ERROR("Get flock of {} timeout!", filePath);
                 return -1;
             }
         }
@@ -62,7 +65,7 @@ inline int readFile2Json(const std::string& filePath, nlohmann::json& j)
 
         if (!ifs.is_open())
         {
-            BMCWEB_LOG_ERROR("Can't open file {}!\n", filePath);
+            BMCWEB_LOG_ERROR("Can't open file {}!", filePath);
             return -2;
         }
 
@@ -110,10 +113,9 @@ inline int readJsonFromFile(const std::string& filePath, nlohmann::json& j)
     try
     {
         std::ifstream ifs(filePath);
-
         if (!ifs.is_open())
         {
-            BMCWEB_LOG_ERROR("Can't open file {}!\n", filePath);
+            BMCWEB_LOG_WARNING("Can't open file {}!", filePath);
             return -1;
         }
 

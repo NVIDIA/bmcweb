@@ -25,11 +25,34 @@
 #include <memory>
 #include <string>
 #include <variant>
+#include "openbmc_dbus_rest.hpp"
+
+#include <boost/container/flat_set.hpp>
+#include <boost/system/linux_error.hpp>
 
 namespace redfish
 {
 namespace nvidia_chassis_utils
 {
+
+constexpr const size_t trayTopologyStringLength = 16;
+constexpr const size_t trayTopologyByteLength = 8;
+constexpr const size_t trayTopologyTokenLength = 2;
+constexpr const uint8_t trayTopologyMinRevision = 2;
+#pragma pack(1)
+struct trayTopology
+{
+    uint8_t revision;
+    uint8_t reserved1;
+    uint8_t chassisSlotNumber;
+    uint8_t trayIndex;
+    uint8_t topologyId;
+    uint8_t reserved2;
+    uint8_t reserved3;
+    uint8_t reserved4;
+};
+#pragma pack()
+
 /* * @brief Fill out links association to underneath chassis by
  * requesting data from the given D-Bus association object.
  *
@@ -386,33 +409,40 @@ inline void getOemCBCChassisAsset(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 messages::internalError(asyncResp->res);
                 return;
             }
-            // convert byte string to vector.
-            std::vector<char> value;
-            for (unsigned int i = 0; i < property.length(); i += 2)
+
+        // CBC FRU spec specifies that it is 8 bytes (string length 16)
+        if (property.length() != trayTopologyStringLength)
             {
-                std::string byteData = property.substr(i, 2);
-                char byte =
-                    static_cast<char>(strtol(byteData.c_str(), nullptr, 16));
-                value.push_back(byte);
+            BMCWEB_LOG_ERROR("CBC Tray ID string len is in invalid");
+            messages::internalError(asyncResp->res);
+            return;
             }
-            // this is CBC byte defintion for rev. 0x2
-            // byte 0: Revision 0x2
-            // byte 1: Unused
-            // byte 2: Chassis slot number
-            // byte 3: Tray Index
-            // byte 4: Topology Id
-            if (value[2] != 2)
+
+        std::array<uint8_t, trayTopologyByteLength> byteArray;
+        for (size_t i = 0; i < trayTopologyByteLength; i++)
             {
-                // redfish only support rev. 0x2 defintion.
+            byteArray[i] = static_cast<uint8_t>(
+                std::stoi(property.substr((i * trayTopologyTokenLength),
+                                          trayTopologyTokenLength),
+                          nullptr, 16));
+        }
+        trayTopology* trayTopologyPtr =
+            reinterpret_cast<trayTopology*>(byteArray.data());
+
+        // make sure it can support trayTopologyMinRevision at least
+        if (trayTopologyPtr->revision < trayTopologyMinRevision)
+        {
+            BMCWEB_LOG_ERROR("CBC Tray ID revision must be >= {}",
+                             static_cast<int>(trayTopologyMinRevision));
                 return;
             }
 
             auto& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
             oem["@odata.type"] = "#NvidiaChassis.v1_4_0.NvidiaCBCChassis";
-            oem["ChassisPhysicalSlotNumber"] = value[2];
-            oem["ComputeTrayIndex"] = value[3];
-            oem["RevisionId"] = value[0];
-            oem["TopologyId"] = value[4];
+        oem["ChassisPhysicalSlotNumber"] = trayTopologyPtr->chassisSlotNumber;
+        oem["ComputeTrayIndex"] = trayTopologyPtr->trayIndex;
+        oem["RevisionId"] = trayTopologyPtr->revision;
+        oem["TopologyId"] = trayTopologyPtr->topologyId;
         });
 }
 
@@ -1427,10 +1457,82 @@ inline void setChassisWriteProtectProtectEnable(
         });
 }
 
+template <typename Callback>
+inline void validLeakDetectionCallback(
+    const boost::system::error_code& ec,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const dbus::utility::MapperGetSubTreePathsResponse& chassisPaths,
+    const std::string& chassisId, Callback&& callback)
+{
+    BMCWEB_LOG_DEBUG("validLeakDetectionCallback respHandler enter");
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR(
+            "validLeakDetectionCallback respHandler DBUS error: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    std::optional<std::string> chassisPath;
+    for (const std::string& chassis : chassisPaths)
+    {
+        sdbusplus::message::object_path path(chassis);
+        std::string chassisName = path.parent_path().filename();
+        if (chassisName.empty())
+        {
+            BMCWEB_LOG_ERROR("Failed to find '/' in {}", chassis);
+            continue;
+        }
+        if (chassisName == chassisId)
+        {
+            chassisPath = chassis;
+            break;
+        }
+    }
+    callback(chassisPath);
+}
+
+template <typename Callback>
+void getValidLeakDetectionPath(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, Callback&& callback)
+{
+    constexpr std::array<std::string_view, 1> interfaces = {
+        "xyz.openbmc_project.Configuration.VoltageLeakDetector"};
+
+    // Get the Chassis Collection
+    dbus::utility::getSubTreePaths(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
+        [callback = std::forward<Callback>(callback), asyncResp,
+         chassisId](const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreePathsResponse&
+                        chassisPaths) mutable {
+        validLeakDetectionCallback(ec, asyncResp, chassisPaths, chassisId,
+                                   callback);
+    });
+}
+
+inline void doLeakDetectionPolicyGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        BMCWEB_LOG_DEBUG("{}: No Leak Detection policy", chassisId);
+        return;
+    }
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["Policies"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/Oem/Nvidia/Policies",
+                            chassisId);
+}
+
 inline void handleChassisGetAllProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& /*path*/,
-    const dbus::utility::DBusPropertiesMap& propertiesList)
+    const std::string& chassisId, const std::string& path,
+    const dbus::utility::DBusPropertiesMap& propertiesList,
+    const std::string& connectionName,
+    const std::vector<std::string>& interfaces)
 {
     const std::string* partNumber = nullptr;
     const std::string* serialNumber = nullptr;
@@ -1500,7 +1602,7 @@ inline void handleChassisGetAllProperties(
         asyncResp->res.jsonValue["SparePartNumber"] = *sparePartNumber;
     }
 
-    if (sku != nullptr)
+    if (sku != nullptr && !sku->empty())
     {
         asyncResp->res.jsonValue["SKU"] = *sku;
     }
@@ -1530,12 +1632,6 @@ inline void handleChassisGetAllProperties(
     {
         asyncResp->res.jsonValue["Name"] = *prettyName;
     }
-    if (type != nullptr)
-    {
-        // asyncResp->res.jsonValue["Type"] = *type;
-        asyncResp->res.jsonValue["ChassisType"] =
-            redfish::chassis_utils::getChassisType(*type);
-    }
     if (height != nullptr)
     {
         asyncResp->res.jsonValue["HeightMm"] = *height;
@@ -1564,7 +1660,7 @@ inline void handleChassisGetAllProperties(
     {
         // default oem data
         nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
-        oem["@odata.type"] = "#NvidiaChassis.v1_4_0.NvidiaChassis";
+        oem["@odata.type"] = "#NvidiaChassis.v1_6_0.NvidiaChassis";
 
         if (writeProtected != nullptr)
         {
@@ -1598,6 +1694,19 @@ inline void handleChassisGetAllProperties(
                 .jsonValue["Oem"]["Nvidia"]["PCIeReferenceClockCount"] =
                 *pCIeReferenceClockCount;
         }
+
+#ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
+        // Policy Collection
+        getValidLeakDetectionPath(
+            asyncResp, chassisId,
+            std::bind_front(doLeakDetectionPolicyGet, asyncResp, chassisId));
+#endif
+    }
+    if (std::find(interfaces.begin(), interfaces.end(),
+                  "xyz.openbmc_project.Inventory.Item.Chassis") !=
+        interfaces.end())
+    {
+        redfish::chassis_utils::getChassisType(asyncResp, connectionName, path);
     }
     asyncResp->res.jsonValue["Name"] = chassisId;
     asyncResp->res.jsonValue["Id"] = chassisId;
@@ -1656,13 +1765,6 @@ inline void handleChassisGetAllProperties(
     // Controls Collection
     asyncResp->res.jsonValue["Controls"] = {
         {"@odata.id", "/redfish/v1/Chassis/" + chassisId + "/Controls"}};
-
-    if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
-    {
-        // Policy Collection
-        asyncResp->res.jsonValue["Policies"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/Policies", chassisId);
-    }
 
     nlohmann::json::array_t computerSystems;
     nlohmann::json::object_t system;
@@ -1878,6 +1980,44 @@ inline void insertSorted(nlohmann::json& arr, const nlohmann::json& element,
             return left[sortField] < right[sortField];
         });
     arr.insert(it, element);
+}
+
+template <typename Handler>
+inline void
+    getChassisRelatedItem(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const sdbusplus::message::object_path& objectPath,
+                          const std::string& chassisId, Handler&& handler)
+{
+    // Ensure to pick up the resource from Chassis interface
+    size_t chassisNamePos = objectPath.str.rfind('/');
+    if (chassisNamePos == std::string::npos ||
+        chassisNamePos == (objectPath.str.size() - 1))
+    {
+        return;
+    }
+
+    constexpr std::array<std::string_view, 1> chassisInterface = {
+        "xyz.openbmc_project.Inventory.Item.Chassis"};
+
+    dbus::utility::getSubTreePaths(
+        objectPath.str.substr(0, chassisNamePos), 0, chassisInterface,
+        [asyncResp, objectPath, chassisId,
+         handler = std::forward<Handler>(handler)](
+            const boost::system::error_code ec,
+            const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
+        if ((!ec) && (subtreePaths.size() != 0))
+        {
+            for (const auto& path : subtreePaths)
+            {
+                sdbusplus::message::object_path chassisPath(path);
+                std::string chassisName = chassisPath.filename();
+                if (chassisId == chassisName)
+                {
+                    handler(asyncResp, objectPath);
+                }
+            }
+        }
+    });
 }
 
 } // namespace nvidia_chassis_utils
