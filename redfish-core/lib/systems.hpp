@@ -1429,11 +1429,11 @@ inline void getAutomaticRebootAttempts(
             const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
-            BMCWEB_LOG_ERROR("DBUS response error {}, {}", ec.value(),
-                             ec.message());
-            // handle the error while BMC is booting
-            if (ec.value() != EBADR &&
-                ec.value() != boost::system::errc::host_unreachable)
+                BMCWEB_LOG_ERROR("DBUS response error {}, {}", ec.value(),
+                                 ec.message());
+                // handle the error while BMC is booting
+                if (ec.value() != EBADR &&
+                    ec.value() != boost::system::errc::host_unreachable)
                 {
                     messages::internalError(asyncResp->res);
                 }
@@ -4164,12 +4164,13 @@ inline void
 
         if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
         {
-//#error "Conflicts! Please set health-rollup-alternative=disabled."
+            // #error "Conflicts! Please set
+            // health-rollup-alternative=disabled."
         }
 
         if constexpr (BMCWEB_DISABLE_HEALTH_ROLLUP)
         {
-//#error "Conflicts! Please set disable-health-rollup=disabled."
+            // #error "Conflicts! Please set disable-health-rollup=disabled."
         }
 
         health_utils::getDeviceHealthInfo(
@@ -4412,7 +4413,7 @@ inline void
 }
 
 inline void handleComputerSystemPatch(
-    crow::App & app, const crow::Request& req,
+    crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& systemName)
 {
@@ -4424,13 +4425,13 @@ inline void handleComputerSystemPatch(
     {
         // Option currently returns no systems.  TBD
         messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                    systemName);
+                                   systemName);
         return;
     }
     if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
     {
         messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                    systemName);
+                                   systemName);
         return;
     }
 

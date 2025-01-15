@@ -20,6 +20,7 @@ limitations under the License.
 #include "app.hpp"
 #include "component_integrity.hpp"
 #include "dbus_utility.hpp"
+#include "debug_token/erase_policy.hpp"
 #include "multipart_parser.hpp"
 #include "nvidia_update_service.hpp"
 #include "ossl_random.hpp"
@@ -31,7 +32,6 @@ limitations under the License.
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/sw_utils.hpp"
-#include "debug_token/erase_policy.hpp"
 
 #include <sys/mman.h>
 
@@ -642,7 +642,6 @@ inline std::optional<boost::urls::url> parseSimpleUpdateUrl(
     return *url;
 }
 
-
 struct SimpleUpdateParams
 {
     std::string remoteServerIP;
@@ -667,17 +666,17 @@ inline void
                      params->transferProtocol);
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            BMCWEB_LOG_ERROR("error_code = {}, error msg = {}", ec,
-                             ec.message());
-        }
-        else
-        {
-            BMCWEB_LOG_DEBUG("Call to DownloadViaSCP Success");
-        }
-    },
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR("error_code = {}, error msg = {}", ec,
+                                 ec.message());
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("Call to DownloadViaSCP Success");
+            }
+        },
         "xyz.openbmc_project.Software.Download",
         "/xyz/openbmc_project/software", "xyz.openbmc_project.Common.SCP",
         "DownloadViaSCP", params->remoteServerIP, (params->username).value(),
@@ -694,17 +693,17 @@ inline void
                      params->transferProtocol);
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            BMCWEB_LOG_ERROR("error_code = {}, error msg = {}", ec,
-                             ec.message());
-        }
-        else
-        {
-            BMCWEB_LOG_DEBUG("Call to DownloadViaHTTP Success");
-        }
-    },
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR("error_code = {}, error msg = {}", ec,
+                                 ec.message());
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("Call to DownloadViaHTTP Success");
+            }
+        },
         "xyz.openbmc_project.Software.Download",
         "/xyz/openbmc_project/software", "xyz.openbmc_project.Common.HTTP",
         "DownloadViaHTTP", params->remoteServerIP,
@@ -745,7 +744,6 @@ inline void mountTargetPath(const std::string& serviceName,
     }
 }
 
-
 inline void downloadFirmwareImageToTarget(
     const std::shared_ptr<const crow::Request>& request,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -760,54 +758,54 @@ inline void downloadFirmwareImageToTarget(
         [request, asyncResp,
          params](const boost::system::error_code ec,
                  const std::variant<std::string>& property) {
-        if (ec)
-        {
-            messages::actionParameterNotSupported(asyncResp->res, "Targets",
-                                                  "UpdateService.SimpleUpdate");
-            BMCWEB_LOG_ERROR("Failed to read the path property of Target");
-            BMCWEB_LOG_ERROR("error_code = {}, error msg = {}", ec,
-                             ec.message());
-            return;
-        }
+            if (ec)
+            {
+                messages::actionParameterNotSupported(
+                    asyncResp->res, "Targets", "UpdateService.SimpleUpdate");
+                BMCWEB_LOG_ERROR("Failed to read the path property of Target");
+                BMCWEB_LOG_ERROR("error_code = {}, error msg = {}", ec,
+                                 ec.message());
+                return;
+            }
 
-        const std::string* targetPath = std::get_if<std::string>(&property);
+            const std::string* targetPath = std::get_if<std::string>(&property);
 
-        if (targetPath == nullptr)
-        {
-            messages::actionParameterNotSupported(asyncResp->res, "Targets",
-                                                  "UpdateService.SimpleUpdate");
-            BMCWEB_LOG_ERROR("Null value returned for path");
-            return;
-        }
+            if (targetPath == nullptr)
+            {
+                messages::actionParameterNotSupported(
+                    asyncResp->res, "Targets", "UpdateService.SimpleUpdate");
+                BMCWEB_LOG_ERROR("Null value returned for path");
+                return;
+            }
 
-        BMCWEB_LOG_DEBUG("Path property: {}", *targetPath);
+            BMCWEB_LOG_DEBUG("Path property: {}", *targetPath);
 
-        // Check if local path exists
-        if (!fs::exists(*targetPath))
-        {
-            messages::resourceNotFound(asyncResp->res, "Targets", *targetPath);
-            BMCWEB_LOG_ERROR("Path does not exist");
-            return;
-        }
+            // Check if local path exists
+            if (!fs::exists(*targetPath))
+            {
+                messages::resourceNotFound(asyncResp->res, "Targets",
+                                           *targetPath);
+                BMCWEB_LOG_ERROR("Path does not exist");
+                return;
+            }
 
-        // Setup callback for when new software detected
-        // Give SCP 10 minutes to detect new software
-        monitorForSoftwareAvailable(asyncResp, *request, 600);
+            // Setup callback for when new software detected
+            // Give SCP 10 minutes to detect new software
+            monitorForSoftwareAvailable(asyncResp, *request, 600);
 
-        if (params->transferProtocol == "SCP")
-        {
-            downloadViaSCP(asyncResp, params, *targetPath);
-        }
-        else if ((params->transferProtocol == "HTTP") ||
-                 (params->transferProtocol == "HTTPS"))
-        {
-            downloadViaHTTP(asyncResp, params, *targetPath);
-        }
-    },
+            if (params->transferProtocol == "SCP")
+            {
+                downloadViaSCP(asyncResp, params, *targetPath);
+            }
+            else if ((params->transferProtocol == "HTTP") ||
+                     (params->transferProtocol == "HTTPS"))
+            {
+                downloadViaHTTP(asyncResp, params, *targetPath);
+            }
+        },
         service, objPath, "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Common.FilePath", "Path");
 }
-
 
 inline void setUpdaterForceUpdateProperty(
     const std::shared_ptr<const crow::Request>& request,
@@ -823,25 +821,25 @@ inline void setUpdaterForceUpdateProperty(
     crow::connections::systemBus->async_method_call(
         [request, asyncResp, params, serviceName,
          fwItemObjPath](const boost::system::error_code ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR(
-                "Failed to set ForceUpdate property. Aborting update as "
-                "value of ForceUpdate property can't be guaranteed.");
-            BMCWEB_LOG_ERROR("error_code = {}", ec);
-            BMCWEB_LOG_ERROR("error_msg = {}", ec.message());
-            if (asyncResp)
+            if (ec)
             {
-                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR(
+                    "Failed to set ForceUpdate property. Aborting update as "
+                    "value of ForceUpdate property can't be guaranteed.");
+                BMCWEB_LOG_ERROR("error_code = {}", ec);
+                BMCWEB_LOG_ERROR("error_msg = {}", ec.message());
+                if (asyncResp)
+                {
+                    messages::internalError(asyncResp->res);
+                }
+                return;
             }
-            return;
-        }
-        BMCWEB_LOG_DEBUG("ForceUpdate property successfully set to {}.",
-                         (params->forceUpdate ? "true" : "false"));
-        // begin downloading the firmware image to the target path
-        downloadFirmwareImageToTarget(request, asyncResp, params, serviceName,
-                                      fwItemObjPath);
-    },
+            BMCWEB_LOG_DEBUG("ForceUpdate property successfully set to {}.",
+                             (params->forceUpdate ? "true" : "false"));
+            // begin downloading the firmware image to the target path
+            downloadFirmwareImageToTarget(request, asyncResp, params,
+                                          serviceName, fwItemObjPath);
+        },
         serviceName, serviceObjectPath, "org.freedesktop.DBus.Properties",
         "Set", "xyz.openbmc_project.Software.UpdatePolicy", "ForceUpdate",
         dbus::utility::DbusVariantType(params->forceUpdate));
@@ -862,81 +860,83 @@ inline void findObjectPathAssociatedWithService(
         [request, asyncResp, params, serviceName, fwItemObjPath,
          rootPath](const boost::system::error_code ec,
                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("error_code = {}", ec);
-            BMCWEB_LOG_ERROR("error_msg = {}", ec.message());
-            if (asyncResp)
+            if (ec)
             {
-                messages::internalError(asyncResp->res);
-            }
-            return;
-        }
-        else if (subtree.empty())
-        {
-            BMCWEB_LOG_DEBUG(
-                "Could not find any services implementing "
-                "xyz.openbmc_project.Software.UpdatePolicy associated with the "
-                "object path {}. Proceeding with update as though the "
-                "ForceUpdate property is set to false.",
-                rootPath);
-            // Begin downloading the firmware image to the target path
-            downloadFirmwareImageToTarget(request, asyncResp, params,
-                                          serviceName, fwItemObjPath);
-            return;
-        }
-        // iterate through the object paths in the subtree until one is found
-        // with an associated service name matching the input service.
-        std::optional<std::string> serviceObjPath{};
-        for (const auto& pathServiceMapPair : subtree)
-        {
-            const auto& currObjPath = pathServiceMapPair.first;
-            for (const auto& serviceInterfacesMap : pathServiceMapPair.second)
-            {
-                const auto& currServiceName = serviceInterfacesMap.first;
-                if (currServiceName == serviceName)
+                BMCWEB_LOG_ERROR("error_code = {}", ec);
+                BMCWEB_LOG_ERROR("error_msg = {}", ec.message());
+                if (asyncResp)
                 {
-                    if (!serviceObjPath.has_value())
+                    messages::internalError(asyncResp->res);
+                }
+                return;
+            }
+            else if (subtree.empty())
+            {
+                BMCWEB_LOG_DEBUG(
+                    "Could not find any services implementing "
+                    "xyz.openbmc_project.Software.UpdatePolicy associated with the "
+                    "object path {}. Proceeding with update as though the "
+                    "ForceUpdate property is set to false.",
+                    rootPath);
+                // Begin downloading the firmware image to the target path
+                downloadFirmwareImageToTarget(request, asyncResp, params,
+                                              serviceName, fwItemObjPath);
+                return;
+            }
+            // iterate through the object paths in the subtree until one is
+            // found with an associated service name matching the input service.
+            std::optional<std::string> serviceObjPath{};
+            for (const auto& pathServiceMapPair : subtree)
+            {
+                const auto& currObjPath = pathServiceMapPair.first;
+                for (const auto& serviceInterfacesMap :
+                     pathServiceMapPair.second)
+                {
+                    const auto& currServiceName = serviceInterfacesMap.first;
+                    if (currServiceName == serviceName)
                     {
-                        serviceObjPath.emplace(currObjPath);
-                        break;
+                        if (!serviceObjPath.has_value())
+                        {
+                            serviceObjPath.emplace(currObjPath);
+                            break;
+                        }
                     }
                 }
+                // break external for-loop if object path is found
+                if (serviceObjPath.has_value())
+                {
+                    break;
+                }
             }
-            // break external for-loop if object path is found
             if (serviceObjPath.has_value())
             {
-                break;
+                BMCWEB_LOG_DEBUG("Found object path {}.",
+                                 serviceObjPath.value());
+                // use the service and object path found to set the ForceUpdate
+                // property
+                setUpdaterForceUpdateProperty(
+                    request, asyncResp, params, serviceName,
+                    serviceObjPath.value(), fwItemObjPath);
             }
-        }
-        if (serviceObjPath.has_value())
-        {
-            BMCWEB_LOG_DEBUG("Found object path {}.", serviceObjPath.value());
-            // use the service and object path found to set the ForceUpdate
-            // property
-            setUpdaterForceUpdateProperty(request, asyncResp, params,
-                                          serviceName, serviceObjPath.value(),
-                                          fwItemObjPath);
-        }
-        else
-        {
-            // If there is no object implementing
-            // xyz.openbmc_project.Software.UpdatePolicy associated with
-            // the service under the sub-tree root, then that service does
-            // not implement a force-update policy, and the download should
-            // continue.
-            BMCWEB_LOG_DEBUG(
-                "Could not find any a service {} implementing "
-                "xyz.openbmc_project.Software.UpdatePolicy and "
-                "associated with the object path {}. Proceeding with "
-                "update as though the ForceUpdate property is set to "
-                "false.",
-                serviceName, rootPath);
-            // Begin downloading the firmware image to the target path
-            downloadFirmwareImageToTarget(request, asyncResp, params,
-                                          serviceName, fwItemObjPath);
-        }
-    },
+            else
+            {
+                // If there is no object implementing
+                // xyz.openbmc_project.Software.UpdatePolicy associated with
+                // the service under the sub-tree root, then that service does
+                // not implement a force-update policy, and the download should
+                // continue.
+                BMCWEB_LOG_DEBUG(
+                    "Could not find any a service {} implementing "
+                    "xyz.openbmc_project.Software.UpdatePolicy and "
+                    "associated with the object path {}. Proceeding with "
+                    "update as though the ForceUpdate property is set to "
+                    "false.",
+                    serviceName, rootPath);
+                // Begin downloading the firmware image to the target path
+                downloadFirmwareImageToTarget(request, asyncResp, params,
+                                              serviceName, fwItemObjPath);
+            }
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree", rootPath, 0,
@@ -956,32 +956,32 @@ inline void findAssociatedUpdaterService(
         [request, asyncResp, params,
          fwItemObjPath](const boost::system::error_code ec,
                         const MapperServiceMap& objInfo) {
-        if (ec)
-        {
-            messages::actionParameterNotSupported(asyncResp->res, "Targets",
-                                                  "UpdateService.SimpleUpdate");
-            BMCWEB_LOG_ERROR("Request incorrect target URI parameter: {}",
-                             fwItemObjPath);
-            BMCWEB_LOG_ERROR("error_code = {}, error msg = {}", ec,
-                             ec.message());
-            return;
-        }
-        // Ensure we only got one service back
-        if (objInfo.size() != 1)
-        {
-            messages::internalError(asyncResp->res);
-            BMCWEB_LOG_ERROR("Invalid Object Size {}", objInfo.size());
-            return;
-        }
-        const std::string& serviceName = objInfo[0].first;
-        BMCWEB_LOG_DEBUG("Found service {}", serviceName);
-        // The ForceUpdate property of the
-        // xyz.openbmc_project.Software.UpdatePolicy dbus interface should
-        // be explicitly set to true or false, according to the value of
-        // ForceUpdate option in the Redfish command.
-        findObjectPathAssociatedWithService(request, asyncResp, params,
-                                            serviceName, fwItemObjPath);
-    },
+            if (ec)
+            {
+                messages::actionParameterNotSupported(
+                    asyncResp->res, "Targets", "UpdateService.SimpleUpdate");
+                BMCWEB_LOG_ERROR("Request incorrect target URI parameter: {}",
+                                 fwItemObjPath);
+                BMCWEB_LOG_ERROR("error_code = {}, error msg = {}", ec,
+                                 ec.message());
+                return;
+            }
+            // Ensure we only got one service back
+            if (objInfo.size() != 1)
+            {
+                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR("Invalid Object Size {}", objInfo.size());
+                return;
+            }
+            const std::string& serviceName = objInfo[0].first;
+            BMCWEB_LOG_DEBUG("Found service {}", serviceName);
+            // The ForceUpdate property of the
+            // xyz.openbmc_project.Software.UpdatePolicy dbus interface should
+            // be explicitly set to true or false, according to the value of
+            // ForceUpdate option in the Redfish command.
+            findObjectPathAssociatedWithService(request, asyncResp, params,
+                                                serviceName, fwItemObjPath);
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject", fwItemObjPath,
@@ -1012,7 +1012,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
             std::optional<std::string> transferProtocol;
             std::optional<std::vector<std::string>> targets;
             std::optional<std::string> username;
-        std::optional<bool> forceUpdate;
+            std::optional<bool> forceUpdate;
 
             BMCWEB_LOG_DEBUG("Enter UpdateService.SimpleUpdate doPost");
 
@@ -1079,10 +1079,10 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                 supportedProtocols.push_back("HTTPS");
             }
 
-        auto searchProtocol = std::find(supportedProtocols.begin(),
-                                        supportedProtocols.end(),
-                                        *transferProtocol);
-        if (searchProtocol == supportedProtocols.end())
+            auto searchProtocol =
+                std::find(supportedProtocols.begin(), supportedProtocols.end(),
+                          *transferProtocol);
+            if (searchProtocol == supportedProtocols.end())
             {
                 messages::actionParameterNotSupported(
                     asyncResp->res, "TransferProtocol",
@@ -1092,7 +1092,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                 return;
             }
 
-        if (isProtocolScpOrHttp(*transferProtocol))
+            if (isProtocolScpOrHttp(*transferProtocol))
             {
                 if (!targets.has_value())
                 {
@@ -1180,7 +1180,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                     "xyz.openbmc_project.Common.TFTP", "DownloadViaTFTP",
                     fwFile, server);
             }
-        else if (isProtocolScpOrHttp(*transferProtocol))
+            else if (isProtocolScpOrHttp(*transferProtocol))
             {
                 // Take the first target as only one target is supported
                 std::string targetURI = targets.value()[0];
@@ -1196,16 +1196,17 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                 }
                 std::string objName = "/xyz/openbmc_project/software/" +
                                       targetURI.substr(firmwarePrefix.length());
-            BMCWEB_LOG_INFO("Object path: {}", objName);
-            // pack SimpleUpdate parameters in shared pointer to allow safe
-            // usage during the sequence of asynchronous method calls.
-            // The value of forceUpdate is false by default.
-            const auto params = std::make_shared<const SimpleUpdateParams>(
-                server, fwFile, *transferProtocol, forceUpdate.value_or(false),
-                username);
-            // wrap crow::Request in a shared pointer to pass securely to
-            // asynchronous method calls.
-            const auto sharedReq = std::make_shared<const crow::Request>(req);
+                BMCWEB_LOG_INFO("Object path: {}", objName);
+                // pack SimpleUpdate parameters in shared pointer to allow safe
+                // usage during the sequence of asynchronous method calls.
+                // The value of forceUpdate is false by default.
+                const auto params = std::make_shared<const SimpleUpdateParams>(
+                    server, fwFile, *transferProtocol,
+                    forceUpdate.value_or(false), username);
+                // wrap crow::Request in a shared pointer to pass securely to
+                // asynchronous method calls.
+                const auto sharedReq =
+                    std::make_shared<const crow::Request>(req);
                 // Search for the version object related to the given target URI
                 crow::connections::systemBus->async_method_call(
                     [req, asyncResp, objName, fwFile, server, transferProtocol,
@@ -1351,7 +1352,8 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                         "xyz.openbmc_project.Common.FilePath"});
 
                 // Search for the version object related to the given target URI
-                findAssociatedUpdaterService(sharedReq, asyncResp, params, objName);
+                findAssociatedUpdaterService(sharedReq, asyncResp, params,
+                                             objName);
             }
 
             BMCWEB_LOG_DEBUG("Exit UpdateService.SimpleUpdate doPost");
@@ -2318,7 +2320,8 @@ inline void forwardImage(
         return;
     }
 
-    const auto& sat = satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
+    const auto& sat =
+        satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
     if (sat == satelliteInfo.end())
     {
         BMCWEB_LOG_ERROR("satellite BMC is not there.");
@@ -2445,8 +2448,9 @@ inline void forwardImage(
             req.clearHeader(boost::beast::http::field::expect);
         }
         BMCWEB_LOG_INFO("Expect header value {}", req.getHeaderValue("Expect"));
-        client.sendDataWithCallback(std::move(data), url, ensuressl::VerifyCertificate::Verify, req.fields(),
-                                    boost::beast::http::verb::post, cb);
+        client.sendDataWithCallback(
+            std::move(data), url, ensuressl::VerifyCertificate::Verify,
+            req.fields(), boost::beast::http::verb::post, cb);
     }
 }
 
@@ -3119,19 +3123,19 @@ inline void requestRoutesUpdateService(App& app)
 
             std::optional<nlohmann::json> pushUriOptions;
             std::optional<std::vector<std::string>> imgTargets;
-        std::optional<bool> erasePolicy;
-        if (!json_util::readJsonPatch(
-                req, asyncResp->res, "HttpPushUriTargets", imgTargets,
-                "Oem/Nvidia/AutomaticDebugTokenErased", erasePolicy))
+            std::optional<bool> erasePolicy;
+            if (!json_util::readJsonPatch(
+                    req, asyncResp->res, "HttpPushUriTargets", imgTargets,
+                    "Oem/Nvidia/AutomaticDebugTokenErased", erasePolicy))
             {
                 BMCWEB_LOG_ERROR("UpdateService doPatch: Invalid request body");
                 return;
             }
 
-        if (erasePolicy)
-        {
-            debug_token::setErasePolicy(asyncResp, *erasePolicy);
-        }
+            if (erasePolicy)
+            {
+                debug_token::setErasePolicy(asyncResp, *erasePolicy);
+            }
 
             if (imgTargets)
             {
@@ -4380,7 +4384,7 @@ inline void requestRoutesSoftwareInventory(App& app)
                             fw_util::getFwWriteProtectedStatus(asyncResp, swId,
                                                                settingService);
                         }
-                asyncResp->res.jsonValue["Id"] = *swId;
+                        asyncResp->res.jsonValue["Id"] = *swId;
 
                         if (!versionService.empty())
                         {
@@ -4482,12 +4486,13 @@ inline void requestRoutesSoftwareInventory(App& app)
                                                 asyncResp->res);
                                             return;
                                         }
-                            if (!softwareId->empty())
-                            {
-                                        asyncResp->res.jsonValue["SoftwareId"] =
-                                            *softwareId;
+                                        if (!softwareId->empty())
+                                        {
+                                            asyncResp->res
+                                                .jsonValue["SoftwareId"] =
+                                                *softwareId;
+                                        }
                                     }
-                        }
 
                                     asyncResp->res.jsonValue["Version"] =
                                         *version;
@@ -4835,7 +4840,6 @@ inline void requestRoutesInventorySoftware(App& app)
                 }
             });
 }
-
 
 /**
  * @brief handle stage location errors and map to redfish errors
@@ -5838,7 +5842,6 @@ inline void requestRoutesSplitUpdateService(App& app)
         });
 }
 
-
 /**
  * @brief forward Commit Image Post Request to satBMC.
  *
@@ -5863,7 +5866,8 @@ inline void forwardCommitImagePost(
         return;
     }
 
-    const auto& sat = satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
+    const auto& sat =
+        satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
     if (sat == satelliteInfo.end())
     {
         BMCWEB_LOG_ERROR("satBMC is not found");
@@ -5881,8 +5885,9 @@ inline void forwardCommitImagePost(
     boost::urls::url url(sat->second);
     url.set_path(req.url().path());
 
-    client.sendDataWithCallback(std::move(data), url, ensuressl::VerifyCertificate::Verify, req.fields(),
-                                boost::beast::http::verb::post, cb);
+    client.sendDataWithCallback(
+        std::move(data), url, ensuressl::VerifyCertificate::Verify,
+        req.fields(), boost::beast::http::verb::post, cb);
 }
 
 /**
@@ -6023,8 +6028,8 @@ inline void commitImageActionInfoResp(
     if (bmcweb::asciiIEquals(contentType, "application/json") ||
         bmcweb::asciiIEquals(contentType, "application/json; charset=utf-8"))
     {
-        nlohmann::json jsonVal = nlohmann::json::parse(*resp.body(), nullptr,
-                                                       false);
+        nlohmann::json jsonVal =
+            nlohmann::json::parse(*resp.body(), nullptr, false);
         if (jsonVal.is_discarded())
         {
             return;
@@ -6091,7 +6096,8 @@ inline void forwardCommitImageActionInfo(
         return;
     }
 
-    const auto& sat = satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
+    const auto& sat =
+        satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
     if (sat == satelliteInfo.end())
     {
         BMCWEB_LOG_ERROR("satellite BMC is not there.");
@@ -6109,10 +6115,9 @@ inline void forwardCommitImageActionInfo(
     boost::urls::url url(sat->second);
     url.set_path(req.url().path());
 
-    client.sendDataWithCallback(std::move(data), url, ensuressl::VerifyCertificate::Verify, req.fields(),
-                                boost::beast::http::verb::get, cb);
+    client.sendDataWithCallback(
+        std::move(data), url, ensuressl::VerifyCertificate::Verify,
+        req.fields(), boost::beast::http::verb::get, cb);
 }
-
-
 
 } // namespace redfish

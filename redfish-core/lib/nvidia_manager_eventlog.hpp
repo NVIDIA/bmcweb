@@ -21,8 +21,9 @@
 #include "generated/enums/log_entry.hpp"
 #include "registries/base_message_registry.hpp"
 #include "registries/privilege_registry.hpp"
-#include "utils/time_utils.hpp"
 #include "utils/dbus_event_log_entry.hpp"
+#include "utils/time_utils.hpp"
+
 #include <boost/beast/http/verb.hpp>
 
 #include <array>
@@ -139,14 +140,13 @@ inline void fillManagerEventLogLogEntryFromPropertyMap(
                 "/LogServices/"
                 "EventLog/Entries/",
             "v1_15_0", std::to_string(entry.Id), "Manager Event Log Entry",
-            (entry.Timestamp == 0)
-                ? ""
-                : redfish::time_utils::getDateTimeStdtime(
-                      static_cast<time_t>(entry.Timestamp)),
+            (entry.Timestamp == 0) ? ""
+                                   : redfish::time_utils::getDateTimeStdtime(
+                                         static_cast<time_t>(entry.Timestamp)),
             messageId, messageArgs,
             (entry.Resolution == nullptr) ? "" : *entry.Resolution,
-            entry.Resolved, (entry.Id == 0) ? "" : std::to_string(entry.Id),
-            "", entry.Severity);
+            entry.Resolved, (entry.Id == 0) ? "" : std::to_string(entry.Id), "",
+            entry.Severity);
     }
 }
 
@@ -172,13 +172,12 @@ inline void dbusManagerEventLogEntryCollection(
         "xyz.openbmc_project.Logging.Namespace.ResolvedFilterType.Both",
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::ManagedObjectType& resp) {
-        afterLogEntriesGetManagedObjects(asyncResp, ec, resp);
-    });
+            afterLogEntriesGetManagedObjects(asyncResp, ec, resp);
+        });
 }
 
-inline void
-    managerEventLogEntryGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            std::string entryID)
+inline void managerEventLogEntryGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string entryID)
 {
     dbus::utility::escapePathForDbus(entryID);
 
@@ -189,23 +188,23 @@ inline void
         "/xyz/openbmc_project/logging/entry/" + entryID, "",
         [asyncResp, entryID](const boost::system::error_code& ec,
                              const dbus::utility::DBusPropertiesMap& resp) {
-        if (ec.value() == EBADR)
-        {
-            messages::resourceNotFound(asyncResp->res, "EventLogEntry",
-                                       entryID);
-            return;
-        }
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("EventLogEntry (DBus) resp_handler got error {}",
-                             ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
+            if (ec.value() == EBADR)
+            {
+                messages::resourceNotFound(asyncResp->res, "EventLogEntry",
+                                           entryID);
+                return;
+            }
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "EventLogEntry (DBus) resp_handler got error {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-        fillManagerEventLogLogEntryFromPropertyMap(asyncResp, resp,
-                                                   asyncResp->res.jsonValue);
-    });
+            fillManagerEventLogLogEntryFromPropertyMap(
+                asyncResp, resp, asyncResp->res.jsonValue);
+        });
 }
 
 inline void requestRoutesMangersEventLogService(App& app)
@@ -216,18 +215,19 @@ inline void requestRoutesMangersEventLogService(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& managerId) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-        {
-            messages::resourceNotFound(asyncResp->res, "Manager", managerId);
-            return;
-        }
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Manager",
+                                               managerId);
+                    return;
+                }
 
-        managerLogServiceEventLogGet(asyncResp);
-    });
+                managerLogServiceEventLogGet(asyncResp);
+            });
 
     BMCWEB_ROUTE(app,
                  "/redfish/v1/Managers/<str>/LogServices/EventLog/Entries/")
@@ -236,18 +236,19 @@ inline void requestRoutesMangersEventLogService(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& managerId) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-        {
-            messages::resourceNotFound(asyncResp->res, "Manager", managerId);
-            return;
-        }
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Manager",
+                                               managerId);
+                    return;
+                }
 
-        dbusManagerEventLogEntryCollection(asyncResp);
-    });
+                dbusManagerEventLogEntryCollection(asyncResp);
+            });
 
     BMCWEB_ROUTE(
         app, "/redfish/v1/Managers/<str>/LogServices/EventLog/Entries/<str>/")
@@ -256,18 +257,19 @@ inline void requestRoutesMangersEventLogService(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& managerId, const std::string& entryId) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-        {
-            messages::resourceNotFound(asyncResp->res, "Manager", managerId);
-            return;
-        }
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Manager",
+                                               managerId);
+                    return;
+                }
 
-        managerEventLogEntryGet(asyncResp, entryId);
-    });
+                managerEventLogEntryGet(asyncResp, entryId);
+            });
 }
 
 } // namespace redfish

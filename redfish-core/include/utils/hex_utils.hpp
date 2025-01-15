@@ -7,10 +7,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <iomanip>
+#include <regex>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <regex>
 
 static constexpr std::array<char, 16> digitsArray = {
     '0', '1', '2', '3', '4', '5', '6', '7',
@@ -167,8 +167,8 @@ inline std::vector<uint8_t>
     }
 
     // Pad the string with leading zeros if necessary
-    processedString = std::string(64 - processedString.length(), '0') +
-                      processedString;
+    processedString =
+        std::string(64 - processedString.length(), '0') + processedString;
 
     for (size_t i = 0; i < 32; ++i)
     {

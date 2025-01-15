@@ -139,10 +139,9 @@ inline std::vector<CommitImageValueEntry> getAllowableValues()
  * @param[in,out] uuidToEidMap A map that stores the UUID-to-EID mappings along
  * with their priority.
  */
-inline void updateUuidToEidMapping(const UUID& uuid, EID eid,
-                                   const std::string& mediumType,
-                                   const std::string& bindingType,
-                                   UuidToEidMap& uuidToEidMap)
+inline void updateUuidToEidMapping(
+    const UUID& uuid, EID eid, const std::string& mediumType,
+    const std::string& bindingType, UuidToEidMap& uuidToEidMap)
 {
     auto mediumPriorityIter = mediumPriority.find(mediumType);
     Priority currentMediumPriority =
@@ -162,8 +161,8 @@ inline void updateUuidToEidMapping(const UUID& uuid, EID eid,
         EID prevEid;
         Priority prevMediumPriority;
         Priority prevBindingPriority;
-        std::tie(prevEid, prevMediumPriority,
-                 prevBindingPriority) = eidIter->second;
+        std::tie(prevEid, prevMediumPriority, prevBindingPriority) =
+            eidIter->second;
         if (currentMediumPriority < prevMediumPriority)
         {
             uuidToEidMap[uuid] = std::make_tuple(eid, currentMediumPriority,
@@ -180,10 +179,10 @@ inline void updateUuidToEidMapping(const UUID& uuid, EID eid,
     }
     else
     {
-        uuidToEidMap[uuid] = std::make_tuple(eid, currentMediumPriority,
-                                             currentBindingPriority);
-        }
+        uuidToEidMap[uuid] =
+            std::make_tuple(eid, currentMediumPriority, currentBindingPriority);
     }
+}
 
 /**
  * @brief Retrieves the EID for a UUID from MCTP services.
@@ -223,130 +222,132 @@ inline void retrieveEidFromMctpServiceProperties(
         [remainingServices, uuidToUriMap, resultCallback, errorCallback,
          uuidToEidMap](const boost::system::error_code& ec,
                        const dbus::utility::ManagedObjectType& objects) {
-        if (ec)
-        {
-            const std::string errorDesc =
-                "failed to retrieveEidFromMctpServiceProperties";
-            errorCallback(errorDesc, ec.message());
-
-            return;
-        }
-
-        std::optional<UUID> uuid;
-        std::optional<EID> eid;
-        std::optional<std::string> mediumType;
-        std::optional<std::string> bindingType;
-
-        UuidToEidMap updatedUuidToEidMap = uuidToEidMap;
-
-        for (const auto& [objectPath, interfaces] : objects)
-        {
-            for (const auto& [interfaceName, properties] : interfaces)
-            {
-                if (interfaceName == mctpCommonUUIDIntf)
-                {
-                    for (const auto& propertyMap : properties)
-                    {
-                        if (propertyMap.first == "UUID")
-                        {
-                            if (const std::string* uuidPtr =
-                                    std::get_if<std::string>(
-                                        &propertyMap.second))
-                            {
-                                uuid = *uuidPtr;
-                            }
-                        }
-                    }
-                }
-                if (interfaceName == mctpMCTPEndpointIntf)
-                {
-                    for (const auto& propertyMap : properties)
-                    {
-                        if (propertyMap.first == "EID")
-                        {
-                            if (const uint32_t* eidPtr =
-                                    std::get_if<uint32_t>(&propertyMap.second))
-                            {
-                                eid = *eidPtr;
-                            }
-                        }
-                        if (propertyMap.first == "MediumType")
-                        {
-                            if (const std::string* mediumTypePtr =
-                                    std::get_if<std::string>(
-                                        &propertyMap.second))
-                            {
-                                mediumType = *mediumTypePtr;
-                            }
-                        }
-                    }
-                }
-                if (interfaceName == mctpMCTPBindingIntf)
-                {
-                    for (const auto& propertyMap : properties)
-                    {
-                        if (propertyMap.first == "BindingType")
-                        {
-                            if (const std::string* bindingTypePtr =
-                                    std::get_if<std::string>(
-                                        &propertyMap.second))
-                            {
-                                bindingType = *bindingTypePtr;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (uuid && eid && mediumType && bindingType)
-            {
-                updateUuidToEidMapping(*uuid, *eid, *mediumType, *bindingType,
-                                       updatedUuidToEidMap);
-            }
-        }
-
-        if (!remainingServices.empty())
-        {
-            retrieveEidFromMctpServiceProperties(
-                remainingServices, uuidToUriMap, resultCallback, errorCallback,
-                updatedUuidToEidMap);
-        }
-        else
-        {
-            // When 'remainingServices' is empty, it means that all MCTP
-            // services have been analyzed. The 'updatedUuidToEidMap' contains
-            // the mapping between EIDs and UUIDs from all MCTP services. The
-            // final step is to check if the UUID from 'uuidToUriMap' is present
-            // in 'updatedUuidToEidMap', and then call the resultCallback
-            // function with the appropriate parameters.
-
-            // The expectation is that the UUID-to-EID mapping is not empty. If
-            // the collection is empty, it indicates that it was not possible to
-            // find a mapping between UUIDs and EIDs
-            if (updatedUuidToEidMap.empty())
+            if (ec)
             {
                 const std::string errorDesc =
                     "failed to retrieveEidFromMctpServiceProperties";
-                const std::string errorMsg =
-                    "couldn't find mapping between UUIDs and EIDs";
-                errorCallback(errorDesc, errorMsg);
+                errorCallback(errorDesc, ec.message());
+
                 return;
             }
 
-            for (const auto& [uuid, eidTuple] : updatedUuidToEidMap)
+            std::optional<UUID> uuid;
+            std::optional<EID> eid;
+            std::optional<std::string> mediumType;
+            std::optional<std::string> bindingType;
+
+            UuidToEidMap updatedUuidToEidMap = uuidToEidMap;
+
+            for (const auto& [objectPath, interfaces] : objects)
             {
-                EID eid;
-                Priority mediumPriority;
-                Priority bindingPriority;
-                std::tie(eid, mediumPriority, bindingPriority) = eidTuple;
-                auto uriIter = uuidToUriMap.find(uuid);
-                if (uriIter != uuidToUriMap.end())
+                for (const auto& [interfaceName, properties] : interfaces)
                 {
-                    resultCallback(uuid, eid, uriIter->second);
+                    if (interfaceName == mctpCommonUUIDIntf)
+                    {
+                        for (const auto& propertyMap : properties)
+                        {
+                            if (propertyMap.first == "UUID")
+                            {
+                                if (const std::string* uuidPtr =
+                                        std::get_if<std::string>(
+                                            &propertyMap.second))
+                                {
+                                    uuid = *uuidPtr;
+                                }
+                            }
+                        }
+                    }
+                    if (interfaceName == mctpMCTPEndpointIntf)
+                    {
+                        for (const auto& propertyMap : properties)
+                        {
+                            if (propertyMap.first == "EID")
+                            {
+                                if (const uint32_t* eidPtr =
+                                        std::get_if<uint32_t>(
+                                            &propertyMap.second))
+                                {
+                                    eid = *eidPtr;
+                                }
+                            }
+                            if (propertyMap.first == "MediumType")
+                            {
+                                if (const std::string* mediumTypePtr =
+                                        std::get_if<std::string>(
+                                            &propertyMap.second))
+                                {
+                                    mediumType = *mediumTypePtr;
+                                }
+                            }
+                        }
+                    }
+                    if (interfaceName == mctpMCTPBindingIntf)
+                    {
+                        for (const auto& propertyMap : properties)
+                        {
+                            if (propertyMap.first == "BindingType")
+                            {
+                                if (const std::string* bindingTypePtr =
+                                        std::get_if<std::string>(
+                                            &propertyMap.second))
+                                {
+                                    bindingType = *bindingTypePtr;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (uuid && eid && mediumType && bindingType)
+                {
+                    updateUuidToEidMapping(*uuid, *eid, *mediumType,
+                                           *bindingType, updatedUuidToEidMap);
                 }
             }
-        }
-    });
+
+            if (!remainingServices.empty())
+            {
+                retrieveEidFromMctpServiceProperties(
+                    remainingServices, uuidToUriMap, resultCallback,
+                    errorCallback, updatedUuidToEidMap);
+            }
+            else
+            {
+                // When 'remainingServices' is empty, it means that all MCTP
+                // services have been analyzed. The 'updatedUuidToEidMap'
+                // contains the mapping between EIDs and UUIDs from all MCTP
+                // services. The final step is to check if the UUID from
+                // 'uuidToUriMap' is present in 'updatedUuidToEidMap', and then
+                // call the resultCallback function with the appropriate
+                // parameters.
+
+                // The expectation is that the UUID-to-EID mapping is not empty.
+                // If the collection is empty, it indicates that it was not
+                // possible to find a mapping between UUIDs and EIDs
+                if (updatedUuidToEidMap.empty())
+                {
+                    const std::string errorDesc =
+                        "failed to retrieveEidFromMctpServiceProperties";
+                    const std::string errorMsg =
+                        "couldn't find mapping between UUIDs and EIDs";
+                    errorCallback(errorDesc, errorMsg);
+                    return;
+                }
+
+                for (const auto& [uuid, eidTuple] : updatedUuidToEidMap)
+                {
+                    EID eid;
+                    Priority mediumPriority;
+                    Priority bindingPriority;
+                    std::tie(eid, mediumPriority, bindingPriority) = eidTuple;
+                    auto uriIter = uuidToUriMap.find(uuid);
+                    if (uriIter != uuidToUriMap.end())
+                    {
+                        resultCallback(uuid, eid, uriIter->second);
+                    }
+                }
+            }
+        });
 }
 
 /**
@@ -381,25 +382,25 @@ inline void retrieveEidFromMctpServices(const UuidToUriMap& uuidToUriMap,
                 std::string,
                 std::vector<std::pair<std::string, std::vector<std::string>>>>>&
                 subtree) {
-        if (ec)
-        {
-            const std::string errorDesc =
-                "Failed to retrieveEidFromMctpServices";
-            errorCallback(errorDesc, ec.message());
-
-            return;
-        }
-
-        std::vector<std::string> serviceNames;
-        for (const auto& obj : subtree)
-        {
-            for (const auto& service : obj.second)
+            if (ec)
             {
-                serviceNames.push_back(service.first);
-            }
-        }
+                const std::string errorDesc =
+                    "Failed to retrieveEidFromMctpServices";
+                errorCallback(errorDesc, ec.message());
 
-        retrieveEidFromMctpServiceProperties(serviceNames, uuidToUriMap,
-                                             resultCallback, errorCallback);
-    });
+                return;
+            }
+
+            std::vector<std::string> serviceNames;
+            for (const auto& obj : subtree)
+            {
+                for (const auto& service : obj.second)
+                {
+                    serviceNames.push_back(service.first);
+                }
+            }
+
+            retrieveEidFromMctpServiceProperties(serviceNames, uuidToUriMap,
+                                                 resultCallback, errorCallback);
+        });
 }

@@ -56,7 +56,7 @@ inline std::optional<bool> isEnabled(const std::optional<std::string>& input)
     {
         return true; // Enabled
     }
-    return false;    // Not enabled
+    return false; // Not enabled
 }
 
 inline std::optional<std::string>
@@ -64,7 +64,7 @@ inline std::optional<std::string>
 {
     if (!state.has_value())
     {
-        return std::nullopt;                       // No value provided
+        return std::nullopt; // No value provided
     }
     return state.value() ? "Enabled" : "Disabled"; // Map true/false to strings
 }
@@ -139,7 +139,7 @@ inline bool isValidIpAddress(const std::string& ipAddress)
     {
         return isValidIPv6(ipAddress); // Check for IPv6
     }
-    return false;                      // Not a valid IP address
+    return false; // Not a valid IP address
 }
 
 // Function to validate port
@@ -187,79 +187,81 @@ inline void populateRsyslogClientSettings(
         *crow::connections::systemBus, service, path, "",
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& properties) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Failed to get properties: {}", ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        // Declare variables to unpack properties into
-        std::optional<bool> enabled;
-        std::optional<std::string> address;
-        std::optional<uint16_t> port;
-        std::optional<bool> tls;
-        std::optional<std::vector<std::string>> facility;
-        std::optional<std::string> severity;
-        std::optional<std::string> transportProtocol;
-
-        // Unpack properties from the map
-        const bool success = sdbusplus::unpackPropertiesNoThrow(
-            dbus_utils::UnpackErrorPrinter(), properties, "Enabled", enabled,
-            "Address", address, "Port", port, "Tls", tls, "Facility", facility,
-            "Severity", severity, "TransportProtocol", transportProtocol);
-
-        if (!success)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        // Populate JSON response with the retrieved properties
-        if (enabled)
-        {
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["State"] =
-                getEnabledState(enabled);
-        }
-        if (address)
-        {
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["Address"] =
-                *address;
-        }
-        if (port)
-        {
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["Port"] =
-                *port;
-        }
-        if (tls)
-        {
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["TLS"] =
-                getEnabledState(tls);
-        }
-        if (facility)
-        {
-            nlohmann::json& jsonArray =
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["Filter"]
-                                        ["Facilities"];
-            jsonArray = nlohmann::json::array();
-            for (const auto& f : *facility)
+            if (ec)
             {
-                jsonArray.push_back(getLastWordAfterDot(f));
+                BMCWEB_LOG_ERROR("Failed to get properties: {}", ec.message());
+                messages::internalError(asyncResp->res);
+                return;
             }
-        }
-        if (severity)
-        {
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["Filter"]
-                                    ["LowestSeverity"] =
-                getLastWordAfterDot(*severity);
-        }
-        if (transportProtocol)
-        {
-            asyncResp->res
-                .jsonValue["Oem"]["Nvidia"]["Rsyslog"]["TransportProtocol"] =
-                getLastWordAfterDot(*transportProtocol);
-        }
-    });
+
+            // Declare variables to unpack properties into
+            std::optional<bool> enabled;
+            std::optional<std::string> address;
+            std::optional<uint16_t> port;
+            std::optional<bool> tls;
+            std::optional<std::vector<std::string>> facility;
+            std::optional<std::string> severity;
+            std::optional<std::string> transportProtocol;
+
+            // Unpack properties from the map
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), properties, "Enabled",
+                enabled, "Address", address, "Port", port, "Tls", tls,
+                "Facility", facility, "Severity", severity, "TransportProtocol",
+                transportProtocol);
+
+            if (!success)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            // Populate JSON response with the retrieved properties
+            if (enabled)
+            {
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["State"] =
+                    getEnabledState(enabled);
+            }
+            if (address)
+            {
+                asyncResp->res
+                    .jsonValue["Oem"]["Nvidia"]["Rsyslog"]["Address"] =
+                    *address;
+            }
+            if (port)
+            {
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["Port"] =
+                    *port;
+            }
+            if (tls)
+            {
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["TLS"] =
+                    getEnabledState(tls);
+            }
+            if (facility)
+            {
+                nlohmann::json& jsonArray =
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]
+                                            ["Filter"]["Facilities"];
+                jsonArray = nlohmann::json::array();
+                for (const auto& f : *facility)
+                {
+                    jsonArray.push_back(getLastWordAfterDot(f));
+                }
+            }
+            if (severity)
+            {
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["Filter"]
+                                        ["LowestSeverity"] =
+                    getLastWordAfterDot(*severity);
+            }
+            if (transportProtocol)
+            {
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]
+                                        ["TransportProtocol"] =
+                    getLastWordAfterDot(*transportProtocol);
+            }
+        });
 }
 
 inline void
@@ -271,14 +273,14 @@ inline void
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, service, path, interface, property,
         value, [asyncResp, property](const boost::system::error_code& ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Failed to set property {}: {}", property,
-                             ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-    });
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Failed to set property {}: {}", property,
+                                 ec.message());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+        });
 }
 
 inline void processRsyslogClientSettings(

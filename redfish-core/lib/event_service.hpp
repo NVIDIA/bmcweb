@@ -196,8 +196,8 @@ inline void requestRoutesSubmitTestEvent(App& app)
                     return;
                 }
 
-        TestEvent testEvent;
-        // clang-format off
+                TestEvent testEvent;
+                // clang-format off
         if (!json_util::readJsonAction(
                 req, asyncResp->res,
                 "EventGroupId", testEvent.eventGroupId,
@@ -212,9 +212,10 @@ inline void requestRoutesSubmitTestEvent(App& app)
         {
             return;
         }
-        // clang-format on
+                // clang-format on
 
-        if (!EventServiceManager::getInstance().sendTestEventLog(testEvent))
+                if (!EventServiceManager::getInstance().sendTestEventLog(
+                        testEvent))
                 {
                     messages::serviceDisabled(asyncResp->res,
                                               "/redfish/v1/EventService/");

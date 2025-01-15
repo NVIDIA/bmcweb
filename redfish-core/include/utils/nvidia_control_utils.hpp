@@ -281,7 +281,7 @@ inline void getClockLimitControl(
                         "Control for " + processorName + " " + controlID;
                     asyncResp->res.jsonValue["ControlType"] = "FrequencyMHz";
                     asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-                asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
+                    asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
                     nlohmann::json& relatedItemsArray =
                         asyncResp->res.jsonValue["RelatedItem"];
                     relatedItemsArray = nlohmann::json::array();
@@ -579,46 +579,48 @@ inline void
         [asyncResp, getControlCpu,
          validChassisPath](const boost::system::error_code ec,
                            const std::vector<std::string>& resp) {
-        std::string objPath;
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("DBUS response error");
-            objPath = *validChassisPath;
-        }
-        else
-        {
-            objPath = resp.front();
-        }
+            std::string objPath;
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error");
+                objPath = *validChassisPath;
+            }
+            else
+            {
+                objPath = resp.front();
+            }
 
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, getControlCpu, objPath,
-             validChassisPath](const boost::system::error_code ec,
-                               const dbus::utility::MapperGetObject& objType) {
-            if (ec || objType.empty())
-            {
-                BMCWEB_LOG_ERROR("GetObject for path {}", (objPath).c_str());
-                return;
-            }
-            for (auto [service, interfaces] : objType)
-            {
-                if (std::find(interfaces.begin(), interfaces.end(),
-                              "xyz.openbmc_project.Inventory.Item.Cpu") !=
-                        interfaces.end() ||
-                    std::find(
-                        interfaces.begin(), interfaces.end(),
-                        "xyz.openbmc_project.Inventory.Item.ProcessorModule") !=
-                        interfaces.end())
-                {
-                    getControlCpu(objPath);
-                    return;
-                }
-            }
-        },
-            "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
-            std::array<const char*, 0>{});
-    });
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, getControlCpu, objPath, validChassisPath](
+                    const boost::system::error_code ec,
+                    const dbus::utility::MapperGetObject& objType) {
+                    if (ec || objType.empty())
+                    {
+                        BMCWEB_LOG_ERROR("GetObject for path {}",
+                                         (objPath).c_str());
+                        return;
+                    }
+                    for (auto [service, interfaces] : objType)
+                    {
+                        if (std::find(
+                                interfaces.begin(), interfaces.end(),
+                                "xyz.openbmc_project.Inventory.Item.Cpu") !=
+                                interfaces.end() ||
+                            std::find(
+                                interfaces.begin(), interfaces.end(),
+                                "xyz.openbmc_project.Inventory.Item.ProcessorModule") !=
+                                interfaces.end())
+                        {
+                            getControlCpu(objPath);
+                            return;
+                        }
+                    }
+                },
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
+                std::array<const char*, 0>{});
+        });
 }
 
 } // namespace nvidia_control_utils

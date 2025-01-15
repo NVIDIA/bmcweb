@@ -1,6 +1,7 @@
 #pragma once
 
 #include "app.hpp"
+#include "cper_utils.hpp"
 #include "dbus_utility.hpp"
 #include "debug_token.hpp"
 #include "error_messages.hpp"
@@ -8,7 +9,6 @@
 #include "gzfile.hpp"
 #include "http_utility.hpp"
 #include "human_sort.hpp"
-#include "cper_utils.hpp"
 #include "nvidia_messages.hpp"
 #include "query.hpp"
 #include "registries.hpp"
@@ -592,7 +592,7 @@ inline void dBusEventLogEntryGetAdditionalInfo(
     {
         asyncResp->res.jsonValue["AdditionalDataURI"] =
             getLogEntryAdditionalDataURI(std::to_string(entry.Id));
-    }     
+    }
 
     if (isMessageRegistry)
     {

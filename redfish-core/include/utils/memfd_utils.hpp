@@ -19,7 +19,7 @@
 
 #include <sys/mman.h> // for memfd_create
 #include <sys/stat.h> // for fstat
-#include <unistd.h>   // for write and lseek
+#include <unistd.h> // for write and lseek
 
 #include <cstdint>
 #include <cstring>
@@ -73,14 +73,14 @@ struct MemoryFD
     {
         if (!rewind())
         {
-            throw std::runtime_error("MemoryFD - lseek failed: " +
-                                     std::string(strerror(errno)));
+            throw std::runtime_error(
+                "MemoryFD - lseek failed: " + std::string(strerror(errno)));
         }
         ssize_t bytesWritten = ::write(fd, data.data(), data.size());
         if (bytesWritten < 0)
         {
-            throw std::runtime_error("MemoryFD - write failed: " +
-                                     std::string(strerror(errno)));
+            throw std::runtime_error(
+                "MemoryFD - write failed: " + std::string(strerror(errno)));
         }
         else if (static_cast<size_t>(bytesWritten) != data.size())
         {
@@ -92,14 +92,14 @@ struct MemoryFD
     {
         if (!rewind())
         {
-            throw std::runtime_error("MemoryFD - lseek failed: " +
-                                     std::string(strerror(errno)));
+            throw std::runtime_error(
+                "MemoryFD - lseek failed: " + std::string(strerror(errno)));
         }
         struct stat fileStat;
         if (fstat(fd, &fileStat) < 0)
         {
-            throw std::runtime_error("MemoryFD - fstat failed: " +
-                                     std::string(strerror(errno)));
+            throw std::runtime_error(
+                "MemoryFD - fstat failed: " + std::string(strerror(errno)));
         }
         if (fileStat.st_size < 0)
         {
@@ -109,8 +109,8 @@ struct MemoryFD
         ssize_t bytesRead = ::read(fd, data.data(), data.size());
         if (bytesRead < 0)
         {
-            throw std::runtime_error("MemoryFD - read failed: " +
-                                     std::string(strerror(errno)));
+            throw std::runtime_error(
+                "MemoryFD - read failed: " + std::string(strerror(errno)));
         }
         else if (static_cast<size_t>(bytesRead) != data.size())
         {

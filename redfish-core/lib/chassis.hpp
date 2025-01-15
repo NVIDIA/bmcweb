@@ -572,12 +572,14 @@ inline void handleChassisGetSubTree(
 
             if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
             {
-//#error "Conflicts! Please set health-rollup-alternative=disabled."
+                // #error "Conflicts! Please set
+                // health-rollup-alternative=disabled."
             }
 
             if constexpr (BMCWEB_DISABLE_HEALTH_ROLLUP)
             {
-//#error "Conflicts! Please set disable-health-rollup=disabled."
+                // #error "Conflicts! Please set
+                // disable-health-rollup=disabled."
             }
 
             health_utils::getDeviceHealthInfo(asyncResp->res, chassisId);
@@ -755,10 +757,11 @@ inline void handleChassisGetSubTree(
                 *crow::connections::systemBus, connectionName, path, "",
                 [asyncResp, chassisId, connectionName, path, interfaces2](
                     const boost::system::error_code&,
-                       const dbus::utility::DBusPropertiesMap& propertiesList) {
-                redfish::nvidia_chassis_utils::handleChassisGetAllProperties(
-                    asyncResp, chassisId, path, propertiesList, connectionName,
-                    interfaces2);
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+                    redfish::nvidia_chassis_utils::
+                        handleChassisGetAllProperties(
+                            asyncResp, chassisId, path, propertiesList,
+                            connectionName, interfaces2);
                     getChassisStateWrapper(asyncResp, propertiesList,
                                            connectionName, path);
                     getStorageLink(asyncResp, path);
@@ -1307,15 +1310,15 @@ inline void handleChassisResetActionInfoPost(
         redfish::chassis_utils::isEROTChassis(
             chassisId,
             [req, asyncResp, chassisId](bool isEROT, bool /*isCpuEROT*/) {
-            if (isEROT)
-            {
-                handleEROTChassisResetAction(req, asyncResp, chassisId);
-            }
-            else
-            {
-                doChassisReset(req, asyncResp);
-            }
-        });
+                if (isEROT)
+                {
+                    handleEROTChassisResetAction(req, asyncResp, chassisId);
+                }
+                else
+                {
+                    doChassisReset(req, asyncResp);
+                }
+            });
     }
 }
 
@@ -1377,7 +1380,7 @@ inline void handleOemChassisResetActionInfoPost(
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
-                    messages::success(asyncResp->res);
+                            messages::success(asyncResp->res);
                         },
                         "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
                         "org.freedesktop.systemd1.Manager", "StartUnit",

@@ -1132,20 +1132,20 @@ inline void updateUserProperties(
                     // If password is invalid
                     messages::propertyValueFormatError(asyncResp->res, nullptr,
                                                        "Password");
-                // update the resolution message
-                std::string resolution;
-                if (!checkPasswordQuality(username, *password, resolution))
-                {
-                    redfish::message_registries::updateResolution(
-                        asyncResp, "Password", resolution);
-                    BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
-                    handle_nvidia_resolution(asyncResp, password);
+                    // update the resolution message
+                    std::string resolution;
+                    if (!checkPasswordQuality(username, *password, resolution))
+                    {
+                        redfish::message_registries::updateResolution(
+                            asyncResp, "Password", resolution);
+                        BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
+                        handle_nvidia_resolution(asyncResp, password);
+                    }
+                    else
+                    {
+                        BMCWEB_LOG_DEBUG("checkPasswordQuality passed");
+                    }
                 }
-                else
-                {
-                    BMCWEB_LOG_DEBUG("checkPasswordQuality passed");
-                }
-            }
 
                 else if (retval != PAM_SUCCESS)
                 {

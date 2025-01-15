@@ -188,8 +188,8 @@ inline void requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(App& app)
                     return;
                 }
 
-        const std::array<const char*, 1> interfaces = {
-            "com.nvidia.Common.ClearPowerCap"};
+                const std::array<const char*, 1> interfaces = {
+                    "com.nvidia.Common.ClearPowerCap"};
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, processorId](
@@ -768,7 +768,7 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
 
                                 if (std::find(
                                         interfaces.begin(), interfaces.end(),
-                                "xyz.openbmc_project.Inventory.Item.Accelerator") !=
+                                        "xyz.openbmc_project.Inventory.Item.Accelerator") !=
                                     interfaces.end())
                                 {
                                     std::string resourceType = "Processors";
@@ -776,43 +776,53 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
                                         asyncResp, processorId, *setPoint,
                                         objPath, resourceType, persistency);
                                 }
-                        else if (
-                            std::find(
-                                interfaces.begin(), interfaces.end(),
-                                "xyz.openbmc_project.Inventory.Item.Cpu") !=
-                            interfaces.end())
-                        {
-                            crow::connections::systemBus->async_method_call(
-                                [asyncResp, processorId, setPoint](
-                                    const boost::system::error_code& e,
-                                    std::variant<std::vector<std::string>>&
-                                        resp) {
-                                if (e)
+                                else if (
+                                    std::find(
+                                        interfaces.begin(), interfaces.end(),
+                                        "xyz.openbmc_project.Inventory.Item.Cpu") !=
+                                    interfaces.end())
                                 {
-                                    messages::internalError(asyncResp->res);
+                                    crow::connections::systemBus
+                                        ->async_method_call(
+                                            [asyncResp, processorId, setPoint](
+                                                const boost::system::error_code&
+                                                    e,
+                                                std::variant<std::vector<
+                                                    std::string>>& resp) {
+                                                if (e)
+                                                {
+                                                    messages::internalError(
+                                                        asyncResp->res);
+                                                    return;
+                                                }
+                                                std::vector<std::string>* data =
+                                                    std::get_if<std::vector<
+                                                        std::string>>(&resp);
+                                                if (data == nullptr)
+                                                {
+                                                    return;
+                                                }
+                                                for (const std::string&
+                                                         ctrlPath : *data)
+                                                {
+                                                    std::string resourceType =
+                                                        "Cpu";
+                                                    redfish::nvidia_env_utils::
+                                                        patchPowerLimit(
+                                                            asyncResp,
+                                                            processorId,
+                                                            *setPoint, ctrlPath,
+                                                            resourceType);
+                                                }
+                                            },
+                                            "xyz.openbmc_project.ObjectMapper",
+                                            path + "/power_controls",
+                                            "org.freedesktop.DBus.Properties",
+                                            "Get",
+                                            "xyz.openbmc_project.Association",
+                                            "endpoints");
                                     return;
                                 }
-                                std::vector<std::string>* data =
-                                    std::get_if<std::vector<std::string>>(
-                                        &resp);
-                                if (data == nullptr)
-                                {
-                                    return;
-                                }
-                                for (const std::string& ctrlPath : *data)
-                                {
-                                    std::string resourceType = "Cpu";
-                                    redfish::nvidia_env_utils::patchPowerLimit(
-                                        asyncResp, processorId, *setPoint,
-                                        ctrlPath, resourceType);
-                                }
-                            },
-                                "xyz.openbmc_project.ObjectMapper",
-                                path + "/power_controls",
-                                "org.freedesktop.DBus.Properties", "Get",
-                                "xyz.openbmc_project.Association", "endpoints");
-                            return;
-                        }
                                 return;
                             }
 

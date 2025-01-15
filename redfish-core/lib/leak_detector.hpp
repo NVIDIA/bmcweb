@@ -150,10 +150,9 @@ inline void afterDetectorStatusPropertyGet(
     }
 }
 
-inline void
-    getLeakDetectorState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& leakDetectorPath,
-                         const std::string& service)
+inline void getLeakDetectorState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& leakDetectorPath, const std::string& service)
 {
     dbus::utility::getAssociatedSubTreePaths(
         leakDetectorPath + "/leak_detecting",
@@ -189,16 +188,18 @@ inline void
                 [asyncResp](
                     const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
-            afterDetectorStatePropertyGet(asyncResp, ec, propertiesList);
-        });
+                    afterDetectorStatePropertyGet(asyncResp, ec,
+                                                  propertiesList);
+                });
 
-        sdbusplus::asio::getAllProperties(
-            *crow::connections::systemBus, service, subtreePaths.front(),
-            leakDetectorOpStatusInterface,
-            [asyncResp](
-                const boost::system::error_code& ec,
-                const dbus::utility::DBusPropertiesMap& propertiesList) {
-            afterDetectorStatusPropertyGet(asyncResp, ec, propertiesList);
+            sdbusplus::asio::getAllProperties(
+                *crow::connections::systemBus, service, subtreePaths.front(),
+                leakDetectorOpStatusInterface,
+                [asyncResp](
+                    const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+                    afterDetectorStatusPropertyGet(asyncResp, ec,
+                                                   propertiesList);
                 });
         });
 }

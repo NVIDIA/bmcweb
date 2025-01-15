@@ -1536,13 +1536,13 @@ inline bool parseAddresses(
     for (std::variant<nlohmann::json::object_t, std::nullptr_t>& thisJson :
          input)
     {
-        std::string pathString = std::format("IPv4StaticAddresses/{}",
-                                             entryIdx);
+        std::string pathString =
+            std::format("IPv4StaticAddresses/{}", entryIdx);
         AddressPatch& thisAddress = addressesOut.emplace_back();
         nlohmann::json::object_t* obj =
             std::get_if<nlohmann::json::object_t>(&thisJson);
-            if (nicIpEntry != ipv4Data.cend())
-            {
+        if (nicIpEntry != ipv4Data.cend())
+        {
             thisAddress.existingDbusId = nicIpEntry->id;
         }
 
@@ -1563,9 +1563,9 @@ inline bool parseAddresses(
             std::optional<std::string> subnetMask;
             if (!obj->empty())
             {
-                if (!json_util::readJsonObject(*obj, res,               //
-                                               "Address", address,      //
-                                               "Gateway", gateway,      //
+                if (!json_util::readJsonObject(*obj, res, //
+                                               "Address", address, //
+                                               "Gateway", gateway, //
                                                "SubnetMask", subnetMask //
                                                ))
                 {
@@ -1663,25 +1663,25 @@ inline bool parseAddresses(
                 }
                 gatewayOut = thisAddress.gateway;
                 lastGatewayPath = pathString;
-                }
             }
+        }
         nicIpEntry++;
         nicIpEntry = getNextStaticIpEntry(nicIpEntry, ipv4Data.cend());
         entryIdx++;
-            }
+    }
 
-            // Delete the remaining IPs
-            while (nicIpEntry != ipv4Data.cend())
-            {
-                AddressPatch& thisAddress = addressesOut.emplace_back();
-                thisAddress.operation = AddrChange::Delete;
-                thisAddress.existingDbusId = nicIpEntry->id;
-                nicIpEntry++;
-                nicIpEntry = getNextStaticIpEntry(nicIpEntry, ipv4Data.cend());
-            }
+    // Delete the remaining IPs
+    while (nicIpEntry != ipv4Data.cend())
+    {
+        AddressPatch& thisAddress = addressesOut.emplace_back();
+        thisAddress.operation = AddrChange::Delete;
+        thisAddress.existingDbusId = nicIpEntry->id;
+        nicIpEntry++;
+        nicIpEntry = getNextStaticIpEntry(nicIpEntry, ipv4Data.cend());
+    }
 
-            return true;
-            }
+    return true;
+}
 
 inline void handleIPv4StaticPatch(
     const std::string& ifaceId,
@@ -1689,20 +1689,20 @@ inline void handleIPv4StaticPatch(
     const EthernetInterfaceData& ethData,
     const std::vector<IPv4AddressData>& ipv4Data,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-        {
+{
     std::vector<AddressPatch> addresses;
     std::string gatewayOut;
     if (!parseAddresses(input, ipv4Data, asyncResp->res, addresses, gatewayOut))
-            {
-                return;
-            }
+    {
+        return;
+    }
 
     // If we're setting the gateway to something new, delete the
     // existing so we won't conflict
     if (!ethData.defaultGateway.empty() && ethData.defaultGateway != gatewayOut)
     {
         updateIPv4DefaultGateway(ifaceId, "", asyncResp);
-        }
+    }
 
     for (const AddressPatch& address : addresses)
     {

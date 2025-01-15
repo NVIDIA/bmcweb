@@ -262,8 +262,8 @@ void writeCertificateToFile(const std::string& filepath,
     file.open(filepath.c_str(), boost::beast::file_mode::write, ec);
     if (!ec)
     {
-        size_t writeBytes = file.write(certificate.data(), certificate.size(),
-                                       ec);
+        size_t writeBytes =
+            file.write(certificate.data(), certificate.size(), ec);
 
         if (!writeBytes)
         {

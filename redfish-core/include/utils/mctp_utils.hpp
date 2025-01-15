@@ -85,7 +85,7 @@ class MctpEndpoint
                     try
                     {
                         mctpEid = std::stoi(v.back());
-                    getDbusMctpProperties(callback);
+                        getDbusMctpProperties(callback);
                     }
                     catch (const std::invalid_argument&)
                     {
@@ -131,72 +131,78 @@ class MctpEndpoint
                              const GetObjectType& response) {
                 if (ec || response.empty())
                 {
-                callback(false, "GetObject failure for " + mctpObj);
+                    callback(false, "GetObject failure for " + mctpObj);
                     return;
                 }
                 for (const auto& elem : response)
                 {
                     const std::string& service = elem.first;
-                if (service.rfind(mctpBusPrefix, 0) != 0)
+                    if (service.rfind(mctpBusPrefix, 0) != 0)
                     {
-                    continue;
-                }
-                crow::connections::systemBus->async_method_call(
-                    [this,
-                     callback](const boost::system::error_code ec,
-                               const boost::container::flat_map<
-                                   std::string, dbus::utility::DbusVariantType>&
-                                   properties) {
-                                if (ec)
-                                {
-                        callback(false,
-                                 "Failed to get properties for " + mctpObj);
-                        return;
+                        continue;
                     }
-                    for (const auto& [key, val] : properties)
-                    {
-                        if (key == "Enabled")
-                        {
-                            if (const bool* value = std::get_if<bool>(&val))
-                            {
-                                enabled = *value;
-                            }
-                            else
+                    crow::connections::systemBus->async_method_call(
+                        [this, callback](
+                            const boost::system::error_code ec,
+                            const boost::container::flat_map<
+                                std::string, dbus::utility::DbusVariantType>&
+                                properties) {
+                            if (ec)
                             {
                                 callback(false,
-                                         "Enabled property failure for " +
-                                            mctpObj);
+                                         "Failed to get properties for " +
+                                             mctpObj);
+                                return;
+                            }
+                            for (const auto& [key, val] : properties)
+                            {
+                                if (key == "Enabled")
+                                {
+                                    if (const bool* value =
+                                            std::get_if<bool>(&val))
+                                    {
+                                        enabled = *value;
+                                    }
+                                    else
+                                    {
+                                        callback(
+                                            false,
+                                            "Enabled property failure for " +
+                                                mctpObj);
+                                        return;
+                                    }
+                                }
+                                else if (key == "SupportedMessageTypes")
+                                {
+                                    if (const std::vector<uint8_t>* value =
+                                            std::get_if<std::vector<uint8_t>>(
+                                                &val))
+                                    {
+                                        mctpMessageTypes = *value;
+                                    }
+                                    else
+                                    {
+                                        callback(
+                                            false,
+                                            "SupportedMessageTypes property failure for " +
+                                                mctpObj);
+                                        return;
+                                    }
+                                }
+                                if (enabled.has_value() &&
+                                    mctpMessageTypes.has_value())
+                                {
+                                    callback(true, mctpObj);
                                     return;
                                 }
-                        }
-                        else if (key == "SupportedMessageTypes")
-                        {
-                            if (const std::vector<uint8_t>* value =
-                                    std::get_if<std::vector<uint8_t>>(&val))
-                            {
-                                mctpMessageTypes = *value;
                             }
-                            else
-                            {
-                                callback(
-                                    false,
-                                    "SupportedMessageTypes property failure for " +
-                                        mctpObj);
-                        return;
-                    }
+                            callback(false, "GetAll properties failure for " +
+                                                mctpObj);
+                        },
+                        service, mctpObj, "org.freedesktop.DBus.Properties",
+                        "GetAll", "");
+                    return;
                 }
-                        if (enabled.has_value() && mctpMessageTypes.has_value())
-                        {
-                            callback(true, mctpObj);
-                            return;
-                        }
-                    }
-                    callback(false, "GetAll properties failure for " + mctpObj);
-                },
-                    service, mctpObj, "org.freedesktop.DBus.Properties",
-                    "GetAll", "");
-                return;
-            }
                 callback(false, "GetObject failure for: " + mctpObj);
                 return;
             },

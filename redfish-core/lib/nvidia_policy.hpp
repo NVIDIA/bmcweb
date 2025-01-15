@@ -31,7 +31,7 @@ static constexpr std::array<std::string_view, 1> leakDetectorConfigInterfaces =
     {voltageLeakDetectorConfigInterface};
 
 inline static bool checkChassisId(const std::string& path,
-                           const std::string& chassisId)
+                                  const std::string& chassisId)
 {
     std::string chassisName =
         sdbusplus::message::object_path(path).parent_path().filename();
@@ -122,7 +122,8 @@ inline void handleLeakDetectorPolicyPathsGet(
             [asyncResp](
                 const boost::system::error_code& ec,
                 const dbus::utility::DBusPropertiesMap& propertiesList) {
-            handleLeakDetectorPolicyProperties(asyncResp, ec, propertiesList);
+                handleLeakDetectorPolicyProperties(asyncResp, ec,
+                                                   propertiesList);
             });
 
         // Add the detector as a member of PolicyCondition
@@ -349,8 +350,8 @@ inline void
     if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
     {
         boost::urls::url leakDetectionPolicyUrl = boost::urls::format(
-        "/redfish/v1/Chassis/{}/Oem/Nvidia/Policies/LeakDetectionPolicy",
-        chassisId);
+            "/redfish/v1/Chassis/{}/Oem/Nvidia/Policies/LeakDetectionPolicy",
+            chassisId);
 
         nlohmann::json::object_t leakDetectionPolicyObject;
         leakDetectionPolicyObject.emplace("@odata.id", leakDetectionPolicyUrl);

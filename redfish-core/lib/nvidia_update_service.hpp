@@ -20,10 +20,12 @@
 
 #include "background_copy.hpp"
 #include "commit_image.hpp"
+#include "debug_token/erase_policy.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+
 #include <utils/fw_utils.hpp>
-#include "debug_token/erase_policy.hpp"
+
 #include <memory>
 
 namespace redfish
@@ -92,30 +94,30 @@ inline void updateOemActionComputeDigest(
                 std::string,
                 std::vector<std::pair<std::string, std::vector<std::string>>>>>&
                 subtree) {
-        if (ec)
-        {
-            // hash compute interface is not applicable, ignore for the
-            // device
-            return;
-        }
-        for (auto& obj : subtree)
-        {
-            sdbusplus::message::object_path hashPath(obj.first);
-            std::string hashId = hashPath.filename();
-            if (hashId == swId)
+            if (ec)
             {
-                std::string computeDigestTarget =
-                    "/redfish/v1/UpdateService/FirmwareInventory/" + swId +
-                    "/Actions/Oem/NvidiaSoftwareInventory.ComputeDigest";
-                asyncResp->res
-                    .jsonValue["Actions"]["Oem"]
-                              ["#NvidiaSoftwareInventory.ComputeDigest"] = {
-                    {"target", computeDigestTarget}};
-                break;
+                // hash compute interface is not applicable, ignore for the
+                // device
+                return;
             }
-        }
-        return;
-    },
+            for (auto& obj : subtree)
+            {
+                sdbusplus::message::object_path hashPath(obj.first);
+                std::string hashId = hashPath.filename();
+                if (hashId == swId)
+                {
+                    std::string computeDigestTarget =
+                        "/redfish/v1/UpdateService/FirmwareInventory/" + swId +
+                        "/Actions/Oem/NvidiaSoftwareInventory.ComputeDigest";
+                    asyncResp->res
+                        .jsonValue["Actions"]["Oem"]
+                                  ["#NvidiaSoftwareInventory.ComputeDigest"] = {
+                        {"target", computeDigestTarget}};
+                    break;
+                }
+            }
+            return;
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
@@ -544,8 +546,8 @@ inline void handleCommitImagePost(
         for (auto& target : targetsCollection)
         {
             sdbusplus::message::object_path objectPath(target);
-            std::string inventoryPath = "/xyz/openbmc_project/software/" +
-                                        objectPath.filename();
+            std::string inventoryPath =
+                "/xyz/openbmc_project/software/" + objectPath.filename();
             std::pair<bool, CommitImageValueEntry> result =
                 getAllowableValue(inventoryPath);
             if (result.first == true)
@@ -580,18 +582,18 @@ inline void handleCommitImagePost(
     auto initBackgroundCopyCallback =
         [req, asyncResp]([[maybe_unused]] const UUID uuid, const EID eid,
                          const URI inventoryUri) mutable {
-        BMCWEB_LOG_DEBUG("Run CommitImage operation for EID {}, UUID {}", eid,
-                         uuid);
-        initBackgroundCopy(req, asyncResp, eid, inventoryUri);
-    };
+            BMCWEB_LOG_DEBUG("Run CommitImage operation for EID {}, UUID {}",
+                             eid, uuid);
+            initBackgroundCopy(req, asyncResp, eid, inventoryUri);
+        };
 
     auto errorCallback =
         [req, asyncResp]([[maybe_unused]] const std::string desc,
                          [[maybe_unused]] const std::string errMsg) mutable {
-        BMCWEB_LOG_ERROR("The CommitImage operation failed: {}, {}", desc,
-                         errMsg);
-        messages::internalError(asyncResp->res);
-    };
+            BMCWEB_LOG_ERROR("The CommitImage operation failed: {}, {}", desc,
+                             errMsg);
+            messages::internalError(asyncResp->res);
+        };
 
     retrieveEidFromMctpServices(targetUuidInventoryUriMap,
                                 initBackgroundCopyCallback, errorCallback);

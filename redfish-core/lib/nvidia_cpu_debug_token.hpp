@@ -49,52 +49,54 @@ inline void getCpuObjectPath(
         [callback{std::move(callback)}](
             const boost::system::error_code& ec,
             const dbus::utility::ManagedObjectType& objects) {
-        if (ec)
-        {
-            callback(ec, std::string());
-            return;
-        }
-        for (const auto& [objectPath, interfaces] : objects)
-        {
-            const bool* enabled = nullptr;
-            const uint32_t* capabilities = nullptr;
-            for (const auto& [interface, properties] : interfaces)
+            if (ec)
             {
-                if (interface != "xyz.openbmc_project.Object.Enable" &&
-                    interface != "xyz.openbmc_project.SPDM.Responder")
-                {
-                    continue;
-                }
-                for (const auto& [name, value] : properties)
-                {
-                    if (name == "Enabled")
-                    {
-                        enabled = std::get_if<bool>(&value);
-                        if (enabled == nullptr)
-                        {
-                            BMCWEB_LOG_ERROR("Enabled property value is null");
-                        }
-                    }
-                    if (name == "Capabilities")
-                    {
-                        capabilities = std::get_if<uint32_t>(&value);
-                        if (capabilities == nullptr)
-                        {
-                            BMCWEB_LOG_ERROR(
-                                "Capabilities property value is null");
-                        }
-                    }
-                }
-            }
-            if (enabled != nullptr && capabilities != nullptr &&
-                *enabled == false && (*capabilities & spdmCertCapability) == 0)
-            {
-                callback(ec, objectPath.str);
+                callback(ec, std::string());
                 return;
             }
-        }
-        callback(ec, std::string());
-    });
+            for (const auto& [objectPath, interfaces] : objects)
+            {
+                const bool* enabled = nullptr;
+                const uint32_t* capabilities = nullptr;
+                for (const auto& [interface, properties] : interfaces)
+                {
+                    if (interface != "xyz.openbmc_project.Object.Enable" &&
+                        interface != "xyz.openbmc_project.SPDM.Responder")
+                    {
+                        continue;
+                    }
+                    for (const auto& [name, value] : properties)
+                    {
+                        if (name == "Enabled")
+                        {
+                            enabled = std::get_if<bool>(&value);
+                            if (enabled == nullptr)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Enabled property value is null");
+                            }
+                        }
+                        if (name == "Capabilities")
+                        {
+                            capabilities = std::get_if<uint32_t>(&value);
+                            if (capabilities == nullptr)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Capabilities property value is null");
+                            }
+                        }
+                    }
+                }
+                if (enabled != nullptr && capabilities != nullptr &&
+                    *enabled == false &&
+                    (*capabilities & spdmCertCapability) == 0)
+                {
+                    callback(ec, objectPath.str);
+                    return;
+                }
+            }
+            callback(ec, std::string());
+        });
 }
 
 inline void getCpuEid(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -114,24 +116,24 @@ inline void getCpuEid(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             [asyncResp, callback](
                 const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
                     endpoints) {
-            if (!endpoints || endpoints->size() == 0)
-            {
-                BMCWEB_LOG_ERROR("Failed to find CPU MCTP EID");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            uint32_t eid =
-                static_cast<uint32_t>(endpoints->begin()->getMctpEid());
-            callback(eid);
-        },
+                if (!endpoints || endpoints->size() == 0)
+                {
+                    BMCWEB_LOG_ERROR("Failed to find CPU MCTP EID");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                uint32_t eid =
+                    static_cast<uint32_t>(endpoints->begin()->getMctpEid());
+                callback(eid);
+            },
             [asyncResp](bool critical, const std::string& desc,
                         const std::string& msg) {
-            if (critical)
-            {
-                BMCWEB_LOG_ERROR("{}: {}", desc, msg);
-                messages::internalError(asyncResp->res);
-            }
-        },
+                if (critical)
+                {
+                    BMCWEB_LOG_ERROR("{}: {}", desc, msg);
+                    messages::internalError(asyncResp->res);
+                }
+            },
             objectName);
     });
 }
@@ -144,9 +146,9 @@ inline void
     {
         return;
     }
-    getCpuObjectPath(
-        [asyncResp, systemName](const boost::system::error_code& ec,
-                                const std::string path) {
+    getCpuObjectPath([asyncResp,
+                      systemName](const boost::system::error_code& ec,
+                                  const std::string path) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("Failed to find CPU object path: {}",
@@ -190,73 +192,78 @@ inline void handleCpuDebugTokenResourceInfo(
                          uint32_t, const std::string& stdOut,
                          const std::string&,
                          const boost::system::error_code& ec, int errorCode) {
-            if (ec || errorCode)
-            {
-                BMCWEB_LOG_ERROR("mctp-vdm-util error: {} {}", ec.message(),
-                                 errorCode);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            std::size_t rxPos = stdOut.find("RX: ");
-            if (rxPos == std::string::npos)
-            {
-                BMCWEB_LOG_ERROR("Invalid VDM command response: {}", stdOut);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            std::string rxData = stdOut.substr(rxPos + 4);
-            VdmTokenStatus status(rxData, 1);
-            if (status.responseStatus == VdmResponseStatus::INVALID_LENGTH ||
-                status.responseStatus == VdmResponseStatus::PROCESSING_ERROR ||
-                status.tokenStatus == VdmTokenInstallationStatus::INVALID)
-            {
-                BMCWEB_LOG_ERROR("Invalid VDM command response: {}", stdOut);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            if (status.responseStatus == VdmResponseStatus::ERROR)
-            {
-                BMCWEB_LOG_ERROR("VDM error code: {}", *status.errorCode);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            if (status.responseStatus == VdmResponseStatus::NOT_SUPPORTED)
-            {
-                messages::debugTokenUnsupported(asyncResp->res, systemName);
-                return;
-            }
-            auto& resJson = asyncResp->res.jsonValue;
-            if (status.tokenStatus == VdmTokenInstallationStatus::INSTALLED)
-            {
-                resJson["Status"] = "DebugSessionActive";
-            }
-            else
-            {
-                resJson["Status"] = "NoTokenApplied";
-            }
-            resJson["TokenType"] = "CRCS";
-            std::string resUri{req.url().buffer()};
-            resJson["@odata.type"] =
-                "#NvidiaDebugToken.v1_0_0.NvidiaDebugToken";
-            resJson["@odata.id"] = resUri;
-            resJson["Id"] = "CPUDebugToken";
-            resJson["Name"] = systemName + " Debug Token Resource"s;
+                if (ec || errorCode)
+                {
+                    BMCWEB_LOG_ERROR("mctp-vdm-util error: {} {}", ec.message(),
+                                     errorCode);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                std::size_t rxPos = stdOut.find("RX: ");
+                if (rxPos == std::string::npos)
+                {
+                    BMCWEB_LOG_ERROR("Invalid VDM command response: {}",
+                                     stdOut);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                std::string rxData = stdOut.substr(rxPos + 4);
+                VdmTokenStatus status(rxData, 1);
+                if (status.responseStatus ==
+                        VdmResponseStatus::INVALID_LENGTH ||
+                    status.responseStatus ==
+                        VdmResponseStatus::PROCESSING_ERROR ||
+                    status.tokenStatus == VdmTokenInstallationStatus::INVALID)
+                {
+                    BMCWEB_LOG_ERROR("Invalid VDM command response: {}",
+                                     stdOut);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                if (status.responseStatus == VdmResponseStatus::ERROR)
+                {
+                    BMCWEB_LOG_ERROR("VDM error code: {}", *status.errorCode);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                if (status.responseStatus == VdmResponseStatus::NOT_SUPPORTED)
+                {
+                    messages::debugTokenUnsupported(asyncResp->res, systemName);
+                    return;
+                }
+                auto& resJson = asyncResp->res.jsonValue;
+                if (status.tokenStatus == VdmTokenInstallationStatus::INSTALLED)
+                {
+                    resJson["Status"] = "DebugSessionActive";
+                }
+                else
+                {
+                    resJson["Status"] = "NoTokenApplied";
+                }
+                resJson["TokenType"] = "CRCS";
+                std::string resUri{req.url().buffer()};
+                resJson["@odata.type"] =
+                    "#NvidiaDebugToken.v1_0_0.NvidiaDebugToken";
+                resJson["@odata.id"] = resUri;
+                resJson["Id"] = "CPUDebugToken";
+                resJson["Name"] = systemName + " Debug Token Resource"s;
 
-            auto& actions = resJson["Actions"];
-            auto& generateAction = actions["#NvidiaDebugToken.GenerateToken"];
-            generateAction["target"] =
-                resUri + "/Actions/NvidiaDebugToken.GenerateToken"s;
-            generateAction["@Redfish.ActionInfo"] = resUri +
-                                                    "/GenerateTokenActionInfo"s;
-            auto& installAction = actions["#NvidiaDebugToken.InstallToken"];
-            installAction["target"] = resUri +
-                                      "/Actions/NvidiaDebugToken.InstallToken"s;
-            installAction["@Redfish.ActionInfo"] = resUri +
-                                                   "/InstallTokenActionInfo"s;
-            auto& disableAction = actions["#NvidiaDebugToken.DisableToken"];
-            disableAction["target"] = resUri +
-                                      "/Actions/NvidiaDebugToken.DisableToken"s;
-        });
+                auto& actions = resJson["Actions"];
+                auto& generateAction =
+                    actions["#NvidiaDebugToken.GenerateToken"];
+                generateAction["target"] =
+                    resUri + "/Actions/NvidiaDebugToken.GenerateToken"s;
+                generateAction["@Redfish.ActionInfo"] =
+                    resUri + "/GenerateTokenActionInfo"s;
+                auto& installAction = actions["#NvidiaDebugToken.InstallToken"];
+                installAction["target"] =
+                    resUri + "/Actions/NvidiaDebugToken.InstallToken"s;
+                installAction["@Redfish.ActionInfo"] =
+                    resUri + "/InstallTokenActionInfo"s;
+                auto& disableAction = actions["#NvidiaDebugToken.DisableToken"];
+                disableAction["target"] =
+                    resUri + "/Actions/NvidiaDebugToken.DisableToken"s;
+            });
     });
 }
 
@@ -347,48 +354,52 @@ inline void
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t,
                const std::string& stdOut, const std::string&,
                const boost::system::error_code& ec, int errorCode) {
-            if (ec || errorCode)
-            {
-                BMCWEB_LOG_ERROR("mctp-vdm-util error: {} {}", ec.message(),
-                                 errorCode);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            std::size_t rxPos = stdOut.find("RX: ");
-            if (rxPos == std::string::npos)
-            {
-                BMCWEB_LOG_ERROR("Invalid VDM command response: {}", stdOut);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            std::string rxData = stdOut.substr(rxPos + 4);
-            std::istringstream iss{rxData};
-            std::vector<std::string> bytes{
-                std::istream_iterator<std::string>{iss},
-                std::istream_iterator<std::string>{}};
-            if (bytes.size() != MctpVdmUtilErrorCodeOffset + 1)
-            {
-                BMCWEB_LOG_ERROR("Invalid VDM command response: {}", rxData);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            try
-            {
-                int vdmCode = std::stoi(bytes[MctpVdmUtilErrorCodeOffset]);
-                if (vdmCode == 0)
+                if (ec || errorCode)
                 {
-                    messages::success(asyncResp->res);
+                    BMCWEB_LOG_ERROR("mctp-vdm-util error: {} {}", ec.message(),
+                                     errorCode);
+                    messages::internalError(asyncResp->res);
                     return;
                 }
-                messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res, req.url().buffer(), "VDM command error");
-            }
-            catch (std::exception&)
-            {
-                BMCWEB_LOG_ERROR("Invalid VDM command response: {}", rxData);
-                messages::internalError(asyncResp->res);
-            }
-        });
+                std::size_t rxPos = stdOut.find("RX: ");
+                if (rxPos == std::string::npos)
+                {
+                    BMCWEB_LOG_ERROR("Invalid VDM command response: {}",
+                                     stdOut);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                std::string rxData = stdOut.substr(rxPos + 4);
+                std::istringstream iss{rxData};
+                std::vector<std::string> bytes{
+                    std::istream_iterator<std::string>{iss},
+                    std::istream_iterator<std::string>{}};
+                if (bytes.size() != MctpVdmUtilErrorCodeOffset + 1)
+                {
+                    BMCWEB_LOG_ERROR("Invalid VDM command response: {}",
+                                     rxData);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                try
+                {
+                    int vdmCode = std::stoi(bytes[MctpVdmUtilErrorCodeOffset]);
+                    if (vdmCode == 0)
+                    {
+                        messages::success(asyncResp->res);
+                        return;
+                    }
+                    messages::resourceErrorsDetectedFormatError(
+                        asyncResp->res, req.url().buffer(),
+                        "VDM command error");
+                }
+                catch (std::exception&)
+                {
+                    BMCWEB_LOG_ERROR("Invalid VDM command response: {}",
+                                     rxData);
+                    messages::internalError(asyncResp->res);
+                }
+            });
     });
 }
 
@@ -450,93 +461,94 @@ inline void
                 messages::internalError(asyncResp->res);
             }
         });
-        std::string matchRule("type='signal',"
-                              "interface='org.freedesktop.DBus.Properties',"
-                              "path='" +
-                              path +
-                              "',"
-                              "member='PropertiesChanged',"
-                              "arg0=" +
-                              spdmResponderIntf);
+        std::string matchRule(
+            "type='signal',"
+            "interface='org.freedesktop.DBus.Properties',"
+            "path='" +
+            path +
+            "',"
+            "member='PropertiesChanged',"
+            "arg0=" +
+            spdmResponderIntf);
         match = std::make_unique<sdbusplus::bus::match_t>(
             *crow::connections::systemBus, matchRule,
             [asyncResp, path](sdbusplus::message_t& msg) {
-            std::string interface;
-            std::map<std::string, dbus::utility::DbusVariantType> props;
-            msg.read(interface, props);
-            std::string opStatus;
-            if (interface == spdmResponderIntf)
-            {
-                auto it = props.find("Status");
-                if (it != props.end())
+                std::string interface;
+                std::map<std::string, dbus::utility::DbusVariantType> props;
+                msg.read(interface, props);
+                std::string opStatus;
+                if (interface == spdmResponderIntf)
                 {
-                    auto status = std::get_if<std::string>(&(it->second));
-                    if (status)
+                    auto it = props.find("Status");
+                    if (it != props.end())
                     {
-                        opStatus =
-                            status->substr(status->find_last_of('.') + 1);
+                        auto status = std::get_if<std::string>(&(it->second));
+                        if (status)
+                        {
+                            opStatus =
+                                status->substr(status->find_last_of('.') + 1);
+                        }
                     }
                 }
-            }
-            if (opStatus.empty())
-            {
-                return;
-            }
-            if (opStatus.rfind("Error_", 0) == 0)
-            {
-                timer.reset(nullptr);
-                boost::asio::post(
-                    crow::connections::systemBus->get_io_context(),
-                    [] { match.reset(nullptr); });
-                BMCWEB_LOG_ERROR(
-                    "Token generation for CPU failed, end status: {}",
-                    opStatus);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            if (opStatus == "Success")
-            {
-                timer.reset(nullptr);
-                boost::asio::post(
-                    crow::connections::systemBus->get_io_context(),
-                    [] { match.reset(nullptr); });
-                sdbusplus::asio::getProperty<std::vector<uint8_t>>(
-                    *crow::connections::systemBus, spdmBusName, path,
-                    spdmResponderIntf, "SignedMeasurements",
-                    [asyncResp](const boost::system::error_code ec,
-                                const std::vector<uint8_t>& meas) {
-                    if (ec)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "Failed to get SignedMeasurements for CPU: {}",
-                            ec.message());
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    std::vector<std::vector<uint8_t>> requestVec{
-                        addTokenRequestHeader(meas)};
-                    auto file = generateTokenRequestFile(requestVec);
-                    std::string_view binaryData(
-                        reinterpret_cast<const char*>(file.data()),
-                        file.size());
-                    asyncResp->res.jsonValue["Token"] =
-                        crow::utility::base64encode(binaryData);
-                });
-            }
-        });
+                if (opStatus.empty())
+                {
+                    return;
+                }
+                if (opStatus.rfind("Error_", 0) == 0)
+                {
+                    timer.reset(nullptr);
+                    boost::asio::post(
+                        crow::connections::systemBus->get_io_context(),
+                        [] { match.reset(nullptr); });
+                    BMCWEB_LOG_ERROR(
+                        "Token generation for CPU failed, end status: {}",
+                        opStatus);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                if (opStatus == "Success")
+                {
+                    timer.reset(nullptr);
+                    boost::asio::post(
+                        crow::connections::systemBus->get_io_context(),
+                        [] { match.reset(nullptr); });
+                    sdbusplus::asio::getProperty<std::vector<uint8_t>>(
+                        *crow::connections::systemBus, spdmBusName, path,
+                        spdmResponderIntf, "SignedMeasurements",
+                        [asyncResp](const boost::system::error_code ec,
+                                    const std::vector<uint8_t>& meas) {
+                            if (ec)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Failed to get SignedMeasurements for CPU: {}",
+                                    ec.message());
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+                            std::vector<std::vector<uint8_t>> requestVec{
+                                addTokenRequestHeader(meas)};
+                            auto file = generateTokenRequestFile(requestVec);
+                            std::string_view binaryData(
+                                reinterpret_cast<const char*>(file.data()),
+                                file.size());
+                            asyncResp->res.jsonValue["Token"] =
+                                crow::utility::base64encode(binaryData);
+                        });
+                }
+            });
         std::vector<uint8_t> indices{cpuTokenGenerationMeasIndex};
         crow::connections::systemBus->async_method_call(
             [asyncResp](const boost::system::error_code ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("Failed to issue Refresh for CPU: {}",
-                                 ec.message());
-                match.reset(nullptr);
-                timer.reset(nullptr);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-        },
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("Failed to issue Refresh for CPU: {}",
+                                     ec.message());
+                    match.reset(nullptr);
+                    timer.reset(nullptr);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+            },
             spdmBusName, path, spdmResponderIntf, "Refresh",
             cpuTokenGenerationSlotId, std::vector<uint8_t>(), indices,
             static_cast<uint32_t>(0));
@@ -571,10 +583,10 @@ inline void
                                                   "TokenData", "InstallToken");
         return;
     }
-    auto dataVector = std::vector<uint8_t>(binaryData.begin(),
-                                           binaryData.end());
-    getCpuEid(asyncResp,
-              [req, asyncResp, systemName, dataVector](uint32_t eid) {
+    auto dataVector =
+        std::vector<uint8_t>(binaryData.begin(), binaryData.end());
+    getCpuEid(asyncResp, [req, asyncResp, systemName,
+                          dataVector](uint32_t eid) {
         MctpVdmUtil mctpVdmUtilWrapper(eid);
         mctpVdmUtilWrapper.run(
             MctpVdmUtilCommand::DEBUG_TOKEN_INSTALL, dataVector, req, asyncResp,
@@ -582,49 +594,52 @@ inline void
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t,
                const std::string& stdOut, const std::string&,
                const boost::system::error_code& ec, int errorCode) {
-            if (ec || errorCode)
-            {
-                BMCWEB_LOG_ERROR("mctp-vdm-util error: {} {}", ec.message(),
-                                 errorCode);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            std::size_t rxPos = stdOut.find("RX: ");
-            if (rxPos == std::string::npos)
-            {
-                BMCWEB_LOG_ERROR("Invalid VDM command response: {}", stdOut);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            std::string rxData = stdOut.substr(rxPos + 4);
-            std::istringstream iss{rxData};
-            std::vector<std::string> bytes{
-                std::istream_iterator<std::string>{iss},
-                std::istream_iterator<std::string>{}};
-            if (bytes.size() != MctpVdmUtilErrorCodeOffset + 1)
-            {
-                BMCWEB_LOG_ERROR("Invalid VDM command response: {}", rxData);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            try
-            {
-                int vdmCode = std::stoi(bytes[MctpVdmUtilErrorCodeOffset]);
-                if (vdmCode == 0)
+                if (ec || errorCode)
                 {
-                    messages::success(asyncResp->res);
+                    BMCWEB_LOG_ERROR("mctp-vdm-util error: {} {}", ec.message(),
+                                     errorCode);
+                    messages::internalError(asyncResp->res);
                     return;
                 }
-                messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res, req.url().buffer(),
-                    getVdmDebugTokenInstallErrorDescription(vdmCode));
-            }
-            catch (std::exception&)
-            {
-                BMCWEB_LOG_ERROR("Invalid VDM command response: {}", rxData);
-                messages::internalError(asyncResp->res);
-            }
-        });
+                std::size_t rxPos = stdOut.find("RX: ");
+                if (rxPos == std::string::npos)
+                {
+                    BMCWEB_LOG_ERROR("Invalid VDM command response: {}",
+                                     stdOut);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                std::string rxData = stdOut.substr(rxPos + 4);
+                std::istringstream iss{rxData};
+                std::vector<std::string> bytes{
+                    std::istream_iterator<std::string>{iss},
+                    std::istream_iterator<std::string>{}};
+                if (bytes.size() != MctpVdmUtilErrorCodeOffset + 1)
+                {
+                    BMCWEB_LOG_ERROR("Invalid VDM command response: {}",
+                                     rxData);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                try
+                {
+                    int vdmCode = std::stoi(bytes[MctpVdmUtilErrorCodeOffset]);
+                    if (vdmCode == 0)
+                    {
+                        messages::success(asyncResp->res);
+                        return;
+                    }
+                    messages::resourceErrorsDetectedFormatError(
+                        asyncResp->res, req.url().buffer(),
+                        getVdmDebugTokenInstallErrorDescription(vdmCode));
+                }
+                catch (std::exception&)
+                {
+                    BMCWEB_LOG_ERROR("Invalid VDM command response: {}",
+                                     rxData);
+                    messages::internalError(asyncResp->res);
+                }
+            });
     });
 }
 

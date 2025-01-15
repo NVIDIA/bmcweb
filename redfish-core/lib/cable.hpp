@@ -228,8 +228,9 @@ inline void requestRoutesCableCollection(App& app)
                     "#CableCollection.CableCollection";
                 asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Cables";
                 asyncResp->res.jsonValue["Name"] = "Cable Collection";
-        asyncResp->res.jsonValue["Description"] = "Collection of Cable Entries";
-        asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
+                asyncResp->res.jsonValue["Description"] =
+                    "Collection of Cable Entries";
+                asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
                 constexpr std::array<std::string_view, 1> interfaces{
                     "xyz.openbmc_project.Inventory.Item.Cable"};
                 collection_util::getCollectionMembers(

@@ -240,19 +240,19 @@ inline void
             const boost::system::error_code ec,
             [[maybe_unused]] const std::vector<
                 std::pair<std::string, std::vector<std::string>>>& objInfo) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("ObjectMapper::GetObject call failed: {}", ec);
-            return;
-        }
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("ObjectMapper::GetObject call failed: {}", ec);
+                return;
+            }
 
-        asyncResp->res
-            .jsonValue["Actions"]["Oem"]
-                      ["#NvidiaEnvironmentMetrics.ClearOOBSetPoint"] = {
-            {"target",
-             "/redfish/v1/Chassis/" + resourceId +
-                 "/EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ClearOOBSetPoint"}};
-    },
+            asyncResp->res
+                .jsonValue["Actions"]["Oem"]
+                          ["#NvidiaEnvironmentMetrics.ClearOOBSetPoint"] = {
+                {"target",
+                 "/redfish/v1/Chassis/" + resourceId +
+                     "/EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ClearOOBSetPoint"}};
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
@@ -863,50 +863,52 @@ inline void getPowerLimitPersistency(
                 messages::internalError(asyncResp->res);
                 return;
             }
-        for (const auto& property : properties)
+            for (const auto& property : properties)
             {
-            const std::string& propertyName = property.first;
-            if (propertyName == "Persistency")
+                const std::string& propertyName = property.first;
+                if (propertyName == "Persistency")
                 {
-                const bool* value = std::get_if<bool>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for Persistency");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
+                    const bool* value = std::get_if<bool>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for Persistency");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
 
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                        ["PowerLimitPersistency"] = *value;
-            }
-            else if (propertyName == "PersistentPowerLimit")
-            {
-                const double* value = std::get_if<double>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for Persistent Power Limit");
-                    messages::internalError(asyncResp->res);
-                    return;
+                    asyncResp->res
+                        .jsonValue["Oem"]["Nvidia"]["PowerLimitPersistency"] =
+                        *value;
                 }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                        ["RequestedPersistentPowerLimitWatts"] =
-                    *value;
-            }
-            else if (propertyName == "OneShotPowerLimit")
-            {
-                const double* value = std::get_if<double>(&property.second);
-                if (value == nullptr)
+                else if (propertyName == "PersistentPowerLimit")
                 {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for OneShot Power Limit");
-                    messages::internalError(asyncResp->res);
-                    return;
+                    const double* value = std::get_if<double>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for Persistent Power Limit");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res
+                        .jsonValue["Oem"]["Nvidia"]
+                                  ["RequestedPersistentPowerLimitWatts"] =
+                        *value;
                 }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                        ["RequestedOneshotPowerLimitWatts"] =
-                    *value;
+                else if (propertyName == "OneShotPowerLimit")
+                {
+                    const double* value = std::get_if<double>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for OneShot Power Limit");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res
+                        .jsonValue["Oem"]["Nvidia"]
+                                  ["RequestedOneshotPowerLimitWatts"] = *value;
                 }
             }
         },
@@ -1081,7 +1083,7 @@ inline void
                         }
                         for (const std::string& ctrlPath : *data)
                         {
-                    getPowerCap(asyncResp, connectionName, ctrlPath);
+                            getPowerCap(asyncResp, connectionName, ctrlPath);
                             getPowerCap(asyncResp, resourceId, ctrlPath);
                             // Skip getControlMode if it does not support the
                             // Control Mode
@@ -1094,8 +1096,10 @@ inline void
                             }
                             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                             {
-                                getPowerMode(asyncResp, connectionName, ctrlPath);
-                                getClearPowerCap(asyncResp, resourceId, ctrlPath);
+                                getPowerMode(asyncResp, connectionName,
+                                             ctrlPath);
+                                getClearPowerCap(asyncResp, resourceId,
+                                                 ctrlPath);
                             }
                             getPowerReadings(asyncResp, connectionName,
                                              ctrlPath, resourceId);

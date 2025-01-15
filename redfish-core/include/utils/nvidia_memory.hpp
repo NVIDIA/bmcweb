@@ -37,10 +37,9 @@ inline std::string toMemoryPerformanceStateType(const std::string& state)
     return "";
 }
 
-inline void
-    populatePerformanceData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                            const boost::system::error_code& ec,
-                            const std::string& value)
+inline void populatePerformanceData(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const boost::system::error_code& ec, const std::string& value)
 {
     if (ec)
     {
@@ -76,8 +75,8 @@ inline void getStateSensorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 "com.nvidia.MemoryPerformance", "Value",
                 [aResp](const boost::system::error_code& ec,
                         const std::string& property) {
-                populatePerformanceData(aResp, ec, property);
-            });
+                    populatePerformanceData(aResp, ec, property);
+                });
         }
     }
 }
@@ -104,8 +103,8 @@ inline void
             std::array<std::string_view, 1>{"com.nvidia.MemoryPerformance"},
             [aResp, sensorPath](const boost::system::error_code& ec,
                                 const dbus::utility::MapperGetObject& object) {
-            getStateSensorData(aResp, sensorPath, ec, object);
-        });
+                getStateSensorData(aResp, sensorPath, ec, object);
+            });
     }
 }
 
@@ -117,6 +116,6 @@ inline void getStateSensors(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         objPath + "/all_states",
         [aResp](const boost::system::error_code& ec,
                 std::variant<std::vector<std::string>>& assoc) {
-        getStateSensorHandler(aResp, ec, assoc);
-    });
+            getStateSensorHandler(aResp, ec, assoc);
+        });
 }

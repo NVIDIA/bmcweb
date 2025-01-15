@@ -474,8 +474,8 @@ static void egmGetDbusObjectHandler(
     crow::connections::systemBus->async_method_call(
         [resp, processorId](boost::system::error_code ec,
                             sdbusplus::message::message& msg) {
-        egmAsyncRespHandler(resp, processorId, ec, msg);
-    },
+            egmAsyncRespHandler(resp, processorId, ec, msg);
+        },
         service, cpuObjectPath, "org.freedesktop.DBus.Properties", "Set",
         "com.nvidia.EgmMode", "EGMModeEnabled", std::variant<bool>(egmMode));
 
@@ -524,12 +524,12 @@ inline void patchEgmMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
         std::array<std::string_view, 1>{
             nvidia_async_operation_utils::setAsyncInterfaceName},
         [resp, egmMode, processorId, cpuObjectPath,
-         service = *inventoryService](
-            const boost::system::error_code& ec,
-            const dbus::utility::MapperGetObject& obj) {
-        egmGetDbusObjectHandler(resp, egmMode, processorId, cpuObjectPath,
-                                service, ec, obj);
-    });
+         service =
+             *inventoryService](const boost::system::error_code& ec,
+                                const dbus::utility::MapperGetObject& obj) {
+            egmGetDbusObjectHandler(resp, egmMode, processorId, cpuObjectPath,
+                                    service, ec, obj);
+        });
 
     return;
 }
@@ -555,9 +555,10 @@ inline void getSysGUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 return;
             }
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaProcessor.v1_4_0.NvidiaGPU";
-        asyncResp->res.jsonValue["Oem"]["Nvidia"]["MNNVLinkTopology"]
-                                ["SystemGUID"] = property;
+                "#NvidiaProcessor.v1_4_0.NvidiaGPU";
+            asyncResp->res
+                .jsonValue["Oem"]["Nvidia"]["MNNVLinkTopology"]["SystemGUID"] =
+                property;
         });
 }
 
@@ -588,7 +589,7 @@ inline void getCCModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             for (const auto& property : properties)
             {
                 json["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaProcessor.v1_4_0.NvidiaGPU";
+                    "#NvidiaProcessor.v1_4_0.NvidiaGPU";
                 if (property.first == "CCModeEnabled")
                 {
                     const bool* ccModeEnabled =
@@ -643,7 +644,7 @@ inline void getInbandReconfigPermissionsData(
             auto reconfigPermissionsName =
                 sdbusplus::message::object_path(objPath).filename();
             aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaProcessor.v1_4_0.NvidiaGPU";
+                "#NvidiaProcessor.v1_4_0.NvidiaGPU";
             auto& reconfigPermissionsJson =
                 json["Oem"]["Nvidia"]["InbandReconfigPermissions"]
                     [reconfigPermissionsName];
@@ -758,8 +759,9 @@ inline void populateErrorInjectionData(
                             continue;
                         }
                         aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaProcessor.v1_4_0.NvidiaGPU";
-                aResp->res.jsonValue["Oem"]["Nvidia"]["ErrorInjection"] = {
+                            "#NvidiaProcessor.v1_4_0.NvidiaGPU";
+                        aResp->res
+                            .jsonValue["Oem"]["Nvidia"]["ErrorInjection"] = {
                             {"@odata.id",
                              "/redfish/v1/Systems/" +
                                  std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -801,7 +803,7 @@ inline void getCCModePendingData(
             }
             nlohmann::json& json = aResp->res.jsonValue;
             json["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaProcessor.v1_4_0.NvidiaGPU";
+                "#NvidiaProcessor.v1_4_0.NvidiaGPU";
             for (const auto& property : properties)
             {
                 if (property.first == "PendingCCModeState")
@@ -960,45 +962,45 @@ inline void getResetMetricsInfo(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         [aResp,
          processorId](const boost::system::error_code& ec,
                       const std::variant<std::vector<std::string>>& resp) {
-        if (ec)
-        {
-            if (ec == boost::system::errc::no_such_file_or_directory)
+            if (ec)
             {
-                // Log and skip if associated object path not found
+                if (ec == boost::system::errc::no_such_file_or_directory)
+                {
+                    // Log and skip if associated object path not found
+                    BMCWEB_LOG_INFO(
+                        "No ResetMetrics association endpoints found for processor: {}",
+                        processorId);
+                    return;
+                }
+
+                // For all other errors, log and return an internal error
+                BMCWEB_LOG_ERROR(
+                    "Failed to get ResetMetrics association endpoints: {}",
+                    ec.message());
+                messages::internalError(aResp->res);
+                return;
+            }
+
+            const std::vector<std::string>* data =
+                std::get_if<std::vector<std::string>>(&resp);
+            if (data == nullptr || data->empty())
+            {
                 BMCWEB_LOG_INFO(
-                    "No ResetMetrics association endpoints found for processor: {}",
+                    "No associated ResetMetrics found for processor: {}",
                     processorId);
                 return;
             }
 
-            // For all other errors, log and return an internal error
-            BMCWEB_LOG_ERROR(
-                "Failed to get ResetMetrics association endpoints: {}",
-                ec.message());
-            messages::internalError(aResp->res);
-            return;
-        }
+            // Construct the ResetMetrics URI and add it to the response
+            std::string resetMetricsURI = std::format(
+                "/redfish/v1/Systems/{}/Processors/{}/Oem/Nvidia/ProcessorResetMetrics",
+                BMCWEB_REDFISH_SYSTEM_URI_NAME, processorId);
 
-        const std::vector<std::string>* data =
-            std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr || data->empty())
-        {
-            BMCWEB_LOG_INFO(
-                "No associated ResetMetrics found for processor: {}",
-                processorId);
-            return;
-        }
+            aResp->res.jsonValue["Oem"]["Nvidia"]["ProcessorResetMetrics"]
+                                ["@odata.id"] = resetMetricsURI;
 
-        // Construct the ResetMetrics URI and add it to the response
-        std::string resetMetricsURI = std::format(
-            "/redfish/v1/Systems/{}/Processors/{}/Oem/Nvidia/ProcessorResetMetrics",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME, processorId);
-
-        aResp->res.jsonValue["Oem"]["Nvidia"]["ProcessorResetMetrics"]
-                            ["@odata.id"] = resetMetricsURI;
-
-        BMCWEB_LOG_DEBUG("Added ResetMetrics URI: {}", resetMetricsURI);
-    },
+            BMCWEB_LOG_DEBUG("Added ResetMetrics URI: {}", resetMetricsURI);
+        },
         "xyz.openbmc_project.ObjectMapper", objPath + "/reset_statistics",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
@@ -1644,89 +1646,92 @@ inline void getMNNVLinkTopologyInfo(
         *crow::connections::systemBus, service, objPath, interface,
         [aResp, cpuId](const boost::system::error_code ec,
                        const dbus::utility::DBusPropertiesMap& resp) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("DBUS response error");
-            messages::internalError(aResp->res);
-            return;
-        }
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error");
+                messages::internalError(aResp->res);
+                return;
+            }
 
-        nlohmann::json& json = aResp->res.jsonValue;
+            nlohmann::json& json = aResp->res.jsonValue;
 
-        const std::string* chassisSerialNumber = nullptr;
-        const std::string* ibGuid = nullptr;
-        const std::string* traySerialNumber = nullptr;
-        const std::string* systemGUID = nullptr;
-        const std::string* peerType = nullptr;
-        const uint32_t* moduleID = nullptr;
-        const uint32_t* hostID = nullptr;
-        const uint32_t* traySlotIndex = nullptr;
-        const uint32_t* traySlotNumber = nullptr;
+            const std::string* chassisSerialNumber = nullptr;
+            const std::string* ibGuid = nullptr;
+            const std::string* traySerialNumber = nullptr;
+            const std::string* systemGUID = nullptr;
+            const std::string* peerType = nullptr;
+            const uint32_t* moduleID = nullptr;
+            const uint32_t* hostID = nullptr;
+            const uint32_t* traySlotIndex = nullptr;
+            const uint32_t* traySlotNumber = nullptr;
 
-        const bool success = sdbusplus::unpackPropertiesNoThrow(
-            dbus_utils::UnpackErrorPrinter(), resp, "ChassisSerialNumber",
-            chassisSerialNumber, "IBGUID", ibGuid, "TraySerialNumber",
-            traySerialNumber, "SystemGUID", systemGUID, "ModuleID", moduleID,
-            "HostID", hostID, "PeerType", peerType, "TraySlotIndex",
-            traySlotIndex, "TraySlotNumber", traySlotNumber);
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), resp, "ChassisSerialNumber",
+                chassisSerialNumber, "IBGUID", ibGuid, "TraySerialNumber",
+                traySerialNumber, "SystemGUID", systemGUID, "ModuleID",
+                moduleID, "HostID", hostID, "PeerType", peerType,
+                "TraySlotIndex", traySlotIndex, "TraySlotNumber",
+                traySlotNumber);
 
-        if (!success)
-        {
-            BMCWEB_LOG_ERROR("failed to unpack");
-            messages::internalError(aResp->res);
-            return;
-        }
+            if (!success)
+            {
+                BMCWEB_LOG_ERROR("failed to unpack");
+                messages::internalError(aResp->res);
+                return;
+            }
 
-        if (chassisSerialNumber != nullptr)
-        {
-            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["ChassisSerialNumber"] =
-                *chassisSerialNumber;
-        }
+            if (chassisSerialNumber != nullptr)
+            {
+                json["Oem"]["Nvidia"]["MNNVLinkTopology"]
+                    ["ChassisSerialNumber"] = *chassisSerialNumber;
+            }
 
-        if (ibGuid != nullptr)
-        {
-            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["IBGUID"] = *ibGuid;
-        }
+            if (ibGuid != nullptr)
+            {
+                json["Oem"]["Nvidia"]["MNNVLinkTopology"]["IBGUID"] = *ibGuid;
+            }
 
-        if (traySerialNumber != nullptr)
-        {
-            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["TraySerialNumber"] =
-                *traySerialNumber;
-        }
+            if (traySerialNumber != nullptr)
+            {
+                json["Oem"]["Nvidia"]["MNNVLinkTopology"]["TraySerialNumber"] =
+                    *traySerialNumber;
+            }
 
-        if (systemGUID != nullptr && systemGUID->empty() == false)
-        {
-            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["SystemGUID"] =
-                *systemGUID;
-        }
+            if (systemGUID != nullptr && systemGUID->empty() == false)
+            {
+                json["Oem"]["Nvidia"]["MNNVLinkTopology"]["SystemGUID"] =
+                    *systemGUID;
+            }
 
-        if (moduleID != nullptr)
-        {
-            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["ModuleID"] = *moduleID;
-        }
+            if (moduleID != nullptr)
+            {
+                json["Oem"]["Nvidia"]["MNNVLinkTopology"]["ModuleID"] =
+                    *moduleID;
+            }
 
-        if (hostID != nullptr)
-        {
-            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["HostID"] = *hostID;
-        }
+            if (hostID != nullptr)
+            {
+                json["Oem"]["Nvidia"]["MNNVLinkTopology"]["HostID"] = *hostID;
+            }
 
-        if (peerType != nullptr)
-        {
-            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["PeerType"] = *peerType;
-        }
+            if (peerType != nullptr)
+            {
+                json["Oem"]["Nvidia"]["MNNVLinkTopology"]["PeerType"] =
+                    *peerType;
+            }
 
-        if (traySlotIndex != nullptr)
-        {
-            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["TraySlotIndex"] =
-                *traySlotIndex;
-        }
+            if (traySlotIndex != nullptr)
+            {
+                json["Oem"]["Nvidia"]["MNNVLinkTopology"]["TraySlotIndex"] =
+                    *traySlotIndex;
+            }
 
-        if (traySlotNumber != nullptr)
-        {
-            json["Oem"]["Nvidia"]["MNNVLinkTopology"]["TraySlotNumber"] =
-                *traySlotNumber;
-        }
-    });
+            if (traySlotNumber != nullptr)
+            {
+                json["Oem"]["Nvidia"]["MNNVLinkTopology"]["TraySlotNumber"] =
+                    *traySlotNumber;
+            }
+        });
 }
 
 inline void
@@ -2272,18 +2277,17 @@ static void getEgmModePendingDataHandler(
  * @param[in]       objPath     D-Bus object to query.
  */
 
-inline void
-    getEgmModePendingData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                          const std::string& cpuId, const std::string& service,
-                          const std::string& objPath)
+inline void getEgmModePendingData(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
+    const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get pending egmMode path:{}, id:{}", objPath, cpuId);
 
     crow::connections::systemBus->async_method_call(
         [aResp, cpuId](const boost::system::error_code ec,
                        const OperatingConfigProperties& properties) {
-        getEgmModePendingDataHandler(aResp, ec, properties);
-    },
+            getEgmModePendingDataHandler(aResp, ec, properties);
+        },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
         "com.nvidia.EgmMode");
 
@@ -2341,8 +2345,8 @@ inline void getEgmModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     crow::connections::systemBus->async_method_call(
         [aResp, cpuId](const boost::system::error_code ec,
                        const OperatingConfigProperties& properties) {
-        getEgmModeDataHandler(aResp, ec, properties);
-    },
+            getEgmModeDataHandler(aResp, ec, properties);
+        },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
         "com.nvidia.EgmMode");
 

@@ -19,13 +19,13 @@
 #include "app.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/pcie_util.hpp"
 
 #include <utils/chassis_utils.hpp>
 #include <utils/collection.hpp>
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_utils.hpp>
 #include <utils/port_utils.hpp>
-#include "utils/pcie_util.hpp"
 
 #include <map>
 #include <optional>
@@ -517,103 +517,111 @@ inline void
             const boost::system::error_code ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 object) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Error no PCIeDevice interface on {} path", path);
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        auto service = object.front().first;
-
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, deviceId, controllerObject](
-                const boost::system::error_code ec,
-                const std::vector<
-                    std::pair<std::string, std::variant<std::string, size_t>>>&
-                    propertiesList) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR("Error no getting data from interface on {}",
-                                 deviceId);
+                BMCWEB_LOG_ERROR("Error no PCIeDevice interface on {} path",
+                                 path);
                 messages::internalError(asyncResp->res);
                 return;
             }
+            auto service = object.front().first;
 
-            for (const std::pair<std::string,
-                                 std::variant<std::string, size_t>>& property :
-                 propertiesList)
-            {
-                const std::string& propertyName = property.first;
-                if (propertyName == "MaxLanes")
-                {
-                    const size_t* value = std::get_if<size_t>(&property.second);
-                    if (value != nullptr)
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, deviceId, controllerObject](
+                    const boost::system::error_code ec,
+                    const std::vector<std::pair<
+                        std::string, std::variant<std::string, size_t>>>&
+                        propertiesList) {
+                    if (ec)
                     {
-                        (*controllerObject)["PCIeInterface"][propertyName] =
-                            *value;
+                        BMCWEB_LOG_ERROR(
+                            "Error no getting data from interface on {}",
+                            deviceId);
+                        messages::internalError(asyncResp->res);
+                        return;
                     }
-                }
-                else if (propertyName == "LanesInUse")
-                {
-                    const size_t* value = std::get_if<size_t>(&property.second);
-                    if (value != nullptr)
+
+                    for (const std::pair<std::string,
+                                         std::variant<std::string, size_t>>&
+                             property : propertiesList)
                     {
-                        if (*value == INT_MAX)
+                        const std::string& propertyName = property.first;
+                        if (propertyName == "MaxLanes")
                         {
-                            (*controllerObject)["PCIeInterface"][propertyName] =
-                                0;
+                            const size_t* value =
+                                std::get_if<size_t>(&property.second);
+                            if (value != nullptr)
+                            {
+                                (*controllerObject)["PCIeInterface"]
+                                                   [propertyName] = *value;
+                            }
                         }
-                        else
+                        else if (propertyName == "LanesInUse")
                         {
-                            (*controllerObject)["PCIeInterface"][propertyName] =
-                                *value;
+                            const size_t* value =
+                                std::get_if<size_t>(&property.second);
+                            if (value != nullptr)
+                            {
+                                if (*value == INT_MAX)
+                                {
+                                    (*controllerObject)["PCIeInterface"]
+                                                       [propertyName] = 0;
+                                }
+                                else
+                                {
+                                    (*controllerObject)["PCIeInterface"]
+                                                       [propertyName] = *value;
+                                }
+                            }
                         }
-                    }
-                }
-                else if ((propertyName == "PCIeType") ||
-                         (propertyName == "MaxPCIeType"))
-                {
-                    const std::string* value =
-                        std::get_if<std::string>(&property.second);
-                    if (value != nullptr)
-                    {
-                        std::optional<std::string> propValue =
-                            pcie_util::redfishPcieTypeStringFromDbus(*value);
-                        if (!propValue)
+                        else if ((propertyName == "PCIeType") ||
+                                 (propertyName == "MaxPCIeType"))
                         {
-                            (*controllerObject)["PCIeInterface"][propertyName] =
-                                nullptr;
+                            const std::string* value =
+                                std::get_if<std::string>(&property.second);
+                            if (value != nullptr)
+                            {
+                                std::optional<std::string> propValue =
+                                    pcie_util::redfishPcieTypeStringFromDbus(
+                                        *value);
+                                if (!propValue)
+                                {
+                                    (*controllerObject)["PCIeInterface"]
+                                                       [propertyName] = nullptr;
+                                }
+                                else
+                                {
+                                    (*controllerObject)["PCIeInterface"]
+                                                       [propertyName] =
+                                                           *propValue;
+                                }
+                            }
                         }
-                        else
+                        else if (propertyName == "GenerationInUse")
                         {
-                            (*controllerObject)["PCIeInterface"][propertyName] =
-                                *propValue;
+                            const std::string* value =
+                                std::get_if<std::string>(&property.second);
+                            std::optional<std::string> generationInUse =
+                                pcie_util::redfishPcieGenerationStringFromDbus(
+                                    *value);
+                            if (!generationInUse)
+                            {
+                                (*controllerObject)["PCIeInterface"]
+                                                   ["PCIeType"] = nullptr;
+                            }
+                            else
+                            {
+                                (*controllerObject)["PCIeInterface"]
+                                                   ["PCIeType"] =
+                                                       *generationInUse;
+                            }
                         }
                     }
-                }
-                else if (propertyName == "GenerationInUse")
-                {
-                    const std::string* value =
-                        std::get_if<std::string>(&property.second);
-                    std::optional<std::string> generationInUse =
-                        pcie_util::redfishPcieGenerationStringFromDbus(*value);
-                    if (!generationInUse)
-                    {
-                        (*controllerObject)["PCIeInterface"]["PCIeType"] =
-                            nullptr;
-                    }
-                    else
-                    {
-                        (*controllerObject)["PCIeInterface"]["PCIeType"] =
-                            *generationInUse;
-                    }
-                }
-            }
-            asyncResp->res.jsonValue["Controllers"].emplace_back(
-                *controllerObject);
+                    asyncResp->res.jsonValue["Controllers"].emplace_back(
+                        *controllerObject);
+                },
+                service, path, "org.freedesktop.DBus.Properties", "GetAll", "");
         },
-            service, path, "org.freedesktop.DBus.Properties", "GetAll", "");
-    },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject", path,
@@ -633,77 +641,79 @@ inline void getPCIeData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         [asyncResp, chassisId, networkAdapterId,
          controllerObject](const boost::system::error_code ec,
                            std::variant<std::vector<std::string>>& resp) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("Get chassis failed on{}", networkAdapterId);
-            return;
-        }
-        std::vector<std::string>* data =
-            std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr)
-        {
-            return;
-        }
-        for (const std::string& chassisPath : *data)
-        {
-            crow::connections::systemBus->async_method_call(
-                [asyncResp, chassisId, networkAdapterId, controllerObject](
-                    const boost::system::error_code ec,
-                    std::variant<std::vector<std::string>>& resp) {
-                if (ec)
-                {
-                    BMCWEB_LOG_DEBUG(
-                        "Get PCIe interface data and PCIe device failed on {}",
-                        networkAdapterId);
-                    return;
-                }
-                std::vector<std::string>* data =
-                    std::get_if<std::vector<std::string>>(&resp);
-                if (data == nullptr)
-                {
-                    return;
-                }
-                std::string pcieDeviceId;
-                std::string pcieDevicePath;
-                for (const std::string& path : *data)
-                {
-                    sdbusplus::message::object_path objectPath(path);
-                    std::string deviceId = objectPath.filename();
-                    if (deviceId.empty())
-                    {
-                        BMCWEB_LOG_ERROR("PCIe device id on path empty");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    nlohmann::json thisPort = nlohmann::json::object();
-                    pcieDevicePath = path;
-                    pcieDeviceId = deviceId;
-                    std::string portUri = "/redfish/v1/Chassis/" + chassisId;
-                    portUri += "/PCIeDevices/";
-                    portUri += deviceId;
-                    thisPort["@odata.id"] = portUri;
-                    (*controllerObject)["Links"]["PCIeDevices"].push_back(
-                        thisPort);
-                }
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("Get chassis failed on{}", networkAdapterId);
+                return;
+            }
+            std::vector<std::string>* data =
+                std::get_if<std::vector<std::string>>(&resp);
+            if (data == nullptr)
+            {
+                return;
+            }
+            for (const std::string& chassisPath : *data)
+            {
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp, chassisId, networkAdapterId, controllerObject](
+                        const boost::system::error_code ec,
+                        std::variant<std::vector<std::string>>& resp) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_DEBUG(
+                                "Get PCIe interface data and PCIe device failed on {}",
+                                networkAdapterId);
+                            return;
+                        }
+                        std::vector<std::string>* data =
+                            std::get_if<std::vector<std::string>>(&resp);
+                        if (data == nullptr)
+                        {
+                            return;
+                        }
+                        std::string pcieDeviceId;
+                        std::string pcieDevicePath;
+                        for (const std::string& path : *data)
+                        {
+                            sdbusplus::message::object_path objectPath(path);
+                            std::string deviceId = objectPath.filename();
+                            if (deviceId.empty())
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "PCIe device id on path empty");
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+                            nlohmann::json thisPort = nlohmann::json::object();
+                            pcieDevicePath = path;
+                            pcieDeviceId = deviceId;
+                            std::string portUri =
+                                "/redfish/v1/Chassis/" + chassisId;
+                            portUri += "/PCIeDevices/";
+                            portUri += deviceId;
+                            thisPort["@odata.id"] = portUri;
+                            (*controllerObject)["Links"]["PCIeDevices"]
+                                .push_back(thisPort);
+                        }
 
-                getPCIeInterfaceData(asyncResp, pcieDeviceId, pcieDevicePath,
-                                     controllerObject);
-            },
-                "xyz.openbmc_project.ObjectMapper", chassisPath + "/pciedevice",
-                "org.freedesktop.DBus.Properties", "Get",
-                "xyz.openbmc_project.Association", "endpoints");
-        }
-    },
+                        getPCIeInterfaceData(asyncResp, pcieDeviceId,
+                                             pcieDevicePath, controllerObject);
+                    },
+                    "xyz.openbmc_project.ObjectMapper",
+                    chassisPath + "/pciedevice",
+                    "org.freedesktop.DBus.Properties", "Get",
+                    "xyz.openbmc_project.Association", "endpoints");
+            }
+        },
         "xyz.openbmc_project.ObjectMapper", devicePath + "/parent_chassis",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-inline void
-    getControllersData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& devicePath,
-                       const std::string& chassisId,
-                       const std::string& networkAdapterId)
+inline void getControllersData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& devicePath, const std::string& chassisId,
+    const std::string& networkAdapterId)
 {
     asyncResp->res.jsonValue["Controllers"] = nlohmann::json::array();
     std::shared_ptr<nlohmann::json> controllerObject =
@@ -717,38 +727,38 @@ inline void
         [asyncResp, chassisId, devicePath, networkAdapterId,
          controllerObject](const boost::system::error_code ec,
                            std::variant<std::vector<std::string>>& resp) {
-        if (ec)
-        {
-            BMCWEB_LOG_DEBUG("Get ports failed on{}", networkAdapterId);
-            return;
-        }
-        std::vector<std::string>* data =
-            std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr)
-        {
-            return;
-        }
-
-        for (const std::string& portPath : *data)
-        {
-            sdbusplus::message::object_path objectPath(portPath);
-            std::string portId = objectPath.filename();
-            if (portId.empty())
+            if (ec)
             {
-                BMCWEB_LOG_ERROR("Port id on port path empty");
-                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_DEBUG("Get ports failed on{}", networkAdapterId);
                 return;
             }
-            nlohmann::json thisPort = nlohmann::json::object();
-            std::string portUri = "/redfish/v1/Chassis/" + chassisId;
-            portUri += "/NetworkAdapters/" + networkAdapterId + "/Ports/";
-            portUri += portId;
-            thisPort["@odata.id"] = portUri;
-            (*controllerObject)["Links"]["Ports"].push_back(thisPort);
-        }
-        getPCIeData(asyncResp, devicePath, chassisId, networkAdapterId,
-                    controllerObject);
-    },
+            std::vector<std::string>* data =
+                std::get_if<std::vector<std::string>>(&resp);
+            if (data == nullptr)
+            {
+                return;
+            }
+
+            for (const std::string& portPath : *data)
+            {
+                sdbusplus::message::object_path objectPath(portPath);
+                std::string portId = objectPath.filename();
+                if (portId.empty())
+                {
+                    BMCWEB_LOG_ERROR("Port id on port path empty");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                nlohmann::json thisPort = nlohmann::json::object();
+                std::string portUri = "/redfish/v1/Chassis/" + chassisId;
+                portUri += "/NetworkAdapters/" + networkAdapterId + "/Ports/";
+                portUri += portId;
+                thisPort["@odata.id"] = portUri;
+                (*controllerObject)["Links"]["Ports"].push_back(thisPort);
+            }
+            getPCIeData(asyncResp, devicePath, chassisId, networkAdapterId,
+                        controllerObject);
+        },
         "xyz.openbmc_project.ObjectMapper", devicePath + "/all_states",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
@@ -1383,12 +1393,11 @@ inline void getPortDataByAssociation(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-inline void
-    doPortGeneric(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& chassisId,
-                   const std::string& networkAdapterId,
-                   const std::string& portId,
-                   const std::optional<std::string>& validNetworkAdapterPath)
+inline void doPortGeneric(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId,
+    const std::string& portId,
+    const std::optional<std::string>& validNetworkAdapterPath)
 {
     if (!validNetworkAdapterPath)
     {
@@ -1693,7 +1702,8 @@ inline void
                         const auto propertyName = fixedPropertyName
                                                       ? *fixedPropertyName
                                                       : pdiPropertyName;
-                    const auto* value = std::get_if<double>(&property.second);
+                        const auto* value =
+                            std::get_if<double>(&property.second);
                         if (value == nullptr)
                         {
                             BMCWEB_LOG_ERROR("Null value returned for {}",
@@ -1702,7 +1712,7 @@ inline void
                             return;
                         }
                         asyncResp->res.jsonValue["PCIeErrors"][propertyName] =
-                        nvidia::nsm_utils::tryConvertToInt64(*value);
+                            nvidia::nsm_utils::tryConvertToInt64(*value);
                     }
                 }
             }
@@ -1996,8 +2006,8 @@ inline void handleNetworkAdapterResetNext(
 
     getValidNetworkAdapterPath(
         asyncResp, networkAdapterId, chassisIntfList, *validChassisPath,
-        std::bind_front(doNetworkAdapterResetGeneric, asyncResp, networkAdapterId,
-                        resetType));
+        std::bind_front(doNetworkAdapterResetGeneric, asyncResp,
+                        networkAdapterId, resetType));
 }
 
 inline void handleNetworkAdapterResetGeneric(

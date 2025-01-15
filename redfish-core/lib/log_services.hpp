@@ -2261,20 +2261,18 @@ inline void afterLogEntriesGetManagedObjects(
     if constexpr (BMCWEB_SORT_EVENT_LOG)
     {
         std::sort(entriesArray.begin(), entriesArray.end(),
-                    [](const nlohmann::json& left,
-                        const nlohmann::json& right) {
-            int leftId = std::stoi(left["Id"].get<std::string>());
-            int rightId = std::stoi(right["Id"].get<std::string>());
-            return (leftId < rightId);
-        });
+                  [](const nlohmann::json& left, const nlohmann::json& right) {
+                      int leftId = std::stoi(left["Id"].get<std::string>());
+                      int rightId = std::stoi(right["Id"].get<std::string>());
+                      return (leftId < rightId);
+                  });
     }
     else
     {
         std::sort(entriesArray.begin(), entriesArray.end(),
-                    [](const nlohmann::json& left,
-                        const nlohmann::json& right) {
-            return (left["Id"] <= right["Id"]);
-        });
+                  [](const nlohmann::json& left, const nlohmann::json& right) {
+                      return (left["Id"] <= right["Id"]);
+                  });
     }
 
     asyncResp->res.jsonValue["Members@odata.count"] = entriesArray.size();

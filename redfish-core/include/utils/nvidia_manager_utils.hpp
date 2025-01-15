@@ -26,11 +26,14 @@ namespace redfish
 namespace nvidia_manager_util
 {
 
-void processFeatureReadyPropertiesList(
+inline void processFeatureReadyPropertiesList(
     const boost::system::error_code& ec,
-    const std::vector<std::pair<std::string, std::variant<std::string>>>& propertiesList,
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
-    if (ec) {
+    const std::vector<std::pair<std::string, std::variant<std::string>>>&
+        propertiesList,
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+{
+    if (ec)
+    {
         BMCWEB_LOG_ERROR("Error in getting manager service state");
         aResp->res.jsonValue["Status"]["State"] = "Starting";
         return;
@@ -39,41 +42,52 @@ void processFeatureReadyPropertiesList(
     const std::string* featureType = nullptr;
     const std::string* stateValue = nullptr;
 
-    for (const auto& property : propertiesList) {
-        if (property.first == "FeatureType") {
+    for (const auto& property : propertiesList)
+    {
+        if (property.first == "FeatureType")
+        {
             featureType = std::get_if<std::string>(&property.second);
-        } else if (property.first == "State") {
+        }
+        else if (property.first == "State")
+        {
             stateValue = std::get_if<std::string>(&property.second);
         }
 
-        if (featureType && stateValue) {
+        if (featureType && stateValue)
+        {
             break; // Exit early if both values are found
         }
     }
 
-
-    if (!featureType || *featureType != "xyz.openbmc_project.State.FeatureReady.FeatureTypes.Manager") {
+    if (!featureType ||
+        *featureType !=
+            "xyz.openbmc_project.State.FeatureReady.FeatureTypes.Manager")
+    {
         BMCWEB_LOG_ERROR("Invalid or missing FeatureType");
         messages::internalError(aResp->res);
         return;
     }
 
-    if (!stateValue) {
+    if (!stateValue)
+    {
         BMCWEB_LOG_DEBUG("Null value returned for manager service state");
         messages::internalError(aResp->res);
         return;
     }
 
-    std::string state = redfish::chassis_utils::getFeatureReadyStateType(*stateValue);
+    std::string state =
+        redfish::chassis_utils::getFeatureReadyStateType(*stateValue);
     aResp->res.jsonValue["Status"]["State"] = state;
 
-    if (state == "Enabled") {
+    if (state == "Enabled")
+    {
         aResp->res.jsonValue["Status"]["Health"] = "OK";
-    } else {
+    }
+    else
+    {
         aResp->res.jsonValue["Status"]["Health"] = "Critical";
     }
 }
-
 
 /**
  * @brief Retrieves telemetry ready state data over DBus
@@ -93,7 +107,8 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         std::chrono::duration_cast<std::chrono::microseconds>(1s).count();
     crow::connections::systemBus->async_method_call_timed(
         [aResp](const boost::system::error_code ec,
-           const std::vector<std::pair<std::string, std::variant<std::string>>>& propertiesList) {
+                const std::vector<std::pair<
+                    std::string, std::variant<std::string>>>& propertiesList) {
             processFeatureReadyPropertiesList(ec, propertiesList, aResp);
         },
         connectionName, path, "org.freedesktop.DBus.Properties", "GetAll",
@@ -322,20 +337,20 @@ inline void getFabricManagerInformation(
                                  std::variant<std::string, uint64_t>>&
                      property : propertiesList)
             {
-            if (property.first == "Description")
-            {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value == nullptr)
+                if (property.first == "Description")
                 {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for Description");
-                    messages::internalError(aResp->res);
-                    return;
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for Description");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    aResp->res.jsonValue["Description"] = *value;
                 }
-                aResp->res.jsonValue["Description"] = *value;
-            }
-            else if (property.first == "FMState")
+                else if (property.first == "FMState")
                 {
                     const std::string* value =
                         std::get_if<std::string>(&property.second);
@@ -430,35 +445,35 @@ inline void requestRouteNSMRawCommand(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& bmcId) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            BMCWEB_LOG_ERROR("Failed to set up Redfish route.");
-            return;
-        }
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    BMCWEB_LOG_ERROR("Failed to set up Redfish route.");
+                    return;
+                }
 
-        if (bmcId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-        {
-            messages::resourceNotFound(asyncResp->res,
-                                       "#Manager.v1_11_0.Manager", bmcId);
-            return;
-        }
+                if (bmcId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+                {
+                    messages::resourceNotFound(
+                        asyncResp->res, "#Manager.v1_11_0.Manager", bmcId);
+                    return;
+                }
 
-        uint8_t deviceIdentificationId = 0, deviceInstanceId = 0,
-                messageType = 0, commandCode = 0;
-        uint16_t dataSizeInBytes = 0;
-        bool isLongRunning = false;
-        std::vector<uint8_t> data;
+                uint8_t deviceIdentificationId = 0, deviceInstanceId = 0,
+                        messageType = 0, commandCode = 0;
+                uint16_t dataSizeInBytes = 0;
+                bool isLongRunning = false;
+                std::vector<uint8_t> data;
 
-        if (nsm_command_support::parseRequestJson(
-                req, asyncResp, commandCode, deviceIdentificationId,
-                deviceInstanceId, messageType, isLongRunning, dataSizeInBytes,
-                data))
-        {
-            nsm_command_support::callSendRequest(
-                asyncResp, deviceIdentificationId, deviceInstanceId,
-                isLongRunning, messageType, commandCode, data);
-        }
-    });
+                if (nsm_command_support::parseRequestJson(
+                        req, asyncResp, commandCode, deviceIdentificationId,
+                        deviceInstanceId, messageType, isLongRunning,
+                        dataSizeInBytes, data))
+                {
+                    nsm_command_support::callSendRequest(
+                        asyncResp, deviceIdentificationId, deviceInstanceId,
+                        isLongRunning, messageType, commandCode, data);
+                }
+            });
 }
 
 inline void requestRouteNSMRawCommandActionInfo(App& app)
@@ -470,20 +485,20 @@ inline void requestRouteNSMRawCommandActionInfo(App& app)
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::string& bmcId) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
 
-        if (bmcId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-        {
-            messages::resourceNotFound(asyncResp->res,
-                                       "#Manager.v1_11_0.Manager", bmcId);
-            return;
-        }
+                if (bmcId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+                {
+                    messages::resourceNotFound(
+                        asyncResp->res, "#Manager.v1_11_0.Manager", bmcId);
+                    return;
+                }
 
-        nsm_command_support::actionInfoResponse(asyncResp, bmcId);
-    });
+                nsm_command_support::actionInfoResponse(asyncResp, bmcId);
+            });
 }
 
 } // namespace nvidia_manager_util

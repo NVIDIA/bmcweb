@@ -27,6 +27,7 @@
 #include "metric_report.hpp"
 #include "metric_report_definition.hpp"
 #include "network_protocol.hpp"
+#include "nvidia_manager_eventlog.hpp"
 #include "odata.hpp"
 #include "pcie.hpp"
 #include "power.hpp"
@@ -51,7 +52,6 @@
 #include "trigger.hpp"
 #include "update_service.hpp"
 #include "virtual_media.hpp"
-#include "nvidia_manager_eventlog.hpp"
 namespace redfish
 {
 

@@ -112,8 +112,8 @@ TEST(EventServiceManager, submitTestEVent)
         testEvent.eventId = "GPU-RST-RECOMM-EVENT";
         testEvent.eventTimestamp = "2021-01-01T00:00:00Z";
         testEvent.message = "Custom Message";
-        testEvent.messageArgs = std::vector<std::string>{"GPU_SXM_1",
-                                                         "Restart Recommended"};
+        testEvent.messageArgs =
+            std::vector<std::string>{"GPU_SXM_1", "Restart Recommended"};
         testEvent.messageId = "Base.1.13.ResetRecommended";
         testEvent.originOfCondition = "/redfish/v1/Chassis/GPU_SXM_1";
         testEvent.resolution =

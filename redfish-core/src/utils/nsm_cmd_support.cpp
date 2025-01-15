@@ -140,14 +140,14 @@ void callSendRequest(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "SendRequest",
         [asyncResp, messageType, commandCode, memFd = std::move(memFd)](
             const std::string& status, [[maybe_unused]] const uint8_t* rc) {
-        if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
-        {
-            parseResponse(asyncResp, messageType, commandCode, memFd);
-            return;
-        }
-        BMCWEB_LOG_ERROR("Send Nsm Raw Command error {}", status);
-        messages::internalError(asyncResp->res);
-    },
+            if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
+            {
+                parseResponse(asyncResp, messageType, commandCode, memFd);
+                return;
+            }
+            BMCWEB_LOG_ERROR("Send Nsm Raw Command error {}", status);
+            messages::internalError(asyncResp->res);
+        },
         deviceIdentificationId, deviceInstanceId, isLongRunning, messageType,
         commandCode, fd);
 }

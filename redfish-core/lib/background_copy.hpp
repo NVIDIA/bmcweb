@@ -150,9 +150,9 @@ inline void updateBackgroundCopyStatusPending(
     }
     else
     {
-    mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_QUERY_PENDING,
+        mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_QUERY_PENDING,
                                std::monostate(), req, asyncResp,
-                           std::move(bgCopyQueryResponseCallback));
+                               std::move(bgCopyQueryResponseCallback));
     }
 
     return;
@@ -182,10 +182,10 @@ inline void updateBackgroundCopyStatus(
     auto bgCopyQueryResponseCallback =
         [callback, allowList, chassisId](
             [[maybe_unused]] const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             [[maybe_unused]] uint32_t endpointId, const std::string& stdOut,
-                   [[maybe_unused]] const std::string& stdErr,
-                   const boost::system::error_code& ec, int errorCode) -> void {
+            [[maybe_unused]] const std::string& stdErr,
+            const boost::system::error_code& ec, int errorCode) -> void {
         if (ec || errorCode)
         {
             redfish::messages::internalError(asyncResp->res);
@@ -230,7 +230,7 @@ inline void updateBackgroundCopyStatus(
     {
         mctpVdmUtilWrapper.run(
             MctpVdmUtilCommand::BACKGROUNDCOPY_QUERY_PROGRESS, std::monostate(),
-                           req, asyncResp, bgCopyQueryResponseCallback);
+            req, asyncResp, bgCopyQueryResponseCallback);
     }
     return;
 }

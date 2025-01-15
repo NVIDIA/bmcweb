@@ -17,13 +17,13 @@
 #pragma once
 
 #include "nlohmann/json.hpp"
+#include "utils/collection.hpp"
 
 #include <app.hpp>
 #include <dbus_utility.hpp>
 #include <query.hpp>
 #include <registries/privilege_registry.hpp>
 #include <utils/privilege_utils.hpp>
-#include "utils/collection.hpp"
 
 #include <fstream>
 #include <iostream>

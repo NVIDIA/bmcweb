@@ -10,9 +10,10 @@
 #include "http_response.hpp"
 #include "json_formatters.hpp"
 #include "logging.hpp"
+#include "nvidia_persistent_data.hpp"
 #include "redfish_aggregator.hpp"
 #include "str_utility.hpp"
-#include "nvidia_persistent_data.hpp"
+
 #include <sys/types.h>
 
 #include <boost/beast/http/message.hpp>

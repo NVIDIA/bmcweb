@@ -8,8 +8,9 @@
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
-#include "utils/query_param.hpp"
 #include "nvidia_persistent_data.hpp"
+#include "utils/query_param.hpp"
+
 #include <boost/beast/http/verb.hpp>
 #include <boost/url/params_view.hpp>
 #include <boost/url/url_view.hpp>
@@ -188,7 +189,7 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
         [&app, handler(std::move(handler)), query{std::move(*queryOpt)},
          delegated{delegated},
          newReq{std::move(newReq)}](crow::Response& resIn) mutable {
-        processAllParams(app, query, delegated, handler, resIn, newReq);
+            processAllParams(app, query, delegated, handler, resIn, newReq);
         });
 
     return needToCallHandlers;

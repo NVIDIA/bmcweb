@@ -1,5 +1,6 @@
 #pragma once
 #include "bmcweb_config.h"
+
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "event_matches_filter.hpp"
@@ -58,7 +59,6 @@ enum redfish_bool
     redfishBoolTrue,
     redfishBoolFalse
 };
-
 
 // Error constants of class Event
 static constexpr int redfishInvalidEvent = -1;

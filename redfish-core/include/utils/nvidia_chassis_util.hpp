@@ -17,18 +17,16 @@
 #pragma once
 
 #include "async_resp.hpp"
+#include "openbmc_dbus_rest.hpp"
 
 #include <boost/container/flat_set.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/system/linux_error.hpp>
+#include <health.hpp>
 
 #include <memory>
 #include <string>
 #include <variant>
-#include "openbmc_dbus_rest.hpp"
-#include <health.hpp>
-#include <boost/container/flat_set.hpp>
-#include <boost/system/linux_error.hpp>
 
 namespace redfish
 {
@@ -410,39 +408,40 @@ inline void getOemCBCChassisAsset(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 return;
             }
 
-        // CBC FRU spec specifies that it is 8 bytes (string length 16)
-        if (property.length() != trayTopologyStringLength)
+            // CBC FRU spec specifies that it is 8 bytes (string length 16)
+            if (property.length() != trayTopologyStringLength)
             {
-            BMCWEB_LOG_ERROR("CBC Tray ID string len is in invalid");
-            messages::internalError(asyncResp->res);
-            return;
+                BMCWEB_LOG_ERROR("CBC Tray ID string len is in invalid");
+                messages::internalError(asyncResp->res);
+                return;
             }
 
-        std::array<uint8_t, trayTopologyByteLength> byteArray;
-        for (size_t i = 0; i < trayTopologyByteLength; i++)
+            std::array<uint8_t, trayTopologyByteLength> byteArray;
+            for (size_t i = 0; i < trayTopologyByteLength; i++)
             {
-            byteArray[i] = static_cast<uint8_t>(
-                std::stoi(property.substr((i * trayTopologyTokenLength),
-                                          trayTopologyTokenLength),
-                          nullptr, 16));
-        }
-        trayTopology* trayTopologyPtr =
-            reinterpret_cast<trayTopology*>(byteArray.data());
+                byteArray[i] = static_cast<uint8_t>(
+                    std::stoi(property.substr((i * trayTopologyTokenLength),
+                                              trayTopologyTokenLength),
+                              nullptr, 16));
+            }
+            trayTopology* trayTopologyPtr =
+                reinterpret_cast<trayTopology*>(byteArray.data());
 
-        // make sure it can support trayTopologyMinRevision at least
-        if (trayTopologyPtr->revision < trayTopologyMinRevision)
-        {
-            BMCWEB_LOG_ERROR("CBC Tray ID revision must be >= {}",
-                             static_cast<int>(trayTopologyMinRevision));
+            // make sure it can support trayTopologyMinRevision at least
+            if (trayTopologyPtr->revision < trayTopologyMinRevision)
+            {
+                BMCWEB_LOG_ERROR("CBC Tray ID revision must be >= {}",
+                                 static_cast<int>(trayTopologyMinRevision));
                 return;
             }
 
             auto& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
             oem["@odata.type"] = "#NvidiaChassis.v1_4_0.NvidiaCBCChassis";
-        oem["ChassisPhysicalSlotNumber"] = trayTopologyPtr->chassisSlotNumber;
-        oem["ComputeTrayIndex"] = trayTopologyPtr->trayIndex;
-        oem["RevisionId"] = trayTopologyPtr->revision;
-        oem["TopologyId"] = trayTopologyPtr->topologyId;
+            oem["ChassisPhysicalSlotNumber"] =
+                trayTopologyPtr->chassisSlotNumber;
+            oem["ComputeTrayIndex"] = trayTopologyPtr->trayIndex;
+            oem["RevisionId"] = trayTopologyPtr->revision;
+            oem["TopologyId"] = trayTopologyPtr->topologyId;
         });
 }
 
@@ -1507,9 +1506,9 @@ void getValidLeakDetectionPath(
          chassisId](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreePathsResponse&
                         chassisPaths) mutable {
-        validLeakDetectionCallback(ec, asyncResp, chassisPaths, chassisId,
-                                   callback);
-    });
+            validLeakDetectionCallback(ec, asyncResp, chassisPaths, chassisId,
+                                       callback);
+        });
 }
 
 inline void doLeakDetectionPolicyGet(
@@ -1750,7 +1749,7 @@ inline void handleChassisGetAllProperties(
         // NetworkAdapters collection
         asyncResp->res.jsonValue["NetworkAdapters"]["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters",
-                            chassisId);
+                                chassisId);
     }
 
     // PCIeSlots collection
@@ -2005,19 +2004,19 @@ inline void
          handler = std::forward<Handler>(handler)](
             const boost::system::error_code ec,
             const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
-        if ((!ec) && (subtreePaths.size() != 0))
-        {
-            for (const auto& path : subtreePaths)
+            if ((!ec) && (subtreePaths.size() != 0))
             {
-                sdbusplus::message::object_path chassisPath(path);
-                std::string chassisName = chassisPath.filename();
-                if (chassisId == chassisName)
+                for (const auto& path : subtreePaths)
                 {
-                    handler(asyncResp, objectPath);
+                    sdbusplus::message::object_path chassisPath(path);
+                    std::string chassisName = chassisPath.filename();
+                    if (chassisId == chassisName)
+                    {
+                        handler(asyncResp, objectPath);
+                    }
                 }
             }
-        }
-    });
+        });
 }
 
 } // namespace nvidia_chassis_utils

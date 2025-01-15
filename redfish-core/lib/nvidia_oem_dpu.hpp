@@ -620,8 +620,8 @@ inline void getOemNvidiaSwitchLinkStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& portName, const std::string& portIndex)
 {
-    std::string command = std::string(ctl3PortSwitchLinkStatusTool) + " " +
-                          portIndex;
+    std::string command =
+        std::string(ctl3PortSwitchLinkStatusTool) + " " + portIndex;
 
     auto callback = [asyncResp, portName](const boost::system::error_code& ec,
                                           int exitCode) mutable {
@@ -1188,7 +1188,8 @@ inline void handleGetOemFru([[maybe_unused]] crow::App& app,
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
-                "DBUS response error: Checking OEM FRU Enabled error{}", ec);
+                    "DBUS response error: Checking OEM FRU Enabled error{}",
+                    ec);
                 return;
             }
             if (!enabled)

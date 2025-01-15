@@ -1409,7 +1409,7 @@ inline void
     std::optional<std::string> serviceIdentification;
     std::optional<std::string> privilege;
     std::optional<bool> tlsAuth;
-    
+
     std::optional<bool> openocdValue;
 
     if (!json_util::readJsonPatch(
@@ -1497,7 +1497,7 @@ inline void
                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const std::string& managerId)
 {
-    // Default Health State. 
+    // Default Health State.
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
     asyncResp->res.jsonValue["Status"]["Health"] = "OK";
     asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";

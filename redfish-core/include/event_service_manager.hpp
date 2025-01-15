@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 #pragma once
+#include "cper_utils.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "event_matches_filter.hpp"
@@ -26,7 +27,6 @@ limitations under the License.
 #include "nvidia_event_service_manager.hpp"
 #include "ossl_random.hpp"
 #include "persistent_data.hpp"
-#include "cper_utils.hpp"
 #include "registries.hpp"
 #include "registries_selector.hpp"
 #include "str_utility.hpp"
@@ -105,8 +105,8 @@ struct TestEvent
               std::optional<std::string> originOfCondition,
               std::optional<std::string> resolution,
               std::optional<std::string> severity) :
-        eventGroupId(eventGroupId),
-        eventId(eventId), eventTimestamp(eventTimestamp), message(message),
+        eventGroupId(eventGroupId), eventId(eventId),
+        eventTimestamp(eventTimestamp), message(message),
         messageArgs(messageArgs), messageId(messageId),
         originOfCondition(originOfCondition), resolution(resolution),
         severity(severity)
@@ -1924,7 +1924,7 @@ class EventServiceManager
                                         }
                                         else
                                         {
-                                        BMCWEB_LOG_WARNING(
+                                            BMCWEB_LOG_WARNING(
                                                 "property mapping not found for {}",
                                                 messageArgs[0]);
                                         }
@@ -1942,21 +1942,21 @@ class EventServiceManager
                             }
                             else
                             {
-                            auto counter =
-                                additional.count("REDFISH_MESSAGE_ID");
-                            // when removing entries counter will be 0
-                            if (counter > 0)
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "There should be exactly one MessageId in the Dbus signal message. Found {}",
-                                    std::to_string(counter));
-                                return;
+                                auto counter =
+                                    additional.count("REDFISH_MESSAGE_ID");
+                                // when removing entries counter will be 0
+                                if (counter > 0)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "There should be exactly one MessageId in the Dbus signal message. Found {}",
+                                        std::to_string(counter));
+                                    return;
+                                }
                             }
-                        }
 
                             nlohmann::json::object_t oem;
-                        parseAdditionalDataForCPER(cper, oem, additional,
-                                                   originOfCondition);
+                            parseAdditionalDataForCPER(cper, oem, additional,
+                                                       originOfCondition);
                         }
                         else
                         {
@@ -2051,8 +2051,8 @@ class EventServiceManager
 
                 if (messageId == "")
                 {
-                // it happens when removing entries
-                BMCWEB_LOG_DEBUG("Invalid Dbus log entry.");
+                    // it happens when removing entries
+                    BMCWEB_LOG_DEBUG("Invalid Dbus log entry.");
                     return;
                 }
                 else
@@ -2102,8 +2102,8 @@ class EventServiceManager
                     }
                     else
                     {
-                    BMCWEB_LOG_WARNING(
-                        "no OriginOfCondition in event log. MsgId: {}",
+                        BMCWEB_LOG_WARNING(
+                            "no OriginOfCondition in event log. MsgId: {}",
                             messageId);
                         sendEventWithOOC(std::string{""}, event);
                     }
@@ -2130,7 +2130,8 @@ class EventServiceManager
             if (path.starts_with("/redfish/v1/"))
             {
                 std::string oocPath(path);
-                addPrefixToStringItem(oocPath, BMCWEB_REDFISH_AGGREGATION_PREFIX);
+                addPrefixToStringItem(oocPath,
+                                      BMCWEB_REDFISH_AGGREGATION_PREFIX);
                 sendEventWithOOC(oocPath, event);
                 return;
             }

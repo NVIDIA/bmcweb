@@ -26,13 +26,15 @@
 #include "manual_boot.hpp"
 #include "nvidia_protected_component.hpp"
 #include "query.hpp"
+#include "utils/health_utils.hpp"
 
 #include <openssl/bio.h>
 #include <openssl/ec.h>
-#include <health.hpp>
+
 #include <app.hpp>
 #include <boost/container/flat_map.hpp>
 #include <dbus_utility.hpp>
+#include <health.hpp>
 #include <openbmc_dbus_rest.hpp>
 #include <registries/privilege_registry.hpp>
 #include <sdbusplus/asio/property.hpp>
@@ -41,7 +43,6 @@
 #include <utils/conditions_utils.hpp>
 #include <utils/dbus_utils.hpp>
 #include <utils/json_utils.hpp>
-#include "utils/health_utils.hpp"
 
 namespace redfish
 {
@@ -142,46 +143,49 @@ inline void getChassisCertificate(
 
                             // Get the desired certificated and convert it into
                             // PEM.
-                            auto chassisID =
-                                std::filesystem::path(objectPath).filename().string();
+                            auto chassisID = std::filesystem::path(objectPath)
+                                                 .filename()
+                                                 .string();
                             if (slot)
                             {
-                                    asyncResp->res.jsonValue = {
-                                        {"@odata.id", req.url()},
-                                        {"@odata.type",
-                                        "#Certificate.v1_5_0.Certificate"},
-                                        {"Id", certificateID},
-                                        {"Name", chassisID + " Certificate Chain"},
-                                        {"CertificateType", "PEMchain"},
-                                        {"CertificateUsageTypes",
-                                        nlohmann::json::array({"Device"})},
-                                        {"SPDM", {{"SlotId", *slot}}},
-                                    };
+                                asyncResp->res.jsonValue = {
+                                    {"@odata.id", req.url()},
+                                    {"@odata.type",
+                                     "#Certificate.v1_5_0.Certificate"},
+                                    {"Id", certificateID},
+                                    {"Name", chassisID + " Certificate Chain"},
+                                    {"CertificateType", "PEMchain"},
+                                    {"CertificateUsageTypes",
+                                     nlohmann::json::array({"Device"})},
+                                    {"SPDM", {{"SlotId", *slot}}},
+                                };
                             }
 
-                    if (certs && slot && certs->size() > 0)
-                    {
-                        auto it = std::find_if(
-                            (*certs).begin(), (*certs).end(),
-                            [slot](
-                                const std::tuple<uint8_t, std::string>& cert) {
-                            return std::get<0>(cert) == (*slot);
-                        });
-                        if (it != (*certs).end())
-                        {
-                            std::cout << "Found" << std::endl;
+                            if (certs && slot && certs->size() > 0)
+                            {
+                                auto it = std::find_if(
+                                    (*certs).begin(), (*certs).end(),
+                                    [slot](
+                                        const std::tuple<uint8_t, std::string>&
+                                            cert) {
+                                        return std::get<0>(cert) == (*slot);
+                                    });
+                                if (it != (*certs).end())
+                                {
+                                    std::cout << "Found" << std::endl;
+                                }
+                                std::string certStr = std::get<1>(*it);
+                                asyncResp->res.jsonValue["CertificateString"] =
+                                    certStr;
+                            }
                         }
-                        std::string certStr = std::get<1>(*it);
-                        asyncResp->res.jsonValue["CertificateString"] = certStr;
-                    }
-                }
-            },
-                "xyz.openbmc_project.ObjectMapper",
-                std::string(object.first) + "/inventory_object",
-                "org.freedesktop.DBus.Properties", "Get",
-                "xyz.openbmc_project.Association", "endpoints");
+                    },
+                    "xyz.openbmc_project.ObjectMapper",
+                    std::string(object.first) + "/inventory_object",
+                    "org.freedesktop.DBus.Properties", "Get",
+                    "xyz.openbmc_project.Association", "endpoints");
             }
-    },
+        },
         erot::spdmServiceName, erot::spdmObjectPath,
         "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
 }

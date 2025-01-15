@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "utils/dbus_log_utils.hpp"
+
 #include <boost/url/format.hpp>
 
 #include <map>

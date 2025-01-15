@@ -134,11 +134,10 @@ static bool createTaskCallback(boost::system::error_code ec,
  * @param returnCode - zero (Errors::NoError) indicates success, others
  * errors
  */
-static void
-    createRequestCallback(task::Payload&& payload,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          bool fullSWEinjInjection,
-                          const boost::system::error_code& ec)
+static void createRequestCallback(
+    task::Payload&& payload,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    bool fullSWEinjInjection, const boost::system::error_code& ec)
 {
     if (ec)
     {
@@ -240,9 +239,9 @@ static void createRequest(App& app, const crow::Request& req,
     auto createRequestHandler =
         [payload = std::move(payload), asyncResp,
          fullSWEinjInjection](const boost::system::error_code& ec) mutable {
-        createRequestCallback(std::move(payload), asyncResp,
-                              fullSWEinjInjection, ec);
-    };
+            createRequestCallback(std::move(payload), asyncResp,
+                                  fullSWEinjInjection, ec);
+        };
     crow::connections::systemBus->async_method_call(
         std::move(createRequestHandler), "com.Nvidia.Software.Error.Injection",
         "/com/nvidia/software/error/injection",

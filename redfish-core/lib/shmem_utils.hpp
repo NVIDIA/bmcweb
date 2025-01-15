@@ -194,19 +194,19 @@ inline void metricsReplacementsNonPlatformMetrics(
     {
         if (deviceType == "NVSwitchPortMetrics")
         {
-                std::regex switchPattern(nvSwitch + "(\\d+)");
-                if (std::regex_search(e, match, switchPattern))
-                {
-                    int number = std::stoi(match[1].str());
-                    nvSwitchId_Type_1.insert(number);
-                }
-                std::regex nvLinkPattern(nvLink + "(\\d+)");
-                if (std::regex_search(e, match, nvLinkPattern))
-                {
-                    int number = std::stoi(match[1].str());
-                    nvlinkId_Type_1.insert(number);
-                }
+            std::regex switchPattern(nvSwitch + "(\\d+)");
+            if (std::regex_search(e, match, switchPattern))
+            {
+                int number = std::stoi(match[1].str());
+                nvSwitchId_Type_1.insert(number);
             }
+            std::regex nvLinkPattern(nvLink + "(\\d+)");
+            if (std::regex_search(e, match, nvLinkPattern))
+            {
+                int number = std::stoi(match[1].str());
+                nvlinkId_Type_1.insert(number);
+            }
+        }
         if (deviceType == "NVSwitchMetrics")
         {
             std::regex switchPattern(nvSwitch + "(\\d+)");

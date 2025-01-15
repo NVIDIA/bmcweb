@@ -216,7 +216,7 @@ inline void
            const std::string& svc, const std::string& path) {
             if (path.empty())
             {
-            /* There is no PLDM effecter when AC On with system off */
+                /* There is no PLDM effecter when AC On with system off */
                 return;
             }
             debugPropertiesGet(asyncResp, svc, path);
@@ -237,7 +237,7 @@ inline void debugCapabilitiesProcess(
                 messages::internalError(asyncResp->res);
                 return;
             }
-        asyncResp->res.result(boost::beast::http::status::ok);
+            asyncResp->res.result(boost::beast::http::status::ok);
             messages::success(asyncResp->res, method);
         },
         svc, path, "xyz.openbmc_project.Control.Processor.RemoteDebug", method,
@@ -256,7 +256,7 @@ inline void debugPropertySet(
                 messages::internalError(asyncResp->res);
                 return;
             }
-        asyncResp->res.result(boost::beast::http::status::ok);
+            asyncResp->res.result(boost::beast::http::status::ok);
             messages::success(asyncResp->res, prop);
         },
         svc, path, "org.freedesktop.DBus.Properties", "Set",

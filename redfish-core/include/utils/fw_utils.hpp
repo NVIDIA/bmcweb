@@ -705,9 +705,9 @@ inline void populateSlotInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                                     }
                                     else
                                     {
-                                BMCWEB_LOG_ERROR(
-                                    "FirmwareState '{}' not found in map",
-                                    *value);
+                                        BMCWEB_LOG_ERROR(
+                                            "FirmwareState '{}' not found in map",
+                                            *value);
                                         oemSlot["FirmwareState"] = "";
                                     }
                                 }

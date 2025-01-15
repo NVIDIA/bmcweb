@@ -22,7 +22,7 @@ inline void bootModeQuery(const crow::Request& req,
             {
                 BMCWEB_LOG_ERROR("Endpoint ID for {} not found", chassisId);
                 nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
-            oem["@odata.type"] = "#NvidiaChassis.v1_5_0.NvidiaRoTChassis";
+                oem["@odata.type"] = "#NvidiaChassis.v1_5_0.NvidiaRoTChassis";
                 oem["ManualBootModeEnabled"] = nullptr;
                 messages::resourceErrorsDetectedFormatError(
                     asyncResp->res, "Oem/Nvidia/ManualBootModeEnabled",
@@ -110,8 +110,9 @@ inline void bootModeSet(const crow::Request& req,
                 enabled ? MctpVdmUtilCommand::BOOTMODE_ENABLE
                         : MctpVdmUtilCommand::BOOTMODE_DISABLE;
             mctpVdmUtilWrapper.run(
-            cmd, std::monostate(), req, asyncResp,
-            [chassisId](const crow::Request&,
+                cmd, std::monostate(), req, asyncResp,
+                [chassisId](
+                    const crow::Request&,
                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     uint32_t, const std::string& stdOut, const std::string&,
                     const boost::system::error_code& ec, int errorCode) {
@@ -134,9 +135,9 @@ inline void bootModeSet(const crow::Request& req,
                         messages::internalError(asyncResp->res);
                         return;
                     }
-            BMCWEB_LOG_ERROR("Invalid disable_boot_mode"
-                             " / enable_boot_mode response: {}",
-                             stdOut);
+                    BMCWEB_LOG_ERROR("Invalid disable_boot_mode"
+                                     " / enable_boot_mode response: {}",
+                                     stdOut);
                     messages::resourceErrorsDetectedFormatError(
                         asyncResp->res, "Oem/Nvidia/ManualBootModeEnabled",
                         "invalid backend response");
@@ -173,8 +174,9 @@ inline void bootAp(const crow::Request& req,
                 static_cast<uint32_t>(endpoints->begin()->getMctpEid());
             MctpVdmUtil mctpVdmUtilWrapper(eid);
             mctpVdmUtilWrapper.run(
-            MctpVdmUtilCommand::BOOT_AP, std::monostate(), req, asyncResp,
-            [chassisId](const crow::Request&,
+                MctpVdmUtilCommand::BOOT_AP, std::monostate(), req, asyncResp,
+                [chassisId](
+                    const crow::Request&,
                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     uint32_t, const std::string& stdOut, const std::string&,
                     const boost::system::error_code& ec, int errorCode) {
@@ -192,9 +194,9 @@ inline void bootAp(const crow::Request& req,
                     }
                     if (std::regex_match(stdOut, std::regex(reFailure)))
                     {
-                messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res, "BootProtectedDevice",
-                    "attestation mode is off (manual boot is disabled)");
+                        messages::resourceErrorsDetectedFormatError(
+                            asyncResp->res, "BootProtectedDevice",
+                            "attestation mode is off (manual boot is disabled)");
                         return;
                     }
                     BMCWEB_LOG_ERROR("Invalid boot_ap response: {}", stdOut);

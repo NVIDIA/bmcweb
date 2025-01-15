@@ -381,7 +381,7 @@ class TargetedOperationHandler
     {
         if (callback)
         {
-        callback(EndpointState::Error, std::monostate());
+            callback(EndpointState::Error, std::monostate());
         }
         else
         {

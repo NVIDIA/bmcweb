@@ -1,8 +1,8 @@
 #pragma once
+#include "async_resp.hpp"
+
 #include <utils/chassis_utils.hpp>
 #include <utils/nvidia_chassis_util.hpp>
-
-#include "async_resp.hpp"
 
 namespace redfish
 {
@@ -61,7 +61,8 @@ inline void
     }
 
     if (!(BMCWEB_PLATFORM_DEVICE_PREFIX.length() > 0) ||
-        !(boost::starts_with(chassisPath.filename(), BMCWEB_PLATFORM_DEVICE_PREFIX)))
+        !(boost::starts_with(chassisPath.filename(),
+                             BMCWEB_PLATFORM_DEVICE_PREFIX)))
     {
         defaultSystemURI(asyncResp);
         return;
@@ -70,14 +71,15 @@ inline void
     chassis_utils::getRedfishURL(
         chassisPath.str,
         [asyncResp](const bool& status, const std::string& url) {
-        nlohmann::json& itemsArray = asyncResp->res.jsonValue["RelatedItem"];
-        if (!status)
-        {
-            defaultSystemURI(asyncResp);
-            return;
-        }
-        itemsArray.push_back({nlohmann::json::array({"@odata.id", url})});
-    });
+            nlohmann::json& itemsArray =
+                asyncResp->res.jsonValue["RelatedItem"];
+            if (!status)
+            {
+                defaultSystemURI(asyncResp);
+                return;
+            }
+            itemsArray.push_back({nlohmann::json::array({"@odata.id", url})});
+        });
 }
 
 inline void getRelatedNetworkAdapterData(
@@ -93,14 +95,14 @@ inline void getRelatedNetworkAdapterData(
             if (ec)
             {
                 // If chassis link fails, fallback to default system URI
-            defaultSystemURI(asyncResp);
+                defaultSystemURI(asyncResp);
                 return;
             }
             std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
             if (data == nullptr)
             {
-            defaultSystemURI(asyncResp);
+                defaultSystemURI(asyncResp);
                 return;
             }
             for (const std::string& chassisPath : *data)
@@ -110,16 +112,18 @@ inline void getRelatedNetworkAdapterData(
 
                 // Now check the network adapter link
                 crow::connections::systemBus->async_method_call(
-                [asyncResp, chassisId,
-                 objectPath](const boost::system::error_code ec1,
-                                std::variant<std::vector<std::string>>& resp1) {
+                    [asyncResp, chassisId, objectPath](
+                        const boost::system::error_code ec1,
+                        std::variant<std::vector<std::string>>& resp1) {
                         if (ec1)
                         {
-                    // If network adapter call fails,
-                    // ensure to pick up the resource from Chassis interface
-                    redfish::nvidia_chassis_utils::getChassisRelatedItem(
-                        asyncResp, objectPath, chassisId,
-                        handleChassisRedfishURL);
+                            // If network adapter call fails,
+                            // ensure to pick up the resource from Chassis
+                            // interface
+                            redfish::nvidia_chassis_utils::
+                                getChassisRelatedItem(asyncResp, objectPath,
+                                                      chassisId,
+                                                      handleChassisRedfishURL);
                             return;
                         }
                         std::vector<std::string>* data1 =

@@ -265,23 +265,22 @@ inline void getDriveVersion(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         });
 }
 
-inline void
-    getDriveFWVersion(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& connectionName,
-                      const std::string& path)
+inline void getDriveFWVersion(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& connectionName, const std::string& path)
 {
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Software.Version", "Version",
-        [asyncResp, path](const boost::system::error_code ec,
-                          const std::string& version) {
-        if (ec)
-        {
-            return;
-        }
+        [asyncResp,
+         path](const boost::system::error_code ec, const std::string& version) {
+            if (ec)
+            {
+                return;
+            }
 
-        asyncResp->res.jsonValue["FirmwareVersion"] = version;
-    });
+            asyncResp->res.jsonValue["FirmwareVersion"] = version;
+        });
 }
 
 inline void
@@ -1078,34 +1077,35 @@ inline void getChassisID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         path + "/chassis",
         [asyncResp, driveId](const boost::system::error_code& ec3,
                              const dbus::utility::MapperEndPoints& resp) {
-        if (ec3)
+            if (ec3)
             {
-            BMCWEB_LOG_ERROR("Error in chassis ID association ");
+                BMCWEB_LOG_ERROR("Error in chassis ID association ");
                 return;
             }
 
-        if (resp.empty())
+            if (resp.empty())
             {
-            // No ChassisID associated
-            return;
-                }
+                // No ChassisID associated
+                return;
+            }
 
-        // Find the chassisId that contains this driveId
-        sdbusplus::message::object_path chassis_path(resp[0]);
-        auto chassisId = std::string(chassis_path.filename());
+            // Find the chassisId that contains this driveId
+            sdbusplus::message::object_path chassis_path(resp[0]);
+            auto chassisId = std::string(chassis_path.filename());
 
-        asyncResp->res.jsonValue["Links"]["Chassis"]["@odata.id"] =
-            "/redfish/v1/Chassis/" + chassisId;
+            asyncResp->res.jsonValue["Links"]["Chassis"]["@odata.id"] =
+                "/redfish/v1/Chassis/" + chassisId;
 
-        asyncResp->res.jsonValue["Actions"]["#Drive.SecureErase"]["target"] =
-            boost::urls::format(
+            asyncResp->res.jsonValue["Actions"]["#Drive.SecureErase"]
+                                    ["target"] = boost::urls::format(
                 "/redfish/v1/Chassis/{}/Drives/{}/Actions/Drive.SecureErase",
                 chassisId, driveId);
 
-        asyncResp->res.jsonValue["Actions"]["#Drive.SecureErase"]
-                                ["@Redfish.ActionInfo"] = boost::urls::format(
-            "/redfish/v1/Chassis/{}/Drives/{}/SanitizeActionInfo", chassisId,
-            driveId);
+            asyncResp->res.jsonValue["Actions"]["#Drive.SecureErase"]
+                                    ["@Redfish.ActionInfo"] =
+                boost::urls::format(
+                    "/redfish/v1/Chassis/{}/Drives/{}/SanitizeActionInfo",
+                    chassisId, driveId);
         });
 }
 
@@ -1198,8 +1198,8 @@ inline void createSanitizeProgressTask(
     task->payload.emplace(req);
     task->populateResp(asyncResp->res);
 
-    taskUri[driveId] = "/redfish/v1/TaskService/Tasks/" +
-                       std::to_string(task->index);
+    taskUri[driveId] =
+        "/redfish/v1/TaskService/Tasks/" + std::to_string(task->index);
 }
 
 inline void handleDriveSanitizePost(
@@ -1413,7 +1413,7 @@ inline void handleDriveSanitizetActionInfoGet(
                             allowed.push_back("CryptographicErase");
                         }
                         parameter["Name"] = "SanitizationType";
-                parameter["DataType"] = "String";
+                        parameter["DataType"] = "String";
 
                         parameter["AllowableValues"] = allowed;
                         parameters.push_back(parameter);

@@ -353,8 +353,8 @@ inline void getAllNameSpaceObjects(
     crow::connections::systemBus->async_method_call(
         [callback{std::move(callbackIn)}](const boost::system::error_code& ec,
                                           const ManagedObjectType& objects) {
-        callback(ec, objects);
-    },
+            callback(ec, objects);
+        },
         service, path, "xyz.openbmc_project.Logging.Namespace", "GetAll",
         namespaceName, filter);
 }

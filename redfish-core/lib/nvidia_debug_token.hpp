@@ -116,39 +116,39 @@ inline void handleDebugTokenResourceInfo(
     auto resultCallback = [asyncResp, chassisId,
                            resUri](EndpointState state,
                                    TargetedOperationResult result) {
-            if (state == EndpointState::DebugTokenUnsupported)
-            {
-                messages::debugTokenUnsupported(asyncResp->res, chassisId);
-                return;
-            }
-            NsmTokenStatus* tokenStatus = std::get_if<NsmTokenStatus>(&result);
-            if (!tokenStatus)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            auto& resJson = asyncResp->res.jsonValue;
-            nsmTokenStatusToJson(*tokenStatus, resJson);
+        if (state == EndpointState::DebugTokenUnsupported)
+        {
+            messages::debugTokenUnsupported(asyncResp->res, chassisId);
+            return;
+        }
+        NsmTokenStatus* tokenStatus = std::get_if<NsmTokenStatus>(&result);
+        if (!tokenStatus)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        auto& resJson = asyncResp->res.jsonValue;
+        nsmTokenStatusToJson(*tokenStatus, resJson);
         resJson["@odata.type"] = "#NvidiaDebugToken.v1_1_0.NvidiaDebugToken";
-            resJson["@odata.id"] = resUri;
-            resJson["Id"] = "DebugToken";
-            resJson["Name"] = chassisId + " Debug Token Resource"s;
+        resJson["@odata.id"] = resUri;
+        resJson["Id"] = "DebugToken";
+        resJson["Name"] = chassisId + " Debug Token Resource"s;
 
-            auto& actions = resJson["Actions"];
-            auto& generateAction = actions["#NvidiaDebugToken.GenerateToken"];
-            generateAction["target"] =
-                resUri + "/Actions/NvidiaDebugToken.GenerateToken"s;
-            generateAction["@Redfish.ActionInfo"] =
-                resUri + "/GenerateTokenActionInfo"s;
-            auto& installAction = actions["#NvidiaDebugToken.InstallToken"];
-            installAction["target"] =
-                resUri + "/Actions/NvidiaDebugToken.InstallToken"s;
-            installAction["@Redfish.ActionInfo"] =
-                resUri + "/InstallTokenActionInfo"s;
-            auto& disableAction = actions["#NvidiaDebugToken.DisableToken"];
-            disableAction["target"] =
-                resUri + "/Actions/NvidiaDebugToken.DisableToken"s;
-        };
+        auto& actions = resJson["Actions"];
+        auto& generateAction = actions["#NvidiaDebugToken.GenerateToken"];
+        generateAction["target"] =
+            resUri + "/Actions/NvidiaDebugToken.GenerateToken"s;
+        generateAction["@Redfish.ActionInfo"] =
+            resUri + "/GenerateTokenActionInfo"s;
+        auto& installAction = actions["#NvidiaDebugToken.InstallToken"];
+        installAction["target"] =
+            resUri + "/Actions/NvidiaDebugToken.InstallToken"s;
+        installAction["@Redfish.ActionInfo"] =
+            resUri + "/InstallTokenActionInfo"s;
+        auto& disableAction = actions["#NvidiaDebugToken.DisableToken"];
+        disableAction["target"] =
+            resUri + "/Actions/NvidiaDebugToken.DisableToken"s;
+    };
     chassis_utils::getValidChassisID(
         asyncResp, chassisId,
         [asyncResp, chassisId,

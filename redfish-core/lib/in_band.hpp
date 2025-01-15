@@ -34,11 +34,10 @@
  *
  * @return
  */
-inline void
-    updateInBandEnabled(const crow::Request& req,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        uint32_t endpointId, const auto& allowListMap,
-                        const std::string& chassisId,
+inline void updateInBandEnabled(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t endpointId,
+    const auto& allowListMap, const std::string& chassisId,
     const std::function<void()>& callback = {})
 {
     MctpVdmUtil mctpVdmUtilWrapper(endpointId);
@@ -85,7 +84,7 @@ inline void
     {
         mctpVdmUtilWrapper.run(MctpVdmUtilCommand::INBAND_STATUS,
                                std::monostate(), req, asyncResp,
-                           responseCallback);
+                               responseCallback);
     }
 
     return;

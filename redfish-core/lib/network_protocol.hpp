@@ -569,13 +569,11 @@ inline void handleManagersNetworkProtocolPatch(
             "NTP/ProtocolEnabled", ntpEnabled, //
             "IPMI/ProtocolEnabled", ipmiEnabled, //
             "SSH/ProtocolEnabled", sshEnabled, //
-            "Oem/Nvidia/Rsyslog/State", state,
-            "Oem/Nvidia/Rsyslog/Address", address,
-            "Oem/Nvidia/Rsyslog/Port", port,
-            "Oem/Nvidia/Rsyslog/Protocol", protocol,
-            "Oem/Nvidia/Rsyslog/TLS", tls,
-            "Oem/Nvidia/Rsyslog/Filter/Facilities", facility,
-            "Oem/Nvidia/Rsyslog/Filter/LowestSeverity", severity))            
+            "Oem/Nvidia/Rsyslog/State", state, "Oem/Nvidia/Rsyslog/Address",
+            address, "Oem/Nvidia/Rsyslog/Port", port,
+            "Oem/Nvidia/Rsyslog/Protocol", protocol, "Oem/Nvidia/Rsyslog/TLS",
+            tls, "Oem/Nvidia/Rsyslog/Filter/Facilities", facility,
+            "Oem/Nvidia/Rsyslog/Filter/LowestSeverity", severity))
     {
         return;
     }

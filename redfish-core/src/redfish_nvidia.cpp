@@ -10,8 +10,8 @@
 #include "erot_chassis.hpp"
 #include "fabric.hpp"
 #include "host_interface.hpp"
-#include "leak_detector.hpp"
 #include "leak_detection.hpp"
+#include "leak_detector.hpp"
 #include "log_services_manufacturing_test.hpp"
 #include "memory.hpp"
 #include "network_adapters.hpp"
@@ -26,24 +26,24 @@
 #include "nvidia_log_services_xid.hpp"
 #include "nvidia_managers.hpp"
 #include "nvidia_oem_dpu.hpp"
+#include "nvidia_policy.hpp"
 #include "nvidia_power_smoothing.hpp"
 #include "nvidia_protected_component.hpp"
+#include "nvidia_sweinj.hpp"
 #include "nvidia_update_service.hpp"
 #include "nvidia_workload_power_profiles.hpp"
 #include "pcie.hpp"
 #include "pcieslots.hpp"
 #include "ports.hpp"
-#include "profiles.hpp"
-#include "nvidia_policy.hpp"
 #include "processor.hpp"
-#include "service_conditions.hpp"
+#include "profiles.hpp"
 #include "secure_boot.hpp"
 #include "secure_boot_database.hpp"
+#include "service_conditions.hpp"
 #include "system_host_eth.hpp"
 #include "trigger.hpp"
 #include "trusted_components.hpp"
 #include "update_service.hpp"
-#include "nvidia_sweinj.hpp"
 namespace redfish
 {
 void requestRoutesNvidia(crow::App& app)
@@ -289,12 +289,11 @@ void requestRoutesNvidia(crow::App& app)
         nvidia_manager_util::requestRouteNSMRawCommand(app);
         nvidia_manager_util::requestRouteNSMRawCommandActionInfo(app);
     }
-    
+
     if constexpr (BMCWEB_REDFISH_SW_EINJ)
     {
         nvidia::sweinj::requestRoutesSwEinjAction(app);
     }
-
 }
 
 } // namespace redfish
