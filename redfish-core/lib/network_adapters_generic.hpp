@@ -23,6 +23,7 @@
 #include <utils/chassis_utils.hpp>
 #include <utils/collection.hpp>
 #include <utils/json_utils.hpp>
+#include <utils/nvidia_network_adapters_utils.hpp>
 #include <utils/nvidia_utils.hpp>
 #include <utils/port_utils.hpp>
 
@@ -793,13 +794,8 @@ inline void doNetworkAdapterGeneric(
                            networkAdapterId);
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-        auto& nvidiaJson = asyncResp->res.jsonValue["Oem"]["Nvidia"];
-        nvidiaJson["@odata.type"] =
-            "#NvidiaNetworkAdapter.v1_0_0.NvidiaNetworkAdapter";
-        nvidiaJson["ErrorInjection"] = {
-            {"@odata.id", "/redfish/v1/Chassis/" + chassisId +
-                              "/NetworkAdapters/" + networkAdapterId +
-                              "/Oem/Nvidia/ErrorInjection"}};
+        redfish::nvidia_network_adapters_utils::populateErrorInjectionLink(
+            asyncResp, chassisId, networkAdapterId, *validNetworkAdapterPath);
     }
 }
 
