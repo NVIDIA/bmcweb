@@ -18,6 +18,7 @@
 #include "app.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "generated/enums/nvidia_network_protocol.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
@@ -31,143 +32,122 @@
 #include <array>
 #include <optional>
 #include <regex>
+#include <string>
 #include <string_view>
-#include <variant>
 
 namespace redfish
 {
 namespace rsyslog
 {
-inline std::string getLastWordAfterDot(std::string str)
+
+inline nvidia_network_protocol::ClientStatus
+    dbusToClientStatus(bool clientState)
 {
-    // Find the position of the last dot
-    size_t pos = str.rfind('.');
-    if (pos != std::string::npos)
+    if (clientState)
     {
-        // Return the substring after the last dot
-        return str.substr(pos + 1);
+        return nvidia_network_protocol::ClientStatus::Enabled;
     }
-    return str; // Return the whole string if no dot is found
+    if (!clientState)
+    {
+        return nvidia_network_protocol::ClientStatus::Disabled;
+    }
+    return nvidia_network_protocol::ClientStatus::Invalid;
+}
+
+inline nvidia_network_protocol::TLSStatus dbusToTLSStatus(const bool& tlsState)
+{
+    if (tlsState == true)
+    {
+        return nvidia_network_protocol::TLSStatus::Enabled;
+    }
+    else if (tlsState == false)
+    {
+        return nvidia_network_protocol::TLSStatus::Disabled;
+    }
+    return nvidia_network_protocol::TLSStatus::Invalid;
+}
+
+inline nvidia_network_protocol::FilterSeverity
+    dbusToFilterSeverity(const std::string& sevStr)
+{
+    if (sevStr ==
+        "xyz.openbmc_project.Logging.RsyslogClient.SeverityType.Error")
+    {
+        return nvidia_network_protocol::FilterSeverity::Error;
+    }
+    else if (sevStr ==
+             "xyz.openbmc_project.Logging.RsyslogClient.SeverityType.Warning")
+    {
+        return nvidia_network_protocol::FilterSeverity::Warning;
+    }
+    else if (sevStr ==
+             "xyz.openbmc_project.Logging.RsyslogClient.SeverityType.Info")
+    {
+        return nvidia_network_protocol::FilterSeverity::Info;
+    }
+    else if (sevStr ==
+             "xyz.openbmc_project.Logging.RsyslogClient.SeverityType.All")
+    {
+        return nvidia_network_protocol::FilterSeverity::All;
+    }
+    return nvidia_network_protocol::FilterSeverity::Invalid;
+}
+
+inline nvidia_network_protocol::FilterFacility
+    dbusToFilterFacility(const std::string& facStr)
+{
+    if (facStr ==
+        "xyz.openbmc_project.Logging.RsyslogClient.FacilityType.Daemon")
+    {
+        return nvidia_network_protocol::FilterFacility::Daemon;
+    }
+    else if (facStr ==
+             "xyz.openbmc_project.Logging.RsyslogClient.FacilityType.Kern")
+    {
+        return nvidia_network_protocol::FilterFacility::Kern;
+    }
+    else if (facStr ==
+             "xyz.openbmc_project.Logging.RsyslogClient.FacilityType.All")
+    {
+        return nvidia_network_protocol::FilterFacility::All;
+    }
+    return nvidia_network_protocol::FilterFacility::Invalid;
+}
+
+inline nvidia_network_protocol::Protocol
+    dbusToProtocol(const std::string& protoStr)
+{
+    if (protoStr == "xyz.openbmc_project.Network.Client.TransportProtocol.TCP")
+    {
+        return nvidia_network_protocol::Protocol::TCP;
+    }
+    else if (protoStr ==
+             "xyz.openbmc_project.Network.Client.TransportProtocol.UDP")
+    {
+        return nvidia_network_protocol::Protocol::UDP;
+    }
+    return nvidia_network_protocol::Protocol::Invalid;
 }
 
 inline std::optional<bool> isEnabled(const std::optional<std::string>& input)
 {
+    if (!input)
+    {
+        return std::nullopt; // Input is nullopt, cannot determine state
+    }
+
     if (*input == "Enabled")
     {
         return true; // Enabled
     }
-    return false;    // Not enabled
-}
-
-inline std::optional<std::string>
-    getEnabledState(const std::optional<bool>& state)
-{
-    if (!state.has_value())
+    else if (*input == "Disabled")
     {
-        return std::nullopt;                       // No value provided
-    }
-    return state.value() ? "Enabled" : "Disabled"; // Map true/false to strings
-}
-
-// Function to validate IPv4 address
-inline bool isValidIPv4(const std::string& ipAddress)
-{
-    std::vector<std::string> parts;
-    bmcweb::split(parts, ipAddress, '.');
-    if (parts.size() != 4)
-    {
-        return false; // IPv4 must have exactly 4 parts
+        return false; // Disabled
     }
 
-    for (const auto& part : parts)
-    {
-        if (part.empty() || part.length() > 3)
-        {
-            return false; // Each part must be 1-3 characters
-        }
-        for (char ch : part)
-        {
-            if (!isdigit(ch))
-            {
-                return false; // Only digits are allowed
-            }
-        }
-        int num = std::stoi(part);
-        if (num < 0 || num > 255)
-        {
-            return false; // Each part must be between 0 and 255
-        }
-    }
-    return true;
-}
-
-// Function to validate IPv6 address
-inline bool isValidIPv6(const std::string& ipAddress)
-{
-    std::vector<std::string> parts;
-    bmcweb::split(parts, ipAddress, '.');
-    if (parts.size() < 3 || parts.size() > 8)
-    {
-        return false; // IPv6 must have 3-8 parts
-    }
-
-    for (const auto& part : parts)
-    {
-        if (part.length() > 4)
-        {
-            return false; // Each part must be 1-4 hex digits
-        }
-        for (char ch : part)
-        {
-            if (!isxdigit(ch))
-            {
-                return false; // Only hex digits are allowed
-            }
-        }
-    }
-    return true;
-}
-
-// Function to validate IP address (IPv4 or IPv6)
-inline bool isValidIpAddress(const std::string& ipAddress)
-{
-    if (ipAddress.find('.') != std::string::npos)
-    {
-        return isValidIPv4(ipAddress); // Check for IPv4
-    }
-    if (ipAddress.find(':') != std::string::npos)
-    {
-        return isValidIPv6(ipAddress); // Check for IPv6
-    }
-    return false;                      // Not a valid IP address
-}
-
-// Function to validate port
-inline bool isValidPort(int port)
-{
-    return port >= 0 && port <= 65535; // Port must be in the valid range
-}
-
-// Sanity function
-inline bool sanityCheck(const std::string& ipAddress,
-                        std::optional<uint16_t> port)
-{
-    if (ipAddress.empty() && !port.has_value())
-    {
-        return true; // Skip checks if both are "empty".
-    }
-
-    if (!ipAddress.empty() && !isValidIpAddress(ipAddress))
-    {
-        return false; // Validate IP address if present.
-    }
-
-    if (port.has_value() && !isValidPort(*port))
-    {
-        return false; // Validate port if present.
-    }
-
-    return true; // Either valid values or skipped checks.
+    // Invalid input case
+    BMCWEB_LOG_ERROR("Invalid input value for isEnabled: {}", *input);
+    return std::nullopt;
 }
 
 inline void populateRsyslogClientSettings(
@@ -178,15 +158,16 @@ inline void populateRsyslogClientSettings(
 
     asyncResp->res.jsonValue["Oem"] = nlohmann::json::object();
     asyncResp->res.jsonValue["Oem"]["Nvidia"] = nlohmann::json::object();
-    asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"] =
-        nlohmann::json::object();
-    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+    auto& rsyslog = asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"];
+    rsyslog = nlohmann::json::object();
+    rsyslog["@odata.type"] =
         "#NvidiaNetworkProtocol.v1_0_0.NvidiaNetworkProtocol";
 
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, service, path, "",
-        [asyncResp](const boost::system::error_code& ec,
-                    const dbus::utility::DBusPropertiesMap& properties) {
+        [asyncResp,
+         &rsyslog](const boost::system::error_code& ec,
+                   const dbus::utility::DBusPropertiesMap& properties) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("Failed to get properties: {}", ec.message());
@@ -218,65 +199,44 @@ inline void populateRsyslogClientSettings(
         // Populate JSON response with the retrieved properties
         if (enabled)
         {
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["State"] =
-                getEnabledState(enabled);
+            auto clientState = dbusToClientStatus(*enabled);
+            rsyslog["State"] = clientState;
         }
         if (address)
         {
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["Address"] =
-                *address;
+            rsyslog["Address"] = *address;
         }
         if (port)
         {
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["Port"] =
-                *port;
+            rsyslog["Port"] = *port;
         }
         if (tls)
         {
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["TLS"] =
-                getEnabledState(tls);
+            auto tlsStatus = dbusToTLSStatus(*tls);
+            rsyslog["TLS"] = tlsStatus;
         }
         if (facility)
         {
-            nlohmann::json& jsonArray =
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["Filter"]
-                                        ["Facilities"];
+            nlohmann::json& jsonArray = rsyslog["Filter"]["Facilities"];
             jsonArray = nlohmann::json::array();
             for (const auto& f : *facility)
             {
-                jsonArray.push_back(getLastWordAfterDot(f));
+                nvidia_network_protocol::FilterFacility fac =
+                    dbusToFilterFacility(f);
+                jsonArray.push_back(fac);
             }
         }
         if (severity)
         {
-            asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["Filter"]
-                                    ["LowestSeverity"] =
-                getLastWordAfterDot(*severity);
+            nvidia_network_protocol::FilterSeverity sev =
+                dbusToFilterSeverity(*severity);
+            rsyslog["Filter"]["LowestSeverity"] = sev;
         }
         if (transportProtocol)
         {
-            asyncResp->res
-                .jsonValue["Oem"]["Nvidia"]["Rsyslog"]["TransportProtocol"] =
-                getLastWordAfterDot(*transportProtocol);
-        }
-    });
-}
-
-inline void
-    setRsyslogProperty(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& service, const std::string& path,
-                       const std::string& interface,
-                       const std::string& property, const auto& value)
-{
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, service, path, interface, property,
-        value, [asyncResp, property](const boost::system::error_code& ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Failed to set property {}: {}", property,
-                             ec.message());
-            messages::internalError(asyncResp->res);
-            return;
+            nvidia_network_protocol::Protocol proto =
+                dbusToProtocol(*transportProtocol);
+            rsyslog["TransportProtocol"] = proto;
         }
     });
 }
@@ -295,36 +255,48 @@ inline void processRsyslogClientSettings(
     const std::string service = "xyz.openbmc_project.Syslog.Config";
 
     // Set State
-    if (state.has_value() && !state->empty())
+    if (state)
     {
+        if (isEnabled(state) == std::nullopt)
+        {
+            BMCWEB_LOG_ERROR("Invalid State value for rsyslog");
+            messages::propertyValueFormatError(asyncResp->res, *state, "State");
+            return;
+        }
         const std::optional<bool>& enabled = isEnabled(state);
-        setRsyslogProperty(asyncResp, service, path,
-                           "xyz.openbmc_project.Logging.RsyslogClient",
-                           "Enabled", *enabled);
+        setDbusProperty(asyncResp, "Oem/Nvidia/Rsyslog/State", service, path,
+                        "xyz.openbmc_project.Logging.RsyslogClient", "Enabled",
+                        *enabled);
     }
 
     // Set Address
     if (address)
     {
-        setRsyslogProperty(asyncResp, service, path,
-                           "xyz.openbmc_project.Network.Client", "Address",
-                           *address);
+        setDbusProperty(asyncResp, "Oem/Nvidia/Rsyslog/Address", service, path,
+                        "xyz.openbmc_project.Network.Client", "Address",
+                        *address);
     }
 
     // Set Port
     if (port)
     {
-        setRsyslogProperty(asyncResp, service, path,
-                           "xyz.openbmc_project.Network.Client", "Port", *port);
+        setDbusProperty(asyncResp, "Oem/Nvidia/Rsyslog/Port", service, path,
+                        "xyz.openbmc_project.Network.Client", "Port", *port);
     }
 
     // Set TLS
-    if (TLS.has_value() && !TLS->empty())
+    if (TLS)
     {
+        if (isEnabled(TLS) == std::nullopt)
+        {
+            BMCWEB_LOG_ERROR("Invalid TLS value for rsyslog");
+            messages::propertyValueFormatError(asyncResp->res, *TLS, "TLS");
+            return;
+        }
         const std::optional<bool>& tls = isEnabled(TLS);
-        setRsyslogProperty(asyncResp, service, path,
-                           "xyz.openbmc_project.Logging.RsyslogClient", "Tls",
-                           *tls);
+        setDbusProperty(asyncResp, "Oem/Nvidia/Rsyslog/TLS", service, path,
+                        "xyz.openbmc_project.Logging.RsyslogClient", "Tls",
+                        *tls);
     }
 
     // Validate and Set Facility
@@ -355,9 +327,10 @@ inline void processRsyslogClientSettings(
                 return;
             }
         }
-        setRsyslogProperty(asyncResp, service, path,
-                           "xyz.openbmc_project.Logging.RsyslogClient",
-                           "Facility", facilityDbus);
+        setDbusProperty(asyncResp, "Oem/Nvidia/Rsyslog/Filter/Facilities",
+                        service, path,
+                        "xyz.openbmc_project.Logging.RsyslogClient", "Facility",
+                        facilityDbus);
     }
 
     // Validate and Set Severity
@@ -369,9 +342,10 @@ inline void processRsyslogClientSettings(
             std::string severityDbus =
                 "xyz.openbmc_project.Logging.RsyslogClient.SeverityType." +
                 *severity;
-            setRsyslogProperty(asyncResp, service, path,
-                               "xyz.openbmc_project.Logging.RsyslogClient",
-                               "Severity", severityDbus);
+            setDbusProperty(asyncResp,
+                            "Oem/Nvidia/Rsyslog/Filter/LowestSeverity", service,
+                            path, "xyz.openbmc_project.Logging.RsyslogClient",
+                            "Severity", severityDbus);
         }
         else
         {
@@ -390,9 +364,9 @@ inline void processRsyslogClientSettings(
             std::string protocolDbus =
                 "xyz.openbmc_project.Network.Client.TransportProtocol." +
                 *transportProtocol;
-            setRsyslogProperty(asyncResp, service, path,
-                               "xyz.openbmc_project.Network.Client",
-                               "TransportProtocol", protocolDbus);
+            setDbusProperty(asyncResp, "Oem/Nvidia/Rsyslog/Protocol", service,
+                            path, "xyz.openbmc_project.Network.Client",
+                            "TransportProtocol", protocolDbus);
         }
         else
         {
@@ -403,8 +377,6 @@ inline void processRsyslogClientSettings(
             return;
         }
     }
-    messages::success(asyncResp->res);
-    asyncResp->res.result(boost::beast::http::status::ok);
 }
 
 } // namespace rsyslog
