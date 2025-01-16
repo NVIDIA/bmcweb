@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaSwitch  v1.2.0                                            -->
+<!--# Redfish OEM Schema:  NvidiaSwitch  v1.3.0                                            -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2024 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -26,6 +26,9 @@
   </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaSwitchPowerMode_v1.xml">
     <edmx:Include Namespace="NvidiaSwitchPowerMode"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaHistogramCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaHistogramCollection"/>
   </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSwitch">
@@ -91,6 +94,17 @@
           <Annotation Term="OData.Description" String="Switch to Switch communication is disabled."/>
         </Member>
       </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSwitch.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaSwitch" BaseType="NvidiaSwitch.v1_2_0.NvidiaSwitch">
+        <NavigationProperty Name="Histograms" Type="NvidiaHistogramCollection.NvidiaHistogramCollection" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the collection of histograms associated with this switch."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type `HistogramCollection`."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
