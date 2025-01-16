@@ -327,7 +327,7 @@ inline void
                     continue;
                 }
                 aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaSwitch.v1_2_0.NvidiaSwitch";
+                    "#NvidiaSwitch.v1_3_0.NvidiaSwitch";
                 aResp->res.jsonValue["Oem"]["Nvidia"]["ErrorInjection"] = {
                     {"@odata.id", "/redfish/v1/Fabrics/" + fabricId +
                                       "/Switches/" + switchId +
@@ -468,7 +468,7 @@ inline void
         std::string switchPowerModeURI = switchURI;
         switchPowerModeURI += "/Oem/Nvidia/PowerMode";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaSwitch.v1_2_0.NvidiaSwitch";
+            "#NvidiaSwitch.v1_3_0.NvidiaSwitch";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["PowerMode"]["@odata.id"] =
             switchPowerModeURI;
         return;
@@ -588,18 +588,39 @@ inline void
         serv, objPath, "org.freedesktop.DBus.Properties", "GetAll", interface);
 }
 
-inline void getSwitchHistogramLink(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::vector<std::string>& interfaces,
-    const std::string& switchURI)
+inline void
+    getSwitchHistogramLink(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& switchURI,
+                           const std::string& objectPath)
 {
-    // TODO: to be done based on discovery flow, for now adding link
-    std::string switchHistogramURI = switchURI;
-    switchHistogramURI += "/Oem/Nvidia/Histograms";
-    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-        "#NvidiaSwitch.v1_3_0.NvidiaSwitch";
-    asyncResp->res.jsonValue["Oem"]["Nvidia"]["Histograms"]["@odata.id"] =
-        switchHistogramURI;
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, switchURI](const boost::system::error_code ec,
+                               std::variant<std::vector<std::string>>& resp) {
+        if (ec)
+        {
+            // no associated histograms = no failure
+            BMCWEB_LOG_DEBUG("No associated histograms on {}", switchURI);
+            return;
+        }
+        std::vector<std::string>* data =
+            std::get_if<std::vector<std::string>>(&resp);
+        if (data == nullptr)
+        {
+            BMCWEB_LOG_ERROR("Null data error while getting histograms");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        std::string switchHistogramURI = switchURI;
+        switchHistogramURI += "/Oem/Nvidia/Histograms";
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+            "#NvidiaSwitch.v1_3_0.NvidiaSwitch";
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["Histograms"]["@odata.id"] =
+            switchHistogramURI;
+    },
+        "xyz.openbmc_project.ObjectMapper", objectPath + "/histograms",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
     return;
 }
 

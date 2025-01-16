@@ -697,7 +697,7 @@ inline void
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]["DeviceId"] =
                         *value;
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                        "#NvidiaSwitch.v1_2_0.NvidiaSwitch";
+                        "#NvidiaSwitch.v1_3_0.NvidiaSwitch";
                 }
                 else if (propertyName == "VendorId")
                 {
@@ -1536,10 +1536,6 @@ inline void requestRoutesSwitch(App& app)
                                     getSwitchPowerModeLink(
                                         asyncResp, object.front().second,
                                         switchURI);
-                                redfish::nvidia_fabric_utils::
-                                    getSwitchHistogramLink(
-                                        asyncResp, object.front().second,
-                                        switchURI);
                                 if (std::find(object.front().second.begin(),
                                               object.front().second.end(),
                                               "com.nvidia.SwitchIsolation") !=
@@ -1579,6 +1575,10 @@ inline void requestRoutesSwitch(App& app)
                             redfish::nvidia_fabric_utils::
                                 populateErrorInjectionData(asyncResp, fabricId,
                                                            switchId);
+
+                            redfish::nvidia_fabric_utils::
+                                getSwitchHistogramLink(asyncResp, switchURI,
+                                                       path);
                         }
                         return;
                     }

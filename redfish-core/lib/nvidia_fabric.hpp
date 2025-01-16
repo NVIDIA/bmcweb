@@ -55,7 +55,7 @@ inline std::string getBucketUnit(const std::string& unit)
     }
     if (unit == "com.nvidia.Histogram.Decorator.Format.BucketUnits.Count")
     {
-        return "Count";
+        return "Counts";
     }
     // Unknown or others
     return "Unknown";
@@ -248,8 +248,7 @@ inline void updateHistogramBucketData(
         for (const auto& property : properties)
         {
             const std::string& propertyName = property.first;
-            if (propertyName == "Start" || propertyName == "Value" ||
-                propertyName == "End")
+            if (propertyName == "Start" || propertyName == "End")
             {
                 const double* value = std::get_if<double>(&property.second);
                 if (value == nullptr)
@@ -261,6 +260,20 @@ inline void updateHistogramBucketData(
                     return;
                 }
                 asyncResp->res.jsonValue[propertyName] = *value;
+            }
+            if (propertyName == "Value")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for {} parameter",
+                                     propertyName);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                asyncResp->res.jsonValue[propertyName] =
+                    static_cast<uint64_t>(*value);
             }
         }
     },
@@ -594,7 +607,7 @@ inline void requestRoutesSwitchHistogramBucketCollection(App& app)
                                 bucketURI += switchId;
                                 bucketURI += "/Oem/Nvidia/Histograms/";
                                 bucketURI += histogramId;
-                                bucketURI += "/Buckets/";
+                                bucketURI += "/Buckets";
                                 asyncResp->res.jsonValue["@odata.type"] =
                                     "#NvidiaHistogramBucketCollection.NvidiaHistogramBucketCollection";
                                 asyncResp->res.jsonValue["@odata.id"] =
@@ -811,7 +824,7 @@ inline void requestRoutesSwitchHistogramCollection(App& app)
                         histoURI += fabricId;
                         histoURI += "/Switches/";
                         histoURI += switchId;
-                        histoURI += "/Oem/Nvidia/Histograms/";
+                        histoURI += "/Oem/Nvidia/Histograms";
                         asyncResp->res.jsonValue["@odata.type"] =
                             "#NvidiaHistogramCollection.NvidiaHistogramCollection";
                         asyncResp->res.jsonValue["@odata.id"] = histoURI;
