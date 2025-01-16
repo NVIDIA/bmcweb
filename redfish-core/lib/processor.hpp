@@ -2355,7 +2355,7 @@ inline void getMigModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     return;
                 }
                 json["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaProcessor.v1_4_0.NvidiaGPU";
+                    "#NvidiaProcessor.v1_5_0.NvidiaGPU";
                 json["Oem"]["Nvidia"]["MIGModeEnabled"] = *migModeEnabled;
             }
         }
@@ -3018,8 +3018,8 @@ inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-        nvidia_processor_utils::getInbandReconfigPermissionsData(
-            aResp, processorId, objectPath);
+        nvidia_processor_utils::getReconfigPermissionsData(aResp, processorId,
+                                                           objectPath);
         nvidia_processor_utils::populateErrorInjectionData(aResp, processorId);
     }
 }
@@ -3970,12 +3970,14 @@ inline void requestRoutesProcessor(App& app)
                 std::optional<bool> migMode;
                 std::optional<bool> remoteDebugEnabled;
                 std::optional<nlohmann::json> inbandReconfigPermissions;
+                std::optional<nlohmann::json> doeReconfigPermissions;
 
                 if (oemNvidiaObject &&
                     redfish::json_util::readJson(
                         *oemNvidiaObject, asyncResp->res, "MIGModeEnabled",
                         migMode, "RemoteDebugEnabled", remoteDebugEnabled,
-                        "InbandReconfigPermissions", inbandReconfigPermissions))
+                        "InbandReconfigPermissions", inbandReconfigPermissions,
+                        "DOEReconfigPermissions", doeReconfigPermissions))
                 {
                     if (migMode)
                     {
@@ -4015,6 +4017,12 @@ inline void requestRoutesProcessor(App& app)
                     {
                         nvidia_processor_utils::patchInbandReconfigPermissions(
                             asyncResp, processorId, *inbandReconfigPermissions);
+                    }
+
+                    if (doeReconfigPermissions)
+                    {
+                        nvidia_processor_utils::patchDOEReconfigPermissions(
+                            asyncResp, processorId, *doeReconfigPermissions);
                     }
                 }
             }
