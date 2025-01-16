@@ -127,6 +127,12 @@ static std::string gpmInstances = "UtilizationPercent/";
 static std::string nvLinkManagementNIC = "NIC_";
 static std::string nvLinkManagementNICPort = "Port_";
 static std::string retimer = "PCIeRetimer_";
+static std::string ioBoard = "IO_Board_";
+static std::string pdb = "PDB_";
+static std::string blueField = "Riser_Slot";
+static std::string blueFieldSensor = "BF3_Slot_";
+static std::string storageBP = "StorageBackplane_";
+static std::string storageDevice = "SSD_";
 
 inline void replaceNumber(const std::string& input, const std::string& key,
                           const std::string& value,
@@ -135,14 +141,28 @@ inline void replaceNumber(const std::string& input, const std::string& key,
     std::regex pattern(key + "(\\d+)");
     std::smatch match;
     std::string res = input;
-    if (value == "{BSWild}")
+    if (value == "{BSWild}" || value == "{PDBWild}" || value == "{BFSWild}")
     {
         if (std::regex_search(res, match, pattern))
         {
             size_t lastSlashPos = input.find_last_of('/');
             if (lastSlashPos != std::string::npos)
             {
-                replacedName.insert(input.substr(lastSlashPos + 1));
+                std::string name = input.substr(lastSlashPos + 1);
+                if (value == "{BFSWild}")
+                {
+                    if (std::regex_search(name, match, pattern))
+                    {
+                        std::string wildName = key;
+                        wildName += "{BFWild}";
+                        wildName += match.suffix();
+                        replacedName.insert(wildName);
+                    }
+                }
+                else
+                {
+                    replacedName.insert(name);
+                }
             }
         }
     }
@@ -588,6 +608,21 @@ inline void getShmemMetricsDefinitionWildCard(
     std::vector<std::string>
         nvLinkManagementNICPortPlatformEnvironmentMetricsReplacements = {
             {nvLinkManagementNICPort, "{PortWild}", "PortWild"}};
+    std::vector<std::string> ioBoardPlatformEnvironmentMetricsReplacements = {
+        {ioBoard, "{IWild}", "IWild"}};
+    std::vector<std::string> pdbPlatformEnvironmentMetricsReplacements = {
+        {pdb, "{PDBWild}", "PDBWild"}};
+    std::vector<std::string> blueFieldPlatformEnvironmentMetricsReplacements = {
+        {blueField, "{BFWild}", "BFWild"}};
+    std::vector<std::string>
+        blueFieldSensorsPlatformEnvironmentMetricsReplacements = {
+            {blueFieldSensor, "{BFSWild}", "BFSWild"}};
+    std::vector<std::string>
+        storageBPSensorsPlatformEnvironmentMetricsReplacements = {
+            {storageBP, "{SBWild}", "SBWild"}};
+    std::vector<std::string>
+        storageBPDevicePlatformEnvironmentMetricsReplacements = {
+            {storageDevice, "{SBDWild}", "SBDWild"}};
 
     try
     {
@@ -663,6 +698,21 @@ inline void getShmemMetricsDefinitionWildCard(
                 asyncResp, inputMetricProperties);
             metricsReplacements(
                 nvLinkManagementNICPortPlatformEnvironmentMetricsReplacements,
+                asyncResp, inputMetricProperties);
+            metricsReplacements(ioBoardPlatformEnvironmentMetricsReplacements,
+                                asyncResp, inputMetricProperties);
+            metricsReplacements(pdbPlatformEnvironmentMetricsReplacements,
+                                asyncResp, inputMetricProperties);
+            metricsReplacements(blueFieldPlatformEnvironmentMetricsReplacements,
+                                asyncResp, inputMetricProperties);
+            metricsReplacements(
+                blueFieldSensorsPlatformEnvironmentMetricsReplacements,
+                asyncResp, inputMetricProperties);
+            metricsReplacements(
+                storageBPSensorsPlatformEnvironmentMetricsReplacements,
+                asyncResp, inputMetricProperties);
+            metricsReplacements(
+                storageBPDevicePlatformEnvironmentMetricsReplacements,
                 asyncResp, inputMetricProperties);
         }
         else
