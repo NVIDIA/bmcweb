@@ -156,6 +156,7 @@ class PatchPowerCapCallback
     {
         if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
         {
+            messages::success(resp->res);
             return;
         }
 
