@@ -1019,17 +1019,6 @@ inline void getProcessorEgmModeData(
                                                     objPath);
 }
 
-inline void getPortDisableFutureStatus(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const std::string& processorId, const std::string& objectPath,
-    const dbus::utility::MapperServiceMap& serviceMap,
-    const std::string& portId)
-{
-    BMCWEB_LOG_DEBUG("Get getPortDisableFutureStatus data");
-    redfish::nvidia_processor_utils::getPortDisableFutureStatus(
-        aResp, processorId, objectPath, serviceMap, portId);
-}
-
 inline void getProcessorSystemGUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                                    const std::string& service,
                                    const std::string& objPath)

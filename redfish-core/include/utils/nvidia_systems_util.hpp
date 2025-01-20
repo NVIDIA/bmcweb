@@ -307,7 +307,6 @@ inline void getBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     BMCWEB_LOG_DEBUG("EXIT: Get boot order parameters");
 }
 
-// TODO: Move to different file
 /**
  * @brief Retrieves host secure boot properties over DBUS
  *

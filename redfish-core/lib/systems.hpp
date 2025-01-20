@@ -33,6 +33,7 @@ limitations under the License.
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/health_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/pcie_util.hpp"
 #include "utils/sw_utils.hpp"
@@ -3450,7 +3451,6 @@ inline void doNMI(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
         serviceName, objectPath, interfaceName, method);
 }
 
-#ifdef BMCWEB_CPU_DIAG_FEATURE
 // TODO: move to new file
 inline void handleProcessorDiagActionPost(
     crow::App& app, const crow::Request& req,
