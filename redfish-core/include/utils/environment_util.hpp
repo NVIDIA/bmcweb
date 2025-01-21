@@ -924,6 +924,16 @@ inline void getPowerLimits(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "xyz.openbmc_project.Inventory.Decorator.PowerLimit");
 }
 
+inline void getPowerLimitDataSourceUri(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, const std::string& ctrlPath)
+{
+    sdbusplus::message::object_path path(ctrlPath);
+    const std::string name = path.filename();
+    asyncResp->res.jsonValue["PowerLimitWatts"]["DataSourceUri"] =
+        "/redfish/v1/Chassis/" + chassisID + "/Controls/" + name;
+}
+
 inline void getControlMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& connectionName,
                            const std::string& objPath)
@@ -1037,6 +1047,7 @@ inline void
                 {
                     getPowerCap(asyncResp, connectionName, ctrlPath);
                     getPowerCap(asyncResp, resourceId, ctrlPath);
+                    getPowerLimitDataSourceUri(asyncResp, resourceId, ctrlPath);
                     // Skip getControlMode if it does not support the Control
                     // Mode
                     if (std::find(interfaces.begin(), interfaces.end(),
