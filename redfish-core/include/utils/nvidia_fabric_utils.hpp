@@ -327,7 +327,7 @@ inline void
                     continue;
                 }
                 aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaSwitch.v1_3_0.NvidiaSwitch";
+                    "#NvidiaSwitch.v1_4_0.NvidiaSwitch";
                 aResp->res.jsonValue["Oem"]["Nvidia"]["ErrorInjection"] = {
                     {"@odata.id", "/redfish/v1/Fabrics/" + fabricId +
                                       "/Switches/" + switchId +
@@ -468,7 +468,7 @@ inline void
         std::string switchPowerModeURI = switchURI;
         switchPowerModeURI += "/Oem/Nvidia/PowerMode";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaSwitch.v1_3_0.NvidiaSwitch";
+            "#NvidiaSwitch.v1_4_0.NvidiaSwitch";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["PowerMode"]["@odata.id"] =
             switchPowerModeURI;
         return;
@@ -589,6 +589,87 @@ inline void
 }
 
 inline void
+    getFabricManagerState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const std::string& serv, const std::string& objPath,
+                          const std::string& interface)
+{
+    using PropertiesMap =
+        boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code ec,
+                    const PropertiesMap& properties) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("DBUS response error");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        for (const auto& property : properties)
+        {
+            if (property.first == "FMState")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for FM state");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["FabricManager"]
+                                        ["FabricManagerState"] =
+                    redfish::nvidia_manager_util::getFMState(*value);
+            }
+            else if (property.first == "ReportStatus")
+            {
+                const std::string* value =
+                    std::get_if<std::string>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for Report Status");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["FabricManager"]
+                                        ["ReportStatus"] =
+                    redfish::nvidia_manager_util::getFMReportStatus(*value);
+            }
+            else if (property.first == "LastRestartDuration")
+            {
+                const uint64_t* value = std::get_if<uint64_t>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for Duration Since LastRestart");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["FabricManager"]
+                                        ["DurationSinceLastRestartSeconds"] =
+                    *value;
+            }
+            else if (property.first == "LastRestartTime")
+            {
+                const uint64_t* value = std::get_if<uint64_t>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("Null value returned "
+                                     "for Time Since LastRestart");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["FabricManager"]
+                                        ["LastResetTime"] =
+                    redfish::time_utils::getDateTimeUint(*value);
+            }
+        }
+    },
+        serv, objPath, "org.freedesktop.DBus.Properties", "GetAll", interface);
+}
+
+inline void
     getSwitchHistogramLink(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& switchURI,
                            const std::string& objectPath)
@@ -614,7 +695,7 @@ inline void
         std::string switchHistogramURI = switchURI;
         switchHistogramURI += "/Oem/Nvidia/Histograms";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaSwitch.v1_3_0.NvidiaSwitch";
+            "#NvidiaSwitch.v1_4_0.NvidiaSwitch";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["Histograms"]["@odata.id"] =
             switchHistogramURI;
     },

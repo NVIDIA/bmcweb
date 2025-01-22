@@ -697,7 +697,7 @@ inline void
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]["DeviceId"] =
                         *value;
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                        "#NvidiaSwitch.v1_3_0.NvidiaSwitch";
+                        "#NvidiaSwitch.v1_4_0.NvidiaSwitch";
                 }
                 else if (propertyName == "VendorId")
                 {
@@ -1545,6 +1545,18 @@ inline void requestRoutesSwitch(App& app)
                                         getSwitchIsolationMode(
                                             asyncResp, object.front().first,
                                             path, "com.nvidia.SwitchIsolation");
+                                }
+                                if (std::find(
+                                        object.front().second.begin(),
+                                        object.front().second.end(),
+                                        "com.nvidia.State.FabricManager") !=
+                                    object.front().second.end())
+                                {
+                                    redfish::nvidia_fabric_utils::
+                                        getFabricManagerState(
+                                            asyncResp, object.front().first,
+                                            path,
+                                            "com.nvidia.State.FabricManager");
                                 }
                             }
                             updateSwitchData(asyncResp, object.front().first,
