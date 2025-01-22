@@ -7810,6 +7810,9 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
             return op == nullptr ? task::completed : !task::completed;
         },
             "0");
+        task->payload.emplace(req);
+        task->populateResp(asyncResp->res);
+        task->startTimer(std::chrono::seconds(debugTokenTaskTimeoutSec));
 
         auto resultHandler =
             [oemDiagnosticDataType,
@@ -7935,20 +7938,45 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
                     [] { op.reset(); });
             }
         };
-
         if (oemDiagnosticDataType == "DebugTokenStatus")
         {
             op = std::make_unique<debug_token::StatusQueryHandler>(
                 resultHandler, errorHandler);
+            return;
         }
-        else
+        if (type == debug_token::RequestType::DebugTokenRequest)
         {
             op = std::make_unique<debug_token::RequestHandler>(
                 resultHandler, errorHandler, type);
+            return;
         }
-        task->payload.emplace(req);
-        task->populateResp(asyncResp->res);
-        task->startTimer(std::chrono::seconds(debugTokenTaskTimeoutSec));
+        auto startDotRequest =
+            [resultHandler, errorHandler, task,
+             type](const std::vector<std::string>& endpointFilter) {
+            op = std::make_unique<debug_token::RequestHandler>(
+                resultHandler, errorHandler, type, endpointFilter);
+        };
+        constexpr std::array<std::string_view, 1> cpuInterface = {
+            "xyz.openbmc_project.Inventory.Item.Cpu"};
+        dbus::utility::getSubTreePaths(
+            "/", 0, cpuInterface,
+            [errorHandler, startDotRequest](
+                const boost::system::error_code ec,
+                const dbus::utility::MapperGetSubTreePathsResponse&
+                    subtreePaths) {
+            if (ec || subtreePaths.size() == 0)
+            {
+                errorHandler(true, "CPU ERoT discovery", "no ERoTs found");
+                return;
+            }
+            std::vector<std::string> endpointFilter;
+            for (const auto& path : subtreePaths)
+            {
+                sdbusplus::message::object_path objectPath(path);
+                endpointFilter.emplace_back(objectPath.filename());
+            }
+            startDotRequest(endpointFilter);
+        });
     });
 }
 
