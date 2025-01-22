@@ -17,7 +17,6 @@ static TestEvent createTestEvent()
 {
     TestEvent testEvent;
     testEvent.eventGroupId = 1;
-    testEvent.eventId = "dummyEvent";
     testEvent.eventTimestamp = "2021-01";
     testEvent.message = "Test Message";
     testEvent.messageArgs = std::vector<std::string>{"arg1", "arg2"};
@@ -119,17 +118,14 @@ TEST(EventServiceManager, submitTestEVent)
 {
     boost::asio::io_context io;
     boost::urls::url url;
-
+    EventServiceManager& evt = EventServiceManager::getInstance(&io);
     {
-        Subscription sub(url, io);
         TestEvent testEvent;
-        EXPECT_TRUE(sub.sendTestEventLog(testEvent));
+        EXPECT_TRUE(evt.sendTestEventLog(testEvent));
     }
     {
-        Subscription sub(url, io);
         TestEvent testEvent;
         testEvent.eventGroupId = 1;
-        testEvent.eventId = "GPU-RST-RECOMM-EVENT";
         testEvent.eventTimestamp = "2021-01-01T00:00:00Z";
         testEvent.message = "Custom Message";
         testEvent.messageArgs = std::vector<std::string>{"GPU_SXM_1",
@@ -139,18 +135,16 @@ TEST(EventServiceManager, submitTestEVent)
         testEvent.resolution =
             "Reset the GPU at the next service window since the ECC errors are contained";
         testEvent.severity = "Informational";
-        EXPECT_TRUE(sub.sendTestEventLog(testEvent));
+        EXPECT_TRUE(evt.sendTestEventLog(testEvent));
     }
     {
-        Subscription sub(url, io);
         TestEvent testEvent = createTestEvent();
 
-        bool result = sub.sendTestEventLog(testEvent);
+        bool result = evt.sendTestEventLog(testEvent);
 
         EXPECT_TRUE(result);
 
         EXPECT_EQ(testEvent.eventGroupId.value(), 1);
-        EXPECT_EQ(testEvent.eventId.value(), "dummyEvent");
         EXPECT_EQ(testEvent.eventTimestamp.value(), "2021-01");
         EXPECT_EQ(testEvent.message.value(), "Test Message");
         EXPECT_EQ(testEvent.messageId.value(), "Dummy message ID");

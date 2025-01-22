@@ -191,7 +191,8 @@ inline void getRegistryAndMessageKey(const std::string& messageID,
     }
 }
 
-inline int formatEventLogEntry(const std::string& logEntryID,
+inline int formatEventLogEntry(uint64_t eventId,
+                               const std::string& /*logEntryID*/,
                                const std::string& messageID,
                                const std::span<std::string_view> messageArgs,
                                std::string timestamp,
@@ -224,7 +225,7 @@ inline int formatEventLogEntry(const std::string& logEntryID,
     }
 
     // Fill in the log entry with the gathered data
-    logEntryJson["EventId"] = logEntryID;
+    logEntryJson["EventId"] = std::to_string(eventId);
     logEntryJson["EventType"] = "Event";
     logEntryJson["Severity"] = message->messageSeverity;
     logEntryJson["Message"] = std::move(msg);
@@ -255,7 +256,6 @@ void parseAdditionalDataForCPER(nlohmann::json::object_t& entry,
 struct TestEvent
 {
     std::optional<int64_t> eventGroupId;
-    std::optional<std::string> eventId;
     std::optional<std::string> eventTimestamp;
     std::optional<std::string> message;
     std::optional<std::vector<std::string>> messageArgs;
@@ -263,28 +263,6 @@ struct TestEvent
     std::optional<std::string> originOfCondition;
     std::optional<std::string> resolution;
     std::optional<std::string> severity;
-    // default constructor
-    TestEvent() = default;
-    // default assignment operator
-    TestEvent& operator=(const TestEvent&) = default;
-    // default copy constructor
-    TestEvent(const TestEvent&) = default;
-    // constructor with all the aruments
-    TestEvent(std::optional<int64_t> eventGroupId,
-              std::optional<std::string> eventId,
-              std::optional<std::string> eventTimestamp,
-              std::optional<std::string> message,
-              std::optional<std::vector<std::string>> messageArgs,
-              std::optional<std::string> messageId,
-              std::optional<std::string> originOfCondition,
-              std::optional<std::string> resolution,
-              std::optional<std::string> severity) :
-        eventGroupId(eventGroupId),
-        eventId(eventId), eventTimestamp(eventTimestamp), message(message),
-        messageArgs(messageArgs), messageId(messageId),
-        originOfCondition(originOfCondition), resolution(resolution),
-        severity(severity)
-    {}
 };
 /*
  * Structure for an event which is based on Event v1.7.0 in "Redfish Schema
@@ -294,11 +272,10 @@ class Event
 {
   public:
     // required properties
-    const std::string messageId;
+    std::string messageId;
     // optional properties
     std::vector<std::string> actions = {};
     int64_t eventGroupId = -1;
-    std::string eventId = "";
     std::string eventTimestamp = "";
     std::string logEntry = "";
     std::string memberId = "";
@@ -440,10 +417,6 @@ class Event
         if (eventGroupId >= 0)
         {
             eventLogEntry["EventGroupId"] = eventGroupId;
-        }
-        if (!eventId.empty())
-        {
-            eventLogEntry["EventId"] = eventId;
         }
         if (!eventTimestamp.empty())
         {
@@ -650,8 +623,8 @@ class Subscription : public persistent_data::UserSubscription
 
         if (sseConn != nullptr)
         {
-            eventSeqNum++;
             sseConn->sendEvent(std::to_string(eventSeqNum), msg);
+            eventSeqNum++;
         }
         return true;
     }
@@ -834,72 +807,8 @@ class Subscription : public persistent_data::UserSubscription
         return true;
     }
 
-    bool sendTestEventLog(TestEvent& testEvent)
-    {
-        nlohmann::json::array_t logEntryArray;
-        nlohmann::json& logEntryJson =
-            logEntryArray.emplace_back(nlohmann::json::object());
-
-        if (testEvent.eventGroupId)
-        {
-            logEntryJson["EventGroupId"] = *testEvent.eventGroupId;
-        }
-
-        if (testEvent.eventId)
-        {
-            logEntryJson["EventId"] = *testEvent.eventId;
-        }
-
-        if (testEvent.eventTimestamp)
-        {
-            logEntryJson["EventTimestamp"] = *testEvent.eventTimestamp;
-        }
-
-        if (testEvent.originOfCondition)
-        {
-            logEntryJson["OriginOfCondition"]["@odata.id"] =
-                *testEvent.originOfCondition;
-        }
-        if (testEvent.severity)
-        {
-            logEntryJson["Severity"] = *testEvent.severity;
-        }
-
-        if (testEvent.message)
-        {
-            logEntryJson["Message"] = *testEvent.message;
-        }
-
-        if (testEvent.resolution)
-        {
-            logEntryJson["Resolution"] = *testEvent.resolution;
-        }
-
-        if (testEvent.messageId)
-        {
-            logEntryJson["MessageId"] = *testEvent.messageId;
-        }
-
-        if (testEvent.messageArgs)
-        {
-            logEntryJson["MessageArgs"] = *testEvent.messageArgs;
-        }
-        // MemberId is 0 : since we are sending one event record.
-        logEntryJson["MemberId"] = "0";
-
-        nlohmann::json::object_t msg;
-        msg["@odata.type"] = "#Event.v1_4_0.Event";
-        msg["Id"] = std::to_string(eventSeqNum);
-        msg["Name"] = "Event Log";
-        msg["Events"] = logEntryArray;
-
-        std::string strMsg = nlohmann::json(msg).dump(
-            2, ' ', true, nlohmann::json::error_handler_t::replace);
-        return sendEvent(std::move(strMsg));
-    }
-
     void filterAndSendEventLogs(
-        const std::vector<EventLogObjectsType>& eventRecords)
+        uint64_t eventId, const std::vector<EventLogObjectsType>& eventRecords)
     {
         nlohmann::json::array_t logEntryArray;
         for (const EventLogObjectsType& logEntry : eventRecords)
@@ -909,12 +818,13 @@ class Subscription : public persistent_data::UserSubscription
 
             nlohmann::json::object_t bmcLogEntry;
             if (event_log::formatEventLogEntry(
-                    logEntry.id, logEntry.messageId, messageArgsView,
+                    eventId, logEntry.id, logEntry.messageId, messageArgsView,
                     logEntry.timestamp, customText, bmcLogEntry) != 0)
             {
                 BMCWEB_LOG_DEBUG("Read eventLog entry failed");
                 continue;
             }
+            eventId++;
 
             if (!eventMatchesFilter(bmcLogEntry, ""))
             {
@@ -932,7 +842,6 @@ class Subscription : public persistent_data::UserSubscription
 
         nlohmann::json msg;
         msg["@odata.type"] = "#Event.v1_4_0.Event";
-        msg["Id"] = std::to_string(eventSeqNum);
         msg["Name"] = "Event Log";
         msg["Events"] = std::move(logEntryArray);
         std::string strMsg = msg.dump(2, ' ', true,
@@ -1061,7 +970,7 @@ class EventServiceManager
 
     struct Event2
     {
-        std::string id;
+        uint64_t id;
         nlohmann::json message;
     };
 
@@ -1489,7 +1398,7 @@ class EventServiceManager
             boost::circular_buffer<Event2>::iterator lastEvent =
                 std::find_if(messages.begin(), messages.end(),
                              [&lastEventId](const Event2& event) {
-                return event.id == lastEventId;
+                return std::to_string(event.id) == lastEventId;
             });
             // Can't find a matching ID
             if (lastEvent == messages.end())
@@ -1595,14 +1504,75 @@ class EventServiceManager
 
     bool sendTestEventLog(TestEvent& testEvent)
     {
+        nlohmann::json::array_t logEntryArray;
+        nlohmann::json& logEntryJson =
+            logEntryArray.emplace_back(nlohmann::json::object());
+
+        if (testEvent.eventGroupId)
+        {
+            logEntryJson["EventGroupId"] = *testEvent.eventGroupId;
+        }
+
+        logEntryJson["EventId"] = std::to_string(eventId);
+        eventId++;
+
+        if (testEvent.eventTimestamp)
+        {
+            logEntryJson["EventTimestamp"] = *testEvent.eventTimestamp;
+        }
+
+        if (testEvent.originOfCondition)
+        {
+            logEntryJson["OriginOfCondition"]["@odata.id"] =
+                *testEvent.originOfCondition;
+        }
+        if (testEvent.severity)
+        {
+            logEntryJson["Severity"] = *testEvent.severity;
+        }
+
+        if (testEvent.message)
+        {
+            logEntryJson["Message"] = *testEvent.message;
+        }
+
+        if (testEvent.resolution)
+        {
+            logEntryJson["Resolution"] = *testEvent.resolution;
+        }
+
+        if (testEvent.messageId)
+        {
+            logEntryJson["MessageId"] = *testEvent.messageId;
+        }
+
+        if (testEvent.messageArgs)
+        {
+            logEntryJson["MessageArgs"] = *testEvent.messageArgs;
+        }
+        // MemberId is 0 : since we are sending one event record.
+        logEntryJson["MemberId"] = "0";
+
+        nlohmann::json::object_t msg;
+        msg["@odata.type"] = "#Event.v1_4_0.Event";
+        msg["Name"] = "Event Log";
+        msg["Events"] = logEntryArray;
+
+        messages.push_back(Event2(eventId, msg));
         for (const auto& it : subscriptionsMap)
         {
             std::shared_ptr<Subscription> entry = it.second;
-            if (!entry->sendTestEventLog(testEvent))
+            if (!entry->eventMatchesFilter(msg, "Event"))
             {
-                return false;
+                BMCWEB_LOG_DEBUG("Filter didn't match");
+                continue;
             }
+
+            std::string strMsg = nlohmann::json(msg).dump(
+                2, ' ', true, nlohmann::json::error_handler_t::replace);
+            entry->sendEvent(std::move(strMsg));
         }
+        eventId++;
         return true;
     }
 
@@ -1612,14 +1582,22 @@ class EventServiceManager
         eventMessage["EventId"] = eventId;
 
         eventMessage["EventTimestamp"] =
-            redfish::time_utils::getDateTimeOffsetNow().first;
+            time_utils::getDateTimeOffsetNow().first;
         eventMessage["OriginOfCondition"] = origin;
 
         // MemberId is 0 : since we are sending one event record.
         eventMessage["MemberId"] = 0;
 
-        messages.push_back(Event2(std::to_string(eventId), eventMessage));
+        nlohmann::json::array_t eventRecord;
+        eventRecord.emplace_back(eventMessage);
 
+        nlohmann::json msg;
+
+        msg["@odata.type"] = "#Event.v1_9_0.Event";
+        msg["Name"] = "Event Log";
+        msg["Events"] = std::move(eventRecord);
+
+        messages.push_back(Event2(eventId, eventMessage));
         for (auto& it : subscriptionsMap)
         {
             std::shared_ptr<Subscription>& entry = it.second;
@@ -1629,21 +1607,11 @@ class EventServiceManager
                 continue;
             }
 
-            nlohmann::json::array_t eventRecord;
-            eventRecord.emplace_back(eventMessage);
-
-            nlohmann::json msgJson;
-
-            msgJson["@odata.type"] = "#Event.v1_4_0.Event";
-            msgJson["Name"] = "Event Log";
-            msgJson["Id"] = eventId;
-            msgJson["Events"] = std::move(eventRecord);
-
-            std::string strMsg = msgJson.dump(
+            std::string strMsg = msg.dump(
                 2, ' ', true, nlohmann::json::error_handler_t::replace);
             entry->sendEvent(std::move(strMsg));
-            eventId++; // increment the eventId
         }
+        eventId++;
     }
 
     /*!
@@ -1658,15 +1626,15 @@ class EventServiceManager
         {
             BMCWEB_LOG_ERROR("Failed to format the event log entry");
         }
-        nlohmann::json eventsArray = nlohmann::json::array();
+        logEntry["EventId"] = std::to_string(eventId);
+        nlohmann::json::array_t eventsArray;
         eventsArray.push_back(logEntry);
         nlohmann::json::object_t msg;
         msg["@odata.type"] = "#Event.v1_9_0.Event";
-        msg["Id"] = std::to_string(eventId);
         msg["Name"] = "Event Log";
-        msg["Events"] = eventsArray;
-        messages.push_back(Event2(std::to_string(eventId), msg));
-        for (const auto& it : this->subscriptionsMap)
+        msg["Events"] = std::move(eventsArray);
+        messages.push_back(Event2(eventId, msg));
+        for (const auto& it : subscriptionsMap)
         {
             std::shared_ptr<Subscription> entry = it.second;
             if (!entry->eventMatchesFilter(logEntry, "Event"))
@@ -1771,9 +1739,10 @@ class EventServiceManager
             std::shared_ptr<Subscription> entry = it.second;
             if (entry->eventFormatType == "Event")
             {
-                entry->filterAndSendEventLogs(eventRecords);
+                entry->filterAndSendEventLogs(eventId, eventRecords);
             }
         }
+        eventId += eventRecords.size();
     }
 
     static void watchRedfishEventLogFile()
