@@ -184,13 +184,17 @@ class StatusQueryHandler : public OperationHandler
 {
   public:
     StatusQueryHandler(ResultCallback&& resultCallback,
-                       ErrorCallback&& errorCallback, bool useNsm = true)
+                       ErrorCallback&& errorCallback,
+                       const std::vector<std::string>& endpointFilter =
+                           std::vector<std::string>(),
+                       bool useNsm = true)
     {
         BMCWEB_LOG_DEBUG("StatusQueryHandler constructor");
         resCallback = resultCallback;
         errCallback = errorCallback;
-        getCpuObjectPath([this, errorCallback](const boost::system::error_code&,
-                                               const std::string cpuPath) {
+        getCpuObjectPath([this, errorCallback,
+                          endpointFilter](const boost::system::error_code&,
+                                          const std::string cpuPath) {
             mctp_utils::enumerateMctpEndpoints(
                 [this, cpuPath](
                     const std::shared_ptr<
@@ -240,7 +244,7 @@ class StatusQueryHandler : public OperationHandler
                 errorCallback(false, desc, error);
                 finalize();
             },
-                "",
+                endpointFilter,
                 static_cast<uint64_t>(statusQueryTimeoutSeconds) * 1000000u);
         });
 
@@ -616,7 +620,9 @@ class RequestHandler : public OperationHandler
 {
   public:
     RequestHandler(ResultCallback&& resultCallback,
-                   ErrorCallback&& errorCallback, RequestType type) :
+                   ErrorCallback&& errorCallback, RequestType type,
+                   const std::vector<std::string>& endpointFilter =
+                       std::vector<std::string>()) :
         type(type)
     {
         BMCWEB_LOG_DEBUG("RequestHandler constructor");
@@ -645,7 +651,7 @@ class RequestHandler : public OperationHandler
                             const std::string& error) {
             errorCallback(critical, desc, error);
         },
-            type == RequestType::DebugTokenRequest);
+            endpointFilter, type == RequestType::DebugTokenRequest);
     }
 
     RequestHandler() = delete;
