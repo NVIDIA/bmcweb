@@ -5982,6 +5982,12 @@ inline void getProcessorAcceleratorPortData(
                         getProcessorPortLinks(aResp, sensorpath, processorId,
                                               portId);
                     }
+                    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                    {
+                        redfish::nvidia_histogram_utils::getHistogramLink(
+                            aResp, portUri, portPath,
+                            "#NvidiaPort.v1_2_0.NvidiaNVLinkPort");
+                    }
                     return;
                 }
             },
@@ -6275,7 +6281,7 @@ inline void getProcessorPortMetricsData(
                         return;
                     }
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                        "#NvidiaPortMetrics.v1_4_0.NvidiaNVLinkPortMetrics";
+                        "#NvidiaPortMetrics.v1_5_0.NvidiaNVLinkPortMetrics";
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]
                                             ["RXNoProtocolBytes"] = *value;
                 }

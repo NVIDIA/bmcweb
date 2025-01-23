@@ -38,6 +38,7 @@
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_policy.hpp"
 #include "nvidia_power_reset_metrics.hpp"
+#include "nvidia_processor.hpp"
 #include "nvidia_protected_component.hpp"
 #include "nvidia_system_variable_spi_erase.hpp"
 #include "odata.hpp"
@@ -449,8 +450,13 @@ RedfishService::RedfishService(App& app)
         requestRoutesSwitchPowerMode(app);
         requestRoutesSwitchHistogramCollection(app);
         requestRoutesSwitchHistogram(app);
-        requestRoutesSwitchHistogramBucketCollection(app);
-        requestRoutesSwitchHistogramBucket(app);
+        requestRoutesSwitchHistogramBuckets(app);
+        requestRoutesSwitchPortHistogramCollection(app);
+        requestRoutesSwitchPortHistogram(app);
+        requestRoutesSwitchPortHistogramBuckets(app);
+        requestRoutesProcessorPortHistogramCollection(app);
+        requestRoutesProcessorPortHistogram(app);
+        requestRoutesProcessorPortHistogramBuckets(app);
     }
 
 #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
