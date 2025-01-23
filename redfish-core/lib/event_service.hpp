@@ -198,20 +198,20 @@ inline void requestRoutesSubmitTestEvent(App& app)
 
                 TestEvent testEvent;
                 // clang-format off
-        if (!json_util::readJsonAction(
-                req, asyncResp->res,
-                "EventGroupId", testEvent.eventGroupId,
-                "EventId", testEvent.eventId,
-                "EventTimestamp", testEvent.eventTimestamp,
-                "Message", testEvent.message,
-                "MessageArgs", testEvent.messageArgs,
-                "MessageId", testEvent.messageId,
-                "OriginOfCondition", testEvent.originOfCondition,
-                "Resolution", testEvent.resolution,
-                "Severity", testEvent.severity))
-        {
-            return;
-        }
+                if (!json_util::readJsonAction(
+                        req, asyncResp->res,
+                        "EventGroupId", testEvent.eventGroupId,
+                        "EventId", testEvent.eventId,
+                        "EventTimestamp", testEvent.eventTimestamp,
+                        "Message", testEvent.message,
+                        "MessageArgs", testEvent.messageArgs,
+                        "MessageId", testEvent.messageId,
+                        "OriginOfCondition", testEvent.originOfCondition,
+                        "Resolution", testEvent.resolution,
+                        "Severity", testEvent.severity))
+                {
+                    return;
+                }
                 // clang-format on
 
                 if (!EventServiceManager::getInstance().sendTestEventLog(

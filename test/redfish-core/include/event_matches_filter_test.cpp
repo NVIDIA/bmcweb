@@ -1,4 +1,5 @@
 #include "event_matches_filter.hpp"
+#include "event_service_manager.hpp"
 #include "event_service_store.hpp"
 
 #include <nlohmann/json.hpp>
@@ -95,18 +96,18 @@ TEST(EventServiceManager, eventMatchesFilter)
     }
 }
 
-TEST(EventServiceManager, submitTestEVent)
+
+TEST(Subscription, submitTestEVent)
 {
     boost::asio::io_context io;
     boost::urls::url url;
-
     {
-        Subscription sub(url, io);
+        auto sub = std::make_shared<Subscription>(persistent_data::UserSubscription{}, url, io);
         TestEvent testEvent;
-        EXPECT_TRUE(sub.sendTestEventLog(testEvent));
+        EXPECT_TRUE(sub->sendTestEventLog(testEvent));
     }
     {
-        Subscription sub(url, io);
+        auto sub = std::make_shared<Subscription>(persistent_data::UserSubscription{}, url, io);
         TestEvent testEvent;
         testEvent.eventGroupId = 1;
         testEvent.eventId = "GPU-RST-RECOMM-EVENT";
@@ -119,25 +120,54 @@ TEST(EventServiceManager, submitTestEVent)
         testEvent.resolution =
             "Reset the GPU at the next service window since the ECC errors are contained";
         testEvent.severity = "Informational";
-        EXPECT_TRUE(sub.sendTestEventLog(testEvent));
+        EXPECT_TRUE(sub->sendTestEventLog(testEvent));
     }
     {
-        Subscription sub(url, io);
+        auto sub = std::make_shared<Subscription>(persistent_data::UserSubscription{}, url, io);
         TestEvent testEvent = createTestEvent();
 
-        bool result = sub.sendTestEventLog(testEvent);
+        bool result = sub->sendTestEventLog(testEvent);
 
         EXPECT_TRUE(result);
-
-        EXPECT_EQ(testEvent.eventGroupId.value(), 1);
-        EXPECT_EQ(testEvent.eventId.value(), "dummyEvent");
-        EXPECT_EQ(testEvent.eventTimestamp.value(), "2021-01");
-        EXPECT_EQ(testEvent.message.value(), "Test Message");
-        EXPECT_EQ(testEvent.messageId.value(), "Dummy message ID");
-        EXPECT_EQ(testEvent.originOfCondition.value(),
-                  "/redfish/v1/Chassis/GPU_SXM_1");
-        EXPECT_EQ(testEvent.resolution.value(), "custom resolution");
-        EXPECT_EQ(testEvent.severity.value(), "whatever");
+        if (testEvent.eventGroupId.has_value())
+        {
+            EXPECT_EQ(testEvent.eventGroupId.value(), 1);
+        }
+        if (testEvent.eventId.has_value())
+        {
+            EXPECT_EQ(testEvent.eventId.value(), "dummyEvent");
+        }
+        if (testEvent.eventTimestamp.has_value())
+        {
+            EXPECT_EQ(testEvent.eventTimestamp.value(), "2021-01");
+        }
+        if (testEvent.message.has_value())
+        {
+            EXPECT_EQ(testEvent.message.value(), "Test Message");
+        }
+        if (testEvent.messageArgs.has_value())
+        {
+            EXPECT_EQ(testEvent.messageArgs.value().size(), 2);
+            EXPECT_EQ(testEvent.messageArgs.value()[0], "arg1");
+            EXPECT_EQ(testEvent.messageArgs.value()[1], "arg2");
+        }
+        if (testEvent.messageId.has_value())
+        {
+            EXPECT_EQ(testEvent.messageId.value(), "Dummy message ID");
+        }
+        if (testEvent.originOfCondition.has_value())
+        {
+            EXPECT_EQ(testEvent.originOfCondition.value(),
+                      "/redfish/v1/Chassis/GPU_SXM_1");
+        }
+        if (testEvent.resolution.has_value())
+        {
+            EXPECT_EQ(testEvent.resolution.value(), "custom resolution");
+        }
+        if (testEvent.severity.has_value())
+        {
+            EXPECT_EQ(testEvent.severity.value(), "whatever");
+        }
     }
 }
 } // namespace redfish

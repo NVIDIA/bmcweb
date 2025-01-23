@@ -14,6 +14,9 @@
 #include <array>
 #include <filesystem>
 #include <string_view>
+#include <fstream>
+#include <boost/container/flat_map.hpp>
+
 namespace redfish
 {
 
