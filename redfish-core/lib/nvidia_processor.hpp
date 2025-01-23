@@ -3491,7 +3491,8 @@ inline void
                                   "xyz.openbmc_project.Memory.MemoryECC") !=
                         interfaces.end())
                     {
-                         redfish::nvidia_processor::getEccPendingData(aResp, processorId, service, path);
+                        redfish::nvidia_processor::getEccPendingData(
+                            aResp, processorId, service, path);
                     }
                     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                     {

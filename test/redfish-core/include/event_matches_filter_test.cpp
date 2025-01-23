@@ -96,18 +96,19 @@ TEST(EventServiceManager, eventMatchesFilter)
     }
 }
 
-
 TEST(Subscription, submitTestEVent)
 {
     boost::asio::io_context io;
     boost::urls::url url;
     {
-        auto sub = std::make_shared<Subscription>(persistent_data::UserSubscription{}, url, io);
+        auto sub = std::make_shared<Subscription>(
+            persistent_data::UserSubscription{}, url, io);
         TestEvent testEvent;
         EXPECT_TRUE(sub->sendTestEventLog(testEvent));
     }
     {
-        auto sub = std::make_shared<Subscription>(persistent_data::UserSubscription{}, url, io);
+        auto sub = std::make_shared<Subscription>(
+            persistent_data::UserSubscription{}, url, io);
         TestEvent testEvent;
         testEvent.eventGroupId = 1;
         testEvent.eventId = "GPU-RST-RECOMM-EVENT";
@@ -123,7 +124,8 @@ TEST(Subscription, submitTestEVent)
         EXPECT_TRUE(sub->sendTestEventLog(testEvent));
     }
     {
-        auto sub = std::make_shared<Subscription>(persistent_data::UserSubscription{}, url, io);
+        auto sub = std::make_shared<Subscription>(
+            persistent_data::UserSubscription{}, url, io);
         TestEvent testEvent = createTestEvent();
 
         bool result = sub->sendTestEventLog(testEvent);

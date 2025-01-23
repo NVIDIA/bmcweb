@@ -48,7 +48,6 @@ static constexpr std::array<std::string_view, 1> pcieDeviceInterface = {
 static constexpr std::array<std::string_view, 1> pcieSlotInterface = {
     "xyz.openbmc_project.Inventory.Item.PCIeSlot"};
 
-
 inline void handlePCIeDevicePath(
     const std::string& pcieDeviceId,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -146,8 +145,6 @@ inline void handlePCIeDeviceCollectionGet(
     pcie_util::getPCIeDeviceList(asyncResp,
                                  nlohmann::json::json_pointer("/Members"));
 }
-
-
 
 // PCIeDevice State
 static inline void
@@ -355,7 +352,6 @@ inline void getPCIeDeviceSlotPath(
         });
 }
 
-
 inline void afterGetDbusObject(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& pcieDeviceSlot, const boost::system::error_code& ec,
@@ -416,8 +412,6 @@ inline void getPCIeDeviceHealth(
             }
         });
 }
-
-
 
 inline void getPCIeDeviceState(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1340,7 +1334,5 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                     "xyz.openbmc_project.Inventory.Item.Chassis"});
         });
 }
-
-
 
 } // namespace redfish

@@ -7,15 +7,15 @@
 #include "nvidia_async_call_utils.hpp"
 
 #include <async_resp.hpp>
+#include <boost/container/flat_map.hpp>
 #include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <utils/dbus_utils.hpp>
 
 #include <array>
 #include <filesystem>
-#include <string_view>
 #include <fstream>
-#include <boost/container/flat_map.hpp>
+#include <string_view>
 
 namespace redfish
 {

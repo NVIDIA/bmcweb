@@ -100,7 +100,6 @@ static inline void
         "org.freedesktop.DBus.Properties", "GetAll", assetInterface);
 }
 
-
 //  PCIeDevice UUID
 static inline void
     getPCIeDeviceUUID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -293,7 +292,6 @@ static inline void
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-
 static inline void
     getPCIeDevice(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                   const std::string& device, const std::string& path = pciePath,
@@ -421,7 +419,6 @@ static inline void
         std::move(getPCIeDeviceCallback), service, escapedPath,
         "org.freedesktop.DBus.Properties", "GetAll", deviceIntf);
 }
-
 
 static inline void getPCIeDeviceFunctionsList(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

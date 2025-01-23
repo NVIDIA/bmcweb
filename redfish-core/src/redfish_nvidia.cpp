@@ -87,12 +87,6 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesNvidiaManagerGetSelCapacity(app);
     }
 
-    if constexpr (BMCWEB_HOST_OS_FEATURES)
-    {
-        requestRoutesTriggerCollection(app);
-        requestRoutesTrigger(app);
-    }
-
     if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
     {
         requestRoutesProcessorEnvironmentMetrics(app);
@@ -229,7 +223,6 @@ void requestRoutesNvidia(crow::App& app)
 
     if constexpr (BMCWEB_BIOS)
     {
-        requestRoutesBiosSettings(app);
         requestRoutesBiosChangePassword(app);
         requestRoutesBootOptions(app);
         requestRoutesSecureBoot(app);

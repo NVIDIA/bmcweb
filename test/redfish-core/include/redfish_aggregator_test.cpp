@@ -263,7 +263,7 @@ TEST(addPrefixes, FixHttpHeadersInResponseBody)
     EXPECT_EQ(taskResp["@odata.id"],
               "/redfish/v1/TaskService/Tasks/" + prefix + "_0");
     EXPECT_EQ(taskResp["TaskMonitor"],
-              "/redfish/v1/TaskService/TaskMonitors/" + prefix + "_0/Monitor");
+              "/redfish/v1/TaskService/TaskMonitors/" + prefix + "_0");
     nlohmann::json& httpHeaders = taskResp["Payload"]["HttpHeaders"];
     EXPECT_EQ(httpHeaders[4], "Location: /redfish/v1/Managers/" + prefix +
                                   "_bmc/LogServices/Dump/Entries/0");
