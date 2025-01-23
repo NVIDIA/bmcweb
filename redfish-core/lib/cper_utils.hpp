@@ -197,7 +197,7 @@ inline std::optional<boost::urls::url>
 inline void parseAdditionalDataForCPER(
     nlohmann::json::object_t& entry,
     [[maybe_unused]] const nlohmann::json::object_t& oem,
-    const AdditionalData& additional, std::string& originStr)
+    const AdditionalData& additional, std::string& originStr, bool isLogEntry)
 {
     const auto& type = additional.find("diagnosticDataType");
     if (additional.end() == type ||
@@ -324,7 +324,14 @@ inline void parseAdditionalDataForCPER(
         }
         else
         {
-            jOut["Links"]["OriginOfCondition"]["@odata.id"] = *origin;
+            if (isLogEntry)
+            {
+                jOut["Links"]["OriginOfCondition"]["@odata.id"] = *origin;
+            }
+            else
+            {
+                jOut["OriginOfCondition"]["@odata.id"] = *origin;
+            }
             // Eventing needs ooc as a string
             // maintain support for sendEventWithOOC()
             originStr = std::string((*origin).buffer());
