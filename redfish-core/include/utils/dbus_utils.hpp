@@ -19,9 +19,6 @@ namespace redfish
 namespace dbus_utils
 {
 
-using PropertyVal = std::variant<uint8_t, uint16_t, std::string,
-                                 std::vector<std::string>, bool>;
-
 struct UnpackErrorPrinter
 {
     void operator()(const sdbusplus::UnpackErrorReason reason,
