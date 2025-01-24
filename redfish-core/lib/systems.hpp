@@ -4432,6 +4432,7 @@ inline void handleComputerSystemPatch(
     std::optional<std::string> assetTag;
     std::optional<std::string> powerRestorePolicy;
     std::optional<uint64_t> powerOnDelaySeconds;
+    std::optional<bool> sshServiceEnabled;
     std::optional<std::string> powerMode;
     std::optional<bool> wdtEnable;
     std::optional<std::string> wdtTimeOutAction;
@@ -4471,6 +4472,7 @@ inline void handleComputerSystemPatch(
 #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
                         "PowerRestorePolicy", powerRestorePolicy,
                         "PowerOnDelaySeconds", powerOnDelaySeconds,
+                        "SerialConsole/SSH/ServiceEnabled", sshServiceEnabled,
 #endif
                         "PowerMode", powerMode,
                         "HostWatchdogTimer/FunctionEnabled", wdtEnable,
@@ -4583,6 +4585,12 @@ inline void handleComputerSystemPatch(
     if (bootOrder)
     {
         setBootOrder(asyncResp, req, *bootOrder);
+    }
+    if (sshServiceEnabled)
+    {
+        redfish::nvidia_systems_utils::setProtocolServiceEnabled(
+            asyncResp, std::span{protocolToDBusForSystems}, "SSH",
+            *sshServiceEnabled);
     }
 #endif
     if (powerMode)
