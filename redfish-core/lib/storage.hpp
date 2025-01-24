@@ -45,9 +45,8 @@ namespace redfish
 static std::map<std::string, std::string> taskUri;
 // drive resouce has two interfaces from Dbus.
 // EM will also populate drive resource with the only one interface
-const std::array<const char*, 2> driveInterface = {
-    "xyz.openbmc_project.Inventory.Item.Drive",
-    "xyz.openbmc_project.Nvme.Operation"};
+const std::array<const char*, 1> driveInterface = {
+    "xyz.openbmc_project.Inventory.Item.Drive"};
 
 inline std::optional<std::string>
     convertDriveFormFactor(const std::string& formFactor)
@@ -1056,6 +1055,11 @@ inline void addAllDriveInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             getDriveSmartWarning(asyncResp, connectionName, path);
         }
         else if (interface ==
+                 "xyz.openbmc_project.Inventory.Decorator.LocationContext")
+        {
+            getDriveLocationContext(asyncResp, connectionName, path);
+        }
+        else if (interface ==
                  "xyz.openbmc_project.Inventory.Decorator.LocationCode")
         {
             getDriveLocation(asyncResp, connectionName, path);
@@ -1265,25 +1269,29 @@ inline void handleDriveSanitizePost(
             }
             const std::string& path = drive->first;
             const dbus::utility::MapperServiceMap& connNames = drive->second;
-            if (connNames.size() != 1)
+
+        std::string service;
+        std::string interface;
+        for (const auto& [connectionName, interfaces] : connNames)
             {
-                BMCWEB_LOG_ERROR("Connection size {}, not equal to 1",
-                                 connNames.size());
+            for (const std::string& iface : interfaces)
+            {
+                if (iface == "xyz.openbmc_project.Nvme.SecureErase")
+                {
+                    service = connectionName;
+                    interface = iface;
+                    break;
+                }
+            }
+        }
+        if (service.empty() || interface.empty())
+        {
+            BMCWEB_LOG_ERROR("failed to get DriveSanitizetActionInfo");
                 messages::internalError(asyncResp->res);
                 return;
             }
 
-            auto service = connNames[0].first;
-            auto interfaces = connNames[0].second;
-            for (const std::string& interface : interfaces)
-            {
-                if (interface != "xyz.openbmc_project.Nvme.SecureErase")
-                {
-                    continue;
-                }
-
-                auto methodName =
-                    "xyz.openbmc_project.Nvme.SecureErase.EraseMethod." +
+        auto methodName = "xyz.openbmc_project.Nvme.SecureErase.EraseMethod." +
                     sanitizeType;
                 // execute drive sanitize operation
                 crow::connections::systemBus->async_method_call(
@@ -1315,8 +1323,6 @@ inline void handleDriveSanitizePost(
                                                    path, driveId);
                     },
                     service, path, interface, "Erase", owPass, methodName);
-                return;
-            }
         });
 }
 
@@ -1357,22 +1363,27 @@ inline void handleDriveSanitizetActionInfoGet(
             }
             const std::string& path = drive->first;
             const dbus::utility::MapperServiceMap& connNames = drive->second;
-            if (connNames.size() != 1)
+
+        std::string service;
+        std::string interface;
+        for (const auto& [connectionName, interfaces] : connNames)
             {
-                BMCWEB_LOG_ERROR("Connection size {}, not equal to 1",
-                                 connNames.size());
+            for (const std::string& iface : interfaces)
+            {
+                if (iface == "xyz.openbmc_project.Nvme.SecureErase")
+                {
+                    service = connectionName;
+                    interface = iface;
+                    break;
+                }
+            }
+        }
+        if (service.empty() || interface.empty())
+        {
+            BMCWEB_LOG_ERROR("failed to get DriveSanitizetActionInfo");
                 messages::internalError(asyncResp->res);
                 return;
             }
-
-            auto service = connNames[0].first;
-            auto interfaces = connNames[0].second;
-            for (const std::string& interface : interfaces)
-            {
-                if (interface != "xyz.openbmc_project.Nvme.SecureErase")
-                {
-                    continue;
-                }
                 sdbusplus::asio::getProperty<std::vector<std::string>>(
                     *crow::connections::systemBus, service, path, interface,
                     "SanitizeCapability",
@@ -1420,8 +1431,6 @@ inline void handleDriveSanitizetActionInfoGet(
 
                         asyncResp->res.jsonValue["Parameters"] = parameters;
                     });
-                break;
-            }
         });
 }
 
@@ -1493,21 +1502,15 @@ inline void afterGetSubtreeSystemsStorageDrive(
     asyncResp->res.jsonValue["Name"] = driveId;
     asyncResp->res.jsonValue["Id"] = driveId;
 
-    if (connectionNames.size() != 1)
-    {
-        BMCWEB_LOG_ERROR("Connection size {}, not equal to 1",
-                         connectionNames.size());
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
     getChassisID(asyncResp, driveId, path);
 
     // default it to Enabled
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
-    addAllDriveInfo(asyncResp, connectionNames[0].first, path,
-                    connectionNames[0].second);
+    for (const auto& [connectionName, interfaces] : connectionNames)
+    {
+        addAllDriveInfo(asyncResp, connectionName, path, interfaces);
+    }
 }
 
 inline void handleSystemsStorageDriveGet(
@@ -1806,8 +1809,10 @@ inline void buildDrive(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             "/redfish/v1/Chassis/{}/Drives/{}/SanitizeActionInfo", chassisId,
             driveName);
 
-        addAllDriveInfo(asyncResp, connectionNames[0].first, path,
-                        connectionNames[0].second);
+        for (const auto& [connectionName, interfaces] : connectionNames)
+        {
+            addAllDriveInfo(asyncResp, connectionName, path, interfaces);
+        }
     }
 }
 

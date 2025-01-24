@@ -22,6 +22,7 @@
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Chassis_v1.xml">
     <edmx:Include Namespace="Chassis"/>
+    <edmx:Include Namespace="Chassis.v1_0_0"/>
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/PCIeDevice_v1.xml">
     <edmx:Include Namespace="PCIeDevice"/>
@@ -38,6 +39,23 @@
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Action Name="AuxPowerReset" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to manage and reset auxiliary power modules or power paths without shutting down the main system power, as specified by NVIDIA."/>
+        <Annotation Term="OData.LongDescription" String="This action is used to manage and reset auxiliary power modules or power paths without shutting down the main system power, as specified by NVIDIA."/>
+        <Parameter Name="Chassis" Type="Chassis.v1_0_0.OemActions"/>
+        <Parameter Name="ResetType" Type="NvidiaChassis.v1_6_0.AuxPowerResetType" Nullable="false">
+          <Annotation Term="OData.Description" String="The type of auxiliary power reset."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the type of auxiliary power reset."/>
+        </Parameter>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_6_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+      </Action>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -273,6 +291,11 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type NvidiaPolicyCollection."/>
         </NavigationProperty>
       </ComplexType>
+      <EnumType Name="AuxPowerResetType">
+        <Member Name="AuxPowerCycle">
+          <Annotation Term="OData.Description" String="Perform auxiliary power reset."/>
+        </Member>
+      </EnumType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

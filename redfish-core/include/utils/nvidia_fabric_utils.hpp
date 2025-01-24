@@ -602,5 +602,20 @@ inline void
         serv, objPath, "org.freedesktop.DBus.Properties", "GetAll", interface);
 }
 
+inline void getSwitchHistogramLink(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    [[maybe_unused]] const std::vector<std::string>& interfaces,
+    const std::string& switchURI)
+{
+    // TODO: to be done based on discovery flow, for now adding link
+    std::string switchHistogramURI = switchURI;
+    switchHistogramURI += "/Oem/Nvidia/Histograms";
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+        "#NvidiaSwitch.v1_3_0.NvidiaSwitch";
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["Histograms"]["@odata.id"] =
+        switchHistogramURI;
+    return;
+}
+
 } // namespace nvidia_fabric_utils
 } // namespace redfish

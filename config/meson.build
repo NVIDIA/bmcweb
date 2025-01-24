@@ -113,6 +113,7 @@ feature_options = [
     'redfish-sw-einj',
     'redfish-manager-event-log',
     'nsm-raw-command-enable',    
+    'enable-ist-mode',
 ]
 
 string_options = [

@@ -66,7 +66,7 @@ inline void
         return;
     }
 
-    redfish::chassis_utils::getValidChassisPath(
+    redfish::nvidia_chassis_utils::getValidLeakDetectionPath(
         asyncResp, chassisId,
         std::bind_front(doLeakDetection, asyncResp, chassisId));
 }

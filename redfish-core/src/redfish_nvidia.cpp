@@ -45,6 +45,7 @@
 #include "trigger.hpp"
 #include "trusted_components.hpp"
 #include "update_service.hpp"
+#include "nvidia_fabric.hpp"
 
 namespace redfish
 {
@@ -125,6 +126,10 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesSplitUpdateService(app);
         requestRoutesSwitchPowerMode(app);
         requestRoutesClearPCIeAerErrorStatus(app);
+        requestRoutesSwitchHistogramCollection(app);
+        requestRoutesSwitchHistogram(app);
+        requestRoutesSwitchHistogramBucketCollection(app);
+        requestRoutesSwitchHistogramBucket(app);
     }
 
     if constexpr (BMCWEB_NETWORK_ADAPTERS)

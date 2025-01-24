@@ -11,7 +11,7 @@ using DbusProperties =
 using OperatingConfigProperties =
     std::vector<std::pair<std::string, dbus::utility::DbusVariantType>>;
 
-using InbandReconfigPermission = std::tuple<std::string, std::string, bool>;
+using ReconfigPermission = std::tuple<std::string, std::string, bool>;
 
 /**
  * Parses the json of the InbandReconfigSettings properties.
@@ -21,10 +21,11 @@ using InbandReconfigPermission = std::tuple<std::string, std::string, bool>;
  * @param[in]       featureName         Name of permission feature
  * @param[in,out]   permissions         Collection of parsed permissions
  */
-inline void parseInbandReconfigSettingsJson(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, nlohmann::json& json,
+inline void
+    parseReconfigSettingsJson(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                              nlohmann::json& json,
     const std::string& featureName,
-    std::vector<InbandReconfigPermission>& permissions)
+                              std::vector<ReconfigPermission>& permissions)
 {
     std::optional<bool> allowOneShotConfig;
     std::optional<bool> allowPersistentConfig;
@@ -54,17 +55,17 @@ inline void parseInbandReconfigSettingsJson(
 }
 
 /**
- * Parses the json of the InbandReconfigPermissions.
+ * Parses the json of the Inband/DOE ReconfigPermissions.
  *
  * @param[in,out]   resp                Async HTTP response.
  * @param[in]       json                New json data to apply.
  *
  * @return Collection of parsed Inband Reconfig Permissions requests
  */
-inline std::vector<InbandReconfigPermission> parseInbandReconfigPermissionsJson(
+inline std::vector<ReconfigPermission> parseReconfigPermissionsJson(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, nlohmann::json& json)
 {
-    std::vector<InbandReconfigPermission> permissions;
+    std::vector<ReconfigPermission> permissions;
     std::map<std::string, std::optional<nlohmann::json>> features = {
         {"InSystemTest", {}},
         {"FusingMode", {}},
@@ -123,7 +124,7 @@ inline std::vector<InbandReconfigPermission> parseInbandReconfigPermissionsJson(
         {
             if (feature)
             {
-                parseInbandReconfigSettingsJson(aResp, *feature, featureName,
+                parseReconfigSettingsJson(aResp, *feature, featureName,
                                                 permissions);
             }
         }
@@ -143,7 +144,7 @@ inline void patchInbandReconfigPermissions(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& processorId, nlohmann::json& json)
 {
-    auto patchRequests = parseInbandReconfigPermissionsJson(asyncResp, json);
+    auto patchRequests = parseReconfigPermissionsJson(asyncResp, json);
     processor_utils::getProcessorObject(
         asyncResp, processorId,
         [patchRequests](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -163,6 +164,39 @@ inline void patchInbandReconfigPermissions(
                 }
             }
         });
+}
+
+/**
+ * Parses the json of the DOEReconfigSettings properties.
+ *
+ * @param[in,out]   asyncResp       Async HTTP response.
+ * @param[in]       processorId     Processor's Id.
+ * @param[in]       json            DOEReconfigPermissions json data to
+ * apply.
+ */
+inline void patchDOEReconfigPermissions(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId, nlohmann::json& json)
+{
+    auto patchRequests = parseReconfigPermissionsJson(asyncResp, json);
+    processor_utils::getProcessorObject(
+        asyncResp, processorId,
+        [patchRequests](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                        [[maybe_unused]] const std::string& processorId,
+                        const std::string& objectPath,
+                        const MapperServiceMap& serviceMap,
+                        [[maybe_unused]] const std::string& deviceType) {
+        for (const auto& [service, _] : serviceMap)
+        {
+            for (const auto& [featureName, property, value] : patchRequests)
+            {
+                nvidia_async_operation_utils::patch(
+                    asyncResp, service,
+                    objectPath + "/DOEReconfigPermissions/" + featureName,
+                    "com.nvidia.InbandReconfigSettings", property, value);
+            }
+        }
+    });
 }
 
 /**
@@ -589,7 +623,7 @@ inline void getCCModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             for (const auto& property : properties)
             {
                 json["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaProcessor.v1_4_0.NvidiaGPU";
+                "#NvidiaProcessor.v1_5_0.NvidiaGPU";
                 if (property.first == "CCModeEnabled")
                 {
                     const bool* ccModeEnabled =
@@ -628,7 +662,7 @@ inline void getCCModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-inline void getInbandReconfigPermissionsData(
+inline void getReconfigPermissionsData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
     const std::string& service, const std::string& objPath)
 {
@@ -644,10 +678,20 @@ inline void getInbandReconfigPermissionsData(
             auto reconfigPermissionsName =
                 sdbusplus::message::object_path(objPath).filename();
             aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaProcessor.v1_4_0.NvidiaGPU";
+            "#NvidiaProcessor.v1_5_0.NvidiaGPU";
+        std::string reconfigPermissionsType = "";
+        if (objPath.find("InbandReconfigPermissions") != std::string::npos)
+        {
+            reconfigPermissionsType = "InbandReconfigPermissions";
+        }
+        else
+        {
+            reconfigPermissionsType = "DOEReconfigPermissions";
+        }
             auto& reconfigPermissionsJson =
-                json["Oem"]["Nvidia"]["InbandReconfigPermissions"]
+            json["Oem"]["Nvidia"][reconfigPermissionsType]
                     [reconfigPermissionsName];
+
             for (const auto& property : properties)
             {
                 if (property.first == "AllowOneShotConfig")
@@ -697,8 +741,9 @@ inline void getInbandReconfigPermissionsData(
         "com.nvidia.InbandReconfigSettings");
 }
 
-inline void getInbandReconfigPermissionsData(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
+inline void
+    getReconfigPermissionsData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                               const std::string& cpuId,
     const std::string& objPath)
 {
     // Ask for all objects implementing OperatingConfig so we can search
@@ -715,7 +760,7 @@ inline void getInbandReconfigPermissionsData(
             {
                 for (const auto& [serviceName, interfaceList] : serviceMap)
                 {
-                    getInbandReconfigPermissionsData(aResp, cpuId, serviceName,
+                getReconfigPermissionsData(aResp, cpuId, serviceName,
                                                      objectPath);
                 }
             }
@@ -759,7 +804,7 @@ inline void populateErrorInjectionData(
                             continue;
                         }
                         aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                            "#NvidiaProcessor.v1_4_0.NvidiaGPU";
+                            "#NvidiaProcessor.v1_5_0.NvidiaGPU";
                         aResp->res
                             .jsonValue["Oem"]["Nvidia"]["ErrorInjection"] = {
                             {"@odata.id",
@@ -803,7 +848,7 @@ inline void getCCModePendingData(
             }
             nlohmann::json& json = aResp->res.jsonValue;
             json["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaProcessor.v1_4_0.NvidiaGPU";
+            "#NvidiaProcessor.v1_5_0.NvidiaGPU";
             for (const auto& property : properties)
             {
                 if (property.first == "PendingCCModeState")
@@ -1844,7 +1889,7 @@ inline void postPCIeClearCounter(
                             sdbusplus::message::object_path path1(sensorpath);
                             if (path1.filename() != portId)
                             {
-                                return;
+                        continue;
                             }
 
                             crow::connections::systemBus->async_method_call(

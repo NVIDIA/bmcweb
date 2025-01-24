@@ -1197,3 +1197,10 @@ option(
     value: 'disabled',
     description: 'Enable/Disable NSM raw command',
 )
+
+option(
+    'enable-ist-mode',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable/Disable ist mode support',
+)
