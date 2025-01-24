@@ -633,19 +633,6 @@ void packVariant(std::span<PerUnpack> toPack, std::string_view key,
     packVariant(toPack.subspan(1), std::forward<UnpackTypes&&>(in)...);
 }
 
-template <typename... UnpackTypes>
-bool readJson(const crow::Request& req, crow::Response& res, const char* key,
-              UnpackTypes&... in)
-{
-    nlohmann::json jsonRequest;
-    if (!json_util::processJsonFromRequest(res, req, jsonRequest))
-    {
-        BMCWEB_LOG_DEBUG("Json value not readable");
-        return false;
-    }
-    return readJson(jsonRequest, res, key, in...);
-}
-
 template <typename FirstType, typename... UnpackTypes>
 bool readJsonObject(nlohmann::json::object_t& jsonRequest, crow::Response& res,
                     std::string_view key, FirstType&& first,
