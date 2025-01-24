@@ -4107,6 +4107,285 @@ inline void
 }
 
 /**
+ * @brief forward Commit Image Post Request to satBMC.
+ *
+ *
+ * @param[in] req  HTTP request
+ * @param[in] asyncResp Shared pointer to the response message
+ * @param[in] ec Error code
+ * @param[in] satelliteInfo satellite BMC information
+ *
+ * @return None
+ */
+inline void forwardCommitImagePost(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    const auto& sat =
+        satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
+    if (sat == satelliteInfo.end())
+    {
+        BMCWEB_LOG_ERROR("satBMC is not found");
+        return;
+    }
+
+    crow::HttpClient client(
+        *req.ioService,
+        std::make_shared<crow::ConnectionPolicy>(getPostAggregationPolicy()));
+
+    std::function<void(crow::Response&)> cb =
+        std::bind_front(handleSatBMCResponse, asyncResp);
+
+    std::string data = req.body();
+    boost::urls::url url(sat->second);
+    url.set_path(req.url().path());
+
+    client.sendDataWithCallback(
+        std::move(data), url, ensuressl::VerifyCertificate::Verify,
+        req.fields(), boost::beast::http::verb::post, cb);
+}
+
+
+/**
+ * @brief the response handler of CommitImage Post
+ * the function will examine the targets of the request and send out
+ * the request to the satellite BMC if the remote targets are present.
+ *
+ * @param[in] req  HTTP request
+ * @param[in] asyncResp Shared pointer to the response message
+ *
+ * @return return true to pass request to the local. otherwise, don't pass.
+ */
+
+inline bool handleSatBMCCommitImagePost(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    std::optional<std::vector<std::string>> targets;
+
+    if (!json_util::readJsonAction(req, asyncResp->res, "Targets", targets))
+    {
+        messages::createFailedMissingReqProperties(asyncResp->res, "Targets");
+        BMCWEB_LOG_ERROR("Missing Targets of OemCommitImage API");
+        return false;
+    }
+
+    bool hasTargets = false;
+
+    if (targets && targets.value().empty() == false)
+    {
+        hasTargets = true;
+    }
+
+    if (hasTargets)
+    {
+        std::vector<std::string> targetsCollection = targets.value();
+
+        std::string rfaPrefix(BMCWEB_REDFISH_AGGREGATION_PREFIX);
+        rfaPrefix += "_";
+
+        bool prefix = false, noPrefix = false;
+        for (auto& target : targetsCollection)
+        {
+            std::string file = std::filesystem::path(target).filename();
+            if (file.starts_with(rfaPrefix))
+            {
+                prefix = true;
+            }
+            else
+            {
+                noPrefix = true;
+            }
+        }
+
+        if (prefix && !noPrefix)
+        {
+            // targets with the prefix included only.
+            RedfishAggregator::getSatelliteConfigs(
+                std::bind_front(forwardCommitImagePost, req, asyncResp));
+
+            // don't pass the request to the local
+            return false;
+        }
+        else if (prefix && noPrefix)
+        {
+            // drop the request with mixed targets.
+            boost::urls::url_view targetURL("Target");
+            messages::invalidObject(asyncResp->res, targetURL);
+            return false;
+        }
+    }
+    else
+    {
+        RedfishAggregator::getSatelliteConfigs(
+            std::bind_front(forwardCommitImagePost, req, asyncResp));
+        // forward the request with empty target.
+    }
+    return true;
+}
+
+/**
+ * @brief  callback handler of JSON array object
+ * the common function to get the JSON array object, espeically for
+ * the response of CommitImageActionInfo from satBMC.
+ *
+ * @param[in] object JSON object
+ * @param[in] name JSON name
+ * @param[in] cb  The callback function
+ *
+ * @return None
+ */
+inline void getArrayObject(nlohmann::json::object_t* object,
+                           const std::string_view name,
+                           const std::function<void(nlohmann::json&)>& cb)
+{
+    for (std::pair<const std::string, nlohmann::json>& item : *object)
+    {
+        if (item.first != name)
+        {
+            continue;
+        }
+        auto* array = item.second.get_ptr<nlohmann::json::array_t*>();
+        if (array == nullptr)
+        {
+            continue;
+        }
+        for (nlohmann::json& elm : *array)
+        {
+            cb(elm);
+        }
+    }
+}
+
+/**
+ * @brief The response handler of CommitImageActionInfo from satBMC
+ * aggregate the allowable values from the response of CommitImageActionInfo
+ * if the response is successful.
+ *
+ * @param[in] asyncResp Shared pointer to the response message
+ * @param[in] resp  HTTP response of satBMC
+ *
+ * @return None
+ */
+inline void commitImageActionInfoResp(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, crow::Response& resp)
+{
+    // Failed to get ActionInfo because of the error response
+    // just return without any further processing for the aggregation.
+    if ((resp.result() == boost::beast::http::status::too_many_requests) ||
+        (resp.result() == boost::beast::http::status::bad_gateway))
+    {
+        return;
+    }
+
+    // The resp will not have a json component
+    // We need to create a json from resp's stringResponse
+    std::string_view contentType = resp.getHeaderValue("Content-Type");
+    if (bmcweb::asciiIEquals(contentType, "application/json") ||
+        bmcweb::asciiIEquals(contentType, "application/json; charset=utf-8"))
+    {
+        nlohmann::json jsonVal =
+            nlohmann::json::parse(*resp.body(), nullptr, false);
+        if (jsonVal.is_discarded())
+        {
+            return;
+        }
+        nlohmann::json::object_t* object =
+            jsonVal.get_ptr<nlohmann::json::object_t*>();
+        if (object == nullptr)
+        {
+            BMCWEB_LOG_ERROR("Parsed JSON was not an object?");
+            return;
+        }
+
+        auto cb = [asyncResp](nlohmann::json& item) mutable {
+            auto allowValueCb = [asyncResp](nlohmann::json& item) mutable {
+                auto* str = item.get_ptr<std::string*>();
+                if (str == nullptr)
+                {
+                    BMCWEB_LOG_CRITICAL("Item is not a string");
+                    return;
+                }
+                nlohmann::json& allowableValues =
+                    asyncResp->res
+                        .jsonValue["Parameters"][0]["AllowableValues"];
+
+                allowableValues.push_back(*str);
+            };
+
+            auto* nestedObject = item.get_ptr<nlohmann::json::object_t*>();
+            if (nestedObject == nullptr)
+            {
+                BMCWEB_LOG_CRITICAL("Nested object is null");
+                return;
+            }
+            getArrayObject(nestedObject, std::string("AllowableValues"),
+                           allowValueCb);
+        };
+        getArrayObject(object, std::string("Parameters"), cb);
+    }
+}
+
+/**
+ * @brief forward Commit Image Action Info request to satBMC.
+ * the function will send the request to satBMC to get the CommitImageActionInfo
+ * if the satellie BMC is available.
+ *
+ * @param[in] req  HTTP request
+ * @param[in] asyncResp Shared pointer to the response message
+ * @param[in] ec Error code
+ * @param[in] satelliteInfo satellite BMC information
+ *
+ * @return None
+ */
+inline void forwardCommitImageActionInfo(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
+{
+    // Something went wrong while querying dbus
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    const auto& sat =
+        satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
+    if (sat == satelliteInfo.end())
+    {
+        BMCWEB_LOG_ERROR("satellite BMC is not there.");
+        return;
+    }
+
+    crow::HttpClient client(
+        *req.ioService,
+        std::make_shared<crow::ConnectionPolicy>(getPostAggregationPolicy()));
+
+    std::function<void(crow::Response&)> cb =
+        std::bind_front(commitImageActionInfoResp, asyncResp);
+
+    std::string data;
+    boost::urls::url url(sat->second);
+    url.set_path(req.url().path());
+
+    client.sendDataWithCallback(
+        std::move(data), url, ensuressl::VerifyCertificate::Verify,
+        req.fields(), boost::beast::http::verb::get, cb);
+}
+
+/**
  * @brief Register Web Api endpoints for Commit Image functionality
  *
  * @return None
@@ -4118,7 +4397,7 @@ inline void requestRoutesUpdateServiceCommitImage(App& app)
         .privileges(redfish::privileges::getSoftwareInventoryCollection)
         .methods(
             boost::beast::http::verb::
-                get)([](const crow::Request&,
+                get)([](const crow::Request& req,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
             asyncResp->res.jsonValue["@odata.type"] =
                 "#ActionInfo.v1_2_0.ActionInfo";
@@ -4128,7 +4407,7 @@ inline void requestRoutesUpdateServiceCommitImage(App& app)
             asyncResp->res.jsonValue["Id"] = "CommitImageActionInfo";
 
             crow::connections::systemBus->async_method_call(
-                [asyncResp{asyncResp}](
+                [asyncResp{asyncResp}, req](
                     const boost::system::error_code ec,
                     const std::vector<std::pair<
                         std::string,
@@ -4142,6 +4421,11 @@ inline void requestRoutesUpdateServiceCommitImage(App& app)
                     }
 
                     updateParametersForCommitImageInfo(asyncResp, subtree);
+                    if constexpr (BMCWEB_REDFISH_AGGREGATION)
+                    {
+                        RedfishAggregator::getSatelliteConfigs(std::bind_front(
+                            forwardCommitImageActionInfo, req, asyncResp));
+                    }
                 },
                 // Note that only firmware levels associated with a device
                 // are stored under /xyz/openbmc_project/software therefore
@@ -4166,12 +4450,13 @@ inline void requestRoutesUpdateServiceCommitImage(App& app)
                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
             BMCWEB_LOG_DEBUG("doPost...");
 
-#ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
-            if (!handleSatBMCCommitImagePost(req, asyncResp))
+            if constexpr (BMCWEB_REDFISH_AGGREGATION)
             {
-                return;
+                if (!handleSatBMCCommitImagePost(req, asyncResp))
+                {
+                    return;
+                }
             }
-#endif
 
             if (fwUpdateInProgress == true)
             {
@@ -5840,284 +6125,6 @@ inline void requestRoutesSplitUpdateService(App& app)
                 std::array<const char*, 1>{
                     "xyz.openbmc_project.Software.Version"});
         });
-}
-
-/**
- * @brief forward Commit Image Post Request to satBMC.
- *
- *
- * @param[in] req  HTTP request
- * @param[in] asyncResp Shared pointer to the response message
- * @param[in] ec Error code
- * @param[in] satelliteInfo satellite BMC information
- *
- * @return None
- */
-inline void forwardCommitImagePost(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec,
-    const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
-{
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
-    const auto& sat =
-        satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
-    if (sat == satelliteInfo.end())
-    {
-        BMCWEB_LOG_ERROR("satBMC is not found");
-        return;
-    }
-
-    crow::HttpClient client(
-        *req.ioService,
-        std::make_shared<crow::ConnectionPolicy>(getPostAggregationPolicy()));
-
-    std::function<void(crow::Response&)> cb =
-        std::bind_front(handleSatBMCResponse, asyncResp);
-
-    std::string data = req.body();
-    boost::urls::url url(sat->second);
-    url.set_path(req.url().path());
-
-    client.sendDataWithCallback(
-        std::move(data), url, ensuressl::VerifyCertificate::Verify,
-        req.fields(), boost::beast::http::verb::post, cb);
-}
-
-/**
- * @brief the response handler of CommitImage Post
- * the function will examine the targets of the request and send out
- * the request to the satellite BMC if the remote targets are present.
- *
- * @param[in] req  HTTP request
- * @param[in] asyncResp Shared pointer to the response message
- *
- * @return return true to pass request to the local. otherwise, don't pass.
- */
-
-inline bool handleSatBMCCommitImagePost(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{
-    std::optional<std::vector<std::string>> targets;
-
-    if (!json_util::readJsonAction(req, asyncResp->res, "Targets", targets))
-    {
-        messages::createFailedMissingReqProperties(asyncResp->res, "Targets");
-        BMCWEB_LOG_ERROR("Missing Targets of OemCommitImage API");
-        return false;
-    }
-
-    bool hasTargets = false;
-
-    if (targets && targets.value().empty() == false)
-    {
-        hasTargets = true;
-    }
-
-    if (hasTargets)
-    {
-        std::vector<std::string> targetsCollection = targets.value();
-
-        std::string rfaPrefix(BMCWEB_REDFISH_AGGREGATION_PREFIX);
-        rfaPrefix += "_";
-
-        bool prefix = false, noPrefix = false;
-        for (auto& target : targetsCollection)
-        {
-            std::string file = std::filesystem::path(target).filename();
-            if (file.starts_with(rfaPrefix))
-            {
-                prefix = true;
-            }
-            else
-            {
-                noPrefix = true;
-            }
-        }
-
-        if (prefix && !noPrefix)
-        {
-            // targets with the prefix included only.
-            RedfishAggregator::getSatelliteConfigs(
-                std::bind_front(forwardCommitImagePost, req, asyncResp));
-
-            // don't pass the request to the local
-            return false;
-        }
-        else if (prefix && noPrefix)
-        {
-            // drop the request with mixed targets.
-            boost::urls::url_view targetURL("Target");
-            messages::invalidObject(asyncResp->res, targetURL);
-            return false;
-        }
-    }
-    else
-    {
-        RedfishAggregator::getSatelliteConfigs(
-            std::bind_front(forwardCommitImagePost, req, asyncResp));
-        // forward the request with empty target.
-    }
-    return true;
-}
-
-/**
- * @brief  callback handler of JSON array object
- * the common function to get the JSON array object, espeically for
- * the response of CommitImageActionInfo from satBMC.
- *
- * @param[in] object JSON object
- * @param[in] name JSON name
- * @param[in] cb  The callback function
- *
- * @return None
- */
-inline void getArrayObject(nlohmann::json::object_t* object,
-                           const std::string_view name,
-                           const std::function<void(nlohmann::json&)>& cb)
-{
-    for (std::pair<const std::string, nlohmann::json>& item : *object)
-    {
-        if (item.first != name)
-        {
-            continue;
-        }
-        auto* array = item.second.get_ptr<nlohmann::json::array_t*>();
-        if (array == nullptr)
-        {
-            continue;
-        }
-        for (nlohmann::json& elm : *array)
-        {
-            cb(elm);
-        }
-    }
-}
-
-/**
- * @brief The response handler of CommitImageActionInfo from satBMC
- * aggregate the allowable values from the response of CommitImageActionInfo
- * if the response is successful.
- *
- * @param[in] asyncResp Shared pointer to the response message
- * @param[in] resp  HTTP response of satBMC
- *
- * @return None
- */
-inline void commitImageActionInfoResp(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, crow::Response& resp)
-{
-    // Failed to get ActionInfo because of the error response
-    // just return without any further processing for the aggregation.
-    if ((resp.result() == boost::beast::http::status::too_many_requests) ||
-        (resp.result() == boost::beast::http::status::bad_gateway))
-    {
-        return;
-    }
-
-    // The resp will not have a json component
-    // We need to create a json from resp's stringResponse
-    std::string_view contentType = resp.getHeaderValue("Content-Type");
-    if (bmcweb::asciiIEquals(contentType, "application/json") ||
-        bmcweb::asciiIEquals(contentType, "application/json; charset=utf-8"))
-    {
-        nlohmann::json jsonVal =
-            nlohmann::json::parse(*resp.body(), nullptr, false);
-        if (jsonVal.is_discarded())
-        {
-            return;
-        }
-        nlohmann::json::object_t* object =
-            jsonVal.get_ptr<nlohmann::json::object_t*>();
-        if (object == nullptr)
-        {
-            BMCWEB_LOG_ERROR("Parsed JSON was not an object?");
-            return;
-        }
-
-        auto cb = [asyncResp](nlohmann::json& item) mutable {
-            auto allowValueCb = [asyncResp](nlohmann::json& item) mutable {
-                auto* str = item.get_ptr<std::string*>();
-                if (str == nullptr)
-                {
-                    BMCWEB_LOG_CRITICAL("Item is not a string");
-                    return;
-                }
-                nlohmann::json& allowableValues =
-                    asyncResp->res
-                        .jsonValue["Parameters"][0]["AllowableValues"];
-
-                allowableValues.push_back(*str);
-            };
-
-            auto* nestedObject = item.get_ptr<nlohmann::json::object_t*>();
-            if (nestedObject == nullptr)
-            {
-                BMCWEB_LOG_CRITICAL("Nested object is null");
-                return;
-            }
-            getArrayObject(nestedObject, std::string("AllowableValues"),
-                           allowValueCb);
-        };
-        getArrayObject(object, std::string("Parameters"), cb);
-    }
-}
-
-/**
- * @brief forward Commit Image Action Info request to satBMC.
- * the function will send the request to satBMC to get the CommitImageActionInfo
- * if the satellie BMC is available.
- *
- * @param[in] req  HTTP request
- * @param[in] asyncResp Shared pointer to the response message
- * @param[in] ec Error code
- * @param[in] satelliteInfo satellite BMC information
- *
- * @return None
- */
-inline void forwardCommitImageActionInfo(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec,
-    const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
-{
-    // Something went wrong while querying dbus
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
-    const auto& sat =
-        satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
-    if (sat == satelliteInfo.end())
-    {
-        BMCWEB_LOG_ERROR("satellite BMC is not there.");
-        return;
-    }
-
-    crow::HttpClient client(
-        *req.ioService,
-        std::make_shared<crow::ConnectionPolicy>(getPostAggregationPolicy()));
-
-    std::function<void(crow::Response&)> cb =
-        std::bind_front(commitImageActionInfoResp, asyncResp);
-
-    std::string data;
-    boost::urls::url url(sat->second);
-    url.set_path(req.url().path());
-
-    client.sendDataWithCallback(
-        std::move(data), url, ensuressl::VerifyCertificate::Verify,
-        req.fields(), boost::beast::http::verb::get, cb);
 }
 
 } // namespace redfish

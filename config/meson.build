@@ -114,6 +114,7 @@ feature_options = [
     'redfish-manager-event-log',
     'nsm-raw-command-enable',    
     'enable-ist-mode',
+    'hide-host-os-features-init-value',
 ]
 
 string_options = [

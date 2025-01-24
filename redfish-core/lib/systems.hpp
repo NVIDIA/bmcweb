@@ -3838,10 +3838,12 @@ inline void
         asyncResp->res.jsonValue["ProcessorSummary"]["Count"] = 0;
     }
     asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"] = int(0);
-#ifdef BMCWEB_HIDE_HOST_OS_INIT_VALUE
-    asyncResp->res.jsonValue.erase("ProcessorSummary");
-    asyncResp->res.jsonValue.erase("MemorySummary");
-#endif // end of BMCWEB_HIDE_HOST_OS_INIT_VALUE
+
+    if constexpr (BMCWEB_HIDE_HOST_OS_FEATURES_INIT_VALUE)
+    {
+        asyncResp->res.jsonValue.erase("ProcessorSummary");
+        asyncResp->res.jsonValue.erase("MemorySummary");
+    }
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME);
 

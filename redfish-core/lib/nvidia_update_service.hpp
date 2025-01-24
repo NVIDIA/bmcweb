@@ -495,11 +495,6 @@ inline void updateParametersForCommitImageInfo(
     }
 
     parameters.push_back(parameterTargets);
-
-#ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
-    RedfishAggregator::getSatelliteConfigs(
-        std::bind_front(forwardCommitImageActionInfo, req, asyncResp));
-#endif
 }
 
 /**

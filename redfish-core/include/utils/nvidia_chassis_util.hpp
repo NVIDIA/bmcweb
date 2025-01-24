@@ -1710,12 +1710,13 @@ inline void handleChassisGetAllProperties(
                 *pCIeReferenceClockCount;
         }
 
-#ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
-        // Policy Collection
-        getValidLeakDetectionPath(
-            asyncResp, chassisId,
-            std::bind_front(doLeakDetectionPolicyGet, asyncResp, chassisId));
-#endif
+        if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
+        {
+            // Policy Collection
+            getValidLeakDetectionPath(asyncResp, chassisId,
+                                      std::bind_front(doLeakDetectionPolicyGet,
+                                                      asyncResp, chassisId));
+        }
     }
     if (std::find(interfaces.begin(), interfaces.end(),
                   "xyz.openbmc_project.Inventory.Item.Chassis") !=

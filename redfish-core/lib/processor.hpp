@@ -1758,14 +1758,15 @@ inline void requestRoutesProcessor(App& app)
                     std::optional<bool> migMode;
                     std::optional<bool> remoteDebugEnabled;
                     std::optional<nlohmann::json> inbandReconfigPermissions;
-                std::optional<nlohmann::json> doeReconfigPermissions;
+                    std::optional<nlohmann::json> doeReconfigPermissions;
 
                     if (oemNvidiaObject &&
                         redfish::json_util::readJson(
                             *oemNvidiaObject, asyncResp->res, "MIGModeEnabled",
                             migMode, "RemoteDebugEnabled", remoteDebugEnabled,
-                        "InbandReconfigPermissions", inbandReconfigPermissions,
-                        "DOEReconfigPermissions", doeReconfigPermissions))
+                            "InbandReconfigPermissions",
+                            inbandReconfigPermissions, "DOEReconfigPermissions",
+                            doeReconfigPermissions))
                     {
                         if (migMode)
                         {
@@ -1812,11 +1813,12 @@ inline void requestRoutesProcessor(App& app)
                                     *inbandReconfigPermissions);
                         }
 
-                    if (doeReconfigPermissions)
-                    {
-                        nvidia_processor_utils::patchDOEReconfigPermissions(
-                            asyncResp, processorId, *doeReconfigPermissions);
-                    }
+                        if (doeReconfigPermissions)
+                        {
+                            nvidia_processor_utils::patchDOEReconfigPermissions(
+                                asyncResp, processorId,
+                                *doeReconfigPermissions);
+                        }
                     }
                 }
             }

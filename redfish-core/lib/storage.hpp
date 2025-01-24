@@ -282,6 +282,26 @@ inline void getDriveFWVersion(
         });
 }
 
+inline void getDriveLocationContext(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& connectionName, const std::string& path)
+{
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus, connectionName, path,
+        "xyz.openbmc_project.Inventory.Decorator.LocationContext",
+        "LocationContext",
+        [asyncResp, path](const boost::system::error_code ec,
+                          const std::string& locContext) {
+            if (ec)
+            {
+                return;
+            }
+            asyncResp->res
+                .jsonValue["PhysicalLocation"]["PartLocationContext"] =
+                locContext;
+        });
+}
+
 inline void
     getDriveLocation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const std::string& connectionName, const std::string& path)
@@ -1270,59 +1290,59 @@ inline void handleDriveSanitizePost(
             const std::string& path = drive->first;
             const dbus::utility::MapperServiceMap& connNames = drive->second;
 
-        std::string service;
-        std::string interface;
-        for (const auto& [connectionName, interfaces] : connNames)
+            std::string service;
+            std::string interface;
+            for (const auto& [connectionName, interfaces] : connNames)
             {
-            for (const std::string& iface : interfaces)
-            {
-                if (iface == "xyz.openbmc_project.Nvme.SecureErase")
+                for (const std::string& iface : interfaces)
                 {
-                    service = connectionName;
-                    interface = iface;
-                    break;
+                    if (iface == "xyz.openbmc_project.Nvme.SecureErase")
+                    {
+                        service = connectionName;
+                        interface = iface;
+                        break;
+                    }
                 }
             }
-        }
-        if (service.empty() || interface.empty())
-        {
-            BMCWEB_LOG_ERROR("failed to get DriveSanitizetActionInfo");
+            if (service.empty() || interface.empty())
+            {
+                BMCWEB_LOG_ERROR("failed to get DriveSanitizetActionInfo");
                 messages::internalError(asyncResp->res);
                 return;
             }
 
-        auto methodName = "xyz.openbmc_project.Nvme.SecureErase.EraseMethod." +
-                    sanitizeType;
-                // execute drive sanitize operation
-                crow::connections::systemBus->async_method_call(
-                    [req, asyncResp, service, path,
-                     driveId](const boost::system::error_code ec,
-                              sdbusplus::message::message& msg) {
-                        const sd_bus_error* dbusError = msg.get_error();
-                        if (dbusError != nullptr &&
-                            strcmp(
-                                dbusError->name,
-                                "xyz.openbmc_project.Common.Error.NotAllowed") ==
-                                0)
-                        {
-                            std::string resolution =
-                                "Drive sanitize in progress. Retry "
-                                "the sanitize operation once it is complete.";
-                            redfish::messages::updateInProgressMsg(
-                                asyncResp->res, resolution);
-                            BMCWEB_LOG_ERROR(
-                                "Sanitize on drive{} already in progress.",
-                                driveId);
-                        }
-                        if (ec)
-                        {
-                            // other errors return here.
-                            return;
-                        }
-                        createSanitizeProgressTask(req, asyncResp, service,
-                                                   path, driveId);
-                    },
-                    service, path, interface, "Erase", owPass, methodName);
+            auto methodName =
+                "xyz.openbmc_project.Nvme.SecureErase.EraseMethod." +
+                sanitizeType;
+            // execute drive sanitize operation
+            crow::connections::systemBus->async_method_call(
+                [req, asyncResp, service, path,
+                 driveId](const boost::system::error_code ec,
+                          sdbusplus::message::message& msg) {
+                    const sd_bus_error* dbusError = msg.get_error();
+                    if (dbusError != nullptr &&
+                        strcmp(dbusError->name,
+                               "xyz.openbmc_project.Common.Error.NotAllowed") ==
+                            0)
+                    {
+                        std::string resolution =
+                            "Drive sanitize in progress. Retry "
+                            "the sanitize operation once it is complete.";
+                        redfish::messages::updateInProgressMsg(asyncResp->res,
+                                                               resolution);
+                        BMCWEB_LOG_ERROR(
+                            "Sanitize on drive{} already in progress.",
+                            driveId);
+                    }
+                    if (ec)
+                    {
+                        // other errors return here.
+                        return;
+                    }
+                    createSanitizeProgressTask(req, asyncResp, service, path,
+                                               driveId);
+                },
+                service, path, interface, "Erase", owPass, methodName);
         });
 }
 
@@ -1364,73 +1384,73 @@ inline void handleDriveSanitizetActionInfoGet(
             const std::string& path = drive->first;
             const dbus::utility::MapperServiceMap& connNames = drive->second;
 
-        std::string service;
-        std::string interface;
-        for (const auto& [connectionName, interfaces] : connNames)
+            std::string service;
+            std::string interface;
+            for (const auto& [connectionName, interfaces] : connNames)
             {
-            for (const std::string& iface : interfaces)
-            {
-                if (iface == "xyz.openbmc_project.Nvme.SecureErase")
+                for (const std::string& iface : interfaces)
                 {
-                    service = connectionName;
-                    interface = iface;
-                    break;
+                    if (iface == "xyz.openbmc_project.Nvme.SecureErase")
+                    {
+                        service = connectionName;
+                        interface = iface;
+                        break;
+                    }
                 }
             }
-        }
-        if (service.empty() || interface.empty())
-        {
-            BMCWEB_LOG_ERROR("failed to get DriveSanitizetActionInfo");
+            if (service.empty() || interface.empty())
+            {
+                BMCWEB_LOG_ERROR("failed to get DriveSanitizetActionInfo");
                 messages::internalError(asyncResp->res);
                 return;
             }
-                sdbusplus::asio::getProperty<std::vector<std::string>>(
-                    *crow::connections::systemBus, service, path, interface,
-                    "SanitizeCapability",
-                    [asyncResp](const boost::system::error_code ec,
-                                const std::vector<std::string>& cap) {
-                        if (ec)
-                        {
-                            BMCWEB_LOG_ERROR("fail to get drive Progress");
-                            return;
-                        }
-                        nlohmann::json::array_t parameters;
-                        nlohmann::json::object_t parameter;
-                        nlohmann::json::array_t allowed;
+            sdbusplus::asio::getProperty<std::vector<std::string>>(
+                *crow::connections::systemBus, service, path, interface,
+                "SanitizeCapability",
+                [asyncResp](const boost::system::error_code ec,
+                            const std::vector<std::string>& cap) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR("fail to get drive Progress");
+                        return;
+                    }
+                    nlohmann::json::array_t parameters;
+                    nlohmann::json::object_t parameter;
+                    nlohmann::json::array_t allowed;
 
-                        if (std::find(
-                                cap.begin(), cap.end(),
-                                "xyz.openbmc_project.Nvme.SecureErase.EraseMethod.Overwrite") !=
-                            cap.end())
-                        {
-                            parameter["Name"] = "OverwritePasses";
-                            parameter["DataType"] = "integer";
-                            parameters.push_back(parameter);
-
-                            allowed.push_back("Overwrite");
-                        }
-                        if (std::find(
-                                cap.begin(), cap.end(),
-                                "xyz.openbmc_project.Nvme.SecureErase.EraseMethod.BlockErase") !=
-                            cap.end())
-                        {
-                            allowed.push_back("BlockErase");
-                        }
-                        if (std::find(
-                                cap.begin(), cap.end(),
-                                "xyz.openbmc_project.Nvme.SecureErase.EraseMethod.CryptoErase") !=
-                            cap.end())
-                        {
-                            allowed.push_back("CryptographicErase");
-                        }
-                        parameter["Name"] = "SanitizationType";
-                        parameter["DataType"] = "String";
-
-                        parameter["AllowableValues"] = allowed;
+                    if (std::find(
+                            cap.begin(), cap.end(),
+                            "xyz.openbmc_project.Nvme.SecureErase.EraseMethod.Overwrite") !=
+                        cap.end())
+                    {
+                        parameter["Name"] = "OverwritePasses";
+                        parameter["DataType"] = "integer";
                         parameters.push_back(parameter);
 
-                        asyncResp->res.jsonValue["Parameters"] = parameters;
-                    });
+                        allowed.push_back("Overwrite");
+                    }
+                    if (std::find(
+                            cap.begin(), cap.end(),
+                            "xyz.openbmc_project.Nvme.SecureErase.EraseMethod.BlockErase") !=
+                        cap.end())
+                    {
+                        allowed.push_back("BlockErase");
+                    }
+                    if (std::find(
+                            cap.begin(), cap.end(),
+                            "xyz.openbmc_project.Nvme.SecureErase.EraseMethod.CryptoErase") !=
+                        cap.end())
+                    {
+                        allowed.push_back("CryptographicErase");
+                    }
+                    parameter["Name"] = "SanitizationType";
+                    parameter["DataType"] = "String";
+
+                    parameter["AllowableValues"] = allowed;
+                    parameters.push_back(parameter);
+
+                    asyncResp->res.jsonValue["Parameters"] = parameters;
+                });
         });
 }
 

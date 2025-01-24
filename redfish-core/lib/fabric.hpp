@@ -1591,12 +1591,16 @@ inline void requestRoutesSwitch(App& app)
                                                         asyncResp,
                                                         object.front().second,
                                                         switchURI);
-                                redfish::nvidia_fabric_utils::
-                                    getSwitchHistogramLink(
-                                        asyncResp, object.front().second,
-                                        switchURI);
-                                if (std::find(object.front().second.begin(),
-                                              object.front().second.end(),
+                                                redfish::nvidia_fabric_utils::
+                                                    getSwitchHistogramLink(
+                                                        asyncResp,
+                                                        object.front().second,
+                                                        switchURI);
+                                                if (std::find(
+                                                        object.front()
+                                                            .second.begin(),
+                                                        object.front()
+                                                            .second.end(),
                                                         "com.nvidia.SwitchIsolation") !=
                                                     object.front().second.end())
                                                 {

@@ -21,11 +21,10 @@ using ReconfigPermission = std::tuple<std::string, std::string, bool>;
  * @param[in]       featureName         Name of permission feature
  * @param[in,out]   permissions         Collection of parsed permissions
  */
-inline void
-    parseReconfigSettingsJson(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                              nlohmann::json& json,
+inline void parseReconfigSettingsJson(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, nlohmann::json& json,
     const std::string& featureName,
-                              std::vector<ReconfigPermission>& permissions)
+    std::vector<ReconfigPermission>& permissions)
 {
     std::optional<bool> allowOneShotConfig;
     std::optional<bool> allowPersistentConfig;
@@ -125,7 +124,7 @@ inline std::vector<ReconfigPermission> parseReconfigPermissionsJson(
             if (feature)
             {
                 parseReconfigSettingsJson(aResp, *feature, featureName,
-                                                permissions);
+                                          permissions);
             }
         }
     }
@@ -186,17 +185,17 @@ inline void patchDOEReconfigPermissions(
                         const std::string& objectPath,
                         const MapperServiceMap& serviceMap,
                         [[maybe_unused]] const std::string& deviceType) {
-        for (const auto& [service, _] : serviceMap)
-        {
-            for (const auto& [featureName, property, value] : patchRequests)
+            for (const auto& [service, _] : serviceMap)
             {
-                nvidia_async_operation_utils::patch(
-                    asyncResp, service,
-                    objectPath + "/DOEReconfigPermissions/" + featureName,
-                    "com.nvidia.InbandReconfigSettings", property, value);
+                for (const auto& [featureName, property, value] : patchRequests)
+                {
+                    nvidia_async_operation_utils::patch(
+                        asyncResp, service,
+                        objectPath + "/DOEReconfigPermissions/" + featureName,
+                        "com.nvidia.InbandReconfigSettings", property, value);
+                }
             }
-        }
-    });
+        });
 }
 
 /**
@@ -623,7 +622,7 @@ inline void getCCModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             for (const auto& property : properties)
             {
                 json["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaProcessor.v1_5_0.NvidiaGPU";
+                    "#NvidiaProcessor.v1_5_0.NvidiaGPU";
                 if (property.first == "CCModeEnabled")
                 {
                     const bool* ccModeEnabled =
@@ -678,18 +677,18 @@ inline void getReconfigPermissionsData(
             auto reconfigPermissionsName =
                 sdbusplus::message::object_path(objPath).filename();
             aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaProcessor.v1_5_0.NvidiaGPU";
-        std::string reconfigPermissionsType = "";
-        if (objPath.find("InbandReconfigPermissions") != std::string::npos)
-        {
-            reconfigPermissionsType = "InbandReconfigPermissions";
-        }
-        else
-        {
-            reconfigPermissionsType = "DOEReconfigPermissions";
-        }
+                "#NvidiaProcessor.v1_5_0.NvidiaGPU";
+            std::string reconfigPermissionsType = "";
+            if (objPath.find("InbandReconfigPermissions") != std::string::npos)
+            {
+                reconfigPermissionsType = "InbandReconfigPermissions";
+            }
+            else
+            {
+                reconfigPermissionsType = "DOEReconfigPermissions";
+            }
             auto& reconfigPermissionsJson =
-            json["Oem"]["Nvidia"][reconfigPermissionsType]
+                json["Oem"]["Nvidia"][reconfigPermissionsType]
                     [reconfigPermissionsName];
 
             for (const auto& property : properties)
@@ -741,9 +740,8 @@ inline void getReconfigPermissionsData(
         "com.nvidia.InbandReconfigSettings");
 }
 
-inline void
-    getReconfigPermissionsData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                               const std::string& cpuId,
+inline void getReconfigPermissionsData(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
     const std::string& objPath)
 {
     // Ask for all objects implementing OperatingConfig so we can search
@@ -760,8 +758,8 @@ inline void
             {
                 for (const auto& [serviceName, interfaceList] : serviceMap)
                 {
-                getReconfigPermissionsData(aResp, cpuId, serviceName,
-                                                     objectPath);
+                    getReconfigPermissionsData(aResp, cpuId, serviceName,
+                                               objectPath);
                 }
             }
         },
@@ -848,7 +846,7 @@ inline void getCCModePendingData(
             }
             nlohmann::json& json = aResp->res.jsonValue;
             json["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaProcessor.v1_5_0.NvidiaGPU";
+                "#NvidiaProcessor.v1_5_0.NvidiaGPU";
             for (const auto& property : properties)
             {
                 if (property.first == "PendingCCModeState")
@@ -1889,7 +1887,7 @@ inline void postPCIeClearCounter(
                             sdbusplus::message::object_path path1(sensorpath);
                             if (path1.filename() != portId)
                             {
-                        continue;
+                                continue;
                             }
 
                             crow::connections::systemBus->async_method_call(

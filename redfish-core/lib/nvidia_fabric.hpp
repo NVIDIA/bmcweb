@@ -72,73 +72,78 @@ inline void
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath](const boost::system::error_code ec,
                              const PropertiesMap& properties) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Error while GetAll histogram data: {}",
-                             ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Error while GetAll histogram data: {}",
+                                 ec.message());
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-        for (const auto& property : properties)
-        {
-            const std::string& propertyName = property.first;
-            if (propertyName == "UnitOfMeasure")
+            for (const auto& property : properties)
             {
-                const std::string* value =
-                    std::get_if<std::string>(&property.second);
-                if (value == nullptr)
+                const std::string& propertyName = property.first;
+                if (propertyName == "UnitOfMeasure")
                 {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for {} parameter",
-                                     propertyName);
-                    messages::internalError(asyncResp->res);
-                    return;
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for {} parameter",
+                                         propertyName);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["BucketUnits"] =
+                        getBucketUnit(*value);
                 }
-                asyncResp->res.jsonValue["BucketUnits"] = getBucketUnit(*value);
-            }
-            if (propertyName == "MinSamplingTime")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
+                if (propertyName == "MinSamplingTime")
                 {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for {} parameter",
-                                     propertyName);
-                    messages::internalError(asyncResp->res);
-                    return;
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for {} parameter",
+                                         propertyName);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["UpdatePeriodMilliseconds"] =
+                        *value;
                 }
-                asyncResp->res.jsonValue["UpdatePeriodMilliseconds"] = *value;
-            }
-            if (propertyName == "IncrementDuration")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
+                if (propertyName == "IncrementDuration")
                 {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for {} parameter",
-                                     propertyName);
-                    messages::internalError(asyncResp->res);
-                    return;
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for {} parameter",
+                                         propertyName);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["IncrementDurationMicroseconds"] =
+                        *value;
                 }
-                asyncResp->res.jsonValue["IncrementDurationMicroseconds"] =
-                    *value;
-            }
-            if (propertyName == "AccumulationCycle")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
+                if (propertyName == "AccumulationCycle")
                 {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for {} parameter",
-                                     propertyName);
-                    messages::internalError(asyncResp->res);
-                    return;
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for {} parameter",
+                                         propertyName);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["AccumulationCycle"] = *value;
                 }
-                asyncResp->res.jsonValue["AccumulationCycle"] = *value;
             }
-        }
-    },
+        },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
 }
 
@@ -151,76 +156,77 @@ inline void getHistogramDataByAssociation(
         [asyncResp, fabricId, switchId,
          histogramId](const boost::system::error_code ec,
                       std::variant<std::vector<std::string>>& resp) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR(
-                "DBUS response error while getting histogram on switch: {}",
-                ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        std::vector<std::string>* data =
-            std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr)
-        {
-            BMCWEB_LOG_ERROR(
-                "Null data response while getting histogram on switch");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        // Iterate over all retrieved ObjectPaths.
-        for (const std::string& histoPath : *data)
-        {
-            sdbusplus::message::object_path histoObjPath(histoPath);
-            if (histoObjPath.filename() != histogramId)
+            if (ec)
             {
-                continue;
+                BMCWEB_LOG_ERROR(
+                    "DBUS response error while getting histogram on switch: {}",
+                    ec.message());
+                messages::internalError(asyncResp->res);
+                return;
             }
-
-            std::string histogramURI = "/redfish/v1/Fabrics/";
-            histogramURI += fabricId;
-            histogramURI += "/Switches/";
-            histogramURI += switchId;
-            histogramURI += "/Oem/Nvidia/Histograms/";
-            histogramURI += histogramId;
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#NvidiaHistogram.v1_0_0.NvidiaHistogram";
-            asyncResp->res.jsonValue["@odata.id"] = histogramURI;
-            asyncResp->res.jsonValue["Id"] = histogramId;
-            asyncResp->res.jsonValue["Name"] = switchId + "_Histogram_" +
-                                               histogramId;
-
-            std::string bucketURI = histogramURI + "/Buckets";
-            asyncResp->res.jsonValue["Buckets"]["@odata.id"] = bucketURI;
-
-            crow::connections::systemBus->async_method_call(
-                [asyncResp, histoPath, histogramId](
-                    const boost::system::error_code ec,
-                    const std::vector<std::pair<
-                        std::string, std::vector<std::string>>>& object) {
-                if (ec)
+            std::vector<std::string>* data =
+                std::get_if<std::vector<std::string>>(&resp);
+            if (data == nullptr)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Null data response while getting histogram on switch");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            // Iterate over all retrieved ObjectPaths.
+            for (const std::string& histoPath : *data)
+            {
+                sdbusplus::message::object_path histoObjPath(histoPath);
+                if (histoObjPath.filename() != histogramId)
                 {
-                    BMCWEB_LOG_ERROR(
-                        "Dbus response error while getting service name for histogram {}: {}",
-                        histogramId, ec.message());
-                    messages::internalError(asyncResp->res);
-                    return;
+                    continue;
                 }
 
-                updateHistogramData(asyncResp, object.front().first, histoPath);
-            },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetObject", histoPath,
-                std::array<const char*, 0>());
-            return;
-        }
-        // Couldn't find an object with that name.
-        // Return an error
-        messages::resourceNotFound(asyncResp->res,
-                                   "#NvidiaHistogram.v1_0_0.NvidiaHistogram",
-                                   histogramId);
-    },
+                std::string histogramURI = "/redfish/v1/Fabrics/";
+                histogramURI += fabricId;
+                histogramURI += "/Switches/";
+                histogramURI += switchId;
+                histogramURI += "/Oem/Nvidia/Histograms/";
+                histogramURI += histogramId;
+                asyncResp->res.jsonValue["@odata.type"] =
+                    "#NvidiaHistogram.v1_0_0.NvidiaHistogram";
+                asyncResp->res.jsonValue["@odata.id"] = histogramURI;
+                asyncResp->res.jsonValue["Id"] = histogramId;
+                asyncResp->res.jsonValue["Name"] =
+                    switchId + "_Histogram_" + histogramId;
+
+                std::string bucketURI = histogramURI + "/Buckets";
+                asyncResp->res.jsonValue["Buckets"]["@odata.id"] = bucketURI;
+
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp, histoPath, histogramId](
+                        const boost::system::error_code ec,
+                        const std::vector<std::pair<
+                            std::string, std::vector<std::string>>>& object) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "Dbus response error while getting service name for histogram {}: {}",
+                                histogramId, ec.message());
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+
+                        updateHistogramData(asyncResp, object.front().first,
+                                            histoPath);
+                    },
+                    "xyz.openbmc_project.ObjectMapper",
+                    "/xyz/openbmc_project/object_mapper",
+                    "xyz.openbmc_project.ObjectMapper", "GetObject", histoPath,
+                    std::array<const char*, 0>());
+                return;
+            }
+            // Couldn't find an object with that name.
+            // Return an error
+            messages::resourceNotFound(
+                asyncResp->res, "#NvidiaHistogram.v1_0_0.NvidiaHistogram",
+                histogramId);
+        },
         "xyz.openbmc_project.ObjectMapper", objPath + "/histograms",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
@@ -237,33 +243,33 @@ inline void updateHistogramBucketData(
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath](const boost::system::error_code ec,
                              const PropertiesMap& properties) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Error while GetAll Bucket Data: {}",
-                             ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        for (const auto& property : properties)
-        {
-            const std::string& propertyName = property.first;
-            if (propertyName == "Start" || propertyName == "Value" ||
-                propertyName == "End")
+            if (ec)
             {
-                const double* value = std::get_if<double>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for {} parameter",
-                                     propertyName);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue[propertyName] = *value;
+                BMCWEB_LOG_ERROR("Error while GetAll Bucket Data: {}",
+                                 ec.message());
+                messages::internalError(asyncResp->res);
+                return;
             }
-        }
-    },
+
+            for (const auto& property : properties)
+            {
+                const std::string& propertyName = property.first;
+                if (propertyName == "Start" || propertyName == "Value" ||
+                    propertyName == "End")
+                {
+                    const double* value = std::get_if<double>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for {} parameter",
+                                         propertyName);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue[propertyName] = *value;
+                }
+            }
+        },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
 }
 
@@ -277,75 +283,77 @@ inline void getBucketDataByAssociation(
         [asyncResp, fabricId, switchId, histogramId,
          bucketId](const boost::system::error_code ec,
                    std::variant<std::vector<std::string>>& resp) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR(
-                "DBUS response error while getting bucket on histogram: {}",
-                ec.message());
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        std::vector<std::string>* data =
-            std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr)
-        {
-            BMCWEB_LOG_ERROR(
-                "Null data response while getting bucket on histogram");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        // Iterate over all retrieved ObjectPaths.
-        for (const std::string& bucketPath : *data)
-        {
-            sdbusplus::message::object_path objPath(bucketPath);
-            if (objPath.filename() != bucketId)
+            if (ec)
             {
-                continue;
+                BMCWEB_LOG_ERROR(
+                    "DBUS response error while getting bucket on histogram: {}",
+                    ec.message());
+                messages::internalError(asyncResp->res);
+                return;
             }
-
-            std::string bucketURI = "/redfish/v1/Fabrics/";
-            bucketURI += fabricId;
-            bucketURI += "/Switches/";
-            bucketURI += switchId;
-            bucketURI += "/Oem/Nvidia/Histograms/";
-            bucketURI += histogramId;
-            bucketURI += "/Buckets/";
-            bucketURI += bucketId;
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#NvidiaHistogramBucket.v1_0_0.NvidiaHistogramBucket";
-            asyncResp->res.jsonValue["@odata.id"] = bucketURI;
-            asyncResp->res.jsonValue["Id"] = bucketId;
-            asyncResp->res.jsonValue["Name"] =
-                switchId + "_Histogram_" + histogramId + "_Bucket_" + bucketId;
-
-            crow::connections::systemBus->async_method_call(
-                [asyncResp, bucketPath, bucketId](
-                    const boost::system::error_code ec,
-                    const std::vector<std::pair<
-                        std::string, std::vector<std::string>>>& object) {
-                if (ec)
+            std::vector<std::string>* data =
+                std::get_if<std::vector<std::string>>(&resp);
+            if (data == nullptr)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Null data response while getting bucket on histogram");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            // Iterate over all retrieved ObjectPaths.
+            for (const std::string& bucketPath : *data)
+            {
+                sdbusplus::message::object_path objPath(bucketPath);
+                if (objPath.filename() != bucketId)
                 {
-                    BMCWEB_LOG_ERROR(
-                        "Dbus response error while getting service name for bucket {}: {}",
-                        bucketId, ec.message());
-                    messages::internalError(asyncResp->res);
-                    return;
+                    continue;
                 }
-                updateHistogramBucketData(asyncResp, object.front().first,
-                                          bucketPath);
-            },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetObject", bucketPath,
-                std::array<const char*, 0>());
-            return;
-        }
-        // Couldn't find an object with that name.
-        // Return an error
-        messages::resourceNotFound(
-            asyncResp->res,
-            "#NvidiaHistogramBucket.v1_0_0.NvidiaHistogramBucket", bucketId);
-    },
+
+                std::string bucketURI = "/redfish/v1/Fabrics/";
+                bucketURI += fabricId;
+                bucketURI += "/Switches/";
+                bucketURI += switchId;
+                bucketURI += "/Oem/Nvidia/Histograms/";
+                bucketURI += histogramId;
+                bucketURI += "/Buckets/";
+                bucketURI += bucketId;
+                asyncResp->res.jsonValue["@odata.type"] =
+                    "#NvidiaHistogramBucket.v1_0_0.NvidiaHistogramBucket";
+                asyncResp->res.jsonValue["@odata.id"] = bucketURI;
+                asyncResp->res.jsonValue["Id"] = bucketId;
+                asyncResp->res.jsonValue["Name"] =
+                    switchId + "_Histogram_" + histogramId + "_Bucket_" +
+                    bucketId;
+
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp, bucketPath, bucketId](
+                        const boost::system::error_code ec,
+                        const std::vector<std::pair<
+                            std::string, std::vector<std::string>>>& object) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "Dbus response error while getting service name for bucket {}: {}",
+                                bucketId, ec.message());
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        updateHistogramBucketData(
+                            asyncResp, object.front().first, bucketPath);
+                    },
+                    "xyz.openbmc_project.ObjectMapper",
+                    "/xyz/openbmc_project/object_mapper",
+                    "xyz.openbmc_project.ObjectMapper", "GetObject", bucketPath,
+                    std::array<const char*, 0>());
+                return;
+            }
+            // Couldn't find an object with that name.
+            // Return an error
+            messages::resourceNotFound(
+                asyncResp->res,
+                "#NvidiaHistogramBucket.v1_0_0.NvidiaHistogramBucket",
+                bucketId);
+        },
         "xyz.openbmc_project.ObjectMapper", objPath + "/histogram_buckets",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
@@ -361,63 +369,36 @@ inline void requestRoutesSwitchHistogramBucket(App& app)
         app,
         "/redfish/v1/Fabrics/<str>/Switches/<str>/Oem/Nvidia/Histograms/<str>/Buckets/<str>")
         .privileges(redfish::privileges::getSwitch)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& fabricId, const std::string& switchId,
-                   const std::string& histogramId,
-                   const std::string& bucketId) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, fabricId, switchId, histogramId,
-             bucketId](const boost::system::error_code ec,
-                       const std::vector<std::string>& objects) {
-            if (ec)
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& fabricId,
+                            const std::string& switchId,
+                            const std::string& histogramId,
+                            const std::string& bucketId) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
-                BMCWEB_LOG_ERROR(
-                    "DBUS response error while getting fabrics: {}",
-                    ec.message());
-                messages::internalError(asyncResp->res);
                 return;
             }
 
-            for (const std::string& fabricObject : objects)
-            {
-                // Get the fabricId object
-                if (!boost::ends_with(fabricObject, fabricId))
-                {
-                    continue;
-                }
-                crow::connections::systemBus->async_method_call(
-                    [asyncResp, fabricId, switchId, histogramId,
-                     bucketId](const boost::system::error_code ec,
-                               std::variant<std::vector<std::string>>& resp) {
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, fabricId, switchId, histogramId,
+                 bucketId](const boost::system::error_code ec,
+                           const std::vector<std::string>& objects) {
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR(
-                            "DBUS response error while getting switch on fabric: {}",
+                            "DBUS response error while getting fabrics: {}",
                             ec.message());
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    std::vector<std::string>* data =
-                        std::get_if<std::vector<std::string>>(&resp);
-                    if (data == nullptr)
+
+                    for (const std::string& fabricObject : objects)
                     {
-                        BMCWEB_LOG_ERROR(
-                            "Null data response while getting switch on fabric");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    // Iterate over all retrieved ObjectPaths.
-                    for (const std::string& switchPath : *data)
-                    {
-                        sdbusplus::message::object_path objPath(switchPath);
-                        if (objPath.filename() != switchId)
+                        // Get the fabricId object
+                        if (!boost::ends_with(fabricObject, fabricId))
                         {
                             continue;
                         }
@@ -426,66 +407,110 @@ inline void requestRoutesSwitchHistogramBucket(App& app)
                              bucketId](
                                 const boost::system::error_code ec,
                                 std::variant<std::vector<std::string>>& resp) {
-                            if (ec)
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "DBUS response error while getting histogram on switch: {}",
-                                    ec.message());
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            std::vector<std::string>* data =
-                                std::get_if<std::vector<std::string>>(&resp);
-                            if (data == nullptr)
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "Null data response while getting histogram on switch");
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            // Iterate over all retrieved ObjectPaths.
-                            for (const std::string& histoPath : *data)
-                            {
-                                sdbusplus::message::object_path histoObjPath(
-                                    histoPath);
-                                if (histoObjPath.filename() != histogramId)
+                                if (ec)
                                 {
-                                    continue;
+                                    BMCWEB_LOG_ERROR(
+                                        "DBUS response error while getting switch on fabric: {}",
+                                        ec.message());
+                                    messages::internalError(asyncResp->res);
+                                    return;
                                 }
+                                std::vector<std::string>* data =
+                                    std::get_if<std::vector<std::string>>(
+                                        &resp);
+                                if (data == nullptr)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "Null data response while getting switch on fabric");
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                // Iterate over all retrieved ObjectPaths.
+                                for (const std::string& switchPath : *data)
+                                {
+                                    sdbusplus::message::object_path objPath(
+                                        switchPath);
+                                    if (objPath.filename() != switchId)
+                                    {
+                                        continue;
+                                    }
+                                    crow::connections::systemBus->async_method_call(
+                                        [asyncResp, fabricId, switchId,
+                                         histogramId, bucketId](
+                                            const boost::system::error_code ec,
+                                            std::variant<std::vector<
+                                                std::string>>& resp) {
+                                            if (ec)
+                                            {
+                                                BMCWEB_LOG_ERROR(
+                                                    "DBUS response error while getting histogram on switch: {}",
+                                                    ec.message());
+                                                messages::internalError(
+                                                    asyncResp->res);
+                                                return;
+                                            }
+                                            std::vector<std::string>* data =
+                                                std::get_if<
+                                                    std::vector<std::string>>(
+                                                    &resp);
+                                            if (data == nullptr)
+                                            {
+                                                BMCWEB_LOG_ERROR(
+                                                    "Null data response while getting histogram on switch");
+                                                messages::internalError(
+                                                    asyncResp->res);
+                                                return;
+                                            }
+                                            // Iterate over all retrieved
+                                            // ObjectPaths.
+                                            for (const std::string& histoPath :
+                                                 *data)
+                                            {
+                                                sdbusplus::message::object_path
+                                                    histoObjPath(histoPath);
+                                                if (histoObjPath.filename() !=
+                                                    histogramId)
+                                                {
+                                                    continue;
+                                                }
 
-                                getBucketDataByAssociation(
-                                    asyncResp, fabricId, switchId, histogramId,
-                                    bucketId, histoPath);
-                            }
-                        },
+                                                getBucketDataByAssociation(
+                                                    asyncResp, fabricId,
+                                                    switchId, histogramId,
+                                                    bucketId, histoPath);
+                                            }
+                                        },
+                                        "xyz.openbmc_project.ObjectMapper",
+                                        switchPath + "/histograms",
+                                        "org.freedesktop.DBus.Properties",
+                                        "Get",
+                                        "xyz.openbmc_project.Association",
+                                        "endpoints");
+                                    return;
+                                }
+                                // Couldn't find an object with that name.
+                                // Return an error
+                                messages::resourceNotFound(
+                                    asyncResp->res, "#Switch.v1_8_0.Switch",
+                                    switchId);
+                            },
                             "xyz.openbmc_project.ObjectMapper",
-                            switchPath + "/histograms",
+                            fabricObject + "/all_switches",
                             "org.freedesktop.DBus.Properties", "Get",
                             "xyz.openbmc_project.Association", "endpoints");
                         return;
                     }
-                    // Couldn't find an object with that name.
-                    // Return an error
+                    // Couldn't find an object with that name. Return an error
                     messages::resourceNotFound(
-                        asyncResp->res, "#Switch.v1_8_0.Switch", switchId);
+                        asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
                 },
-                    "xyz.openbmc_project.ObjectMapper",
-                    fabricObject + "/all_switches",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
-                return;
-            }
-            // Couldn't find an object with that name. Return an error
-            messages::resourceNotFound(asyncResp->res, "#Fabric.v1_2_0.Fabric",
-                                       fabricId);
-        },
-            "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-            "/xyz/openbmc_project/inventory", 0,
-            std::array<const char*, 1>{
-                "xyz.openbmc_project.Inventory.Item.Fabric"});
-    });
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<const char*, 1>{
+                    "xyz.openbmc_project.Inventory.Item.Fabric"});
+        });
 }
 
 inline void requestRoutesSwitchHistogramBucketCollection(App& app)
@@ -498,62 +523,35 @@ inline void requestRoutesSwitchHistogramBucketCollection(App& app)
         app,
         "/redfish/v1/Fabrics/<str>/Switches/<str>/Oem/Nvidia/Histograms/<str>/Buckets")
         .privileges(redfish::privileges::getSwitch)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& fabricId, const std::string& switchId,
-                   const std::string& histogramId) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, fabricId, switchId,
-             histogramId](const boost::system::error_code ec,
-                          const std::vector<std::string>& objects) {
-            if (ec)
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& fabricId,
+                            const std::string& switchId,
+                            const std::string& histogramId) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
-                BMCWEB_LOG_ERROR(
-                    "DBUS response error while getting fabrics: {}",
-                    ec.message());
-                messages::internalError(asyncResp->res);
                 return;
             }
 
-            for (const std::string& fabricObject : objects)
-            {
-                // Get the fabricId object
-                if (!boost::ends_with(fabricObject, fabricId))
-                {
-                    continue;
-                }
-                crow::connections::systemBus->async_method_call(
-                    [asyncResp, fabricId, switchId, histogramId](
-                        const boost::system::error_code ec,
-                        std::variant<std::vector<std::string>>& resp) {
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, fabricId, switchId,
+                 histogramId](const boost::system::error_code ec,
+                              const std::vector<std::string>& objects) {
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR(
-                            "DBUS response error while getting switch on fabric: {}",
+                            "DBUS response error while getting fabrics: {}",
                             ec.message());
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    std::vector<std::string>* data =
-                        std::get_if<std::vector<std::string>>(&resp);
-                    if (data == nullptr)
+
+                    for (const std::string& fabricObject : objects)
                     {
-                        BMCWEB_LOG_ERROR(
-                            "Null data response while getting switch on fabric");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    // Iterate over all retrieved ObjectPaths.
-                    for (const std::string& switchPath : *data)
-                    {
-                        sdbusplus::message::object_path objPath(switchPath);
-                        if (objPath.filename() != switchId)
+                        // Get the fabricId object
+                        if (!boost::ends_with(fabricObject, fabricId))
                         {
                             continue;
                         }
@@ -561,87 +559,140 @@ inline void requestRoutesSwitchHistogramBucketCollection(App& app)
                             [asyncResp, fabricId, switchId, histogramId](
                                 const boost::system::error_code ec,
                                 std::variant<std::vector<std::string>>& resp) {
-                            if (ec)
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "DBUS response error while getting switch on fabric: {}",
-                                    ec.message());
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            std::vector<std::string>* data =
-                                std::get_if<std::vector<std::string>>(&resp);
-                            if (data == nullptr)
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "Null data response while getting switch on fabric");
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            // Iterate over all retrieved ObjectPaths.
-                            for (const std::string& histoPath : *data)
-                            {
-                                sdbusplus::message::object_path histoObjPath(
-                                    histoPath);
-                                if (histoObjPath.filename() != histogramId)
+                                if (ec)
                                 {
-                                    continue;
+                                    BMCWEB_LOG_ERROR(
+                                        "DBUS response error while getting switch on fabric: {}",
+                                        ec.message());
+                                    messages::internalError(asyncResp->res);
+                                    return;
                                 }
+                                std::vector<std::string>* data =
+                                    std::get_if<std::vector<std::string>>(
+                                        &resp);
+                                if (data == nullptr)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "Null data response while getting switch on fabric");
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                // Iterate over all retrieved ObjectPaths.
+                                for (const std::string& switchPath : *data)
+                                {
+                                    sdbusplus::message::object_path objPath(
+                                        switchPath);
+                                    if (objPath.filename() != switchId)
+                                    {
+                                        continue;
+                                    }
+                                    crow::connections::systemBus->async_method_call(
+                                        [asyncResp, fabricId, switchId,
+                                         histogramId](
+                                            const boost::system::error_code ec,
+                                            std::variant<std::vector<
+                                                std::string>>& resp) {
+                                            if (ec)
+                                            {
+                                                BMCWEB_LOG_ERROR(
+                                                    "DBUS response error while getting switch on fabric: {}",
+                                                    ec.message());
+                                                messages::internalError(
+                                                    asyncResp->res);
+                                                return;
+                                            }
+                                            std::vector<std::string>* data =
+                                                std::get_if<
+                                                    std::vector<std::string>>(
+                                                    &resp);
+                                            if (data == nullptr)
+                                            {
+                                                BMCWEB_LOG_ERROR(
+                                                    "Null data response while getting switch on fabric");
+                                                messages::internalError(
+                                                    asyncResp->res);
+                                                return;
+                                            }
+                                            // Iterate over all retrieved
+                                            // ObjectPaths.
+                                            for (const std::string& histoPath :
+                                                 *data)
+                                            {
+                                                sdbusplus::message::object_path
+                                                    histoObjPath(histoPath);
+                                                if (histoObjPath.filename() !=
+                                                    histogramId)
+                                                {
+                                                    continue;
+                                                }
 
-                                std::string bucketURI = "/redfish/v1/Fabrics/";
-                                bucketURI += fabricId;
-                                bucketURI += "/Switches/";
-                                bucketURI += switchId;
-                                bucketURI += "/Oem/Nvidia/Histograms/";
-                                bucketURI += histogramId;
-                                bucketURI += "/Buckets/";
-                                asyncResp->res.jsonValue["@odata.type"] =
-                                    "#NvidiaHistogramBucketCollection.NvidiaHistogramBucketCollection";
-                                asyncResp->res.jsonValue["@odata.id"] =
-                                    bucketURI;
-                                asyncResp->res.jsonValue["Name"] =
-                                    switchId + "_Histogram_" + histogramId +
-                                    "_Bucket_Collection";
+                                                std::string bucketURI =
+                                                    "/redfish/v1/Fabrics/";
+                                                bucketURI += fabricId;
+                                                bucketURI += "/Switches/";
+                                                bucketURI += switchId;
+                                                bucketURI +=
+                                                    "/Oem/Nvidia/Histograms/";
+                                                bucketURI += histogramId;
+                                                bucketURI += "/Buckets/";
+                                                asyncResp->res
+                                                    .jsonValue["@odata.type"] =
+                                                    "#NvidiaHistogramBucketCollection.NvidiaHistogramBucketCollection";
+                                                asyncResp->res
+                                                    .jsonValue["@odata.id"] =
+                                                    bucketURI;
+                                                asyncResp->res
+                                                    .jsonValue["Name"] =
+                                                    switchId + "_Histogram_" +
+                                                    histogramId +
+                                                    "_Bucket_Collection";
 
-                                collection_util::
-                                    getCollectionMembersByAssociation(
-                                        asyncResp,
-                                        "/redfish/v1/Fabrics/" + fabricId +
-                                            "/Switches/" + switchId +
-                                            "/Oem/Nvidia/Histograms/" +
-                                            histogramId + "/Buckets",
-                                        histoPath + "/histogram_buckets",
-                                        {"com.nvidia.Histogram.BucketInfo"});
-                            }
-                        },
+                                                collection_util::
+                                                    getCollectionMembersByAssociation(
+                                                        asyncResp,
+                                                        "/redfish/v1/Fabrics/" +
+                                                            fabricId +
+                                                            "/Switches/" +
+                                                            switchId +
+                                                            "/Oem/Nvidia/Histograms/" +
+                                                            histogramId +
+                                                            "/Buckets",
+                                                        histoPath +
+                                                            "/histogram_buckets",
+                                                        {"com.nvidia.Histogram.BucketInfo"});
+                                            }
+                                        },
+                                        "xyz.openbmc_project.ObjectMapper",
+                                        switchPath + "/histograms",
+                                        "org.freedesktop.DBus.Properties",
+                                        "Get",
+                                        "xyz.openbmc_project.Association",
+                                        "endpoints");
+                                    return;
+                                }
+                                // Couldn't find an object with that name.
+                                // Return an error
+                                messages::resourceNotFound(
+                                    asyncResp->res, "#Switch.v1_8_0.Switch",
+                                    switchId);
+                            },
                             "xyz.openbmc_project.ObjectMapper",
-                            switchPath + "/histograms",
+                            fabricObject + "/all_switches",
                             "org.freedesktop.DBus.Properties", "Get",
                             "xyz.openbmc_project.Association", "endpoints");
                         return;
                     }
-                    // Couldn't find an object with that name.
-                    // Return an error
+                    // Couldn't find an object with that name. Return an error
                     messages::resourceNotFound(
-                        asyncResp->res, "#Switch.v1_8_0.Switch", switchId);
+                        asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
                 },
-                    "xyz.openbmc_project.ObjectMapper",
-                    fabricObject + "/all_switches",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
-                return;
-            }
-            // Couldn't find an object with that name. Return an error
-            messages::resourceNotFound(asyncResp->res, "#Fabric.v1_2_0.Fabric",
-                                       fabricId);
-        },
-            "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-            "/xyz/openbmc_project/inventory", 0,
-            std::array<const char*, 1>{
-                "xyz.openbmc_project.Inventory.Item.Fabric"});
-    });
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<const char*, 1>{
+                    "xyz.openbmc_project.Inventory.Item.Fabric"});
+        });
 }
 
 inline void requestRoutesSwitchHistogram(App& app)
@@ -650,93 +701,97 @@ inline void requestRoutesSwitchHistogram(App& app)
         app,
         "/redfish/v1/Fabrics/<str>/Switches/<str>/Oem/Nvidia/Histograms/<str>")
         .privileges(redfish::privileges::getSwitch)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& fabricId, const std::string& switchId,
-                   const std::string& histogramId) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, fabricId, switchId,
-             histogramId](const boost::system::error_code ec,
-                          const std::vector<std::string>& objects) {
-            if (ec)
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& fabricId,
+                            const std::string& switchId,
+                            const std::string& histogramId) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
-                BMCWEB_LOG_ERROR(
-                    "DBUS response error while getting fabrics: {}",
-                    ec.message());
-                messages::internalError(asyncResp->res);
                 return;
             }
 
-            for (const std::string& fabricObject : objects)
-            {
-                // Get the fabricId object
-                if (!boost::ends_with(fabricObject, fabricId))
-                {
-                    continue;
-                }
-                crow::connections::systemBus->async_method_call(
-                    [asyncResp, fabricId, switchId, histogramId](
-                        const boost::system::error_code ec,
-                        std::variant<std::vector<std::string>>& resp) {
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, fabricId, switchId,
+                 histogramId](const boost::system::error_code ec,
+                              const std::vector<std::string>& objects) {
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR(
-                            "DBUS response error while getting switch on fabric: {}",
+                            "DBUS response error while getting fabrics: {}",
                             ec.message());
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    std::vector<std::string>* data =
-                        std::get_if<std::vector<std::string>>(&resp);
-                    if (data == nullptr)
+
+                    for (const std::string& fabricObject : objects)
                     {
-                        BMCWEB_LOG_ERROR(
-                            "Null data response while getting switch on fabric");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    // Iterate over all retrieved ObjectPaths.
-                    for (const std::string& switchPath : *data)
-                    {
-                        sdbusplus::message::object_path switchObjPath(
-                            switchPath);
-                        if (switchObjPath.filename() != switchId)
+                        // Get the fabricId object
+                        if (!boost::ends_with(fabricObject, fabricId))
                         {
                             continue;
                         }
-                        getHistogramDataByAssociation(asyncResp, fabricId,
-                                                      switchId, histogramId,
-                                                      switchPath);
+                        crow::connections::systemBus->async_method_call(
+                            [asyncResp, fabricId, switchId, histogramId](
+                                const boost::system::error_code ec,
+                                std::variant<std::vector<std::string>>& resp) {
+                                if (ec)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "DBUS response error while getting switch on fabric: {}",
+                                        ec.message());
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                std::vector<std::string>* data =
+                                    std::get_if<std::vector<std::string>>(
+                                        &resp);
+                                if (data == nullptr)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "Null data response while getting switch on fabric");
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                // Iterate over all retrieved ObjectPaths.
+                                for (const std::string& switchPath : *data)
+                                {
+                                    sdbusplus::message::object_path
+                                        switchObjPath(switchPath);
+                                    if (switchObjPath.filename() != switchId)
+                                    {
+                                        continue;
+                                    }
+                                    getHistogramDataByAssociation(
+                                        asyncResp, fabricId, switchId,
+                                        histogramId, switchPath);
+                                    return;
+                                }
+                                // Couldn't find an object with that name.
+                                // Return an error
+                                messages::resourceNotFound(
+                                    asyncResp->res, "#Switch.v1_8_0.Switch",
+                                    switchId);
+                            },
+                            "xyz.openbmc_project.ObjectMapper",
+                            fabricObject + "/all_switches",
+                            "org.freedesktop.DBus.Properties", "Get",
+                            "xyz.openbmc_project.Association", "endpoints");
                         return;
                     }
-                    // Couldn't find an object with that name.
-                    // Return an error
+                    // Couldn't find an object with that name. Return an error
                     messages::resourceNotFound(
-                        asyncResp->res, "#Switch.v1_8_0.Switch", switchId);
+                        asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
                 },
-                    "xyz.openbmc_project.ObjectMapper",
-                    fabricObject + "/all_switches",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
-                return;
-            }
-            // Couldn't find an object with that name. Return an error
-            messages::resourceNotFound(asyncResp->res, "#Fabric.v1_2_0.Fabric",
-                                       fabricId);
-        },
-            "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-            "/xyz/openbmc_project/inventory", 0,
-            std::array<const char*, 1>{
-                "xyz.openbmc_project.Inventory.Item.Fabric"});
-    });
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<const char*, 1>{
+                    "xyz.openbmc_project.Inventory.Item.Fabric"});
+        });
 }
 
 inline void requestRoutesSwitchHistogramCollection(App& app)
@@ -748,105 +803,113 @@ inline void requestRoutesSwitchHistogramCollection(App& app)
     BMCWEB_ROUTE(
         app, "/redfish/v1/Fabrics/<str>/Switches/<str>/Oem/Nvidia/Histograms")
         .privileges(redfish::privileges::getSwitch)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& fabricId, const std::string& switchId) {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-
-        crow::connections::systemBus->async_method_call(
-            [asyncResp, fabricId,
-             switchId](const boost::system::error_code ec,
-                       const std::vector<std::string>& objects) {
-            if (ec)
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& fabricId,
+                            const std::string& switchId) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
-                BMCWEB_LOG_ERROR(
-                    "DBUS response error while getting fabrics: {}",
-                    ec.message());
-                messages::internalError(asyncResp->res);
                 return;
             }
 
-            for (const std::string& fabricObject : objects)
-            {
-                // Get the fabricId object
-                if (!boost::ends_with(fabricObject, fabricId))
-                {
-                    continue;
-                }
-                crow::connections::systemBus->async_method_call(
-                    [asyncResp, fabricId,
-                     switchId](const boost::system::error_code ec,
-                               std::variant<std::vector<std::string>>& resp) {
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, fabricId,
+                 switchId](const boost::system::error_code ec,
+                           const std::vector<std::string>& objects) {
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR(
-                            "DBUS response error while getting switch on fabric: {}",
+                            "DBUS response error while getting fabrics: {}",
                             ec.message());
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    std::vector<std::string>* data =
-                        std::get_if<std::vector<std::string>>(&resp);
-                    if (data == nullptr)
+
+                    for (const std::string& fabricObject : objects)
                     {
-                        BMCWEB_LOG_ERROR(
-                            "Null data response while getting switch on fabric");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    // Iterate over all retrieved ObjectPaths.
-                    for (const std::string& switchPath : *data)
-                    {
-                        sdbusplus::message::object_path switchObjPath(
-                            switchPath);
-                        if (switchObjPath.filename() != switchId)
+                        // Get the fabricId object
+                        if (!boost::ends_with(fabricObject, fabricId))
                         {
                             continue;
                         }
-                        std::string histoURI = "/redfish/v1/Fabrics/";
-                        histoURI += fabricId;
-                        histoURI += "/Switches/";
-                        histoURI += switchId;
-                        histoURI += "/Oem/Nvidia/Histograms/";
-                        asyncResp->res.jsonValue["@odata.type"] =
-                            "#NvidiaHistogramCollection.NvidiaHistogramCollection";
-                        asyncResp->res.jsonValue["@odata.id"] = histoURI;
-                        asyncResp->res.jsonValue["Name"] =
-                            switchId + "_Histogram_Collection";
+                        crow::connections::systemBus->async_method_call(
+                            [asyncResp, fabricId, switchId](
+                                const boost::system::error_code ec,
+                                std::variant<std::vector<std::string>>& resp) {
+                                if (ec)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "DBUS response error while getting switch on fabric: {}",
+                                        ec.message());
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                std::vector<std::string>* data =
+                                    std::get_if<std::vector<std::string>>(
+                                        &resp);
+                                if (data == nullptr)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "Null data response while getting switch on fabric");
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                // Iterate over all retrieved ObjectPaths.
+                                for (const std::string& switchPath : *data)
+                                {
+                                    sdbusplus::message::object_path
+                                        switchObjPath(switchPath);
+                                    if (switchObjPath.filename() != switchId)
+                                    {
+                                        continue;
+                                    }
+                                    std::string histoURI =
+                                        "/redfish/v1/Fabrics/";
+                                    histoURI += fabricId;
+                                    histoURI += "/Switches/";
+                                    histoURI += switchId;
+                                    histoURI += "/Oem/Nvidia/Histograms/";
+                                    asyncResp->res.jsonValue["@odata.type"] =
+                                        "#NvidiaHistogramCollection.NvidiaHistogramCollection";
+                                    asyncResp->res.jsonValue["@odata.id"] =
+                                        histoURI;
+                                    asyncResp->res.jsonValue["Name"] =
+                                        switchId + "_Histogram_Collection";
 
-                        collection_util::getCollectionMembersByAssociation(
-                            asyncResp,
-                            "/redfish/v1/Fabrics/" + fabricId + "/Switches/" +
-                                switchId + "/Oem/Nvidia/Histograms",
-                            switchPath + "/histograms", {});
+                                    collection_util::
+                                        getCollectionMembersByAssociation(
+                                            asyncResp,
+                                            "/redfish/v1/Fabrics/" + fabricId +
+                                                "/Switches/" + switchId +
+                                                "/Oem/Nvidia/Histograms",
+                                            switchPath + "/histograms", {});
+                                    return;
+                                }
+                                // Couldn't find an object with that name.
+                                // Return an error
+                                messages::resourceNotFound(
+                                    asyncResp->res, "#Switch.v1_8_0.Switch",
+                                    switchId);
+                            },
+                            "xyz.openbmc_project.ObjectMapper",
+                            fabricObject + "/all_switches",
+                            "org.freedesktop.DBus.Properties", "Get",
+                            "xyz.openbmc_project.Association", "endpoints");
                         return;
                     }
-                    // Couldn't find an object with that name.
-                    // Return an error
+                    // Couldn't find an object with that name. Return an error
                     messages::resourceNotFound(
-                        asyncResp->res, "#Switch.v1_8_0.Switch", switchId);
+                        asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
                 },
-                    "xyz.openbmc_project.ObjectMapper",
-                    fabricObject + "/all_switches",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
-                return;
-            }
-            // Couldn't find an object with that name. Return an error
-            messages::resourceNotFound(asyncResp->res, "#Fabric.v1_2_0.Fabric",
-                                       fabricId);
-        },
-            "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-            "/xyz/openbmc_project/inventory", 0,
-            std::array<const char*, 1>{
-                "xyz.openbmc_project.Inventory.Item.Fabric"});
-    });
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<const char*, 1>{
+                    "xyz.openbmc_project.Inventory.Item.Fabric"});
+        });
 }
 
 } // namespace redfish

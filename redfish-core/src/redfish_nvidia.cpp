@@ -18,6 +18,7 @@
 #include "network_adapters_generic.hpp"
 #include "nvidia_debug_token.hpp"
 #include "nvidia_error_injection.hpp"
+#include "nvidia_fabric.hpp"
 #include "nvidia_log_services.hpp"
 #include "nvidia_log_services_debug_token.hpp"
 #include "nvidia_log_services_fault.hpp"
@@ -45,7 +46,6 @@
 #include "trigger.hpp"
 #include "trusted_components.hpp"
 #include "update_service.hpp"
-#include "nvidia_fabric.hpp"
 
 namespace redfish
 {
