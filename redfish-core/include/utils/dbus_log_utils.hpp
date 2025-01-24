@@ -73,23 +73,30 @@ class AdditionalData
     {
         for (auto& kv : additionalData)
         {
-            std::vector<std::string> fields;
-            fields.reserve(2);
-            boost::split(fields, kv, boost::is_any_of("="));
-            if (data.count(fields[0]) <= 0)
+            std::size_t splitPos = kv.find('=');
+            if ((splitPos != std::string::npos) && (splitPos != 0) &&
+                (splitPos + 1 <= kv.size()))
             {
-                data[fields[0]] = "";
+                std::string key = kv.substr(0, splitPos);
+                std::string val = kv.substr(splitPos + 1);
+                if (op == overwrite)
+                {
+                    data[key] = val;
+                }
+                else if (op == append)
+                {
+                    // In append mode, all values for the same key will be
+                    // separated by ';', e.g., "key1=val1_1;val1_2;...;val1_n"
+                    data[key] += (!data[key].empty()) ? ";" : "";
+                    data[key] += val;
+                }
             }
-            if (op == overwrite)
+            else
             {
-                data[fields[0]] = fields[1];
-            }
-            else if (op == append)
-            {
-                // In append mode, all values for the same key will be
-                // separated by ';', e.g., "key1=val1_1;val1_2;...;val1_n"
-                data[fields[0]] += (!data[fields[0]].empty()) ? ";" : "";
-                data[fields[0]] += fields[1];
+                BMCWEB_LOG_ERROR(
+                    "Invalid format for Logging entry: {}, expecting \"=\"",
+                    kv);
+                continue;
             }
         }
     }
