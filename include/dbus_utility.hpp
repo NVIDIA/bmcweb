@@ -147,13 +147,56 @@ inline bool getNthStringFromPath(const std::string& path, int index,
     return count >= index;
 }
 
-template <typename Callback>
-inline void checkDbusPathExists(const std::string& path, Callback&& callback)
+inline void
+    getAllProperties(const std::string& service, const std::string& objectPath,
+                     const std::string& interface,
+                     std::function<void(const boost::system::error_code&,
+                                        const DBusPropertiesMap&)>&& callback)
+{
+    sdbusplus::asio::getAllProperties(*crow::connections::systemBus, service,
+                                      objectPath, interface,
+                                      std::move(callback));
+}
+
+template <typename PropertyType>
+inline void getProperty(
+    const std::string& service, const std::string& objectPath,
+    const std::string& interface, const std::string& propertyName,
+    std::function<void(const boost::system::error_code&, const PropertyType&)>&&
+        callback)
+{
+    sdbusplus::asio::getProperty<PropertyType>(
+        *crow::connections::systemBus, service, objectPath, interface,
+        propertyName, std::move(callback));
+}
+
+template <typename PropertyType>
+inline void getProperty(
+    sdbusplus::asio::connection& /*conn*/, const std::string& service,
+    const std::string& objectPath, const std::string& interface,
+    const std::string& propertyName,
+    std::function<void(const boost::system::error_code&, const PropertyType&)>&&
+        callback)
+{
+    getProperty(service, objectPath, interface, propertyName,
+                std::move(callback));
+}
+
+inline void getAllProperties(
+    sdbusplus::asio::connection& /*conn*/, const std::string& service,
+    const std::string& objectPath, const std::string& interface,
+    std::function<void(const boost::system::error_code&,
+                       const DBusPropertiesMap&)>&& callback)
+{
+    getAllProperties(service, objectPath, interface, std::move(callback));
+}
+
+inline void checkDbusPathExists(const std::string& path,
+                                std::function<void(bool)>&& callback)
 {
     crow::connections::systemBus->async_method_call(
-        [callback{std::forward<Callback>(callback)}](
-            const boost::system::error_code& ec,
-            const dbus::utility::MapperGetObject& objectNames) {
+        [callback = std::move(callback)](const boost::system::error_code& ec,
+                                         const MapperGetObject& objectNames) {
             callback(!ec && !objectNames.empty());
         },
         "xyz.openbmc_project.ObjectMapper",
@@ -197,14 +240,15 @@ inline void systemdRestartUnit(const std::string_view unit, const char* mode)
 
     crow::connections::systemBus->call_noreply(method);
 }
-inline void getSubTree(
-    const std::string& path, int32_t depth,
-    std::span<const std::string_view> interfaces,
-    std::function<void(const boost::system::error_code&,
-                       const MapperGetSubTreeResponse&)>&& callbackIn)
+
+inline void
+    getSubTree(const std::string& path, int32_t depth,
+               std::span<const std::string_view> interfaces,
+               std::function<void(const boost::system::error_code&,
+                                  const MapperGetSubTreeResponse&)>&& callback)
 {
     crow::connections::systemBus->async_method_call(
-        [callback{std::move(callbackIn)}](
+        [callback{std::move(callback)}](
             const boost::system::error_code& ec,
             const MapperGetSubTreeResponse& subtree) { callback(ec, subtree); },
         "xyz.openbmc_project.ObjectMapper",
@@ -217,10 +261,10 @@ inline void getSubTreePaths(
     const std::string& path, int32_t depth,
     std::span<const std::string_view> interfaces,
     std::function<void(const boost::system::error_code&,
-                       const MapperGetSubTreePathsResponse&)>&& callbackIn)
+                       const MapperGetSubTreePathsResponse&)>&& callback)
 {
     crow::connections::systemBus->async_method_call(
-        [callback{std::move(callbackIn)}](
+        [callback{std::move(callback)}](
             const boost::system::error_code& ec,
             const MapperGetSubTreePathsResponse& subtreePaths) {
             callback(ec, subtreePaths);
@@ -236,10 +280,10 @@ inline void getAssociatedSubTree(
     const sdbusplus::message::object_path& path, int32_t depth,
     std::span<const std::string_view> interfaces,
     std::function<void(const boost::system::error_code&,
-                       const MapperGetSubTreeResponse&)>&& callbackIn)
+                       const MapperGetSubTreeResponse&)>&& callback)
 {
     crow::connections::systemBus->async_method_call(
-        [callback{std::move(callbackIn)}](
+        [callback{std::move(callback)}](
             const boost::system::error_code& ec,
             const MapperGetSubTreeResponse& subtree) { callback(ec, subtree); },
         "xyz.openbmc_project.ObjectMapper",
@@ -253,10 +297,10 @@ inline void getAssociatedSubTreePaths(
     const sdbusplus::message::object_path& path, int32_t depth,
     std::span<const std::string_view> interfaces,
     std::function<void(const boost::system::error_code&,
-                       const MapperGetSubTreePathsResponse&)>&& callbackIn)
+                       const MapperGetSubTreePathsResponse&)>&& callback)
 {
     crow::connections::systemBus->async_method_call(
-        [callback{std::move(callbackIn)}](
+        [callback{std::move(callback)}](
             const boost::system::error_code& ec,
             const MapperGetSubTreePathsResponse& subtreePaths) {
             callback(ec, subtreePaths);
@@ -323,11 +367,11 @@ inline void getDbusObject(
 inline void getAssociationEndPoints(
     const std::string& path,
     std::function<void(const boost::system::error_code&,
-                       const MapperEndPoints&)>&& callbackIn)
+                       const MapperEndPoints&)>&& callback)
 {
-    sdbusplus::asio::getProperty<MapperEndPoints>(
-        *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper", path,
-        "xyz.openbmc_project.Association", "endpoints", std::move(callbackIn));
+    getProperty<MapperEndPoints>("xyz.openbmc_project.ObjectMapper", path,
+                                 "xyz.openbmc_project.Association", "endpoints",
+                                 std::move(callback));
 }
 
 inline void getManagedObjects(
