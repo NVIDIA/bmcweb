@@ -134,9 +134,33 @@
           <Annotation Term="OData.Description" String="The type of the requested operations."/>
           <Annotation Term="OData.LongDescription" String="This parameter shall contain the type of the requested operations. The entire flow includes `Setup`, `Injection` and `Cleanup` operations."/>
         </Parameter>
-        <Parameter Name="ClearData" Type="Edm.Boolean">
-          <Annotation Term="OData.Description" String="Indicates whether the values of the Health properties should be set to `OK` prior to performing the error injections."/>
-          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether the values of the Health properties should be set to `OK` prior to performing the error injections. This parameter is allowed for the `Setup` or `Injection` operation. If this parameter is not provided by the client, the default is `false`."/>
+         <Parameter Name="ClearData" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="Indicates whether the values of all Eventing telemetries, as specified in the NVIDIA Server RAS Catalog, should be set to the non-failure state prior to performing the error injections."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether the values of all Eventing telemetries, as specified in the NVIDIA Server RAS Catalog, should be set to the non-failure state prior to performing the error injections. This parameter is allowed for the `Setup` or `Injection` operation. If this parameter is not provided by the client, the default is `false`."/>
+        </Parameter>
+        <Parameter Name="ClearHealth" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="Indicates whether the property values of the Health should be set to `OK` to all devices prior to performing the error injections."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether the property values of the Health should be set to `OK` to all devices prior to performing the error injections. This parameter is allowed for the `Setup` or `Injection` operation. If this parameter is not provided by the client, the default is `false`."/>
+          <Annotation Term="Redfish.Revisions">
+             <Collection>
+               <Record>
+                  <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                  <PropertyValue Property="Version" String="v1_5_0"/>
+               </Record>
+             </Collection>
+          </Annotation>
+        </Parameter>
+        <Parameter Name="RestartEventing" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="Indicates whether the Eventing producer service should be restarted prior to performing the error injections."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether the Eventing producer service should be restarted prior to performing the error injections. This parameter is allowed for the `Injection` operation. If this parameter is not provided by the client, the default is `false`."/>
+          <Annotation Term="Redfish.Revisions">
+             <Collection>
+               <Record>
+                  <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                  <PropertyValue Property="Version" String="v1_5_0"/>
+               </Record>
+             </Collection>
+          </Annotation>
         </Parameter>
         <Parameter Name="KeepLogs" Type="Edm.Boolean">
           <Annotation Term="OData.Description" String="Indicates whether the existing log entries should be preserved prior to performing the error injections."/>
@@ -446,6 +470,10 @@
           <Annotation Term="OData.Description" String="Perform software error injections."/>
         </Member>
       </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_5_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_4_0.NvidiaManager"/>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
