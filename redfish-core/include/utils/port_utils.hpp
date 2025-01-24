@@ -255,7 +255,7 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaPort.v1_0_0.NvidiaPort";
+                "#NvidiaPort.v1_2_0.NvidiaNVLinkPort";
         }
         for (const auto& property : properties)
         {

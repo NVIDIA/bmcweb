@@ -1588,9 +1588,9 @@ inline void requestRoutesSwitch(App& app)
                                 populateErrorInjectionData(asyncResp, fabricId,
                                                            switchId);
 
-                            redfish::nvidia_fabric_utils::
-                                getSwitchHistogramLink(asyncResp, switchURI,
-                                                       path);
+                            redfish::nvidia_histogram_utils::getHistogramLink(
+                                asyncResp, switchURI, path,
+                                "#NvidiaSwitch.v1_4_0.NvidiaSwitch");
                         }
                         return;
                     }
@@ -2396,7 +2396,7 @@ inline void requestRoutesPort(App& app)
 
                                     crow::connections::systemBus->async_method_call(
                                         [asyncResp, fabricId, switchId, portId,
-                                         objectPathToGetPortData](
+                                         objectPathToGetPortData, portPath](
                                             const boost::system::error_code ec,
                                             const std::vector<std::pair<
                                                 std::string,
@@ -2437,6 +2437,16 @@ inline void requestRoutesPort(App& app)
                                             .jsonValue["Status"]["Conditions"] =
                                             nlohmann::json::array();
 #endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
+
+                                        if constexpr (
+                                            BMCWEB_NVIDIA_OEM_PROPERTIES)
+                                        {
+                                            redfish::nvidia_histogram_utils::
+                                                getHistogramLink(
+                                                    asyncResp, portURI,
+                                                    portPath,
+                                                    "#NvidiaPort.v1_2_0.NvidiaNVLinkPort");
+                                        }
 
                                         redfish::port_utils::getPortData(
                                             asyncResp, object.front().first,
@@ -3613,7 +3623,7 @@ inline void getFabricsPortMetricsData(
         if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaPortMetrics.v1_4_0.NvidiaNVLinkPortMetrics";
+                "#NvidiaPortMetrics.v1_5_0.NvidiaNVLinkPortMetrics";
         }
         for (const auto& property : properties)
         {
