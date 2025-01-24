@@ -201,17 +201,21 @@ static void createRequest(App& app, const crow::Request& req,
     std::optional<bool> optionalCompleteCycle{};
     std::optional<bool> optionalKeepLogs{};
     std::optional<bool> optionalRecovery{};
+    std::optional<bool> optionalClearHealth{};
+    std::optional<bool> optionalRestartEventing{};
 
     // clang-format off
     if (!redfish::json_util::readJsonAction(
             req, asyncResp->res,
-            "RequestType", requestType,
             "ClearData", optionalClearData,
-            "ErrorId", optionalErrorId,
+            "ClearHealth", optionalClearHealth,
+            "CompleteCycle", optionalCompleteCycle,
             "DeviceIndex", optionalStrDeviceIndex,
+            "ErrorId", optionalErrorId,
             "KeepLogs", optionalKeepLogs,
             "Recovery", optionalRecovery,
-            "CompleteCycle", optionalCompleteCycle
+            "RequestType", requestType,
+            "RestartEventing", optionalRestartEventing
             ))
     {
         BMCWEB_LOG_ERROR("Failed to parse JSON body.");
@@ -249,6 +253,8 @@ static void createRequest(App& app, const crow::Request& req,
         "com.Nvidia.Software.Error.Injection.Request", "CreateRequest",
         requestType, optionalErrorId.value_or(""),
         optionalStrDeviceIndex.value_or(""), optionalClearData.value_or(false),
+        optionalClearHealth.value_or(false),
+        optionalRestartEventing.value_or(false),
         optionalCompleteCycle.value_or(false), optionalKeepLogs.value_or(false),
         optionalRecovery.value_or(false));
 }
@@ -293,6 +299,10 @@ static void handleManagersOemNvidiaSwErrorInjectionInfo(
          {"DataType", "String"},
          {"AllowableValues", {"Setup", "Injection", "Cleanup"}}},
         {{"Name", "ClearData"}, {"Required", false}, {"DataType", "Boolean"}},
+        {{"Name", "ClearHealth"}, {"Required", false}, {"DataType", "Boolean"}},
+        {{"Name", "RestartEventing"},
+         {"Required", false},
+         {"DataType", "Boolean"}},
         {{"Name", "ErrorId"}, {"Required", false}, {"DataType", "String"}},
         {{"Name", "DeviceIndex"}, {"Required", false}, {"DataType", "String"}},
         {{"Name", "KeepLogs"}, {"Required", false}, {"DataType", "Boolean"}},
