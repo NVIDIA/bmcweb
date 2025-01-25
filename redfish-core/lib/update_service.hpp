@@ -1961,9 +1961,11 @@ inline void forwardImage(
                 }
                 std::optional<std::vector<std::string>> targets;
                 std::optional<bool> forceUpdate;
+                std::optional<nlohmann::json> oemObject;
 
                 json_util::readJson(content, asyncResp->res, "Targets", targets,
-                                    "ForceUpdate", forceUpdate);
+                                    "ForceUpdate", forceUpdate, "Oem",
+                                    oemObject);
 
                 nlohmann::json paramJson = nlohmann::json::object();
 
@@ -1995,6 +1997,10 @@ inline void forwardImage(
                 if (forceUpdate)
                 {
                     paramJson["ForceUpdate"] = *forceUpdate;
+                }
+                if (oemObject)
+                {
+                    paramJson["Oem"] = oemObject;
                 }
                 data += paramJson.dump();
                 data += "\r\n";
