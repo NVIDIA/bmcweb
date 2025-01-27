@@ -129,8 +129,9 @@ inline void
     messages::success(asyncResp->res);
 #ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
     // Send an event for session deletion
-    Event event = redfish::EventUtil::getInstance().createEventResourceRemoved(
-        "SessionService");
+    NvEvent event =
+        redfish::EventUtil::getInstance().createEventResourceRemoved(
+            "SessionService");
     redfish::EventServiceManager::getInstance().sendEventWithOOC(
         std::string(req.target()), event);
 #endif
@@ -265,8 +266,9 @@ inline void handleSessionCollectionPost(
     fillSessionObject(asyncResp->res, *session);
 #ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
     // Send an event for session creation
-    Event event = redfish::EventUtil::getInstance().createEventResourceCreated(
-        "SessionService");
+    NvEvent event =
+        redfish::EventUtil::getInstance().createEventResourceCreated(
+            "SessionService");
     redfish::EventServiceManager::getInstance().sendEventWithOOC(
         std::string(req.target()), event);
 #endif
@@ -349,7 +351,7 @@ inline void handleSessionServicePatch(
                 asyncResp, "SessionTimeOut", "OK");
 #ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
             // send redfish event for property change
-            Event event =
+            NvEvent event =
                 redfish::EventUtil::getInstance().createEventPropertyModified(
                     "SessionTimeOut",
                     std::to_string(sessionTimeoutInseconds.count()),
