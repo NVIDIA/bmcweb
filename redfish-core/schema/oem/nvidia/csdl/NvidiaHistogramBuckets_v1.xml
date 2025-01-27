@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaHistogramBucket  v1.0.0                                   -->
+<!--# Redfish OEM Schema:  NvidiaHistogramBuckets  v1.0.0                                  -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2024 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -22,11 +22,11 @@
     <edmx:Include Namespace="Resource.v1_0_0"/>
   </edmx:Reference>
   <edmx:DataServices>
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaHistogramBucket">
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaHistogramBuckets">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <EntityType Name="NvidiaHistogramBucket" BaseType="Resource.v1_0_0.Resource" Abstract="true">
-        <Annotation Term="OData.Description" String="This is the schema definition for a bucket in a histogram."/>
-        <Annotation Term="OData.LongDescription" String="This resource shall be used to represent a bucket in a histogram for a Redfish implementation."/>
+      <EntityType Name="NvidiaHistogramBuckets" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="This is the schema definition for buckets in a histogram."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall be used to represent buckets in a histogram for a Redfish implementation."/>
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="Capabilities.InsertRestrictions">
           <Record>
@@ -45,30 +45,32 @@
         </Annotation>
         <Annotation Term="Redfish.Uris">
           <Collection>
-            <String>/redfish/v1/Fabrics/{FabricId}/Switches/{SwitchId}/Oem/Nvidia/Histograms/{NvidiaHistogramId}/Buckets/{NvidiaHistogramBucketId}</String>
-            <String>/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}/Oem/Nvidia/Histograms/{NvidiaHistogramId}/Buckets/{NvidiaHistogramBucketId}</String>
-          </Collection>
-        </Annotation>
-        <Annotation Term="Redfish.DeprecatedUris">
-          <Collection>
-            <String>/redfish/v1/Fabrics/{FabricId}/Switches/{SwitchId}/Oem/Nvidia/Histograms/{NvidiaHistogramId}/Buckets/{NvidiaHistogramBucketId}</String>
-            <String>/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}/Oem/Nvidia/Histograms/{NvidiaHistogramId}/Buckets/{NvidiaHistogramBucketId}</String>
-          </Collection>
-        </Annotation>
-        <Annotation Term="Redfish.Revisions">
-          <Collection>
-            <Record>
-              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
-              <PropertyValue Property="Version" String="v1_1_0"/>
-              <PropertyValue Property="Description" String="This schema has been deprecated in favor of the `NvidiaHistogramBuckets` schema."/>
-            </Record>
+            <String>/redfish/v1/Fabrics/{FabricId}/Switches/{SwitchId}/Oem/Nvidia/Histograms/{NvidiaHistogramId}/Buckets</String>
+            <String>/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}/Oem/Nvidia/Histograms/{NvidiaHistogramId}/Buckets</String>
+            <String>/redfish/v1/Fabrics/{FabricId}/Switches/{SwitchId}/Ports/{PortId}/Oem/Nvidia/Histograms/{NvidiaHistogramId}/Buckets</String>
+            <String>/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}/Ports/{PortId}/Oem/Nvidia/Histograms/{NvidiaHistogramId}/Buckets</String>
           </Collection>
         </Annotation>
       </EntityType>
     </Schema>
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaHistogramBucket.v1_0_0">
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaHistogramBuckets.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <EntityType Name="NvidiaHistogramBucket" BaseType="NvidiaHistogramBucket.NvidiaHistogramBucket">
+      <EntityType Name="NvidiaHistogramBuckets" BaseType="NvidiaHistogramBuckets.NvidiaHistogramBuckets">
+        <Property Name="Buckets" Type="Collection(NvidiaHistogramBuckets.v1_0_0.Bucket)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An array of bucket information."/>
+          <Annotation Term="OData.LongDescription" String="This array shall contain an array of bucket information."/>
+        </Property>
+      </EntityType>
+      <ComplexType Name="Bucket">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This type defines information for a bucket in a histogram."/>
+        <Annotation Term="OData.LongDescription" String="These properties shall contain the definition for a bucket in a histogram for a Redfish implementation."/>
+        <Property Name="BucketId" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The unique identifier for this bucket."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the unique identifier for this bucket."/>
+        </Property>
         <Property Name="Start" Type="Edm.Decimal">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The start bucket."/>
@@ -84,22 +86,12 @@
           <Annotation Term="OData.Description" String="The value of this bucket."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the value of this bucket."/>
         </Property>
-        <Property Name="Actions" Type="NvidiaHistogramBucket.v1_0_0.Actions" Nullable="false">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="The available actions for this resource."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
-        </Property>
-      </EntityType>
+      </ComplexType>
       <ComplexType Name="Actions">
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="OData.Description" String="The available actions for this resource."/>
         <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
       </ComplexType>
-    </Schema>
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaHistogramBucket.v1_1_0">
-      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <Annotation Term="OData.Description" String="This version was created to deprecate the schema."/>
-      <EntityType Name="NvidiaHistogramBucket" BaseType="NvidiaHistogramBucket.v1_0_0.NvidiaHistogramBucket"/>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
