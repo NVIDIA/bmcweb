@@ -268,7 +268,7 @@ struct TestEvent
  * Structure for an event which is based on Event v1.7.0 in "Redfish Schema
  * Supplement(DSP0268)".
  */
-class Event
+class NvEvent
 {
   public:
     // required properties
@@ -298,7 +298,7 @@ class Event
     bool valid;
 
   public:
-    Event(const std::string& messageId) : messageId(messageId)
+    NvEvent(const std::string& messageId) : messageId(messageId)
     {
         registryPrefix = message_registries::getPrefix(messageId);
         registryMsg = redfish::registries::getMessage(messageId);
@@ -502,11 +502,11 @@ class EventUtil
         return handler;
     }
     // This function is used to form event message
-    Event createEventPropertyModified(const std::string& arg1,
-                                      const std::string& arg2,
-                                      const std::string& resourceType)
+    NvEvent createEventPropertyModified(const std::string& arg1,
+                                        const std::string& arg2,
+                                        const std::string& resourceType)
     {
-        Event event(propertyModified);
+        NvEvent event(propertyModified);
         std::vector<std::string> messageArgs;
         messageArgs.push_back(arg1);
         messageArgs.push_back(arg2);
@@ -518,26 +518,26 @@ class EventUtil
     }
 
     // This function is used to form event message
-    Event createEventResourceCreated(const std::string& resourceType)
+    NvEvent createEventResourceCreated(const std::string& resourceType)
     {
-        Event event(resorceCreated);
+        NvEvent event(resorceCreated);
         formBaseEvent(event, resourceType);
         return event;
     }
 
     // This function is used to form event message
-    Event createEventResourceRemoved(const std::string& resourceType)
+    NvEvent createEventResourceRemoved(const std::string& resourceType)
     {
-        Event event(resourceDeleted);
+        NvEvent event(resourceDeleted);
         formBaseEvent(event, resourceType);
         return event;
     }
 
     // This function is used to form event message
-    Event createEventRebootReason(const std::string& arg,
-                                  const std::string& resourceType)
+    NvEvent createEventRebootReason(const std::string& arg,
+                                    const std::string& resourceType)
     {
-        Event event(rebootReason);
+        NvEvent event(rebootReason);
 
         std::vector<std::string> messageArgs;
         messageArgs.push_back(arg);
@@ -548,7 +548,7 @@ class EventUtil
     }
 
   private:
-    void formBaseEvent(Event& event, const std::string& resourceType)
+    void formBaseEvent(NvEvent& event, const std::string& resourceType)
     {
         // Set message severity
         event.messageSeverity = "Informational";
@@ -968,14 +968,14 @@ class EventServiceManager
 
     uint64_t eventId{1};
 
-    struct Event2
+    struct Event
     {
         uint64_t id;
         nlohmann::json message;
     };
 
     constexpr static size_t maxMessages = 200;
-    boost::circular_buffer<Event2> messages{maxMessages};
+    boost::circular_buffer<Event> messages{maxMessages};
 
     boost::asio::io_context& ioc;
 
@@ -1193,7 +1193,7 @@ class EventServiceManager
             serviceEnabled = cfg.enabled;
 #ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
             // Send an event for session creation
-            Event event =
+            NvEvent event =
                 redfish::EventUtil::getInstance().createEventPropertyModified(
                     "ServiceEnabled", std::to_string(serviceEnabled),
                     "EventService");
@@ -1229,7 +1229,7 @@ class EventServiceManager
             updateRetryCfg = true;
 #ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
             // Send an event for property change
-            Event event =
+            NvEvent event =
                 redfish::EventUtil::getInstance().createEventPropertyModified(
                     "DeliveryRetryAttempts", std::to_string(retryAttempts),
                     "EventService");
@@ -1245,7 +1245,7 @@ class EventServiceManager
             updateRetryCfg = true;
 #ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
             // Send an event for property change
-            Event event =
+            NvEvent event =
                 redfish::EventUtil::getInstance().createEventPropertyModified(
                     "DeliveryRetryIntervalSeconds",
                     std::to_string(retryTimeoutInterval), "EventService");
@@ -1395,9 +1395,9 @@ class EventServiceManager
         {
             BMCWEB_LOG_INFO("Attempting to find message for last id {}",
                             lastEventId);
-            boost::circular_buffer<Event2>::iterator lastEvent =
+            boost::circular_buffer<Event>::iterator lastEvent =
                 std::find_if(messages.begin(), messages.end(),
-                             [&lastEventId](const Event2& event) {
+                             [&lastEventId](const Event& event) {
                 return std::to_string(event.id) == lastEventId;
             });
             // Can't find a matching ID
@@ -1416,7 +1416,7 @@ class EventServiceManager
                 lastEvent++;
             }
 
-            for (boost::circular_buffer<Event2>::const_iterator event =
+            for (boost::circular_buffer<Event>::const_iterator event =
                      lastEvent;
                  event != messages.end(); event++)
             {
@@ -1557,8 +1557,8 @@ class EventServiceManager
         msg["@odata.type"] = "#Event.v1_4_0.Event";
         msg["Name"] = "Event Log";
         msg["Events"] = logEntryArray;
+        messages.push_back(Event(eventId, msg));
 
-        messages.push_back(Event2(eventId, msg));
         for (const auto& it : subscriptionsMap)
         {
             std::shared_ptr<Subscription> entry = it.second;
@@ -1596,8 +1596,7 @@ class EventServiceManager
         msg["@odata.type"] = "#Event.v1_9_0.Event";
         msg["Name"] = "Event Log";
         msg["Events"] = std::move(eventRecord);
-
-        messages.push_back(Event2(eventId, eventMessage));
+        messages.push_back(Event(eventId, eventMessage));
         for (auto& it : subscriptionsMap)
         {
             std::shared_ptr<Subscription>& entry = it.second;
@@ -1619,7 +1618,7 @@ class EventServiceManager
      * @param[in] event   The event to be sent.
      * @return  Void
      */
-    void sendEvent(Event& event)
+    void sendEvent(NvEvent& event)
     {
         nlohmann::json logEntry;
         if (event.formatEventLogEntry(logEntry) != 0)
@@ -1633,7 +1632,8 @@ class EventServiceManager
         msg["@odata.type"] = "#Event.v1_9_0.Event";
         msg["Name"] = "Event Log";
         msg["Events"] = std::move(eventsArray);
-        messages.push_back(Event2(eventId, msg));
+
+        messages.push_back(Event(eventId, msg));
         for (const auto& it : subscriptionsMap)
         {
             std::shared_ptr<Subscription> entry = it.second;
@@ -2194,7 +2194,7 @@ class EventServiceManager
      * then sends the event for Redfish Event Listener
      * to pick up
      */
-    void sendEventWithOOC(const std::string& ooc, Event& event)
+    void sendEventWithOOC(const std::string& ooc, NvEvent& event)
     {
         event.originOfCondition = ooc;
         sendEvent(event);
@@ -2434,7 +2434,7 @@ class EventServiceManager
             }
             else
             {
-                Event event(messageId);
+                NvEvent event(messageId);
                 if (!event.isValid())
                 {
                     return;
@@ -2497,7 +2497,7 @@ class EventServiceManager
      * @param event  the event to be sent out
      */
     inline void eventServiceOOC(const std::string& path,
-                                const std::string& devName, Event& event)
+                                const std::string& devName, NvEvent& event)
     {
 #ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
         // OOC Path in HMC events is already converted to Redfish path.

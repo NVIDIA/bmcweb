@@ -764,7 +764,7 @@ inline void requestRoutesEventDestination(App& app)
             subValue->customText = *context;
 #ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
             // Send an event for property change
-            Event event =
+            NvEvent event =
                 redfish::EventUtil::getInstance().createEventPropertyModified(
                     "Context", *context, "EventService");
             redfish::EventServiceManager::getInstance().sendEventWithOOC(
@@ -799,7 +799,7 @@ inline void requestRoutesEventDestination(App& app)
             subValue->httpHeaders = std::move(fields);
 #ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
             // Send an event for property change
-            Event event =
+            NvEvent event =
                 redfish::EventUtil::getInstance().createEventPropertyModified(
                     "Headers", keyValues, "EventService");
             redfish::EventServiceManager::getInstance().sendEventWithOOC(
@@ -819,7 +819,7 @@ inline void requestRoutesEventDestination(App& app)
             subValue->retryPolicy = *retryPolicy;
 #ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
             // Send an event for property change
-            Event event =
+            NvEvent event =
                 redfish::EventUtil::getInstance().createEventPropertyModified(
                     "RetryPolicy", *retryPolicy, "EventService");
             redfish::EventServiceManager::getInstance().sendEventWithOOC(

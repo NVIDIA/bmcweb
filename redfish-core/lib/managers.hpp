@@ -274,7 +274,7 @@ inline void requestRoutesManagerResetAction(App& app)
             resetType == "GracefulShutdown")
         {
             // Send an event for Manager Reset
-            Event event =
+            NvEvent event =
                 redfish::EventUtil::getInstance().createEventRebootReason(
                     "ManagerReset", "Managers");
             redfish::EventServiceManager::getInstance().sendEventWithOOC(
@@ -381,8 +381,9 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
 
 #ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
         // Send an event for reset to defaults
-        Event event = redfish::EventUtil::getInstance().createEventRebootReason(
-            "FactoryReset", "Managers");
+        NvEvent event =
+            redfish::EventUtil::getInstance().createEventRebootReason(
+                "FactoryReset", "Managers");
         redfish::EventServiceManager::getInstance().sendEventWithOOC(
             std::string(req.target()), event);
 #endif
