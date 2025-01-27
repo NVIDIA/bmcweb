@@ -60,12 +60,6 @@
 
 namespace redfish
 {
-const std::regex urlRegex("(http|https)://([^/\\x20\\x3f\\x23\\x3a]+):?([0-9]*)"
-                          "((/[^\\x20\\x23\\x3f]*\\x3f?[^\\x20\\x23\\x3f]*)?)");
-
-using ReadingsObjType =
-    std::vector<std::tuple<std::string, std::string, double, int32_t>>;
-
 static constexpr const char* eventFormatType = "Event";
 static constexpr const char* metricReportFormatType = "MetricReport";
 
@@ -2542,49 +2536,6 @@ class EventServiceManager
             path);
 
         sendEventWithOOC(std::string{""}, event);
-    }
-
-    bool validateAndSplitUrl(const std::string& destUrl, std::string& urlProto,
-                             std::string& host, std::string& port,
-                             std::string& path)
-    {
-        // Validate URL using regex expression
-        // Format: <protocol>://<host>:<port>/<path>
-        // protocol: http/https
-        std::cmatch match;
-        if (!std::regex_match(destUrl.c_str(), match, urlRegex))
-        {
-            BMCWEB_LOG_INFO("Dest. url did not match ");
-            return false;
-        }
-
-        urlProto = std::string(match[1].first, match[1].second);
-        if (urlProto == "http")
-        {
-#ifndef BMCWEB_INSECURE_ENABLE_HTTP_PUSH_STYLE_EVENTING
-            return false;
-#endif
-        }
-
-        host = std::string(match[2].first, match[2].second);
-        port = std::string(match[3].first, match[3].second);
-        path = std::string(match[4].first, match[4].second);
-        if (port.empty())
-        {
-            if (urlProto == "http")
-            {
-                port = "80";
-            }
-            else
-            {
-                port = "443";
-            }
-        }
-        if (path.empty())
-        {
-            path = "/";
-        }
-        return true;
     }
 };
 
