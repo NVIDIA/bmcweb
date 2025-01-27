@@ -286,12 +286,12 @@ bool unpackValue(nlohmann::json& jsonValue, std::string_view key,
             jsonValue.get_ptr<nlohmann::json::array_t*>();
         if (arr == nullptr)
         {
-            messages::propertyValueTypeError(res, res.jsonValue, key);
+            messages::propertyValueTypeError(res, jsonValue, key);
             return false;
         }
         if (jsonValue.size() != value.size())
         {
-            messages::propertyValueTypeError(res, res.jsonValue, key);
+            messages::propertyValueTypeError(res, jsonValue, key);
             return false;
         }
         size_t index = 0;
@@ -308,7 +308,7 @@ bool unpackValue(nlohmann::json& jsonValue, std::string_view key,
             jsonValue.get_ptr<nlohmann::json::array_t*>();
         if (arr == nullptr)
         {
-            messages::propertyValueTypeError(res, res.jsonValue, key);
+            messages::propertyValueTypeError(res, jsonValue, key);
             return false;
         }
 
