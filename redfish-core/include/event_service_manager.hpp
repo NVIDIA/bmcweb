@@ -1961,7 +1961,6 @@ class EventServiceManager
         });
     }
 
-#ifdef BMCWEB_ENABLE_REDFISH_DBUS_EVENT_PUSH
     const std::string inventorySubTree = "/xyz/openbmc_project/inventory";
     const std::string sensorSubTree = "/xyz/openbmc_project/sensors";
     const std::string chassisPrefixDbus =
@@ -2408,10 +2407,8 @@ class EventServiceManager
                     timestampPtr = std::get_if<uint64_t>(&val);
                     if (timestampPtr != nullptr)
                     {
-                        timestamp =
-                            std::move(redfish::time_utils::getDateTimeStdtime(
-                                redfish::time_utils::getTimestamp(
-                                    *timestampPtr)));
+                        timestamp = redfish::time_utils::getDateTimeStdtime(
+                            redfish::time_utils::getTimestamp(*timestampPtr));
                     }
                     else
                     {
@@ -2544,7 +2541,6 @@ class EventServiceManager
 
         sendEventWithOOC(std::string{""}, event);
     }
-#endif
 
     bool validateAndSplitUrl(const std::string& destUrl, std::string& urlProto,
                              std::string& host, std::string& port,
