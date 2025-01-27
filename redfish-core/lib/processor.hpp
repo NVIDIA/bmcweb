@@ -6249,6 +6249,20 @@ inline void getProcessorPortMetricsData(
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]["TXWait"] =
                         *value;
                 }
+                else if (property.first == "EffectiveError")
+                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for effective error count");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res
+                        .jsonValue["Oem"]["Nvidia"]["EffectiveError"] = *value;
+                }
                 else if (property.first == "RXNoProtocolBytes")
                 {
                     const uint64_t* value =
@@ -6261,7 +6275,7 @@ inline void getProcessorPortMetricsData(
                         return;
                     }
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                        "#NvidiaPortMetrics.v1_3_0.NvidiaNVLinkPortMetrics";
+                        "#NvidiaPortMetrics.v1_4_0.NvidiaNVLinkPortMetrics";
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]
                                             ["RXNoProtocolBytes"] = *value;
                 }
