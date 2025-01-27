@@ -413,12 +413,12 @@
         <Property Name="FabricManagerState" Type="NvidiaManager.v1_4_0.FabricManagerState">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Fabric Manager state."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the Fabric Manager state."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the fabric manager state."/>
         </Property>
         <Property Name="ReportStatus" Type="NvidiaManager.v1_4_0.ReportStatus">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The report status."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the status for a report received from the Fabric Manager."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the status for a report received from the fabric manager."/>
         </Property>
         <Property Name="DurationSinceLastRestartSeconds" Type="Edm.Int64">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>

@@ -30,6 +30,9 @@
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaHistogramCollection_v1.xml">
     <edmx:Include Namespace="NvidiaHistogramCollection"/>
   </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaManager_v1.xml">
+    <edmx:Include Namespace="NvidiaManager.v1_4_0"/>
+  </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSwitch">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -104,6 +107,40 @@
           <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type `HistogramCollection`."/>
           <Annotation Term="OData.AutoExpandReferences"/>
         </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSwitch.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaSwitch" BaseType="NvidiaSwitch.v1_3_0.NvidiaSwitch">
+        <Property Name="FabricManager" Type="NvidiaSwitch.v1_4_0.FabricManager">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Fabric manager state associated with the switch."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the fabric manager state associated with the switch."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="FabricManager">
+        <Property Name="State" Type="NvidiaManager.v1_4_0.FabricManagerState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Fabric Manager state."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the fabric manager state."/>
+        </Property>
+        <Property Name="ReportStatus" Type="NvidiaManager.v1_4_0.ReportStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The report status."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the status for a report received from the fabric manager."/>
+        </Property>
+        <Property Name="DurationSinceLastRestartSeconds" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The time passed since last restart, in seconds."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the time passed since last restart, in seconds."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Measures.Unit" String="s"/>
+        </Property>
+        <Property Name="LastResetTime" Type="Edm.DateTimeOffset">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The date and time when the fabric manager associated with the switch was last reset or rebooted."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the date and time when the fabric manager associated with the switch last came out of a reset or was rebooted."/>
+        </Property>
       </ComplexType>
     </Schema>
   </edmx:DataServices>

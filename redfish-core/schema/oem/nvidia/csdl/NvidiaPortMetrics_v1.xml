@@ -255,5 +255,15 @@
         </Property>
       </ComplexType>
     </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_5_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNVLinkPortMetrics" BaseType="NvidiaPortMetrics.v1_4_0.NvidiaNVLinkPortMetrics">
+        <Property Name="EffectiveError" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of effective errors since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of effective errors since reset."/>
+        </Property>
+      </ComplexType>
+    </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
