@@ -359,13 +359,11 @@ inline void getSwStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     BMCWEB_LOG_DEBUG("getSwStatus: swId {} svc {}", *swId, dbusSvc);
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, dbusSvc,
-        "/xyz/openbmc_project/software/" + *swId,
+    dbus::utility::getAllProperties(
+        dbusSvc, "/xyz/openbmc_project/software/" + *swId,
         "xyz.openbmc_project.Software.Activation",
-        [asyncResp,
-         swId](const boost::system::error_code& ec,
-               const dbus::utility::DBusPropertiesMap& propertiesList) {
+        [asyncResp, swId](const boost::system::error_code ec,
+                          const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 // not all swtypes are updateable, this is ok
@@ -377,7 +375,7 @@ inline void getSwStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             const std::string* swInvActivation = nullptr;
 
             const bool success = sdbusplus::unpackPropertiesNoThrow(
-                dbus_utils::UnpackErrorPrinter(), propertiesList, "Activation",
+                dbus_utils::UnpackErrorPrinter(), properties, "Activation",
                 swInvActivation);
 
             if (!success)
