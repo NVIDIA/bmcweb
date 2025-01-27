@@ -399,7 +399,7 @@ class NvEvent
      * @param[out] eventLogEntry    The reference to the json event log entry.
      * @return  Return 0 for success. Otherwise, return error codes.
      */
-    int formatEventLogEntry(nlohmann::json& eventLogEntry,
+    int formatEventLogEntry(nlohmann::json::object_t& eventLogEntry,
                             bool includeOriginOfCondition = true)
     {
         if (!valid)
@@ -407,7 +407,6 @@ class NvEvent
             BMCWEB_LOG_ERROR("Invalid Event instance.");
             return redfishInvalidEvent;
         }
-
         eventLogEntry["MessageId"] = messageId;
         eventLogEntry["EventType"] = "Event";
         if (!actions.empty())
@@ -443,14 +442,17 @@ class NvEvent
         {
             eventLogEntry["MessageSeverity"] = messageSeverity;
         }
-        if (!oem.empty())
+
+        for (auto& [key, value] : oem)
         {
-            eventLogEntry.update(oem);
+            eventLogEntry[key] = value;
         }
-        if (!cper.empty())
+
+        for (auto& [key, value] : cper)
         {
-            eventLogEntry.update(cper);
+            eventLogEntry[key] = value;
         }
+
         if (!originOfCondition.empty() && includeOriginOfCondition)
         {
             eventLogEntry["OriginOfCondition"] = nlohmann::json::object();
@@ -601,7 +603,7 @@ class Subscription : public persistent_data::UserSubscription
 
     ~Subscription() = default;
 
-    bool sendEvent(std::string&& msg)
+    bool sendEvent(uint64_t eventId, std::string&& msg)
     {
         persistent_data::EventServiceConfig eventServiceConfig =
             persistent_data::EventServiceStore::getInstance()
@@ -623,8 +625,7 @@ class Subscription : public persistent_data::UserSubscription
 
         if (sseConn != nullptr)
         {
-            sseConn->sendEvent(std::to_string(eventSeqNum), msg);
-            eventSeqNum++;
+            sseConn->sendEvent(std::to_string(eventId), msg);
         }
         return true;
     }
@@ -824,7 +825,6 @@ class Subscription : public persistent_data::UserSubscription
                 BMCWEB_LOG_DEBUG("Read eventLog entry failed");
                 continue;
             }
-            eventId++;
 
             if (!eventMatchesFilter(bmcLogEntry, ""))
             {
@@ -844,13 +844,13 @@ class Subscription : public persistent_data::UserSubscription
         msg["@odata.type"] = "#Event.v1_4_0.Event";
         msg["Name"] = "Event Log";
         msg["Events"] = std::move(logEntryArray);
+        msg["Id"] = std::to_string(eventId);
         std::string strMsg = msg.dump(2, ' ', true,
                                       nlohmann::json::error_handler_t::replace);
-        sendEvent(std::move(strMsg));
-        eventSeqNum++;
+        sendEvent(eventId, std::move(strMsg));
     }
 
-    void filterAndSendReports(const std::string& reportId,
+    void filterAndSendReports(uint64_t eventId, const std::string& reportId,
                               const telemetry::TimestampReadings& var)
     {
         boost::urls::url mrdUri = boost::urls::format(
@@ -885,7 +885,7 @@ class Subscription : public persistent_data::UserSubscription
 
         std::string strMsg = msg.dump(2, ' ', true,
                                       nlohmann::json::error_handler_t::replace);
-        sendEvent(std::move(strMsg));
+        sendEvent(eventId, std::move(strMsg));
     }
 
     void updateRetryConfig(uint32_t retryAttempts,
@@ -898,11 +898,6 @@ class Subscription : public persistent_data::UserSubscription
         }
         policy->maxRetryAttempts = retryAttempts;
         policy->retryIntervalSecs = std::chrono::seconds(retryTimeoutInterval);
-    }
-
-    uint64_t getEventSeqNum() const
-    {
-        return eventSeqNum;
     }
 
     void setSubscriptionId(const std::string& id2)
@@ -940,7 +935,6 @@ class Subscription : public persistent_data::UserSubscription
 
   private:
     std::string subId;
-    uint64_t eventSeqNum = 1;
     boost::urls::url host;
     std::shared_ptr<crow::ConnectionPolicy> policy;
     crow::sse_socket::Connection* sseConn = nullptr;
@@ -971,7 +965,7 @@ class EventServiceManager
     struct Event
     {
         uint64_t id;
-        nlohmann::json message;
+        nlohmann::json::object_t message;
     };
 
     constexpr static size_t maxMessages = 200;
@@ -1407,22 +1401,25 @@ class EventServiceManager
                 // If the buffer overloaded, send all messages.
                 std::string strMsg = msg.dump(
                     2, ' ', false, nlohmann::json::error_handler_t::replace);
-                subValue->sendEvent(std::move(strMsg));
+                eventId++;
+                subValue->sendEvent(eventId, std::move(strMsg));
                 lastEvent = messages.begin();
             }
             else
             {
                 // Skip the last event the user already has
                 lastEvent++;
-            }
 
-            for (boost::circular_buffer<Event>::const_iterator event =
-                     lastEvent;
-                 event != messages.end(); event++)
-            {
-                std::string strMsg = event->message.dump(
-                    2, ' ', false, nlohmann::json::error_handler_t::replace);
-                subValue->sendEvent(std::move(strMsg));
+                for (boost::circular_buffer<Event>::const_iterator event =
+                         lastEvent;
+                     event != messages.end(); event++)
+                {
+                    std::string strMsg =
+                        nlohmann::json(event->message)
+                            .dump(2, ' ', false,
+                                  nlohmann::json::error_handler_t::replace);
+                    subValue->sendEvent(event->id, std::move(strMsg));
+                }
             }
         }
         return id;
@@ -1512,9 +1509,8 @@ class EventServiceManager
         {
             logEntryJson["EventGroupId"] = *testEvent.eventGroupId;
         }
-
-        logEntryJson["EventId"] = std::to_string(eventId);
         eventId++;
+        logEntryJson["EventId"] = std::to_string(eventId);
 
         if (testEvent.eventTimestamp)
         {
@@ -1558,6 +1554,7 @@ class EventServiceManager
         msg["Name"] = "Event Log";
         msg["Events"] = logEntryArray;
         messages.push_back(Event(eventId, msg));
+        msg["Id"] = std::to_string(eventId);
 
         for (const auto& it : subscriptionsMap)
         {
@@ -1570,15 +1567,17 @@ class EventServiceManager
 
             std::string strMsg = nlohmann::json(msg).dump(
                 2, ' ', true, nlohmann::json::error_handler_t::replace);
-            entry->sendEvent(std::move(strMsg));
+            entry->sendEvent(eventId, std::move(strMsg));
         }
-        eventId++;
+
         return true;
     }
 
     void sendEvent(nlohmann::json::object_t eventMessage,
                    const std::string& origin, const std::string& resourceType)
     {
+        eventId++;
+
         eventMessage["EventId"] = eventId;
 
         eventMessage["EventTimestamp"] =
@@ -1596,6 +1595,7 @@ class EventServiceManager
         msg["@odata.type"] = "#Event.v1_9_0.Event";
         msg["Name"] = "Event Log";
         msg["Events"] = std::move(eventRecord);
+        msg["Id"] = std::to_string(eventId);
         messages.push_back(Event(eventId, eventMessage));
         for (auto& it : subscriptionsMap)
         {
@@ -1608,9 +1608,8 @@ class EventServiceManager
 
             std::string strMsg = msg.dump(
                 2, ' ', true, nlohmann::json::error_handler_t::replace);
-            entry->sendEvent(std::move(strMsg));
+            entry->sendEvent(eventId, std::move(strMsg));
         }
-        eventId++;
     }
 
     /*!
@@ -1620,7 +1619,9 @@ class EventServiceManager
      */
     void sendEvent(NvEvent& event)
     {
-        nlohmann::json logEntry;
+        eventId++; // increment the eventId
+
+        nlohmann::json::object_t logEntry;
         if (event.formatEventLogEntry(logEntry) != 0)
         {
             BMCWEB_LOG_ERROR("Failed to format the event log entry");
@@ -1629,9 +1630,11 @@ class EventServiceManager
         nlohmann::json::array_t eventsArray;
         eventsArray.push_back(logEntry);
         nlohmann::json::object_t msg;
+
         msg["@odata.type"] = "#Event.v1_9_0.Event";
         msg["Name"] = "Event Log";
         msg["Events"] = std::move(eventsArray);
+        msg["Id"] = std::to_string(eventId);
 
         messages.push_back(Event(eventId, msg));
         for (const auto& it : subscriptionsMap)
@@ -1644,9 +1647,8 @@ class EventServiceManager
             }
             std::string strMsg = nlohmann::json(msg).dump(
                 2, ' ', true, nlohmann::json::error_handler_t::replace);
-            entry->sendEvent(std::move(strMsg));
+            entry->sendEvent(eventId, std::move(strMsg));
         }
-        eventId++; // increament the eventId
     }
 
     void resetRedfishFilePosition()
@@ -1913,14 +1915,14 @@ class EventServiceManager
             BMCWEB_LOG_INFO("Failed to get Readings from Report properties");
             return;
         }
-
-        for (const auto& it :
-             EventServiceManager::getInstance().subscriptionsMap)
+        EventServiceManager& mgr = EventServiceManager::getInstance();
+        mgr.eventId++;
+        for (const auto& it : mgr.subscriptionsMap)
         {
             Subscription& entry = *it.second;
             if (entry.eventFormatType == metricReportFormatType)
             {
-                entry.filterAndSendReports(id, *readings);
+                entry.filterAndSendReports(mgr.eventId, id, *readings);
             }
         }
     }
