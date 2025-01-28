@@ -617,8 +617,8 @@ inline void
                     messages::internalError(asyncResp->res);
                     return;
                 }
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["FabricManager"]
-                                        ["FabricManagerState"] =
+                asyncResp->res
+                    .jsonValue["Oem"]["Nvidia"]["FabricManager"]["State"] =
                     redfish::nvidia_manager_util::getFMState(*value);
             }
             else if (property.first == "ReportStatus")
