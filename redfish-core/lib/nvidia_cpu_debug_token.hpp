@@ -182,16 +182,21 @@ inline void handleCpuDebugTokenResourceInfo(
                                    systemName);
         return;
     }
-    getCpuEid(asyncResp, [req, asyncResp, systemName](uint32_t eid) {
+
+    const std::string resourceUri = std::format(
+        "/redfish/v1/Systems/{}/Oem/Nvidia/CPUDebugToken", systemName);
+
+    getCpuEid(asyncResp,
+              [req, asyncResp, systemName, resourceUri](uint32_t eid) {
         MctpVdmUtil mctpVdmUtilWrapper(eid);
         mctpVdmUtilWrapper.run(
             MctpVdmUtilCommand::DEBUG_TOKEN_QUERY, std::monostate(), req,
             asyncResp,
-            [systemName](const crow::Request& req,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         uint32_t, const std::string& stdOut,
-                         const std::string&,
-                         const boost::system::error_code& ec, int errorCode) {
+            [systemName, resourceUri](
+                const crow::Request& req,
+                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t,
+                const std::string& stdOut, const std::string&,
+                const boost::system::error_code& ec, int errorCode) {
             auto& resJson = asyncResp->res.jsonValue;
             resJson["TokenType"] = "CRCS";
             std::string resUri{req.url().buffer()};
@@ -247,16 +252,18 @@ inline void handleCpuDebugTokenResourceInfo(
             auto& actions = resJson["Actions"];
             auto& generateAction = actions["#NvidiaDebugToken.GenerateToken"];
             generateAction["target"] =
-                resUri + "/Actions/NvidiaDebugToken.GenerateToken"s;
-            generateAction["@Redfish.ActionInfo"] = resUri +
+                resourceUri + "/Actions/NvidiaDebugToken.GenerateToken"s;
+            generateAction["@Redfish.ActionInfo"] = resourceUri +
                                                     "/GenerateTokenActionInfo"s;
+
             auto& installAction = actions["#NvidiaDebugToken.InstallToken"];
-            installAction["target"] = resUri +
+            installAction["target"] = resourceUri +
                                       "/Actions/NvidiaDebugToken.InstallToken"s;
-            installAction["@Redfish.ActionInfo"] = resUri +
+            installAction["@Redfish.ActionInfo"] = resourceUri +
                                                    "/InstallTokenActionInfo"s;
+
             auto& disableAction = actions["#NvidiaDebugToken.DisableToken"];
-            disableAction["target"] = resUri +
+            disableAction["target"] = resourceUri +
                                       "/Actions/NvidiaDebugToken.DisableToken"s;
         });
     });
@@ -277,8 +284,13 @@ inline void handleCpuGenerateTokenActionInfo(
                                    systemName);
         return;
     }
+
+    const std::string actionInfoUri = std::format(
+        "/redfish/v1/Systems/{}/Oem/Nvidia/CPUDebugToken/GenerateTokenActionInfo",
+        systemName);
+
     asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_2_0.ActionInfo";
-    asyncResp->res.jsonValue["@odata.id"] = req.url();
+    asyncResp->res.jsonValue["@odata.id"] = actionInfoUri;
     asyncResp->res.jsonValue["Id"] = "GenerateTokenActionInfo";
     asyncResp->res.jsonValue["Name"] = "GenerateToken Action Info";
 
@@ -310,8 +322,13 @@ inline void handleCpuInstallTokenActionInfo(
                                    systemName);
         return;
     }
+
+    const std::string actionInfoUri = std::format(
+        "/redfish/v1/Systems/{}/Oem/Nvidia/CPUDebugToken/InstallTokenActionInfo",
+        systemName);
+
     asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_2_0.ActionInfo";
-    asyncResp->res.jsonValue["@odata.id"] = req.url();
+    asyncResp->res.jsonValue["@odata.id"] = actionInfoUri;
     asyncResp->res.jsonValue["Id"] = "InstallTokenActionInfo";
     asyncResp->res.jsonValue["Name"] = "InstallToken Action Info";
 
