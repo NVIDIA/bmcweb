@@ -39,8 +39,6 @@ namespace redfish
 
 static constexpr const std::array<const char*, 2> supportedEvtFormatTypes = {
     eventFormatType, metricReportFormatType};
-static constexpr const std::array<const char*, 4> supportedRegPrefixes = {
-    "Base", "OpenBMC", "TaskEvent", "ResourceEvent"};
 static constexpr const std::array<const char*, 3> supportedRetryPolicies = {
     "TerminateAfterRetries", "SuspendRetries", "RetryForever"};
 
@@ -87,7 +85,8 @@ inline void requestRoutesEventService(App& app)
         asyncResp->res.jsonValue["DeliveryRetryIntervalSeconds"] =
             eventServiceConfig.retryTimeoutInterval;
         asyncResp->res.jsonValue["EventFormatTypes"] = supportedEvtFormatTypes;
-        asyncResp->res.jsonValue["RegistryPrefixes"] = supportedRegPrefixes;
+        asyncResp->res.jsonValue["RegistryPrefixes"] =
+            message_registries::getRegistryPrefixes();
         asyncResp->res.jsonValue["ResourceTypes"] = supportedResourceTypes;
 
         nlohmann::json::object_t supportedSSEFilters;
@@ -534,10 +533,11 @@ inline void requestRoutesEventDestinationCollection(App& app)
 
         if (regPrefixes)
         {
+            std::vector<std::string> prefixes =
+                message_registries::getRegistryPrefixes();
             for (const std::string& it : *regPrefixes)
             {
-                if (std::ranges::find(supportedRegPrefixes, it) ==
-                    supportedRegPrefixes.end())
+                if (std::ranges::find(prefixes, it) == prefixes.end())
                 {
                     messages::propertyValueNotInList(asyncResp->res, it,
                                                      "RegistryPrefixes");
@@ -570,13 +570,14 @@ inline void requestRoutesEventDestinationCollection(App& app)
         if (msgIds)
         {
             std::vector<std::string> registryPrefix;
+            std::vector<std::string> prefixes =
+                message_registries::getRegistryPrefixes();
 
             // If no registry prefixes are mentioned, consider all
             // supported prefixes
             if (subValue->registryPrefixes.empty())
             {
-                registryPrefix.assign(supportedRegPrefixes.begin(),
-                                      supportedRegPrefixes.end());
+                registryPrefix.assign(prefixes.begin(), prefixes.end());
             }
             else
             {

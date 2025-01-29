@@ -52,16 +52,10 @@ inline void handleMessageRegistryFileCollectionGet(
     asyncResp->res.jsonValue["Members@odata.count"] = 8;
 
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
-    for (const char* memberName : std::to_array(
-             {"Base", "TaskEvent", "ResourceEvent", "OpenBMC", "Telemetry",
-              "Platform", "Update", "BiosAttributeRegistry"}))
+    std::vector<std::string> prefixes =
+        message_registries::getRegistryPrefixes();
+    for (std::string memberName : prefixes)
     {
-#ifndef BMCWEB_ENABLE_BIOS
-        if (std::string(memberName) == "BiosAttributeRegistry")
-        {
-            continue;
-        }
-#endif
         nlohmann::json::object_t member;
         member["@odata.id"] = boost::urls::format("/redfish/v1/Registries/{}",
                                                   memberName);
