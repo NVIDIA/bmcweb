@@ -31,11 +31,30 @@
 #include <span>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace redfish
 {
 namespace message_registries
 {
+
+inline std::vector<std::string> getRegistryPrefixes()
+{
+    std::vector<std::string> supportedPrefixes = {
+        "Base",      "OpenBMC",   "Platform", "ResourceEvent",
+        "TaskEvent", "Telemetry", "Update"};
+
+    if constexpr (BMCWEB_BIOS)
+    {
+        // The supportedPrefixes list must stay sorted, so insert in the correct
+        // position
+        std::string bios = "BiosAttributeRegistry";
+        auto insert = std::upper_bound(supportedPrefixes.begin(),
+                                       supportedPrefixes.end(), bios);
+        supportedPrefixes.insert(insert, bios);
+    }
+    return supportedPrefixes;
+}
 
 inline std::string getPrefix(const std::string& messageID)
 {
