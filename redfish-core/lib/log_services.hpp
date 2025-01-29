@@ -2908,21 +2908,63 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                 bool device_event_data = false;
                 std::string messageId;
                 std::string messageArgs;
+                std::vector<std::string> messageArgsDbus = {};
                 std::string originOfCondition;
                 std::string deviceName;
                 nlohmann::json::object_t cper;
                 if (additionalDataRaw != nullptr)
                 {
                     AdditionalData additional(*additionalDataRaw);
-                    if (additional.count("REDFISH_MESSAGE_ID") > 0)
+                    if (additional.count("REDFISH_MESSAGE_ID") == 1)
                     {
                         isMessageRegistry = true;
                         messageId = additional["REDFISH_MESSAGE_ID"];
-                        BMCWEB_LOG_DEBUG("MessageId: [{}]", messageId);
-
-                        if (additional.count("REDFISH_MESSAGE_ARGS") > 0)
+                        if (additional.count("REDFISH_MESSAGE_ARGS") == 1)
                         {
-                            messageArgs = additional["REDFISH_MESSAGE_ARGS"];
+                            std::string args =
+                                additional["REDFISH_MESSAGE_ARGS"];
+                            boost::split(messageArgsDbus, args,
+                                         boost::is_any_of(","));
+                            for (auto& msgArg : messageArgsDbus)
+                            {
+                                boost::trim(msgArg);
+                            }
+                            if (!messageArgsDbus[0].empty())
+                            {
+                                if (dBusToRedfishProperty.find(
+                                        messageArgsDbus[0]) !=
+                                    dBusToRedfishProperty.end())
+                                {
+                                    messageArgsDbus[0] = dBusToRedfishProperty
+                                        [messageArgsDbus[0]];
+                                    messageArgs = boost::algorithm::join(
+                                        messageArgsDbus, ", ");
+                                }
+                                else
+                                {
+                                    BMCWEB_LOG_WARNING(
+                                        "property mapping not found for {}",
+                                        messageArgsDbus[0]);
+                                }
+                            }
+                        }
+                        else if (additional.count("REDFISH_MESSAGE_ARGS") > 0)
+                        {
+                            BMCWEB_LOG_ERROR("Multiple "
+                                             "REDFISH_MESSAGE_ARGS in the Dbus "
+                                             "signal message.");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        auto counter = additional.count("REDFISH_MESSAGE_ID");
+                        if (counter > 0)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "There should be exactly one MessageId in the Dbus signal message. Found {}",
+                                std::to_string(counter));
+                            return;
                         }
                     }
                     if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
