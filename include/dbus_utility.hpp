@@ -390,17 +390,17 @@ inline void getManagedObjects(
 
 inline void getAllNameSpaceObjects(
     const std::string& service, const sdbusplus::message::object_path& path,
-    const std::string& namespaceName, const std::string& filter,
+    const std::string& interfaces, const std::string& namespaceName,
+    const std::string& filter,
     std::function<void(const boost::system::error_code&,
-                       const ManagedObjectType&)>&& callbackIn)
+                       const ManagedObjectType&)>&& callback)
 {
     crow::connections::systemBus->async_method_call(
-        [callback{std::move(callbackIn)}](const boost::system::error_code& ec,
-                                          const ManagedObjectType& objects) {
+        [callback{std::move(callback)}](const boost::system::error_code& ec,
+                                        const ManagedObjectType& objects) {
             callback(ec, objects);
         },
-        service, path, "xyz.openbmc_project.Logging.Namespace", "GetAll",
-        namespaceName, filter);
+        service, path, interfaces, "GetAll", namespaceName, filter);
 }
 } // namespace utility
 } // namespace dbus

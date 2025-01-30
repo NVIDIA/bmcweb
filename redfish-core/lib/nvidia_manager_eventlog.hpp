@@ -167,8 +167,9 @@ inline void dbusManagerEventLogEntryCollection(
     // DBus implementation of EventLog/Entries
     // Make call to Logging Service to find all log entry objects
     sdbusplus::message::object_path path("/xyz/openbmc_project/logging");
+    const std::string interface = "xyz.openbmc_project.Logging.Namespace";
     dbus::utility::getAllNameSpaceObjects(
-        "xyz.openbmc_project.Logging", path, "Manager",
+        "xyz.openbmc_project.Logging", path, interface, "Manager",
         "xyz.openbmc_project.Logging.Namespace.ResolvedFilterType.Both",
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::ManagedObjectType& resp) {
