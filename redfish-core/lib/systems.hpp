@@ -45,6 +45,7 @@
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/message.hpp>
 #include <sdbusplus/unpack_properties.hpp>
+#include <utils/bios_utils.hpp>
 #include <utils/istmode_utils.hpp>
 #include <utils/nvidia_pcie_utils.hpp>
 #include <utils/nvidia_systems_util.hpp>
@@ -4318,8 +4319,10 @@ inline void
     getBootProperties(asyncResp);
     getBootProgress(asyncResp);
     getBootProgressLastStateTime(asyncResp);
-    getBootOrder(asyncResp);
-    getSecureBoot(asyncResp);
+    redfish::bios_utils::checkBiosSupport([asyncResp]() {
+        getBootOrder(asyncResp);
+        getSecureBoot(asyncResp);
+    });
     populateFromEntityManger(asyncResp);
     getUefiPropertySettingsHost(asyncResp, true);
     asyncResp->res.jsonValue["Boot"]["BootOrderPropertySelection"] =
