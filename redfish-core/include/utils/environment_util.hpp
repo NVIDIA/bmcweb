@@ -83,7 +83,7 @@ inline void patchEdppSetPoint(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                     std::variant<std::tuple<bool, uint32_t>>(std::make_tuple(
                         persistency, static_cast<uint32_t>(setPoint))),
                     nvidia_async_operation_utils::PatchEdppSetPointCallback{
-                        resp});
+                        resp, "SetPoint", std::to_string(setPoint)});
 
                 return;
             }

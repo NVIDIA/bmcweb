@@ -27,8 +27,11 @@ namespace nvidia_async_operation_utils
 class PatchGenericCallback
 {
   public:
-    explicit PatchGenericCallback(std::shared_ptr<bmcweb::AsyncResp> resp) :
-        resp(std::move(resp))
+    explicit PatchGenericCallback(std::shared_ptr<bmcweb::AsyncResp> resp,
+                                  std::string propertyName = "",
+                                  std::string propertyValue = "") :
+        resp(std::move(resp)),
+        propertyName(propertyName), propertyValue(propertyValue)
     {}
 
     void operator()(const std::string& status) const
@@ -64,6 +67,14 @@ class PatchGenericCallback
             // timeout error
             messages::asyncError(resp->res, errTimeout, errTimeoutResolution);
         }
+        else if (status == nvidia_async_operation_utils::
+                               asyncStatusValueInvalidArgument &&
+                 propertyName.size())
+        {
+            // Invalid value
+            messages::propertyValueIncorrect(resp->res, propertyName,
+                                             propertyValue);
+        }
         else
         {
             messages::internalError(resp->res);
@@ -72,6 +83,8 @@ class PatchGenericCallback
 
   private:
     std::shared_ptr<bmcweb::AsyncResp> resp;
+    std::string propertyName;
+    std::string propertyValue;
 };
 
 using PatchMigModeCallback = PatchGenericCallback;
