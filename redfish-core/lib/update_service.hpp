@@ -4033,6 +4033,7 @@ inline void requestRoutesSoftwareInventory(App& app)
                      obj : subtree)
             {
                 sdbusplus::message::object_path objPath(obj.first);
+                std::string pathString(obj.first);
                 if (boost::equals(objPath.filename(), *swId) != true)
                 {
                     continue;
@@ -4093,7 +4094,7 @@ inline void requestRoutesSoftwareInventory(App& app)
                 // and not implemented on all devices.
                 if (!settingService.empty())
                 {
-                    fw_util::getFwWriteProtectedStatus(asyncResp, swId,
+                    fw_util::getFwWriteProtectedStatus(asyncResp, pathString,
                                                        settingService);
                 }
                 asyncResp->res.jsonValue["Id"] = *swId;
