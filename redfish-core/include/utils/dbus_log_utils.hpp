@@ -20,8 +20,6 @@
  */
 
 #pragma once
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/split.hpp>
 
 #include <map>
 #include <string>
@@ -75,7 +73,7 @@ class AdditionalData
         {
             std::vector<std::string> fields;
             fields.reserve(2);
-            boost::split(fields, kv, boost::is_any_of("="));
+            bmcweb::split(fields, kv, '=');
             if (data.count(fields[0]) <= 0)
             {
                 data[fields[0]] = "";

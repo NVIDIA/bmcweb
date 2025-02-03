@@ -25,7 +25,6 @@
 #include "logging.hpp"
 
 #include <app.hpp>
-#include <boost/algorithm/string/split.hpp>
 #include <boost/container/flat_map.hpp>
 #include <dbus_utility.hpp>
 #include <nlohmann/json.hpp>

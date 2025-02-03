@@ -35,7 +35,6 @@ limitations under the License.
 
 #include <sys/mman.h>
 
-#include <boost/algorithm/string/split.hpp>
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
@@ -172,15 +171,14 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
                     for (auto& kv : *vData)
                     {
                         std::vector<std::string> fields;
-                        boost::split(fields, kv, boost::is_any_of("="));
+                        bmcweb::split(fields, kv, '=');
                         if (fields[0] == "REDFISH_MESSAGE_ID")
                         {
                             rfMessage = fields[1];
                         }
                         else if (fields[0] == "REDFISH_MESSAGE_ARGS")
                         {
-                            boost::split(rfArgs, fields[1],
-                                         boost::is_any_of(","));
+                            bmcweb::split(rfArgs, fields[1], ',');
                         }
                         else if (fields[0] == "namespace")
                         {
@@ -4153,7 +4151,6 @@ inline void forwardCommitImagePost(
         std::move(data), url, ensuressl::VerifyCertificate::Verify,
         req.fields(), boost::beast::http::verb::post, cb);
 }
-
 
 /**
  * @brief the response handler of CommitImage Post

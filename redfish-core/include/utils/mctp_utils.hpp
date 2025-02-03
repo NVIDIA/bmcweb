@@ -16,8 +16,6 @@
  */
 #pragma once
 
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/split.hpp>
 #include <openbmc_dbus_rest.hpp>
 #include <utils/dbus_utils.hpp>
 
@@ -76,7 +74,7 @@ class MctpEndpoint
                 if (mctpObj.rfind(mctpObjectPrefix, 0) == 0)
                 {
                     std::vector<std::string> v;
-                    boost::split(v, mctpObj, boost::is_any_of("/"));
+                    bmcweb::split(v, mctpObj, '/');
                     if (v.size() == 0)
                     {
                         callback(false, "invalid MCTP object path: " + mctpObj);

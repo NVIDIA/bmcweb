@@ -18,7 +18,6 @@
 #pragma once
 
 #include <app.hpp>
-#include <boost/algorithm/string/split.hpp>
 #include <utils/dbus_utils.hpp>
 #include <utils/json_utils.hpp>
 

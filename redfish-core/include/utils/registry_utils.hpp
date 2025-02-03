@@ -21,7 +21,6 @@
 
 #pragma once
 
-#include <boost/algorithm/string/split.hpp>
 #include <registries.hpp>
 
 #include <array>

@@ -38,7 +38,6 @@ limitations under the License.
 #include <sys/inotify.h>
 
 #include <async_resp.hpp>
-#include <boost/algorithm/string/classification.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/circular_buffer.hpp>
 #include <boost/container/flat_map.hpp>
@@ -1371,8 +1370,7 @@ class EventServiceManager
                 std::size_t index = 0;
                 while ((index + iEventSize) <= bytesTransferred)
                 {
-                    struct inotify_event event
-                    {};
+                    struct inotify_event event{};
                     std::memcpy(&event, &readBuffer[index], iEventSize);
                     if (event.wd == dirWatchDesc)
                     {
@@ -1902,8 +1900,7 @@ class EventServiceManager
                                 {
                                     std::string args =
                                         additional["REDFISH_MESSAGE_ARGS"];
-                                    boost::split(messageArgs, args,
-                                                 boost::is_any_of(","));
+                                    bmcweb::split(messageArgs, args, ',');
                                     // Trim leading and tailing whitespace of
                                     // each argument
                                     for (auto& msgArg : messageArgs)

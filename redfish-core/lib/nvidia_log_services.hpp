@@ -26,10 +26,6 @@
 #include <tinyxml2.h>
 #include <unistd.h>
 
-#include <boost/algorithm/string/case_conv.hpp>
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/replace.hpp>
-#include <boost/algorithm/string/split.hpp>
 #include <boost/asio.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/http/verb.hpp>
@@ -121,7 +117,7 @@ static void generateMessageRegistry(
     // Convert messageArgs string for its json format used later.
     std::vector<std::string> fields;
     fields.reserve(msg->numberOfArgs);
-    boost::split(fields, messageArgs, boost::is_any_of(","));
+    bmcweb::split(fields, messageArgs, ',');
 
     // Trim leading and tailing whitespace of each arg.
     for (auto& f : fields)
@@ -648,13 +644,13 @@ inline std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
     std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
         additionalData;
     std::vector<std::string> tokens;
-    boost::split(tokens, oemData, boost::is_any_of(";"));
+    bmcweb::split(tokens, oemData, ';');
     if (!tokens.empty())
     {
         std::vector<std::string> subTokens;
         for (auto& token : tokens)
         {
-            boost::split(subTokens, token, boost::is_any_of("="));
+            bmcweb::split(subTokens, token, '=');
             // Include only <key,value> pair with '=' delimiter
             if (subTokens.size() == 2)
             {

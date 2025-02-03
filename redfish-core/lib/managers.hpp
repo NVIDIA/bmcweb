@@ -33,7 +33,6 @@ limitations under the License.
 #include "utils/time_utils.hpp"
 
 #include <app.hpp>
-#include <boost/algorithm/string/replace.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>

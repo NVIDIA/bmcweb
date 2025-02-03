@@ -18,7 +18,6 @@
 #pragma once
 
 #include <app.hpp>
-#include <boost/algorithm/string/split.hpp>
 #include <health.hpp>
 #include <openbmc_dbus_rest.hpp>
 #include <query.hpp>
