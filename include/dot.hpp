@@ -153,7 +153,7 @@ class DotCommandHandler
             crow::connections::systemBus->get_io_context());
         subprocessTimer->expires_after(std::chrono::seconds(timeout));
         subprocessTimer->async_wait(
-            [this, desc](const boost::system::error_code ec) {
+            [this, desc](const boost::system::error_code& ec) {
                 if (ec && ec != boost::asio::error::operation_aborted)
                 {
                     if (subprocess)

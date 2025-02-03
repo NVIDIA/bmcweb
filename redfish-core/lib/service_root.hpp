@@ -70,7 +70,7 @@ inline void getBmcAssetData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
         *crow::connections::systemBus, service, objPath,
         "xyz.openbmc_project.Inventory.Decorator.Asset",
         [objPath, asyncResp{std::move(asyncResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -119,7 +119,7 @@ inline void getBMCObject(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     // GetSubTree on all interfaces which provide info about BMC
     crow::connections::systemBus->async_method_call(
         [asyncResp](
-            boost::system::error_code ec,
+            boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) mutable {
             if (ec)
             {

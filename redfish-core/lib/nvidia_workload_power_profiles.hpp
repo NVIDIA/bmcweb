@@ -49,7 +49,7 @@ inline void getProcessorWorkloadPowerInfo(
 {
     BMCWEB_LOG_DEBUG("Get processor smoothing control data.");
     crow::connections::systemBus->async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code ec,
+        [aResp{std::move(aResp)}](const boost::system::error_code& ec,
                                   const DbusProperties& properties) {
             if (ec)
             {
@@ -111,7 +111,7 @@ inline void validateProcessorAndGetWorkloadPowerInfo(
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
         [processorId, aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
@@ -215,7 +215,7 @@ inline void getWorkLoadProfileData(
     BMCWEB_LOG_DEBUG("Get processor current profile data.");
     crow::connections::systemBus->async_method_call(
         [processorId,
-         aResp{std::move(aResp)}](const boost::system::error_code ec,
+         aResp{std::move(aResp)}](const boost::system::error_code& ec,
                                   const DbusProperties& properties) {
             if (ec)
             {
@@ -276,7 +276,7 @@ inline void validateProcessorWorkloadPowerProfile(
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
         [processorId, profileId, aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
@@ -308,7 +308,7 @@ inline void validateProcessorWorkloadPowerProfile(
 
                 crow::connections::systemBus->async_method_call(
                     [aResp, profileId, processorId](
-                        const boost::system::error_code ec2,
+                        const boost::system::error_code& ec2,
                         std::variant<std::vector<std::string>>& resp) {
                         if (ec2)
                         {
@@ -337,7 +337,7 @@ inline void validateProcessorWorkloadPowerProfile(
                             crow::connections::systemBus->async_method_call(
                                 [processorId, objectPathToGetProfileData,
                                  aResp{std::move(aResp)}](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code& ec,
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         object) {
@@ -394,7 +394,7 @@ inline void getProcessorWorkloadPowerProfileCollectionData(
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
         [processorId, aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
@@ -431,7 +431,7 @@ inline void getProcessorWorkloadPowerProfileCollectionData(
 
                 crow::connections::systemBus->async_method_call(
                     [aResp, profileCollectionURI, processorId](
-                        const boost::system::error_code ec2,
+                        const boost::system::error_code& ec2,
                         std::variant<std::vector<std::string>>& resp) {
                         if (ec2)
                         {
@@ -536,7 +536,7 @@ inline void postEnableWorkLoadPowerProfile(
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
         [processorId, aResp{std::move(aResp)}, profileMask](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
@@ -641,7 +641,7 @@ inline void postDisableWorkLoadPowerProfile(
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
         [processorId, aResp{std::move(aResp)}, profileMask](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&

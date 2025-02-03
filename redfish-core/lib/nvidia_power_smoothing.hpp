@@ -49,7 +49,7 @@ inline void getProcessorCurrentProfileData(
     BMCWEB_LOG_DEBUG("Get processor current profile data.");
     crow::connections::systemBus->async_method_call(
         [aResp{std::move(aResp)}, objPath,
-         presetProfileURI](const boost::system::error_code ec,
+         presetProfileURI](const boost::system::error_code& ec,
                            const DbusProperties& properties) {
             if (ec)
             {
@@ -193,7 +193,7 @@ inline void getProcessorPowerSmoothingControlData(
     BMCWEB_LOG_DEBUG("Get processor smoothing control data.");
     crow::connections::systemBus->async_method_call(
         [aResp{std::move(aResp)}, objPath, service,
-         presetProfileURI](const boost::system::error_code ec,
+         presetProfileURI](const boost::system::error_code& ec,
                            const DbusProperties& properties) {
             if (ec)
             {
@@ -305,7 +305,7 @@ inline void getProcessorPowerSmoothingData(
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
         [processorId, aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
@@ -423,7 +423,7 @@ inline void getAdminProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
 {
     BMCWEB_LOG_DEBUG("Get processor current profile data.");
     crow::connections::systemBus->async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code ec,
+        [aResp{std::move(aResp)}](const boost::system::error_code& ec,
                                   const DbusProperties& properties) {
             if (ec)
             {
@@ -490,7 +490,7 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
         [processorId, aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
@@ -523,7 +523,7 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
 
                 crow::connections::systemBus->async_method_call(
                     [aResp, processorId](
-                        const boost::system::error_code ec2,
+                        const boost::system::error_code& ec2,
                         std::variant<std::vector<std::string>>& resp) {
                         if (ec2)
                         {
@@ -549,7 +549,7 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
                             crow::connections::systemBus->async_method_call(
                                 [processorId, profilePath,
                                  aResp{std::move(aResp)}](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code& ec,
                                     const boost::container::flat_map<
                                         std::string,
                                         boost::container::flat_map<
@@ -621,7 +621,7 @@ inline void getProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
 {
     BMCWEB_LOG_DEBUG("Get processor current profile data.");
     crow::connections::systemBus->async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code ec,
+        [aResp{std::move(aResp)}](const boost::system::error_code& ec,
                                   const DbusProperties& properties) {
             if (ec)
             {
@@ -685,7 +685,7 @@ inline void getProcessorPowerSmoothingPresetProfileData(
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
         [processorId, profileId, aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
@@ -722,7 +722,7 @@ inline void getProcessorPowerSmoothingPresetProfileData(
 
                 crow::connections::systemBus->async_method_call(
                     [aResp, profileId, processorId](
-                        const boost::system::error_code ec2,
+                        const boost::system::error_code& ec2,
                         std::variant<std::vector<std::string>>& resp) {
                         if (ec2)
                         {
@@ -751,7 +751,7 @@ inline void getProcessorPowerSmoothingPresetProfileData(
                             crow::connections::systemBus->async_method_call(
                                 [processorId, objectPathToGetProfileData,
                                  aResp{std::move(aResp)}](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code& ec,
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         object) {
@@ -807,7 +807,7 @@ inline void getProcessorPowerSmoothingPresetProfileCollectionData(
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
         [processorId, aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
@@ -844,7 +844,7 @@ inline void getProcessorPowerSmoothingPresetProfileCollectionData(
 
                 crow::connections::systemBus->async_method_call(
                     [aResp, profileCollectionURI, processorId](
-                        const boost::system::error_code ec2,
+                        const boost::system::error_code& ec2,
                         std::variant<std::vector<std::string>>& resp) {
                         if (ec2)
                         {
@@ -897,7 +897,7 @@ inline void patchPowerSmoothingFeature(
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
         [processorId, propName, propValue, aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
@@ -981,7 +981,7 @@ inline void patchAdminOverrideProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
         [processorId, propName, propValue, aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
@@ -1001,7 +1001,7 @@ inline void patchAdminOverrideProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
 
                 crow::connections::systemBus->async_method_call(
                     [aResp, processorId, propName,
-                     propValue](const boost::system::error_code ec2,
+                     propValue](const boost::system::error_code& ec2,
                                 std::variant<std::vector<std::string>>& resp) {
                         if (ec2)
                         {
@@ -1031,7 +1031,7 @@ inline void patchAdminOverrideProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
                             crow::connections::systemBus->async_method_call(
                                 [processorId, propName, profilePath, propValue,
                                  aResp{std::move(aResp)}](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code& ec,
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         object) {
@@ -1092,7 +1092,7 @@ inline void patchPresetProfile(
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
         [processorId, profileId, propName, propValue, aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
@@ -1114,7 +1114,7 @@ inline void patchPresetProfile(
                 }
                 crow::connections::systemBus->async_method_call(
                     [aResp, profileId, propName, propValue, processorId](
-                        const boost::system::error_code ec2,
+                        const boost::system::error_code& ec2,
                         std::variant<std::vector<std::string>>& resp) {
                         if (ec2)
                         {
@@ -1144,7 +1144,7 @@ inline void patchPresetProfile(
                             crow::connections::systemBus->async_method_call(
                                 [processorId, profileId, propName, propValue,
                                  profilePath, aResp{std::move(aResp)}](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code& ec,
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         object) {
@@ -1261,7 +1261,7 @@ inline void postApplyAdminOverride(std::shared_ptr<bmcweb::AsyncResp> aResp,
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
         [processorId, aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
@@ -1368,7 +1368,7 @@ inline void postActivatePresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
         "activatePresetProfile: Get available system processor resource");
     crow::connections::systemBus->async_method_call(
         [processorId, profileId, aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&

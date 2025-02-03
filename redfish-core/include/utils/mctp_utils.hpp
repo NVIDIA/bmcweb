@@ -52,7 +52,7 @@ class MctpEndpoint
         dbus::utility::findAssociations(
             spdmObject + "/transport_object",
             [this, spdmObject,
-             callback](const boost::system::error_code ec,
+             callback](const boost::system::error_code& ec,
                        std::variant<std::vector<std::string>>& association) {
                 BMCWEB_LOG_DEBUG("findAssociations callback for {}",
                                  spdmObject);
@@ -125,7 +125,7 @@ class MctpEndpoint
     void getDbusMctpProperties(const AssociationCallback& callback)
     {
         crow::connections::systemBus->async_method_call(
-            [this, callback](const boost::system::error_code ec,
+            [this, callback](const boost::system::error_code& ec,
                              const GetObjectType& response) {
                 if (ec || response.empty())
                 {
@@ -141,7 +141,7 @@ class MctpEndpoint
                     }
                     crow::connections::systemBus->async_method_call(
                         [this, callback](
-                            const boost::system::error_code ec,
+                            const boost::system::error_code& ec,
                             const boost::container::flat_map<
                                 std::string, dbus::utility::DbusVariantType>&
                                 properties) {
@@ -230,7 +230,7 @@ inline void enumerateMctpEndpoints(
         [endpointCallback{std::forward<EndpointCallback>(endpointCallback)},
          errorCallback{std::forward<ErrorCallback>(errorCallback)},
          spdmObjectFilter](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const crow::openbmc_mapper::GetSubTreeType& subtree) {
             const std::string desc = "SPDM / MCTP endpoint enumeration";
             BMCWEB_LOG_DEBUG("{}", desc);

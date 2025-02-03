@@ -791,7 +791,7 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
         std::shared_ptr<HealthRollup> self = shared_from_this();
         crow::connections::systemBus->async_method_call(
             [self, serviceManager,
-             objPath](const boost::system::error_code ec,
+             objPath](const boost::system::error_code& ec,
                       const std::variant<Association>& result) mutable {
                 if (ec)
                 {
@@ -911,7 +911,7 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
     };
 
     ServiceQueryingResult determineQueryingServiceNextMove(
-        const boost::system::error_code ec,
+        const boost::system::error_code& ec,
         const std::map<std::string, std::vector<std::string>>& result,
         const std::string& objPath, const char* interface)
     {
@@ -1074,7 +1074,7 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
         std::shared_ptr<HealthRollup> self = shared_from_this();
         crow::connections::systemBus->async_method_call(
             [self, objPath, interface](
-                const boost::system::error_code ec,
+                const boost::system::error_code& ec,
                 const std::map<std::string, std::vector<std::string>>& result) {
                 ServiceQueryingResult nextMove =
                     self->determineQueryingServiceNextMove(ec, result, objPath,
@@ -1135,7 +1135,7 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
     }
 
     const health_state::Type* determineNodeHealth(
-        const boost::system::error_code ec,
+        const boost::system::error_code& ec,
         const std::variant<std::string>& result,
         const std::string& serviceManager, const std::string& objPath)
     {
@@ -1329,7 +1329,7 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
         std::shared_ptr<HealthRollup> self = shared_from_this();
         crow::connections::systemBus->async_method_call(
             [self, serviceManager,
-             objPath](const boost::system::error_code ec,
+             objPath](const boost::system::error_code& ec,
                       const std::variant<std::string>& result) {
                 const health_state::Type* nodeHealth =
                     self->determineNodeHealth(ec, result, serviceManager,
@@ -1354,7 +1354,7 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
 
     // Debugging tools ////////////////////////////////////////////////////////
 
-    static void printErrno(const boost::system::error_code ec)
+    static void printErrno(const boost::system::error_code& ec)
     {
         BMCWEB_LOG_ERROR("errno = {}, \"{}\"", ec, ec.message());
     }
@@ -1370,7 +1370,7 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
     static void getPropertyFailFeedback(
         const std::string& service, const std::string& object,
         const std::string& interface, const std::string& property,
-        const boost::system::error_code ec)
+        const boost::system::error_code& ec)
 
     {
         BMCWEB_LOG_ERROR("Failed to get ");

@@ -285,7 +285,7 @@ class TargetedOperationHandler
         sdbusplus::asio::getProperty<sdbusplus::message::unix_fd>(
             *crow::connections::systemBus, service, objectPath,
             std::string(debugTokenIntf), "RequestFd",
-            [this](const boost::system::error_code ec,
+            [this](const boost::system::error_code& ec,
                    const sdbusplus::message::unix_fd& unixfd) {
                 if (ec)
                 {
@@ -331,7 +331,7 @@ class TargetedOperationHandler
         sdbusplus::asio::getProperty<NsmDbusTokenStatus>(
             *crow::connections::systemBus, service, objectPath,
             std::string(debugTokenIntf), "TokenStatus",
-            [this](const boost::system::error_code ec,
+            [this](const boost::system::error_code& ec,
                    const NsmDbusTokenStatus& dbusStatus) {
                 if (ec)
                 {
@@ -357,7 +357,7 @@ class TargetedOperationHandler
         sdbusplus::asio::getProperty<std::tuple<uint16_t, std::string>>(
             *crow::connections::systemBus, service, objectPath,
             std::string(debugTokenIntf), "ErrorCode",
-            [this](const boost::system::error_code ec,
+            [this](const boost::system::error_code& ec,
                    const std::tuple<uint16_t, std::string>& errorCode) {
                 if (ec)
                 {

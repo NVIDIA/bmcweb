@@ -271,7 +271,7 @@ static std::string getBiosDefaultSettingsMode(const std::string& biosMode)
     BMCWEB_LOG_DEBUG("Set Reset Bios Settings to Defaults Pending Status");
     crow::connections::systemBus->async_method_call(
         [asyncResp, resetBiosToDefaultsPending](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
             {
@@ -294,7 +294,7 @@ static std::string getBiosDefaultSettingsMode(const std::string& biosMode)
             }
 
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code ec2) {
+                [asyncResp](const boost::system::error_code& ec2) {
                     if (ec2)
                     {
                         BMCWEB_LOG_DEBUG(
@@ -328,7 +328,7 @@ inline void
 {
     BMCWEB_LOG_DEBUG("Get Reset Bios Settings to Defaults Pending Status");
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
             {
@@ -340,7 +340,7 @@ inline void
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp](
-                    const boost::system::error_code ec2,
+                    const boost::system::error_code& ec2,
                     const std::variant<std::string>& resetBiosSettingsMode) {
                     if (ec2)
                     {
@@ -401,7 +401,7 @@ inline void
     getBiosAttributes(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
             {
@@ -412,7 +412,7 @@ inline void
             const std::string& biosService = objType.begin()->first;
             crow::connections::systemBus->async_method_call(
                 [asyncResp](
-                    const boost::system::error_code ec2,
+                    const boost::system::error_code& ec2,
                     const std::variant<BaseBIOSTable>& baseBiosTableResp) {
                     if (ec2)
                     {
@@ -836,7 +836,7 @@ inline void fillBiosTable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     }
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp, baseBiosTable](const boost::system::error_code ec) {
+        [asyncResp, baseBiosTable](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Error occurred in setting BaseBIOSTable");
@@ -865,7 +865,7 @@ inline void
     getBiosSettingsAttr(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
             {
@@ -876,7 +876,7 @@ inline void
             const std::string& biosService = objType.begin()->first;
             crow::connections::systemBus->async_method_call(
                 [asyncResp](
-                    const boost::system::error_code ec2,
+                    const boost::system::error_code& ec2,
                     const std::variant<PendingAttrType>& pendingAttrsResp) {
                     if (ec2)
                     {
@@ -1001,7 +1001,7 @@ inline void setBiosCurrentOrPendingAttr(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, pendingAttrJson,
-         biosFlag](const boost::system::error_code ec,
+         biosFlag](const boost::system::error_code& ec,
                    const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
             {
@@ -1012,7 +1012,7 @@ inline void setBiosCurrentOrPendingAttr(
             const std::string& biosService = objType.begin()->first;
             crow::connections::systemBus->async_method_call(
                 [asyncResp, pendingAttrJson, biosService, biosFlag](
-                    const boost::system::error_code ec2,
+                    const boost::system::error_code& ec2,
                     const std::variant<BaseBIOSTable>& baseBiosTableResp) {
                     if (ec2)
                     {
@@ -1275,7 +1275,7 @@ inline void setBiosCurrentOrPendingAttr(
                     {
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, baseBiosTable](
-                                const boost::system::error_code ec) {
+                                const boost::system::error_code& ec) {
                                 if (ec)
                                 {
                                     BMCWEB_LOG_DEBUG(
@@ -1294,7 +1294,7 @@ inline void setBiosCurrentOrPendingAttr(
                             std::variant<BaseBIOSTable>(*baseBiosTable));
                     }
                     crow::connections::systemBus->async_method_call(
-                        [asyncResp](const boost::system::error_code ec3) {
+                        [asyncResp](const boost::system::error_code& ec3) {
                             if (ec3)
                             {
                                 BMCWEB_LOG_ERROR(
@@ -1363,7 +1363,7 @@ inline void setBiosServicCurrentAttr(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
             {
@@ -1374,7 +1374,7 @@ inline void setBiosServicCurrentAttr(
             const std::string& biosService = objType.begin()->first;
             crow::connections::systemBus->async_method_call(
                 [asyncResp](
-                    const boost::system::error_code ec2,
+                    const boost::system::error_code& ec2,
                     const std::variant<BaseBIOSTable>& baseBiosTableResp) {
                     if (ec2)
                     {
@@ -1740,7 +1740,7 @@ static void
     updateBiosAttrRegistry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
             {
@@ -1751,7 +1751,7 @@ static void
             const std::string& biosService = objType.begin()->first;
             crow::connections::systemBus->async_method_call(
                 [asyncResp](
-                    const boost::system::error_code ec2,
+                    const boost::system::error_code& ec2,
                     const std::variant<BaseBIOSTable>& baseBiosTableResp) {
                     if (ec2)
                     {
@@ -1870,7 +1870,7 @@ inline void
     }
     crow::connections::systemBus->async_method_call(
         [req,
-         asyncResp](const boost::system::error_code ec,
+         asyncResp](const boost::system::error_code& ec,
                     const std::map<std::string, dbus::utility::DbusVariantType>&
                         userInfo) {
             if (ec)
@@ -1989,7 +1989,7 @@ inline void
     }
     crow::connections::systemBus->async_method_call(
         [req,
-         asyncResp](const boost::system::error_code ec,
+         asyncResp](const boost::system::error_code& ec,
                     const std::map<std::string, dbus::utility::DbusVariantType>&
                         userInfo) {
             if (ec)
@@ -2190,7 +2190,7 @@ inline void setClearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                               const bool requestToClear)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp, path, service](const boost::system::error_code ec,
+        [aResp, path, service](const boost::system::error_code& ec,
                                sdbusplus::message::message& msg) {
             if (!ec)
             {
@@ -2266,7 +2266,7 @@ inline void handleClearSecureStateSubtree(
 
             crow::connections::systemBus->async_method_call(
                 [aResp, secure, requestToClear, clearService,
-                 clearPath](const boost::system::error_code ec,
+                 clearPath](const boost::system::error_code& ec,
                             const std::variant<bool>& resp) {
                     if (ec)
                     {
@@ -2312,7 +2312,7 @@ inline void handleClearNonVolatileVariablesSubtree(
 
     crow::connections::systemBus->async_method_call(
         [aResp, secure, requestToClear,
-         clearSubtree](boost::system::error_code ec,
+         clearSubtree](boost::system::error_code& ec,
                        const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -2338,7 +2338,7 @@ inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 {
     crow::connections::systemBus->async_method_call(
         [aResp, secure, requestToClear](
-            boost::system::error_code ec,
+            boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -2358,7 +2358,7 @@ inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             "xyz.openbmc_project.Control.Boot.ClearNonVolatileVariables"});
 
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec) {
+        [aResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
@@ -2374,7 +2374,7 @@ inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         dbus::utility::DbusVariantType(true));
 
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec) {
+        [aResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
@@ -2458,7 +2458,7 @@ inline void handleBiosChangePasswordPost(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, passwordName, oldPassword,
-         newPassword](boost::system::error_code ec,
+         newPassword](boost::system::error_code& ec,
                       const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec || subtree.size() != 1)
             {
@@ -2477,7 +2477,7 @@ inline void handleBiosChangePasswordPost(
             const auto& [service, interfaces] = services[0];
 
             crow::connections::systemBus->async_method_call(
-                [asyncResp](boost::system::error_code ec,
+                [asyncResp](boost::system::error_code& ec,
                             sdbusplus::message_t& msg) {
                     if (ec)
                     {
@@ -2586,7 +2586,7 @@ inline void handleBiosAttrRegistryPut(
     }
     crow::connections::systemBus->async_method_call(
         [req,
-         asyncResp](const boost::system::error_code ec,
+         asyncResp](const boost::system::error_code& ec,
                     const std::map<std::string, dbus::utility::DbusVariantType>&
                         userInfo) {
             if (ec)

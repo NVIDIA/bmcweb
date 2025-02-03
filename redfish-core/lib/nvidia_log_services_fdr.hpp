@@ -166,7 +166,7 @@ void inline requestRoutesSystemFDRClear(App& app)
                 createDumpParamVec.emplace_back("Action", "Clean");
 
                 crow::connections::systemBus->async_method_call(
-                    [asyncResp](const boost::system::error_code ec,
+                    [asyncResp](const boost::system::error_code& ec,
                                 const sdbusplus::message::message& msg,
                                 const sdbusplus::message::object_path&
                                     objPath) mutable {
@@ -199,7 +199,7 @@ inline void getFDRServiceState(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, serviceName, fdrServiceObjectPath,
         interfaceName, property,
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const std::string& serviceState) {
             if (ec)
             {
@@ -305,7 +305,7 @@ inline void
         constexpr bool force = false;
 
         crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code ec) {
+            [asyncResp](const boost::system::error_code& ec) {
                 if (ec)
                 {
                     BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
@@ -320,7 +320,7 @@ inline void
         constexpr const char* mode = "replace";
 
         crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code ec) {
+            [asyncResp](const boost::system::error_code& ec) {
                 if (ec)
                 {
                     BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
@@ -337,7 +337,7 @@ inline void
         constexpr const char* mode = "replace";
 
         crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code ec) {
+            [asyncResp](const boost::system::error_code& ec) {
                 if (ec)
                 {
                     BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
@@ -352,7 +352,7 @@ inline void
         constexpr bool runtime = false;
 
         crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code ec) {
+            [asyncResp](const boost::system::error_code& ec) {
                 if (ec)
                 {
                     BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
@@ -402,7 +402,7 @@ void inline requestRoutesSystemFDRGenBirthCert(App& app)
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         [[maybe_unused]] const sdbusplus::message::message& msg,
                         [[maybe_unused]] const sdbusplus::message::object_path&
                             objPath) mutable {

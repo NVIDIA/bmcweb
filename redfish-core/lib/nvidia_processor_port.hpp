@@ -82,7 +82,7 @@ inline void requestRoutesProcessorPortCollection(App& app)
                 BMCWEB_LOG_DEBUG("Get available system processor resource");
                 crow::connections::systemBus->async_method_call(
                     [processorId,
-                     asyncResp](const boost::system::error_code ec,
+                     asyncResp](const boost::system::error_code& ec,
                                 const boost::container::flat_map<
                                     std::string,
                                     boost::container::flat_map<
@@ -143,7 +143,7 @@ inline void getConnectedSwitchPorts(
     BMCWEB_LOG_DEBUG("Get connected switch ports on {}", switchName);
     crow::connections::systemBus->async_method_call(
         [asyncResp, portPath, fabricId,
-         switchName](const boost::system::error_code ec,
+         switchName](const boost::system::error_code& ec,
                      std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -190,7 +190,7 @@ inline void getConnectedSwitches(
     BMCWEB_LOG_DEBUG("Get connected switch on{}", switchName);
     crow::connections::systemBus->async_method_call(
         [asyncResp, switchPath, portPath,
-         switchName](const boost::system::error_code ec,
+         switchName](const boost::system::error_code& ec,
                      std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -238,7 +238,7 @@ inline void getConnectedProcessorPorts(
     // This is for when the ports are connected to another processor
     crow::connections::systemBus->async_method_call(
         [asyncResp, portPath,
-         portNames](const boost::system::error_code ec,
+         portNames](const boost::system::error_code& ec,
                     std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -314,7 +314,7 @@ inline void getProcessorPortLinks(
     // This is for when the ports are connected to a switch
     crow::connections::systemBus->async_method_call(
         [asyncResp, portPath, processorId,
-         port](const boost::system::error_code ec,
+         port](const boost::system::error_code& ec,
                std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -353,7 +353,7 @@ inline void getProcessorPortLinks(
     // This is for when the ports are connected to another processor
     crow::connections::systemBus->async_method_call(
         [asyncResp, portPath, processorId,
-         port](const boost::system::error_code ec,
+         port](const boost::system::error_code& ec,
                std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -423,7 +423,7 @@ inline void getProcessorPortData(
                                  sensorpath);
                 crow::connections::systemBus->async_method_call(
                     [aResp, sensorpath, processorId, portId](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
                         if (ec)
@@ -480,7 +480,7 @@ inline void getProcessorAcceleratorPortData(
     BMCWEB_LOG_DEBUG("Get processor port data");
     crow::connections::systemBus->async_method_call(
         [aResp, objPath, processorId,
-         portId](const boost::system::error_code e,
+         portId](const boost::system::error_code& e,
                  std::variant<std::vector<std::string>>& resp) {
             if (e)
             {
@@ -512,7 +512,7 @@ inline void getProcessorAcceleratorPortData(
 
                 crow::connections::systemBus->async_method_call(
                     [aResp, sensorpath, processorId,
-                     portId](const boost::system::error_code ec,
+                     portId](const boost::system::error_code& ec,
                              const boost::container::flat_map<
                                  std::string,
                                  boost::container::flat_map<
@@ -609,7 +609,7 @@ inline void requestRoutesProcessorPort(App& app)
             BMCWEB_LOG_DEBUG("Get available system processor resource");
             crow::connections::systemBus->async_method_call(
                 [processorId, port, asyncResp](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const boost::container::flat_map<
                         std::string,
                         boost::container::flat_map<
@@ -672,7 +672,7 @@ inline void getProcessorPortMetricsData(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, service,
-         path](const boost::system::error_code ec,
+         path](const boost::system::error_code& ec,
                // const boost::container::flat_map<std::string,
                // std::variant<size_t,uint16_t,uint32_t,uint64_t>>&
                const boost::container::flat_map<
@@ -1232,7 +1232,7 @@ inline void requestRoutesProcessorPortMetrics(App& app)
             BMCWEB_LOG_DEBUG("Get available system processor resource");
             crow::connections::systemBus->async_method_call(
                 [processorId, portId, asyncResp](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const boost::container::flat_map<
                         std::string,
                         boost::container::flat_map<
@@ -1279,7 +1279,7 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                                     crow::connections::systemBus->async_method_call(
                                         [asyncResp, sensorpath, processorId,
                                          portId](
-                                            const boost::system::error_code ec,
+                                            const boost::system::error_code& ec,
                                             const std::vector<std::pair<
                                                 std::string,
                                                 std::vector<std::string>>>&

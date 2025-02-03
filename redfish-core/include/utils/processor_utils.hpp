@@ -59,7 +59,7 @@ inline void getProcessorObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
     // GetSubTree on all interfaces which provide info about a Processor
     crow::connections::systemBus->async_method_call(
         [resp, processorId, handler = std::forward<Handler>(handler)](
-            boost::system::error_code ec,
+            boost::system::error_code& ec,
             const MapperGetSubTreeResponse& subtree) mutable {
             if (ec)
             {
@@ -153,7 +153,7 @@ inline void getPCIeErrorData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                              const std::string& objPath)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code ec,
+        [aResp{std::move(aResp)}](const boost::system::error_code& ec,
                                   const OperatingConfigProperties& properties) {
             if (ec)
             {

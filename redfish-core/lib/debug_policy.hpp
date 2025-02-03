@@ -135,7 +135,7 @@ inline void
                        const std::string& svc, const std::string& path)
 {
     auto propCallback =
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& prop) {
             if (ec)
             {
@@ -169,7 +169,7 @@ inline void
 {
     auto respHandler =
         [asyncResp,
-         dbgCallback](const boost::system::error_code ec,
+         dbgCallback](const boost::system::error_code& ec,
                       const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec.value() == EBADR)
             {
@@ -229,7 +229,7 @@ inline void debugCapabilitiesProcess(
     const std::vector<std::string>& caps)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp, method, caps](const boost::system::error_code ec) {
+        [asyncResp, method, caps](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: Set {} {}", method, ec);
@@ -248,7 +248,7 @@ inline void debugPropertySet(
     const std::string& path, const std::string& prop, unsigned value)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp, prop](const boost::system::error_code ec) {
+        [asyncResp, prop](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: Set {} {}", prop, ec);

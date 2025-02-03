@@ -162,7 +162,7 @@ inline void getCollectionMembersByAssociation(
                 // Check Interface in Object or not
                 crow::connections::systemBus->async_method_call(
                     [aResp, collectionPath, sensorpath, &members](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const std::vector<
                             std::pair<std::string, std::vector<std::string>>>&
                         /*object*/) {

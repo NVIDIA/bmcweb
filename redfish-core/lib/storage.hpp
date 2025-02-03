@@ -205,7 +205,7 @@ inline void getDrivePortProperties(
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.PortInfo",
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const std::vector<
                         std::pair<std::string, dbus::utility::DbusVariantType>>&
                         propertiesList) {
@@ -254,8 +254,8 @@ inline void getDriveVersion(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Software.Version", "Version",
-        [asyncResp,
-         path](const boost::system::error_code ec, const std::string& version) {
+        [asyncResp, path](const boost::system::error_code& ec,
+                          const std::string& version) {
             if (ec)
             {
                 return;
@@ -271,8 +271,8 @@ inline void getDriveFWVersion(
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Software.Version", "Version",
-        [asyncResp,
-         path](const boost::system::error_code ec, const std::string& version) {
+        [asyncResp, path](const boost::system::error_code& ec,
+                          const std::string& version) {
             if (ec)
             {
                 return;
@@ -290,7 +290,7 @@ inline void getDriveLocationContext(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.LocationContext",
         "LocationContext",
-        [asyncResp, path](const boost::system::error_code ec,
+        [asyncResp, path](const boost::system::error_code& ec,
                           const std::string& locContext) {
             if (ec)
             {
@@ -309,7 +309,7 @@ inline void
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.LocationCode", "LocationCode",
-        [asyncResp, path](const boost::system::error_code ec,
+        [asyncResp, path](const boost::system::error_code& ec,
                           const std::string& location) {
             if (ec)
             {
@@ -323,7 +323,7 @@ inline void
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.Location", "LocationType",
         [asyncResp,
-         path](const boost::system::error_code ec, const std::string& type) {
+         path](const boost::system::error_code& ec, const std::string& type) {
             if (ec)
             {
                 return;
@@ -342,7 +342,7 @@ inline void getDriveStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.State.Decorator.OperationalStatus", "Functional",
         [asyncResp, path,
-         sw](const boost::system::error_code ec, const bool functional) {
+         sw](const boost::system::error_code& ec, const bool functional) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("fail to get drive status");
@@ -375,7 +375,7 @@ inline void getDriveSmartWarning(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Nvme.Status", "SmartWarnings",
         [asyncResp, connectionName,
-         path](const boost::system::error_code ec, const std::string& sw) {
+         path](const boost::system::error_code& ec, const std::string& sw) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("fail to get drive smart");
@@ -393,7 +393,7 @@ inline void
     sdbusplus::asio::getProperty<uint8_t>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Common.Progress", "Progress",
-        [asyncResp, operationName](const boost::system::error_code ec,
+        [asyncResp, operationName](const boost::system::error_code& ec,
                                    const uint8_t prog) {
             if (ec)
             {
@@ -422,7 +422,7 @@ inline void getDriveOperation(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Nvme.Operation", "Operation",
         [asyncResp, connectionName,
-         path](const boost::system::error_code ec, const std::string& op) {
+         path](const boost::system::error_code& ec, const std::string& op) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("fail to get drive progress");
@@ -1265,7 +1265,7 @@ inline void handleDriveSanitizePost(
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/inventory", 0, interfaces,
         [req, asyncResp, driveId, sanitizeType,
-         owPass](const boost::system::error_code ec,
+         owPass](const boost::system::error_code& ec,
                  const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -1317,7 +1317,7 @@ inline void handleDriveSanitizePost(
             // execute drive sanitize operation
             crow::connections::systemBus->async_method_call(
                 [req, asyncResp, service, path,
-                 driveId](const boost::system::error_code ec,
+                 driveId](const boost::system::error_code& ec,
                           sdbusplus::message::message& msg) {
                     const sd_bus_error* dbusError = msg.get_error();
                     if (dbusError != nullptr &&
@@ -1359,7 +1359,7 @@ inline void handleDriveSanitizetActionInfoGet(
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/inventory", 0, interfaces,
         [asyncResp,
-         driveId](const boost::system::error_code ec,
+         driveId](const boost::system::error_code& ec,
                   const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -1407,7 +1407,7 @@ inline void handleDriveSanitizetActionInfoGet(
             sdbusplus::asio::getProperty<std::vector<std::string>>(
                 *crow::connections::systemBus, service, path, interface,
                 "SanitizeCapability",
-                [asyncResp](const boost::system::error_code ec,
+                [asyncResp](const boost::system::error_code& ec,
                             const std::vector<std::string>& cap) {
                     if (ec)
                     {
@@ -1595,7 +1595,7 @@ inline void
         "xyz.openbmc_project.Inventory.Item.Drive"};
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/inventory", 0, interfaces,
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {

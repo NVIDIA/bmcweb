@@ -244,7 +244,7 @@ inline void processChassisSensors(
     auto getAllChassisHandler = [asyncResp, chassisPath, managedObjectsResp,
                                  sensingInterval, requestTimestamp,
                                  metricsType](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code& ec,
                                     std::variant<std::vector<std::string>>&
                                         chassisLinks) {
         std::vector<std::string> chassisPaths;
@@ -278,7 +278,7 @@ inline void processChassisSensors(
                                          managedObjectsResp, sensingInterval,
                                          requestTimestamp, objectPath,
                                          metricsType](
-                                            const boost::system::error_code ec,
+                                            const boost::system::error_code& ec,
                                             const std::variant<
                                                 std::vector<std::string>>&
                                                 variantEndpoints) {
@@ -323,7 +323,7 @@ inline void getServiceRootManagedObjects(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, connection, chassisPath, sensingInterval, requestTimestamp,
-         metricsType](const boost::system::error_code ec,
+         metricsType](const boost::system::error_code& ec,
                       ManagedObjectsVectorType& resp) {
             if (ec)
             {
@@ -348,7 +348,7 @@ inline void getServiceManagedObjects(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, connection, chassisPath, sensingInterval, requestTimestamp,
-         metricsType](const boost::system::error_code ec,
+         metricsType](const boost::system::error_code& ec,
                       ManagedObjectsVectorType& resp) {
             if (ec)
             {
@@ -381,7 +381,7 @@ inline void processSensorServices(
     // Get all sensors on the system
     auto getAllSensors = [asyncResp, chassisPath, sensingInterval,
                           requestTimestamp,
-                          metricsType](const boost::system::error_code ec,
+                          metricsType](const boost::system::error_code& ec,
                                        const GetSubTreeType& subtree) {
         if (ec)
         {
@@ -608,7 +608,7 @@ inline void requestRoutesThermalMetrics(App& app)
                 "xyz.openbmc_project.Inventory.Item.Chassis"};
 
             auto respHandler = [asyncResp,
-                                chassisId](const boost::system::error_code ec,
+                                chassisId](const boost::system::error_code& ec,
                                            const std::vector<std::string>&
                                                chassisPaths) {
                 if (ec)

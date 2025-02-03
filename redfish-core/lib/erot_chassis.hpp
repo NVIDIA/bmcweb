@@ -78,7 +78,7 @@ inline void getChassisCertificate(
     // time.
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, objectPath,
-         certificateID](const boost::system::error_code ec,
+         certificateID](const boost::system::error_code& ec,
                         const dbus::utility::ManagedObjectType& objects) {
             if (ec)
             {
@@ -90,7 +90,7 @@ inline void getChassisCertificate(
             {
                 crow::connections::systemBus->async_method_call(
                     [req, asyncResp, object, objectPath, certificateID](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {
@@ -273,7 +273,7 @@ inline void getEROTChassis(const crow::Request& req,
 
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, chassisId(std::string(chassisId)),
-         isCpuEROT](const boost::system::error_code ec,
+         isCpuEROT](const boost::system::error_code& ec,
                     const crow::openbmc_mapper::GetSubTreeType& subtree) {
             if (ec)
             {
@@ -369,7 +369,7 @@ inline void getEROTChassis(const crow::Request& req,
                         "xyz.openbmc_project.ObjectMapper",
                         path + "/all_sensors",
                         "xyz.openbmc_project.Association", "endpoints",
-                        [health](const boost::system::error_code ec2,
+                        [health](const boost::system::error_code& ec2,
                                  const std::vector<std::string>& resp) {
                             if (ec2)
                             {
@@ -564,7 +564,7 @@ inline void requestRoutesEROTChassisCertificate(App& app)
                         crow::connections::systemBus->async_method_call(
                             [req, asyncResp, chassisID(std::string(chassisID)),
                              certificateID](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code& ec,
                                 const crow::openbmc_mapper::GetSubTreeType&
                                     subtree) {
                                 if (ec)
@@ -726,7 +726,7 @@ inline void handleEROTChassisPatch(
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, chassisId(std::string(chassisId)),
          backgroundCopyEnabled,
-         inBandEnabled](const boost::system::error_code ec,
+         inBandEnabled](const boost::system::error_code& ec,
                         const crow::openbmc_mapper::GetSubTreeType& subtree) {
             if (ec)
             {
@@ -757,7 +757,7 @@ inline void handleEROTChassisPatch(
                         "xyz.openbmc_project.Common.UUID", "UUID",
                         [req, asyncResp, chassisId(std::string(chassisId)),
                          backgroundCopyEnabled,
-                         inBandEnabled](const boost::system::error_code ec,
+                         inBandEnabled](const boost::system::error_code& ec,
                                         const std::string& chassisUUID) {
                             if (ec)
                             {
@@ -1261,7 +1261,7 @@ inline void
 
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, chassisUUID,
-         isPCIe](const boost::system::error_code ec,
+         isPCIe](const boost::system::error_code& ec,
                  const dbus::utility::ManagedObjectType& resp) {
             if (ec)
             {
@@ -1368,7 +1368,7 @@ inline void handleEROTChassisResetAction(
 
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, chassisId(std::string(chassisId))](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const crow::openbmc_mapper::GetSubTreeType& subtree) {
             if (ec)
             {
@@ -1406,7 +1406,7 @@ inline void handleEROTChassisResetAction(
                 sdbusplus::asio::getProperty<std::string>(
                     *crow::connections::systemBus, connectionNames[0].first,
                     path, "xyz.openbmc_project.Common.UUID", "UUID",
-                    [req, asyncResp](const boost::system::error_code ec,
+                    [req, asyncResp](const boost::system::error_code& ec,
                                      const std::string& chassisUUID) {
                         if (ec)
                         {

@@ -369,7 +369,7 @@ class StatusQueryHandler : public OperationHandler
                     *crow::connections::systemBus, "xyz.openbmc_project.NSM",
                     object, std::string(debugTokenIntf), "ErrorCode",
                     [this, desc, nsmEp, object](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const std::tuple<uint16_t, std::string>& errorCode) {
                         const std::string desc =
                             object.substr(object.find_last_of('/') + 1);
@@ -401,7 +401,7 @@ class StatusQueryHandler : public OperationHandler
                 *crow::connections::systemBus, "xyz.openbmc_project.NSM",
                 object, std::string(debugTokenIntf), "TokenStatus",
                 [this, desc, nsmEp,
-                 object](const boost::system::error_code ec,
+                 object](const boost::system::error_code& ec,
                          const NsmDbusTokenStatus& dbusStatus) {
                     const std::string desc =
                         "NSM get call for " + std::string(object);
@@ -531,7 +531,7 @@ class StatusQueryHandler : public OperationHandler
         subprocessTimer->expires_after(
             std::chrono::seconds(statusQueryTimeoutSeconds));
         subprocessTimer->async_wait(
-            [this, desc](const boost::system::error_code ec) {
+            [this, desc](const boost::system::error_code& ec) {
                 if (ec && ec != boost::asio::error::operation_aborted)
                 {
                     if (subprocess)
@@ -762,7 +762,7 @@ class RequestHandler : public OperationHandler
             const std::string desc = "SPDM refresh call for " + objectPath;
             BMCWEB_LOG_DEBUG("{}", desc);
             crow::connections::systemBus->async_method_call(
-                [this, desc, spdmEp](const boost::system::error_code ec) {
+                [this, desc, spdmEp](const boost::system::error_code& ec) {
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR("{}: {}", desc, ec.message());
@@ -823,7 +823,7 @@ class RequestHandler : public OperationHandler
                 *crow::connections::systemBus, "xyz.openbmc_project.NSM",
                 object, std::string(debugTokenIntf), "ErrorCode",
                 [this, desc, object,
-                 nsmEp](const boost::system::error_code ec,
+                 nsmEp](const boost::system::error_code& ec,
                         const std::tuple<uint16_t, std::string>& errorCode) {
                     const std::string desc =
                         object.substr(object.find_last_of('/') + 1);
@@ -853,7 +853,7 @@ class RequestHandler : public OperationHandler
         sdbusplus::asio::getProperty<sdbusplus::message::unix_fd>(
             *crow::connections::systemBus, "xyz.openbmc_project.NSM", object,
             std::string(debugTokenIntf), "RequestFd",
-            [this, object, nsmEp](const boost::system::error_code ec,
+            [this, object, nsmEp](const boost::system::error_code& ec,
                                   const sdbusplus::message::unix_fd& unixfd) {
                 const std::string desc =
                     "NSM get call for " + std::string(object);
@@ -910,7 +910,7 @@ class RequestHandler : public OperationHandler
                 static_cast<DebugTokenSpdmEndpoint*>(ep.get());
             crow::connections::systemBus->async_method_call(
                 [this, spdmEp](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const boost::container::flat_map<
                         std::string, dbus::utility::DbusVariantType>& props) {
                     auto objectPath = spdmEp->getObject();

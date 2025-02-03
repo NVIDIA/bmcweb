@@ -145,7 +145,7 @@ inline void handleSecureBootDatabaseCollectionGet(
     aResp->res.jsonValue["Name"] = "UEFI SecureBoot Database Collection";
 
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
             if (ec == boost::system::errc::io_error)
             {
@@ -248,7 +248,7 @@ inline void handleSecureBootDatabaseGet(
         // certificate
         crow::connections::systemBus->async_method_call(
             [aResp](
-                const boost::system::error_code ec,
+                const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
                 if (ec)
                 {
@@ -302,7 +302,7 @@ inline void handleSecureBootDatabaseResetKeys(
     }
 
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, databaseId](const boost::system::error_code ec,
+        req, [req, aResp, databaseId](const boost::system::error_code& ec,
                                       const bool isBios) {
             if (ec)
             {
@@ -394,7 +394,7 @@ inline void handleCertificateCollectionPost(
 
     privilege_utils::isBiosPrivilege(
         req, [req, aResp, databaseId, certString,
-              owner](const boost::system::error_code ec, const bool isBios) {
+              owner](const boost::system::error_code& ec, const bool isBios) {
             if (ec)
             {
                 messages::internalError(aResp->res);
@@ -416,7 +416,7 @@ inline void handleCertificateCollectionPost(
 
             crow::connections::systemBus->async_method_call(
                 [aResp, databaseId, owner,
-                 certFile](const boost::system::error_code ec,
+                 certFile](const boost::system::error_code& ec,
                            const std::string& objectPath) {
                     if (ec)
                     {
@@ -438,7 +438,7 @@ inline void handleCertificateCollectionPost(
                     if (owner)
                     {
                         crow::connections::systemBus->async_method_call(
-                            [aResp](const boost::system::error_code ec) {
+                            [aResp](const boost::system::error_code& ec) {
                                 if (ec)
                                 {
                                     BMCWEB_LOG_ERROR("DBUS response error: {}",
@@ -481,7 +481,7 @@ inline void handleCertificateGet(
         *crow::connections::systemBus, getServiceName(databaseId),
         getCertObjectPath(databaseId, certId), "",
         [aResp,
-         certId](const boost::system::error_code ec,
+         certId](const boost::system::error_code& ec,
                  const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
@@ -568,7 +568,7 @@ inline void handleCertificateDelete(
 
     privilege_utils::isBiosPrivilege(
         req, [req, aResp, databaseId,
-              certId](const boost::system::error_code ec, const bool isBios) {
+              certId](const boost::system::error_code& ec, const bool isBios) {
             if (ec)
             {
                 messages::internalError(aResp->res);
@@ -586,7 +586,7 @@ inline void handleCertificateDelete(
             }
 
             crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code ec) {
+                [aResp](const boost::system::error_code& ec) {
                     if (ec)
                     {
                         messages::internalError(aResp->res);
@@ -688,7 +688,7 @@ inline void handleSignatureCollectionPost(
 
     privilege_utils::isBiosPrivilege(req, [req, aResp, databaseId, sigString,
                                            sigTypeDbus, owner](
-                                              const boost::system::error_code
+                                              const boost::system::error_code&
                                                   ec,
                                               const bool isBios) {
         if (ec)
@@ -708,7 +708,7 @@ inline void handleSignatureCollectionPost(
         }
 
         crow::connections::systemBus->async_method_call(
-            [aResp, databaseId, owner](const boost::system::error_code ec,
+            [aResp, databaseId, owner](const boost::system::error_code& ec,
                                        const std::string& objectPath) {
                 if (ec)
                 {
@@ -730,7 +730,7 @@ inline void handleSignatureCollectionPost(
                 if (owner)
                 {
                     crow::connections::systemBus->async_method_call(
-                        [aResp](const boost::system::error_code ec) {
+                        [aResp](const boost::system::error_code& ec) {
                             if (ec)
                             {
                                 BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
@@ -777,7 +777,7 @@ inline void handleSignatureGet(crow::App& app, const crow::Request& req,
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, getServiceName(databaseId),
         getSigObjectPath(databaseId, sigId), "",
-        [aResp, sigId](const boost::system::error_code ec,
+        [aResp, sigId](const boost::system::error_code& ec,
                        const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
@@ -840,7 +840,7 @@ inline void handleSignatureDelete(
 
     privilege_utils::isBiosPrivilege(
         req, [req, aResp, databaseId,
-              sigId](const boost::system::error_code ec, const bool isBios) {
+              sigId](const boost::system::error_code& ec, const bool isBios) {
             if (ec)
             {
                 messages::internalError(aResp->res);
@@ -858,7 +858,7 @@ inline void handleSignatureDelete(
             }
 
             crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code ec) {
+                [aResp](const boost::system::error_code& ec) {
                     if (ec)
                     {
                         messages::internalError(aResp->res);

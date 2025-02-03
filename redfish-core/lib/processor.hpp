@@ -544,7 +544,7 @@ inline void getAcceleratorDataByService(
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, service, objPath, "",
         [acclrtrId, aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -716,7 +716,7 @@ inline void getCpuConfigData(
         *crow::connections::systemBus, service, objPath,
         "xyz.openbmc_project.Control.Processor.CurrentOperatingConfig",
         [aResp, cpuId,
-         service](const boost::system::error_code ec,
+         service](const boost::system::error_code& ec,
                   const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -877,7 +877,7 @@ inline void getOperatingConfigData(
         *crow::connections::systemBus, service, objPath,
         "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig",
         [aResp,
-         deviceType](const boost::system::error_code ec,
+         deviceType](const boost::system::error_code& ec,
                      const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -1396,7 +1396,7 @@ inline void requestRoutesOperatingConfigCollection(App& app)
             // constrain our search for related Config objects.
             crow::connections::systemBus->async_method_call(
                 [asyncResp,
-                 cpuName](const boost::system::error_code ec,
+                 cpuName](const boost::system::error_code& ec,
                           const dbus::utility::MapperGetSubTreePathsResponse&
                               objects) {
                     if (ec)
@@ -1476,7 +1476,7 @@ inline void requestRoutesOperatingConfig(App& app)
             // search for one with a matching name
             crow::connections::systemBus->async_method_call(
                 [asyncResp, cpuName, configName, reqUrl{req.url()}](
-                    boost::system::error_code ec,
+                    boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
                     if (ec)
                     {

@@ -70,7 +70,7 @@ inline void
 
     // Get interface properties
     crow::connections::systemBus->async_method_call(
-        [asyncResp, objPath](const boost::system::error_code ec,
+        [asyncResp, objPath](const boost::system::error_code& ec,
                              const PropertiesMap& properties) {
             if (ec)
             {
@@ -154,7 +154,7 @@ inline void getHistogramDataByAssociation(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, fabricId, switchId,
-         histogramId](const boost::system::error_code ec,
+         histogramId](const boost::system::error_code& ec,
                       std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -200,7 +200,7 @@ inline void getHistogramDataByAssociation(
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, histoPath, histogramId](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
                         if (ec)
@@ -241,7 +241,7 @@ inline void updateHistogramBucketData(
         boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
     // Get interface properties
     crow::connections::systemBus->async_method_call(
-        [asyncResp, objPath](const boost::system::error_code ec,
+        [asyncResp, objPath](const boost::system::error_code& ec,
                              const PropertiesMap& properties) {
             if (ec)
             {
@@ -281,7 +281,7 @@ inline void getBucketDataByAssociation(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, fabricId, switchId, histogramId,
-         bucketId](const boost::system::error_code ec,
+         bucketId](const boost::system::error_code& ec,
                    std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -327,7 +327,7 @@ inline void getBucketDataByAssociation(
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, bucketPath, bucketId](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
                         if (ec)
@@ -384,7 +384,7 @@ inline void requestRoutesSwitchHistogramBucket(App& app)
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp, fabricId, switchId, histogramId,
-                 bucketId](const boost::system::error_code ec,
+                 bucketId](const boost::system::error_code& ec,
                            const std::vector<std::string>& objects) {
                     if (ec)
                     {
@@ -405,7 +405,7 @@ inline void requestRoutesSwitchHistogramBucket(App& app)
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, fabricId, switchId, histogramId,
                              bucketId](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code& ec,
                                 std::variant<std::vector<std::string>>& resp) {
                                 if (ec)
                                 {
@@ -437,7 +437,7 @@ inline void requestRoutesSwitchHistogramBucket(App& app)
                                     crow::connections::systemBus->async_method_call(
                                         [asyncResp, fabricId, switchId,
                                          histogramId, bucketId](
-                                            const boost::system::error_code ec,
+                                            const boost::system::error_code& ec,
                                             std::variant<std::vector<
                                                 std::string>>& resp) {
                                             if (ec)
@@ -537,7 +537,7 @@ inline void requestRoutesSwitchHistogramBucketCollection(App& app)
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp, fabricId, switchId,
-                 histogramId](const boost::system::error_code ec,
+                 histogramId](const boost::system::error_code& ec,
                               const std::vector<std::string>& objects) {
                     if (ec)
                     {
@@ -557,7 +557,7 @@ inline void requestRoutesSwitchHistogramBucketCollection(App& app)
                         }
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, fabricId, switchId, histogramId](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code& ec,
                                 std::variant<std::vector<std::string>>& resp) {
                                 if (ec)
                                 {
@@ -589,7 +589,7 @@ inline void requestRoutesSwitchHistogramBucketCollection(App& app)
                                     crow::connections::systemBus->async_method_call(
                                         [asyncResp, fabricId, switchId,
                                          histogramId](
-                                            const boost::system::error_code ec,
+                                            const boost::system::error_code& ec,
                                             std::variant<std::vector<
                                                 std::string>>& resp) {
                                             if (ec)
@@ -715,7 +715,7 @@ inline void requestRoutesSwitchHistogram(App& app)
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp, fabricId, switchId,
-                 histogramId](const boost::system::error_code ec,
+                 histogramId](const boost::system::error_code& ec,
                               const std::vector<std::string>& objects) {
                     if (ec)
                     {
@@ -735,7 +735,7 @@ inline void requestRoutesSwitchHistogram(App& app)
                         }
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, fabricId, switchId, histogramId](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code& ec,
                                 std::variant<std::vector<std::string>>& resp) {
                                 if (ec)
                                 {
@@ -816,7 +816,7 @@ inline void requestRoutesSwitchHistogramCollection(App& app)
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp, fabricId,
-                 switchId](const boost::system::error_code ec,
+                 switchId](const boost::system::error_code& ec,
                            const std::vector<std::string>& objects) {
                     if (ec)
                     {
@@ -836,7 +836,7 @@ inline void requestRoutesSwitchHistogramCollection(App& app)
                         }
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, fabricId, switchId](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code& ec,
                                 std::variant<std::vector<std::string>>& resp) {
                                 if (ec)
                                 {

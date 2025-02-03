@@ -106,7 +106,7 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     uint64_t timeout =
         std::chrono::duration_cast<std::chrono::microseconds>(1s).count();
     crow::connections::systemBus->async_method_call_timed(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const std::vector<std::pair<
                     std::string, std::variant<std::string>>>& propertiesList) {
             processFeatureReadyPropertiesList(ec, propertiesList, aResp);
@@ -121,7 +121,7 @@ inline void
     // call to get telemtery Ready status
     crow::connections::systemBus->async_method_call(
         [asyncResp](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string,
                 std::vector<std::pair<std::string, std::vector<std::string>>>>>&
@@ -321,7 +321,7 @@ inline void getFabricManagerInformation(
 
     crow::connections::systemBus->async_method_call(
         [aResp](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<
                 std::pair<std::string, std::variant<std::string, uint64_t>>>&
                 propertiesList) {

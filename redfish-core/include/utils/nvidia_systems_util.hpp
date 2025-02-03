@@ -50,7 +50,7 @@ inline void
     populateFromEntityManger(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const std::vector<std::pair<
                     std::string, std::variant<std::string>>>& propertiesList) {
             if (ec)
@@ -103,7 +103,7 @@ inline void
         entityMangerService, card1Path, "org.freedesktop.DBus.Properties",
         "GetAll", "xyz.openbmc_project.Inventory.Decorator.Asset");
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const std::variant<std::string>& uuid) {
             if (ec)
             {
@@ -143,7 +143,7 @@ inline void setBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 "xyz.openbmc_project.BIOSConfigManager",
                 "/xyz/openbmc_project/bios_config/manager",
                 "xyz.openbmc_project.BIOSConfig.BootOrder", "BootOrder",
-                bootOrder, [aResp](const boost::system::error_code ec) {
+                bootOrder, [aResp](const boost::system::error_code& ec) {
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR(
@@ -162,7 +162,7 @@ inline void setBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 "/xyz/openbmc_project/bios_config/manager",
                 "xyz.openbmc_project.BIOSConfig.BootOrder", "BootOrder",
                 [aResp,
-                 bootOrder](const boost::system::error_code ec,
+                 bootOrder](const boost::system::error_code& ec,
                             const std::vector<std::string>& activeBootOrder) {
                     if (ec)
                     {
@@ -203,7 +203,7 @@ inline void setBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         "/xyz/openbmc_project/bios_config/manager",
                         "xyz.openbmc_project.BIOSConfig.BootOrder",
                         "PendingBootOrder", bootOrder,
-                        [aResp](const boost::system::error_code ec2) {
+                        [aResp](const boost::system::error_code& ec2) {
                             if (ec2)
                             {
                                 BMCWEB_LOG_ERROR(
@@ -221,7 +221,7 @@ inline void setBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     {
         // Only BIOS is allowed to patch active BootOrder
         privilege_utils::isBiosPrivilege(
-            req, [aResp, setBootOrderFunc](const boost::system::error_code ec,
+            req, [aResp, setBootOrderFunc](const boost::system::error_code& ec,
                                            const bool isBios) {
                 if (ec || isBios == false)
                 {
@@ -254,7 +254,7 @@ inline void getBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         "/xyz/openbmc_project/bios_config/manager",
         "xyz.openbmc_project.BIOSConfig.BootOrder",
         [aResp, isSettingsResource](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -319,7 +319,7 @@ inline void getSecureBoot(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
     BMCWEB_LOG_DEBUG("Get SecureBoot parameters");
 
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {

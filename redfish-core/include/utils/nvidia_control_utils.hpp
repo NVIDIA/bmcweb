@@ -40,7 +40,7 @@ inline void getClockLimitControlObjects(
     members = nlohmann::json::array();
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisID,
-         &members](const boost::system::error_code,
+         &members](const boost::system::error_code&,
                    std::variant<std::vector<std::string>>& resp) {
             std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
@@ -68,7 +68,7 @@ inline void getChassisClockLimit(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, path](
-            const boost::system::error_code errorno,
+            const boost::system::error_code& errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) {
             if (errorno)
@@ -91,7 +91,7 @@ inline void getChassisClockLimit(
                     {
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, path, interface](
-                                const boost::system::error_code errorno,
+                                const boost::system::error_code& errorno,
                                 const std::vector<std::pair<
                                     std::string,
                                     std::variant<uint32_t, std::string>>>&
@@ -251,7 +251,7 @@ inline void getClockLimitControl(
         "/redfish/v1/Chassis/" + chassisID + "/Controls/" + controlID;
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisID, controlID, validChassisPath,
-         processorName](const boost::system::error_code ec,
+         processorName](const boost::system::error_code& ec,
                         std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -379,7 +379,7 @@ inline void patchClockLimitControl(
     }
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisID, controlID, validChassisPath, processorName,
-         req](const boost::system::error_code ec,
+         req](const boost::system::error_code& ec,
               std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -501,7 +501,7 @@ inline void postClockLimitControl(
     }
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisID, controlID,
-         validChassisPath](const boost::system::error_code ec,
+         validChassisPath](const boost::system::error_code& ec,
                            std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -525,7 +525,7 @@ inline void postClockLimitControl(
             {
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, sensorpath](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
                         if (ec)
@@ -577,7 +577,7 @@ inline void
         *validChassisPath + "/all_processors",
         "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, getControlCpu,
-         validChassisPath](const boost::system::error_code ec,
+         validChassisPath](const boost::system::error_code& ec,
                            const std::vector<std::string>& resp) {
             std::string objPath;
             if (ec)
@@ -592,7 +592,7 @@ inline void
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp, getControlCpu, objPath, validChassisPath](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
                     if (ec || objType.empty())
                     {

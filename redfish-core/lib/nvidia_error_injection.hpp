@@ -109,7 +109,7 @@ inline void getErrorInjectionCapabilityData(
 
 {
     crow::connections::systemBus->async_method_call(
-        [aResp, capability](const boost::system::error_code ec,
+        [aResp, capability](const boost::system::error_code& ec,
                             const OperatingConfigProperties& properties) {
             if (ec)
             {
@@ -165,7 +165,7 @@ inline void getErrorInjectionData(
 {
     crow::connections::systemBus->async_method_call(
         [aResp, baseUri, service,
-         objPath](const boost::system::error_code ec,
+         objPath](const boost::system::error_code& ec,
                   const OperatingConfigProperties& properties) {
             if (ec)
             {
@@ -251,7 +251,7 @@ inline void getErrorInjectionService(std::shared_ptr<bmcweb::AsyncResp> aResp,
     const auto eiPath = path + "/ErrorInjection";
     crow::connections::systemBus->async_method_call(
         [aResp, eiPath, handler{std::forward<Handler>(handler)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const dbus::utility::MapperServiceMap& serviceMap) {
             if (ec)
             {
@@ -284,7 +284,7 @@ inline void getProcessor(std::shared_ptr<bmcweb::AsyncResp> aResp,
 {
     crow::connections::systemBus->async_method_call(
         [processorId, aResp, handler{std::forward<Handler>(handler)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& paths) {
             if (ec)
             {
@@ -366,7 +366,7 @@ inline void getNetworkAdapter(
     crow::connections::systemBus->async_method_call(
         [chassisId, networkAdapterId, aResp,
          handler{std::forward<Handler>(handler)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& paths) {
             if (ec)
             {
@@ -448,7 +448,7 @@ inline void getSwitch(std::shared_ptr<bmcweb::AsyncResp> aResp,
 {
     crow::connections::systemBus->async_method_call(
         [fabricId, switchId, aResp, handler{std::forward<Handler>(handler)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& paths) {
             if (ec)
             {

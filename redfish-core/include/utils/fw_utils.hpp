@@ -94,7 +94,7 @@ inline void populateFirmwareInformation(
         "/xyz/openbmc_project/software/functional",
         "xyz.openbmc_project.Association", "endpoints",
         [aResp, fwVersionPurpose, activeVersionPropName,
-         populateLinkToImages](const boost::system::error_code ec,
+         populateLinkToImages](const boost::system::error_code& ec,
                                const std::vector<std::string>& functionalFw) {
             BMCWEB_LOG_DEBUG("populateFirmwareInformation enter");
             if (ec)
@@ -133,7 +133,7 @@ inline void populateFirmwareInformation(
             crow::connections::systemBus->async_method_call(
                 [aResp, fwVersionPurpose, activeVersionPropName,
                  populateLinkToImages, functionalFwIds](
-                    const boost::system::error_code ec2,
+                    const boost::system::error_code& ec2,
                     const std::vector<std::pair<
                         std::string,
                         std::vector<
@@ -180,7 +180,7 @@ inline void populateFirmwareInformation(
                         crow::connections::systemBus->async_method_call(
                             [aResp, swId, runningImage, fwVersionPurpose,
                              activeVersionPropName, populateLinkToImages](
-                                const boost::system::error_code ec3,
+                                const boost::system::error_code& ec3,
                                 const boost::container::flat_map<
                                     std::string,
                                     dbus::utility::DbusVariantType>&
@@ -389,7 +389,7 @@ inline void getFwRecoveryStatus(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, swId, &getLastSegnmentFromDotterString](
-            const boost::system::error_code errorCode,
+            const boost::system::error_code& errorCode,
             const boost::container::flat_map<
                 std::string, dbus::utility::DbusVariantType>& propertiesList) {
             if (errorCode)
@@ -425,7 +425,7 @@ inline void getFwRecoveryStatus(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, swId, &getLastSegnmentFromDotterString](
-            const boost::system::error_code errorCode,
+            const boost::system::error_code& errorCode,
             const boost::container::flat_map<
                 std::string, dbus::utility::DbusVariantType>& propertiesList) {
             if (errorCode)
@@ -480,7 +480,7 @@ inline void getFwStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, swId](
-            const boost::system::error_code errorCode,
+            const boost::system::error_code& errorCode,
             const boost::container::flat_map<
                 std::string, dbus::utility::DbusVariantType>& propertiesList) {
             if (errorCode)
@@ -539,7 +539,7 @@ inline void getFwWriteProtectedStatus(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, swId](
-            const boost::system::error_code errorCode,
+            const boost::system::error_code& errorCode,
             const boost::container::flat_map<
                 std::string, dbus::utility::DbusVariantType>& propertiesList) {
             if (errorCode)
@@ -588,7 +588,7 @@ inline void populateSlotInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                              const std::string& slotType)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp, slotObjPath, slotType](const boost::system::error_code ec,
+        [asyncResp, slotObjPath, slotType](const boost::system::error_code& ec,
                                            const GetObjectType& response) {
             if (ec)
             {
@@ -615,7 +615,7 @@ inline void populateSlotInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
             {
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, slotService, slotObjPath,
-                     slotType](const boost::system::error_code ec,
+                     slotType](const boost::system::error_code& ec,
                                const boost::container::flat_map<
                                    std::string, dbus::utility::DbusVariantType>&
                                    properties) {
@@ -748,7 +748,7 @@ inline void getFWSlotInformation(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
         *crow::connections::systemBus, serviceObjectMapper,
         objectPath + "/ActiveSlot", "xyz.openbmc_project.Association",
         "endpoints",
-        [asyncResp, objectPath](const boost::system::error_code ec,
+        [asyncResp, objectPath](const boost::system::error_code& ec,
                                 const std::vector<std::string>& objPaths) {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                 "#NvidiaSoftwareInventory.v1_2_0.NvidiaSoftwareInventory";
@@ -773,7 +773,7 @@ inline void getFWSlotInformation(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 *crow::connections::systemBus, serviceObjectMapper,
                 objectPath + "/InactiveSlot", "xyz.openbmc_project.Association",
                 "endpoints",
-                [asyncResp](const boost::system::error_code ec,
+                [asyncResp](const boost::system::error_code& ec,
                             const std::vector<std::string>& objPaths) {
                     if (ec)
                     {
@@ -837,7 +837,7 @@ inline void getFwUpdateableStatus(
         "/xyz/openbmc_project/software/updateable",
         "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, fwId,
-         inventoryPath](const boost::system::error_code ec,
+         inventoryPath](const boost::system::error_code& ec,
                         const std::vector<std::string>& objPaths) {
             if (ec)
             {

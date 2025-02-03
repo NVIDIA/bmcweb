@@ -155,7 +155,7 @@ static inline void
     std::string escapedPath = std::string(path) + "/" + device;
     dbus::utility::escapePathForDbus(escapedPath);
     auto getPCIeDeviceStateCallback = [escapedPath, asyncResp{asyncResp}](
-                                          const boost::system::error_code ec,
+                                          const boost::system::error_code& ec,
                                           const std::variant<std::string>&
                                               deviceState) {
         if (ec)
@@ -940,7 +940,7 @@ inline void requestRoutesChassisPCIeDeviceCollection(App& app)
             }
             crow::connections::systemBus->async_method_call(
                 [asyncResp,
-                 chassisId](const boost::system::error_code ec,
+                 chassisId](const boost::system::error_code& ec,
                             const std::vector<std::string>& chassisPaths) {
                     if (ec)
                     {
@@ -1126,7 +1126,7 @@ inline void requestRoutesChassisPCIeDevice(App& app)
             }
             crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisId,
-                 device](const boost::system::error_code ec,
+                 device](const boost::system::error_code& ec,
                          const std::vector<std::string>& chassisPaths) {
                     if (ec)
                     {
@@ -1156,7 +1156,7 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, device, chassisPCIePath, interface,
                              chassisId, chassisPCIeDevicePath,
-                             chassisPath](const boost::system::error_code ec,
+                             chassisPath](const boost::system::error_code& ec,
                                           const GetSubTreeType& subtree) {
                                 if (ec)
                                 {

@@ -176,7 +176,8 @@ inline void resetPowerLimit(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             BMCWEB_LOG_DEBUG("Performing Post using Sync Method Call");
 
             crow::connections::systemBus->async_method_call(
-                [asyncResp](boost::system::error_code ec1, const int retValue) {
+                [asyncResp](boost::system::error_code& ec1,
+                            const int retValue) {
                     if (!ec1)
                     {
                         if (retValue != 0)
@@ -272,7 +273,7 @@ void getValidChassisID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     auto respHandler = [callback{std::forward<Callback>(callback)}, asyncResp,
                         chassisID](
-                           const boost::system::error_code ec,
+                           const boost::system::error_code& ec,
                            const std::vector<std::string>& chassisPaths) {
         BMCWEB_LOG_DEBUG("getValidChassisID respHandler enter");
         if (ec)
@@ -483,7 +484,7 @@ inline void getChassisLinksContainedBy(
 {
     BMCWEB_LOG_DEBUG("Get parent chassis link");
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec2,
+        [aResp](const boost::system::error_code& ec2,
                 std::variant<std::vector<std::string>>& resp) {
             if (ec2)
             {
@@ -519,7 +520,7 @@ inline void getChassisLocationType(
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.Location", "LocationType",
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const std::string& property) {
             if (ec)
             {
@@ -781,7 +782,7 @@ inline void handleMctpInBandActions(
                             }
                         }
 
-                        if (foundEID and not *chassisProcessed)
+                        if (foundEID and not*chassisProcessed)
                         {
                             *chassisProcessed = true;
                             switch (option)
@@ -953,7 +954,7 @@ inline void
             }
             crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisObjPath](
-                    const boost::system::error_code errorCode,
+                    const boost::system::error_code& errorCode,
                     const boost::container::flat_map<
                         std::string, dbus::utility::DbusVariantType>&
                         propertiesList) {
@@ -1078,7 +1079,7 @@ inline void getChassisUUID(const crow::Request& req,
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Common.UUID", "UUID",
-        [req, asyncResp, isERoT, path](const boost::system::error_code ec,
+        [req, asyncResp, isERoT, path](const boost::system::error_code& ec,
                                        const std::string& chassisUUID) {
             if (ec)
             {
@@ -1105,7 +1106,7 @@ inline void getChassisName(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Inventory.Item", "PrettyName",
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const std::string& chassisName) {
             if (ec)
             {
@@ -1124,7 +1125,7 @@ inline void getChassisType(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Inventory.Item.Chassis", "Type",
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const std::string& chassisType) {
             if (ec)
             {
@@ -1144,7 +1145,7 @@ inline void getChassisManufacturer(
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.Asset", "Manufacturer",
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const std::string& manufacturer) {
             if (ec)
             {
@@ -1163,7 +1164,7 @@ inline void getChassisSKU(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.Asset", "SKU",
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const std::string& chassisSKU) {
             if (ec)
             {
@@ -1185,7 +1186,7 @@ inline void getChassisSerialNumber(
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.Asset", "SerialNumber",
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const std::string& serialNumber) {
             if (ec)
             {
@@ -1204,7 +1205,7 @@ inline void isEROTChassis(const std::string& chassisID, CallbackFunc&& callback)
         "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
 
     crow::connections::systemBus->async_method_call(
-        [chassisID, callback](const boost::system::error_code ec,
+        [chassisID, callback](const boost::system::error_code& ec,
                               const GetSubTreeType& subtree) {
             if (ec)
             {
@@ -1253,7 +1254,7 @@ inline void isEROTChassis(const std::string& chassisID, CallbackFunc&& callback)
             sdbusplus::asio::getProperty<Associations>(
                 *crow::connections::systemBus, serviceName, objIt->first,
                 "xyz.openbmc_project.Association.Definitions", "Associations",
-                [chassisID, callback](const boost::system::error_code ec,
+                [chassisID, callback](const boost::system::error_code& ec,
                                       const Associations& associations) {
                     if (ec)
                     {
@@ -1280,7 +1281,7 @@ inline void isEROTChassis(const std::string& chassisID, CallbackFunc&& callback)
 
                             dbus::utility::getSubTreePaths(
                                 path.substr(0, rotNamePos), 0, cpuInterface,
-                                [callback](const boost::system::error_code ec2,
+                                [callback](const boost::system::error_code& ec2,
                                            const dbus::utility::
                                                MapperGetSubTreePathsResponse&
                                                    subtreePaths) {
@@ -1309,7 +1310,7 @@ inline void
     getAssociationEndpoint(const std::string& objPath, CallbackFunc&& callback)
 {
     crow::connections::systemBus->async_method_call(
-        [callback, objPath](const boost::system::error_code ec,
+        [callback, objPath](const boost::system::error_code& ec,
                             std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -1361,7 +1362,7 @@ inline void getRedfishURL(const std::filesystem::path& invObjPath,
 {
     BMCWEB_LOG_DEBUG("getRedfishURL({})", invObjPath.string());
     crow::connections::systemBus->async_method_call(
-        [invObjPath, callback](const boost::system::error_code ec,
+        [invObjPath, callback](const boost::system::error_code& ec,
                                const GetObjectType& resp) {
             std::string url;
             if (ec || resp.empty())

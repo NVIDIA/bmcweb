@@ -37,7 +37,7 @@ inline void getNetworkAdapterCollectionMembers(
     BMCWEB_LOG_DEBUG("Get collection members for: {}", collectionPath);
     crow::connections::systemBus->async_method_call(
         [collectionPath, isNDF, aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& objects) {
             // currently host name is hard coded. We will add support for
             // multiple hosts through
@@ -118,7 +118,7 @@ inline void doNetworkAdaptersCollection(
 
     crow::connections::systemBus->async_method_call(
         [chassisId, asyncResp](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& objects) {
             if (ec == boost::system::errc::io_error)
             {
@@ -320,7 +320,7 @@ inline void doPort(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         std::string,
         std::variant<std::string, bool, double, uint64_t, uint32_t>>;
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const GetManagedPropertyType& properties) {
             if (ec)
             {
@@ -407,7 +407,7 @@ inline void doNDF(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         std::string,
         std::variant<std::string, bool, double, uint64_t, uint32_t>>;
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const GetManagedPropertyType& properties) {
             if (ec)
             {
@@ -501,7 +501,7 @@ inline void handleGet(App& app, const crow::Request& req,
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisId, id,
-         isNDF](const boost::system::error_code ec,
+         isNDF](const boost::system::error_code& ec,
                 const crow::openbmc_mapper::GetSubTreeType& subtree) {
             std::string dpuString = "host0";
             if (ec)

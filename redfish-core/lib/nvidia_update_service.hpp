@@ -89,7 +89,7 @@ inline void updateOemActionComputeDigest(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, swId](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string,
                 std::vector<std::pair<std::string, std::vector<std::string>>>>>&
@@ -140,7 +140,7 @@ inline void computeDigest(const crow::Request& req,
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, req, hashComputeObjPath, swId](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) {
             if (ec)
@@ -233,7 +233,7 @@ inline void computeDigest(const crow::Request& req,
                             std::string hashDigestValue = *value;
                             crow::connections::systemBus->async_method_call(
                                 [taskData, hashDigestValue](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code& ec,
                                     const std::variant<std::string>& property) {
                                     if (ec)
                                     {
@@ -313,7 +313,7 @@ inline void computeDigest(const crow::Request& req,
             task->payload.emplace(req);
             computeDigestInProgress = true;
             crow::connections::systemBus->async_method_call(
-                [task](const boost::system::error_code ec) {
+                [task](const boost::system::error_code& ec) {
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR("Failed to ComputeDigest: {}", ec);
@@ -350,7 +350,7 @@ inline void
 {
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, swId](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string,
                 std::vector<std::pair<std::string, std::vector<std::string>>>>>&
@@ -685,7 +685,7 @@ inline void requestRoutesUpdateServicePublicKeyExchange(App& app)
 
             // Call SCP service
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code ec) {
+                [asyncResp](const boost::system::error_code& ec) {
                     if (ec)
                     {
                         messages::internalError(asyncResp->res);
@@ -695,7 +695,7 @@ inline void requestRoutesUpdateServicePublicKeyExchange(App& app)
                     }
 
                     crow::connections::systemBus->async_method_call(
-                        [asyncResp](const boost::system::error_code ec,
+                        [asyncResp](const boost::system::error_code& ec,
                                     const std::string& selfPublicKeyStr) {
                             if (ec || selfPublicKeyStr.empty())
                             {
@@ -780,7 +780,7 @@ inline void requestRoutesUpdateServiceRevokeAllRemoteServerPublicKeys(App& app)
 
             // Call SCP service
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code ec) {
+                [asyncResp](const boost::system::error_code& ec) {
                     if (ec)
                     {
                         messages::internalError(asyncResp->res);

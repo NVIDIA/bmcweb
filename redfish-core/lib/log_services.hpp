@@ -1716,7 +1716,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     crow::connections::systemBus->async_method_call(
         [asyncResp, payload(task::Payload(req)), dumpPath,
          oemDiagnosticDataType](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const sdbusplus::message::message& msg,
             const sdbusplus::message::object_path& objPath) mutable {
             if (ec)

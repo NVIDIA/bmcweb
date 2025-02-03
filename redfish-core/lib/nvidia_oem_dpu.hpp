@@ -161,7 +161,7 @@ class DpuGetProperties : virtual public DpuCommonProperties
     {
         crow::connections::systemBus->async_method_call(
             [&, json, asyncResp,
-             name](const boost::system::error_code ec,
+             name](const boost::system::error_code& ec,
                    const std::variant<std::string>& variant) {
                 if (ec)
                 {
@@ -281,7 +281,7 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
             auto value = item.value().get<std::string>();
             auto objectInfo = objects.find(name)->second;
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code ec) {
+                [asyncResp](const boost::system::error_code& ec) {
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR("Set failed {}", ec);
@@ -573,7 +573,7 @@ inline void getIsOemNvidiaRshimEnable(
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, systemdServiceBf, rshimSystemdObjBf,
         systemdUnitIntfBf, "ActiveState",
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const std::string& rshimActiveState) {
             if (ec)
             {
@@ -601,7 +601,7 @@ inline void
                      method.c_str());
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec) {
+        [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -673,7 +673,7 @@ inline void getOemNvidiaSwitchStatus(
     asyncResp->res.jsonValue["LinkStatus"]["BMC"] = port::LinkStatus::LinkUp;
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     std::variant<std::string>& resp) {
             if (ec)
             {
@@ -776,7 +776,7 @@ inline void
     std::variant<std::string> variantValue(strValue);
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec) {
+        [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -786,7 +786,7 @@ inline void
             }
             // Reload switch service to make the new configuration take effect
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code ec) {
+                [asyncResp](const boost::system::error_code& ec) {
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR(
@@ -832,7 +832,7 @@ inline void resetTorSwitch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     std::variant<std::string> variantValue(
         "xyz.openbmc_project.Control.TorSwitchPortsMode.Modes.All");
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec) {
+        [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -923,7 +923,7 @@ inline void handleTruststoreCertificatesCollectionPost(
 
     privilege_utils::isBiosPrivilege(
         req, [req, asyncResp, certString, certType,
-              owner](const boost::system::error_code ec, const bool isBios) {
+              owner](const boost::system::error_code& ec, const bool isBios) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);
@@ -940,8 +940,9 @@ inline void handleTruststoreCertificatesCollectionPost(
                 std::make_shared<CertificateFile>(certString);
 
             crow::connections::systemBus->async_method_call(
-                [asyncResp, owner, certFile](const boost::system::error_code ec,
-                                             const std::string& objectPath) {
+                [asyncResp, owner,
+                 certFile](const boost::system::error_code& ec,
+                           const std::string& objectPath) {
                     if (ec)
                     {
                         messages::internalError(asyncResp->res);
@@ -960,7 +961,7 @@ inline void handleTruststoreCertificatesCollectionPost(
                     if (owner)
                     {
                         crow::connections::systemBus->async_method_call(
-                            [asyncResp](const boost::system::error_code ec) {
+                            [asyncResp](const boost::system::error_code& ec) {
                                 if (ec)
                                 {
                                     messages::internalError(asyncResp->res);
@@ -999,7 +1000,7 @@ inline void handleTruststoreCertificatesGet(
         *crow::connections::systemBus, truststoreBiosService,
         truststoreBiosPath + "/" + certId, "",
         [asyncResp,
-         certId](const boost::system::error_code ec,
+         certId](const boost::system::error_code& ec,
                  const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
@@ -1087,7 +1088,7 @@ inline void handleTruststoreCertificatesDelete(
 
     privilege_utils::isBiosPrivilege(
         req, [req, asyncResp,
-              certId](const boost::system::error_code ec, const bool isBios) {
+              certId](const boost::system::error_code& ec, const bool isBios) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);
@@ -1099,7 +1100,7 @@ inline void handleTruststoreCertificatesDelete(
                 return;
             }
             crow::connections::systemBus->async_method_call(
-                [asyncResp, certId](const boost::system::error_code ec) {
+                [asyncResp, certId](const boost::system::error_code& ec) {
                     if (ec.value() == EBADR)
                     {
                         messages::resourceNotFound(asyncResp->res, "certId",
@@ -1144,7 +1145,7 @@ inline void handleTruststoreCertificatesResetKeys(
     }
 
     privilege_utils::isBiosPrivilege(req, [req, asyncResp](
-                                              const boost::system::error_code
+                                              const boost::system::error_code&
                                                   ec,
                                               const bool isBios) {
         if (ec)
@@ -1288,7 +1289,7 @@ inline void
     std::variant<std::string> variantValue(value);
     crow::connections::systemBus->async_method_call(
         [asyncResp, dbusProperty, lastProperty,
-         value](const boost::system::error_code ec) {
+         value](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -1303,7 +1304,7 @@ inline void
                 // Make an asynchronous DBUS call to sync the OEM FRU data
                 // The FRU DBUS object and config flash will be updated
                 crow::connections::systemBus->async_method_call(
-                    [asyncResp](const boost::system::error_code ec) {
+                    [asyncResp](const boost::system::error_code& ec) {
                         if (ec)
                         {
                             BMCWEB_LOG_ERROR(
@@ -1332,7 +1333,7 @@ inline void handleSetOemFru([[maybe_unused]] crow::App& app,
     // Check if the request has host interface privilege
     // The redfish host interface will be prevented to accesss the OEM FRU
     privilege_utils::isBiosPrivilege(req, [req, asyncResp](
-                                              const boost::system::error_code
+                                              const boost::system::error_code&
                                                   ec,
                                               const bool isBios) {
         if (ec)
@@ -1788,7 +1789,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
                     *crow::connections::systemBus, bluefield::dpuFruObj,
                     bluefield::dpuFruPath,
                     "xyz.openbmc_project.Inventory.Host.BfFruInfo",
-                    [asyncResp](const boost::system::error_code ec,
+                    [asyncResp](const boost::system::error_code& ec,
                                 const dbus::utility::DBusPropertiesMap&
                                     propertiesList) {
                         if (ec)

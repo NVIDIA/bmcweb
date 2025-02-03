@@ -2540,14 +2540,14 @@ inline void
 
     // Check fabric switch link
     crow::connections::systemBus->async_method_call(
-        [asyncResp, objPath](const boost::system::error_code ec,
+        [asyncResp, objPath](const boost::system::error_code& ec,
                              std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
                 // Check processor link
                 crow::connections::systemBus->async_method_call(
                     [asyncResp,
-                     objPath](const boost::system::error_code ec1,
+                     objPath](const boost::system::error_code& ec1,
                               std::variant<std::vector<std::string>>& resp1) {
                         nlohmann::json& itemsArray1 =
                             asyncResp->res.jsonValue["RelatedItem"];
@@ -2595,7 +2595,7 @@ inline void
                 const std::string fabricId = objectPath.filename();
                 crow::connections::systemBus->async_method_call(
                     [asyncResp,
-                     fabricId](const boost::system::error_code ec1,
+                     fabricId](const boost::system::error_code& ec1,
                                std::variant<std::vector<std::string>>& resp1) {
                         if (ec1)
                         {
@@ -2640,7 +2640,7 @@ inline void getChassisSensors(
     // Find the sensor on the chassis
     auto getAllChassisSensors =
         [asyncResp, sensorName, chassisId](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::variant<std::vector<std::string>>& variantEndpoints) {
             if (ec)
             {
@@ -2718,7 +2718,7 @@ inline void handleSensorGetWithChassisValidation(
         "xyz.openbmc_project.Inventory.Item.Chassis"};
 
     auto chassisHandler = [asyncResp, chassisId, sensorId](
-                              const boost::system::error_code ec,
+                              const boost::system::error_code& ec,
                               const std::vector<std::string>& chassisPaths) {
         if (ec)
         {
@@ -2771,7 +2771,7 @@ inline void setThresholdReadingProperty(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, serviceName, objectPath, interfaceName,
-         propertyName](const boost::system::error_code ec) {
+         propertyName](const boost::system::error_code& ec) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);
@@ -2894,7 +2894,7 @@ inline void requestRoutesSensorPatch(App& app)
                 }
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisId, sensorId,
-                     req](const boost::system::error_code ec,
+                     req](const boost::system::error_code& ec,
                           const std::vector<std::string>& objects) {
                         if (ec)
                         {
@@ -2909,7 +2909,7 @@ inline void requestRoutesSensorPatch(App& app)
                             }
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, sensorId,
-                                 req](const boost::system::error_code ec,
+                                 req](const boost::system::error_code& ec,
                                       const std::vector<std::pair<
                                           std::string,
                                           std::vector<std::pair<

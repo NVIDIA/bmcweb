@@ -1213,7 +1213,7 @@ inline void
 inline void powerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const std::vector<std::string>& hostList) {
             if (ec)
             {
@@ -1227,7 +1227,7 @@ inline void powerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
             }
             crow::connections::systemBus->async_method_call(
                 [asyncResp,
-                 objectPath](const boost::system::error_code ec,
+                 objectPath](const boost::system::error_code& ec,
                              const std::variant<std::string>& state) {
                     if (ec)
                     {
@@ -1243,7 +1243,7 @@ inline void powerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                     {
                         crow::connections::systemBus->async_method_call(
                             [asyncResp,
-                             objectPath](const boost::system::error_code ec) {
+                             objectPath](const boost::system::error_code& ec) {
                                 // Use "Set" method to set the property value.
                                 if (ec)
                                 {

@@ -195,7 +195,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
     crow::connections::systemBus->async_method_call(
         [resp, fabricId, switchId, handler = std::forward<Handler>(handler)](
-            boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const MapperGetSubTreeResponse& subtree) mutable {
             if (ec)
             {
@@ -216,7 +216,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
                 crow::connections::systemBus->async_method_call(
                     [resp, fabricId, switchId, handler](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         std::variant<std::vector<std::string>>& response) {
                         if (ec)
                         {
@@ -248,7 +248,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
                             crow::connections::systemBus->async_method_call(
                                 [resp, fabricId, switchId, path, handler](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code& ec,
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         object) {
@@ -314,7 +314,7 @@ inline void populateErrorInjectionData(
            [[maybe_unused]] const MapperServiceMap& serviceMap) {
             crow::connections::systemBus->async_method_call(
                 [aResp, fabricId, switchId,
-                 path](const boost::system::error_code ec,
+                 path](const boost::system::error_code& ec,
                        const MapperServiceMap& serviceMap) {
                     if (ec)
                     {
@@ -360,7 +360,7 @@ inline void updateSwitchPowerModeData(
         boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
     // Get interface properties
     crow::connections::systemBus->async_method_call(
-        [asyncResp, objPath](const boost::system::error_code ec,
+        [asyncResp, objPath](const boost::system::error_code& ec,
                              const PropertiesMap& properties) {
             if (ec)
             {
@@ -570,7 +570,7 @@ inline void
     using PropertiesMap =
         boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const PropertiesMap& properties) {
             if (ec)
             {

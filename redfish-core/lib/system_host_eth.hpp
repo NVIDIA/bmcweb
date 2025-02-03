@@ -37,7 +37,7 @@ void getEthernetIfaceListHost(CallbackFunc&& callback,
 {
     crow::connections::systemBus->async_method_call(
         [callback{std::forward<CallbackFunc>(callback)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::string>& objects) {
             if (ec)
             {
@@ -78,7 +78,7 @@ void getEthernetIfaceService(
     crow::connections::systemBus->async_method_call(
         [ethifaceId{std::string{ethifaceId}},
          callback{std::forward<CallbackFunc>(callback)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const crow::openbmc_mapper::GetSubTreeType& subtree) {
             if (ec)
             {
@@ -134,7 +134,7 @@ void getEthernetIfaceDataHost(
             }
             crow::connections::systemBus->async_method_call(
                 [ethifaceId,
-                 callback](const boost::system::error_code errorCode,
+                 callback](const boost::system::error_code& errorCode,
                            const dbus::utility::ManagedObjectType& resp) {
                     EthernetInterfaceData ethData{};
                     std::vector<IPv4AddressData> ipv4Data;

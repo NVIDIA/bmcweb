@@ -2510,7 +2510,7 @@ inline void requestRoutesNvidiaManagerResetToDefaultsAction(App& app)
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, ifnameCompleteReset](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const std::vector<
                             std::pair<std::string, std::vector<std::string>>>&
                             interfaceNames) {
@@ -2527,7 +2527,7 @@ inline void requestRoutesNvidiaManagerResetToDefaultsAction(App& app)
                         {
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp,
-                                 object](const boost::system::error_code ec) {
+                                 object](const boost::system::error_code& ec) {
                                     if (ec)
                                     {
                                         BMCWEB_LOG_DEBUG(

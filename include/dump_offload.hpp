@@ -107,7 +107,7 @@ class Handler : public std::enable_shared_from_this<Handler>
     {
         crow::connections::systemBus->async_method_call(
             [this,
-             self(shared_from_this())](const boost::system::error_code ec) {
+             self(shared_from_this())](const boost::system::error_code& ec) {
                 if (ec)
                 {
                     BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
@@ -166,7 +166,7 @@ class Handler : public std::enable_shared_from_this<Handler>
     {
         crow::connections::systemBus->async_method_call(
             [this,
-             self(shared_from_this())](const boost::system::error_code ec,
+             self(shared_from_this())](const boost::system::error_code& ec,
                                        const std::variant<uint64_t>& size) {
                 if (ec)
                 {

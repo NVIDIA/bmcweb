@@ -101,7 +101,7 @@ void setBootOption(const std::string& id,
     for (const auto& [propertyName, propertyVariant] : properties)
     {
         crow::connections::systemBus->async_method_call(
-            [holdTask](const boost::system::error_code ec) {
+            [holdTask](const boost::system::error_code& ec) {
                 if (ec)
                 {
                     holdTask->ec = ec;
@@ -157,7 +157,7 @@ inline void handleCollectionPendingBootOptionMembers(
         getBootOption(
             bootOptionName,
             [asyncResp, bootOptionName, collectionPath, &members](
-                const boost::system::error_code ec,
+                const boost::system::error_code& ec,
                 const dbus::utility::DBusPropertiesMap& bootOptionProperties) {
                 if (ec)
                 {
@@ -236,7 +236,7 @@ inline void handleBootOptionCollectionPost(
 
     privilege_utils::isBiosPrivilege(
         req,
-        [req, aResp](const boost::system::error_code ec, const bool isBios) {
+        [req, aResp](const boost::system::error_code& ec, const bool isBios) {
             if (ec || isBios == false)
             {
                 messages::insufficientPrivilege(aResp->res);
@@ -286,7 +286,7 @@ inline void handleBootOptionCollectionPost(
             }
 
             createBootOption(id, [aResp, id, properties](
-                                     const boost::system::error_code ec2) {
+                                     const boost::system::error_code& ec2) {
                 if (ec2)
                 {
                     messages::resourceAlreadyExists(aResp->res, "BootOption",
@@ -295,7 +295,7 @@ inline void handleBootOptionCollectionPost(
                 }
 
                 setBootOption(id, properties,
-                              [aResp](const boost::system::error_code ec3) {
+                              [aResp](const boost::system::error_code& ec3) {
                                   if (ec3)
                                   {
                                       messages::internalError(aResp->res);
@@ -325,7 +325,7 @@ inline void handleBootOptionGet(crow::App& app, const crow::Request& req,
     getBootOption(
         bootOptionName,
         [aResp, bootOptionName](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& bootOptonProperties) {
             if (ec)
             {
@@ -388,7 +388,7 @@ inline void
     getBootOption(
         bootOptionName,
         [asyncResp, bootOptionName](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& bootOptionProperties) {
             if (ec)
             {
@@ -430,7 +430,7 @@ inline void handleBootOptionPatch(
         return;
     }
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, bootOptionName](const boost::system::error_code ec,
+        req, [req, aResp, bootOptionName](const boost::system::error_code& ec,
                                           const bool isBios) {
             if (ec || isBios == false)
             {
@@ -448,7 +448,7 @@ inline void handleBootOptionPatch(
             properties.push_back({"Enabled", newBootOptionEnabled});
             setBootOption(
                 bootOptionName, properties,
-                [aResp, bootOptionName](const boost::system::error_code ec) {
+                [aResp, bootOptionName](const boost::system::error_code& ec) {
                     if (ec == boost::system::errc::no_such_device_or_address)
                     {
                         messages::resourceNotFound(aResp->res, "BootOption",
@@ -477,7 +477,7 @@ inline void handleBootOptionDelete(
     }
 
     privilege_utils::isBiosPrivilege(
-        req, [aResp, bootOptionName](const boost::system::error_code ec,
+        req, [aResp, bootOptionName](const boost::system::error_code& ec,
                                      const bool isBios) {
             if (ec || isBios == false)
             {
@@ -486,7 +486,7 @@ inline void handleBootOptionDelete(
             }
             deleteBootOption(
                 bootOptionName,
-                [aResp, bootOptionName](const boost::system::error_code ec2) {
+                [aResp, bootOptionName](const boost::system::error_code& ec2) {
                     if (ec2)
                     {
                         messages::resourceNotFound(aResp->res, "BootOption",
@@ -570,7 +570,7 @@ inline void handleComputerSystemSettingsBootOptionPatch(
     properties.push_back({"PendingEnabled", bootOptionEnabled});
     boot_options::setBootOption(
         bootOptionName, properties,
-        [asyncResp](const boost::system::error_code ec) {
+        [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);

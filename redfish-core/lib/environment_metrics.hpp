@@ -32,7 +32,7 @@ inline void
         "xyz.openbmc_project.Sensor.Value"};
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisID](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string,
                 std::vector<std::pair<std::string, std::vector<std::string>>>>>&
@@ -89,7 +89,7 @@ inline void
                     dbus::utility::findAssociations(
                         validPath + "/chassis",
                         [asyncResp, chassisID, &fanList, sensorName, validPath,
-                         connectionName](const boost::system::error_code ec,
+                         connectionName](const boost::system::error_code& ec,
                                          std::variant<std::vector<std::string>>&
                                              association) {
                             if (ec)
@@ -116,7 +116,7 @@ inline void
                                 crow::connections::systemBus->async_method_call(
                                     [asyncResp, chassisID, &fanList,
                                      sensorName](
-                                        const boost::system::error_code ec,
+                                        const boost::system::error_code& ec,
                                         const std::variant<double>& value) {
                                         if (ec)
                                         {
@@ -193,7 +193,7 @@ inline void requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(App& app)
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, processorId](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const crow::openbmc_mapper::GetSubTreeType& subtree) {
                         if (ec)
                         {
@@ -271,7 +271,7 @@ inline void requestRoutesChassisEnvironmentMetricsClearOOBSetPoint(App& app)
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisId](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const crow::openbmc_mapper::GetSubTreeType& subtree) {
                         if (ec)
                         {
@@ -466,7 +466,7 @@ inline void requestRoutesEnvironmentMetrics(App& app)
 
                     crow::connections::systemBus->async_method_call(
                         [asyncResp, chassisId,
-                         setPoint](const boost::system::error_code ec,
+                         setPoint](const boost::system::error_code& ec,
                                    const crow::openbmc_mapper::GetSubTreeType&
                                        subtree) {
                             if (ec)
@@ -730,7 +730,7 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
 
                     crow::connections::systemBus->async_method_call(
                         [asyncResp, processorId, setPoint, persistency](
-                            const boost::system::error_code ec,
+                            const boost::system::error_code& ec,
                             const crow::openbmc_mapper::GetSubTreeType&
                                 subtree) {
                             if (ec)

@@ -73,7 +73,7 @@ inline void
     // Get interface properties
     crow::connections::systemBus->async_method_call(
         [asyncResp{asyncResp}, chassisId, memberId, objPath](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<
                 std::pair<std::string, std::variant<std::string, uint64_t>>>&
                 propertiesList) {
@@ -243,7 +243,7 @@ inline void requestAssemblyRoutes(App& app)
             // Get chassis collection
             crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisId(std::string(chassisId))](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const crow::openbmc_mapper::GetSubTreeType& subtree) {
                     if (ec)
                     {
@@ -286,7 +286,7 @@ inline void requestAssemblyRoutes(App& app)
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, path, chassisId(std::string(chassisId)),
                              connectionName](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code& ec,
                                 std::variant<std::vector<std::string>>& resp) {
                                 const std::array<const char*, 1> assemblyIntf = {
                                     "xyz.openbmc_project.Inventory.Item.Assembly"};
@@ -301,7 +301,7 @@ inline void requestAssemblyRoutes(App& app)
                                             [asyncResp,
                                              chassisId(std::string(chassisId)),
                                              connectionName](
-                                                const boost::system::error_code
+                                                const boost::system::error_code&
                                                     ec,
                                                 const std::vector<std::string>&
                                                     assemblyList) {
@@ -352,7 +352,7 @@ inline void requestAssemblyRoutes(App& app)
                                         crow::connections::systemBus->async_method_call(
                                             [asyncResp, assembly,
                                              chassisId(std::string(chassisId))](
-                                                const boost::system::error_code
+                                                const boost::system::error_code&
                                                     errorCode,
                                                 const std::vector<std::pair<
                                                     std::string,

@@ -123,7 +123,7 @@ inline void fetchCableInventoryProperties(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, cableObjectPath{cableObjectPath}](
-            const boost::system::error_code ec1,
+            const boost::system::error_code& ec1,
             std::variant<std::vector<std::string>>& resp1) {
             if (ec1)
             {

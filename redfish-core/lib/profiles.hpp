@@ -77,7 +77,7 @@ inline void setProfileProperty(
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, profileService,
         profilePath + profileNumber, interface, property, value,
-        [aResp, property, value](const boost::system::error_code ec) {
+        [aResp, property, value](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -107,7 +107,7 @@ inline void
     BMCWEB_LOG_DEBUG("Start get profile list");
 
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
             if (ec)
             {
@@ -222,7 +222,7 @@ inline void handlePatchProfile(crow::App& app, const crow::Request& req,
     {
         privilege_utils::isBiosPrivilege(
             req, [req, aResp, activateStatus, deleteStatus, profileNumber](
-                     const boost::system::error_code ec, const bool isBios) {
+                     const boost::system::error_code& ec, const bool isBios) {
                 std::vector<std::string> allowedUefiValues = {"BiosStarted",
                                                               "BiosFinished"};
                 std::vector<std::string> allowedUserValues = {"Failed"};
@@ -282,7 +282,7 @@ inline void
         *crow::connections::systemBus, profileService,
         profilePath + profileNumber, statusIntrf,
         [aResp,
-         profileNumber](const boost::system::error_code ec,
+         profileNumber](const boost::system::error_code& ec,
                         const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -315,7 +315,7 @@ inline void
         *crow::connections::systemBus, profileService,
         profilePath + profileNumber, configurationIntrf,
         [aResp,
-         profileNumber](const boost::system::error_code ec,
+         profileNumber](const boost::system::error_code& ec,
                         const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -422,7 +422,7 @@ inline void
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, profileService, profilePath + "manager",
         pendingListIntrf,
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -466,7 +466,7 @@ inline void
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, profileService, profilePath + "manager",
         managerIntrf,
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -684,7 +684,7 @@ inline void handleProfileUpdate(crow::App& app, const crow::Request& req,
     }
 
     privilege_utils::isBiosPrivilege(req, [req, aResp](
-                                              const boost::system::error_code
+                                              const boost::system::error_code&
                                                   ec,
                                               const bool isBios) {
         if (ec)
@@ -694,7 +694,7 @@ inline void handleProfileUpdate(crow::App& app, const crow::Request& req,
         }
         BMCWEB_LOG_DEBUG("Is bios: {}", std::to_string(isBios));
         crow::connections::systemBus->async_method_call(
-            [req, aResp, isBios](const boost::system::error_code ec,
+            [req, aResp, isBios](const boost::system::error_code& ec,
                                  const uint16_t& profileNumber) {
                 if (ec)
                 {

@@ -38,7 +38,7 @@ inline void trustedComponentGetAllProperties(
     const std::string& interface)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const std::vector<
                         std::pair<std::string, dbus::utility::DbusVariantType>>&
                         propertiesList) {
@@ -132,7 +132,7 @@ inline void handleTrustedComponentGet(
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisID, componentID](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
                     if (ec)
                     {

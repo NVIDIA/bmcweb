@@ -23,7 +23,7 @@ inline void getIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
     // Async method call to get mode settings dbus object and service
     crow::connections::systemBus->async_method_call(
         [aResp,
-         istIface](const boost::system::error_code ec,
+         istIface](const boost::system::error_code& ec,
                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -53,7 +53,7 @@ inline void getIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 
             // Async method call to get Active ISTmode
             crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code ec1,
+                [aResp](const boost::system::error_code& ec1,
                         const std::variant<std::string>& istMode) {
                     if (ec1)
                     {
@@ -98,7 +98,7 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     // Async method call to get phosphor settings dbus object path and service
     crow::connections::systemBus->async_method_call(
         [aResp, req, reqIstModeEnabled,
-         istIface](const boost::system::error_code ec,
+         istIface](const boost::system::error_code& ec,
                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -129,7 +129,7 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             // Async method call to get Current ISTmode
             crow::connections::systemBus->async_method_call(
                 [aResp, req, reqIstModeEnabled, istIface, path,
-                 service](const boost::system::error_code ec1,
+                 service](const boost::system::error_code& ec1,
                           const std::variant<std::string>& istMode) {
                     if (ec1)
                     {
@@ -167,7 +167,7 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     // Async method call to get current Status
                     crow::connections::systemBus->async_method_call(
                         [aResp, reqIstModeEnabled,
-                         req](const boost::system::error_code ec1,
+                         req](const boost::system::error_code& ec1,
                               const std::variant<std::string>& istStatus) {
                             if (ec1)
                             {
@@ -209,7 +209,7 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             // Async method call setISTMode
                             crow::connections::systemBus->async_method_call(
                                 [aResp, req, reqIstModeEnabled](
-                                    boost::system::error_code ec) {
+                                    boost::system::error_code& ec) {
                                     if (ec)
                                     {
                                         BMCWEB_LOG_ERROR(

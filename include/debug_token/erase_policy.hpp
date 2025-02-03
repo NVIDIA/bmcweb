@@ -95,7 +95,7 @@ inline void getErasePolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 inline void setErasePolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            bool value)
 {
-    auto setCallback = [asyncResp](const boost::system::error_code ec) {
+    auto setCallback = [asyncResp](const boost::system::error_code& ec) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("Erase policy set error: {}", ec.message());

@@ -34,7 +34,7 @@ inline void requestRoutesChassisXIDLogService(App& app)
                 "xyz.openbmc_project.Inventory.Item.Chassis"};
             crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisId(std::string(chassisId))](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const crow::openbmc_mapper::GetSubTreeType& subtree) {
                     if (ec)
                     {
@@ -89,7 +89,7 @@ inline void requestRoutesChassisXIDLogService(App& app)
                             *crow::connections::systemBus, connectionName, path,
                             inventoryItemInterface, "PrettyName",
                             [asyncResp, chassisId(std::string(chassisId))](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code& ec,
                                 const std::string& chassisName) {
                                 if (ec)
                                 {
@@ -102,7 +102,7 @@ inline void requestRoutesChassisXIDLogService(App& app)
                                 // LatestEntryTimestamp and LatestEntryID
                                 crow::connections::systemBus->async_method_call(
                                     [asyncResp](
-                                        const boost::system::error_code ec,
+                                        const boost::system::error_code& ec,
                                         const std::tuple<uint32_t, uint64_t>&
                                             reqData) {
                                         if (ec)
@@ -177,7 +177,7 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisId(std::string(chassisId))](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const crow::openbmc_mapper::GetSubTreeType& subtree) {
                     if (ec)
                     {
@@ -217,7 +217,7 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                 *crow::connections::systemBus, connectionName,
                                 path, inventoryItemInterface, "PrettyName",
                                 [asyncResp, chassisId(std::string(chassisId))](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code& ec,
                                     const std::string& chassisName) {
                                     if (ec)
                                     {
@@ -256,8 +256,10 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                 ->async_method_call(
                                                     [asyncResp,
                                                      chassisId(
-                                                         std::string(
-                                                             chassisId))](const boost::system::error_code ec, const GetManagedObjectsType& resp) {
+                                                         std::
+                                                             string(
+                                                                 chassisId))](const boost::system::error_code& ec, const GetManagedObjectsType&
+                                                                                                                       resp) {
                                                         if (ec)
                                                         {
                                                             // TODO Handle for

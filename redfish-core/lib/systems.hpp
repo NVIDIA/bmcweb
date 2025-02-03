@@ -869,7 +869,7 @@ inline std::string
             *crow::connections::systemBus, "xyz.openbmc_project.State.Host",
             "/xyz/openbmc_project/state/host0",
             "xyz.openbmc_project.State.Boot.Progress", "BootProgressOem",
-            [aResp](const boost::system::error_code ec,
+            [aResp](const boost::system::error_code& ec,
                     const std::string& bootProgressoem) {
                 if (ec)
                 {
@@ -1339,7 +1339,7 @@ inline void getAutomaticRetry(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         *crow::connections::systemBus, "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/control/host0/auto_reboot",
         "xyz.openbmc_project.Control.Boot.RebootPolicy", "AutoReboot",
-        [aResp, isSettingsUrl](const boost::system::error_code ec,
+        [aResp, isSettingsUrl](const boost::system::error_code& ec,
                                bool autoRebootEnabled) {
             if (ec)
             {
@@ -1362,7 +1362,7 @@ inline void getAutomaticRetry(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         "/xyz/openbmc_project/state/host0",
                         "xyz.openbmc_project.Control.Boot.RebootAttempts",
                         "AttemptsLeft",
-                        [aResp](const boost::system::error_code ec2,
+                        [aResp](const boost::system::error_code& ec2,
                                 const uint32_t autoRebootAttemptsLeft) {
                             if (ec2)
                             {
@@ -1513,7 +1513,7 @@ inline void
                         "/xyz/openbmc_project/state/host0",
                         "xyz.openbmc_project.Control.Boot.RebootAttempts",
                         "AttemptsLeft",
-                        [asyncResp](const boost::system::error_code ec2,
+                        [asyncResp](const boost::system::error_code& ec2,
                                     const uint32_t autoRebootAttemptsLeft) {
                             if (ec2)
                             {
@@ -2049,7 +2049,7 @@ inline void
     populateFromEntityManger(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const std::vector<std::pair<
                     std::string, std::variant<std::string>>>& propertiesList) {
             if (ec)
@@ -2102,7 +2102,7 @@ inline void
         entityMangerService, card1Path, "org.freedesktop.DBus.Properties",
         "GetAll", "xyz.openbmc_project.Inventory.Decorator.Asset");
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const std::variant<std::string>& uuid) {
             if (ec)
             {
@@ -2140,7 +2140,7 @@ inline void
 
     crow::connections::systemBus->async_method_call(
         [aResp, addSourcesList](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::variant<std::vector<std::string>>& sourcesListVariant) {
             if (ec)
             {
@@ -2183,7 +2183,7 @@ inline void
                 crow::connections::systemBus->async_method_call(
                     [aResp, isIncludeUefiTarget, isIncludeUefiBootNext,
                      isIncludeUefiHttp](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const std::vector<
                             std::pair<std::string, std::variant<std::string>>>&
                             propertiesList) {
@@ -2263,7 +2263,7 @@ void setDbusProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 {
     crow::connections::systemBus->async_method_call(
         [aResp, property, value, path, service,
-         interface](const boost::system::error_code ec) {
+         interface](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG(
@@ -3984,7 +3984,7 @@ inline void
 
         crow::connections::systemBus->async_method_call(
             [asyncResp](
-                const boost::system::error_code ec,
+                const boost::system::error_code& ec,
                 const std::vector<std::pair<
                     std::string, std::vector<std::pair<
                                      std::string, std::vector<std::string>>>>>&
@@ -4024,7 +4024,7 @@ inline void
                             path + "/chassis",
                             "xyz.openbmc_project.Association", "endpoints",
                             [asyncResp](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code& ec,
                                 const std::vector<std::string>& property) {
                                 if (ec)
                                 {
@@ -4359,7 +4359,7 @@ inline void handleComputerSystemPatch(
         privilege_utils::isBiosPrivilege(
             req,
             [asyncResp, sku, uuid, bootSourceOverrideTargetAllowableValues](
-                const boost::system::error_code ec, const bool isBios) {
+                const boost::system::error_code& ec, const bool isBios) {
             if (ec || isBios == false)
             {
                 messages::propertyNotWritable(asyncResp->res,

@@ -515,7 +515,7 @@ inline void
                     sdbusplus::asio::getProperty<std::vector<uint8_t>>(
                         *crow::connections::systemBus, spdmBusName, path,
                         spdmResponderIntf, "SignedMeasurements",
-                        [asyncResp](const boost::system::error_code ec,
+                        [asyncResp](const boost::system::error_code& ec,
                                     const std::vector<uint8_t>& meas) {
                             if (ec)
                             {
@@ -538,7 +538,7 @@ inline void
             });
         std::vector<uint8_t> indices{cpuTokenGenerationMeasIndex};
         crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code ec) {
+            [asyncResp](const boost::system::error_code& ec) {
                 if (ec)
                 {
                     BMCWEB_LOG_ERROR("Failed to issue Refresh for CPU: {}",

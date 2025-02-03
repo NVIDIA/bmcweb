@@ -223,7 +223,7 @@ inline void executeRawSynCommand(
     BMCWEB_LOG_DEBUG("executeRawSynCommand fn");
     crow::connections::systemBus->async_method_call(
         [resp, Type,
-         id](boost::system::error_code ec, sdbusplus::message::message& msg,
+         id](boost::system::error_code& ec, sdbusplus::message::message& msg,
              const std::tuple<int, uint32_t, uint32_t, uint32_t>& res) {
             if (!ec)
             {
@@ -341,7 +341,7 @@ inline void executeRawAsynCommand(
     BMCWEB_LOG_DEBUG("executeRawAsynCommand fn");
     crow::connections::systemBus->async_method_call(
         [resp, Type, requestedDataOutBytes,
-         id](boost::system::error_code ec, sdbusplus::message::message& msg,
+         id](boost::system::error_code& ec, sdbusplus::message::message& msg,
              const std::tuple<int, uint32_t, uint32_t, std::vector<uint32_t>>&
                  res) {
             if (!ec)
@@ -414,7 +414,7 @@ inline void executeRawAsynCommand(
 inline void
     getDbusSelCapacity(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    auto respHandler = [asyncResp](const boost::system::error_code ec,
+    auto respHandler = [asyncResp](const boost::system::error_code& ec,
                                    const std::variant<size_t>& capacity) {
         if (ec.value() == EBADR)
         {
@@ -446,7 +446,7 @@ inline void
 inline void setDbusSelCapacity(
     size_t capacity, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    auto respHandler = [asyncResp](const boost::system::error_code ec) {
+    auto respHandler = [asyncResp](const boost::system::error_code& ec) {
         if (ec.value() == EBADR)
         {
             messages::resourceNotFound(asyncResp->res,
@@ -482,7 +482,7 @@ inline void getManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     BMCWEB_LOG_DEBUG("Get manager service state.");
 
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const std::vector<std::pair<
                     std::string, std::variant<std::string>>>& propertiesList) {
             if (ec)
@@ -537,7 +537,7 @@ inline void getBMCAssetData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 {
     BMCWEB_LOG_DEBUG("Get BMC manager asset data.");
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const std::vector<std::pair<
                     std::string, std::variant<std::string>>>& propertiesList) {
             if (ec)
@@ -600,7 +600,7 @@ inline void getServiceIdentification(
         *crow::connections::systemBus, "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/Software/Settings/ServiceIdentification",
         "xyz.openbmc_project.Inventory.Decorator.AssetTag", "AssetTag",
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const std::string& sysId) {
             if (ec)
             {
@@ -617,7 +617,7 @@ inline void getLinkManagerForSwitches(
     const std::string& objPath)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -637,7 +637,7 @@ inline void getLinkManagerForSwitches(
                 std::string fabricId = path.filename();
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, fabric,
-                     fabricId](const boost::system::error_code ec,
+                     fabricId](const boost::system::error_code& ec,
                                const GetSubTreeType& subtree) {
                         if (ec)
                         {
@@ -679,7 +679,7 @@ inline void
     getFencingPrivilege(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -699,7 +699,7 @@ inline void
                 // Get SMBPBI Fencing Privilege
                 crow::connections::systemBus->async_method_call(
                     [asyncResp](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const std::vector<std::pair<
                             std::string, std::variant<std::string, uint8_t>>>&
                             propertiesList) {
@@ -767,7 +767,7 @@ inline void patchFencingPrivilege(
 
     // Set the property, with handler to check error responses
     crow::connections::systemBus->async_method_call(
-        [resp, privilegeType](boost::system::error_code ec,
+        [resp, privilegeType](boost::system::error_code& ec,
                               sdbusplus::message::message& msg) {
             if (!ec)
             {
@@ -826,7 +826,7 @@ inline void
         *crow::connections::systemBus, "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/ipmi/sol/eth0", "xyz.openbmc_project.Ipmi.SOL",
         "Enable",
-        [asyncResp](const boost::system::error_code ec, const bool& isEnable) {
+        [asyncResp](const boost::system::error_code& ec, const bool& isEnable) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG(
@@ -1148,7 +1148,7 @@ inline void requestRouteSyncRawOobCommand(App& app)
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, targetType, targetId, opCodeRaw, arg1Raw,
                      arg2Raw, dataInRaw,
-                     extDataInRaw](const boost::system::error_code ec,
+                     extDataInRaw](const boost::system::error_code& ec,
                                    const MapperGetSubTreeResponse& subtree) {
                         if (ec)
                         {
@@ -1243,7 +1243,7 @@ inline void requestRouteAsyncRawOobCommand(App& app)
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, targetType, targetId, argRaw, asyncDataInRaw,
                      requestedDataOutBytes](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const MapperGetSubTreeResponse& subtree) {
                         if (ec)
                         {
@@ -1284,7 +1284,7 @@ inline void
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, managerId](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string,
                 std::vector<std::pair<std::string, std::vector<std::string>>>>>&
@@ -1427,7 +1427,7 @@ inline void
             {
                 crow::connections::systemBus->async_method_call(
                     [asyncResp,
-                     privilege](const boost::system::error_code ec,
+                     privilege](const boost::system::error_code& ec,
                                 const MapperGetSubTreeResponse& subtree) {
                         if (ec)
                         {
@@ -1552,7 +1552,7 @@ inline void
     // Get Managers Chassis ID
     crow::connections::systemBus->async_method_call(
         [asyncResp, managerId](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string,
                 std::vector<std::pair<std::string, std::vector<std::string>>>>>&
@@ -1590,7 +1590,7 @@ inline void
                         *crow::connections::systemBus,
                         "xyz.openbmc_project.ObjectMapper", path + "/chassis",
                         "xyz.openbmc_project.Association", "endpoints",
-                        [asyncResp](const boost::system::error_code ec,
+                        [asyncResp](const boost::system::error_code& ec,
                                     const std::vector<std::string>& property) {
                             if (ec)
                             {

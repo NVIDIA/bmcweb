@@ -173,7 +173,7 @@ inline void updatePCIeSlotsProcessorLinks(
     BMCWEB_LOG_DEBUG("updatePCIeSlotsPrcoessorLinks ");
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath,
-         dbusProperties](const boost::system::error_code ec,
+         dbusProperties](const boost::system::error_code& ec,
                          std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -197,7 +197,7 @@ inline void updatePCIeSlotsProcessorLinks(
                 // Get Port links using associtaions
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, processorId, dbusProperties](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {
@@ -287,7 +287,7 @@ inline void updatePCIeSlotsSwitchLinks(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath,
-         dbusProperties](const boost::system::error_code ec,
+         dbusProperties](const boost::system::error_code& ec,
                          std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -311,7 +311,7 @@ inline void updatePCIeSlotsSwitchLinks(
                 // Get Switch links using associtaions
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, objPath, dbusProperties,
-                     fabricId](const boost::system::error_code ec,
+                     fabricId](const boost::system::error_code& ec,
                                std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {
@@ -338,7 +338,7 @@ inline void updatePCIeSlotsSwitchLinks(
                             // Get Port links using associtaions
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, dbusProperties, fabricId, switchId](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code& ec,
                                     std::variant<std::vector<std::string>>&
                                         resp) {
                                     if (ec)
@@ -429,7 +429,7 @@ inline void updatePCIeSlotsNetworkAdapterLinks(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath,
-         dbusProperties](const boost::system::error_code ec,
+         dbusProperties](const boost::system::error_code& ec,
                          std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -454,7 +454,7 @@ inline void updatePCIeSlotsNetworkAdapterLinks(
                 // Get NetworkAdapter links using associtaions
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, objPath, dbusProperties,
-                     chassisId](const boost::system::error_code ec,
+                     chassisId](const boost::system::error_code& ec,
                                 std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {
@@ -485,7 +485,7 @@ inline void updatePCIeSlotsNetworkAdapterLinks(
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, dbusProperties, chassisId,
                                  networkAdapterId](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code& ec,
                                     std::variant<std::vector<std::string>>&
                                         resp) {
                                     if (ec)
@@ -599,7 +599,7 @@ inline void updatePCIeSlots(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     // Get interface properties
     crow::connections::systemBus->async_method_call(
         [asyncResp{asyncResp}, chassisId,
-         objPath](const boost::system::error_code ec,
+         objPath](const boost::system::error_code& ec,
                   const std::vector<std::pair<std::string, propertyTypes>>&
                       propertiesList) {
             if (ec)
@@ -710,7 +710,7 @@ inline void updatePCIeSlots(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp, objPath,
-                 dbusProperties](const boost::system::error_code ec,
+                 dbusProperties](const boost::system::error_code& ec,
                                  std::vector<std::string>& resp) {
                     if (ec)
                     {
@@ -778,7 +778,7 @@ inline void requestPcieSlotsRoutes(App& app)
             // Get chassis collection
             crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisId(std::string(chassisId))](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const crow::openbmc_mapper::GetSubTreeType& subtree) {
                     const std::array<const char*, 1> pcieslotIntf = {
                         "xyz.openbmc_project.Inventory.Item.PCIeSlot"};
@@ -812,7 +812,7 @@ inline void requestPcieSlotsRoutes(App& app)
                         // Get chassis pcieSlots
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, chassisId(std::string(chassisId))](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code& ec,
                                 const crow::openbmc_mapper::GetSubTreeType&
                                     pcieSlotSubtree) {
                                 if (ec)

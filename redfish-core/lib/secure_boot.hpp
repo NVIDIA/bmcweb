@@ -56,7 +56,7 @@ inline void handleSecureBootGet(crow::App& app, const crow::Request& req,
         *crow::connections::systemBus, "xyz.openbmc_project.BIOSConfigManager",
         "/xyz/openbmc_project/bios_config/manager",
         "xyz.openbmc_project.BIOSConfig.SecureBoot",
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -148,7 +148,7 @@ inline void
     }
 
     privilege_utils::isBiosPrivilege(req, [req, aResp](
-                                              const boost::system::error_code
+                                              const boost::system::error_code&
                                                   ec,
                                               const bool isBios) {
         std::optional<std::string> secureBootCurrentBoot;
@@ -231,7 +231,7 @@ inline void
         if (secureBootCurrentBoot)
         {
             crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code ec) {
+                [aResp](const boost::system::error_code& ec) {
                     if (ec)
                     {
                         BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
@@ -249,7 +249,7 @@ inline void
         if (secureBootEnable)
         {
             crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code ec) {
+                [aResp](const boost::system::error_code& ec) {
                     if (ec)
                     {
                         BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
@@ -267,7 +267,7 @@ inline void
         if (secureBootMode)
         {
             crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code ec) {
+                [aResp](const boost::system::error_code& ec) {
                     if (ec)
                     {
                         BMCWEB_LOG_DEBUG("DBUS response error {}", ec);

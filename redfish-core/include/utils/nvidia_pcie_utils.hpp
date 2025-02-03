@@ -66,7 +66,7 @@ static inline void
 {
     auto getPCIeDeviceAssetCallback =
         [asyncResp{asyncResp}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string, std::variant<std::string>>>& propertiesList) {
             if (ec)
@@ -107,7 +107,7 @@ static inline void
                       const std::string& service)
 {
     auto getPCIeDeviceUUIDCallback =
-        [asyncResp{asyncResp}](const boost::system::error_code ec,
+        [asyncResp{asyncResp}](const boost::system::error_code& ec,
                                const std::variant<std::string>& uuid) {
             if (ec)
             {
@@ -135,7 +135,7 @@ static inline void
                            const std::string& service)
 {
     auto getPCIeDeviceOemCallback = [asyncResp{asyncResp}](
-                                        const boost::system::error_code ec,
+                                        const boost::system::error_code& ec,
                                         const std::vector<std::pair<
                                             std::string, std::variant<bool>>>&
                                             propertiesList) {
@@ -176,7 +176,7 @@ static inline void getPCIeDeviceNvLinkClkRefOem(
     const std::string& service)
 {
     auto getPCIeDeviceOemCallback = [asyncResp{asyncResp}](
-                                        const boost::system::error_code ec,
+                                        const boost::system::error_code& ec,
                                         const std::vector<std::pair<
                                             std::string, std::variant<bool>>>&
                                             propertiesList) {
@@ -222,7 +222,7 @@ static inline void
     dbus::utility::escapePathForDbus(escapedPath);
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp, service](const boost::system::error_code ec,
+        [asyncResp, service](const boost::system::error_code& ec,
                              std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -239,7 +239,7 @@ static inline void
             for (const std::string& portPath : *data)
             {
                 auto getPCIeLtssmCallback = [asyncResp{asyncResp}](
-                                                const boost::system::error_code
+                                                const boost::system::error_code&
                                                     ec,
                                                 const std::vector<std::pair<
                                                     std::string,
@@ -300,7 +300,7 @@ static inline void
 {
     auto getPCIeDeviceCallback =
         [asyncResp,
-         device](const boost::system::error_code ec,
+         device](const boost::system::error_code& ec,
                  const std::vector<
                      std::pair<std::string, std::variant<std::string, size_t>>>&
                      propertiesList) {
@@ -429,7 +429,7 @@ static inline void getPCIeDeviceFunctionsList(
 {
     auto getPCIeDeviceCallback =
         [asyncResp{asyncResp}, device, chassisId](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             boost::container::flat_map<std::string, std::variant<std::string>>&
                 pcieDevProperties) {
             if (ec)
@@ -507,11 +507,12 @@ static inline void getPCIeDeviceFunction(
     const std::string& deviceIntf = pcieDeviceInterfaceNV)
 {
     auto getPCIeDeviceCallback = [asyncResp{asyncResp}, device, function,
-                                  chassisId](const boost::system::error_code ec,
-                                             boost::container::flat_map<
-                                                 std::string,
-                                                 std::variant<std::string>>&
-                                                 pcieDevProperties) {
+                                  chassisId](
+                                     const boost::system::error_code& ec,
+                                     boost::container::flat_map<
+                                         std::string,
+                                         std::variant<std::string>>&
+                                         pcieDevProperties) {
         if (ec)
         {
             BMCWEB_LOG_DEBUG("failed to get PCIe Device properties ec: {} : {}",
@@ -674,7 +675,7 @@ inline void getPCIeDeviceList(
     const std::string& chassisId = std::string())
 {
     auto getPCIeMapCallback = [asyncResp{asyncResp}, name, chassisId](
-                                  const boost::system::error_code ec,
+                                  const boost::system::error_code& ec,
                                   std::vector<std::string>& pcieDevicePaths) {
         if (ec)
         {
@@ -729,7 +730,7 @@ inline void
                          const std::string& service)
 {
     auto getAerErrorStatusOemCallback = [asyncResp{asyncResp}](
-                                            const boost::system::error_code ec,
+                                            const boost::system::error_code& ec,
                                             const std::vector<std::pair<
                                                 std::string,
                                                 std::variant<
@@ -831,7 +832,7 @@ inline void postClearAerErrorStatus(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisId,
-         device](const boost::system::error_code ec,
+         device](const boost::system::error_code& ec,
                  const std::vector<std::string>& chassisPaths) {
             if (ec)
             {
@@ -859,7 +860,7 @@ inline void postClearAerErrorStatus(
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, device, chassisPCIePath, chassisId,
                      chassisPCIeDevicePath,
-                     chassisPath](const boost::system::error_code ec,
+                     chassisPath](const boost::system::error_code& ec,
                                   const GetSubTreeType& subtree) {
                         if (ec)
                         {
@@ -921,7 +922,7 @@ inline void getFabricSwitchLink(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                 const std::string& objPath)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp, objPath](const boost::system::error_code ec,
+        [aResp, objPath](const boost::system::error_code& ec,
                          std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -946,7 +947,7 @@ inline void getFabricSwitchLink(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 
             crow::connections::systemBus->async_method_call(
                 [aResp,
-                 fabricId](const boost::system::error_code ec,
+                 fabricId](const boost::system::error_code& ec,
                            std::variant<std::vector<std::string>>& resp1) {
                     if (ec)
                     {
@@ -1006,7 +1007,7 @@ inline void requestRoutesChassisPCIeFunctionCollection(App& app)
             }
             crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisId,
-                 device](const boost::system::error_code ec,
+                 device](const boost::system::error_code& ec,
                          const std::vector<std::string>& chassisPaths) {
                     if (ec)
                     {
@@ -1050,7 +1051,7 @@ inline void requestRoutesChassisPCIeFunctionCollection(App& app)
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, device, chassisPCIePath, interface,
                              chassisId, chassisPCIeDevicePath](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code& ec,
                                 const GetSubTreeType& subtree) {
                                 if (ec)
                                 {
@@ -1127,7 +1128,7 @@ inline void requestRoutesChassisPCIeFunction(App& app)
             }
             crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisId, device,
-                 function](const boost::system::error_code ec,
+                 function](const boost::system::error_code& ec,
                            const std::vector<std::string>& chassisPaths) {
                     if (ec)
                     {
@@ -1157,7 +1158,7 @@ inline void requestRoutesChassisPCIeFunction(App& app)
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, device, function, chassisPCIePath,
                              interface, chassisId, chassisPCIeDevicePath](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code& ec,
                                 const GetSubTreeType& subtree) {
                                 if (ec)
                                 {

@@ -178,7 +178,7 @@ inline void requestRoutesChassisLogServiceCollection(App& app)
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisId(std::string(chassisId))](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const crow::openbmc_mapper::GetSubTreeType& subtree) {
                         if (ec)
                         {
@@ -233,7 +233,7 @@ inline void requestRoutesChassisLogServiceCollection(App& app)
                                     "PrettyName",
                                     [asyncResp,
                                      chassisId(std::string(chassisId))](
-                                        const boost::system::error_code ec,
+                                        const boost::system::error_code& ec,
                                         const std::string& chassisName) {
                                         if (!ec)
                                         {
@@ -446,7 +446,7 @@ inline void extendSystemLogServicesGet(
     // Call Phosphor-logging GetStats method to get
     // LatestEntryTimestamp and LatestEntryID
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const std::tuple<uint32_t, uint64_t>& reqData) {
             if (ec)
             {
@@ -479,7 +479,7 @@ inline void extendSystemLogServicesGet(
         }
 
         crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code ec,
+            [asyncResp](const boost::system::error_code& ec,
                         std::variant<bool>& resp) {
                 if (ec)
                 {
@@ -514,7 +514,7 @@ inline void
                 "xyz.openbmc_project.Dump.Manager",
                 "/xyz/openbmc_project/dump/retimer",
                 "xyz.openbmc_project.Dump.DebugMode", "DebugMode",
-                [asyncResp](const boost::system::error_code ec,
+                [asyncResp](const boost::system::error_code& ec,
                             const bool DebugModeEnabled) {
                     if (ec)
                     {
@@ -715,7 +715,7 @@ inline void requestRoutesEventLogServicePatch(App& app)
                     if (autoClearResolvedLogEnabled)
                     {
                         crow::connections::systemBus->async_method_call(
-                            [asyncResp](const boost::system::error_code ec) {
+                            [asyncResp](const boost::system::error_code& ec) {
                                 if (ec)
                                 {
                                     BMCWEB_LOG_DEBUG("DBUS response error {}",

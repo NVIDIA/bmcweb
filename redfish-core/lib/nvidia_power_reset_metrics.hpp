@@ -86,7 +86,7 @@ inline void getResetMetricsInterfaceProperties(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath](
-            const boost::system::error_code errorCode,
+            const boost::system::error_code& errorCode,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) {
             if (errorCode)
@@ -124,7 +124,7 @@ inline void getResetMetricsInterfaceProperties(
                 *crow::connections::systemBus, targetService, objPath,
                 "com.nvidia.ResetCounters.ResetCounterMetrics",
                 [asyncResp,
-                 objPath](const boost::system::error_code ec,
+                 objPath](const boost::system::error_code& ec,
                           const dbus::utility::DBusPropertiesMap& properties) {
                     if (ec)
                     {
@@ -206,7 +206,7 @@ inline void getProcessorResetMetricsData(
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
         [processorId, aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&

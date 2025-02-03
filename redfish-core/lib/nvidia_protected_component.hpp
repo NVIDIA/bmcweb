@@ -134,7 +134,7 @@ inline void updateSlotProperties(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, dbus::utility::DbusVariantType>& properties) {
             if (ec)
@@ -722,7 +722,7 @@ inline void updateSigningKeyProperties(
             const std::string& service = valueIface.first;
             crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisId,
-                 componentId](const boost::system::error_code ec,
+                 componentId](const boost::system::error_code& ec,
                               const boost::container::flat_map<
                                   std::string, dbus::utility::DbusVariantType>&
                                   properties) {
@@ -921,7 +921,7 @@ inline void updatePendingProperties(
             const auto& valueIface = *mapperResponse.begin();
             const std::string& service = valueIface.first;
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code ec,
+                [asyncResp](const boost::system::error_code& ec,
                             const boost::container::flat_map<
                                 std::string, dbus::utility::DbusVariantType>&
                                 properties) {
