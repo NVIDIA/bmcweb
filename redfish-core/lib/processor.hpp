@@ -3942,18 +3942,29 @@ inline void requestRoutesProcessor(App& app)
                     const std::string& objectPath,
                     [[maybe_unused]] const MapperServiceMap& serviceMap,
                     [[maybe_unused]] const std::string& deviceType) {
-                if (settingMax)
+                if (settingMin && settingMax)
                 {
+                    std::tuple<uint32_t, uint32_t> value(*settingMin,
+                                                         *settingMax);
                     redfish::nvidia_processor_utils::
                         patchOperatingSpeedRangeMHz(asyncResp, processorId,
-                                                    *settingMax, "SettingMax",
+                                                    value, "SettingRange",
+                                                    objectPath);
+                }
+                else if (settingMax)
+                {
+                    uint32_t value = *settingMax;
+                    redfish::nvidia_processor_utils::
+                        patchOperatingSpeedRangeMHz(asyncResp, processorId,
+                                                    value, "SettingMax",
                                                     objectPath);
                 }
                 else if (settingMin)
                 {
+                    uint32_t value = *settingMin;
                     redfish::nvidia_processor_utils::
                         patchOperatingSpeedRangeMHz(asyncResp, processorId,
-                                                    *settingMin, "SettingMin",
+                                                    value, "SettingMin",
                                                     objectPath);
                 }
             });

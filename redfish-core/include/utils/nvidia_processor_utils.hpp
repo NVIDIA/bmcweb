@@ -1893,10 +1893,10 @@ inline void
             "xyz.openbmc_project.Inventory.Item.Accelerator"});
 }
 
-inline void
-    setOperatingSpeedRange(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const uint32_t& value, const std::string& patchProp,
-                           const std::string& path)
+inline void setOperatingSpeedRange(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::variant<uint32_t, std::tuple<uint32_t, uint32_t>>& value,
+    const std::string& patchProp, const std::string& path)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, path, value, patchProp](
@@ -1921,23 +1921,56 @@ inline void
                 continue;
             }
 
-            if (patchProp == "SettingMin")
-
+            if (patchProp == "SettingRange")
             {
+                const std::tuple<uint32_t, uint32_t>* requestedLimit =
+                    std::get_if<std::tuple<uint32_t, uint32_t>>(&value);
+                std::vector<std::tuple<std::string, uint32_t>> clockLimits;
+                clockLimits.push_back(std::make_tuple(
+                    "SettingMin", std::get<0>(*requestedLimit)));
+                clockLimits.push_back(std::make_tuple(
+                    "SettingMax", std::get<1>(*requestedLimit)));
                 nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
                     asyncResp, std::chrono::seconds(60), service, path,
                     "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig",
-                    "RequestedSpeedLimitMin", std::variant<uint32_t>(value),
+                    "RequestedSpeedLimits",
+                    std::variant<
+                        std::vector<std::tuple<std::string, uint32_t>>>(
+                        clockLimits),
+                    nvidia_async_operation_utils::
+                        PatchClockLimitControlCallback{asyncResp});
+            }
+            else if (patchProp == "SettingMin")
+
+            {
+                const uint32_t* settingMin = std::get_if<uint32_t>(&value);
+                std::vector<std::tuple<std::string, uint32_t>> clockLimits;
+                clockLimits.push_back(
+                    std::make_tuple("SettingMin", *settingMin));
+                nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+                    asyncResp, std::chrono::seconds(60), service, path,
+                    "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig",
+                    "RequestedSpeedLimits",
+                    std::variant<
+                        std::vector<std::tuple<std::string, uint32_t>>>(
+                        clockLimits),
                     nvidia_async_operation_utils::
                         PatchClockLimitControlCallback{asyncResp});
             }
             else if (patchProp == "SettingMax")
 
             {
+                const uint32_t* settingMax = std::get_if<uint32_t>(&value);
+                std::vector<std::tuple<std::string, uint32_t>> clockLimits;
+                clockLimits.push_back(
+                    std::make_tuple("SettingMax", *settingMax));
                 nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
                     asyncResp, std::chrono::seconds(60), service, path,
                     "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig",
-                    "RequestedSpeedLimitMax", std::variant<uint32_t>(value),
+                    "RequestedSpeedLimits",
+                    std::variant<
+                        std::vector<std::tuple<std::string, uint32_t>>>(
+                        clockLimits),
                     nvidia_async_operation_utils::
                         PatchClockLimitControlCallback{asyncResp});
             }
@@ -1972,7 +2005,8 @@ inline void
 
 inline void patchOperatingSpeedRangeMHz(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& processorId, const uint32_t& value,
+    const std::string& processorId,
+    const std::variant<uint32_t, std::tuple<uint32_t, uint32_t>>& value,
     const std::string& patchProp, const std::string processorObjPath)
 {
     crow::connections::systemBus->async_method_call(
@@ -2058,9 +2092,10 @@ inline void getOperatingSpeedRangeData(
                     crow::connections::systemBus->async_method_call(
                         [asyncResp, path, interface](
                             const boost::system::error_code errorno,
-                            const std::vector<
-                                std::pair<std::string,
-                                          std::variant<uint32_t, std::string>>>&
+                            const std::vector<std::pair<
+                                std::string,
+                                std::variant<uint32_t, std::string,
+                                             std::tuple<uint32_t, uint32_t>>>>&
                                 propertiesList) {
                         if (errorno)
                         {
@@ -2072,7 +2107,8 @@ inline void getOperatingSpeedRangeData(
                         }
                         for (const std::pair<
                                  std::string,
-                                 std::variant<uint32_t, std::string>>&
+                                 std::variant<uint32_t, std::string,
+                                              std::tuple<uint32_t, uint32_t>>>&
                                  property : propertiesList)
                         {
                             std::string propertyName = property.first;
@@ -2110,38 +2146,26 @@ inline void getOperatingSpeedRangeData(
                                               [propertyName] = *value;
                                 continue;
                             }
-                            else if (propertyName == "RequestedSpeedLimitMax")
+                            else if (propertyName == "RequestedSpeedLimits")
                             {
-                                propertyName = "SettingMax";
-                                const uint32_t* value =
-                                    std::get_if<uint32_t>(&property.second);
+                                const std::tuple<uint32_t, uint32_t>* value =
+                                    std::get_if<std::tuple<uint32_t, uint32_t>>(
+                                        &property.second);
                                 if (value == nullptr)
                                 {
                                     BMCWEB_LOG_ERROR(
-                                        "Internal errror for SettingMax");
+                                        "Internal errror for RequestedSpeedLimits");
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
                                 asyncResp->res
                                     .jsonValue["OperatingSpeedRangeMHz"]
-                                              [propertyName] = *value;
-                                continue;
-                            }
-                            else if (propertyName == "RequestedSpeedLimitMin")
-                            {
-                                propertyName = "SettingMin";
-                                const uint32_t* value =
-                                    std::get_if<uint32_t>(&property.second);
-                                if (value == nullptr)
-                                {
-                                    BMCWEB_LOG_ERROR(
-                                        "Internal errror for SettingMin");
-                                    messages::internalError(asyncResp->res);
-                                    return;
-                                }
+                                              ["SettingMin"] =
+                                    std::get<0>(*value);
                                 asyncResp->res
                                     .jsonValue["OperatingSpeedRangeMHz"]
-                                              [propertyName] = *value;
+                                              ["SettingMax"] =
+                                    std::get<1>(*value);
                                 continue;
                             }
                         }
