@@ -298,17 +298,9 @@ inline void getVmResourceList(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 continue;
             }
 
-            for (const auto& interface : object.second)
-            {
-                if (interface.first ==
-                    "xyz.openbmc_project.VirtualMedia.Legacy")
-                {
-                    item["@odata.id"] = boost::urls::format(
-                        "/redfish/v1/Managers/{}/VirtualMedia/{}", name, path);
-                    members.emplace_back(std::move(item));
-                    break;
-                }
-            }
+            item["@odata.id"] = boost::urls::format(
+                "/redfish/v1/Managers/{}/VirtualMedia/{}", name, path);
+            members.emplace_back(std::move(item));
         }
         asyncResp->res.jsonValue["Members@odata.count"] = members.size();
     });
