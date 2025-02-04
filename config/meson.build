@@ -7,7 +7,6 @@ if get_option('firmware-image-limit') > get_option('http-body-limit')
 endif
 
 feature_options = [
-    'array-bootprogress',
     'basic-auth',
     'bios',
     'bmcweb-chunking',

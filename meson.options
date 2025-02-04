@@ -307,13 +307,6 @@ option(
     description: 'Enable cookie authentication',
 )
 
-# BMCWEB_MUTUAL_TLS_AUTH
-option(
-    'array-bootprogress',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable array of bootprogress to take the post events as 9-byte number',
-)
 option(
     'bmcweb-logging-log-level',
     type: 'integer',
