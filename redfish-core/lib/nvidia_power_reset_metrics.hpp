@@ -163,7 +163,8 @@ inline void getResetMetricsInterfaceProperties(
 
                     if (const double* count = std::get_if<double>(&value))
                     {
-                        asyncResp->res.jsonValue[jsonKey->second] = *count;
+                        asyncResp->res.jsonValue[jsonKey->second] =
+                            static_cast<uint64_t>(*count);
                     }
                     else if (const std::string* resetType =
                                  std::get_if<std::string>(&value))
