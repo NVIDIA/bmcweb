@@ -104,9 +104,11 @@ inline void getCpuEid(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                            const std::string path) {
         if (ec || path.empty())
         {
-            BMCWEB_LOG_ERROR("Failed to find CPU object path: {}",
+            BMCWEB_LOG_DEBUG("Failed to find CPU object path: {}",
                              ec.message());
-            messages::internalError(asyncResp->res);
+            messages::resourceNotFound(
+                asyncResp->res, "#NvidiaDebugToken.v1_0_0.NvidiaDebugToken",
+                "CPU");
             return;
         }
         auto objectName = sdbusplus::message::object_path(path).filename();
@@ -190,11 +192,19 @@ inline void handleCpuDebugTokenResourceInfo(
                          uint32_t, const std::string& stdOut,
                          const std::string&,
                          const boost::system::error_code& ec, int errorCode) {
+            auto& resJson = asyncResp->res.jsonValue;
+            resJson["TokenType"] = "CRCS";
+            std::string resUri{req.url().buffer()};
+            resJson["@odata.type"] =
+                "#NvidiaDebugToken.v1_0_0.NvidiaDebugToken";
+            resJson["@odata.id"] = resUri;
+            resJson["Id"] = "CPUDebugToken";
+            resJson["Name"] = systemName + " Debug Token Resource"s;
+
             if (ec || errorCode)
             {
-                BMCWEB_LOG_ERROR("mctp-vdm-util error: {} {}", ec.message(),
-                                 errorCode);
-                messages::internalError(asyncResp->res);
+                resJson["Status"] = "Failed";
+                resJson["AdditionalInfo"] = "None";
                 return;
             }
             std::size_t rxPos = stdOut.find("RX: ");
@@ -225,7 +235,6 @@ inline void handleCpuDebugTokenResourceInfo(
                 messages::debugTokenUnsupported(asyncResp->res, systemName);
                 return;
             }
-            auto& resJson = asyncResp->res.jsonValue;
             if (status.tokenStatus == VdmTokenInstallationStatus::INSTALLED)
             {
                 resJson["Status"] = "DebugSessionActive";
@@ -234,13 +243,6 @@ inline void handleCpuDebugTokenResourceInfo(
             {
                 resJson["Status"] = "NoTokenApplied";
             }
-            resJson["TokenType"] = "CRCS";
-            std::string resUri{req.url().buffer()};
-            resJson["@odata.type"] =
-                "#NvidiaDebugToken.v1_0_0.NvidiaDebugToken";
-            resJson["@odata.id"] = resUri;
-            resJson["Id"] = "CPUDebugToken";
-            resJson["Name"] = systemName + " Debug Token Resource"s;
 
             auto& actions = resJson["Actions"];
             auto& generateAction = actions["#NvidiaDebugToken.GenerateToken"];
