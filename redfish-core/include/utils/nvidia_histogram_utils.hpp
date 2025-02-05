@@ -162,7 +162,11 @@ inline void
                     messages::internalError(asyncResp->res);
                     return;
                 }
-                asyncResp->res.jsonValue["BucketUnits"] = getBucketUnit(*value);
+                auto bucketUnits = getBucketUnit(*value);
+                if (!bucketUnits.empty())
+                {
+                    asyncResp->res.jsonValue["BucketUnits"] = bucketUnits;
+                }
             }
             if (propertyName == "BucketDataType")
             {
