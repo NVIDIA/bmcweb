@@ -2923,13 +2923,13 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                         {
                             std::string args =
                                 additional["REDFISH_MESSAGE_ARGS"];
-                            boost::split(messageArgsDbus, args,
-                                         boost::is_any_of(","));
+                            bmcweb::split(messageArgsDbus, args, ',');
                             for (auto& msgArg : messageArgsDbus)
                             {
                                 boost::trim(msgArg);
                             }
-                            if (!messageArgsDbus[0].empty())
+                            if (!messageArgsDbus.empty() &&
+                                !messageArgsDbus[0].empty())
                             {
                                 if (dBusToRedfishProperty.find(
                                         messageArgsDbus[0]) !=
