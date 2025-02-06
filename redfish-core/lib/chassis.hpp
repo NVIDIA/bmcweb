@@ -708,8 +708,15 @@ inline void handleChassisGetSubTree(
                 if (std::ranges::find(interfaces2, interface) !=
                     interfaces2.end())
                 {
-                    getIndicatorLedState(asyncResp);
-                    getSystemLocationIndicatorActive(asyncResp);
+                    redfish::nvidia_chassis_utils::checkIndicatorChassis(
+                        connectionName, path,
+                        [asyncResp](bool indicatorChassis) {
+                        if (indicatorChassis == true)
+                        {
+                            getIndicatorLedState(asyncResp);
+                            getSystemLocationIndicatorActive(asyncResp);
+                        }
+                    });
                     break;
                 }
             }
