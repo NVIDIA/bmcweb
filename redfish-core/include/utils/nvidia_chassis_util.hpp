@@ -1942,5 +1942,41 @@ inline void
     });
 }
 
+template <typename CallbackFunc>
+inline void checkIndicatorChassis(const std::string& connectionName,
+                                  const std::string& path,
+                                  CallbackFunc&& callback)
+{
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus, connectionName, path,
+        "xyz.openbmc_project.Inventory.Item.Chassis", "Type",
+        [callback](const boost::system::error_code& ec,
+                   const std::string& chassisType) {
+        // The default should be true because this object may have other
+        // hasIndicatorLed interfaces to support it.
+        bool indicatorChassis = true;
+
+        if (!ec)
+        {
+            // If the object has Chassis interface, need to ensure the
+            // ChassisType should be 'Blade', 'Enclosure', 'Shelf', or
+            // 'StorageEnclosure' to support the enclosure LED.
+            std::array<std::string, 4> supportedType = {
+                "Blade", "Enclosure", "Shelf", "StorageEnclosure"};
+            std::string strChassisType =
+                redfish::chassis_utils::getChassisType(chassisType);
+            auto it = std::find(supportedType.begin(), supportedType.end(),
+                                strChassisType);
+            if (it == supportedType.end())
+            {
+                // unsupported ChassisType
+                indicatorChassis = false;
+            }
+        }
+
+        callback(indicatorChassis);
+    });
+}
+
 } // namespace nvidia_chassis_utils
 } // namespace redfish
