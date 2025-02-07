@@ -781,7 +781,7 @@ inline void handleMctpInBandActions(
                             }
                         }
 
-                        if (foundEID and not *chassisProcessed)
+                        if (foundEID and not*chassisProcessed)
                         {
                             *chassisProcessed = true;
                             switch (option)
