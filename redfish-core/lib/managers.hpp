@@ -3400,7 +3400,7 @@ inline void requestRoutesManager(App& app)
 
         asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
             "/redfish/v1/Managers/{}", BMCWEB_REDFISH_MANAGER_URI_NAME);
-        asyncResp->res.jsonValue["@odata.type"] = "#Manager.v1_14_0.Manager";
+        asyncResp->res.jsonValue["@odata.type"] = "#Manager.v1_15_0.Manager";
         asyncResp->res.jsonValue["Id"] = BMCWEB_REDFISH_MANAGER_URI_NAME;
         asyncResp->res.jsonValue["Name"] = "OpenBmc Manager";
         asyncResp->res.jsonValue["Description"] =
