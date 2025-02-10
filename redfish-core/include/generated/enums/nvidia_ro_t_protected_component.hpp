@@ -27,6 +27,7 @@ enum class BackgroundCopyStatus{
     Pending,
     InProgress,
     Completed,
+    Failed,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(RoTProtectedComponentType, {
@@ -51,6 +52,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(BackgroundCopyStatus, {
     {BackgroundCopyStatus::Pending, "Pending"},
     {BackgroundCopyStatus::InProgress, "InProgress"},
     {BackgroundCopyStatus::Completed, "Completed"},
+    {BackgroundCopyStatus::Failed, "Failed"},
 });
 
 }

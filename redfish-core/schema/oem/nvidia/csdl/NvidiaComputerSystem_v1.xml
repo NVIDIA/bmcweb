@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.1.0                                     -->
+<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.2.0                                     -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2024 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -23,9 +23,41 @@
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaDebugToken_v1.xml">
     <edmx:Include Namespace="NvidiaDebugToken"/>
   </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/ComputerSystem_v1.xml">
+    <edmx:Include Namespace="ComputerSystem.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaSystemConfigProfile_v1.xml">
+    <edmx:Include Namespace="NvidiaSystemConfigProfile"/>
+  </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Action Name="VariableSpiErase" IsBound="true">
+        <Annotation Term="OData.Description" String="This action initiates an erase operation on the active CPU variable SPI device."/>
+        <Annotation Term="OData.LongDescription" String="This action initiates an erase operation on the active CPU variable SPI device."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_2_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="VariableSpiRead" IsBound="true">
+        <Annotation Term="OData.Description" String="This action returns the raw data contents of the active CPU variable SPI device."/>
+        <Annotation Term="OData.LongDescription" String="This action returns the raw data contents of the active CPU variable SPI device."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_2_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -104,6 +136,16 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="A link to the resource which implements the debug token."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate a link to the resource which implement the debug token applicable for the computer system resource. The token can be used to put CPUs belonging to the computer system in debug mode."/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaComputerSystem" BaseType="NvidiaComputerSystem.v1_1_0.NvidiaComputerSystem">
+        <NavigationProperty Name="SystemConfigProfile" Type="NvidiaSystemConfigProfile.NvidiaSystemConfigProfile">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="A link to the resource which implements the system profile."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate a link to the resource which implement the system profile that can set configuration across  the bluefield system"/>
         </NavigationProperty>
       </ComplexType>
     </Schema>

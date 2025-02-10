@@ -214,7 +214,22 @@
         <Member Name="Completed">
           <Annotation Term="OData.Description" String="Background copy is completed.  This value shall represent that the background copy operation is completed successfully."/>
         </Member>
+        <Member Name="Failed">
+          <Annotation Term="OData.Description" String="Background copy has failed.  This value shall represent that the background copy operation has failed."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
       </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaRoTProtectedComponent.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaRoTProtectedComponent" BaseType="NvidiaRoTProtectedComponent.v1_0_0.NvidiaRoTProtectedComponent"/>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
