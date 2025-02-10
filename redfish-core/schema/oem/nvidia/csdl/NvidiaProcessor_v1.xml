@@ -480,6 +480,11 @@
           <Annotation Term="OData.Description" String="The DOE settings for privilege level 2 of the power smoothing feature."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for privilege level 2 of the power smoothing feature."/>
         </Property>
+        <Property Name="EGMMode" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for EGM mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for Extended GPU Memory(EGM) mode."/>
+        </Property>
       </ComplexType>
       <ComplexType Name="DOEReconfigSettings">
         <Property Name="AllowOneShotConfig" Type="Edm.Boolean">

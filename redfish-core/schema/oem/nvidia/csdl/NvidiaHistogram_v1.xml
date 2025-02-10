@@ -62,7 +62,7 @@
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaHistogram.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <EntityType Name="NvidiaHistogram" BaseType="NvidiaHistogram.NvidiaHistogram">
-        <Property Name="BucketUnits" Type="NvidiaHistogram.v1_0_0.BucketUnits" Nullable="false">
+        <Property Name="BucketUnits" Type="NvidiaHistogram.v1_0_0.BucketUnits">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Bucket units of measure."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain bucket units of measure."/>
@@ -123,7 +123,7 @@
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaHistogram.v1_1_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <EntityType Name="NvidiaHistogram" BaseType="NvidiaHistogram.v1_0_0.NvidiaHistogram">
-        <Property Name="BucketFormat" Type="NvidiaHistogram.v1_1_0.BucketFormat" Nullable="false">
+        <Property Name="BucketFormat" Type="NvidiaHistogram.v1_1_0.BucketFormat">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="Bucket data format."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the bucket data format."/>
