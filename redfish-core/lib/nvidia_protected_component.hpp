@@ -1515,10 +1515,10 @@ inline void handleIrreversibleConfigResponse(
     }
 }
 
-inline void
-    setIrreversibleConfig(const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& chassisId, bool state)
+inline void setIrreversibleConfig(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, bool state)
 {
     static constexpr std::array<std::string_view, 1> cfgIntf = {
         securityConfigInterface};

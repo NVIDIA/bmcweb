@@ -507,10 +507,10 @@ inline void getAssetData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             {"xyz.openbmc_project.Inventory.Decorator.Asset"}));
 }
 
-inline void
-    getPCIeInterfaceData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& deviceId, const std::string& path,
-                         std::shared_ptr<nlohmann::json> controllerObject)
+inline void getPCIeInterfaceData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& deviceId, const std::string& path,
+    std::shared_ptr<nlohmann::json> controllerObject)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, deviceId, path, controllerObject](
@@ -1455,9 +1455,9 @@ inline void handlePortGenericGet(
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-inline void
-    getPortMetricsData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& service, const std::string& objPath)
+inline void getPortMetricsData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Port Metric Data");
     using PropertiesMap =

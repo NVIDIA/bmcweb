@@ -31,9 +31,9 @@ namespace redfish
 using MapperServiceMap =
     std::vector<std::pair<std::string, std::vector<std::string>>>;
 
-inline void
-    getfanSpeedsPercent(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& chassisID)
+inline void getfanSpeedsPercent(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID)
 {
     BMCWEB_LOG_DEBUG("Get properties for getFan associated to chassis = {}",
                      chassisID);

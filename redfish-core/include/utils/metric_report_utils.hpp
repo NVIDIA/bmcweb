@@ -372,10 +372,10 @@ inline std::string getPropertySuffix(const std::string& ifaceName,
     return suffix;
 }
 
-static std::string
-    generateURI(const std::string& deviceType, const std::string& deviceName,
-                const std::string& subDeviceName, const std::string& devicePath,
-                const std::string& metricName, const std::string& ifaceName)
+static std::string generateURI(
+    const std::string& deviceType, const std::string& deviceName,
+    const std::string& subDeviceName, const std::string& devicePath,
+    const std::string& metricName, const std::string& ifaceName)
 {
     std::string metricURI;
     std::string propSuffix;

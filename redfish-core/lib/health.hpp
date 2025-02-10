@@ -289,10 +289,10 @@ static const Type critical{
     "Critical",
     "xyz.openbmc_project.State.Decorator.Health.HealthType.Critical", 0u};
 
-static const std::map<std::string, const Type*>
-    dbusNameMapHealthState({{ok.dbusHealthName, &ok},
-                            {warning.dbusHealthName, &warning},
-                            {critical.dbusHealthName, &critical}});
+static const std::map<std::string, const Type*> dbusNameMapHealthState(
+    {{ok.dbusHealthName, &ok},
+     {warning.dbusHealthName, &warning},
+     {critical.dbusHealthName, &critical}});
 
 } // namespace health_state
 
@@ -1359,9 +1359,10 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
         BMCWEB_LOG_ERROR("errno = {}, \"{}\"", ec, ec.message());
     }
 
-    static void
-        printProperty(const std::string& service, const std::string& object,
-                      const std::string& interface, const std::string& property)
+    static void printProperty(const std::string& service,
+                              const std::string& object,
+                              const std::string& interface,
+                              const std::string& property)
     {
         BMCWEB_LOG_ERROR("'{}' (service: '{}', object: '{}', interface: '{}')",
                          property, service, object, interface);

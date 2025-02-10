@@ -6,9 +6,10 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "logging.hpp"
+#include "nvidia_async_call_utils.hpp"
 
 #include <sdbusplus/message/native_types.hpp>
-#include "nvidia_async_call_utils.hpp"
+
 #include <array>
 #include <memory>
 #include <optional>
@@ -914,9 +915,9 @@ inline void handleMctpInBandActions(
  * @param asyncResp   Pointer to object holding response data
  * @param chassisObjPath   Path of the chassis endpoint
  */
-inline void
-    getOemBootStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string chassisObjPath)
+inline void getOemBootStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string chassisObjPath)
 {
     static constexpr std::array<std::string_view, 1> interfaces = {
         bootStatusIntf};
@@ -1303,8 +1304,8 @@ inline void isEROTChassis(const std::string& chassisID, CallbackFunc&& callback)
 }
 
 template <typename CallbackFunc>
-inline void
-    getAssociationEndpoint(const std::string& objPath, CallbackFunc&& callback)
+inline void getAssociationEndpoint(const std::string& objPath,
+                                   CallbackFunc&& callback)
 {
     crow::connections::systemBus->async_method_call(
         [callback, objPath](const boost::system::error_code ec,

@@ -27,8 +27,8 @@ extern "C"
 namespace ensuressl
 {
 
-std::string
-    ensureOpensslKeyPresentEncryptedAndValid(const std::string& filepath);
+std::string ensureOpensslKeyPresentEncryptedAndValid(
+    const std::string& filepath);
 
 void encryptCredentials(const std::string& filename);
 

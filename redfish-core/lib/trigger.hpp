@@ -294,11 +294,11 @@ inline bool parseThreshold(crow::Response& res,
     std::string activation;
     std::string dwellTimeStr;
 
-    if (!json_util::readJsonObject( //
-            threshold, res, //
-            "Activation", activation, //
+    if (!json_util::readJsonObject(    //
+            threshold, res,            //
+            "Activation", activation,  //
             "DwellTime", dwellTimeStr, //
-            "Reading", reading //
+            "Reading", reading         //
             ))
     {
         return false;
@@ -408,12 +408,12 @@ inline bool parseDiscreteTriggers(
         std::string dwellTimeStr;
         std::string severity;
 
-        if (!json_util::readJsonObject( //
-                thresholdInfo, res, //
+        if (!json_util::readJsonObject(    //
+                thresholdInfo, res,        //
                 "DwellTime", dwellTimeStr, //
-                "Name", name, //
-                "Severity", severity, //
-                "Value", value //
+                "Name", name,              //
+                "Severity", severity,      //
+                "Value", value             //
                 ))
         {
             return false;
@@ -617,20 +617,20 @@ inline bool parsePostTriggerParams(crow::Response& res,
     std::optional<std::vector<std::string>> metricReportDefinitions;
     NumericThresholds thresholds;
 
-    if (!json_util::readJsonPatch( //
-            req, res, //
-            "Id", id, //
-            "DiscreteTriggerCondition", discreteTriggerCondition, //
-            "DiscreteTriggers", discreteTriggers, //
-            "Links/MetricReportDefinitions", metricReportDefinitions, //
-            "MetricProperties", ctx.metricProperties, //
-            "MetricType", metricType, //
-            "Name", name, //
+    if (!json_util::readJsonPatch(                                       //
+            req, res,                                                    //
+            "Id", id,                                                    //
+            "DiscreteTriggerCondition", discreteTriggerCondition,        //
+            "DiscreteTriggers", discreteTriggers,                        //
+            "Links/MetricReportDefinitions", metricReportDefinitions,    //
+            "MetricProperties", ctx.metricProperties,                    //
+            "MetricType", metricType,                                    //
+            "Name", name,                                                //
             "NumericThresholds/LowerCritical", thresholds.lowerCritical, //
-            "NumericThresholds/LowerWarning", thresholds.lowerWarning, //
+            "NumericThresholds/LowerWarning", thresholds.lowerWarning,   //
             "NumericThresholds/UpperCritical", thresholds.upperCritical, //
-            "NumericThresholds/UpperWarning", thresholds.upperWarning, //
-            "TriggerActions", triggerActions //
+            "NumericThresholds/UpperWarning", thresholds.upperWarning,   //
+            "TriggerActions", triggerActions                             //
             ))
     {
         return false;
@@ -889,39 +889,39 @@ inline bool fillTrigger(nlohmann::json& json, const std::string& id,
     }
 
     if (discreteThresholds != nullptr)
-        {
-            std::optional<nlohmann::json::array_t> discreteTriggers =
+    {
+        std::optional<nlohmann::json::array_t> discreteTriggers =
             getDiscreteTriggers(*discreteThresholds);
 
-            if (!discreteTriggers)
-            {
-                BMCWEB_LOG_ERROR("Property Thresholds is invalid for discrete "
-                                 "triggers in Trigger: {}",
-                                 id);
-                return false;
-            }
-
-            json["DiscreteTriggers"] = *discreteTriggers;
-            json["DiscreteTriggerCondition"] =
-                discreteTriggers->empty() ? "Changed" : "Specified";
-            json["MetricType"] = metric_definition::MetricType::Discrete;
-        }
-    if (numericThresholds != nullptr)
+        if (!discreteTriggers)
         {
+            BMCWEB_LOG_ERROR("Property Thresholds is invalid for discrete "
+                             "triggers in Trigger: {}",
+                             id);
+            return false;
+        }
+
+        json["DiscreteTriggers"] = *discreteTriggers;
+        json["DiscreteTriggerCondition"] =
+            discreteTriggers->empty() ? "Changed" : "Specified";
+        json["MetricType"] = metric_definition::MetricType::Discrete;
+    }
+    if (numericThresholds != nullptr)
+    {
         std::optional<nlohmann::json::object_t> jnumericThresholds =
             getNumericThresholds(*numericThresholds);
 
         if (!jnumericThresholds)
-            {
-                BMCWEB_LOG_ERROR("Property Thresholds is invalid for numeric "
-                                 "thresholds in Trigger: {}",
-                                 id);
-                return false;
-            }
+        {
+            BMCWEB_LOG_ERROR("Property Thresholds is invalid for numeric "
+                             "thresholds in Trigger: {}",
+                             id);
+            return false;
+        }
 
         json["NumericThresholds"] = *jnumericThresholds;
-            json["MetricType"] = metric_definition::MetricType::Numeric;
-        }
+        json["MetricType"] = metric_definition::MetricType::Numeric;
+    }
 
     if (name != nullptr)
     {

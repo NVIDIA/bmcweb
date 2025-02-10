@@ -39,8 +39,8 @@ namespace asn1
  *  destination pointer value
  */
 template <typename T>
-inline const T*
-    safePtrArithmeticConst(std::span<const T> safeBuf, size_t offset)
+inline const T* safePtrArithmeticConst(std::span<const T> safeBuf,
+                                       size_t offset)
 {
     const T* ret = static_cast<const T*>(&safeBuf[offset]);
     return ret;

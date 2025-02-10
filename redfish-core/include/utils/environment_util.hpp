@@ -227,9 +227,9 @@ inline void getPowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "xyz.openbmc_project.Control.Power.Mode");
 }
 
-inline void
-    getClearPowerCap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& resourceId, const std::string& objPath)
+inline void getClearPowerCap(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& resourceId, const std::string& objPath)
 {
     const std::array<const char*, 2> clearPowerCapInterfaces = {
         "com.nvidia.Common.ClearPowerCap",
@@ -523,10 +523,10 @@ inline void getPowerWattsEnergyJoules(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-inline void
-    getPowerReadings(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& connectionName,
-                     const std::string& objPath, const std::string& chassisID)
+inline void getPowerReadings(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& connectionName, const std::string& objPath,
+    const std::string& chassisID)
 {
     // Add get sensor name  from power control
     crow::connections::systemBus->async_method_call(
@@ -582,9 +582,9 @@ inline void
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-inline void
-    getDefaultPowerCap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& objPath)
+inline void getDefaultPowerCap(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objPath)
 {
     const std::array<const char*, 1> clearPowerCapInterfaces = {
         "com.nvidia.Common.ClearPowerCap"};
@@ -1015,10 +1015,10 @@ inline void getControlMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 }
 
 template <std::size_t SIZE>
-inline void
-    getPowerAndControlData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& resourceId,
-                           const std::array<const char*, SIZE>& interfaces)
+inline void getPowerAndControlData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& resourceId,
+    const std::array<const char*, SIZE>& interfaces)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp,

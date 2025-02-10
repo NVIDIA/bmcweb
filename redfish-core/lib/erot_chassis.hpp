@@ -1248,10 +1248,10 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
              chassisUUID: ERoT chassis UUID
              isPCIe: Indicates if ERoT is connected via PCIe or SPI
 */
-inline void
-    findEIDforEROTReset(const crow::Request& req,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& chassisUUID, bool isPCIe = true)
+inline void findEIDforEROTReset(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisUUID, bool isPCIe = true)
 {
     std::string serviceName = "xyz.openbmc_project.MCTP.Control.PCIe";
     if (!isPCIe)

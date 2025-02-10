@@ -17,8 +17,8 @@
 #include "http_response.hpp"
 #include "http_utility.hpp"
 #include "human_sort.hpp"
-#include "nvidia_log_services.hpp"
 #include "logging.hpp"
+#include "nvidia_log_services.hpp"
 #include "query.hpp"
 #include "registries.hpp"
 #include "registries/privilege_registry.hpp"
@@ -597,7 +597,7 @@ static std::string getDumpEntriesPath(const std::string& dumpType)
 
 inline void getDumpEntryCollection(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& dumpType)
+    const std::string& dumpType)
 {
     std::string entriesPath = getDumpEntriesPath(dumpType);
     if (entriesPath.empty())
@@ -848,7 +848,7 @@ inline void getDumpEntryCollection(
 
 inline void getDumpEntryById(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& entryID, const std::string& dumpType)
+    const std::string& entryID, const std::string& dumpType)
 {
     std::string entriesPath = getDumpEntriesPath(dumpType);
     if (entriesPath.empty())
@@ -1259,7 +1259,7 @@ inline void downloadEntryCallback(
 
 inline void downloadDumpEntry(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& entryID, const std::string& dumpType)
+    const std::string& entryID, const std::string& dumpType)
 {
     if (dumpType != "BMC")
     {
@@ -1559,9 +1559,9 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
         createDumpParamVec;
 
-    if (!redfish::json_util::readJsonAction( //
-            req, asyncResp->res, //
-            "DiagnosticDataType", diagnosticDataType, //
+    if (!redfish::json_util::readJsonAction(               //
+            req, asyncResp->res,                           //
+            "DiagnosticDataType", diagnosticDataType,      //
             "OEMDiagnosticDataType", oemDiagnosticDataType //
             ))
     {
@@ -2572,8 +2572,8 @@ inline void dBusEventLogEntryGet(
 
 inline void dBusEventLogEntryPatch(
     const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& entryId)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& entryId)
 {
     std::optional<bool> resolved;
 
@@ -2822,7 +2822,7 @@ inline void requestRoutesBMCLogServiceCollection(App& app)
 
 inline void getDumpServiceInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& dumpType)
+    const std::string& dumpType)
 {
     std::string dumpPath;
     log_service::OverWritePolicy overWritePolicy =
@@ -3468,7 +3468,7 @@ void inline requestRoutesCrashdumpClear(App& app)
 
 inline void logCrashdumpEntry(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& logID, nlohmann::json& logEntryJson)
+    const std::string& logID, nlohmann::json& logEntryJson)
 {
     auto getStoredLogCallback =
         [asyncResp, logID,
@@ -3801,9 +3801,9 @@ inline void requestRoutesCrashdumpCollect(App& app)
 
                 std::string diagnosticDataType;
                 std::string oemDiagnosticDataType;
-                if (!redfish::json_util::readJsonAction( //
-                        req, asyncResp->res, //
-                        "DiagnosticDataType", diagnosticDataType, //
+                if (!redfish::json_util::readJsonAction(               //
+                        req, asyncResp->res,                           //
+                        "DiagnosticDataType", diagnosticDataType,      //
                         "OEMDiagnosticDataType", oemDiagnosticDataType //
                         ))
                 {

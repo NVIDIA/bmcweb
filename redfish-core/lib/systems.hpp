@@ -9,8 +9,8 @@
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
-#include "error_messages.hpp"
 #include "debug_policy.hpp"
+#include "error_messages.hpp"
 #include "generated/enums/action_info.hpp"
 #include "generated/enums/computer_system.hpp"
 #include "generated/enums/open_bmc_computer_system.hpp"
@@ -18,8 +18,8 @@
 #include "http_request.hpp"
 #include "hypervisor_system.hpp"
 #include "led.hpp"
-#include "nvidia_cpu_debug_token.hpp"
 #include "logging.hpp"
+#include "nvidia_cpu_debug_token.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
@@ -219,7 +219,7 @@ inline void getProcessorProperties(
  */
 inline void getProcessorSummary(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& service, const std::string& path)
+    const std::string& service, const std::string& path)
 {
     auto getCpuPresenceState = [asyncResp](const boost::system::error_code& ec3,
                                            const bool cpuPresenceCheck) {
@@ -261,7 +261,7 @@ inline void getProcessorSummary(
  */
 inline void processMemoryProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const dbus::utility::DBusPropertiesMap& properties)
+    const dbus::utility::DBusPropertiesMap& properties)
 {
     BMCWEB_LOG_DEBUG("Got {} Dimm properties.", properties.size());
 
@@ -320,7 +320,7 @@ inline void processMemoryProperties(
  */
 inline void getMemorySummary(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& service, const std::string& path)
+    const std::string& service, const std::string& path)
 {
     dbus::utility::getAllProperties(
         service, path, "xyz.openbmc_project.Inventory.Item.Dimm",
@@ -377,8 +377,8 @@ inline void afterGetUUID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
 inline void afterGetInventory(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const boost::system::error_code& ec,
-                      const dbus::utility::DBusPropertiesMap& propertiesList)
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& propertiesList)
 {
     if (ec)
     {
@@ -791,9 +791,9 @@ inline std::string dbusToRfBootMode(const std::string& dbusMode)
  * @return Returns as a string, the boot progress in Redfish terms. If
  *         translation cannot be done, returns "None".
  */
-inline std::string
-    dbusToRfBootProgress(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                         const std::string& dbusBootProgress)
+inline std::string dbusToRfBootProgress(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& dbusBootProgress)
 {
     // Now convert the D-Bus BootProgress to the appropriate Redfish
     // enum
@@ -1035,9 +1035,9 @@ inline void getBootProgressLastStateTime(
  * @return None.
  */
 
-inline void
-    getBootOverrideType(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        bool isSettingsUrl = false)
+inline void getBootOverrideType(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    bool isSettingsUrl = false)
 {
     dbus::utility::getProperty<std::string>(
         "xyz.openbmc_project.Settings",
@@ -1145,7 +1145,7 @@ inline void getBootOverrideSource(
     asyncResp->res
         .jsonValue["Boot"]["BootSourceOverrideTarget@Redfish.AllowableValues"] =
         std::move(allowed);
-            
+
     dbus::utility::getProperty<std::string>(
         "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/control/host0/boot",
@@ -1265,9 +1265,9 @@ inline void getBootOverrideEnable(
  *
  * @return None.
  */
-inline void
-    getBootProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      bool isSettingsUrl = false)
+inline void getBootProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    bool isSettingsUrl = false)
 {
     BMCWEB_LOG_DEBUG("Get boot information.");
 
@@ -1471,9 +1471,9 @@ inline void getAutomaticRebootAttempts(
  *
  * @return None.
  */
-inline void
-    getAutomaticRetryPolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            bool isSettingsUrl = false)
+inline void getAutomaticRetryPolicy(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    bool isSettingsUrl = false)
 {
     BMCWEB_LOG_DEBUG("Get Automatic Retry policy");
 
@@ -1989,7 +1989,7 @@ inline void setBootEnable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  */
 inline void setBootModeOrSource(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::optional<std::string>& bootSource)
+    const std::optional<std::string>& bootSource)
 {
     std::string bootSourceStr;
     std::string bootModeStr;
@@ -2039,8 +2039,8 @@ inline void setBootModeOrSource(
  *
  * @return None.
  */
-inline void
-    populateFromEntityManger(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+inline void populateFromEntityManger(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     crow::connections::systemBus->async_method_call(
         [aResp](const boost::system::error_code ec,
@@ -2120,9 +2120,9 @@ inline void
  *
  * @return None.
  */
-inline void
-    getUefiPropertySettingsHost(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                                bool addSourcesList = false)
+inline void getUefiPropertySettingsHost(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    bool addSourcesList = false)
 {
     if (addSourcesList)
     {
@@ -2323,9 +2323,9 @@ void setEntityMangerProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 
 inline void setBootProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::optional<std::string>& bootSource,
-                      const std::optional<std::string>& bootType,
-                      const std::optional<std::string>& bootEnable)
+    const std::optional<std::string>& bootSource,
+    const std::optional<std::string>& bootType,
+    const std::optional<std::string>& bootEnable)
 {
     BMCWEB_LOG_DEBUG("Set boot information.");
 
@@ -2430,7 +2430,7 @@ inline std::optional<bool> validstopBootOnFault(
  */
 inline void setStopBootOnFault(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& stopBootOnFault)
+    const std::string& stopBootOnFault)
 {
     BMCWEB_LOG_DEBUG("Set Stop Boot On Fault.");
 
@@ -2462,7 +2462,7 @@ inline void setStopBootOnFault(
  */
 inline void setAutomaticRetry(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& automaticRetryConfig)
+    const std::string& automaticRetryConfig)
 {
     BMCWEB_LOG_DEBUG("Set Automatic Retry.");
 
@@ -2521,7 +2521,7 @@ inline std::string dbusPowerRestorePolicyFromRedfish(std::string_view policy)
  */
 inline void setPowerRestorePolicy(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          std::string_view policy)
+    std::string_view policy)
 {
     BMCWEB_LOG_DEBUG("Set power restore policy.");
 
@@ -2669,8 +2669,8 @@ inline computer_system::PowerMode translatePowerModeString(
 
 inline void afterGetPowerMode(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const boost::system::error_code& ec,
-                      const dbus::utility::DBusPropertiesMap& properties)
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
 {
     if (ec)
     {
@@ -2804,7 +2804,7 @@ inline void getPowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
  */
 inline std::string validatePowerMode(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const nlohmann::json& modeValue)
+    const nlohmann::json& modeValue)
 {
     using PowerMode = computer_system::PowerMode;
     std::string mode;
@@ -3056,8 +3056,8 @@ inline void getHostWatchdogTimer(
  */
 inline void setWDTProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::optional<bool> wdtEnable,
-                     const std::optional<std::string>& wdtTimeOutAction)
+    const std::optional<bool> wdtEnable,
+    const std::optional<std::string>& wdtTimeOutAction)
 {
     BMCWEB_LOG_DEBUG("Set host watchdog");
 
@@ -3103,7 +3103,7 @@ inline void setWDTProperties(
  */
 inline bool parseIpsProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const dbus::utility::DBusPropertiesMap& properties)
+    const dbus::utility::DBusPropertiesMap& properties)
 {
     const bool* enabled = nullptr;
     const uint8_t* enterUtilizationPercent = nullptr;
@@ -3784,8 +3784,8 @@ inline void afterPortRequest(
 
 inline void handleComputerSystemGet(
     crow::App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& systemName)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {

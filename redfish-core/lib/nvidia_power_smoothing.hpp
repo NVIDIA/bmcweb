@@ -1206,9 +1206,9 @@ inline void patchPresetProfile(
             "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
-inline void
-    applyAdminOverride(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& connection, const std::string& path)
+inline void applyAdminOverride(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& connection, const std::string& path)
 {
     dbus::utility::getDbusObject(
         path,
@@ -1309,10 +1309,10 @@ inline void postApplyAdminOverride(std::shared_ptr<bmcweb::AsyncResp> aResp,
             "com.nvidia.PowerSmoothing.PowerSmoothing"});
 }
 
-inline void
-    activatePresetProfile(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& connection,
-                          const std::string& path, const uint16_t& profileId)
+inline void activatePresetProfile(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& connection, const std::string& path,
+    const uint16_t& profileId)
 {
     dbus::utility::getDbusObject(
         path,
@@ -1626,8 +1626,8 @@ inline void requestRoutesProcessorPowerSmoothingAdminProfile(App& app)
             });
 }
 
-inline void
-    requestRoutesProcessorPowerSmoothingPresetProfileCollection(App& app)
+inline void requestRoutesProcessorPowerSmoothingPresetProfileCollection(
+    App& app)
 {
     /**
      * Functions triggers appropriate requests on DBus

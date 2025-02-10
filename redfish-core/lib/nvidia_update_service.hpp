@@ -37,8 +37,8 @@ const std::string hashComputeInterface = "com.Nvidia.ComputeHash";
 constexpr auto retimerHashMaxTimeSec =
     180; // 2 mins for 2 attempts and 1 addional min as buffer
 
-inline void
-    extendUpdateServiceGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void extendUpdateServiceGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if constexpr (BMCWEB_REDFISH_POST_TO_OLD_UPDATESERVICE)
     {
@@ -343,10 +343,10 @@ inline void computeDigest(const crow::Request& req,
  * @param asyncResp
  * @param swId
  */
-inline void
-    handlePostComputeDigest(const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& swId)
+inline void handlePostComputeDigest(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& swId)
 {
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, swId](
@@ -395,8 +395,8 @@ inline void
  * and the object of AllowableValue who contains inventory path
  * and assigned to its MCTP EID.
  */
-inline std::pair<bool, CommitImageValueEntry>
-    getAllowableValue(const std::string_view inventoryPath)
+inline std::pair<bool, CommitImageValueEntry> getAllowableValue(
+    const std::string_view inventoryPath)
 {
     std::pair<bool, CommitImageValueEntry> result;
 
@@ -618,8 +618,8 @@ inline void extendSoftwareInventoryGet(
  *
  * @return None
  */
-inline nlohmann::json
-    extendedInfoSuccessMsg(const std::string& msg, const std::string& arg)
+inline nlohmann::json extendedInfoSuccessMsg(const std::string& msg,
+                                             const std::string& arg)
 {
     return nlohmann::json{{"@odata.type", "#Message.v1_1_1.Message"},
                           {"Message", msg},

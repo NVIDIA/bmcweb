@@ -59,10 +59,10 @@ static inline std::string getPCIeType(const std::string& pcieType)
 }
 
 //  PCIeDevice asset properties
-static inline void
-    getPCIeDeviceAssetData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& device, const std::string& path,
-                           const std::string& service)
+static inline void getPCIeDeviceAssetData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& device, const std::string& path,
+    const std::string& service)
 {
     auto getPCIeDeviceAssetCallback =
         [asyncResp{asyncResp}](
@@ -101,10 +101,10 @@ static inline void
 }
 
 //  PCIeDevice UUID
-static inline void
-    getPCIeDeviceUUID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& device, const std::string& path,
-                      const std::string& service)
+static inline void getPCIeDeviceUUID(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& device, const std::string& path,
+    const std::string& service)
 {
     auto getPCIeDeviceUUIDCallback =
         [asyncResp{asyncResp}](const boost::system::error_code ec,
@@ -129,10 +129,10 @@ static inline void
 }
 
 //  PCIeDevice getPCIeDeviceClkRefOem
-static inline void
-    getPCIeDeviceClkRefOem(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& device, const std::string& path,
-                           const std::string& service)
+static inline void getPCIeDeviceClkRefOem(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& device, const std::string& path,
+    const std::string& service)
 {
     auto getPCIeDeviceOemCallback = [asyncResp{asyncResp}](
                                         const boost::system::error_code ec,
@@ -211,10 +211,10 @@ static inline void getPCIeDeviceNvLinkClkRefOem(
 }
 
 //  PCIeDevice LTSSM State
-static inline void
-    getPCIeLTssmState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& device, const std::string& path,
-                      const std::string& service)
+static inline void getPCIeLTssmState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& device, const std::string& path,
+    const std::string& service)
 {
     BMCWEB_LOG_DEBUG("FROM getPCIeLTssmState");
 
@@ -292,11 +292,11 @@ static inline void
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-static inline void
-    getPCIeDevice(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                  const std::string& device, const std::string& path = pciePath,
-                  const std::string& service = pcieService,
-                  const std::string& deviceIntf = pcieDeviceInterfaceNV)
+static inline void getPCIeDevice(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& device, const std::string& path = pciePath,
+    const std::string& service = pcieService,
+    const std::string& deviceIntf = pcieDeviceInterfaceNV)
 {
     auto getPCIeDeviceCallback =
         [asyncResp,
@@ -723,10 +723,10 @@ inline void getPCIeDeviceList(
         std::string(path) + "/", 1, std::array<std::string, 0>());
 }
 
-inline void
-    getAerErrorStatusOem(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& device, const std::string& path,
-                         const std::string& service)
+inline void getAerErrorStatusOem(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& device, const std::string& path,
+    const std::string& service)
 {
     auto getAerErrorStatusOemCallback = [asyncResp{asyncResp}](
                                             const boost::system::error_code ec,
@@ -778,9 +778,9 @@ inline void
         "org.freedesktop.DBus.Properties", "GetAll", pcieAerErrorStatusIntf);
 }
 
-inline void
-    clearAerErrorStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& connection, const std::string& path)
+inline void clearAerErrorStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& connection, const std::string& path)
 {
     dbus::utility::getDbusObject(
         path, std::array<std::string_view, 1>{"com.nvidia.PCIe.AERErrorStatus"},

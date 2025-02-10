@@ -710,13 +710,13 @@ inline const nlohmann::json* findNestedKey(std::string_view key,
         }
         return findNestedKey(leftover, it.value());
     }
-        it = value.find(key);
-        if (it == value.end())
-        {
-            return nullptr;
-        }
-        return &*it;
+    it = value.find(key);
+    if (it == value.end())
+    {
+        return nullptr;
     }
+    return &*it;
+}
 
 template <typename... UnpackTypes>
 bool readJsonPatch(const crow::Request& req, crow::Response& res,
@@ -840,11 +840,11 @@ inline int objectKeyCmp(std::string_view key, const nlohmann::json& a,
     if (!aUrl)
     {
         if (!bUrl)
-            {
-                return 0;
-            }
-            return -1;
+        {
+            return 0;
         }
+        return -1;
+    }
     if (!bUrl)
     {
         return 1;

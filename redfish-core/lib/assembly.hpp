@@ -42,10 +42,10 @@ namespace redfish
  * @param[in]       objPath     D-Bus object to query.
  * @param[in]       chassisId   Chassis that contains the assembly.
  */
-inline void
-    updateAssemblies(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& service, const std::string& objPath,
-                     const std::string& chassisId)
+inline void updateAssemblies(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& objPath,
+    const std::string& chassisId)
 {
     BMCWEB_LOG_DEBUG("Get Assemblies Data");
     // Get Assembly ID

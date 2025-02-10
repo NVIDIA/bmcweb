@@ -13,8 +13,8 @@
 #include "generated/enums/resource.hpp"
 #include "http_request.hpp"
 #include "logging.hpp"
-#include "query.hpp"
 #include "nvidia_processor.hpp"
+#include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
@@ -31,6 +31,7 @@
 #include <utils/nvidia_async_set_utils.hpp>
 #include <utils/nvidia_processor_utils.hpp>
 #include <utils/nvidia_utils.hpp>
+
 #include <algorithm>
 #include <array>
 #include <cstddef>
@@ -313,8 +314,8 @@ inline processor::ThrottleCause dbusToRfThrottleCause(
 
 inline void readThrottleProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const boost::system::error_code& ec,
-                           const dbus::utility::DBusPropertiesMap& properties)
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& properties)
 {
     if (ec)
     {

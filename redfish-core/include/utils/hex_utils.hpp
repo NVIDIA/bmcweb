@@ -83,8 +83,8 @@ inline std::vector<uint8_t> hexStringToBytes(const std::string& str)
     return rc;
 }
 
-inline std::vector<std::string>
-    intToHexByteArray(uint32_t value, size_t digits = sizeof(uint32_t) << 1)
+inline std::vector<std::string> intToHexByteArray(
+    uint32_t value, size_t digits = sizeof(uint32_t) << 1)
 {
     std::string rc(digits, '0');
     size_t bitIndex = (digits - 1) * 4;
@@ -140,8 +140,8 @@ inline std::string vectorTo256BitHexString(const std::vector<uint8_t>& value)
     return "0x" + result.substr(firstNonZero);
 }
 
-inline std::vector<uint8_t>
-    stringNibbleToVector(const std::string& nibbleString)
+inline std::vector<uint8_t> stringNibbleToVector(
+    const std::string& nibbleString)
 {
     std::vector<uint8_t> result(32, 0); // Initialize with 32 zeros
 

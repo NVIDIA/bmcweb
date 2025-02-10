@@ -314,10 +314,10 @@ inline void getClockLimitControl(
         "xyz.openbmc_project.Association", "endpoints");
 };
 
-inline void
-    changeClockLimitControl(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& path, const uint32_t& value,
-                            const std::string& patchProp)
+inline void changeClockLimitControl(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& path, const uint32_t& value,
+    const std::string& patchProp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, path, value, patchProp](
@@ -565,10 +565,10 @@ inline void getControlSettingRelatedItems(
         {{"@odata.id", "/redfish/v1/Chassis/" + chassisPath.filename()}});
 }
 
-inline void
-    getControlCpuObjects(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const auto getControlCpu,
-                         const std::optional<std::string>& validChassisPath)
+inline void getControlCpuObjects(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const auto getControlCpu,
+    const std::optional<std::string>& validChassisPath)
 {
     // Get the Processors Associations to cover all processors' cases,
     // to ensure the object has `all_processors` and go ahead.

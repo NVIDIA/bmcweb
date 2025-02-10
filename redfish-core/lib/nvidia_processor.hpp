@@ -3457,9 +3457,9 @@ inline std::string toRequestedApplyTime(const std::string& applyTime)
     return "";
 }
 
-inline void
-    getProcessorSettingsData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                             const std::string& processorId)
+inline void getProcessorSettingsData(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& processorId)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(

@@ -562,10 +562,10 @@ inline void patchSwitchIsolationMode(
         });
 }
 
-inline void
-    getSwitchIsolationMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& serv, const std::string& objPath,
-                           const std::string& interface)
+inline void getSwitchIsolationMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& serv, const std::string& objPath,
+    const std::string& interface)
 {
     using PropertiesMap =
         boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;

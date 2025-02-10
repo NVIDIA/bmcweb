@@ -96,8 +96,8 @@ inline void fillCableProperties(
  */
 inline void getCableProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& cableObjectPath,
-                       const dbus::utility::MapperServiceMap& serviceMap)
+    const std::string& cableObjectPath,
+    const dbus::utility::MapperServiceMap& serviceMap)
 {
     BMCWEB_LOG_DEBUG("Get Properties for cable {}", cableObjectPath);
 

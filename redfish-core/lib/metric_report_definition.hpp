@@ -464,12 +464,12 @@ inline bool getUserMetric(crow::Response& res, nlohmann::json::object_t& metric,
     std::optional<std::string> collectionFunction;
     std::optional<std::string> collectionTimeScopeStr;
 
-    if (!json_util::readJsonObject( //
-            metric, res, //
-            "CollectionDuration", collectionDurationStr, //
-            "CollectionFunction", collectionFunction, //
+    if (!json_util::readJsonObject(                        //
+            metric, res,                                   //
+            "CollectionDuration", collectionDurationStr,   //
+            "CollectionFunction", collectionFunction,      //
             "CollectionTimeScope", collectionTimeScopeStr, //
-            "MetricProperties", uris //
+            "MetricProperties", uris                       //
             ))
     {
         return false;
@@ -559,17 +559,17 @@ inline bool getUserParameters(crow::Response& res, const crow::Request& req,
     std::optional<std::vector<std::string>> reportActionsStr;
     std::optional<std::string> scheduleDurationStr;
 
-    if (!json_util::readJsonPatch( //
-            req, res, //
-            "AppendLimit", appendLimit, //
-            "Id", id, //
+    if (!json_util::readJsonPatch(                                          //
+            req, res,                                                       //
+            "AppendLimit", appendLimit,                                     //
+            "Id", id,                                                       //
             "MetricReportDefinitionEnabled", metricReportDefinitionEnabled, //
-            "MetricReportDefinitionType", reportingTypeStr, //
-            "Metrics", metrics, //
-            "Name", name, //
-            "ReportActions", reportActionsStr, //
-            "ReportUpdates", reportUpdatesStr, //
-            "Schedule/RecurrenceInterval", scheduleDurationStr //
+            "MetricReportDefinitionType", reportingTypeStr,                 //
+            "Metrics", metrics,                                             //
+            "Name", name,                                                   //
+            "ReportActions", reportActionsStr,                              //
+            "ReportUpdates", reportUpdatesStr,                              //
+            "Schedule/RecurrenceInterval", scheduleDurationStr              //
             ))
     {
         return false;
@@ -1273,7 +1273,7 @@ inline void setReportMetrics(
 
                     if (metric->empty())
                     {
-                    pathAndUri = std::get<0>(existing);
+                        pathAndUri = std::get<0>(existing);
                     }
                     metricArgs.collectionFunction = std::get<1>(existing);
                     metricArgs.collectionTimeScope = std::get<2>(existing);
@@ -1384,14 +1384,14 @@ inline void handleReportPatch(
     std::optional<std::vector<std::string>> reportActionsStr;
     std::optional<std::string> scheduleDurationStr;
 
-    if (!json_util::readJsonPatch( //
-            req, asyncResp->res, //
+    if (!json_util::readJsonPatch(                                          //
+            req, asyncResp->res,                                            //
             "MetricReportDefinitionEnabled", metricReportDefinitionEnabled, //
-            "MetricReportDefinitionType", reportingTypeStr, //
-            "Metrics", metrics, //
-            "ReportActions", reportActionsStr, //
-            "ReportUpdates", reportUpdatesStr, //
-            "Schedule/RecurrenceInterval", scheduleDurationStr //
+            "MetricReportDefinitionType", reportingTypeStr,                 //
+            "Metrics", metrics,                                             //
+            "ReportActions", reportActionsStr,                              //
+            "ReportUpdates", reportUpdatesStr,                              //
+            "Schedule/RecurrenceInterval", scheduleDurationStr              //
             ))
     {
         return;
@@ -1499,8 +1499,8 @@ inline void handleMetricReportDefinitionsPost(
 
 inline void handleMetricReportHead(
     App& app, const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& /*id*/)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& /*id*/)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -1529,10 +1529,11 @@ inline void handleMetricReportGet(
     }
     else
     {
-    dbus::utility::getAllProperties(
-        telemetry::service, telemetry::getDbusReportPath(id),
-        telemetry::reportInterface,
-        [asyncResp, id](const boost::system::error_code& ec,
+        dbus::utility::getAllProperties(
+            telemetry::service, telemetry::getDbusReportPath(id),
+            telemetry::reportInterface,
+            [asyncResp,
+             id](const boost::system::error_code& ec,
                  const dbus::utility::DBusPropertiesMap& properties) {
                 if (!redfish::telemetry::verifyCommonErrors(asyncResp->res, id,
                                                             ec))

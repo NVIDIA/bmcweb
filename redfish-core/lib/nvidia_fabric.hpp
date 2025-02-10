@@ -61,9 +61,9 @@ inline std::string getBucketUnit(const std::string& unit)
     return "Unknown";
 }
 
-inline void
-    updateHistogramData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& service, const std::string& objPath)
+inline void updateHistogramData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& objPath)
 {
     using PropertiesMap =
         boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;

@@ -49,9 +49,9 @@ inline bool isMessageIdValid(const std::string_view messageId)
     return msg != nullptr;
 }
 
-inline void
-    updateResolution(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& property, std::string resolution)
+inline void updateResolution(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& property, std::string resolution)
 {
     std::string extendInfo = property + "@Message.ExtendedInfo";
     auto& extendedInfoArr = asyncResp->res.jsonValue[extendInfo];

@@ -47,8 +47,8 @@ class BaseRule
                         const std::vector<std::string>&) = 0;
     virtual void handleUpgrade(
         const Request& /*req*/,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      boost::asio::ip::tcp::socket&& /*adaptor*/)
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        boost::asio::ip::tcp::socket&& /*adaptor*/)
     {
         asyncResp->res.result(boost::beast::http::status::not_found);
     }

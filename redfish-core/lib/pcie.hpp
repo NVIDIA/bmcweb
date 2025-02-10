@@ -156,10 +156,10 @@ inline void handlePCIeDeviceCollectionGet(
 }
 
 // PCIeDevice State
-static inline void
-    getPCIeDeviceState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& device, const std::string& path,
-                       const std::string& service)
+static inline void getPCIeDeviceState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& device, const std::string& path,
+    const std::string& service)
 {
     std::string escapedPath = std::string(path) + "/" + device;
     dbus::utility::escapePathForDbus(escapedPath);

@@ -13,10 +13,10 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/account_service.hpp"
-#include "nvidia_account_service.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
+#include "nvidia_account_service.hpp"
 #include "pam_authenticate.hpp"
 #include "persistent_data.hpp"
 #include "privileges.hpp"
@@ -255,8 +255,8 @@ inline bool getUserGroupFromAccountType(
  */
 inline void patchAccountTypes(
     const std::vector<std::string>& accountTypes,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& dbusObjectPath, bool userSelf)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& dbusObjectPath, bool userSelf)
 {
     // Check if User is disabling own Redfish Account Type
     if (userSelf &&
@@ -430,9 +430,9 @@ inline void handleRoleMapPatch(
             std::optional<std::string> remoteGroup;
             std::optional<std::string> localRole;
 
-            if (!json_util::readJsonObject( //
-                    *obj, asyncResp->res, //
-                    "LocalRole", localRole, //
+            if (!json_util::readJsonObject(    //
+                    *obj, asyncResp->res,      //
+                    "LocalRole", localRole,    //
                     "RemoteGroup", remoteGroup //
                     ))
             {
@@ -740,9 +740,9 @@ inline void handleServiceAddressPatch(
 
 inline void handleUserNamePatch(
     const std::string& username,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& ldapServerElementName,
-                        const std::string& ldapConfigObject)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& ldapServerElementName,
+    const std::string& ldapConfigObject)
 {
     setDbusProperty(asyncResp,
                     ldapServerElementName + "/Authentication/Username",
@@ -760,9 +760,9 @@ inline void handleUserNamePatch(
 
 inline void handlePasswordPatch(
     const std::string& password,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& ldapServerElementName,
-                        const std::string& ldapConfigObject)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& ldapServerElementName,
+    const std::string& ldapConfigObject)
 {
     setDbusProperty(asyncResp,
                     ldapServerElementName + "/Authentication/Password",
@@ -781,9 +781,9 @@ inline void handlePasswordPatch(
 
 inline void handleBaseDNPatch(
     const std::vector<std::string>& baseDNList,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& ldapServerElementName,
-                      const std::string& ldapConfigObject)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& ldapServerElementName,
+    const std::string& ldapConfigObject)
 {
     setDbusProperty(asyncResp,
                     ldapServerElementName +
@@ -863,7 +863,7 @@ struct AuthMethods
 
 inline void handleAuthMethodsPatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const AuthMethods& auth)
+    const AuthMethods& auth)
 {
     persistent_data::AuthConfigMethods& authMethodsConfig =
         persistent_data::SessionStore::getInstance().getAuthMethodsConfig();
@@ -1121,102 +1121,101 @@ inline void afterVerifyUserExists(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const UserUpdateParams& params, int rc)
 {
-            if (rc <= 0)
-            {
-                messages::resourceNotFound(asyncResp->res, "ManagerAccount",
+    if (rc <= 0)
+    {
+        messages::resourceNotFound(asyncResp->res, "ManagerAccount",
                                    params.username);
-                return;
-            }
+        return;
+    }
 
     if (params.password)
-            {
+    {
         int retval = pamUpdatePassword(params.username, *params.password);
 
-                if (retval == PAM_USER_UNKNOWN)
-                {
-                    messages::resourceNotFound(asyncResp->res, "ManagerAccount",
+        if (retval == PAM_USER_UNKNOWN)
+        {
+            messages::resourceNotFound(asyncResp->res, "ManagerAccount",
                                        params.username);
-                }
-                else if (retval == PAM_AUTHTOK_ERR ||
-                         retval == PAM_NEW_AUTHTOK_REQD)
-                {
-                    // If password is invalid
-                    messages::propertyValueFormatError(asyncResp->res, nullptr,
-                                                       "Password");
-                    // update the resolution message
-                    std::string resolution;
-                    if (!checkPasswordQuality(username, *password, resolution))
-                    {
-                        redfish::message_registries::updateResolution(
-                            asyncResp, "Password", resolution);
-                        BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
-                        handle_nvidia_resolution(asyncResp, password);
-                    }
-                    else
-                    {
-                        BMCWEB_LOG_DEBUG("checkPasswordQuality passed");
-                    }
-                }
+        }
+        else if (retval == PAM_AUTHTOK_ERR || retval == PAM_NEW_AUTHTOK_REQD)
+        {
+            // If password is invalid
+            messages::propertyValueFormatError(asyncResp->res, nullptr,
+                                               "Password");
+            // update the resolution message
+            std::string resolution;
+            if (!checkPasswordQuality(username, *password, resolution))
+            {
+                redfish::message_registries::updateResolution(
+                    asyncResp, "Password", resolution);
+                BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
+                handle_nvidia_resolution(asyncResp, password);
+            }
+            else
+            {
+                BMCWEB_LOG_DEBUG("checkPasswordQuality passed");
+            }
+        }
 
-                else if (retval != PAM_SUCCESS)
-                {
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                else
-                {
-                    // Remove existing sessions of the user when password
-                    // changed
-                    persistent_data::SessionStore::getInstance()
+        else if (retval != PAM_SUCCESS)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        else
+        {
+            // Remove existing sessions of the user when password
+            // changed
+            persistent_data::SessionStore::getInstance()
                 .removeSessionsByUsernameExceptSession(params.username,
                                                        params.session);
-                    messages::success(asyncResp->res);
-                }
-            }
+            messages::success(asyncResp->res);
+        }
+    }
 
     if (params.enabled)
-            {
-                setDbusProperty(
-                    asyncResp, "Enabled", "xyz.openbmc_project.User.Manager",
+    {
+        setDbusProperty(
+            asyncResp, "Enabled", "xyz.openbmc_project.User.Manager",
             params.dbusObjectPath, "xyz.openbmc_project.User.Attributes",
             "UserEnabled", *params.enabled);
-            }
+    }
 
     if (params.roleId)
-            {
+    {
         std::string priv = getPrivilegeFromRoleId(*params.roleId);
-                if (priv.empty())
-                {
+        if (priv.empty())
+        {
             messages::propertyValueNotInList(asyncResp->res, true, "Locked");
-                    return;
-                }
+            return;
+        }
         setDbusProperty(asyncResp, "RoleId", "xyz.openbmc_project.User.Manager",
                         params.dbusObjectPath,
                         "xyz.openbmc_project.User.Attributes", "UserPrivilege",
                         priv);
-            }
+    }
 
     if (params.locked)
-            {
-                // admin can unlock the account which is locked by
-                // successive authentication failures but admin should
-                // not be allowed to lock an account.
+    {
+        // admin can unlock the account which is locked by
+        // successive authentication failures but admin should
+        // not be allowed to lock an account.
         if (*params.locked)
-                {
+        {
             messages::propertyValueNotInList(asyncResp->res, "true", "Locked");
-                    return;
-                }
+            return;
+        }
         setDbusProperty(asyncResp, "Locked", "xyz.openbmc_project.User.Manager",
                         params.dbusObjectPath,
                         "xyz.openbmc_project.User.Attributes",
                         "UserLockedForFailedAttempt", *params.locked);
-            }
+    }
 
     if (params.accountTypes)
-            {
+    {
         patchAccountTypes(*params.accountTypes, asyncResp,
                           params.dbusObjectPath, params.userSelf);
-            }
+    }
 }
 
 inline void updateUserProperties(
@@ -1255,7 +1254,7 @@ inline void handleAccountServiceHead(
 
 inline void getClientCertificates(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const nlohmann::json::json_pointer& keyLocation)
+    const nlohmann::json::json_pointer& keyLocation)
 {
     boost::urls::url url(
         "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates");
@@ -1376,7 +1375,7 @@ inline CertificateMappingAttribute getCertificateMapping(
 
 inline void handleAccountServiceGet(
     App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -1598,52 +1597,52 @@ inline void handleAccountServicePatch(
     AuthMethods auth;
     std::optional<std::string> httpBasicAuth;
 
-    if (!json_util::readJsonPatch( //
-            req, asyncResp->res, //
-            "AccountLockoutDuration", unlockTimeout, //
-            "AccountLockoutThreshold", lockoutThreshold, //
+    if (!json_util::readJsonPatch(                                         //
+            req, asyncResp->res,                                           //
+            "AccountLockoutDuration", unlockTimeout,                       //
+            "AccountLockoutThreshold", lockoutThreshold,                   //
             "ActiveDirectory/Authentication/AuthenticationType",
-            activeDirectoryObject.authType, //
+            activeDirectoryObject.authType,                                //
             "ActiveDirectory/Authentication/Password",
-            activeDirectoryObject.password, //
+            activeDirectoryObject.password,                                //
             "ActiveDirectory/Authentication/Username",
-            activeDirectoryObject.userName, //
+            activeDirectoryObject.userName,                                //
             "ActiveDirectory/LDAPService/SearchSettings/BaseDistinguishedNames",
-            activeDirectoryObject.baseDNList, //
+            activeDirectoryObject.baseDNList,                              //
             "ActiveDirectory/LDAPService/SearchSettings/GroupsAttribute",
-            activeDirectoryObject.groupsAttribute, //
+            activeDirectoryObject.groupsAttribute,                         //
             "ActiveDirectory/LDAPService/SearchSettings/UsernameAttribute",
-            activeDirectoryObject.userNameAttribute, //
+            activeDirectoryObject.userNameAttribute,                       //
             "ActiveDirectory/RemoteRoleMapping",
-            activeDirectoryObject.remoteRoleMapData, //
+            activeDirectoryObject.remoteRoleMapData,                       //
             "ActiveDirectory/ServiceAddresses",
-            activeDirectoryObject.serviceAddressList, //
+            activeDirectoryObject.serviceAddressList,                      //
             "ActiveDirectory/ServiceEnabled",
-            activeDirectoryObject.serviceEnabled, //
-            "HTTPBasicAuth", httpBasicAuth, //
+            activeDirectoryObject.serviceEnabled,                          //
+            "HTTPBasicAuth", httpBasicAuth,                                //
             "LDAP/Authentication/AuthenticationType", ldapObject.authType, //
-            "LDAP/Authentication/Password", ldapObject.password, //
-            "LDAP/Authentication/Username", ldapObject.userName, //
+            "LDAP/Authentication/Password", ldapObject.password,           //
+            "LDAP/Authentication/Username", ldapObject.userName,           //
             "LDAP/LDAPService/SearchSettings/BaseDistinguishedNames",
-            ldapObject.baseDNList, //
+            ldapObject.baseDNList,                                         //
             "LDAP/LDAPService/SearchSettings/GroupsAttribute",
-            ldapObject.groupsAttribute, //
+            ldapObject.groupsAttribute,                                    //
             "LDAP/LDAPService/SearchSettings/UsernameAttribute",
-            ldapObject.userNameAttribute, //
-            "LDAP/RemoteRoleMapping", ldapObject.remoteRoleMapData, //
-            "LDAP/ServiceAddresses", ldapObject.serviceAddressList, //
-            "LDAP/ServiceEnabled", ldapObject.serviceEnabled, //
-            "MaxPasswordLength", maxPasswordLength, //
-            "MinPasswordLength", minPasswordLength, //
+            ldapObject.userNameAttribute,                                  //
+            "LDAP/RemoteRoleMapping", ldapObject.remoteRoleMapData,        //
+            "LDAP/ServiceAddresses", ldapObject.serviceAddressList,        //
+            "LDAP/ServiceEnabled", ldapObject.serviceEnabled,              //
+            "MaxPasswordLength", maxPasswordLength,                        //
+            "MinPasswordLength", minPasswordLength,                        //
             "MultiFactorAuth/ClientCertificate/CertificateMappingAttribute",
-            certificateMappingAttribute, //
+            certificateMappingAttribute,                                   //
             "MultiFactorAuth/ClientCertificate/RespondToUnauthenticatedClients",
-            respondToUnauthenticatedClients, //
-            "Oem/OpenBMC/AuthMethods/BasicAuth", auth.basicAuth, //
-            "Oem/OpenBMC/AuthMethods/Cookie", auth.cookie, //
-            "Oem/OpenBMC/AuthMethods/SessionToken", auth.sessionToken, //
-            "Oem/OpenBMC/AuthMethods/TLS", auth.tls, //
-            "Oem/OpenBMC/AuthMethods/XToken", auth.xToken //
+            respondToUnauthenticatedClients,                               //
+            "Oem/OpenBMC/AuthMethods/BasicAuth", auth.basicAuth,           //
+            "Oem/OpenBMC/AuthMethods/Cookie", auth.cookie,                 //
+            "Oem/OpenBMC/AuthMethods/SessionToken", auth.sessionToken,     //
+            "Oem/OpenBMC/AuthMethods/TLS", auth.tls,                       //
+            "Oem/OpenBMC/AuthMethods/XToken", auth.xToken                  //
             ))
     {
         return;
@@ -1980,13 +1979,13 @@ inline void handleAccountCollectionPost(
     std::optional<std::string> roleIdJson;
     std::optional<bool> enabledJson;
     std::optional<std::vector<std::string>> accountTypes;
-    if (!json_util::readJsonPatch( //
-            req, asyncResp->res, //
+    if (!json_util::readJsonPatch(        //
+            req, asyncResp->res,          //
             "AccountTypes", accountTypes, //
-            "Enabled", enabledJson, //
-            "Password", password, //
-            "RoleId", roleIdJson, //
-            "UserName", username //
+            "Enabled", enabledJson,       //
+            "Password", password,         //
+            "RoleId", roleIdJson,         //
+            "UserName", username          //
             ))
     {
         return;
@@ -2030,8 +2029,8 @@ inline void handleAccountCollectionPost(
 
 inline void handleAccountHead(
     App& app, const crow::Request& req,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& /*accountName*/)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& /*accountName*/)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -2044,8 +2043,8 @@ inline void handleAccountHead(
 
 inline void handleAccountGet(
     App& app, const crow::Request& req,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& accountName)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& accountName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -2141,73 +2140,73 @@ inline void handleAccountGet(
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                            if (userEnabled == nullptr)
-                            {
-                                BMCWEB_LOG_ERROR("UserEnabled wasn't a bool");
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            asyncResp->res.jsonValue["Enabled"] = *userEnabled;
-
-                            if (userLocked == nullptr)
-                            {
-                                BMCWEB_LOG_ERROR("UserLockedForF"
-                                                 "ailedAttempt "
-                                                 "wasn't a bool");
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            asyncResp->res.jsonValue["Locked"] = *userLocked;
-                            nlohmann::json::array_t allowed;
-                            // can only unlock accounts
-                            allowed.emplace_back("false");
-                    asyncResp->res.jsonValue["Locked@Redfish.AllowableValues"] =
-                                std::move(allowed);
-
-                            if (userPrivPtr == nullptr)
-                            {
-                                BMCWEB_LOG_ERROR("UserPrivilege wasn't a "
-                                                 "string");
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                    std::string role = getRoleIdFromPrivilege(*userPrivPtr);
-                            if (role.empty())
-                            {
-                                BMCWEB_LOG_ERROR("Invalid user role");
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            asyncResp->res.jsonValue["RoleId"] = role;
-
-                            nlohmann::json& roleEntry =
-                                asyncResp->res.jsonValue["Links"]["Role"];
-                            roleEntry["@odata.id"] = boost::urls::format(
-                                "/redfish/v1/AccountService/Roles/{}", role);
-
-                            if (userPasswordExpired == nullptr)
-                            {
-                        BMCWEB_LOG_ERROR("UserPasswordExpired wasn't a bool");
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            asyncResp->res.jsonValue["PasswordChangeRequired"] =
-                                *userPasswordExpired;
-
-                            if (userGroups == nullptr)
-                            {
-                        BMCWEB_LOG_ERROR("userGroups wasn't a string vector");
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                    if (!translateUserGroup(*userGroups, asyncResp->res))
-                            {
-                                BMCWEB_LOG_ERROR("userGroups mapping failed");
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                        }
+                    if (userEnabled == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("UserEnabled wasn't a bool");
+                        messages::internalError(asyncResp->res);
+                        return;
                     }
+                    asyncResp->res.jsonValue["Enabled"] = *userEnabled;
+
+                    if (userLocked == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("UserLockedForF"
+                                         "ailedAttempt "
+                                         "wasn't a bool");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Locked"] = *userLocked;
+                    nlohmann::json::array_t allowed;
+                    // can only unlock accounts
+                    allowed.emplace_back("false");
+                    asyncResp->res.jsonValue["Locked@Redfish.AllowableValues"] =
+                        std::move(allowed);
+
+                    if (userPrivPtr == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("UserPrivilege wasn't a "
+                                         "string");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    std::string role = getRoleIdFromPrivilege(*userPrivPtr);
+                    if (role.empty())
+                    {
+                        BMCWEB_LOG_ERROR("Invalid user role");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["RoleId"] = role;
+
+                    nlohmann::json& roleEntry =
+                        asyncResp->res.jsonValue["Links"]["Role"];
+                    roleEntry["@odata.id"] = boost::urls::format(
+                        "/redfish/v1/AccountService/Roles/{}", role);
+
+                    if (userPasswordExpired == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("UserPasswordExpired wasn't a bool");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["PasswordChangeRequired"] =
+                        *userPasswordExpired;
+
+                    if (userGroups == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("userGroups wasn't a string vector");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    if (!translateUserGroup(*userGroups, asyncResp->res))
+                    {
+                        BMCWEB_LOG_ERROR("userGroups mapping failed");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                }
+            }
 
             asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
                 "/redfish/v1/AccountService/Accounts/{}", accountName);
@@ -2218,8 +2217,8 @@ inline void handleAccountGet(
 
 inline void handleAccountDelete(
     App& app, const crow::Request& req,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& username)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& username)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -2253,8 +2252,8 @@ inline void handleAccountDelete(
 
 inline void handleAccountPatch(
     App& app, const crow::Request& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& username)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& username)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -2289,14 +2288,14 @@ inline void handleAccountPatch(
     if (userHasConfigureUsers)
     {
         // Users with ConfigureUsers can modify for all users
-        if (!json_util::readJsonPatch( //
-                req, asyncResp->res, //
+        if (!json_util::readJsonPatch(        //
+                req, asyncResp->res,          //
                 "AccountTypes", accountTypes, //
-                "Enabled", enabled, //
-                "Locked", locked, //
-                "Password", password, //
-                "RoleId", roleId, //
-                "UserName", newUserName //
+                "Enabled", enabled,           //
+                "Locked", locked,             //
+                "Password", password,         //
+                "RoleId", roleId,             //
+                "UserName", newUserName       //
                 ))
         {
             return;

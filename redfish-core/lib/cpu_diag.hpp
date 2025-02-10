@@ -49,8 +49,8 @@ namespace redfish
 constexpr auto diagServiceList = "cpu-diag-status.timer "
                                  "cpu-diag-status.service";
 
-inline void
-    handleDiagSysConfigGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleDiagSysConfigGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
@@ -79,8 +79,8 @@ inline void
         "xyz.openbmc_project.Control.Diag", "DiagSystemConfig");
 }
 
-inline void
-    handleDiagTidConfigGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleDiagTidConfigGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
@@ -108,8 +108,8 @@ inline void
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Control.Diag", "DiagConfig");
 }
-inline void
-    handleDiagResultGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleDiagResultGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
@@ -161,8 +161,8 @@ inline void
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Control.Diag", "DiagResult");
 }
-inline void
-    handleDiagStatusGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleDiagStatusGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
@@ -208,8 +208,8 @@ inline void
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Control.Diag", "DiagStatus");
 }
-inline void
-    handleDiagModeGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleDiagModeGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
@@ -373,9 +373,9 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     return true;
 }
 
-inline void
-    handleDiagPostReq(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      nlohmann::json& procCap)
+inline void handleDiagPostReq(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    nlohmann::json& procCap)
 {
     std::optional<bool> diagMode;
 
@@ -387,9 +387,9 @@ inline void
     }
 }
 
-inline bool
-    validateDiagSysConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          nlohmann::json& diagSysConfigJson)
+inline bool validateDiagSysConfig(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    nlohmann::json& diagSysConfigJson)
 {
     if (!diagSysConfigJson.is_array())
     {
@@ -482,9 +482,9 @@ inline bool handleDiagSysConfigPostReq(
 
     return true;
 }
-inline bool
-    validateDiagTidConfig(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          nlohmann::json& diagTidConfigJson)
+inline bool validateDiagTidConfig(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    nlohmann::json& diagTidConfigJson)
 {
     std::set<unsigned> tidNumbers;
 

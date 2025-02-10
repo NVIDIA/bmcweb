@@ -130,9 +130,9 @@ inline void debugPropertiesFill(crow::Response& resp,
     }
 }
 
-inline void
-    debugPropertiesGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& svc, const std::string& path)
+inline void debugPropertiesGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& svc,
+    const std::string& path)
 {
     auto propCallback =
         [asyncResp](const boost::system::error_code ec,
@@ -160,12 +160,12 @@ inline void
 
 using findDebugInterfaceCallback =
     std::function<void(std::shared_ptr<bmcweb::AsyncResp>, // Async response
-                       const std::string&, // Service
-                       const std::string&)>; // Path
+                       const std::string&,                 // Service
+                       const std::string&)>;               // Path
 
-inline void
-    findDebugInterface(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const findDebugInterfaceCallback& dbgCallback)
+inline void findDebugInterface(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const findDebugInterfaceCallback& dbgCallback)
 {
     auto respHandler =
         [asyncResp,
@@ -207,8 +207,8 @@ inline void
             "xyz.openbmc_project.Control.Processor.RemoteDebug"});
 }
 
-inline void
-    handleDebugPolicyGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleDebugPolicyGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     auto getPropCallback =
         [](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

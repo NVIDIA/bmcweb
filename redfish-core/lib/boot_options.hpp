@@ -381,9 +381,9 @@ inline void handleBootOptionGet(crow::App& app, const crow::Request& req,
  *
  * @return None.
  */
-inline void
-    getBootPendingEnable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& bootOptionName)
+inline void getBootPendingEnable(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& bootOptionName)
 {
     getBootOption(
         bootOptionName,

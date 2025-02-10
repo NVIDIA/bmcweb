@@ -9,10 +9,10 @@
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
+#include "debug_token/erase_policy.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/resource.hpp"
 #include "generated/enums/update_service.hpp"
-#include "debug_token/erase_policy.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
@@ -417,7 +417,7 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 // then no asyncResp updates will occur
 inline void softwareInterfaceAdded(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           sdbusplus::message_t& m, task::Payload&& payload)
+    sdbusplus::message_t& m, task::Payload&& payload)
 {
     dbus::utility::DBusInterfacesMap interfacesProperties;
 
@@ -520,7 +520,7 @@ inline void afterAvailbleTimerAsyncWait(
     if (!imagePath.empty())
     {
         std::filesystem::remove(imagePath);
-    }    
+    }
 }
 
 inline void handleUpdateErrorType(
@@ -755,10 +755,10 @@ inline bool isProtocolScpOrHttp(const std::string& protocol)
     return protocol == "SCP" || protocol == "HTTP" || protocol == "HTTPS";
 }
 
-inline void
-    downloadViaSCP(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::shared_ptr<const SimpleUpdateParams>& params,
-                   const std::string& targetPath)
+inline void downloadViaSCP(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::shared_ptr<const SimpleUpdateParams>& params,
+    const std::string& targetPath)
 {
     BMCWEB_LOG_DEBUG("Downloading from {}:{} to {} using {} protocol...",
                      params->remoteServerIP, params->fwImagePath, targetPath,
@@ -782,10 +782,10 @@ inline void
         params->fwImagePath, targetPath);
 }
 
-inline void
-    downloadViaHTTP(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                    const std::shared_ptr<const SimpleUpdateParams>& params,
-                    const std::string& targetPath)
+inline void downloadViaHTTP(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::shared_ptr<const SimpleUpdateParams>& params,
+    const std::string& targetPath)
 {
     BMCWEB_LOG_DEBUG("Downloading from {}:{} to {} using {} protocol...",
                      params->remoteServerIP, params->fwImagePath, targetPath,
@@ -1628,10 +1628,10 @@ inline bool areTargetsInvalidOrUnupdatable(
  * @param oemUpdateOption The update option ("StageOnly" or "StageAndActivate").
  * @param callback Optional callback after setting the property.
  */
-inline void
-    setOemUpdateOption(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& oemUpdateOption,
-                       const std::function<void()>& callback = {})
+inline void setOemUpdateOption(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& oemUpdateOption,
+    const std::function<void()>& callback = {})
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, oemUpdateOption, callback](
@@ -2280,8 +2280,8 @@ inline bool validateUpdateFileFormData(
  *
  * @return None
  */
-inline boost::system::error_code
-    aggregationPostRetryHandler(unsigned int respCode)
+inline boost::system::error_code aggregationPostRetryHandler(
+    unsigned int respCode)
 {
     // Allow all response codes because we want to surface any satellite
     // issue to the client
@@ -2904,7 +2904,6 @@ inline void updateMultipartContext(
     }
 }
 
-
 inline void doHTTPUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const crow::Request& req)
 {
@@ -2955,7 +2954,7 @@ inline void doHTTPUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
 inline void handleUpdateServicePost(
     App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -3910,7 +3909,6 @@ inline void requestRoutesUpdateService(App& app)
             });
 } // namespace redfish
 
-
 inline void requestRoutesSoftwareInventoryCollection(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/FirmwareInventory/")
@@ -4117,9 +4115,9 @@ inline static bool relatedItemAlreadyPresent(const nlohmann::json& relatedItem,
     return false;
 }
 
-inline static void
-    getRelatedItemsDrive(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                         const sdbusplus::message::object_path& objPath)
+inline static void getRelatedItemsDrive(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const sdbusplus::message::object_path& objPath)
 {
     // Drive is expected to be under a Chassis
     crow::connections::systemBus->async_method_call(
@@ -4319,9 +4317,9 @@ inline static void getRelatedItemsPCIeDevice(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-inline static void
-    getRelatedItemsSwitch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const sdbusplus::message::object_path& objPath)
+inline static void getRelatedItemsSwitch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const sdbusplus::message::object_path& objPath)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath](const boost::system::error_code& errorCode,
@@ -4402,9 +4400,9 @@ inline static void getRelatedItemsNetworkAdapter(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-inline static void
-    getRelatedItemsOther(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                         const sdbusplus::message::object_path& association)
+inline static void getRelatedItemsOther(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const sdbusplus::message::object_path& association)
 {
     // Find supported device types.
     crow::connections::systemBus->async_method_call(
@@ -4625,9 +4623,9 @@ inline void handleUpdateServiceFirmwareInventoryCollectionGet(
 }
 
 /* Fill related item links (i.e. bmc, bios) in for inventory */
-inline static void
-    getRelatedItems(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                    const std::string& swId, const std::string& purpose)
+inline static void getRelatedItems(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& swId, const std::string& purpose)
 {
     if (purpose == fw_util::biosPurpose)
     {
@@ -4650,8 +4648,8 @@ inline static void
 
 inline void getSoftwareVersion(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& service, const std::string& path,
-                       const std::string& swId)
+    const std::string& service, const std::string& path,
+    const std::string& swId)
 {
     dbus::utility::getAllProperties(
         service, path, "xyz.openbmc_project.Software.Version",
@@ -6605,8 +6603,8 @@ inline void updateParametersForInitiateActionInfo(
  *
  * @param asyncResp
  */
-inline void
-    populateStatusProperty(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void populateStatusProperty(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,

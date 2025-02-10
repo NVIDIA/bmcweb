@@ -381,9 +381,9 @@ inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         std::array<const char*, 1>{"xyz.openbmc_project.Sensor.Value"});
 }
 
-inline void
-    getControlSettings(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& path)
+inline void getControlSettings(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& path)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, path](
@@ -774,9 +774,9 @@ inline void changepowercap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         std::array<const char*, 1>{"xyz.openbmc_project.Control.Power.Cap"});
 }
 
-inline void
-    changePowerCapEnable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& path, const bool& enabled)
+inline void changePowerCapEnable(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& path, const bool& enabled)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, enabled, path](
@@ -842,9 +842,9 @@ inline void
         std::array<const char*, 1>{"xyz.openbmc_project.Control.Power.Cap"});
 }
 
-inline void
-    changeControlMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& path, const std::string& mode)
+inline void changeControlMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& path, const std::string& mode)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, mode, path](

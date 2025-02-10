@@ -11,9 +11,9 @@
 #include "error_messages.hpp"
 #include "generated/enums/memory.hpp"
 #include "generated/enums/resource.hpp"
-#include "nvidia_memory.hpp"
 #include "http_request.hpp"
 #include "logging.hpp"
+#include "nvidia_memory.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/collection.hpp"
@@ -21,10 +21,9 @@
 #include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_memory.hpp"
-#include "utils/nvidia_memory.hpp"
-#include <boost/container/flat_map.hpp>
 
 #include <boost/beast/http/verb.hpp>
+#include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <nlohmann/json.hpp>

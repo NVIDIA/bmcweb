@@ -1349,10 +1349,10 @@ void resourceDeprecated(crow::Response& res, std::string_view arg1);
  *
  * @returns Message PropertyValueDeprecated formatted to JSON */
 nlohmann::json propertyValueDeprecated(std::string_view arg1,
-                                         std::string_view arg2);
+                                       std::string_view arg2);
 
 void propertyValueDeprecated(crow::Response& res, std::string_view arg1,
-                               std::string_view arg2);
+                             std::string_view arg2);
 
 /**
  * @brief Formats ActionDeprecated message into JSON

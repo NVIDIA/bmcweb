@@ -38,8 +38,8 @@ namespace redfish
 
 inline void onPcieSlotGetAllDone(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const boost::system::error_code& ec,
-                         const dbus::utility::DBusPropertiesMap& propertiesList)
+    const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& propertiesList)
 {
     if (ec)
     {

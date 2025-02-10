@@ -22,9 +22,9 @@
 #include <string>
 #include <vector>
 
-namespace beast = boost::beast; // from <boost/beast.hpp>
-namespace http = beast::http; // from <boost/beast/http.hpp>
-namespace net = boost::asio; // from <boost/asio.hpp>
+namespace beast = boost::beast;   // from <boost/beast.hpp>
+namespace http = beast::http;     // from <boost/beast/http.hpp>
+namespace net = boost::asio;      // from <boost/asio.hpp>
 
 using tcp = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
 using Level = sdbusplus::xyz::openbmc_project::Logging::server::Entry::Level;
@@ -55,9 +55,9 @@ class redfishEventMgr
         return session_num;
     }
 
-    static void
-        createLogEntry(std::shared_ptr<sdbusplus::asio::connection>& conn,
-                       const std::string& entryName, const nlohmann::json& data)
+    static void createLogEntry(
+        std::shared_ptr<sdbusplus::asio::connection>& conn,
+        const std::string& entryName, const nlohmann::json& data)
     {
         static uint8_t evtIndex = 0;
         static std::map<std::string,

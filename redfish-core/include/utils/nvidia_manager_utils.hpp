@@ -115,8 +115,8 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         timeout, "xyz.openbmc_project.State.FeatureReady");
 }
 
-inline void
-    getOemReadyState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getOemReadyState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     // call to get telemtery Ready status
     crow::connections::systemBus->async_method_call(
@@ -214,8 +214,8 @@ inline void isLoaded(const std::string_view& unit, Callback&& callbackIn)
         "org.freedesktop.systemd1.Unit", "LoadState");
 }
 
-inline void
-    getOemNvidiaOpenOCD(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getOemNvidiaOpenOCD(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     isLoaded(
         "openocdon_2eservice",
@@ -421,8 +421,8 @@ inline void getFabricManagerInformation(
         connectionName, path, "org.freedesktop.DBus.Properties", "GetAll", "");
 }
 
-inline void
-    getNSMRawCommandActions(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
+inline void getNSMRawCommandActions(
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp)
 {
     auto& oemNsmRawCommand =
         asyncResp->res

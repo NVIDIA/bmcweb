@@ -287,10 +287,10 @@ void getPortNumber(const std::string& socketPath, CallbackFunc&& callback)
         });
 }
 
-inline void
-    handleAccountLocked(const std::string_view username,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const crow::Request& req)
+inline void handleAccountLocked(
+    const std::string_view username,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req)
 {
     const std::string user(username);
     crow::connections::systemBus->async_method_call(

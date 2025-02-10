@@ -37,7 +37,7 @@ namespace pcie_util
 
 inline void getPCIeDeviceList(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const nlohmann::json::json_pointer& jsonKeyName)
+    const nlohmann::json::json_pointer& jsonKeyName)
 {
     static constexpr std::array<std::string_view, 1> pcieDeviceInterface = {
         "xyz.openbmc_project.Inventory.Item.PCIeDevice"};
@@ -147,8 +147,8 @@ inline std::optional<pcie_device::PCIeTypes> redfishPcieGenerationFromDbus(
     return pcie_device::PCIeTypes::Invalid;
 }
 
-inline std::optional<std::string>
-    redfishPcieGenerationStringFromDbus(const std::string& generationInUse)
+inline std::optional<std::string> redfishPcieGenerationStringFromDbus(
+    const std::string& generationInUse)
 {
     if (generationInUse ==
         "xyz.openbmc_project.Inventory.Item.PCIeSlot.Generations.Gen1")
@@ -185,8 +185,8 @@ inline std::optional<std::string>
     return std::nullopt;
 }
 
-inline std::optional<std::string>
-    redfishPcieTypeStringFromDbus(const std::string& pcieType)
+inline std::optional<std::string> redfishPcieTypeStringFromDbus(
+    const std::string& pcieType)
 {
     if (pcieType ==
         "xyz.openbmc_project.Inventory.Item.PCIeDevice.PCIeTypes.Gen1")

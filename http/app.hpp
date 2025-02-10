@@ -10,9 +10,10 @@
 #include "http_server.hpp"
 #include "io_context_singleton.hpp"
 #include "logging.hpp"
+#include "nvidia_persistent_data.hpp"
 #include "routing.hpp"
 #include "routing/dynamicrule.hpp"
-#include "nvidia_persistent_data.hpp"
+
 #include <sys/socket.h>
 #include <systemd/sd-daemon.h>
 
@@ -112,7 +113,7 @@ class App
         return boost::asio::ip::tcp::acceptor(
             getIoContext(),
             boost::asio::ip::tcp::endpoint(
-                     boost::asio::ip::make_address("0.0.0.0"), defaultPort));
+                boost::asio::ip::make_address("0.0.0.0"), defaultPort));
     }
 
     void run()

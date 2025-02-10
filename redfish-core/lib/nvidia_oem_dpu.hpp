@@ -587,9 +587,9 @@ inline void getIsOemNvidiaRshimEnable(
         });
 }
 
-inline void
-    requestOemNvidiaRshim(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const bool& bmcRshimEnabled)
+inline void requestOemNvidiaRshim(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const bool& bmcRshimEnabled)
 {
     const char* systemdServiceBf = "org.freedesktop.systemd1";
     const char* systemdUnitIntfBf = "org.freedesktop.systemd1.Unit";
@@ -746,9 +746,9 @@ inline void getOemNvidiaSwitchStatus(
  * network
  * @return None
  */
-inline void
-    requestOemNvidiaSwitch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const bool& bmcOobEnabled, const bool& dpuOobEnabled)
+inline void requestOemNvidiaSwitch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const bool& bmcOobEnabled, const bool& dpuOobEnabled)
 {
     std::string method = dpuOobEnabled ? "Enable" : "Disable";
     std::string strValue;
@@ -1280,10 +1280,10 @@ inline void handleGetOemFru([[maybe_unused]] crow::App& app,
         });
 }
 
-inline void
-    setOemFruProperty(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& dbusProperty,
-                      const std::string& lastProperty, const std::string& value)
+inline void setOemFruProperty(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& dbusProperty, const std::string& lastProperty,
+    const std::string& value)
 {
     std::variant<std::string> variantValue(value);
     crow::connections::systemBus->async_method_call(

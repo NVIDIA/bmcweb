@@ -41,8 +41,8 @@ inline const char* toReadingBasis(const std::string& readingBasis)
     return "";
 }
 
-inline void
-    defaultSystemURI(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void defaultSystemURI(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     nlohmann::json& itemsArray = asyncResp->res.jsonValue["RelatedItem"];
     itemsArray.push_back(
@@ -50,9 +50,9 @@ inline void
                                    BMCWEB_REDFISH_SYSTEM_URI_NAME)}});
 }
 
-inline void
-    handleChassisRedfishURL(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const sdbusplus::message::object_path& chassisPath)
+inline void handleChassisRedfishURL(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const sdbusplus::message::object_path& chassisPath)
 {
     if (!boost::ends_with(chassisPath.str, BMCWEB_REDFISH_MANAGER_URI_NAME))
     {

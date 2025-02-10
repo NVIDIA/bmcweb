@@ -191,7 +191,7 @@ inline void getPropertiesForEnumerate(
             {
                 nlohmann::json& propertyJson = objectJson[name];
                 std::visit([&propertyJson](auto&& val) { propertyJson = val; },
-                    value);
+                           value);
             }
         });
 }

@@ -453,8 +453,8 @@ inline void handleUpdateableEndpoints(
 
 inline void handleUpdateableObject(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const boost::system::error_code& ec,
-                           const dbus::utility::MapperGetObject& objectInfo)
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& objectInfo)
 {
     if (ec)
     {
@@ -485,7 +485,7 @@ inline void handleUpdateableObject(
  */
 inline void getSwUpdatableStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::shared_ptr<std::string>& swId)
+    const std::shared_ptr<std::string>& swId)
 {
     if constexpr (BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
     {

@@ -667,9 +667,9 @@ inline void updateSwitchDataByAssociation(
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-inline void
-    updateSwitchData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& service, const std::string& objPath)
+inline void updateSwitchData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Switch Data");
     using PropertyType = std::variant<std::string, bool, double, size_t,

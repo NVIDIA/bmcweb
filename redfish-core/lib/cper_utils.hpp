@@ -154,8 +154,8 @@ inline boost::urls::url handleArmProcessorOrigin(const nlohmann::json& mainCper)
                                BMCWEB_REDFISH_SYSTEM_URI_NAME, sock);
 }
 
-inline std::optional<boost::urls::url>
-    handleOriginCondition(const nlohmann::json& nvCper)
+inline std::optional<boost::urls::url> handleOriginCondition(
+    const nlohmann::json& nvCper)
 {
     boost::urls::url origin;
     const auto& aType = nvCper.find("ArmProcessor");

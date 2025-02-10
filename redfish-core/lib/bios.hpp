@@ -273,9 +273,9 @@ static std::string getBiosDefaultSettingsMode(const std::string& biosMode)
  *
  * @return None.
  */
-[[maybe_unused]] static void
-    setResetBiosSettings(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const bool& resetBiosToDefaultsPending)
+[[maybe_unused]] static void setResetBiosSettings(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const bool& resetBiosToDefaultsPending)
 {
     BMCWEB_LOG_DEBUG("Set Reset Bios Settings to Defaults Pending Status");
     crow::connections::systemBus->async_method_call(
@@ -332,8 +332,8 @@ static std::string getBiosDefaultSettingsMode(const std::string& biosMode)
  *
  * @return None.
  */
-inline void
-    getResetBiosSettings(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getResetBiosSettings(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get Reset Bios Settings to Defaults Pending Status");
     crow::connections::systemBus->async_method_call(
@@ -406,8 +406,8 @@ inline void
  *
  * @return None.
  */
-inline void
-    getBiosAttributes(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getBiosAttributes(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
@@ -870,8 +870,8 @@ inline void fillBiosTable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  *
  * @return None.
  */
-inline void
-    getBiosSettingsAttr(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getBiosSettingsAttr(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
@@ -1337,9 +1337,9 @@ inline void setBiosCurrentOrPendingAttr(
  *
  * @return None.
  */
-inline void
-    setBiosPendingAttr(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const nlohmann::json& pendingAttrJson)
+inline void setBiosPendingAttr(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const nlohmann::json& pendingAttrJson)
 {
     setBiosCurrentOrPendingAttr(asyncResp, pendingAttrJson, false);
 }
@@ -1745,8 +1745,8 @@ inline void setBiosServicCurrentAttr(
  *
  * @return None.
  */
-static void
-    updateBiosAttrRegistry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+static void updateBiosAttrRegistry(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
@@ -1868,10 +1868,10 @@ static void
 /**
  * BiosService class supports handle put method for bios.
  */
-inline void
-    handleBiosServicePut(crow::App& app, const crow::Request& req,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         [[maybe_unused]] const std::string& systemName)
+inline void handleBiosServicePut(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    [[maybe_unused]] const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -1941,8 +1941,8 @@ inline void
  */
 inline void handleBiosServiceGet(
     crow::App& app, const crow::Request& req,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         [[maybe_unused]] const std::string& systemName)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    [[maybe_unused]] const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -1988,9 +1988,9 @@ inline void handleBiosServiceGet(
 /**
  * BiosSetting class supports handle patch method for Bios.
  */
-inline void
-    handleBiosServicePatch(crow::App& app, const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleBiosServicePatch(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -2080,10 +2080,10 @@ inline void requestRoutesBiosService(App& app)
 /**
  * BiosSetting class supports handle patch method for Bios Settings.
  */
-inline void
-    handleBiosSettingsPatch(crow::App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            [[maybe_unused]] const std::string& systemName)
+inline void handleBiosSettingsPatch(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    [[maybe_unused]] const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -2104,10 +2104,10 @@ inline void
 /**
  * BiosSetting class supports handle get method for Bios Settings.
  */
-inline void
-    handleBiosSettingsGet(crow::App& app, const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          [[maybe_unused]] const std::string& systemName)
+inline void handleBiosSettingsGet(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    [[maybe_unused]] const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -2148,8 +2148,8 @@ inline void requestRoutesBiosSettings(App& app)
  */
 inline void handleBiosResetPost(
     crow::App& app, const crow::Request& req,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& systemName)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {

@@ -81,10 +81,10 @@ inline void getStateSensorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     }
 }
 
-inline void
-    getStateSensorHandler(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                          const boost::system::error_code& ec,
-                          const std::variant<std::vector<std::string>>& assoc)
+inline void getStateSensorHandler(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const boost::system::error_code& ec,
+    const std::variant<std::vector<std::string>>& assoc)
 {
     if (ec)
     {

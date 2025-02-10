@@ -73,8 +73,8 @@ void encryptCredentials(const std::string& filename)
     X509_free(x509);
 }
 
-std::string
-    ensureOpensslKeyPresentEncryptedAndValid(const std::string& filepath)
+std::string ensureOpensslKeyPresentEncryptedAndValid(
+    const std::string& filepath)
 {
     std::string cert;
     bool pkeyIsEncrypted = false;

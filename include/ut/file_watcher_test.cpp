@@ -25,8 +25,8 @@
 
 #include <gtest/gtest.h>
 
-static void
-    ioContextWorker(const std::shared_ptr<boost::asio::io_context>& ioCtx)
+static void ioContextWorker(
+    const std::shared_ptr<boost::asio::io_context>& ioCtx)
 {
     ioCtx->run();
 }

@@ -1511,10 +1511,10 @@ void getValidLeakDetectionPath(
         });
 }
 
-inline void
-    doLeakDetectionUrlGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& chassisId,
-                          const std::optional<std::string>& validChassisPath)
+inline void doLeakDetectionUrlGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId,
+    const std::optional<std::string>& validChassisPath)
 {
     if (!validChassisPath)
     {
@@ -1955,8 +1955,8 @@ inline void getIntrusionByService(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
 /**
  * Retrieves physical security properties over dbus
  */
-inline void
-    getPhysicalSecurityData(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
+inline void getPhysicalSecurityData(
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp)
 {
     constexpr std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Chassis.Intrusion"};
@@ -1999,10 +1999,10 @@ inline void insertSorted(nlohmann::json& arr, const nlohmann::json& element,
 }
 
 template <typename Handler>
-inline void
-    getChassisRelatedItem(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const sdbusplus::message::object_path& objectPath,
-                          const std::string& chassisId, Handler&& handler)
+inline void getChassisRelatedItem(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const sdbusplus::message::object_path& objectPath,
+    const std::string& chassisId, Handler&& handler)
 {
     // Ensure to pick up the resource from Chassis interface
     size_t chassisNamePos = objectPath.str.rfind('/');

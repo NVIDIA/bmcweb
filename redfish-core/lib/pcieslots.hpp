@@ -125,9 +125,9 @@ inline std::string dbusPcieTypesToRedfish(const std::string& pcieType)
  * @param[in,out]   json           Json object
  * @param[in]       dbusProperties Properties of Slot.
  */
-inline void
-    fillProperties(nlohmann::json& json,
-                   const std::map<std::string, propertyTypes>& dbusProperties)
+inline void fillProperties(
+    nlohmann::json& json,
+    const std::map<std::string, propertyTypes>& dbusProperties)
 {
     for (const auto& [key, val] : dbusProperties)
     {

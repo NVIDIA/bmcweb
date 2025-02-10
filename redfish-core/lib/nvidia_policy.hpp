@@ -325,10 +325,10 @@ inline void requestRoutesLeakDetectionPolicy(App& app)
             std::bind_front(handleLeakDetectionPolicyPatch, std::ref(app)));
 }
 
-inline void
-    doPolicyCollection(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& chassisId,
-                       const std::optional<std::string>& validChassisPath)
+inline void doPolicyCollection(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId,
+    const std::optional<std::string>& validChassisPath)
 {
     if (!validChassisPath)
     {

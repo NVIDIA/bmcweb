@@ -6,10 +6,10 @@
 #include "registries/heartbeat_event_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
 #include "registries/platform_message_registry.hpp"
-#include "registries/update_message_registry.hpp"
 #include "registries/resource_event_message_registry.hpp"
 #include "registries/task_event_message_registry.hpp"
 #include "registries/telemetry_message_registry.hpp"
+#include "registries/update_message_registry.hpp"
 
 #include <optional>
 #include <span>
@@ -22,7 +22,7 @@ struct HeaderAndUrl
     const Header& header;
     const char* url;
 };
-//TODO:Rohit to add support for bios reg and diff with upstream 
+// TODO:Rohit to add support for bios reg and diff with upstream
 inline std::optional<registries::HeaderAndUrl>
     getRegistryHeaderAndUrlFromPrefix(std::string_view registryName)
 {

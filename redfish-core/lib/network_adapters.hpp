@@ -168,10 +168,10 @@ inline void doNetworkAdaptersCollection(
             "xyz.openbmc_project.Network.EthernetInterface"});
 }
 
-inline void
-    doNetworkAdapter(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& chassisId,
-                     const std::optional<std::string>& validChassisPath)
+inline void doNetworkAdapter(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId,
+    const std::optional<std::string>& validChassisPath)
 {
     if (!validChassisPath)
     {
@@ -199,10 +199,10 @@ inline void
             chassisId, BMCWEB_PLATFORM_NETWORK_ADAPTER);
 }
 
-inline void
-    doPortNDFCollection(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& chassisId, bool isPort,
-                        const std::optional<std::string>& validChassisPath)
+inline void doPortNDFCollection(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, bool isPort,
+    const std::optional<std::string>& validChassisPath)
 {
     if (!validChassisPath)
     {

@@ -92,7 +92,7 @@ inline void enableTLSAuth()
         }
         std::ofstream out(confPath.string());
         out << "[Socket]" << std::endl;
-        out << "ListenStream=" << std::endl; // disable port 80
+        out << "ListenStream=" << std::endl;    // disable port 80
         out << "ListenStream=443" << std::endl; // enable port 443
     }
     catch (const std::exception& e)
@@ -147,8 +147,8 @@ inline void enableTLSAuth()
  *
  * @param[in] asyncResp - Shared pointer for completing asynchronous calls
  */
-inline void
-    doBMCGracefulShutdown(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void doBMCGracefulShutdown(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     const char* processName = "xyz.openbmc_project.State.BMC";
     const char* objectPath = "/xyz/openbmc_project/state/bmc0";
@@ -274,8 +274,8 @@ inline void executeRawSynCommand(
 }
 
 // function to convert dataInbyte array to dataIn uint32 vector
-inline std::vector<std::uint32_t>
-    formatAsyncDataIn(std::vector<std::string>& asynDataInBytes)
+inline std::vector<std::uint32_t> formatAsyncDataIn(
+    std::vector<std::string>& asynDataInBytes)
 {
     size_t j;
     size_t found;
@@ -411,8 +411,8 @@ inline void executeRawAsynCommand(
         Type, id, argRaw, asyncDataInRaw, requestedDataOutBytes);
 }
 
-inline void
-    getDbusSelCapacity(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getDbusSelCapacity(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     auto respHandler = [asyncResp](const boost::system::error_code ec,
                                    const std::variant<size_t>& capacity) {
@@ -675,8 +675,8 @@ inline void getLinkManagerForSwitches(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-inline void
-    getFencingPrivilege(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getFencingPrivilege(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
@@ -819,8 +819,8 @@ inline void getFabricManagerInfo(
     }
 }
 
-inline void
-    getIsCommandShellEnable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getIsCommandShellEnable(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     sdbusplus::asio::getProperty<bool>(
         *crow::connections::systemBus, "xyz.openbmc_project.Settings",
@@ -1277,10 +1277,10 @@ inline void requestRouteAsyncRawOobCommand(App& app)
             });
 }
 
-inline void
-    handleGenericManager(const crow::Request& /*req*/,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& managerId)
+inline void handleGenericManager(
+    const crow::Request& /*req*/,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, managerId](
@@ -1383,10 +1383,10 @@ inline void
     return;
 }
 
-inline void
-    extendManagerPatch(const crow::Request& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& /*managerId*/)
+inline void extendManagerPatch(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& /*managerId*/)
 {
     std::optional<std::string> serviceIdentification;
 
@@ -1401,10 +1401,10 @@ inline void
     }
 }
 
-inline void
-    extendManagerPatchOEM(const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& /*managerId*/)
+inline void extendManagerPatchOEM(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& /*managerId*/)
 {
     std::optional<std::string> serviceIdentification;
     std::optional<std::string> privilege;
@@ -1492,10 +1492,10 @@ inline void
     }
 }
 
-inline void
-    extendManagerGet(const crow::Request& /*req*/,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& managerId)
+inline void extendManagerGet(
+    const crow::Request& /*req*/,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
 {
     // Default Health State.
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
@@ -1644,10 +1644,10 @@ inline void
     getServiceIdentification(asyncResp);
 }
 
-inline void
-    extendManagerOEM(const crow::Request& /*req*/,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& /*managerId*/)
+inline void extendManagerOEM(
+    const crow::Request& /*req*/,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& /*managerId*/)
 {
     // default oem data
     nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];

@@ -51,8 +51,8 @@ static std::map<std::string, std::string> taskUri;
 const std::array<const char*, 1> driveInterface = {
     "xyz.openbmc_project.Inventory.Item.Drive"};
 
-inline std::optional<std::string>
-    convertDriveFormFactor(const std::string& formFactor)
+inline std::optional<std::string> convertDriveFormFactor(
+    const std::string& formFactor)
 {
     if (formFactor ==
         "xyz.openbmc_project.Inventory.Item.Drive.DriveFormFactor.Drive3_5")
@@ -305,9 +305,9 @@ inline void getDriveLocationContext(
         });
 }
 
-inline void
-    getDriveLocation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& connectionName, const std::string& path)
+inline void getDriveLocation(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& connectionName, const std::string& path)
 {
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
@@ -388,10 +388,10 @@ inline void getDriveSmartWarning(
         });
 }
 
-inline void
-    getDriveProgress(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& connectionName, const std::string& path,
-                     const std::optional<std::string>& operationName)
+inline void getDriveProgress(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& connectionName, const std::string& path,
+    const std::optional<std::string>& operationName)
 {
     sdbusplus::asio::getProperty<uint8_t>(
         *crow::connections::systemBus, connectionName, path,
@@ -672,8 +672,8 @@ inline void afterSubtree(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
 inline void handleStorageGet(
     App& app, const crow::Request& req,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& storageId)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& storageId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -1568,10 +1568,10 @@ inline void handleSystemsStorageDriveGet(
  * System drives, this URL will show all the DriveCollection
  * information
  */
-inline void
-    driveCollectionGet(crow::App& app, const crow::Request& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& systemName)
+inline void driveCollectionGet(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {

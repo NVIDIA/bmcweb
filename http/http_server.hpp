@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
-#include "asn1.hpp"
-#include "file_watcher.hpp"
 #include "bmcweb_config.h"
 
+#include "asn1.hpp"
+#include "file_watcher.hpp"
 #include "http_connection.hpp"
 #include "logging.hpp"
 #include "lsp.hpp"

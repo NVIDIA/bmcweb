@@ -14,8 +14,8 @@ static const std::string& entityMangerService =
     "xyz.openbmc_project.EntityManager";
 static const std::string& card1Path =
     "/xyz/openbmc_project/inventory/system/board/Card1";
-inline void
-    getChassisNMIStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getChassisNMIStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
@@ -46,8 +46,8 @@ inline void
  *
  * @return None.
  */
-inline void
-    populateFromEntityManger(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+inline void populateFromEntityManger(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     crow::connections::systemBus->async_method_call(
         [aResp](const boost::system::error_code ec,

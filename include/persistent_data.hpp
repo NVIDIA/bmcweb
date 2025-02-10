@@ -7,8 +7,9 @@
 #include "ossl_random.hpp"
 #include "sessions.hpp"
 // NOLINTNEXTLINE(misc-include-cleaner)
-#include "utility.hpp"
 #include "nvidia_persistent_data.hpp"
+#include "utility.hpp"
+
 #include <boost/beast/core/file_base.hpp>
 #include <boost/beast/core/file_posix.hpp>
 #include <boost/beast/http/fields.hpp>
@@ -182,7 +183,7 @@ class ConfigFile
                             BMCWEB_LOG_DEBUG("Restored subscription: {} {}",
                                              newSub->id, newSub->customText);
 
-                                EventServiceStore::getInstance()
+                            EventServiceStore::getInstance()
                                 .subscriptionsConfigMap.emplace(
                                     newSub->id,
                                     std::make_shared<UserSubscription>(

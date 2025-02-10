@@ -1667,9 +1667,9 @@ inline void patchPortDisableFuture(
         *inventoryService, objectPath, "org.freedesktop.DBus.Properties",
         "GetAll", "com.nvidia.NVLink.NVLinkDisableFuture");
 }
-inline void
-    getWorkLoadPowerInfo(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                         const std::string& processorId)
+inline void getWorkLoadPowerInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& processorId)
 {
     std::string powerProfileURI =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -1777,10 +1777,10 @@ inline void getMNNVLinkTopologyInfo(
         });
 }
 
-inline void
-    clearPCIeCounter(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& connection, const std::string& path,
-                     const std::string& counterType)
+inline void clearPCIeCounter(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& connection, const std::string& path,
+    const std::string& counterType)
 {
     dbus::utility::getDbusObject(
         path,
@@ -2338,10 +2338,10 @@ inline void getEgmModePendingData(
 }
 
 // Function to handle the getEgmModeData async method call response
-inline void
-    getEgmModeDataHandler(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                          const boost::system::error_code ec,
-                          const OperatingConfigProperties& properties)
+inline void getEgmModeDataHandler(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const boost::system::error_code ec,
+    const OperatingConfigProperties& properties)
 {
     if (ec)
     {

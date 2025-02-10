@@ -112,8 +112,8 @@ class AdditionalData
         return data.cend();
     }
 
-    std::map<std::string, std::string>::const_iterator
-        find(const std::string& key) const
+    std::map<std::string, std::string>::const_iterator find(
+        const std::string& key) const
     {
         return data.find(key);
     }

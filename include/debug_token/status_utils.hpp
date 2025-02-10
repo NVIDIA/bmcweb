@@ -398,8 +398,8 @@ struct VdmTokenStatus
     std::optional<VdmTokenProcessingStatus> tokenProcessingStatus;
 };
 
-inline std::map<int, VdmTokenStatus>
-    parseVdmUtilWrapperOutput(std::vector<char>& output)
+inline std::map<int, VdmTokenStatus> parseVdmUtilWrapperOutput(
+    std::vector<char>& output)
 {
     boost::interprocess::bufferstream outputStream(output.data(),
                                                    output.size());

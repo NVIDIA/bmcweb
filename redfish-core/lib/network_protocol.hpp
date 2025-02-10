@@ -349,8 +349,8 @@ using IpAddress =
 
 inline void handleNTPServersPatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::vector<IpAddress>& ntpServerObjects,
-                          std::vector<std::string> currentNtpServers)
+    const std::vector<IpAddress>& ntpServerObjects,
+    std::vector<std::string> currentNtpServers)
 {
     std::vector<std::string>::iterator currentNtpServer =
         currentNtpServers.begin();
@@ -453,8 +453,8 @@ inline void handleNTPServersPatch(
 
 inline void handleProtocolEnabled(
     const bool protocolEnabled,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& netBasePath)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& netBasePath)
 {
     constexpr std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Control.Service.Attributes"};
@@ -570,12 +570,12 @@ inline void handleManagersNetworkProtocolPatch(
     std::optional<std::string> severity;
 
     if (!json_util::readJsonPatch(
-            req, asyncResp->res, //
-            "HostName", newHostName, //
-            "NTP/NTPServers", ntpServerObjects, //
-            "NTP/ProtocolEnabled", ntpEnabled, //
+            req, asyncResp->res,                 //
+            "HostName", newHostName,             //
+            "NTP/NTPServers", ntpServerObjects,  //
+            "NTP/ProtocolEnabled", ntpEnabled,   //
             "IPMI/ProtocolEnabled", ipmiEnabled, //
-            "SSH/ProtocolEnabled", sshEnabled, //
+            "SSH/ProtocolEnabled", sshEnabled,   //
             "Oem/Nvidia/Rsyslog/State", state, "Oem/Nvidia/Rsyslog/Address",
             address, "Oem/Nvidia/Rsyslog/Port", port,
             "Oem/Nvidia/Rsyslog/Protocol", protocol, "Oem/Nvidia/Rsyslog/TLS",

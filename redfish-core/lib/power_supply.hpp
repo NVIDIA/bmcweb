@@ -13,8 +13,9 @@
 #include "registries/privilege_registry.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/dbus_utils.hpp"
-#include "utils/time_utils.hpp"
 #include "utils/nvidia_power_supply_utils.hpp"
+#include "utils/time_utils.hpp"
+
 #include <asm-generic/errno.h>
 
 #include <boost/beast/http/field.hpp>
@@ -212,7 +213,7 @@ inline void getValidPowerSupplyPath(
 
 inline void getPowerSupplyState(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& service, const std::string& path)
+    const std::string& service, const std::string& path)
 {
     dbus::utility::getProperty<bool>(
         service, path, "xyz.openbmc_project.Inventory.Item", "Present",
@@ -238,7 +239,7 @@ inline void getPowerSupplyState(
 
 inline void getPowerSupplyHealth(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& service, const std::string& path)
+    const std::string& service, const std::string& path)
 {
     dbus::utility::getProperty<bool>(
         service, path, "xyz.openbmc_project.State.Decorator.OperationalStatus",
@@ -265,7 +266,7 @@ inline void getPowerSupplyHealth(
 
 inline void getPowerSupplyAsset(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& service, const std::string& path)
+    const std::string& service, const std::string& path)
 {
     dbus::utility::getAllProperties(
         service, path, "xyz.openbmc_project.Inventory.Decorator.Asset",
@@ -359,7 +360,7 @@ inline void getPowerSupplyFirmwareVersion(
 
 inline void getPowerSupplyLocation(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& service, const std::string& path)
+    const std::string& service, const std::string& path)
 {
     dbus::utility::getProperty<std::string>(
         service, path, "xyz.openbmc_project.Inventory.Decorator.LocationCode",

@@ -74,8 +74,8 @@ static std::unordered_map<ExitCode, ErrorMapping> emmcServiceErrorMapping = {
  * @param[in] exitCode
  * @return std::optional<ErrorMapping>
  */
-inline std::optional<ErrorMapping>
-    getEMMCErrorMessageFromExitCode(ExitCode exitCode)
+inline std::optional<ErrorMapping> getEMMCErrorMessageFromExitCode(
+    ExitCode exitCode)
 {
     if (emmcServiceErrorMapping.find(exitCode) != emmcServiceErrorMapping.end())
     {

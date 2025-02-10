@@ -1693,7 +1693,7 @@ template <typename Callback>
 inline void getInventoryItems(
     const std::shared_ptr<SensorsAsyncResp>& sensorsAsyncResp,
     const std::shared_ptr<std::set<std::string>>& sensorNames,
-                      Callback&& callback)
+    Callback&& callback)
 {
     BMCWEB_LOG_DEBUG("getInventoryItems enter");
     auto getInventoryItemAssociationsCb =
@@ -2087,7 +2087,7 @@ inline void getSensorData(
 
 inline void processSensorList(
     const std::shared_ptr<SensorsAsyncResp>& sensorsAsyncResp,
-                      const std::shared_ptr<std::set<std::string>>& sensorNames)
+    const std::shared_ptr<std::set<std::string>>& sensorNames)
 {
     auto getConnectionCb = [sensorsAsyncResp, sensorNames](
                                const std::set<std::string>& connections) {
@@ -2208,10 +2208,10 @@ inline void setSensorsOverride(
         }
         for (auto& item : collectionItems.second)
         {
-            if (!json_util::readJsonObject( //
+            if (!json_util::readJsonObject(                //
                     item, sensorAsyncResp->asyncResp->res, //
-                    "MemberId", memberId, //
-                    propertyValueName, value //
+                    "MemberId", memberId,                  //
+                    propertyValueName, value               //
                     ))
             {
                 return;
@@ -2420,8 +2420,8 @@ inline void handleSensorCollectionGet(
 
 inline void getSensorFromDbus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& sensorPath,
-                      const ::dbus::utility::MapperGetObject& mapperResponse)
+    const std::string& sensorPath,
+    const ::dbus::utility::MapperGetObject& mapperResponse)
 {
     if (mapperResponse.size() != 1)
     {
@@ -2539,9 +2539,9 @@ inline void handleSensorGetUsingPath(
         });
 }
 
-inline void
-    getRelatedItemData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& objPath)
+inline void getRelatedItemData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Sensor get related item");
 

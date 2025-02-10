@@ -85,8 +85,8 @@ inline bool fillReport(nlohmann::json& json, const std::string& id,
 }
 } // namespace telemetry
 
-inline void
-    addMetricReportMembers(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void addMetricReportMembers(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](boost::system::error_code ec,
@@ -658,9 +658,9 @@ inline void getManagedObjectForMetrics(
         "GetManagedObjects");
 }
 
-inline bool
-    isMetricIdSupported(const std::string& requestedMetricId,
-                        const std::vector<std::string>& supportedMetricIds)
+inline bool isMetricIdSupported(
+    const std::string& requestedMetricId,
+    const std::vector<std::string>& supportedMetricIds)
 {
     bool supported = true;
     // If metricId not found in supportedMetricId list

@@ -96,9 +96,9 @@ inline void setProfileProperty(
  * @param aResp - response object
  * @return None
  */
-inline void
-    handleGetProfilesList(crow::App& app, const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+inline void handleGetProfilesList(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {
@@ -262,10 +262,10 @@ inline void handlePatchProfile(crow::App& app, const crow::Request& req,
  * @param profileNumber - profile number
  * @return None
  */
-inline void
-    handleGetProfileInfo(crow::App& app, const crow::Request& req,
-                         const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                         const std::string& profileNumber)
+inline void handleGetProfileInfo(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& profileNumber)
 {
     BMCWEB_LOG_DEBUG("Start Handle get profile, profile number: {} ",
                      profileNumber);
@@ -402,9 +402,9 @@ inline void handleGetProfile(crow::App& app, const crow::Request& req,
  * @param aResp - response object
  * @return None
  */
-inline void
-    handleGetProfilesStatus(crow::App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+inline void handleGetProfilesStatus(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     BMCWEB_LOG_DEBUG("Start handleGetProfilesStatus ");
     if (!redfish::setUpRedfishRoute(app, req, aResp))
@@ -573,14 +573,14 @@ inline bool handleTaskStatus(const std::shared_ptr<task::TaskData>& taskData,
 {
     // {task status, progress percent}
     const std::unordered_map<std::string, int> taskNotCompleted = {
-        {"Start", 0}, // Start update of a profile
-        {"StartBios", 0}, // Start update of a by Bios
+        {"Start", 0},              // Start update of a profile
+        {"StartBios", 0},          // Start update of a by Bios
         {"StartVerification", 20}, // Start Verification of profile by BMC
-        {"ProfileSaved", 30}, // Profile Saved by BMC
-        {"PendingBios", 40}, // Pending Bios to complete update of profile
-        {"BiosStarted", 50}, // Bios Started update of profile
-        {"BiosFinished", 60}, // Bios Finished update of profile
-        {"BmcStarted", 80}}; // Bmc start last stage of update of profile
+        {"ProfileSaved", 30},      // Profile Saved by BMC
+        {"PendingBios", 40},       // Pending Bios to complete update of profile
+        {"BiosStarted", 50},       // Bios Started update of profile
+        {"BiosFinished", 60},      // Bios Finished update of profile
+        {"BmcStarted", 80}};       // Bmc start last stage of update of profile
     const std::vector<std::string> taskCompleted = {"None", "Active"};
     std::string index = std::to_string(taskData->index);
 

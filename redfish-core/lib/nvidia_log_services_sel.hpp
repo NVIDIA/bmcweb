@@ -469,9 +469,9 @@ inline void requestRoutesDBusSELLogEntryCollection(App& app)
         });
 }
 
-inline void
-    deleteDbusLogEntry(const std::string& entryId,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void deleteDbusLogEntry(
+    const std::string& entryId,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     auto respHandler = [asyncResp](const boost::system::error_code ec) {
         if (ec)

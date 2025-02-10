@@ -8,9 +8,10 @@
 #include "generated/enums/sensor.hpp"
 #include "generated/enums/thermal.hpp"
 #include "logging.hpp"
+#include "nvidia_sensor_utils.hpp"
 #include "str_utility.hpp"
 #include "utils/dbus_utils.hpp"
-#include "nvidia_sensor_utils.hpp"
+
 #include <boost/url/format.hpp>
 #include <nlohmann/json.hpp>
 #include <sdbusplus/message/native_types.hpp>

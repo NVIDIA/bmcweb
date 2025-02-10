@@ -30,9 +30,9 @@ namespace redfish
 using GetObjectType =
     std::vector<std::pair<std::string, std::vector<std::string>>>;
 
-inline void
-    getInterfaceStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& ifaceId)
+inline void getInterfaceStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& ifaceId)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
@@ -92,8 +92,8 @@ inline void
         "xyz.openbmc_project.Network.EthernetInterface", "NICEnabled");
 }
 
-inline void
-    getCredentialsBootStrap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getCredentialsBootStrap(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code ec,
@@ -173,9 +173,9 @@ inline void
         std::array<const char*, 1>{redfish::bios::biosConfigIface});
 }
 
-inline void
-    setCredentialBootstrap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& property, const bool& flag)
+inline void setCredentialBootstrap(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& property, const bool& flag)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, property, flag](const boost::system::error_code ec,

@@ -501,9 +501,9 @@ inline void extendSystemLogServicesGet(
     } /* BMCWEB_NVIDIA_OEM_PROPERTIES */
 }
 
-inline void
-    extendLogServiceOEMGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& dumpType)
+inline void extendLogServiceOEMGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& dumpType)
 {
     if (dumpType == "System")
     {

@@ -25,9 +25,9 @@
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
-#include <utils/chassis_utils.hpp>
 #include <boost/url/format.hpp>
 #include <nlohmann/json.hpp>
+#include <utils/chassis_utils.hpp>
 
 #include <array>
 #include <functional>
@@ -533,8 +533,8 @@ inline void getTemperatureReadingsCelsius(
 
 inline void doThermalMetrics(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& chassisId,
-                     const std::optional<std::string>& validChassisPath)
+    const std::string& chassisId,
+    const std::optional<std::string>& validChassisPath)
 {
     if (!validChassisPath)
     {
@@ -583,8 +583,8 @@ inline void handleThermalMetricsHead(
 
 inline void handleThermalMetricsGet(
     App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& chassisId)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {

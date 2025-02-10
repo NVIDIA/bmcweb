@@ -1492,7 +1492,7 @@ void resourceInStandby(crow::Response& res)
 nlohmann::json resourceExhaustion(std::string_view arg1)
 {
     return getLog(redfish::registries::base::Index::resourceExhaustion,
-        std::to_array({arg1}));
+                  std::to_array({arg1}));
 }
 
 void resourceExhaustion(crow::Response& res, std::string_view arg1)
@@ -2187,7 +2187,7 @@ nlohmann::json networkNameResolutionNotSupported()
 {
     return getLog(
         redfish::registries::base::Index::networkNameResolutionNotSupported,
-                  {});
+        {});
 }
 
 void networkNameResolutionNotSupported(crow::Response& res)

@@ -33,8 +33,8 @@ namespace privilege_utils
  * bool isRedfishHostInterface).
  */
 template <typename Callback>
-inline void
-    isRedfishHostInterfaceUser(const std::string& username, Callback&& callback)
+inline void isRedfishHostInterfaceUser(const std::string& username,
+                                       Callback&& callback)
 {
     BMCWEB_LOG_DEBUG("isRedfishHostInterfaceUser enter {}", username);
 

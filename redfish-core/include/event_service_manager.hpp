@@ -3,6 +3,7 @@
 // SPDX-FileCopyrightText: Copyright 2020 Intel Corporation
 #pragma once
 #include "bmcweb_config.h"
+
 #include "cper_utils.hpp"
 #include "dbus_log_watcher.hpp"
 #include "error_messages.hpp"
@@ -298,13 +299,13 @@ class EventServiceManager
                             dbusEventLogMonitor.emplace();
                         }
                     }
-            }
-            else
-            {
+                }
+                else
+                {
                     if (!filesystemLogMonitor)
                     {
                         filesystemLogMonitor.emplace(getIoContext());
-            }
+                    }
                 }
             }
             else
@@ -423,9 +424,9 @@ class EventServiceManager
                 if (!filesystemLogMonitor)
                 {
                     filesystemLogMonitor.emplace(getIoContext());
+                }
             }
         }
-    }
         else
         {
             dbusEventLogMonitor.reset();
@@ -505,7 +506,7 @@ class EventServiceManager
 
     std::string addSSESubscription(
         const std::shared_ptr<Subscription>& subValue,
-                           std::string_view lastEventId)
+        std::string_view lastEventId)
     {
         std::string id = addSubscriptionInternal(subValue);
 
@@ -517,7 +518,7 @@ class EventServiceManager
                 std::ranges::find_if(
                     messages, [&lastEventId](const Event& event) {
                         return std::to_string(event.id) == lastEventId;
-                             });
+                    });
             // Can't find a matching ID
             if (lastEvent == messages.end())
             {
@@ -533,10 +534,10 @@ class EventServiceManager
                 // Skip the last event the user already has
                 lastEvent++;
 
-            for (boost::circular_buffer<Event>::const_iterator event =
-                     lastEvent;
+                for (boost::circular_buffer<Event>::const_iterator event =
+                         lastEvent;
                      event != messages.end(); event++)
-            {
+                {
                     std::string strMsg =
                         nlohmann::json(event->message)
                             .dump(2, ' ', true,
@@ -740,7 +741,7 @@ class EventServiceManager
 
         if (!origin.empty())
         {
-        eventMessage["OriginOfCondition"] = origin;
+            eventMessage["OriginOfCondition"] = origin;
         }
 
         // MemberId is 0 : since we are sending one event record.

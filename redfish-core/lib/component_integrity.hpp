@@ -93,8 +93,8 @@ inline bool startsWithPrefix(const std::string& str, const std::string& prefix)
     return str.rfind(prefix, 0) == 0;
 }
 
-inline SPDMMeasurementData
-    parseSPDMInterfaceProperties(const GetManagedPropertyType& propMap)
+inline SPDMMeasurementData parseSPDMInterfaceProperties(
+    const GetManagedPropertyType& propMap)
 {
     SPDMMeasurementData config{};
     for (const auto& property : propMap)

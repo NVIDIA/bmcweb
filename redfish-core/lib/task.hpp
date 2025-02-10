@@ -428,7 +428,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                         self->finishTask();
 
                         // Send event
-                    sendTaskEvent(self->state, self->index);
+                        sendTaskEvent(self->state, self->index);
 
                         // reset the match after the callback was successful
                         boost::asio::post(

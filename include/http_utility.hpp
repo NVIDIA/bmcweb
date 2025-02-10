@@ -89,11 +89,11 @@ inline ContentType getPreferredContentType(
     using boost::spirit::x3::uint_;
 
     const symbols<ContentType> knownMimeType{
-    {"application/cbor", ContentType::CBOR},
-    {"application/json", ContentType::JSON},
-    {"application/octet-stream", ContentType::OctetStream},
-    {"text/html", ContentType::HTML},
-    {"text/event-stream", ContentType::EventStream},
+        {"application/cbor", ContentType::CBOR},
+        {"application/json", ContentType::JSON},
+        {"application/octet-stream", ContentType::OctetStream},
+        {"text/html", ContentType::HTML},
+        {"text/event-stream", ContentType::EventStream},
         {"*/*", ContentType::ANY}};
 
     std::vector<ContentType> ct;
@@ -105,12 +105,12 @@ inline ContentType getPreferredContentType(
                     omit[+typeCharset >> lit('/') >> +typeCharset];
     auto parser = +(mimeType >> omit[parameters >> -char_(',') >> *space]);
     if (!parse(acceptsHeader.begin(), acceptsHeader.end(), parser, ct))
-        {
+    {
         return ContentType::NoMatch;
-        }
+    }
 
     for (const ContentType parsedType : ct)
-        {
+    {
         if (parsedType == ContentType::ANY)
         {
             return parsedType;
@@ -119,7 +119,7 @@ inline ContentType getPreferredContentType(
         if (it != preferredOrder.end())
         {
             return *it;
-    }
+        }
     }
 
     return ContentType::NoMatch;

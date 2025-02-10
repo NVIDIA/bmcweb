@@ -15,9 +15,9 @@
 #include "generated/enums/resource.hpp"
 #include "http_request.hpp"
 #include "led.hpp"
+#include "logging.hpp"
 #include "nvidia_debug_token.hpp"
 #include "nvidia_protected_component.hpp"
-#include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/collection.hpp"
@@ -745,9 +745,10 @@ inline void handleChassisGetSubTree(
             {
                 if (interface == assetTagInterface)
                 {
-                dbus::utility::getProperty<std::string>(
-                    connectionName, path, assetTagInterface, "AssetTag",
-                    [asyncResp, chassisId](const boost::system::error_code& ec2,
+                    dbus::utility::getProperty<std::string>(
+                        connectionName, path, assetTagInterface, "AssetTag",
+                        [asyncResp,
+                         chassisId](const boost::system::error_code& ec2,
                                     const std::string& property) {
                             if (ec2)
                             {
@@ -762,13 +763,14 @@ inline void handleChassisGetSubTree(
                 }
                 else if (interface == replaceableInterface)
                 {
-
                     redfish::chassis_utils::getChassisReplaceable(
                         asyncResp, connectionName, path);
-                        
-                dbus::utility::getProperty<bool>(
-                    connectionName, path, replaceableInterface, "HotPluggable",
-                    [asyncResp, chassisId](const boost::system::error_code& ec2,
+
+                    dbus::utility::getProperty<bool>(
+                        connectionName, path, replaceableInterface,
+                        "HotPluggable",
+                        [asyncResp,
+                         chassisId](const boost::system::error_code& ec2,
                                     const bool property) {
                             if (ec2)
                             {
@@ -786,9 +788,10 @@ inline void handleChassisGetSubTree(
                 }
                 else if (interface == revisionInterface)
                 {
-                dbus::utility::getProperty<std::string>(
-                    connectionName, path, revisionInterface, "Version",
-                    [asyncResp, chassisId](const boost::system::error_code& ec2,
+                    dbus::utility::getProperty<std::string>(
+                        connectionName, path, revisionInterface, "Version",
+                        [asyncResp,
+                         chassisId](const boost::system::error_code& ec2,
                                     const std::string& property) {
                             if (ec2)
                             {
@@ -813,12 +816,12 @@ inline void handleChassisGetSubTree(
                 }
             }
 
-        dbus::utility::getAllProperties(
-            *crow::connections::systemBus, connectionName, path,
-            "xyz.openbmc_project.Inventory.Decorator.Asset",
-            [asyncResp, chassisId,
-             path](const boost::system::error_code&,
-                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+            dbus::utility::getAllProperties(
+                *crow::connections::systemBus, connectionName, path,
+                "xyz.openbmc_project.Inventory.Decorator.Asset",
+                [asyncResp, chassisId,
+                 path](const boost::system::error_code&,
+                       const dbus::utility::DBusPropertiesMap& propertiesList) {
                     redfish::nvidia_chassis_utils::
                         handleChassisGetAllProperties(
                             asyncResp, chassisId, path, propertiesList,
@@ -842,14 +845,14 @@ inline void handleChassisGetSubTree(
                 }
             }
 
-        sdbusplus::asio::getAllProperties(
-            *crow::connections::systemBus, connectionName, path,
-            "xyz.openbmc_project.Inventory.Item.Chassis",
-            [asyncResp](
-                const boost::system::error_code&,
-                const dbus::utility::DBusPropertiesMap& propertiesList) {
-                handleChassisProperties(asyncResp, propertiesList);
-            });
+            sdbusplus::asio::getAllProperties(
+                *crow::connections::systemBus, connectionName, path,
+                "xyz.openbmc_project.Inventory.Item.Chassis",
+                [asyncResp](
+                    const boost::system::error_code&,
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+                    handleChassisProperties(asyncResp, propertiesList);
+                });
 
             for (const auto& interface : interfaces2)
             {
@@ -933,13 +936,13 @@ inline void handleChassisGetSubTree(
 inline void handleChassisGet(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string& chassisId)
+    const std::string& chassisId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-        
+
     constexpr std::array<std::string_view, 3> interfaces = {
         "xyz.openbmc_project.Inventory.Item.Board",
         "xyz.openbmc_project.Inventory.Item.Chassis",
@@ -980,10 +983,10 @@ inline void handleChassisPatch(
         });
 }
 
-inline void
-    handleChassisPatch(const crow::Request& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& param)
+inline void handleChassisPatch(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& param)
 {
     // if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     // {
@@ -1006,11 +1009,11 @@ inline void
         return;
     }
 
-    if (!json_util::readJsonPatch( //
-            req, asyncResp->res, //
-            "IndicatorLED", indicatorLed, //
+    if (!json_util::readJsonPatch(                              //
+            req, asyncResp->res,                                //
+            "IndicatorLED", indicatorLed,                       //
             "LocationIndicatorActive", locationIndicatorActive, //
-            "Oem", oemJsonObj //
+            "Oem", oemJsonObj                                   //
             ))
     {
         return;
@@ -1215,10 +1218,10 @@ inline void
 }
 
 // TODO: move to new file
-inline void
-    handleChassisPatchReq(App& app, const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& param)
+inline void handleChassisPatchReq(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& param)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {

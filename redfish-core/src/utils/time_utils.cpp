@@ -512,8 +512,8 @@ std::optional<usSinceEpoch> dateStringToEpoch(std::string_view datetime)
     return std::nullopt;
 }
 
-inline std::optional<std::string>
-    toDurationStringFromUint(const uint64_t timeMs)
+inline std::optional<std::string> toDurationStringFromUint(
+    const uint64_t timeMs)
 {
     constexpr uint64_t maxTimeMs =
         static_cast<uint64_t>(std::chrono::milliseconds::max().count());
@@ -583,8 +583,8 @@ inline std::string nanoSecToDurationString(std::chrono::nanoseconds ns)
     return fmt;
 }
 
-inline std::optional<std::string>
-    toDurationStringFromNano(const uint64_t timeNs)
+inline std::optional<std::string> toDurationStringFromNano(
+    const uint64_t timeNs)
 {
     static const uint64_t maxTimeNs =
         static_cast<uint64_t>(std::chrono::nanoseconds::max().count());

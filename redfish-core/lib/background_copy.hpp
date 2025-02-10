@@ -306,10 +306,10 @@ inline void enableBackgroundCopy(
  *
  * @return exit code form mctp-vdm-tool.
  */
-inline void
-    initBackgroundCopy(const crow::Request& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       uint32_t endpointId, const std::string& inventoryURI)
+inline void initBackgroundCopy(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t endpointId,
+    const std::string& inventoryURI)
 {
     MctpVdmUtil mctpVdmUtilWrapper(endpointId);
     auto responseCallback =

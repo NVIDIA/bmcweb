@@ -35,9 +35,9 @@ namespace debug_token
 static std::map<std::string, std::unique_ptr<TargetedOperationHandler>>
     tokenOpMap;
 
-inline void
-    getChassisDebugToken(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& chassisId)
+inline void getChassisDebugToken(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
 {
     constexpr std::array<std::string_view, 1> interfaces = {debugTokenIntf};
     dbus::utility::getSubTreePaths(
@@ -360,10 +360,10 @@ inline void handleInstallToken(
 }
 
 template <TargetedOperation operationType>
-inline void
-    handleTargetedTokenOp(App& app, const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& chassisId)
+inline void handleTargetedTokenOp(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {

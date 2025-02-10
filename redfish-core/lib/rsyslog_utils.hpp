@@ -56,15 +56,15 @@ inline std::optional<bool> isEnabled(const std::optional<std::string>& input)
     {
         return true; // Enabled
     }
-    return false; // Not enabled
+    return false;    // Not enabled
 }
 
-inline std::optional<std::string>
-    getEnabledState(const std::optional<bool>& state)
+inline std::optional<std::string> getEnabledState(
+    const std::optional<bool>& state)
 {
     if (!state.has_value())
     {
-        return std::nullopt; // No value provided
+        return std::nullopt;                       // No value provided
     }
     return state.value() ? "Enabled" : "Disabled"; // Map true/false to strings
 }
@@ -139,7 +139,7 @@ inline bool isValidIpAddress(const std::string& ipAddress)
     {
         return isValidIPv6(ipAddress); // Check for IPv6
     }
-    return false; // Not a valid IP address
+    return false;                      // Not a valid IP address
 }
 
 // Function to validate port
@@ -264,11 +264,11 @@ inline void populateRsyslogClientSettings(
         });
 }
 
-inline void
-    setRsyslogProperty(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& service, const std::string& path,
-                       const std::string& interface,
-                       const std::string& property, const auto& value)
+inline void setRsyslogProperty(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& path,
+    const std::string& interface, const std::string& property,
+    const auto& value)
 {
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, service, path, interface, property,

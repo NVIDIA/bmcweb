@@ -35,7 +35,7 @@ namespace google_api
 
 inline void handleGoogleV1Get(
     const crow::Request& /*req*/,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     asyncResp->res.jsonValue["@odata.type"] =
         "#GoogleServiceRoot.v1_0_0.GoogleServiceRoot";
@@ -150,8 +150,8 @@ inline void populateRootOfTrustEntity(
 
 inline void handleRootOfTrustGet(
     const crow::Request& /*req*/,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& param)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& param)
 {
     std::string emptyCommand;
     resolveRoT(emptyCommand, asyncResp, param, populateRootOfTrustEntity);
@@ -159,8 +159,8 @@ inline void handleRootOfTrustGet(
 
 inline void invocationCallback(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const boost::system::error_code& ec,
-                       const std::vector<uint8_t>& responseBytes)
+    const boost::system::error_code& ec,
+    const std::vector<uint8_t>& responseBytes)
 {
     if (ec)
     {
@@ -176,8 +176,8 @@ inline void invocationCallback(
 
 inline void invokeRoTCommand(
     const std::string& command,
-                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const ResolvedEntity& resolvedEntity)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const ResolvedEntity& resolvedEntity)
 {
     std::vector<uint8_t> bytes = hexStringToBytes(command);
     if (bytes.empty())

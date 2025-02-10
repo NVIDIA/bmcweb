@@ -200,9 +200,9 @@ inline std::vector<std::string> parseLldpCapabilities(std::string& systemCap)
 }
 
 // Enable on BMC SYSTEM_CAPABILITIES, SYSTEM_DESCRIPTION, SYSTEM_NAME,
-inline void
-    getEnableLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& ifaceId)
+inline void getEnableLldpTlvs(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& ifaceId)
 {
     LldpToolUtil::run(
         ifaceId, LldpTlv::SYSTEM_CAPABILITIES, LldpCommandType::ENABLE_TLV,
@@ -457,9 +457,9 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         });
 }
 
-inline void
-    getLldpInformation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& ifaceId)
+inline void getLldpInformation(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& ifaceId)
 {
     static bool islldpEnable = false;
     if (!islldpEnable)

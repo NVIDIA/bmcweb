@@ -137,10 +137,10 @@ inline void handleSecureBootGet(crow::App& app, const crow::Request& req,
         });
 }
 
-inline void
-    handleSecureBootPatch(crow::App& app, const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                          [[maybe_unused]] const std::string& systemName)
+inline void handleSecureBootPatch(
+    crow::App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    [[maybe_unused]] const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, aResp))
     {

@@ -138,9 +138,9 @@ inline void getCpuEid(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     });
 }
 
-inline void
-    getSystemsCpuDebugToken(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& systemName)
+inline void getSystemsCpuDebugToken(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
     if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
     {
@@ -330,10 +330,10 @@ inline void handleCpuInstallTokenActionInfo(
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
 }
 
-inline void
-    handleCpuDisableToken(App& app, const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& systemName)
+inline void handleCpuDisableToken(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -405,10 +405,10 @@ inline void
 
 static std::unique_ptr<sdbusplus::bus::match_t> match;
 static std::unique_ptr<boost::asio::steady_timer> timer;
-inline void
-    handleCpuGenerateToken(App& app, const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& systemName)
+inline void handleCpuGenerateToken(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -555,10 +555,10 @@ inline void
     });
 }
 
-inline void
-    handleCpuInstallToken(App& app, const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& systemName)
+inline void handleCpuInstallToken(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {

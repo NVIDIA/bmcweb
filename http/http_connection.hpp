@@ -14,9 +14,10 @@
 #include "http_utility.hpp"
 #include "logging.hpp"
 #include "mutual_tls.hpp"
+#include "nvidia_persistent_data.hpp"
 #include "sessions.hpp"
 #include "str_utility.hpp"
-#include "nvidia_persistent_data.hpp"
+
 #include <boost/asio/error.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl/stream.hpp>

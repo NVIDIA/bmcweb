@@ -31,10 +31,10 @@ namespace redfish
 
 constexpr std::array<const char*, 1> bmcInterfaces = {
     "xyz.openbmc_project.Inventory.Item.BMC"};
-    
+
 inline void handleServiceRootHead(
     App& app, const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -264,7 +264,7 @@ inline void handleServiceRootGetImpl(
 }
 inline void handleServiceRootGet(
     App& app, const crow::Request& req,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {

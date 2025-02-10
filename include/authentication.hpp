@@ -6,13 +6,14 @@
 
 #include "http_response.hpp"
 #include "logging.hpp"
+#include "nvidia_persistent_data.hpp"
 #include "ossl_random.hpp"
 #include "pam_authenticate.hpp"
 #include "sessions.hpp"
 #include "utility.hpp"
 #include "utils/ip_utils.hpp"
 #include "webroutes.hpp"
-#include "nvidia_persistent_data.hpp"
+
 #include <security/_pam_types.h>
 
 #include <boost/asio/ip/address.hpp>
@@ -133,7 +134,7 @@ inline std::shared_ptr<persistent_data::UserSession> performXtokenAuth(
 
 inline std::shared_ptr<persistent_data::UserSession> performCookieAuth(
     boost::beast::http::verb method [[maybe_unused]],
-                      const boost::beast::http::header<true>& reqHeader)
+    const boost::beast::http::header<true>& reqHeader)
 {
     using headers = boost::beast::http::header<true>;
     std::pair<headers::const_iterator, headers::const_iterator> cookies =
@@ -224,8 +225,8 @@ inline bool isOnAllowlist(std::string_view url, boost::beast::http::verb method)
     }
     if (boost::beast::http::verb::get == method)
     {
-        if ((url == "/redfish") || //
-            (url == "/redfish/v1") || //
+        if ((url == "/redfish") ||          //
+            (url == "/redfish/v1") ||       //
             (url == "/redfish/v1/odata") || //
             (url == "/redfish/v1/$metadata"))
         {
