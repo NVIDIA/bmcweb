@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "filter_expr_parser_ast.hpp"
 
-#include <memory>
+#include <cstdint>
 #include <optional>
+#include <string>
 #include <string_view>
 
 namespace redfish

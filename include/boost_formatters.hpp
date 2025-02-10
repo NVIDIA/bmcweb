@@ -1,10 +1,14 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include <boost/system/error_code.hpp>
-#include <boost/url/grammar.hpp>
+#include <boost/url/grammar/string_view_base.hpp>
 #include <boost/url/url_view_base.hpp>
 
+#include <concepts>
 #include <format>
+#include <string_view>
 
 // NOLINTBEGIN(readability-convert-member-functions-to-static, cert-dcl58-cpp)
 template <std::derived_from<boost::system::error_code> ErrorCodeType>

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include "http_body.hpp"
 #include "http_request.hpp"
@@ -6,12 +8,18 @@
 
 #include <fcntl.h>
 
-#include <boost/asio/buffer.hpp>
-#include <boost/beast/core/flat_static_buffer.hpp>
-#include <boost/beast/http/basic_dynamic_body.hpp>
+#include <boost/beast/core/error.hpp>
+#include <boost/beast/core/file_base.hpp>
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/fields.hpp>
 #include <boost/beast/http/message.hpp>
+#include <boost/beast/http/status.hpp>
 #include <nlohmann/json.hpp>
 
+#include <cstddef>
+#include <cstdint>
+#include <filesystem>
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>

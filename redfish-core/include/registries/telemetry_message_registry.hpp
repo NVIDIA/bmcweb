@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 /****************************************************************
  *                 READ THIS WARNING FIRST
@@ -20,12 +22,13 @@ namespace redfish::registries::telemetry
 const Header header = {
     "Copyright 2023 DMTF. All rights reserved.",
     "#MessageRegistry.v1_6_2.MessageRegistry",
-    "Telemetry.1.0.0",
+    1,
+    0,
+    0,
     "Telemetry Message Registry",
     "en",
     "This registry defines the messages for telemetry related events.",
     "Telemetry",
-    "1.0.0",
     "DMTF",
 };
 constexpr const char* url =

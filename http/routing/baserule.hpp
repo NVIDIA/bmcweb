@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "async_resp.hpp"
@@ -7,9 +9,14 @@
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl/stream.hpp>
+#include <boost/beast/http/status.hpp>
 
+#include <cstddef>
+#include <limits>
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace crow
 {
@@ -38,8 +45,8 @@ class BaseRule
     virtual void handle(Request& /*req*/,
                         const std::shared_ptr<bmcweb::AsyncResp>&,
                         const std::vector<std::string>&) = 0;
-    virtual void
-        handleUpgrade(const Request& /*req*/,
+    virtual void handleUpgrade(
+        const Request& /*req*/,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       boost::asio::ip::tcp::socket&& /*adaptor*/)
     {

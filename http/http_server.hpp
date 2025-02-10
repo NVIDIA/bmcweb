@@ -1,13 +1,18 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "asn1.hpp"
 #include "file_watcher.hpp"
+#include "bmcweb_config.h"
+
 #include "http_connection.hpp"
 #include "logging.hpp"
 #include "lsp.hpp"
 #include "nvidia_ssl_key_handler.hpp"
 #include "ssl_key_handler.hpp"
 
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/signal_set.hpp>
@@ -15,15 +20,15 @@
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
 
-#include <atomic>
 #include <chrono>
-#include <cstdint>
-#include <filesystem>
-#include <future>
+#include <csignal>
+#include <cstddef>
+#include <ctime>
+#include <functional>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
-#include <vector>
 
 namespace crow
 {
@@ -35,12 +40,12 @@ class Server
 
   public:
     Server(Handler* handlerIn, boost::asio::ip::tcp::acceptor&& acceptorIn,
-           [[maybe_unused]] const std::shared_ptr<boost::asio::ssl::context>&
-               adaptorCtxIn,
-           std::shared_ptr<boost::asio::io_context> io) :
-        ioService(std::move(io)), acceptor(std::move(acceptorIn)),
-        signals(*ioService, SIGINT, SIGTERM, SIGHUP), handler(handlerIn),
-        adaptorCtx(std::move(adaptorCtxIn)), timer(*ioService), fileWatcher()
+           std::shared_ptr<boost::asio::ssl::context> adaptorCtxIn,
+           boost::asio::io_context& io) :
+        ioService(io), acceptor(std::move(acceptorIn)),
+        // NOLINTNEXTLINE(misc-include-cleaner)
+        signals(ioService, SIGINT, SIGTERM, SIGHUP), handler(handlerIn),
+        adaptorCtx(std::move(adaptorCtxIn)), fileWatcher()
     {}
 
     void updateDateStr()
@@ -165,7 +170,7 @@ class Server
 
     void stop()
     {
-        ioService->stop();
+        ioService.stop();
     }
     using Socket = boost::beast::lowest_layer_type<Adaptor>;
     using SocketPtr = std::unique_ptr<Socket>;
@@ -178,7 +183,7 @@ class Server
             return;
         }
 
-        boost::asio::steady_timer timer(*ioService);
+        boost::asio::steady_timer timer(ioService);
         std::shared_ptr<Connection<Adaptor, Handler>> connection;
 
         if constexpr (std::is_same<Adaptor,
@@ -202,20 +207,14 @@ class Server
                 Adaptor(std::move(*socket)));
         }
 
-        boost::asio::post(*ioService, [connection] { connection->start(); });
+        boost::asio::post(ioService, [connection] { connection->start(); });
 
         doAccept();
     }
 
     void doAccept()
     {
-        if (ioService == nullptr)
-        {
-            BMCWEB_LOG_CRITICAL("IoService was null");
-            return;
-        }
-
-        SocketPtr socket = std::make_unique<Socket>(*ioService);
+        SocketPtr socket = std::make_unique<Socket>(ioService);
         // Keep a raw pointer so when the socket is moved, the pointer is still
         // valid
         Socket* socketPtr = socket.get();
@@ -226,7 +225,7 @@ class Server
     }
 
   private:
-    std::shared_ptr<boost::asio::io_context> ioService;
+    boost::asio::io_context& ioService;
     std::function<std::string()> getCachedDateStr;
     boost::asio::ip::tcp::acceptor acceptor;
     boost::asio::signal_set signals;
@@ -235,7 +234,6 @@ class Server
     Handler* handler;
 
     std::shared_ptr<boost::asio::ssl::context> adaptorCtx;
-    boost::asio::steady_timer timer;
     InotifyFileWatcher fileWatcher;
 };
 } // namespace crow

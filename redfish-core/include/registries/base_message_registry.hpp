@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 /****************************************************************
  *                 READ THIS WARNING FIRST
@@ -20,12 +22,13 @@ namespace redfish::registries::base
 const Header header = {
     "Copyright 2014-2024 DMTF. All rights reserved.",
     "#MessageRegistry.v1_6_2.MessageRegistry",
-    "Base.1.19.0",
+    1,
+    19,
+    0,
     "Base Message Registry",
     "en",
     "This registry defines the base messages for Redfish.",
     "Base",
-    "1.19.0",
     "DMTF",
 };
 constexpr const char* url =

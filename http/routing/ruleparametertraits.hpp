@@ -1,11 +1,16 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
+#include "privileges.hpp"
 #include "sserule.hpp"
-#include "streamingresponserule.hpp"
+#include "verb.hpp"
 #include "websocketrule.hpp"
 
 #include <boost/beast/http/verb.hpp>
 
+#include <array>
+#include <cstddef>
 #include <initializer_list>
 #include <optional>
 
@@ -14,6 +19,11 @@ namespace crow
 template <typename T>
 struct RuleParameterTraits
 {
+  private:
+    RuleParameterTraits() = default;
+    friend T;
+
+  public:
     using self_t = T;
     WebSocketRule& websocket()
     {

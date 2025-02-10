@@ -1,42 +1,54 @@
-/*
-Copyright (c) 2018 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "app.hpp"
+#include "async_resp.hpp"
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/ethernet_interface.hpp"
 #include "generated/enums/resource.hpp"
+#include "http_request.hpp"
+#include "http_response.hpp"
 #include "human_sort.hpp"
+#include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utility.hpp"
+#include "utils/dbus_utils.hpp"
 #include "utils/ip_utils.hpp"
 #include "utils/json_utils.hpp"
 
-#include <boost/system/error_code.hpp>
-#include <boost/url/format.hpp>
+#include <systemd/sd-bus.h>
 
-#include <array>
+#include <boost/beast/http/verb.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/system/result.hpp>
+#include <boost/url/format.hpp>
+#include <boost/url/parse.hpp>
+#include <boost/url/url.hpp>
+#include <boost/url/url_view.hpp>
+#include <sdbusplus/message.hpp>
+#include <sdbusplus/message/native_types.hpp>
+#include <sdbusplus/unpack_properties.hpp>
+
+#include <algorithm>
+#include <cctype>
 #include <cstddef>
+#include <cstdint>
+#include <format>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <ranges>
 #include <regex>
+#include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -157,9 +169,9 @@ inline bool translateDhcpEnabledToBool(const std::string& inputDHCP,
             (inputDHCP ==
              "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.v4") ||
             (inputDHCP ==
-             "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.v4v6stateless") ||
+             "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.both") ||
             (inputDHCP ==
-             "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.both"));
+             "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.v4v6stateless"));
     }
     return ((inputDHCP ==
              "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.v6") ||
@@ -936,8 +948,8 @@ inline void createIPv6(const std::string& ifaceId, uint8_t prefixLength,
  *
  * @return None
  */
-inline void
-    deleteIPv6Gateway(std::string_view ifaceId, std::string_view gatewayId,
+inline void deleteIPv6Gateway(
+    std::string_view ifaceId, std::string_view gatewayId,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     sdbusplus::message::object_path path("/xyz/openbmc_project/network");
@@ -964,7 +976,7 @@ inline void
  * @return None
  */
 inline void createIPv6DefaultGateway(
-    std::string_view ifaceId, std::string_view gateway,
+    std::string_view ifaceId, const std::string& gateway,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     sdbusplus::message::object_path path("/xyz/openbmc_project/network");
@@ -994,7 +1006,7 @@ inline void createIPv6DefaultGateway(
  */
 inline void deleteAndCreateIPv6DefaultGateway(
     std::string_view ifaceId, std::string_view gatewayId,
-    std::string_view gateway,
+    const std::string& gateway,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     sdbusplus::message::object_path path("/xyz/openbmc_project/network");
@@ -1222,8 +1234,8 @@ void getEthernetIfaceList(CallbackFunc&& callback)
         });
 }
 
-inline void
-    handleHostnamePatch(const std::string& hostname,
+inline void handleHostnamePatch(
+    const std::string& hostname,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     // SHOULD handle host names of up to 255 characters(RFC 1123)
@@ -1240,8 +1252,8 @@ inline void
         hostname);
 }
 
-inline void
-    handleMTUSizePatch(const std::string& ifaceId, const size_t mtuSize,
+inline void handleMTUSizePatch(
+    const std::string& ifaceId, const size_t mtuSize,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     sdbusplus::message::object_path objPath("/xyz/openbmc_project/network");
@@ -1563,7 +1575,8 @@ inline bool parseAddresses(
             std::optional<std::string> subnetMask;
             if (!obj->empty())
             {
-                if (!json_util::readJsonObject(*obj, res, //
+                if (!json_util::readJsonObject(  //
+                        *obj, res,               //
                                                "Address", address, //
                                                "Gateway", gateway, //
                                                "SubnetMask", subnetMask //
@@ -1721,7 +1734,7 @@ inline void handleIPv4StaticPatch(
                 // Only need to update if there is an existing ip at this index
                 if (!address.existingDbusId.empty())
                 {
-                    BMCWEB_LOG_ERROR("Deleting/creating id {} on interface {}",
+                    BMCWEB_LOG_ERROR("Deleting id {} on interface {}",
                                      address.existingDbusId, ifaceId);
                     deleteAndCreateIPAddress(
                         IpVersion::IpV4, ifaceId, address.existingDbusId,

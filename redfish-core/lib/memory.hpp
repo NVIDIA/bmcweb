@@ -1,27 +1,19 @@
-/*
-Copyright (c) 2018 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
 
 #include "bmcweb_config.h"
 
 #include "app.hpp"
+#include "async_resp.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
 #include "generated/enums/memory.hpp"
 #include "generated/enums/resource.hpp"
 #include "nvidia_memory.hpp"
+#include "http_request.hpp"
+#include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/collection.hpp"
@@ -29,17 +21,25 @@ limitations under the License.
 #include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_memory.hpp"
-
+#include "utils/nvidia_memory.hpp"
 #include <boost/container/flat_map.hpp>
+
+#include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <nlohmann/json.hpp>
-#include <sdbusplus/asio/property.hpp>
+#include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <utils/conditions_utils.hpp>
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
+#include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 namespace redfish
 {
@@ -679,8 +679,8 @@ inline void getDimmDataByService(
     const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get available system components.");
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, objPath, "",
+    dbus::utility::getAllProperties(
+        service, objPath, "",
         [dimmId, asyncResp{std::move(asyncResp)}](
             const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& properties) {
@@ -752,8 +752,8 @@ inline void getDimmPartitionData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                                  const std::string& service,
                                  const std::string& path)
 {
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, path,
+    dbus::utility::getAllProperties(
+        service, path,
         "xyz.openbmc_project.Inventory.Item.PersistentMemory.Partition",
         [asyncResp{std::move(asyncResp)}](
             const boost::system::error_code& ec,

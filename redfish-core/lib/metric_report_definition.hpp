@@ -1,9 +1,17 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "app.hpp"
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
 #include "generated/enums/metric_report_definition.hpp"
 #include "generated/enums/resource.hpp"
+#include "http_request.hpp"
+#include "http_response.hpp"
+#include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "sensors.hpp"
@@ -15,13 +23,30 @@
 #include "utils/telemetry_utils.hpp"
 #include "utils/time_utils.hpp"
 
+#include <asm-generic/errno.h>
+#include <systemd/sd-bus.h>
+
+#include <boost/asio/post.hpp>
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/status.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <boost/container/flat_map.hpp>
+#include <boost/container/flat_set.hpp>
 #include <boost/url/format.hpp>
-#include <sdbusplus/asio/property.hpp>
+#include <boost/url/url.hpp>
+#include <nlohmann/json.hpp>
+#include <sdbusplus/message.hpp>
+#include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
 #include <array>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <limits>
 #include <map>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
@@ -73,8 +98,8 @@ inline bool verifyCommonErrors(crow::Response& res, const std::string& id,
     return true;
 }
 
-inline metric_report_definition::ReportActionsEnum
-    toRedfishReportAction(std::string_view dbusValue)
+inline metric_report_definition::ReportActionsEnum toRedfishReportAction(
+    std::string_view dbusValue)
 {
     if (dbusValue ==
         "xyz.openbmc_project.Telemetry.Report.ReportActions.EmitsReadingsUpdate")
@@ -179,8 +204,8 @@ inline std::string toDbusCollectionTimeScope(std::string_view redfishValue)
     return "";
 }
 
-inline metric_report_definition::ReportUpdatesEnum
-    toRedfishReportUpdates(std::string_view dbusValue)
+inline metric_report_definition::ReportUpdatesEnum toRedfishReportUpdates(
+    std::string_view dbusValue)
 {
     if (dbusValue ==
         "xyz.openbmc_project.Telemetry.Report.ReportUpdates.Overwrite")
@@ -998,9 +1023,9 @@ class UpdateMetrics
     ReadingParameters readingParams;
 };
 
-inline void
-    setReportEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     std::string_view id, bool enabled)
+inline void setReportEnabled(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string_view id,
+    bool enabled)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, id = std::string(id)](const boost::system::error_code& ec) {
@@ -1119,9 +1144,9 @@ inline void afterSetReportUpdates(
     }
 }
 
-inline void
-    setReportUpdates(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     std::string_view id, const std::string& reportUpdates)
+inline void setReportUpdates(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string_view id,
+    const std::string& reportUpdates)
 {
     std::string dbusReportUpdates = toDbusReportUpdates(reportUpdates);
     if (dbusReportUpdates.empty())
@@ -1192,11 +1217,12 @@ inline void setReportActions(
 
 inline void setReportMetrics(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string_view id,
-    std::vector<nlohmann::json::object_t>&& metrics)
+    std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>&&
+        metrics)
 {
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, telemetry::service,
-        telemetry::getDbusReportPath(id), telemetry::reportInterface,
+    dbus::utility::getAllProperties(
+        telemetry::service, telemetry::getDbusReportPath(id),
+        telemetry::reportInterface,
         [asyncResp, id = std::string(id), redfishMetrics = std::move(metrics)](
             boost::system::error_code ec,
             const dbus::utility::DBusPropertiesMap& properties) mutable {
@@ -1224,8 +1250,17 @@ inline void setReportMetrics(
                 chassisSensors;
 
             size_t index = 0;
-            for (nlohmann::json::object_t& metric : redfishMetrics)
+            for (std::variant<nlohmann::json::object_t, std::nullptr_t>&
+                     metricVariant : redfishMetrics)
             {
+                nlohmann::json::object_t* metric =
+                    std::get_if<nlohmann::json::object_t>(&metricVariant);
+                if (metric == nullptr)
+                {
+                    index++;
+                    continue;
+                }
+
                 AddReportArgs::MetricArgs metricArgs;
                 std::vector<
                     std::tuple<sdbusplus::message::object_path, std::string>>
@@ -1236,13 +1271,16 @@ inline void setReportMetrics(
                     const ReadingParameters::value_type& existing =
                         readingParams[index];
 
+                    if (metric->empty())
+                    {
                     pathAndUri = std::get<0>(existing);
+                    }
                     metricArgs.collectionFunction = std::get<1>(existing);
                     metricArgs.collectionTimeScope = std::get<2>(existing);
                     metricArgs.collectionDuration = std::get<3>(existing);
                 }
 
-                if (!getUserMetric(asyncResp->res, metric, metricArgs))
+                if (!getUserMetric(asyncResp->res, *metric, metricArgs))
                 {
                     return;
                 }
@@ -1340,7 +1378,9 @@ inline void handleReportPatch(
     std::optional<std::string> reportingTypeStr;
     std::optional<std::string> reportUpdatesStr;
     std::optional<bool> metricReportDefinitionEnabled;
-    std::optional<std::vector<nlohmann::json::object_t>> metrics;
+    std::optional<
+        std::vector<std::variant<nlohmann::json::object_t, std::nullptr_t>>>
+        metrics;
     std::optional<std::vector<std::string>> reportActionsStr;
     std::optional<std::string> scheduleDurationStr;
 
@@ -1457,8 +1497,8 @@ inline void handleMetricReportDefinitionsPost(
     }
 }
 
-inline void
-    handleMetricReportHead(App& app, const crow::Request& req,
+inline void handleMetricReportHead(
+    App& app, const crow::Request& req,
                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& /*id*/)
 {
@@ -1489,11 +1529,10 @@ inline void handleMetricReportGet(
     }
     else
     {
-        sdbusplus::asio::getAllProperties(
-            *crow::connections::systemBus, telemetry::service,
-            telemetry::getDbusReportPath(id), telemetry::reportInterface,
-            [asyncResp,
-             id](const boost::system::error_code& ec,
+    dbus::utility::getAllProperties(
+        telemetry::service, telemetry::getDbusReportPath(id),
+        telemetry::reportInterface,
+        [asyncResp, id](const boost::system::error_code& ec,
                  const dbus::utility::DBusPropertiesMap& properties) {
                 if (!redfish::telemetry::verifyCommonErrors(asyncResp->res, id,
                                                             ec))

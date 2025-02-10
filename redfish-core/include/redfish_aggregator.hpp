@@ -1,15 +1,49 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "aggregation_utils.hpp"
+#include "async_resp.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "http_client.hpp"
-#include "http_connection.hpp"
+#include "http_request.hpp"
+#include "http_response.hpp"
+#include "io_context_singleton.hpp"
+#include "logging.hpp"
 #include "parsing.hpp"
+#include "ssl_key_handler.hpp"
+#include "utility.hpp"
 
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/status.hpp>
+#include <boost/beast/http/verb.hpp>
+#include <boost/system/errc.hpp>
+#include <boost/system/result.hpp>
+#include <boost/url/param.hpp>
+#include <boost/url/parse.hpp>
+#include <boost/url/segments_ref.hpp>
+#include <boost/url/segments_view.hpp>
+#include <boost/url/url.hpp>
+#include <boost/url/url_view.hpp>
+#include <nlohmann/json.hpp>
+#include <sdbusplus/message/native_types.hpp>
+
+#include <algorithm>
 #include <array>
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <limits>
+#include <memory>
 #include <ranges>
+#include <string>
 #include <string_view>
+#include <system_error>
+#include <unordered_map>
+#include <utility>
+#include <variant>
 
 namespace redfish
 {
@@ -186,7 +220,7 @@ inline void addPrefixToStringItem(std::string& strValue,
         return;
     }
 
-    boost::urls::url_view thisUrl = *parsed;
+    const boost::urls::url_view& thisUrl = *parsed;
 
     // We don't need to aggregate JsonSchemas due to potential issues such as
     // version mismatches between aggregator and satellite BMCs.  For now
@@ -604,8 +638,8 @@ class RedfishAggregator
         Resource,
     };
 
-    static void
-        startAggregation(AggregationType aggType, const crow::Request& thisReq,
+    static void startAggregation(
+        AggregationType aggType, const crow::Request& thisReq,
                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     {
         if (thisReq.method() != boost::beast::http::verb::get)
@@ -638,6 +672,35 @@ class RedfishAggregator
             return;
         }
 
+        if (aggType == AggregationType::Collection)
+        {
+            boost::urls::url& urlNew = localReq->url();
+            auto paramsIt = urlNew.params().begin();
+            while (paramsIt != urlNew.params().end())
+            {
+                const boost::urls::param& param = *paramsIt;
+                // only and $skip, params can't be passed to satellite
+                // as applying these filters twice results in different results.
+                // Removing them will cause them to only be processed in the
+                // aggregator. Note, this still doesn't work for collections
+                // that might return less than the complete collection by
+                // default, but hopefully those are rare/nonexistent in top
+                // collections.  bmcweb doesn't implement any of these.
+                if (param.key == "only" || param.key == "$skip")
+                {
+                    BMCWEB_LOG_DEBUG(
+                        "Erasing \"{}\" param from request to top level collection",
+                        param.key);
+
+                    paramsIt = urlNew.params().erase(paramsIt);
+                    continue;
+                }
+                // Pass all other parameters
+                paramsIt++;
+            }
+            localReq->target(urlNew.buffer());
+        }
+
         // Only allow Host,Accept and ContentType from the request's header
         auto fields = localReq->fields();
         for (const auto& it : fields)
@@ -652,7 +715,7 @@ class RedfishAggregator
         }
         localReq->addHeader(boost::beast::http::field::accept,
                             "application/json, application/octet-stream");
-
+                            
         getSatelliteConfigs(
             std::bind_front(aggregateAndHandle, aggType, localReq, asyncResp));
     }
@@ -914,8 +977,8 @@ class RedfishAggregator
     }
 
   public:
-    explicit RedfishAggregator(boost::asio::io_context& ioc) :
-        client(ioc,
+    explicit RedfishAggregator() :
+        client(getIoContext(),
                std::make_shared<crow::ConnectionPolicy>(getAggregationPolicy()))
     {
         getSatelliteConfigs(constructorCallback);
@@ -926,9 +989,9 @@ class RedfishAggregator
     RedfishAggregator& operator=(RedfishAggregator&&) = delete;
     ~RedfishAggregator() = default;
 
-    static RedfishAggregator& getInstance(boost::asio::io_context* io = nullptr)
+    static RedfishAggregator& getInstance()
     {
-        static RedfishAggregator handler(*io);
+        static RedfishAggregator handler;
         return handler;
     }
 
@@ -989,8 +1052,8 @@ class RedfishAggregator
 
     // Processes the response returned by a satellite BMC and loads its
     // contents into asyncResp
-    static void
-        processResponse(std::string_view prefix,
+    static void processResponse(
+        std::string_view prefix,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         crow::Response& resp)
     {
@@ -1304,8 +1367,8 @@ class RedfishAggregator
     // Entry point to Redfish Aggregation
     // Returns Result stating whether or not we still need to locally handle the
     // request
-    static Result
-        beginAggregation(const crow::Request& thisReq,
+    static Result beginAggregation(
+        const crow::Request& thisReq,
                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     {
         using crow::utility::OrMorePaths;

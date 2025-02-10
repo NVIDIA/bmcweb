@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "async_resp.hpp"
@@ -6,18 +8,25 @@
 #include "error_messages.hpp"
 #include "event_service_manager.hpp"
 #include "generated/enums/event_destination.hpp"
-#include "http_request.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
 #include "utils/dbus_utils.hpp"
 
+#include <asm-generic/errno.h>
+#include <systemd/sd-bus.h>
+
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
+#include <boost/url/url.hpp>
+#include <sdbusplus/message.hpp>
+#include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace redfish
 {
@@ -51,9 +60,9 @@ inline void afterGetSnmpTrapClientdata(
         boost::urls::format("snmp://{}:{}", address, port);
 }
 
-inline void
-    getSnmpTrapClientdata(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& id, const std::string& objectPath)
+inline void getSnmpTrapClientdata(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& id,
+    const std::string& objectPath)
 {
     asyncResp->res.jsonValue["@odata.type"] =
         "#EventDestination.v1_8_0.EventDestination";
@@ -70,9 +79,9 @@ inline void
     asyncResp->res.jsonValue["EventFormatType"] =
         event_destination::EventFormatType::Event;
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "xyz.openbmc_project.Network.SNMP",
-        objectPath, "xyz.openbmc_project.Network.Client",
+    dbus::utility::getAllProperties(
+        "xyz.openbmc_project.Network.SNMP", objectPath,
+        "xyz.openbmc_project.Network.Client",
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& properties) {
             afterGetSnmpTrapClientdata(asyncResp, ec, properties);
@@ -166,9 +175,9 @@ inline void afterSnmpClientCreate(
     messages::created(asyncResp->res);
 }
 
-inline void
-    addSnmpTrapClient(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      const std::string& host, uint16_t snmpTrapPort)
+inline void addSnmpTrapClient(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& host, uint16_t snmpTrapPort)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp,
@@ -196,9 +205,9 @@ inline void getSnmpSubscriptionList(
     asyncResp->res.jsonValue["Members@odata.count"] = memberArray.size();
 }
 
-inline void
-    deleteSnmpTrapClient(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& param)
+inline void deleteSnmpTrapClient(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& param)
 {
     std::string_view snmpTrapId = param;
 

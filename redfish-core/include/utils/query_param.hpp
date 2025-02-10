@@ -1,10 +1,14 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include "bmcweb_config.h"
 
 #include "app.hpp"
 #include "async_resp.hpp"
+#include "error_code.hpp"
 #include "error_messages.hpp"
 #include "filter_expr_executor.hpp"
+#include "filter_expr_parser_ast.hpp"
 #include "filter_expr_printer.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
@@ -14,9 +18,8 @@
 #include "redfish_aggregator.hpp"
 #include "str_utility.hpp"
 
-#include <sys/types.h>
+#include <unistd.h>
 
-#include <boost/beast/http/message.hpp>
 #include <boost/beast/http/status.hpp>
 #include <boost/beast/http/verb.hpp>
 #include <boost/url/params_view.hpp>
@@ -26,7 +29,7 @@
 #include <array>
 #include <cctype>
 #include <charconv>
-#include <compare>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <iterator>
@@ -381,8 +384,8 @@ inline bool getFilterParam(std::string_view value, Query& query)
     return query.filter.has_value();
 }
 
-inline std::optional<Query>
-    parseParameters(boost::urls::params_view urlParams, crow::Response& res)
+inline std::optional<Query> parseParameters(boost::urls::params_view urlParams,
+                                            crow::Response& res)
 {
     Query ret{};
     for (const boost::urls::params_view::value_type& it : urlParams)
@@ -754,85 +757,6 @@ inline std::optional<std::string> formatQueryForExpand(const Query& query)
     return str;
 }
 
-// Propagates the worst error code to the final response.
-// The order of error code is (from high to low)
-// 500 Internal Server Error
-// 511 Network Authentication Required
-// 510 Not Extended
-// 508 Loop Detected
-// 507 Insufficient Storage
-// 506 Variant Also Negotiates
-// 505 HTTP Version Not Supported
-// 504 Gateway Timeout
-// 503 Service Unavailable
-// 502 Bad Gateway
-// 501 Not Implemented
-// 401 Unauthorized
-// 451 - 409 Error codes (not listed explicitly)
-// 408 Request Timeout
-// 407 Proxy Authentication Required
-// 406 Not Acceptable
-// 405 Method Not Allowed
-// 404 Not Found
-// 403 Forbidden
-// 402 Payment Required
-// 400 Bad Request
-inline unsigned propogateErrorCode(unsigned finalCode, unsigned subResponseCode)
-{
-    // We keep a explicit list for error codes that this project often uses
-    // Higher priority codes are in lower indexes
-    constexpr std::array<unsigned, 13> orderedCodes = {
-        500, 507, 503, 502, 501, 401, 412, 409, 406, 405, 404, 403, 400};
-    size_t finalCodeIndex = std::numeric_limits<size_t>::max();
-    size_t subResponseCodeIndex = std::numeric_limits<size_t>::max();
-    for (size_t i = 0; i < orderedCodes.size(); ++i)
-    {
-        if (orderedCodes[i] == finalCode)
-        {
-            finalCodeIndex = i;
-        }
-        if (orderedCodes[i] == subResponseCode)
-        {
-            subResponseCodeIndex = i;
-        }
-    }
-    if (finalCodeIndex != std::numeric_limits<size_t>::max() &&
-        subResponseCodeIndex != std::numeric_limits<size_t>::max())
-    {
-        return finalCodeIndex <= subResponseCodeIndex
-                   ? finalCode
-                   : subResponseCode;
-    }
-    if (subResponseCode == 500 || finalCode == 500)
-    {
-        return 500;
-    }
-    if (subResponseCode > 500 || finalCode > 500)
-    {
-        return std::max(finalCode, subResponseCode);
-    }
-    if (subResponseCode == 401)
-    {
-        return subResponseCode;
-    }
-    return std::max(finalCode, subResponseCode);
-}
-
-// Propagates all error messages into |finalResponse|
-inline void propogateError(crow::Response& finalResponse,
-                           crow::Response& subResponse)
-{
-    // no errors
-    if (subResponse.resultInt() >= 200 && subResponse.resultInt() < 400)
-    {
-        return;
-    }
-    messages::moveErrorsToErrorJson(finalResponse.jsonValue,
-                                    subResponse.jsonValue);
-    finalResponse.result(
-        propogateErrorCode(finalResponse.resultInt(), subResponse.resultInt()));
-}
-
 class MultiAsyncResp : public std::enable_shared_from_this<MultiAsyncResp>
 {
   public:
@@ -915,8 +839,8 @@ class MultiAsyncResp : public std::enable_shared_from_this<MultiAsyncResp>
     }
 
   private:
-    static void
-        placeResultStatic(const std::shared_ptr<MultiAsyncResp>& multi,
+    static void placeResultStatic(
+        const std::shared_ptr<MultiAsyncResp>& multi,
                           const nlohmann::json::json_pointer& locationToPlace,
                           crow::Response& res)
     {
@@ -1044,8 +968,8 @@ inline void processSelect(crow::Response& intermediateResponse,
     recursiveSelect(intermediateResponse.jsonValue, trieRoot);
 }
 
-inline void
-    processAllParams(crow::App& app, const Query& query, const Query& delegated,
+inline void processAllParams(
+    crow::App& app, const Query& query, const Query& delegated,
                      std::function<void(crow::Response&)>& completionHandler,
                      crow::Response& intermediateResponse,
                      const std::shared_ptr<crow::Request>& req)

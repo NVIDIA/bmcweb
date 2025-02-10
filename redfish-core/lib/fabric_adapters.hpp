@@ -1,25 +1,35 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "app.hpp"
+#include "async_resp.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
 #include "generated/enums/resource.hpp"
+#include "http_request.hpp"
+#include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
-#include "utils/json_utils.hpp"
 
+#include <asm-generic/errno.h>
+
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
-#include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
 #include <array>
 #include <functional>
 #include <memory>
-#include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace redfish
 {
@@ -28,8 +38,8 @@ inline void getFabricAdapterLocation(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& serviceName, const std::string& fabricAdapterPath)
 {
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, serviceName, fabricAdapterPath,
+    dbus::utility::getProperty<std::string>(
+        serviceName, fabricAdapterPath,
         "xyz.openbmc_project.Inventory.Decorator.LocationCode", "LocationCode",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& property) {
@@ -53,8 +63,8 @@ inline void getFabricAdapterAsset(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& serviceName, const std::string& fabricAdapterPath)
 {
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, serviceName, fabricAdapterPath,
+    dbus::utility::getAllProperties(
+        serviceName, fabricAdapterPath,
         "xyz.openbmc_project.Inventory.Decorator.Asset",
         [fabricAdapterPath, asyncResp{asyncResp}](
             const boost::system::error_code& ec,
@@ -111,9 +121,9 @@ inline void getFabricAdapterState(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& serviceName, const std::string& fabricAdapterPath)
 {
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, serviceName, fabricAdapterPath,
-        "xyz.openbmc_project.Inventory.Item", "Present",
+    dbus::utility::getProperty<bool>(
+        serviceName, fabricAdapterPath, "xyz.openbmc_project.Inventory.Item",
+        "Present",
         [asyncResp](const boost::system::error_code& ec, const bool present) {
             if (ec)
             {
@@ -137,8 +147,8 @@ inline void getFabricAdapterHealth(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& serviceName, const std::string& fabricAdapterPath)
 {
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, serviceName, fabricAdapterPath,
+    dbus::utility::getProperty<bool>(
+        serviceName, fabricAdapterPath,
         "xyz.openbmc_project.State.Decorator.OperationalStatus", "Functional",
         [asyncResp](const boost::system::error_code& ec,
                     const bool functional) {

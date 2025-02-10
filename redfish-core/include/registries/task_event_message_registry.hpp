@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 /****************************************************************
  *                 READ THIS WARNING FIRST
@@ -20,12 +22,13 @@ namespace redfish::registries::task_event
 const Header header = {
     "Copyright 2014-2020 DMTF in cooperation with the Storage Networking Industry Association (SNIA). All rights reserved.",
     "#MessageRegistry.v1_4_1.MessageRegistry",
-    "TaskEvent.1.0.3",
+    1,
+    0,
+    3,
     "Task Event Message Registry",
     "en",
     "This registry defines the messages for task related events.",
     "TaskEvent",
-    "1.0.3",
     "DMTF",
 };
 constexpr const char* url =

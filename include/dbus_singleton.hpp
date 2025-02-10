@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include <boost/asio/io_context.hpp>
 #include <sdbusplus/asio/connection.hpp>

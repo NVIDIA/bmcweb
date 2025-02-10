@@ -1,63 +1,75 @@
-/*
-Copyright (c) 2018 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "app.hpp"
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/log_entry.hpp"
 #include "generated/enums/log_service.hpp"
-#include "gzfile.hpp"
+#include "http_body.hpp"
+#include "http_request.hpp"
+#include "http_response.hpp"
 #include "http_utility.hpp"
 #include "human_sort.hpp"
 #include "nvidia_log_services.hpp"
+#include "logging.hpp"
 #include "query.hpp"
 #include "registries.hpp"
-#include "registries/base_message_registry.hpp"
-#include "registries/openbmc_message_registry.hpp"
 #include "registries/privilege_registry.hpp"
+#include "str_utility.hpp"
 #include "task.hpp"
 #include "task_messages.hpp"
 #include "utils/dbus_event_log_entry.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/query_param.hpp"
 #include "utils/time_utils.hpp"
 
-#include <systemd/sd-id128.h>
+#include <asm-generic/errno.h>
+#include <systemd/sd-bus.h>
 #include <tinyxml2.h>
 #include <unistd.h>
 
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/status.hpp>
 #include <boost/beast/http/verb.hpp>
-#include <boost/container/flat_map.hpp>
 #include <boost/system/linux_error.hpp>
 #include <boost/url/format.hpp>
-#include <sdbusplus/asio/property.hpp>
+#include <boost/url/url.hpp>
+#include <sdbusplus/message.hpp>
+#include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
+#include <algorithm>
 #include <array>
-#include <charconv>
+#include <chrono>
 #include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <ctime>
 #include <filesystem>
+#include <format>
+#include <fstream>
+#include <functional>
+#include <iomanip>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <ranges>
 #include <span>
+#include <sstream>
 #include <string>
 #include <string_view>
+#include <system_error>
+#include <utility>
 #include <variant>
+#include <vector>
 
 namespace redfish
 {
@@ -78,8 +90,6 @@ enum class DumpCreationProgress
     DUMP_CREATE_FAILED,
     DUMP_CREATE_INPROGRESS
 };
-
-namespace fs = std::filesystem;
 
 inline std::string translateSeverityDbusToRedfish(const std::string& s)
 {
@@ -166,8 +176,8 @@ inline bool getUniqueEntryID(const std::string& logEntry, std::string& entryID,
     return true;
 }
 
-inline bool
-    getRedfishLogFiles(std::vector<std::filesystem::path>& redfishLogFiles)
+inline bool getRedfishLogFiles(
+    std::vector<std::filesystem::path>& redfishLogFiles)
 {
     static const std::filesystem::path redfishLogDir = "/var/log";
     static const std::string redfishLogFilename = "redfish";
@@ -191,8 +201,8 @@ inline bool
     return !redfishLogFiles.empty();
 }
 
-inline log_entry::OriginatorTypes
-    mapDbusOriginatorTypeToRedfish(const std::string& originatorType)
+inline log_entry::OriginatorTypes mapDbusOriginatorTypeToRedfish(
+    const std::string& originatorType)
 {
     if (originatorType ==
         "xyz.openbmc_project.Common.OriginatedBy.OriginatorTypes.Client")
@@ -585,8 +595,8 @@ static std::string getDumpEntriesPath(const std::string& dumpType)
     return entriesPath;
 }
 
-inline void
-    getDumpEntryCollection(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void getDumpEntryCollection(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& dumpType)
 {
     std::string entriesPath = getDumpEntriesPath(dumpType);
@@ -836,8 +846,8 @@ inline void
         });
 }
 
-inline void
-    getDumpEntryById(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void getDumpEntryById(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const std::string& entryID, const std::string& dumpType)
 {
     std::string entriesPath = getDumpEntriesPath(dumpType);
@@ -1247,8 +1257,8 @@ inline void downloadEntryCallback(
                              "application/octet-stream");
 }
 
-inline void
-    downloadDumpEntry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void downloadDumpEntry(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& entryID, const std::string& dumpType)
 {
     if (dumpType != "BMC")
@@ -1308,8 +1318,8 @@ inline void downloadEventLogEntry(
         entryPath, "xyz.openbmc_project.Logging.Entry", "GetEntry");
 }
 
-inline DumpCreationProgress
-    mapDbusStatusToDumpProgress(const std::string& status)
+inline DumpCreationProgress mapDbusStatusToDumpProgress(
+    const std::string& status)
 {
     if (status ==
             "xyz.openbmc_project.Common.Progress.OperationStatus.Failed" ||
@@ -1325,8 +1335,8 @@ inline DumpCreationProgress
     return DumpCreationProgress::DUMP_CREATE_INPROGRESS;
 }
 
-inline DumpCreationProgress
-    getDumpCompletionStatus(const dbus::utility::DBusPropertiesMap& values)
+inline DumpCreationProgress getDumpCompletionStatus(
+    const dbus::utility::DBusPropertiesMap& values)
 {
     for (const auto& [key, val] : values)
     {
@@ -2536,8 +2546,8 @@ inline void dBusEventLogEntryGet(
 
     // DBus implementation of EventLog/Entries
     // Make call to Logging Service to find all log entry objects
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "xyz.openbmc_project.Logging",
+    dbus::utility::getAllProperties(
+        "xyz.openbmc_project.Logging",
         "/xyz/openbmc_project/logging/entry/" + entryID, "",
         [asyncResp, entryID](const boost::system::error_code& ec,
                              const dbus::utility::DBusPropertiesMap& resp) {
@@ -2560,8 +2570,8 @@ inline void dBusEventLogEntryGet(
         });
 }
 
-inline void
-    dBusEventLogEntryPatch(const crow::Request& req,
+inline void dBusEventLogEntryPatch(
+    const crow::Request& req,
                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& entryId)
 {
@@ -2702,66 +2712,6 @@ inline void requestRoutesDBusEventLogEntry(App& app)
             });
 }
 
-constexpr const char* hostLoggerFolderPath = "/var/log/console";
-
-inline bool
-    getHostLoggerFiles(const std::string& hostLoggerFilePath,
-                       std::vector<std::filesystem::path>& hostLoggerFiles)
-{
-    std::error_code ec;
-    std::filesystem::directory_iterator logPath(hostLoggerFilePath, ec);
-    if (ec)
-    {
-        BMCWEB_LOG_WARNING("{}", ec.message());
-        return false;
-    }
-    for (const std::filesystem::directory_entry& it : logPath)
-    {
-        std::string filename = it.path().filename();
-        // Prefix of each log files is "log". Find the file and save the
-        // path
-        if (filename.starts_with("log"))
-        {
-            hostLoggerFiles.emplace_back(it.path());
-        }
-    }
-    // As the log files rotate, they are appended with a ".#" that is higher for
-    // the older logs. Since we start from oldest logs, sort the name in
-    // descending order.
-    std::sort(hostLoggerFiles.rbegin(), hostLoggerFiles.rend(),
-              AlphanumLess<std::string>());
-
-    return true;
-}
-
-inline bool getHostLoggerEntries(
-    const std::vector<std::filesystem::path>& hostLoggerFiles, uint64_t skip,
-    uint64_t top, std::vector<std::string>& logEntries, size_t& logCount)
-{
-    GzFileReader logFile;
-
-    // Go though all log files and expose host logs.
-    for (const std::filesystem::path& it : hostLoggerFiles)
-    {
-        if (!logFile.gzGetLines(it.string(), skip, top, logEntries, logCount))
-        {
-            BMCWEB_LOG_ERROR("fail to expose host logs");
-            return false;
-        }
-    }
-    // Get lastMessage from constructor by getter
-    std::string lastMessage = logFile.getLastMessage();
-    if (!lastMessage.empty())
-    {
-        logCount++;
-        if (logCount > skip && logCount <= (skip + top))
-        {
-            logEntries.push_back(lastMessage);
-        }
-    }
-    return true;
-}
-
 inline void handleBMCLogServicesCollectionGet(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -2870,8 +2820,8 @@ inline void requestRoutesBMCLogServiceCollection(App& app)
             std::bind_front(handleBMCLogServicesCollectionGet, std::ref(app)));
 }
 
-inline void
-    getDumpServiceInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void getDumpServiceInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::string& dumpType)
 {
     std::string dumpPath;
@@ -3516,8 +3466,8 @@ void inline requestRoutesCrashdumpClear(App& app)
             });
 }
 
-inline void
-    logCrashdumpEntry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void logCrashdumpEntry(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& logID, nlohmann::json& logEntryJson)
 {
     auto getStoredLogCallback =
@@ -3583,10 +3533,9 @@ inline void
                 logEntryJson.update(logEntry);
             }
         };
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, crashdumpObject,
-        crashdumpPath + std::string("/") + logID, crashdumpInterface,
-        std::move(getStoredLogCallback));
+    dbus::utility::getAllProperties(
+        crashdumpObject, crashdumpPath + std::string("/") + logID,
+        crashdumpInterface, std::move(getStoredLogCallback));
 }
 
 inline void requestRoutesCrashdumpEntryCollection(App& app)
@@ -3789,7 +3738,7 @@ inline void requestRoutesCrashdumpFile(App& app)
                             boost::beast::http::field::content_disposition,
                             "attachment");
                     };
-                sdbusplus::asio::getAllProperties(
+                dbus::utility::getAllProperties(
                     *crow::connections::systemBus, crashdumpObject,
                     crashdumpPath + std::string("/") + logID,
                     crashdumpInterface, std::move(getStoredLogCallback));

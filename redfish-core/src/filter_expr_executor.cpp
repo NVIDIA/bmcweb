@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "filter_expr_executor.hpp"
 
 #include "filter_expr_parser_ast.hpp"
@@ -105,14 +107,14 @@ ValueVisitor::result_type ValueVisitor::operator()(int64_t x)
     return {x};
 }
 
-ValueVisitor::result_type
-    ValueVisitor::operator()(const filter_ast::QuotedString& x)
+ValueVisitor::result_type ValueVisitor::operator()(
+    const filter_ast::QuotedString& x)
 {
     return {x};
 }
 
-ValueVisitor::result_type
-    ValueVisitor::operator()(const filter_ast::UnquotedString& x)
+ValueVisitor::result_type ValueVisitor::operator()(
+    const filter_ast::UnquotedString& x)
 {
     // find key including paths with / in them
     const nlohmann::json* it =

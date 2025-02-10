@@ -1,19 +1,31 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "app.hpp"
 #include "async_resp.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "http_request.hpp"
+#include "logging.hpp"
 #include "utils/collection.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
 
+#include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
+#include <boost/url/url.hpp>
 #include <nlohmann/json.hpp>
+#include <sdbusplus/message/native_types.hpp>
 
 #include <array>
+#include <cstdint>
+#include <functional>
+#include <memory>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace crow
@@ -21,8 +33,8 @@ namespace crow
 namespace google_api
 {
 
-inline void
-    handleGoogleV1Get(const crow::Request& /*req*/,
+inline void handleGoogleV1Get(
+    const crow::Request& /*req*/,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     asyncResp->res.jsonValue["@odata.type"] =
@@ -136,8 +148,8 @@ inline void populateRootOfTrustEntity(
         "Embedded";
 }
 
-inline void
-    handleRootOfTrustGet(const crow::Request& /*req*/,
+inline void handleRootOfTrustGet(
+    const crow::Request& /*req*/,
                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const std::string& param)
 {
@@ -145,8 +157,8 @@ inline void
     resolveRoT(emptyCommand, asyncResp, param, populateRootOfTrustEntity);
 }
 
-inline void
-    invocationCallback(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void invocationCallback(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const boost::system::error_code& ec,
                        const std::vector<uint8_t>& responseBytes)
 {
@@ -162,8 +174,8 @@ inline void
         bytesToHexString(responseBytes);
 }
 
-inline void
-    invokeRoTCommand(const std::string& command,
+inline void invokeRoTCommand(
+    const std::string& command,
                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const ResolvedEntity& resolvedEntity)
 {

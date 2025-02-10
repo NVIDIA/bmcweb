@@ -1,28 +1,25 @@
-/*
-Copyright (c) 2018 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "app.hpp"
+#include "async_resp.hpp"
 #include "boost_formatters.hpp"
 #include "certificate_service.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/account_service.hpp"
 #include "nvidia_account_service.hpp"
+#include "http_request.hpp"
+#include "http_response.hpp"
+#include "logging.hpp"
+#include "pam_authenticate.hpp"
 #include "persistent_data.hpp"
+#include "privileges.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "sessions.hpp"
@@ -30,19 +27,33 @@ limitations under the License.
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 
+#include <security/_pam_types.h>
+#include <systemd/sd-bus.h>
+
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/status.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <boost/url/format.hpp>
 #include <boost/url/url.hpp>
-#include <sdbusplus/asio/property.hpp>
+#include <nlohmann/json.hpp>
+#include <sdbusplus/message.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <utils/registry_utils.hpp>
 
+#include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <format>
+#include <functional>
 #include <memory>
 #include <optional>
 #include <ranges>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace redfish
@@ -242,8 +253,8 @@ inline bool getUserGroupFromAccountType(
  * @param[in] dbusObjectPath D-Bus Object Path
  * @param[in] userSelf true if User is updating OWN Account Types
  */
-inline void
-    patchAccountTypes(const std::vector<std::string>& accountTypes,
+inline void patchAccountTypes(
+    const std::vector<std::string>& accountTypes,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& dbusObjectPath, bool userSelf)
 {
@@ -527,8 +538,8 @@ inline void handleRoleMapPatch(
  * into JSON
  */
 template <typename CallbackFunc>
-inline void
-    getLDAPConfigData(const std::string& ldapType, CallbackFunc&& callback)
+inline void getLDAPConfigData(const std::string& ldapType,
+                              CallbackFunc&& callback)
 {
     constexpr std::array<std::string_view, 2> interfaces = {
         ldapEnableInterface, ldapConfigInterface};
@@ -727,8 +738,8 @@ inline void handleServiceAddressPatch(
  server(openLDAP/ActiveDirectory)
  */
 
-inline void
-    handleUserNamePatch(const std::string& username,
+inline void handleUserNamePatch(
+    const std::string& username,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& ldapServerElementName,
                         const std::string& ldapConfigObject)
@@ -747,8 +758,8 @@ inline void
  *        server(openLDAP/ActiveDirectory)
  */
 
-inline void
-    handlePasswordPatch(const std::string& password,
+inline void handlePasswordPatch(
+    const std::string& password,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& ldapServerElementName,
                         const std::string& ldapConfigObject)
@@ -768,8 +779,8 @@ inline void
  server(openLDAP/ActiveDirectory)
  */
 
-inline void
-    handleBaseDNPatch(const std::vector<std::string>& baseDNList,
+inline void handleBaseDNPatch(
+    const std::vector<std::string>& baseDNList,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& ldapServerElementName,
                       const std::string& ldapConfigObject)
@@ -850,8 +861,8 @@ struct AuthMethods
     std::optional<bool> tls;
 };
 
-inline void
-    handleAuthMethodsPatch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void handleAuthMethodsPatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const AuthMethods& auth)
 {
     persistent_data::AuthConfigMethods& authMethodsConfig =
@@ -1093,38 +1104,38 @@ inline void handleLDAPPatch(LdapPatchParams&& input,
     });
 }
 
-inline void updateUserProperties(
-    std::shared_ptr<bmcweb::AsyncResp> asyncResp, const std::string& username,
-    const std::optional<std::string>& password,
-    const std::optional<bool>& enabled,
-    const std::optional<std::string>& roleId, const std::optional<bool>& locked,
-    std::optional<std::vector<std::string>> accountTypes, bool userSelf,
-    const std::shared_ptr<persistent_data::UserSession>& session)
+struct UserUpdateParams
 {
-    sdbusplus::message::object_path tempObjPath(rootUserDbusPath);
-    tempObjPath /= username;
-    std::string dbusObjectPath(tempObjPath);
+    std::string username;
+    std::optional<std::string> password;
+    std::optional<bool> enabled;
+    std::optional<std::string> roleId;
+    std::optional<bool> locked;
+    std::optional<std::vector<std::string>> accountTypes;
+    bool userSelf;
+    std::shared_ptr<persistent_data::UserSession> session;
+    std::string dbusObjectPath;
+};
 
-    dbus::utility::checkDbusPathExists(
-        dbusObjectPath,
-        [dbusObjectPath, username, password, roleId, enabled, locked,
-         accountTypes(std::move(accountTypes)), userSelf, session,
-         asyncResp{std::move(asyncResp)}](int rc) {
+inline void afterVerifyUserExists(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const UserUpdateParams& params, int rc)
+{
             if (rc <= 0)
             {
                 messages::resourceNotFound(asyncResp->res, "ManagerAccount",
-                                           username);
+                                   params.username);
                 return;
             }
 
-            if (password)
+    if (params.password)
             {
-                int retval = pamUpdatePassword(username, *password);
+        int retval = pamUpdatePassword(params.username, *params.password);
 
                 if (retval == PAM_USER_UNKNOWN)
                 {
                     messages::resourceNotFound(asyncResp->res, "ManagerAccount",
-                                               username);
+                                       params.username);
                 }
                 else if (retval == PAM_AUTHTOK_ERR ||
                          retval == PAM_NEW_AUTHTOK_REQD)
@@ -1157,58 +1168,76 @@ inline void updateUserProperties(
                     // Remove existing sessions of the user when password
                     // changed
                     persistent_data::SessionStore::getInstance()
-                        .removeSessionsByUsernameExceptSession(username,
-                                                               session);
+                .removeSessionsByUsernameExceptSession(params.username,
+                                                       params.session);
                     messages::success(asyncResp->res);
                 }
             }
 
-            if (enabled)
+    if (params.enabled)
             {
                 setDbusProperty(
                     asyncResp, "Enabled", "xyz.openbmc_project.User.Manager",
-                    dbusObjectPath, "xyz.openbmc_project.User.Attributes",
-                    "UserEnabled", *enabled);
+            params.dbusObjectPath, "xyz.openbmc_project.User.Attributes",
+            "UserEnabled", *params.enabled);
             }
 
-            if (roleId)
+    if (params.roleId)
             {
-                std::string priv = getPrivilegeFromRoleId(*roleId);
+        std::string priv = getPrivilegeFromRoleId(*params.roleId);
                 if (priv.empty())
                 {
-                    messages::propertyValueNotInList(asyncResp->res, true,
-                                                     "Locked");
+            messages::propertyValueNotInList(asyncResp->res, true, "Locked");
                     return;
                 }
-                setDbusProperty(
-                    asyncResp, "RoleId", "xyz.openbmc_project.User.Manager",
-                    dbusObjectPath, "xyz.openbmc_project.User.Attributes",
-                    "UserPrivilege", priv);
+        setDbusProperty(asyncResp, "RoleId", "xyz.openbmc_project.User.Manager",
+                        params.dbusObjectPath,
+                        "xyz.openbmc_project.User.Attributes", "UserPrivilege",
+                        priv);
             }
 
-            if (locked)
+    if (params.locked)
             {
                 // admin can unlock the account which is locked by
                 // successive authentication failures but admin should
                 // not be allowed to lock an account.
-                if (*locked)
+        if (*params.locked)
                 {
-                    messages::propertyValueNotInList(asyncResp->res, "true",
-                                                     "Locked");
+            messages::propertyValueNotInList(asyncResp->res, "true", "Locked");
                     return;
                 }
-                setDbusProperty(
-                    asyncResp, "Locked", "xyz.openbmc_project.User.Manager",
-                    dbusObjectPath, "xyz.openbmc_project.User.Attributes",
-                    "UserLockedForFailedAttempt", *locked);
+        setDbusProperty(asyncResp, "Locked", "xyz.openbmc_project.User.Manager",
+                        params.dbusObjectPath,
+                        "xyz.openbmc_project.User.Attributes",
+                        "UserLockedForFailedAttempt", *params.locked);
             }
 
-            if (accountTypes)
+    if (params.accountTypes)
             {
-                patchAccountTypes(*accountTypes, asyncResp, dbusObjectPath,
-                                  userSelf);
+        patchAccountTypes(*params.accountTypes, asyncResp,
+                          params.dbusObjectPath, params.userSelf);
             }
-        });
+}
+
+inline void updateUserProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& username, const std::optional<std::string>& password,
+    const std::optional<bool>& enabled,
+    const std::optional<std::string>& roleId, const std::optional<bool>& locked,
+    const std::optional<std::vector<std::string>>& accountTypes, bool userSelf,
+    const std::shared_ptr<persistent_data::UserSession>& session)
+{
+    sdbusplus::message::object_path tempObjPath(rootUserDbusPath);
+    tempObjPath /= username;
+    std::string dbusObjectPath(tempObjPath);
+
+    UserUpdateParams params{username, password, enabled,
+                            roleId,   locked,   accountTypes,
+                            userSelf, session,  dbusObjectPath};
+
+    dbus::utility::checkDbusPathExists(
+        dbusObjectPath,
+        std::bind_front(afterVerifyUserExists, asyncResp, std::move(params)));
 }
 
 inline void handleAccountServiceHead(
@@ -1224,8 +1253,8 @@ inline void handleAccountServiceHead(
         "</redfish/v1/JsonSchemas/AccountService/AccountService.json>; rel=describedby");
 }
 
-inline void
-    getClientCertificates(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void getClientCertificates(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const nlohmann::json::json_pointer& keyLocation)
 {
     boost::urls::url url(
@@ -1308,8 +1337,8 @@ inline void handleAccountServiceClientCertificatesGet(
 
 using account_service::CertificateMappingAttribute;
 using persistent_data::MTLSCommonNameParseMode;
-inline CertificateMappingAttribute
-    getCertificateMapping(MTLSCommonNameParseMode parse)
+inline CertificateMappingAttribute getCertificateMapping(
+    MTLSCommonNameParseMode parse)
 {
     switch (parse)
     {
@@ -1345,8 +1374,8 @@ inline CertificateMappingAttribute
     }
 }
 
-inline void
-    handleAccountServiceGet(App& app, const crow::Request& req,
+inline void handleAccountServiceGet(
+    App& app, const crow::Request& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -1439,9 +1468,9 @@ inline void
         asyncResp->res.jsonValue["LDAP"]["Certificates"]["@odata.id"] =
             "/redfish/v1/AccountService/LDAP/Certificates";
     }
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "xyz.openbmc_project.User.Manager",
-        "/xyz/openbmc_project/user", "xyz.openbmc_project.User.AccountPolicy",
+    dbus::utility::getAllProperties(
+        "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
+        "xyz.openbmc_project.User.AccountPolicy",
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
@@ -1975,10 +2004,9 @@ inline void handleAccountCollectionPost(
     bool enabled = enabledJson.value_or(true);
 
     // Reading AllGroups property
-    sdbusplus::asio::getProperty<std::vector<std::string>>(
-        *crow::connections::systemBus, "xyz.openbmc_project.User.Manager",
-        "/xyz/openbmc_project/user", "xyz.openbmc_project.User.Manager",
-        "AllGroups",
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
+        "xyz.openbmc_project.User.Manager", "AllGroups",
         [asyncResp, username, password{std::move(password)}, roleId, enabled,
          accountTypes](const boost::system::error_code& ec,
                        const std::vector<std::string>& allGroupsList) {
@@ -2000,8 +2028,8 @@ inline void handleAccountCollectionPost(
         });
 }
 
-inline void
-    handleAccountHead(App& app, const crow::Request& req,
+inline void handleAccountHead(
+    App& app, const crow::Request& req,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& /*accountName*/)
 {
@@ -2014,8 +2042,8 @@ inline void
         "</redfish/v1/JsonSchemas/ManagerAccount/ManagerAccount.json>; rel=describedby");
 }
 
-inline void
-    handleAccountGet(App& app, const crow::Request& req,
+inline void handleAccountGet(
+    App& app, const crow::Request& req,
                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const std::string& accountName)
 {
@@ -2096,12 +2124,23 @@ inline void
             {
                 if (interface.first == "xyz.openbmc_project.User.Attributes")
                 {
-                    for (const auto& property : interface.second)
+                    const bool* userEnabled = nullptr;
+                    const bool* userLocked = nullptr;
+                    const std::string* userPrivPtr = nullptr;
+                    const bool* userPasswordExpired = nullptr;
+                    const std::vector<std::string>* userGroups = nullptr;
+
+                    const bool success = sdbusplus::unpackPropertiesNoThrow(
+                        dbus_utils::UnpackErrorPrinter(), interface.second,
+                        "UserEnabled", userEnabled,
+                        "UserLockedForFailedAttempt", userLocked,
+                        "UserPrivilege", userPrivPtr, "UserPasswordExpired",
+                        userPasswordExpired, "UserGroups", userGroups);
+                    if (!success)
                     {
-                        if (property.first == "UserEnabled")
-                        {
-                            const bool* userEnabled =
-                                std::get_if<bool>(&property.second);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
                             if (userEnabled == nullptr)
                             {
                                 BMCWEB_LOG_ERROR("UserEnabled wasn't a bool");
@@ -2109,11 +2148,7 @@ inline void
                                 return;
                             }
                             asyncResp->res.jsonValue["Enabled"] = *userEnabled;
-                        }
-                        else if (property.first == "UserLockedForFailedAttempt")
-                        {
-                            const bool* userLocked =
-                                std::get_if<bool>(&property.second);
+
                             if (userLocked == nullptr)
                             {
                                 BMCWEB_LOG_ERROR("UserLockedForF"
@@ -2126,14 +2161,9 @@ inline void
                             nlohmann::json::array_t allowed;
                             // can only unlock accounts
                             allowed.emplace_back("false");
-                            asyncResp->res
-                                .jsonValue["Locked@Redfish.AllowableValues"] =
+                    asyncResp->res.jsonValue["Locked@Redfish.AllowableValues"] =
                                 std::move(allowed);
-                        }
-                        else if (property.first == "UserPrivilege")
-                        {
-                            const std::string* userPrivPtr =
-                                std::get_if<std::string>(&property.second);
+
                             if (userPrivPtr == nullptr)
                             {
                                 BMCWEB_LOG_ERROR("UserPrivilege wasn't a "
@@ -2141,8 +2171,7 @@ inline void
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
-                            std::string role =
-                                getRoleIdFromPrivilege(*userPrivPtr);
+                    std::string role = getRoleIdFromPrivilege(*userPrivPtr);
                             if (role.empty())
                             {
                                 BMCWEB_LOG_ERROR("Invalid user role");
@@ -2155,35 +2184,23 @@ inline void
                                 asyncResp->res.jsonValue["Links"]["Role"];
                             roleEntry["@odata.id"] = boost::urls::format(
                                 "/redfish/v1/AccountService/Roles/{}", role);
-                        }
-                        else if (property.first == "UserPasswordExpired")
-                        {
-                            const bool* userPasswordExpired =
-                                std::get_if<bool>(&property.second);
+
                             if (userPasswordExpired == nullptr)
                             {
-                                BMCWEB_LOG_ERROR(
-                                    "UserPasswordExpired wasn't a bool");
+                        BMCWEB_LOG_ERROR("UserPasswordExpired wasn't a bool");
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
                             asyncResp->res.jsonValue["PasswordChangeRequired"] =
                                 *userPasswordExpired;
-                        }
-                        else if (property.first == "UserGroups")
-                        {
-                            const std::vector<std::string>* userGroups =
-                                std::get_if<std::vector<std::string>>(
-                                    &property.second);
+
                             if (userGroups == nullptr)
                             {
-                                BMCWEB_LOG_ERROR(
-                                    "userGroups wasn't a string vector");
+                        BMCWEB_LOG_ERROR("userGroups wasn't a string vector");
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
-                            if (!translateUserGroup(*userGroups,
-                                                    asyncResp->res))
+                    if (!translateUserGroup(*userGroups, asyncResp->res))
                             {
                                 BMCWEB_LOG_ERROR("userGroups mapping failed");
                                 messages::internalError(asyncResp->res);
@@ -2191,8 +2208,6 @@ inline void
                             }
                         }
                     }
-                }
-            }
 
             asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
                 "/redfish/v1/AccountService/Accounts/{}", accountName);
@@ -2201,8 +2216,8 @@ inline void
         });
 }
 
-inline void
-    handleAccountDelete(App& app, const crow::Request& req,
+inline void handleAccountDelete(
+    App& app, const crow::Request& req,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& username)
 {
@@ -2236,8 +2251,8 @@ inline void
         "xyz.openbmc_project.Object.Delete", "Delete");
 }
 
-inline void
-    handleAccountPatch(App& app, const crow::Request& req,
+inline void handleAccountPatch(
+    App& app, const crow::Request& req,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::string& username)
 {

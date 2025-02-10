@@ -1,9 +1,13 @@
-
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 
 #pragma once
 
+#include <openssl/crypto.h>
+
 #include <boost/asio/ssl/context.hpp>
 
+#include <memory>
 #include <optional>
 #include <string>
 
@@ -38,7 +42,7 @@ std::string ensureOpensslKeyPresentAndValid(const std::string& filepath);
 
 std::shared_ptr<boost::asio::ssl::context> getSslServerContext();
 
-std::optional<boost::asio::ssl::context>
-    getSSLClientContext(VerifyCertificate verifyCertificate);
+std::optional<boost::asio::ssl::context> getSSLClientContext(
+    VerifyCertificate verifyCertificate);
 
 } // namespace ensuressl

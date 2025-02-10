@@ -1,18 +1,6 @@
-/*
-Copyright (c) 2018 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
- */
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
 
 #include "boost_formatters.hpp"
@@ -20,6 +8,7 @@ limitations under the License.
 #include "logging.hpp"
 
 #include <boost/system/error_code.hpp>
+#include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
@@ -30,7 +19,6 @@ limitations under the License.
 #include <functional>
 #include <regex>
 #include <span>
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -59,7 +47,6 @@ using DbusVariantType = std::variant<
     uint16_t,
     uint8_t,
     bool,
-    sdbusplus::message::unix_fd,
     std::vector<uint32_t>,
     std::vector<uint16_t>,
     sdbusplus::message::object_path,
@@ -77,7 +64,10 @@ using DbusVariantType = std::variant<
     std::map<std::string, uint64_t>,
     std::vector<std::tuple<
       std::vector<std::tuple<sdbusplus::message::object_path, std::string>>,
-      std::string, std::string, uint64_t>>
+      std::string, std::string, uint64_t>>,
+    std::vector<std::pair<sdbusplus::message::object_path, std::string>>,
+    std::vector<std::tuple<std::string, uint64_t, std::string, double>>,
+    std::vector<std::tuple<std::string, std::string, uint64_t, std::string>>
  >;
 
 // clang-format on
@@ -147,8 +137,8 @@ inline bool getNthStringFromPath(const std::string& path, int index,
     return count >= index;
 }
 
-inline void
-    getAllProperties(const std::string& service, const std::string& objectPath,
+inline void getAllProperties(
+    const std::string& service, const std::string& objectPath,
                      const std::string& interface,
                      std::function<void(const boost::system::error_code&,
                                         const DBusPropertiesMap&)>&& callback)
@@ -205,44 +195,8 @@ inline void checkDbusPathExists(const std::string& path,
         std::array<std::string, 0>());
 }
 
-template <typename Callback>
-inline void findAssociations(const std::string& path, Callback&& callbackIn)
-{
-    crow::connections::systemBus->async_method_call(
-        [callback{std::forward<Callback>(callbackIn)}](
-            const boost::system::error_code ec,
-            std::variant<std::vector<std::string>>& resp) {
-            callback(ec, resp);
-        },
-        "xyz.openbmc_project.ObjectMapper", path,
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
-}
-
-inline void systemdReload()
-{
-    auto method = crow::connections::systemBus->new_method_call(
-        "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
-        "org.freedesktop.systemd1.Manager", "Reload");
-
-    crow::connections::systemBus->call_noreply(method);
-}
-
-inline void systemdRestartUnit(const std::string_view unit, const char* mode)
-{
-    std::string path("/org/freedesktop/systemd1/unit/");
-    path.append(unit);
-    auto method = crow::connections::systemBus->new_method_call(
-        "org.freedesktop.systemd1", path.c_str(),
-        "org.freedesktop.systemd1.Unit", "Restart");
-
-    method.append(mode);
-
-    crow::connections::systemBus->call_noreply(method);
-}
-
-inline void
-    getSubTree(const std::string& path, int32_t depth,
+inline void getSubTree(
+    const std::string& path, int32_t depth,
                std::span<const std::string_view> interfaces,
                std::function<void(const boost::system::error_code&,
                                   const MapperGetSubTreeResponse&)>&& callback)
@@ -402,5 +356,42 @@ inline void getAllNameSpaceObjects(
         },
         service, path, interfaces, "GetAll", namespaceName, filter);
 }
+
+template <typename Callback>
+inline void findAssociations(const std::string& path, Callback&& callbackIn)
+{
+    crow::connections::systemBus->async_method_call(
+        [callback{std::forward<Callback>(callbackIn)}](
+            const boost::system::error_code ec,
+            std::variant<std::vector<std::string>>& resp) {
+            callback(ec, resp);
+        },
+        "xyz.openbmc_project.ObjectMapper", path,
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
+}
+
+inline void systemdReload()
+{
+    auto method = crow::connections::systemBus->new_method_call(
+        "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+        "org.freedesktop.systemd1.Manager", "Reload");
+
+    crow::connections::systemBus->call_noreply(method);
+}
+
+inline void systemdRestartUnit(const std::string_view unit, const char* mode)
+{
+    std::string path("/org/freedesktop/systemd1/unit/");
+    path.append(unit);
+    auto method = crow::connections::systemBus->new_method_call(
+        "org.freedesktop.systemd1", path.c_str(),
+        "org.freedesktop.systemd1.Unit", "Restart");
+
+    method.append(mode);
+
+    crow::connections::systemBus->call_noreply(method);
+}
+
 } // namespace utility
 } // namespace dbus

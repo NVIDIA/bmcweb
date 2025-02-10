@@ -1,39 +1,50 @@
-/*
-Copyright (c) 2020 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2020 Intel Corporation
 #pragma once
 #include "app.hpp"
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
+#include "dbus_utility.hpp"
+#include "error_messages.hpp"
 #include "event_service_manager.hpp"
-#include "generated/enums/event_service.hpp"
+#include "event_service_store.hpp"
+#include "generated/enums/event_destination.hpp"
 #include "http/utility.hpp"
+#include "http_request.hpp"
+#include "io_context_singleton.hpp"
 #include "logging.hpp"
 #include "query.hpp"
+#include "registries.hpp"
 #include "registries/privilege_registry.hpp"
+#include "registries_selector.hpp"
 #include "snmp_trap_event_clients.hpp"
+#include "subscription.hpp"
+#include "utils/json_utils.hpp"
+
+#include <asm-generic/errno.h>
 
 #include <boost/beast/http/fields.hpp>
+#include <boost/beast/http/status.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/system/result.hpp>
+#include <boost/url/format.hpp>
 #include <boost/url/parse.hpp>
-#include <sdbusplus/unpack_properties.hpp>
-#include <utils/dbus_utils.hpp>
+#include <boost/url/url.hpp>
+#include <sdbusplus/message/native_types.hpp>
 
-#include <charconv>
+#include <algorithm>
+#include <array>
+#include <cerrno>
+#include <cstddef>
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <ranges>
 #include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace redfish
@@ -49,7 +60,7 @@ static constexpr const std::array<const char*, 3> supportedRetryPolicies = {
 static constexpr const std::array<const char*, 11> supportedResourceTypes = {
     "Task",         "AccountService",     "ManagerAccount", "SessionService",
     "EventService", "UpdateService",      "Chassis",        "Systems",
-    "Managers",     "CertificateService", "VirtualMedia"};
+    "Managers",     "CertificateService", "VirtualMedia", "Heartbeat"};
 
 inline void requestRoutesEventService(App& app)
 {
@@ -196,12 +207,17 @@ inline void requestRoutesSubmitTestEvent(App& app)
                     return;
                 }
 
+                // From the Redfish spec on EventId
+                // A service can ignore this value and replace it with its own.
+                // note that this parameter is intentionally ignored
+
+                std::optional<std::string> eventId;
                 TestEvent testEvent;
                 // clang-format off
                 if (!json_util::readJsonAction(
                         req, asyncResp->res,
                         "EventGroupId", testEvent.eventGroupId,
-                        "EventId", testEvent.eventId,
+                        "EventId", eventId,
                         "EventTimestamp", testEvent.eventTimestamp,
                         "Message", testEvent.message,
                         "MessageArgs", testEvent.messageArgs,
@@ -326,6 +342,8 @@ inline void requestRoutesEventDestinationCollection(App& app)
             std::optional<std::string> subscriptionType;
             std::optional<std::string> eventFormatType2;
             std::optional<std::string> retryPolicy;
+            std::optional<bool> sendHeartbeat;
+            std::optional<uint64_t> hbIntervalMinutes;
             std::optional<std::vector<std::string>> msgIds;
             std::optional<std::vector<std::string>> regPrefixes;
             std::optional<std::vector<std::string>> originResources;
@@ -339,6 +357,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
                     "DeliveryRetryPolicy", retryPolicy, //
                     "Destination", destUrl, //
                     "EventFormatType", eventFormatType2, //
+                    "HeartbeatIntervalMinutes", hbIntervalMinutes, //
                     "HttpHeaders", headers, //
                     "MessageIds", msgIds, //
                     "MetricReportDefinitions", mrdJsonArray, //
@@ -346,6 +365,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
                     "Protocol", protocol, //
                     "RegistryPrefixes", regPrefixes, //
                     "ResourceTypes", resTypes, //
+                    "SendHeartbeat", sendHeartbeat,                //
                     "SubscriptionType", subscriptionType, //
                     "VerifyCertificate", verifyCertificate //
                     ))
@@ -384,6 +404,17 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 return;
             }
             url->normalize();
+
+            // port_number returns zero if it is not a valid representable port
+            if (url->has_port() && url->port_number() == 0)
+            {
+                BMCWEB_LOG_WARNING("{} is an invalid port in destination url",
+                                   url->port());
+                messages::propertyValueFormatError(asyncResp->res, destUrl,
+                                                   "Destination");
+                return;
+            }
+
             crow::utility::setProtocolDefaults(*url, protocol);
             crow::utility::setPortDefaults(*url);
 
@@ -417,6 +448,18 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 {
                     messages::propertyValueConflict(asyncResp->res,
                                                     "RetryPolicy", "Protocol");
+                    return;
+                }
+                if (sendHeartbeat)
+                {
+                    messages::propertyValueConflict(
+                        asyncResp->res, "SendHeartbeat", "Protocol");
+                    return;
+                }
+                if (hbIntervalMinutes)
+                {
+                    messages::propertyValueConflict(
+                        asyncResp->res, "HeartbeatIntervalMinutes", "Protocol");
                     return;
                 }
                 if (msgIds)
@@ -463,9 +506,8 @@ inline void requestRoutesEventDestinationCollection(App& app)
 
             std::shared_ptr<Subscription> subValue =
                 std::make_shared<Subscription>(
-                    persistent_data::UserSubscription{}, *url, app.ioContext());
-
-            subValue->userSub.destinationUrl = std::move(*url);
+                    std::make_shared<persistent_data::UserSubscription>(), *url,
+                    getIoContext());
 
             if (subscriptionType)
             {
@@ -475,12 +517,12 @@ inline void requestRoutesEventDestinationCollection(App& app)
                         asyncResp->res, *subscriptionType, "SubscriptionType");
                     return;
                 }
-                subValue->userSub.subscriptionType = *subscriptionType;
+                subValue->userSub->subscriptionType = *subscriptionType;
             }
             else
             {
                 // Default
-                subValue->userSub.subscriptionType = "RedfishEvent";
+                subValue->userSub->subscriptionType = "RedfishEvent";
             }
 
             if (protocol != "Redfish")
@@ -489,11 +531,11 @@ inline void requestRoutesEventDestinationCollection(App& app)
                                                  "Protocol");
                 return;
             }
-            subValue->userSub.protocol = protocol;
+            subValue->userSub->protocol = protocol;
 
             if (verifyCertificate)
             {
-                subValue->userSub.verifyCertificate = *verifyCertificate;
+                subValue->userSub->verifyCertificate = *verifyCertificate;
             }
 
             if (eventFormatType2)
@@ -506,12 +548,12 @@ inline void requestRoutesEventDestinationCollection(App& app)
                         asyncResp->res, *eventFormatType2, "EventFormatType");
                     return;
                 }
-                subValue->userSub.eventFormatType = *eventFormatType2;
+                subValue->userSub->eventFormatType = *eventFormatType2;
             }
             else
             {
                 // If not specified, use default "Event"
-                subValue->userSub.eventFormatType = "Event";
+                subValue->userSub->eventFormatType = "Event";
             }
 
             if (context)
@@ -524,7 +566,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
                                                  maxContextSize);
                     return;
                 }
-                subValue->userSub.customText = *context;
+                subValue->userSub->customText = *context;
             }
 
             if (headers)
@@ -557,7 +599,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
                                 asyncResp->res, "HttpHeaders", maxHeaderSizeED);
                             return;
                         }
-                        subValue->userSub.httpHeaders.set(item.first, *value);
+                        subValue->userSub->httpHeaders.set(item.first, *value);
                     }
                 }
             }
@@ -574,12 +616,12 @@ inline void requestRoutesEventDestinationCollection(App& app)
                         return;
                     }
                 }
-                subValue->userSub.registryPrefixes = *regPrefixes;
+                subValue->userSub->registryPrefixes = *regPrefixes;
             }
 
             if (originResources)
             {
-                subValue->userSub.originResources = *originResources;
+                subValue->userSub->originResources = *originResources;
             }
 
             if (resTypes)
@@ -594,7 +636,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
                         return;
                     }
                 }
-                subValue->userSub.resourceTypes = *resTypes;
+                subValue->userSub->resourceTypes = *resTypes;
             }
 
             if (msgIds)
@@ -603,14 +645,14 @@ inline void requestRoutesEventDestinationCollection(App& app)
 
                 // If no registry prefixes are mentioned, consider all
                 // supported prefixes
-                if (subValue->userSub.registryPrefixes.empty())
+                if (subValue->userSub->registryPrefixes.empty())
                 {
                     registryPrefix.assign(supportedRegPrefixes.begin(),
                                           supportedRegPrefixes.end());
                 }
                 else
                 {
-                    registryPrefix = subValue->userSub.registryPrefixes;
+                    registryPrefix = subValue->userSub->registryPrefixes;
                 }
 
                 for (const std::string& id : *msgIds)
@@ -644,7 +686,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
                     }
                 }
 
-                subValue->userSub.registryMsgIds = *msgIds;
+                subValue->userSub->registryMsgIds = *msgIds;
             }
 
             if (retryPolicy)
@@ -656,12 +698,27 @@ inline void requestRoutesEventDestinationCollection(App& app)
                         asyncResp->res, *retryPolicy, "DeliveryRetryPolicy");
                     return;
                 }
-                subValue->userSub.retryPolicy = *retryPolicy;
+                subValue->userSub->retryPolicy = *retryPolicy;
             }
             else
             {
                 // Default "TerminateAfterRetries"
-                subValue->userSub.retryPolicy = "TerminateAfterRetries";
+                subValue->userSub->retryPolicy = "TerminateAfterRetries";
+            }
+            if (sendHeartbeat)
+            {
+                subValue->userSub->sendHeartbeat = *sendHeartbeat;
+            }
+            if (hbIntervalMinutes)
+            {
+                if (*hbIntervalMinutes < 1 || *hbIntervalMinutes > 65535)
+                {
+                    messages::propertyValueOutOfRange(
+                        asyncResp->res, *hbIntervalMinutes,
+                        "HeartbeatIntervalMinutes");
+                    return;
+                }
+                subValue->userSub->hbIntervalMinutes = *hbIntervalMinutes;
             }
 
             if (mrdJsonArray)
@@ -676,7 +733,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
                     {
                         return;
                     }
-                    subValue->userSub.metricReportDefinitions.emplace_back(
+                    subValue->userSub->metricReportDefinitions.emplace_back(
                         mrdUri);
                 }
             }
@@ -701,6 +758,12 @@ inline void requestRoutesEventDestinationCollection(App& app)
             messages::created(asyncResp->res);
             asyncResp->res.addHeader(
                 "Location", "/redfish/v1/EventService/Subscriptions/" + id);
+
+            // schedule a heartbeat
+            if (subValue->userSub->sendHeartbeat)
+            {
+                subValue->scheduleNextHeartbeatEvent();
+            }
         });
 }
 
@@ -734,7 +797,7 @@ inline void requestRoutesEventDestination(App& app)
                 const std::string& id = param;
 
                 const persistent_data::UserSubscription& userSub =
-                    subValue->userSub;
+                    *subValue->userSub;
 
                 nlohmann::json& jVal = asyncResp->res.jsonValue;
                 jVal["@odata.type"] =
@@ -755,6 +818,8 @@ inline void requestRoutesEventDestination(App& app)
 
                 jVal["MessageIds"] = userSub.registryMsgIds;
                 jVal["DeliveryRetryPolicy"] = userSub.retryPolicy;
+                jVal["SendHeartbeat"] = userSub.sendHeartbeat;
+                jVal["HeartbeatIntervalMinutes"] = userSub.hbIntervalMinutes;
                 jVal["VerifyCertificate"] = userSub.verifyCertificate;
 
                 nlohmann::json::array_t mrdJsonArray;
@@ -791,6 +856,8 @@ inline void requestRoutesEventDestination(App& app)
 
                 std::optional<std::string> context;
                 std::optional<std::string> retryPolicy;
+                std::optional<bool> sendHeartbeat;
+                std::optional<uint64_t> hbIntervalMinutes;
                 std::optional<bool> verifyCertificate;
                 std::optional<std::vector<nlohmann::json::object_t>> headers;
 
@@ -798,7 +865,9 @@ inline void requestRoutesEventDestination(App& app)
                         req, asyncResp->res, //
                         "Context", context, //
                         "DeliveryRetryPolicy", retryPolicy, //
+                        "HeartbeatIntervalMinutes", hbIntervalMinutes, //
                         "HttpHeaders", headers, //
+                        "SendHeartbeat", sendHeartbeat,                //
                         "VerifyCertificate", verifyCertificate //
                         ))
                 {
@@ -807,7 +876,7 @@ inline void requestRoutesEventDestination(App& app)
 
                 if (context)
                 {
-                    subValue->userSub.customText = *context;
+                    subValue->userSub->customText = *context;
                     if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
                     {
                         // Send an event for property change
@@ -817,7 +886,7 @@ inline void requestRoutesEventDestination(App& app)
                                     "Context", *context, "EventService");
                         redfish::EventServiceManager::getInstance()
                             .sendEventWithOOC(std::string(req.target()), event);
-                    }
+                    }                    
                 }
 
                 if (headers)
@@ -844,7 +913,7 @@ inline void requestRoutesEventDestination(App& app)
                             keyValues.push_back(' ');
                         }
                     }
-                    subValue->userSub.httpHeaders = std::move(fields);
+                    subValue->userSub->httpHeaders = std::move(fields);
                     if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
                     {
                         // Send an event for property change
@@ -854,7 +923,7 @@ inline void requestRoutesEventDestination(App& app)
                                     "Headers", keyValues, "EventService");
                         redfish::EventServiceManager::getInstance()
                             .sendEventWithOOC(std::string(req.target()), event);
-                    }
+                    }                    
                 }
 
                 if (retryPolicy)
@@ -868,7 +937,7 @@ inline void requestRoutesEventDestination(App& app)
                                                          "DeliveryRetryPolicy");
                         return;
                     }
-                    subValue->userSub.retryPolicy = *retryPolicy;
+                    subValue->userSub->retryPolicy = *retryPolicy;
                     if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
                     {
                         // Send an event for property change
@@ -878,17 +947,37 @@ inline void requestRoutesEventDestination(App& app)
                                                 "EventService");
                         redfish::EventServiceManager::getInstance()
                             .sendEventWithOOC(std::string(req.target()), event);
+                    }                    
+                }
+
+                if (sendHeartbeat)
+                {
+                    subValue->userSub->sendHeartbeat = *sendHeartbeat;
+                }
+                if (hbIntervalMinutes)
+                {
+                    if (*hbIntervalMinutes < 1 || *hbIntervalMinutes > 65535)
+                    {
+                        messages::propertyValueOutOfRange(
+                            asyncResp->res, *hbIntervalMinutes,
+                            "HeartbeatIntervalMinutes");
+                        return;
                     }
+                    subValue->userSub->hbIntervalMinutes = *hbIntervalMinutes;
+                }
+
+                if (hbIntervalMinutes || sendHeartbeat)
+                {
+                    // if Heartbeat interval or send heart were changed, cancel
+                    // the heartbeat timer if running and start a new heartbeat
+                    // if needed
+                    subValue->heartbeatParametersChanged();
                 }
 
                 if (verifyCertificate)
                 {
-                    subValue->userSub.verifyCertificate = *verifyCertificate;
+                    subValue->userSub->verifyCertificate = *verifyCertificate;
                 }
-
-                // Sync Subscription to UserSubscriptionConfig
-                persistent_data::EventServiceStore::getInstance()
-                    .updateUserSubscriptionConfig(subValue->userSub);
 
                 EventServiceManager::getInstance().updateSubscriptionData();
             });

@@ -1,16 +1,30 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "app.hpp"
+#include "async_resp.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
 #include "generated/enums/resource.hpp"
+#include "http_request.hpp"
+#include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/telemetry_utils.hpp"
 #include "utils/time_utils.hpp"
 
-#include <sdbusplus/asio/property.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <sdbusplus/unpack_properties.hpp>
+
+#include <chrono>
+#include <cstddef>
+#include <cstdint>
+#include <ctime>
+#include <functional>
+#include <memory>
+#include <utility>
 
 namespace redfish
 {
@@ -42,9 +56,8 @@ inline void handleTelemetryServiceGet(
             "/redfish/v1/TelemetryService/Triggers";
     }
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, telemetry::service,
-        "/xyz/openbmc_project/Telemetry/Reports",
+    dbus::utility::getAllProperties(
+        telemetry::service, "/xyz/openbmc_project/Telemetry/Reports",
         "xyz.openbmc_project.Telemetry.ReportManager",
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& ret) {

@@ -1,22 +1,35 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
+#include "app.hpp"
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
 #include "generated/enums/resource.hpp"
+#include "http_request.hpp"
+#include "http_response.hpp"
+#include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
-#include "utils/json_utils.hpp"
 
+#include <asm-generic/errno.h>
+
+#include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
-#include <dbus_utility.hpp>
-#include <query.hpp>
-#include <sdbusplus/asio/property.hpp>
+#include <boost/url/url.hpp>
+#include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <utils/nvidia_cable_util.hpp>
 
 #include <array>
+#include <cmath>
+#include <memory>
+#include <string>
 #include <string_view>
 
 namespace redfish
@@ -81,8 +94,8 @@ inline void fillCableProperties(
  * @param[in]       serviceMap      A map to hold Service and corresponding
  * interface list for the given cable id.
  */
-inline void
-    getCableProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void getCableProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::string& cableObjectPath,
                        const dbus::utility::MapperServiceMap& serviceMap)
 {
@@ -94,7 +107,7 @@ inline void
         {
             if (interface == "xyz.openbmc_project.Inventory.Item.Cable")
             {
-                sdbusplus::asio::getAllProperties(
+                dbus::utility::getAllProperties(
                     *crow::connections::systemBus, service, cableObjectPath,
                     interface,
                     [asyncResp](
@@ -106,9 +119,8 @@ inline void
             }
             else if (interface == "xyz.openbmc_project.Inventory.Item")
             {
-                sdbusplus::asio::getProperty<bool>(
-                    *crow::connections::systemBus, service, cableObjectPath,
-                    interface, "Present",
+                dbus::utility::getProperty<bool>(
+                    service, cableObjectPath, interface, "Present",
                     [asyncResp, cableObjectPath](
                         const boost::system::error_code& ec, bool present) {
                         if (ec)

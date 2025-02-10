@@ -1,36 +1,46 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include "bmcweb_config.h"
 
 #include "async_resp.hpp"
 #include "authentication.hpp"
 #include "complete_response_fields.hpp"
+#include "forward_unauthorized.hpp"
 #include "http_body.hpp"
+#include "http_request.hpp"
 #include "http_response.hpp"
-#include "http_utility.hpp"
 #include "logging.hpp"
-#include "mutual_tls.hpp"
-#include "nghttp2_adapters.hpp"
-#include "ssl_key_handler.hpp"
-#include "utility.hpp"
 
-#include <boost/asio/io_context.hpp>
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include "nghttp2_adapters.hpp"
+
+#include <nghttp2/nghttp2.h>
+#include <unistd.h>
+
+#include <boost/asio/buffer.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl/stream.hpp>
-#include <boost/asio/steady_timer.hpp>
-#include <boost/beast/http/error.hpp>
-#include <boost/beast/http/parser.hpp>
-#include <boost/beast/http/read.hpp>
-#include <boost/beast/http/serializer.hpp>
-#include <boost/beast/http/write.hpp>
-#include <boost/beast/websocket.hpp>
+#include <boost/beast/core/error.hpp>
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/fields.hpp>
+#include <boost/beast/http/message.hpp>
+#include <boost/beast/http/verb.hpp>
+#include <boost/optional/optional.hpp>
 #include <boost/system/error_code.hpp>
 
 #include <array>
-#include <atomic>
-#include <chrono>
+#include <bit>
+#include <cstddef>
+#include <cstdint>
 #include <functional>
+#include <map>
 #include <memory>
+#include <optional>
+#include <span>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 namespace crow
@@ -89,10 +99,10 @@ class HTTP2Connection :
         return 0;
     }
 
-    static ssize_t
-        fileReadCallback(nghttp2_session* /* session */, int32_t streamId,
-                         uint8_t* buf, size_t length, uint32_t* dataFlags,
-                         nghttp2_data_source* /*source*/, void* userPtr)
+    static ssize_t fileReadCallback(
+        nghttp2_session* /* session */, int32_t streamId, uint8_t* buf,
+        size_t length, uint32_t* dataFlags, nghttp2_data_source* /*source*/,
+        void* userPtr)
     {
         self_type& self = userPtrToSelf(userPtr);
 
@@ -234,7 +244,7 @@ class HTTP2Connection :
         if (reqReader)
         {
             boost::beast::error_code ec;
-            reqReader->finish(ec);
+            bmcweb::HttpBody::reader::finish(ec);
             if (ec)
             {
                 BMCWEB_LOG_CRITICAL("Failed to finalize payload");

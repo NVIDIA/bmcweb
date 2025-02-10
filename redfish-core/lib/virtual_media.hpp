@@ -1,37 +1,40 @@
-/*
-Copyright (c) 2018 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
 
-#include "account_service.hpp"
 #include "app.hpp"
 #include "async_resp.hpp"
 #include "credential_pipe.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
 #include "generated/enums/virtual_media.hpp"
+#include "http_request.hpp"
+#include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/json_utils.hpp"
 
+#include <boost/beast/http/status.hpp>
+#include <boost/beast/http/verb.hpp>
+#include <boost/system/result.hpp>
 #include <boost/url/format.hpp>
+#include <boost/url/parse.hpp>
 #include <boost/url/url_view.hpp>
 #include <boost/url/url_view_base.hpp>
+#include <sdbusplus/message/native_types.hpp>
 
-#include <array>
+#include <cstddef>
+#include <filesystem>
+#include <functional>
+#include <memory>
+#include <optional>
 #include <ranges>
+#include <string>
 #include <string_view>
+#include <utility>
+#include <variant>
 
 namespace redfish
 {
@@ -89,8 +92,8 @@ using CheckItemHandler =
                        const std::pair<sdbusplus::message::object_path,
                                        dbus::utility::DBusInterfacesMap>&)>;
 
-inline void
-    findAndParseObject(const std::string& service, const std::string& resName,
+inline void findAndParseObject(
+    const std::string& service, const std::string& resName,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        CheckItemHandler&& handler)
 {
@@ -149,8 +152,8 @@ inline std::string getTransferProtocolTypeFromUri(const std::string& imageUri)
 /**
  * @brief Read all known properties from VM object interfaces
  */
-inline void
-    vmParseInterfaceObject(const dbus::utility::DBusInterfacesMap& interfaces,
+inline void vmParseInterfaceObject(
+    const dbus::utility::DBusInterfacesMap& interfaces,
                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     for (const auto& [interface, values] : interfaces)
@@ -314,8 +317,8 @@ inline void getVmResourceList(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
         });
 }
 
-inline void
-    afterGetVmData(const std::string& name, const std::string& /*service*/,
+inline void afterGetVmData(
+    const std::string& name, const std::string& /*service*/,
                    const std::string& resName,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    const std::pair<sdbusplus::message::object_path,
@@ -374,8 +377,8 @@ enum class TransferProtocol
  * @brief Function extracts transfer protocol type from URI.
  *
  */
-inline std::optional<TransferProtocol>
-    getTransferProtocolFromUri(const boost::urls::url_view_base& imageUri)
+inline std::optional<TransferProtocol> getTransferProtocolFromUri(
+    const boost::urls::url_view_base& imageUri)
 {
     std::string_view scheme = imageUri.scheme();
     if (scheme == "smb")
@@ -888,8 +891,8 @@ inline void handleManagersVirtualMediaCollectionGet(
         });
 }
 
-inline void
-    handleVirtualMediaGet(crow::App& app, const crow::Request& req,
+inline void handleVirtualMediaGet(
+    crow::App& app, const crow::Request& req,
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& name, const std::string& resName)
 {

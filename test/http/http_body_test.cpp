@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "file_test_utilities.hpp"
 #include "http_body.hpp"
 
@@ -116,7 +118,9 @@ TEST(HttpFileBodyValueType, SetFd)
     HttpBody::value_type value(EncodingType::Base64);
     TemporaryFileHandle temporaryFile("teststring");
     boost::system::error_code ec;
-    value.setFd(fileno(fopen(temporaryFile.stringPath.c_str(), "r")), ec);
+    FILE* r = fopen(temporaryFile.stringPath.c_str(), "r");
+    ASSERT_NE(r, nullptr);
+    value.setFd(fileno(r), ec);
     ASSERT_FALSE(ec);
 
     std::array<char, 4096> buffer{};

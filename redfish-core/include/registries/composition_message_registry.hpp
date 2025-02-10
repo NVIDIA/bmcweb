@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 /****************************************************************
  *                 READ THIS WARNING FIRST
@@ -20,12 +22,13 @@ namespace redfish::registries::composition
 const Header header = {
     "Copyright 2019-2023 DMTF. All rights reserved.",
     "#MessageRegistry.v1_6_2.MessageRegistry",
-    "Composition.1.1.2",
+    1,
+    1,
+    2,
     "Composition Message Registry",
     "en",
     "This registry defines the messages for composition related events.",
     "Composition",
-    "1.1.2",
     "DMTF",
 };
 constexpr const char* url =

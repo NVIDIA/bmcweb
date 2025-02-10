@@ -1,40 +1,50 @@
-/*
-Copyright (c) 2020 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2020 Intel Corporation
 #pragma once
 
 #include "app.hpp"
-#include "dbus_utility.hpp"
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
+#include "error_messages.hpp"
 #include "event_service_manager.hpp"
 #include "generated/enums/resource.hpp"
 #include "generated/enums/task_service.hpp"
 #include "http/parsing.hpp"
+#include "http_request.hpp"
+#include "http_response.hpp"
+#include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "task_messages.hpp"
+#include "utils/time_utils.hpp"
 
+#include <boost/asio/error.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/status.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <boost/url/format.hpp>
+#include <boost/url/url.hpp>
+#include <nlohmann/json.hpp>
+#include <sdbusplus/bus.hpp>
 #include <sdbusplus/bus/match.hpp>
-#include <utils/privilege_utils.hpp>
+#include <sdbusplus/message.hpp>
 
+#include <algorithm>
+#include <array>
 #include <chrono>
+#include <cstddef>
+#include <ctime>
+#include <deque>
+#include <functional>
 #include <memory>
+#include <optional>
 #include <ranges>
-#include <variant>
+#include <string>
+#include <string_view>
+#include <utility>
 
 namespace redfish
 {
@@ -331,7 +341,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                 self->messages.emplace_back(
                     self->getMsgCallback("Aborted", self->index));
                 // Send event :TaskAborted
-                self->sendTaskEvent(self->state, self->index);
+                sendTaskEvent(self->state, self->index);
                 self->callback(ec, msg, self);
             });
     }
@@ -418,7 +428,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                         self->finishTask();
 
                         // Send event
-                        self->sendTaskEvent(self->state, self->index);
+                    sendTaskEvent(self->state, self->index);
 
                         // reset the match after the callback was successful
                         boost::asio::post(

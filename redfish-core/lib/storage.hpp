@@ -1,43 +1,46 @@
-/*
-Copyright (c) 2019 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2019 Intel Corporation
 #pragma once
 
 #include "bmcweb_config.h"
 // #include "task.hpp"
 
 #include "app.hpp"
+#include "async_resp.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
 #include "generated/enums/drive.hpp"
 #include "generated/enums/protocol.hpp"
 #include "generated/enums/resource.hpp"
+#include "http_request.hpp"
 #include "human_sort.hpp"
+#include "logging.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 
+#include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
-#include <sdbusplus/asio/property.hpp>
+#include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
+#include <algorithm>
 #include <array>
+#include <cstdint>
+#include <format>
+#include <functional>
+#include <memory>
+#include <optional>
 #include <ranges>
+#include <string>
 #include <string_view>
+#include <utility>
+#include <variant>
+#include <vector>
 
 namespace redfish
 {
@@ -667,8 +670,8 @@ inline void afterSubtree(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     asyncResp->res.jsonValue["Links"]["StorageServices@odata.count"] = 1;
 }
 
-inline void
-    handleStorageGet(App& app, const crow::Request& req,
+inline void handleStorageGet(
+    App& app, const crow::Request& req,
                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const std::string& storageId)
 {
@@ -702,9 +705,8 @@ inline void getDriveAsset(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& connectionName,
                           const std::string& path)
 {
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, connectionName, path,
-        "xyz.openbmc_project.Inventory.Decorator.Asset",
+    dbus::utility::getAllProperties(
+        connectionName, path, "xyz.openbmc_project.Inventory.Decorator.Asset",
         [asyncResp](const boost::system::error_code& ec,
                     const std::vector<
                         std::pair<std::string, dbus::utility::DbusVariantType>>&
@@ -757,9 +759,8 @@ inline void getDrivePresent(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& connectionName,
                             const std::string& path)
 {
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, connectionName, path,
-        "xyz.openbmc_project.Inventory.Item", "Present",
+    dbus::utility::getProperty<bool>(
+        connectionName, path, "xyz.openbmc_project.Inventory.Item", "Present",
         [asyncResp,
          path](const boost::system::error_code& ec, const bool isPresent) {
             // this interface isn't necessary, only check it if
@@ -781,9 +782,8 @@ inline void getDriveState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& connectionName,
                           const std::string& path)
 {
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, connectionName, path,
-        "xyz.openbmc_project.State.Drive", "Rebuilding",
+    dbus::utility::getProperty<bool>(
+        connectionName, path, "xyz.openbmc_project.State.Drive", "Rebuilding",
         [asyncResp](const boost::system::error_code& ec, const bool updating) {
             // this interface isn't necessary, only check it
             // if we get a good return
@@ -822,8 +822,8 @@ inline std::optional<drive::MediaType> convertDriveType(std::string_view type)
     return drive::MediaType::Invalid;
 }
 
-inline std::optional<protocol::Protocol>
-    convertDriveProtocol(std::string_view proto)
+inline std::optional<protocol::Protocol> convertDriveProtocol(
+    std::string_view proto)
 {
     if (proto == "xyz.openbmc_project.Inventory.Item.Drive.DriveProtocol.SAS")
     {
@@ -854,9 +854,8 @@ inline void getDriveItemProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& connectionName, const std::string& path)
 {
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, connectionName, path,
-        "xyz.openbmc_project.Inventory.Item.Drive",
+    dbus::utility::getAllProperties(
+        connectionName, path, "xyz.openbmc_project.Inventory.Item.Drive",
         [asyncResp](const boost::system::error_code& ec,
                     const std::vector<
                         std::pair<std::string, dbus::utility::DbusVariantType>>&
@@ -2004,9 +2003,8 @@ inline void populateStorageController(
     asyncResp->res.jsonValue["Id"] = controllerId;
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, connectionName, path,
-        "xyz.openbmc_project.Inventory.Item", "Present",
+    dbus::utility::getProperty<bool>(
+        connectionName, path, "xyz.openbmc_project.Inventory.Item", "Present",
         [asyncResp](const boost::system::error_code& ec, bool isPresent) {
             // this interface isn't necessary, only check it
             // if we get a good return
@@ -2022,9 +2020,8 @@ inline void populateStorageController(
             }
         });
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, connectionName, path,
-        "xyz.openbmc_project.Inventory.Decorator.Asset",
+    dbus::utility::getAllProperties(
+        connectionName, path, "xyz.openbmc_project.Inventory.Decorator.Asset",
         [asyncResp](const boost::system::error_code& ec,
                     const std::vector<
                         std::pair<std::string, dbus::utility::DbusVariantType>>&

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "utils/json_utils.hpp"
@@ -388,8 +390,24 @@ TEST(ReadJsonPatch, VerifyReadJsonPatchIntegerReturnsOutOfRange)
         res.jsonValue["error"]["@Message.ExtendedInfo"];
     EXPECT_THAT(resExtInfo[0]["@odata.type"], "#Message.v1_1_1.Message");
     EXPECT_THAT(resExtInfo[0]["MessageId"],
-                "Base.1.19.0.PropertyValueOutOfRange");
+                "Base.1.19.PropertyValueOutOfRange");
     EXPECT_THAT(resExtInfo[0]["MessageSeverity"], "Warning");
+}
+
+TEST(ReadJsonPatch, VerifyReadJsonPatchBadVectorObject)
+{
+    crow::Response res;
+    std::error_code ec;
+    nlohmann::json jsonRequest = {{"NotVector", 1}};
+
+    std::vector<int> indices;
+    ASSERT_FALSE(readJson(jsonRequest, res, "NotVector", indices));
+    EXPECT_EQ(res.result(), boost::beast::http::status::bad_request);
+
+    const nlohmann::json& argsExtInfo =
+        res.jsonValue["NotVector@Message.ExtendedInfo"][0];
+    EXPECT_THAT(argsExtInfo["MessageArgs"][0], "1");
+    EXPECT_THAT(argsExtInfo["MessageArgs"][1], "NotVector");
 }
 
 TEST(ReadJsonAction, ValidElementsReturnsTrueResponseOkValuesUnpackedCorrectly)
@@ -484,6 +502,14 @@ TEST(objectKeyCmp, PositiveCases)
         0, objectKeyCmp("Name",
                         R"({"@odata.id": "/redfish/v1/1", "Name": "a"})"_json,
                         R"({"@odata.id": "/redfish/v1/1", "Name": "b"})"_json));
+    EXPECT_EQ(0, objectKeyCmp(
+                     "Name",
+                     R"({"@odata.id": "/redfish/v1/1", "Name": "a 45"})"_json,
+                     R"({"@odata.id": "/redfish/v1/1", "Name": "a 45"})"_json));
+    EXPECT_GT(0, objectKeyCmp(
+                     "Name",
+                     R"({"@odata.id": "/redfish/v1/1", "Name": "a 45"})"_json,
+                     R"({"@odata.id": "/redfish/v1/1", "Name": "b 45"})"_json));
 
     EXPECT_GT(
         0, objectKeyCmp("@odata.id",

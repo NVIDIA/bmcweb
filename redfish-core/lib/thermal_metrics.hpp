@@ -1,9 +1,16 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "bmcweb_config.h"
 
 #include "app.hpp"
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
+#include "http_request.hpp"
+#include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "sensors.hpp"
@@ -13,8 +20,14 @@
 #include "utils/sensor_utils.hpp"
 #include "utils/time_utils.hpp"
 
+#include <asm-generic/errno.h>
+
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
 #include <utils/chassis_utils.hpp>
+#include <boost/url/format.hpp>
+#include <nlohmann/json.hpp>
 
 #include <array>
 #include <functional>
@@ -22,6 +35,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace redfish
 {
@@ -491,7 +505,7 @@ inline void handleTemperatureReadingsCelsius(
 
     for (const auto& [service, sensorPath] : sensorsServiceAndPath)
     {
-        sdbusplus::asio::getAllProperties(
+        dbus::utility::getAllProperties(
             *crow::connections::systemBus, service, sensorPath,
             "xyz.openbmc_project.Sensor.Value",
             [asyncResp, chassisId,
@@ -517,8 +531,8 @@ inline void getTemperatureReadingsCelsius(
                         chassisId));
 }
 
-inline void
-    doThermalMetrics(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void doThermalMetrics(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const std::string& chassisId,
                      const std::optional<std::string>& validChassisPath)
 {
@@ -567,8 +581,8 @@ inline void handleThermalMetricsHead(
         });
 }
 
-inline void
-    handleThermalMetricsGet(App& app, const crow::Request& req,
+inline void handleThermalMetricsGet(
+    App& app, const crow::Request& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& chassisId)
 {

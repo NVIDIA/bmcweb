@@ -1,20 +1,22 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "app.hpp"
-#include "error_messages.hpp"
+#include "async_resp.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
-#include "query.hpp"
-#include "registries/privilege_registry.hpp"
-#include "utility.hpp"
 
+#include <boost/beast/http/verb.hpp>
 #include <boost/url/format.hpp>
+#include <boost/url/url.hpp>
 #include <nlohmann/json.hpp>
 
 #include <memory>
 #include <ranges>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace redfish
 {

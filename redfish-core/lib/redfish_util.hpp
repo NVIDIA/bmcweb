@@ -1,38 +1,38 @@
-/*
-Copyright (c) 2019 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2019 Intel Corporation
 #pragma once
 
 // #include <dbus_utility.hpp>
 // #include <error_messages.hpp>
 #include "async_resp.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "logging.hpp"
 
 #ifdef HAVE_PWQUALITY
 #include <pwquality.h>
 #endif
 
+#include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
-#include <sdbusplus/asio/property.hpp>
-#include <sdbusplus/message.hpp>
+#include <sdbusplus/message/native_types.hpp>
 
+#include <algorithm>
 #include <array>
 #include <charconv>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <ranges>
+#include <span>
+#include <string>
 #include <string_view>
+#include <system_error>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 namespace redfish
 {
@@ -69,7 +69,7 @@ using GetObjectType =
     std::vector<std::pair<std::string, std::vector<std::string>>>;
 
 template <typename CallbackFunc>
-void getMainChassisId(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
+void getMainChassisId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       CallbackFunc&& callback)
 {
     // Find managed chassis
@@ -238,7 +238,7 @@ void getPortStatusAndPath(
 template <typename CallbackFunc>
 void getPortNumber(const std::string& socketPath, CallbackFunc&& callback)
 {
-    sdbusplus::asio::getProperty<
+    dbus::utility::getProperty<
         std::vector<std::tuple<std::string, std::string>>>(
         *crow::connections::systemBus, "org.freedesktop.systemd1", socketPath,
         "org.freedesktop.systemd1.Socket", "Listen",

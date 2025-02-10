@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 /****************************************************************
  *                 READ THIS WARNING FIRST
@@ -20,12 +22,13 @@ namespace redfish::registries::fabric
 const Header header = {
     "Copyright 2014-2023 DMTF. All rights reserved.",
     "#MessageRegistry.v1_6_2.MessageRegistry",
-    "Fabric.1.0.2",
+    1,
+    0,
+    2,
     "Fabric Message Registry",
     "en",
     "This registry defines messages for generic fabrics.",
     "Fabric",
-    "1.0.2",
     "DMTF",
 };
 constexpr const char* url =

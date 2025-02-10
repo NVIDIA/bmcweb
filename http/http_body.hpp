@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "duplicatable_file_handle.hpp"
@@ -5,16 +7,27 @@
 #include "utility.hpp"
 
 #include <fcntl.h>
-#include <unistd.h>
 
+#include <boost/asio/buffer.hpp>
+#include <boost/beast/core/buffer_traits.hpp>
 #include <boost/beast/core/buffers_range.hpp>
+#include <boost/beast/core/error.hpp>
+#include <boost/beast/core/file_base.hpp>
 #include <boost/beast/core/file_posix.hpp>
 #include <boost/beast/http/message.hpp>
+#include <boost/none.hpp>
+#include <boost/optional/optional.hpp>
 #include <boost/system/error_code.hpp>
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
+#include <string>
 #include <string_view>
+#include <utility>
 
 namespace bmcweb
 {
@@ -163,14 +176,14 @@ class HttpBody::writer
         ec = {};
     }
 
-    boost::optional<std::pair<const_buffers_type, bool>>
-        get(boost::beast::error_code& ec)
+    boost::optional<std::pair<const_buffers_type, bool>> get(
+        boost::beast::error_code& ec)
     {
         return getWithMaxSize(ec, std::numeric_limits<size_t>::max());
     }
 
-    boost::optional<std::pair<const_buffers_type, bool>>
-        getWithMaxSize(boost::beast::error_code& ec, size_t maxSize)
+    boost::optional<std::pair<const_buffers_type, bool>> getWithMaxSize(
+        boost::beast::error_code& ec, size_t maxSize)
     {
         std::pair<const_buffers_type, bool> ret;
         if (!body.file().is_open())

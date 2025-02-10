@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 /****************************************************************
  *                 READ THIS WARNING FIRST
@@ -20,12 +22,13 @@ namespace redfish::registries::resource_event
 const Header header = {
     "Copyright 2014-2023 DMTF in cooperation with the Storage Networking Industry Association (SNIA). All rights reserved.",
     "#MessageRegistry.v1_6_0.MessageRegistry",
-    "ResourceEvent.1.3.0",
+    1,
+    3,
+    0,
     "Resource Event Message Registry",
     "en",
     "This registry defines the messages to use for resource events.",
     "ResourceEvent",
-    "1.3.0",
     "DMTF",
 };
 constexpr const char* url =

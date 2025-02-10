@@ -1,38 +1,45 @@
-/*
-Copyright (c) 2018 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "app.hpp"
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/resource.hpp"
+#include "http_request.hpp"
+#include "logging.hpp"
+#include "privileges.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
 #include "rsyslog_utils.hpp"
+#include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/stl_utils.hpp"
 
+#include <unistd.h>
+
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/status.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
-#include <sdbusplus/asio/property.hpp>
+#include <sdbusplus/message/native_types.hpp>
 
 #include <array>
+#include <cstddef>
+#include <functional>
+#include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
+#include <tuple>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -340,8 +347,8 @@ inline void handleNTPProtocolEnabled(
 using IpAddress =
     std::variant<std::string, nlohmann::json::object_t, std::nullptr_t>;
 
-inline void
-    handleNTPServersPatch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void handleNTPServersPatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::vector<IpAddress>& ntpServerObjects,
                           std::vector<std::string> currentNtpServers)
 {
@@ -444,8 +451,8 @@ inline void
         });
 }
 
-inline void
-    handleProtocolEnabled(const bool protocolEnabled,
+inline void handleProtocolEnabled(
+    const bool protocolEnabled,
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& netBasePath)
 {
@@ -493,12 +500,12 @@ inline std::string getHostName()
     return hostName;
 }
 
-inline void
-    getNTPProtocolEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getNTPProtocolEnabled(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, "org.freedesktop.timedate1",
-        "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "NTP",
+    dbus::utility::getProperty<bool>(
+        "org.freedesktop.timedate1", "/org/freedesktop/timedate1",
+        "org.freedesktop.timedate1", "NTP",
         [asyncResp](const boost::system::error_code& ec, bool enabled) {
             if (ec)
             {

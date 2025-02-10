@@ -1,25 +1,41 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "app.hpp"
-#include "dbus_singleton.hpp"
+#include "async_resp.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "ethernet.hpp"
 #include "generated/enums/action_info.hpp"
 #include "generated/enums/computer_system.hpp"
 #include "generated/enums/resource.hpp"
+#include "http_request.hpp"
+#include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/dbus_utils.hpp"
 #include "utils/ip_utils.hpp"
 #include "utils/json_utils.hpp"
 
+#include <boost/beast/http/status.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <boost/url/format.hpp>
-#include <sdbusplus/asio/property.hpp>
+#include <sdbusplus/message/native_types.hpp>
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
+#include <variant>
+#include <vector>
 
 namespace redfish
 {
@@ -34,12 +50,12 @@ namespace redfish
  *
  * @return None.
  */
-inline void
-    getHypervisorState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getHypervisorState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get hypervisor state information.");
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, "xyz.openbmc_project.State.Hypervisor",
+    dbus::utility::getProperty<std::string>(
+        "xyz.openbmc_project.State.Hypervisor",
         "/xyz/openbmc_project/state/hypervisor0",
         "xyz.openbmc_project.State.Host", "CurrentHostState",
         [asyncResp](const boost::system::error_code& ec,
@@ -119,8 +135,8 @@ inline void
  *
  * @return None.
  */
-inline void
-    getHypervisorActions(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getHypervisorActions(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get hypervisor actions.");
     constexpr std::array<std::string_view, 1> interfaces = {
@@ -369,8 +385,8 @@ inline void setHypervisorIPv4Address(
  *
  * @return None.
  */
-inline void
-    setHypervisorIPv4Subnet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void setHypervisorIPv4Subnet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& ethIfaceId, const uint8_t subnet)
 {
     BMCWEB_LOG_DEBUG("Setting the Hypervisor subnet : {} on Iface: {}", subnet,
@@ -418,8 +434,8 @@ inline void setHypervisorIPv4Gateway(
  *
  * @return None
  */
-inline void
-    createHypervisorIPv4(const std::string& ifaceId, uint8_t prefixLength,
+inline void createHypervisorIPv4(
+    const std::string& ifaceId, uint8_t prefixLength,
                          const std::string& gateway, const std::string& address,
                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -436,8 +452,8 @@ inline void
  *
  * @return None
  */
-inline void
-    deleteHypervisorIPv4(const std::string& ifaceId,
+inline void deleteHypervisorIPv4(
+    const std::string& ifaceId,
                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     std::string address = "0.0.0.0";
@@ -602,8 +618,8 @@ inline void handleHypervisorHostnamePatch(
                     "HostName", hostName);
 }
 
-inline void
-    setIPv4InterfaceEnabled(const std::string& ifaceId, bool isActive,
+inline void setIPv4InterfaceEnabled(
+    const std::string& ifaceId, bool isActive,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     setDbusProperty(

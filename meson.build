@@ -105,6 +105,7 @@ if (cxx.get_id() == 'clang')
         '-Wno-comment',
         '-Wno-disabled-macro-expansion',
         '-Wno-unneeded-internal-declaration',
+        '-Wno-unsafe-buffer-usage-in-container',
         language: 'cpp',
     )
 endif
@@ -300,8 +301,22 @@ boost = dependency(
     modules: ['url'],
     version: '>=1.84.0',
     required: false,
+    static: true,
     include_type: 'system',
 )
+
+# Boost version is 1.86 or higher to include the 'process' module
+if boost.version().version_compare('>=1.86.0')
+    boost = dependency(
+        'boost',
+        modules: ['url', 'process'],
+        version: '>=1.86.0',
+        static: true,
+        required: false,
+        include_type: 'system',
+    )
+endif
+
 if boost.found()
     bmcweb_dependencies += [boost]
     bmcweb_cli_dependencies += [boost]
@@ -364,11 +379,19 @@ fs = import('fs')
 
 srcfiles_bmcweb = files(
     'http/mutual_tls.cpp',
+    'redfish-core/src/dbus_log_watcher.cpp',
+    'redfish-core/src/error_message_utils.cpp',
     'redfish-core/src/error_messages.cpp',
+    'redfish-core/src/event_log.cpp',
+    'redfish-core/src/filesystem_log_watcher.cpp',
     'redfish-core/src/filter_expr_executor.cpp',
     'redfish-core/src/filter_expr_printer.cpp',
+    'redfish-core/src/heartbeat_messages.cpp',
     'redfish-core/src/redfish.cpp',
     'redfish-core/src/registries.cpp',
+    'redfish-core/src/resource_messages.cpp',
+    'redfish-core/src/subscription.cpp',
+    'redfish-core/src/task_messages.cpp',
     'redfish-core/src/utils/dbus_utils.cpp',
     'redfish-core/src/utils/json_utils.cpp',
     'redfish-core/src/utils/time_utils.cpp',
@@ -441,25 +464,29 @@ srcfiles_unittest = files(
     'test/include/ossl_random.cpp',
     'test/include/ssl_key_handler_test.cpp',
     'test/include/str_utility_test.cpp',
+    'test/redfish-core/include/dbus_log_watcher_test.cpp',
+    'test/redfish-core/include/event_log_test.cpp',
     'test/redfish-core/include/event_matches_filter_test.cpp',
     'test/redfish-core/include/filter_expr_executor_test.cpp',
     'test/redfish-core/include/filter_expr_parser_test.cpp',
     'test/redfish-core/include/privileges_test.cpp',
     'test/redfish-core/include/redfish_aggregator_test.cpp',
+    'test/redfish-core/include/redfish_test.cpp',
     'test/redfish-core/include/registries_test.cpp',
+    'test/redfish-core/include/submit_test_event_test.cpp',
     'test/redfish-core/include/utils/dbus_utils.cpp',
+    'test/redfish-core/include/utils/error_code_test.cpp',
     'test/redfish-core/include/utils/hex_utils_test.cpp',
     'test/redfish-core/include/utils/ip_utils_test.cpp',
     'test/redfish-core/include/utils/json_utils_test.cpp',
-    'test/redfish-core/include/redfish_test.cpp',
     'test/redfish-core/include/utils/query_param_test.cpp',
     'test/redfish-core/include/utils/sensor_utils_test.cpp',
     'test/redfish-core/include/utils/stl_utils_test.cpp',
     'test/redfish-core/include/utils/time_utils_test.cpp',
     'test/redfish-core/lib/chassis_test.cpp',
+    'test/redfish-core/lib/ethernet_test.cpp',
     'test/redfish-core/lib/log_services_dump_test.cpp',
     'test/redfish-core/lib/manager_diagnostic_data_test.cpp',
-    'test/redfish-core/lib/manager_logservices_journal_test.cpp',
     'test/redfish-core/lib/metadata_test.cpp',
     'test/redfish-core/lib/power_subsystem_test.cpp',
     'test/redfish-core/lib/service_root_test.cpp',

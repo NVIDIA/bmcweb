@@ -1,15 +1,50 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "app.hpp"
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
+#include "dbus_utility.hpp"
+#include "error_messages.hpp"
 #include "generated/enums/log_service.hpp"
+#include "http_request.hpp"
+#include "http_utility.hpp"
+#include "logging.hpp"
 #include "query.hpp"
-#include "registries/openbmc_message_registry.hpp"
+#include "registries.hpp"
 #include "registries/privilege_registry.hpp"
+#include "str_utility.hpp"
+#include "utility.hpp"
+#include "utils/hex_utils.hpp"
+#include "utils/query_param.hpp"
 #include "utils/time_utils.hpp"
 
+#include <asm-generic/errno.h>
+
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/status.hpp>
+#include <boost/beast/http/verb.hpp>
+#include <boost/container/flat_map.hpp>
+#include <boost/url/format.hpp>
+
+#include <algorithm>
+#include <array>
+#include <charconv>
+#include <cstddef>
 #include <cstdint>
+#include <format>
+#include <functional>
+#include <iomanip>
+#include <ios>
 #include <memory>
+#include <sstream>
+#include <string>
 #include <string_view>
+#include <system_error>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -154,7 +189,8 @@ inline bool parsePostCode(std::string_view postCodeID, uint64_t& currentValue,
 static bool fillPostCodeEntry(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::container::flat_map<
-        uint64_t, std::tuple<uint64_t, std::vector<uint8_t>>>& postcode,
+        uint64_t, std::tuple<std::vector<uint8_t>, std::vector<uint8_t>>>&
+        postcode,
     const uint16_t bootIndex, const uint64_t codeIndex = 0,
     const uint64_t skip = 0, const uint64_t top = 0)
 {
@@ -168,8 +204,9 @@ static bool fillPostCodeEntry(
     }
     uint64_t currentCodeIndex = 0;
     uint64_t firstCodeTimeUs = 0;
-    for (const std::pair<uint64_t, std::tuple<uint64_t, std::vector<uint8_t>>>&
-             code : postcode)
+    for (const std::pair<uint64_t, std::tuple<std::vector<uint8_t>,
+                                              std::vector<uint8_t>>>& code :
+         postcode)
     {
         currentCodeIndex++;
         std::string postcodeEntryID =
@@ -214,9 +251,6 @@ static bool fillPostCodeEntry(
         entryTimeStr = redfish::time_utils::getDateTimeUintUs(usecSinceEpoch);
 
         // assemble messageArgs: BootIndex, TimeOffset(100us), PostCode(hex)
-        std::ostringstream hexCode;
-        hexCode << "0x" << std::setfill('0') << std::setw(2) << std::hex
-                << std::get<0>(code.second);
         std::ostringstream timeOffsetStr;
         // Set Fixed -Point Notation
         timeOffsetStr << std::fixed;
@@ -227,7 +261,8 @@ static bool fillPostCodeEntry(
 
         std::string bootIndexStr = std::to_string(bootIndex);
         std::string timeOffsetString = timeOffsetStr.str();
-        std::string hexCodeStr = hexCode.str();
+        std::string hexCodeStr =
+            "0x" + bytesToHexString(std::get<0>(code.second));
 
         std::array<std::string_view, 3> messageArgs = {
             bootIndexStr, timeOffsetString, hexCodeStr};
@@ -261,7 +296,7 @@ static bool fillPostCodeEntry(
         bmcLogEntry["EntryType"] = "Event";
         bmcLogEntry["Severity"] = std::move(severity);
         bmcLogEntry["Created"] = entryTimeStr;
-        if (!std::get<std::vector<uint8_t>>(code.second).empty())
+        if (!std::get<1>(code.second).empty())
         {
             bmcLogEntry["AdditionalDataURI"] =
                 std::format(
@@ -286,9 +321,9 @@ static bool fillPostCodeEntry(
     return false;
 }
 
-inline void
-    getPostCodeForEntry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& entryId)
+inline void getPostCodeForEntry(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& entryId)
 {
     uint16_t bootIndex = 0;
     uint64_t codeIndex = 0;
@@ -310,8 +345,8 @@ inline void
         [asyncResp, entryId, bootIndex,
          codeIndex](const boost::system::error_code& ec,
                     const boost::container::flat_map<
-                        uint64_t, std::tuple<uint64_t, std::vector<uint8_t>>>&
-                        postcode) {
+                        uint64_t, std::tuple<std::vector<uint8_t>,
+                                             std::vector<uint8_t>>>& postcode) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS POST CODE PostCode response error");
@@ -337,17 +372,17 @@ inline void
         bootIndex);
 }
 
-inline void
-    getPostCodeForBoot(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const uint16_t bootIndex, const uint16_t bootCount,
-                       const uint64_t entryCount, size_t skip, size_t top)
+inline void getPostCodeForBoot(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const uint16_t bootIndex, const uint16_t bootCount,
+    const uint64_t entryCount, size_t skip, size_t top)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, bootIndex, bootCount, entryCount, skip,
          top](const boost::system::error_code& ec,
               const boost::container::flat_map<
-                  uint64_t, std::tuple<uint64_t, std::vector<uint8_t>>>&
-                  postcode) {
+                  uint64_t, std::tuple<std::vector<uint8_t>,
+                                       std::vector<uint8_t>>>& postcode) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS POST CODE PostCode response error");
@@ -396,13 +431,12 @@ inline void
         bootIndex);
 }
 
-inline void
-    getCurrentBootNumber(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         size_t skip, size_t top)
+inline void getCurrentBootNumber(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, size_t skip,
+    size_t top)
 {
     uint64_t entryCount = 0;
-    sdbusplus::asio::getProperty<uint16_t>(
-        *crow::connections::systemBus,
+    dbus::utility::getProperty<uint16_t>(
         "xyz.openbmc_project.State.Boot.PostCode0",
         "/xyz/openbmc_project/State/Boot/PostCode0",
         "xyz.openbmc_project.State.Boot.PostCode", "CurrentBootCycleCount",
@@ -503,8 +537,8 @@ inline void handleSystemsLogServicesPostCodesEntriesEntryAdditionalDataGet(
     crow::connections::systemBus->async_method_call(
         [asyncResp, postCodeID, currentValue](
             const boost::system::error_code& ec,
-            const std::vector<std::tuple<uint64_t, std::vector<uint8_t>>>&
-                postcodes) {
+            const std::vector<std::tuple<std::vector<uint8_t>,
+                                         std::vector<uint8_t>>>& postcodes) {
             if (ec.value() == EBADR)
             {
                 messages::resourceNotFound(asyncResp->res, "LogEntry",

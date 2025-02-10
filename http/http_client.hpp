@@ -1,52 +1,62 @@
-/*
-Copyright (c) 2020 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2020 Intel Corporation
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "async_resolve.hpp"
+#include "boost_formatters.hpp"
 #include "http_body.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
 #include "ssl_key_handler.hpp"
 
+#include <openssl/err.h>
+#include <openssl/ssl.h>
+#include <openssl/tls1.h>
+
 #include <boost/asio/connect.hpp>
+#include <boost/asio/error.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address.hpp>
-#include <boost/asio/ip/basic_endpoint.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/error.hpp>
 #include <boost/asio/ssl/stream.hpp>
+#include <boost/asio/ssl/stream_base.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/beast/core/error.hpp>
 #include <boost/beast/core/flat_static_buffer.hpp>
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/fields.hpp>
 #include <boost/beast/http/message.hpp>
-#include <boost/beast/http/message_generator.hpp>
 #include <boost/beast/http/parser.hpp>
 #include <boost/beast/http/read.hpp>
+#include <boost/beast/http/status.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <boost/beast/http/write.hpp>
 #include <boost/container/devector.hpp>
+#include <boost/optional/optional.hpp>
+#include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
-#include <boost/url/format.hpp>
+#include <boost/url/host_type.hpp>
 #include <boost/url/url.hpp>
 #include <boost/url/url_view_base.hpp>
 
+#include <chrono>
+#include <cstdint>
 #include <cstdlib>
+#include <format>
 #include <functional>
 #include <memory>
-#include <queue>
+#include <optional>
 #include <string>
+#include <string_view>
+#include <type_traits>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace crow
 {
@@ -320,8 +330,7 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
     {
         state = ConnState::recvInProgress;
 
-        parser_type& thisParser =
-            parser.emplace(std::piecewise_construct, std::make_tuple());
+        parser_type& thisParser = parser.emplace();
 
         thisParser.body_limit(connPolicy->requestByteLimit);
 

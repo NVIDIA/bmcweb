@@ -1,27 +1,20 @@
-/*
-Copyright (c) 2019 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2019 Intel Corporation
 #pragma once
 
-#include "app.hpp"
 #include "async_resp.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
 #include "generated/enums/chassis.hpp"
-#include "redfish_util.hpp"
+#include "logging.hpp"
+#include "utils/dbus_utils.hpp"
 
 #include <sdbusplus/asio/property.hpp>
+#include <sdbusplus/message/native_types.hpp>
+
+#include <memory>
 
 namespace redfish
 {
@@ -33,12 +26,12 @@ namespace redfish
  * @return None.
  */
 // TODO (Gunnar): Remove IndicatorLED after enough time has passed
-inline void
-    getIndicatorLedState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void getIndicatorLedState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get led groups");
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, "xyz.openbmc_project.LED.GroupManager",
+    dbus::utility::getProperty<bool>(
+        "xyz.openbmc_project.LED.GroupManager",
         "/xyz/openbmc_project/led/groups/enclosure_identify_blink",
         "xyz.openbmc_project.Led.Group", "Asserted",
         [asyncResp](const boost::system::error_code& ec, const bool blinking) {
@@ -60,8 +53,7 @@ inline void
                 return;
             }
 
-            sdbusplus::asio::getProperty<bool>(
-                *crow::connections::systemBus,
+            dbus::utility::getProperty<bool>(
                 "xyz.openbmc_project.LED.GroupManager",
                 "/xyz/openbmc_project/led/groups/enclosure_identify",
                 "xyz.openbmc_project.Led.Group", "Asserted",
@@ -103,9 +95,9 @@ inline void
  * @return None.
  */
 // TODO (Gunnar): Remove IndicatorLED after enough time has passed
-inline void
-    setIndicatorLedState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& ledState)
+inline void setIndicatorLedState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& ledState)
 {
     BMCWEB_LOG_DEBUG("Set led groups");
     bool ledOn = false;
@@ -162,8 +154,8 @@ inline void getSystemLocationIndicatorActive(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get LocationIndicatorActive");
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, "xyz.openbmc_project.LED.GroupManager",
+    dbus::utility::getProperty<bool>(
+        "xyz.openbmc_project.LED.GroupManager",
         "/xyz/openbmc_project/led/groups/enclosure_identify_blink",
         "xyz.openbmc_project.Led.Group", "Asserted",
         [asyncResp](const boost::system::error_code& ec, const bool blinking) {
@@ -184,8 +176,7 @@ inline void getSystemLocationIndicatorActive(
                 return;
             }
 
-            sdbusplus::asio::getProperty<bool>(
-                *crow::connections::systemBus,
+            dbus::utility::getProperty<bool>(
                 "xyz.openbmc_project.LED.GroupManager",
                 "/xyz/openbmc_project/led/groups/enclosure_identify",
                 "xyz.openbmc_project.Led.Group", "Asserted",

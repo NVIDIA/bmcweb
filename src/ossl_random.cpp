@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "ossl_random.hpp"
 
 #include "logging.hpp"
@@ -12,7 +14,7 @@ extern "C"
 #include <openssl/rand.h>
 }
 
-#include <boost/uuid/random_generator.hpp>
+#include <boost/uuid/basic_random_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
 #include <array>

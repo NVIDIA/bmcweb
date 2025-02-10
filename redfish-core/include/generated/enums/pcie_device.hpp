@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include <nlohmann/json.hpp>
 
@@ -34,6 +36,7 @@ enum class SlotType{
     OCP3Small,
     OCP3Large,
     U2,
+    EDSFF,
 };
 
 enum class LaneSplittingType{
@@ -87,6 +90,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(SlotType, {
     {SlotType::OCP3Small, "OCP3Small"},
     {SlotType::OCP3Large, "OCP3Large"},
     {SlotType::U2, "U2"},
+    {SlotType::EDSFF, "EDSFF"},
 });
 
 NLOHMANN_JSON_SERIALIZE_ENUM(LaneSplittingType, {

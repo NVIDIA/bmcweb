@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "webserver_run.hpp"
 
 #include "bmcweb_config.h"
@@ -10,6 +12,7 @@
 #include "hostname_monitor.hpp"
 #include "ibm/management_console_rest.hpp"
 #include "image_upload.hpp"
+#include "io_context_singleton.hpp"
 #include "kvm_websocket.hpp"
 #include "logging.hpp"
 #include "login_routes.hpp"
@@ -47,11 +50,11 @@ static void setLogLevel(const std::string& logLevel)
 
 int run()
 {
-    auto io = std::make_shared<boost::asio::io_context>();
-    App app(io);
+    boost::asio::io_context& io = getIoContext();
+    App app;
 
     std::shared_ptr<sdbusplus::asio::connection> systemBus =
-        std::make_shared<sdbusplus::asio::connection>(*io);
+        std::make_shared<sdbusplus::asio::connection>(io);
     crow::connections::systemBus = systemBus.get();
 
     auto server = sdbusplus::asio::object_server(systemBus);
@@ -85,12 +88,12 @@ int run()
         redfish::RedfishService redfish(app);
 
         // Create EventServiceManager instance and initialize Config
-        redfish::EventServiceManager::getInstance(&*io);
+        redfish::EventServiceManager::getInstance();
 
         if constexpr (BMCWEB_REDFISH_AGGREGATION)
         {
             // Create RedfishAggregator instance and initialize Config
-            redfish::RedfishAggregator::getInstance(&*io);
+            redfish::RedfishAggregator::getInstance();
         }
     }
 
@@ -119,16 +122,6 @@ int run()
     }
 
     crow::login_routes::requestRoutes(app);
-
-    if constexpr (!BMCWEB_REDFISH_DBUS_LOG)
-    {
-        int rc = redfish::EventServiceManager::startEventLogMonitor(*io);
-        if (rc != 0)
-        {
-            BMCWEB_LOG_ERROR("Redfish event handler setup failed...");
-            return rc;
-        }
-    }
 
     if constexpr (!BMCWEB_INSECURE_DISABLE_SSL)
     {
@@ -160,12 +153,9 @@ int run()
 
     systemBus->request_name("xyz.openbmc_project.bmcweb");
 
-    io->run();
+    io.run();
 
     crow::connections::systemBus = nullptr;
-
-    // TODO(ed) Make event log monitor an RAII object instead of global vars
-    redfish::EventServiceManager::stopEventLogMonitor();
 
     return 0;
 }

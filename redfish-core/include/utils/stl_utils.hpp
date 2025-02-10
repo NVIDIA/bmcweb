@@ -1,10 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include <algorithm>
-#include <cstdint>
-#include <stdexcept>
-#include <string>
-#include <vector>
 namespace redfish
 {
 

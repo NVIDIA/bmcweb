@@ -1,39 +1,48 @@
-/*
-Copyright (c) 2018 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "app.hpp"
+#include "async_resp.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
+#include "generated/enums/pcie_device.hpp"
+#include "generated/enums/pcie_slots.hpp"
 #include "generated/enums/resource.hpp"
+#include "http_request.hpp"
+#include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
-#include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/pcie_util.hpp"
 
-#include <app.hpp>
-#include <boost/system/linux_error.hpp>
+#include <asm-generic/errno.h>
+
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <boost/url/format.hpp>
-#include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <utils/conditions_utils.hpp>
 #include <utils/nvidia_pcie_utils.hpp>
 
+#include <array>
+#include <charconv>
+#include <cstddef>
+#include <cstdint>
+#include <format>
+#include <functional>
 #include <limits>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <utility>
+#include <variant>
 
 namespace redfish
 {
@@ -336,8 +345,8 @@ inline void getPCIeDeviceSlotPath(
             if (endpoints.size() > 1)
             {
                 BMCWEB_LOG_ERROR(
-                    "PCIeDevice is associated with more than one PCIeSlot: {}",
-                    endpoints.size());
+                    "PCIeDevice {} is associated with more than one PCIeSlot: {}",
+                    pcieDevicePath, endpoints.size());
                 messages::internalError(asyncResp->res);
                 return;
             }
@@ -364,8 +373,8 @@ inline void afterGetDbusObject(
         messages::internalError(asyncResp->res);
         return;
     }
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, object.begin()->first, pcieDeviceSlot,
+    dbus::utility::getAllProperties(
+        object.begin()->first, pcieDeviceSlot,
         "xyz.openbmc_project.Inventory.Item.PCIeSlot",
         [asyncResp](
             const boost::system::error_code& ec2,
@@ -391,8 +400,8 @@ inline void getPCIeDeviceHealth(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& pcieDevicePath, const std::string& service)
 {
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, service, pcieDevicePath,
+    dbus::utility::getProperty<bool>(
+        service, pcieDevicePath,
         "xyz.openbmc_project.State.Decorator.OperationalStatus", "Functional",
         [asyncResp](const boost::system::error_code& ec, const bool value) {
             if (ec)
@@ -417,9 +426,9 @@ inline void getPCIeDeviceState(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& pcieDevicePath, const std::string& service)
 {
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, service, pcieDevicePath,
-        "xyz.openbmc_project.Inventory.Item", "Present",
+    dbus::utility::getProperty<bool>(
+        service, pcieDevicePath, "xyz.openbmc_project.Inventory.Item",
+        "Present",
         [asyncResp](const boost::system::error_code& ec, bool value) {
             if (ec)
             {
@@ -442,8 +451,8 @@ inline void getPCIeDeviceAsset(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& pcieDevicePath, const std::string& service)
 {
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, pcieDevicePath,
+    dbus::utility::getAllProperties(
+        service, pcieDevicePath,
         "xyz.openbmc_project.Inventory.Decorator.Asset",
         [pcieDevicePath, asyncResp{asyncResp}](
             const boost::system::error_code& ec,
@@ -683,8 +692,8 @@ inline void getPCIeDeviceProperties(
     const std::function<void(
         const dbus::utility::DBusPropertiesMap& pcieDevProperties)>&& callback)
 {
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, pcieDevicePath,
+    dbus::utility::getAllProperties(
+        service, pcieDevicePath,
         "xyz.openbmc_project.Inventory.Item.PCIeDevice",
         [asyncResp,
          callback](const boost::system::error_code& ec,

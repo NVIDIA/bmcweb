@@ -1,18 +1,26 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
+
+#include "bmcweb_config.h"
 
 #include "logging.hpp"
 #include "ossl_random.hpp"
-#include "utility.hpp"
 #include "utils/ip_utils.hpp"
 
+#include <boost/asio/ip/address.hpp>
 #include <nlohmann/json.hpp>
 
-#include <algorithm>
+#include <chrono>
 #include <csignal>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <memory>
 #include <optional>
-#include <random>
 #include <string>
+#include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace persistent_data
@@ -65,8 +73,8 @@ struct UserSession
      * @return a shared pointer if data has been loaded properly, nullptr
      * otherwise
      */
-    static std::shared_ptr<UserSession>
-        fromJson(const nlohmann::json::object_t& j)
+    static std::shared_ptr<UserSession> fromJson(
+        const nlohmann::json::object_t& j)
     {
         std::shared_ptr<UserSession> userSession =
             std::make_shared<UserSession>();
@@ -409,6 +417,7 @@ class SessionStore
         if (isTLSchanged)
         {
             // recreate socket connections with new settings
+            // NOLINTNEXTLINE(misc-include-cleaner)
             std::raise(SIGHUP);
         }
     }

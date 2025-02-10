@@ -1,24 +1,31 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
-
-#include "bmcweb_config.h"
 
 #include "app.hpp"
 #include "async_resp.hpp"
 #include "http_request.hpp"
-#include "persistent_data.hpp"
-#include "query.hpp"
-#include "registries/privilege_registry.hpp"
-#include "utils/systemd_utils.hpp"
+#include "logging.hpp"
 
 #include <tinyxml2.h>
 
-#include <nlohmann/json.hpp>
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/status.hpp>
+#include <boost/beast/http/verb.hpp>
+
+#include <filesystem>
+#include <format>
+#include <functional>
+#include <memory>
+#include <string>
+#include <system_error>
+#include <utility>
 
 namespace redfish
 {
 
-inline std::string
-    getMetadataPieceForFile(const std::filesystem::path& filename)
+inline std::string getMetadataPieceForFile(
+    const std::filesystem::path& filename)
 {
     std::string xml;
     tinyxml2::XMLDocument doc;
@@ -64,9 +71,9 @@ inline std::string
     return xml;
 }
 
-inline void
-    handleMetadataGet(App& /*app*/, const crow::Request& /*req*/,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void handleMetadataGet(
+    App& /*app*/, const crow::Request& /*req*/,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     std::filesystem::path schema("/usr/share/www/redfish/v1/schema");
     std::error_code ec;
@@ -115,7 +122,7 @@ inline void
 
 inline void requestRoutesMetadata(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/$metadat/")
+    BMCWEB_ROUTE(app, "/redfish/v1/$metadata/")
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleMetadataGet, std::ref(app)));
 }

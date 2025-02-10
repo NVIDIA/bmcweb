@@ -1,55 +1,105 @@
-/*
-Copyright (c) 2018 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "app.hpp"
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
 #include "generated/enums/action_info.hpp"
 #include "generated/enums/chassis.hpp"
 #include "generated/enums/resource.hpp"
+#include "http_request.hpp"
 #include "led.hpp"
 #include "nvidia_debug_token.hpp"
 #include "nvidia_protected_component.hpp"
+#include "logging.hpp"
 #include "query.hpp"
-#include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/health_utils.hpp"
 #include "utils/json_utils.hpp"
 
-#include <boost/container/flat_map.hpp>
+#include <asm-generic/errno.h>
+
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
-#include <dbus_utility.hpp>
-#include <erot_chassis.hpp>
-#include <openbmc_dbus_rest.hpp>
+#include <boost/url/url.hpp>
+#include <nlohmann/json.hpp>
 #include <sdbusplus/asio/property.hpp>
-#include <sdbusplus/message.hpp>
+#include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <utils/chassis_utils.hpp>
 #include <utils/conditions_utils.hpp>
 #include <utils/nvidia_chassis_util.hpp>
 
+#include <algorithm>
 #include <array>
+#include <format>
+#include <functional>
+#include <memory>
+#include <optional>
 #include <ranges>
+#include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 namespace redfish
 {
+
+inline chassis::ChassisType translateChassisTypeToRedfish(
+    const std::string_view& chassisType)
+{
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Blade")
+    {
+        return chassis::ChassisType::Blade;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Component")
+    {
+        return chassis::ChassisType::Component;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Enclosure")
+    {
+        return chassis::ChassisType::Enclosure;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Module")
+    {
+        return chassis::ChassisType::Module;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.RackMount")
+    {
+        return chassis::ChassisType::RackMount;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.StandAlone")
+    {
+        return chassis::ChassisType::StandAlone;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.StorageEnclosure")
+    {
+        return chassis::ChassisType::StorageEnclosure;
+    }
+    if (chassisType ==
+        "xyz.openbmc_project.Inventory.Item.Chassis.ChassisType.Zone")
+    {
+        return chassis::ChassisType::Zone;
+    }
+    return chassis::ChassisType::Invalid;
+}
 
 /**
  * @brief Retrieves resources over dbus to link to the chassis
@@ -67,9 +117,9 @@ namespace redfish
 inline void getStorageLink(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const sdbusplus::message::object_path& path)
 {
-    sdbusplus::asio::getProperty<std::vector<std::string>>(
-        *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
-        (path / "storage").str, "xyz.openbmc_project.Association", "endpoints",
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", (path / "storage").str,
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp](const boost::system::error_code& ec,
                     const std::vector<std::string>& storageList) {
             if (ec)
@@ -110,8 +160,8 @@ inline void getStorageLink(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 inline void getChassisState(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
 {
     // crow::connections::systemBus->async_method_call(
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, "xyz.openbmc_project.State.Chassis",
+    dbus::utility::getProperty<std::string>(
+        "xyz.openbmc_project.State.Chassis",
         "/xyz/openbmc_project/state/chassis0",
         "xyz.openbmc_project.State.Chassis", "CurrentPowerState",
         [asyncResp{std::move(asyncResp)}](const boost::system::error_code& ec,
@@ -212,8 +262,8 @@ inline void handlePhysicalSecurityGetSubTree(
 
             BMCWEB_LOG_DEBUG("Get intrusion status by service ");
 
-            sdbusplus::asio::getProperty<std::string>(
-                *crow::connections::systemBus, service.first, object.first,
+            dbus::utility::getProperty<std::string>(
+                service.first, object.first,
                 "xyz.openbmc_project.Chassis.Intrusion", "Status",
                 [asyncResp](const boost::system::error_code& ec1,
                             const std::string& value) {
@@ -377,8 +427,8 @@ inline void getChassisLocationCode(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& connectionName, const std::string& path)
 {
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, connectionName, path,
+    dbus::utility::getProperty<std::string>(
+        connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.LocationCode", "LocationCode",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& property) {
@@ -399,9 +449,8 @@ inline void getChassisUUID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& connectionName,
                            const std::string& path)
 {
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, connectionName, path,
-        "xyz.openbmc_project.Common.UUID", "UUID",
+    dbus::utility::getProperty<std::string>(
+        connectionName, path, "xyz.openbmc_project.Common.UUID", "UUID",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& chassisUUID) {
             if (ec)
@@ -510,6 +559,36 @@ inline void handleDecoratorAssetProperties(
     getStorageLink(asyncResp, path);
 }
 
+inline void handleChassisProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const dbus::utility::DBusPropertiesMap& propertiesList)
+{
+    const std::string* type = nullptr;
+
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), propertiesList, "Type", type);
+
+    if (!success)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    // Chassis Type is a required property in Redfish
+    // If there is an error or some enum we don't support just sit it to Rack
+    // Mount
+    asyncResp->res.jsonValue["ChassisType"] = chassis::ChassisType::RackMount;
+
+    if (type != nullptr)
+    {
+        auto chassisType = translateChassisTypeToRedfish(*type);
+        if (chassisType != chassis::ChassisType::Invalid)
+        {
+            asyncResp->res.jsonValue["ChassisType"] = chassisType;
+        }
+    }
+}
+
 inline void handleChassisGetSubTree(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const boost::system::error_code& ec,
@@ -596,8 +675,7 @@ inline void handleChassisGetSubTree(
         asyncResp->res.jsonValue["@odata.id"] =
             boost::urls::format("/redfish/v1/Chassis/{}", chassisId);
         asyncResp->res.jsonValue["Name"] = "Chassis Collection";
-        asyncResp->res.jsonValue["ChassisType"] =
-            chassis::ChassisType::RackMount;
+
         if constexpr (BMCWEB_HOST_OS_FEATURES)
         {
             asyncResp->res.jsonValue["Actions"]["#Chassis.Reset"]["target"] =
@@ -667,11 +745,9 @@ inline void handleChassisGetSubTree(
             {
                 if (interface == assetTagInterface)
                 {
-                    sdbusplus::asio::getProperty<std::string>(
-                        *crow::connections::systemBus, connectionName, path,
-                        assetTagInterface, "AssetTag",
-                        [asyncResp,
-                         chassisId](const boost::system::error_code& ec2,
+                dbus::utility::getProperty<std::string>(
+                    connectionName, path, assetTagInterface, "AssetTag",
+                    [asyncResp, chassisId](const boost::system::error_code& ec2,
                                     const std::string& property) {
                             if (ec2)
                             {
@@ -686,14 +762,13 @@ inline void handleChassisGetSubTree(
                 }
                 else if (interface == replaceableInterface)
                 {
+
                     redfish::chassis_utils::getChassisReplaceable(
                         asyncResp, connectionName, path);
-
-                    sdbusplus::asio::getProperty<bool>(
-                        *crow::connections::systemBus, connectionName, path,
-                        replaceableInterface, "HotPluggable",
-                        [asyncResp,
-                         chassisId](const boost::system::error_code& ec2,
+                        
+                dbus::utility::getProperty<bool>(
+                    connectionName, path, replaceableInterface, "HotPluggable",
+                    [asyncResp, chassisId](const boost::system::error_code& ec2,
                                     const bool property) {
                             if (ec2)
                             {
@@ -711,11 +786,9 @@ inline void handleChassisGetSubTree(
                 }
                 else if (interface == revisionInterface)
                 {
-                    sdbusplus::asio::getProperty<std::string>(
-                        *crow::connections::systemBus, connectionName, path,
-                        revisionInterface, "Version",
-                        [asyncResp,
-                         chassisId](const boost::system::error_code& ec2,
+                dbus::utility::getProperty<std::string>(
+                    connectionName, path, revisionInterface, "Version",
+                    [asyncResp, chassisId](const boost::system::error_code& ec2,
                                     const std::string& property) {
                             if (ec2)
                             {
@@ -740,6 +813,21 @@ inline void handleChassisGetSubTree(
                 }
             }
 
+        dbus::utility::getAllProperties(
+            *crow::connections::systemBus, connectionName, path,
+            "xyz.openbmc_project.Inventory.Decorator.Asset",
+            [asyncResp, chassisId,
+             path](const boost::system::error_code&,
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
+                    redfish::nvidia_chassis_utils::
+                        handleChassisGetAllProperties(
+                            asyncResp, chassisId, path, propertiesList,
+                            connectionName, interfaces2);
+                    getChassisStateWrapper(asyncResp, propertiesList,
+                                           connectionName, path);
+                    getStorageLink(asyncResp, path);
+                });
+
             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
                 const std::string itemSystemInterface =
@@ -754,19 +842,14 @@ inline void handleChassisGetSubTree(
                 }
             }
 
-            sdbusplus::asio::getAllProperties(
-                *crow::connections::systemBus, connectionName, path, "",
-                [asyncResp, chassisId, connectionName, path, interfaces2](
-                    const boost::system::error_code&,
-                    const dbus::utility::DBusPropertiesMap& propertiesList) {
-                    redfish::nvidia_chassis_utils::
-                        handleChassisGetAllProperties(
-                            asyncResp, chassisId, path, propertiesList,
-                            connectionName, interfaces2);
-                    getChassisStateWrapper(asyncResp, propertiesList,
-                                           connectionName, path);
-                    getStorageLink(asyncResp, path);
-                });
+        sdbusplus::asio::getAllProperties(
+            *crow::connections::systemBus, connectionName, path,
+            "xyz.openbmc_project.Inventory.Item.Chassis",
+            [asyncResp](
+                const boost::system::error_code&,
+                const dbus::utility::DBusPropertiesMap& propertiesList) {
+                handleChassisProperties(asyncResp, propertiesList);
+            });
 
             for (const auto& interface : interfaces2)
             {
@@ -847,10 +930,16 @@ inline void handleChassisGetSubTree(
     }
 }
 
-inline void
-    handleChassisGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void handleChassisGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const std::string& chassisId)
 {
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+        
     constexpr std::array<std::string_view, 3> interfaces = {
         "xyz.openbmc_project.Inventory.Item.Board",
         "xyz.openbmc_project.Inventory.Item.Chassis",
@@ -868,8 +957,7 @@ inline void
         std::bind_front(handlePhysicalSecurityGetSubTree, asyncResp));
 }
 
-// TODO: move to new file
-inline void handleChassisGetPreCheck(
+inline void handleChassisPatch(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId)
@@ -1167,8 +1255,8 @@ inline void requestRoutesChassis(App& app)
             std::bind_front(handleChassisPatchReq, std::ref(app)));
 }
 
-inline void
-    doChassisPowerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void doChassisPowerCycle(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     constexpr std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.State.Chassis"};

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 extern "C"
@@ -34,8 +36,8 @@ struct nghttp2_session_callbacks
     }
 
     nghttp2_session_callbacks(const nghttp2_session_callbacks&) = delete;
-    nghttp2_session_callbacks&
-        operator=(const nghttp2_session_callbacks&) = delete;
+    nghttp2_session_callbacks& operator=(const nghttp2_session_callbacks&) =
+        delete;
     nghttp2_session_callbacks(nghttp2_session_callbacks&&) = delete;
     nghttp2_session_callbacks& operator=(nghttp2_session_callbacks&&) = delete;
 
@@ -76,8 +78,8 @@ struct nghttp2_session_callbacks
         nghttp2_session_callbacks_set_before_frame_send_callback(
             ptr, beforeSendFrame);
     }
-    void
-        setAfterFrameSendCallback(nghttp2_on_frame_send_callback afterSendFrame)
+    void setAfterFrameSendCallback(
+        nghttp2_on_frame_send_callback afterSendFrame)
     {
         nghttp2_session_callbacks_set_on_frame_send_callback(ptr,
                                                              afterSendFrame);

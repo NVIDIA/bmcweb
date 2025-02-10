@@ -1,28 +1,22 @@
-/*
-Copyright (c) 2018 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
 
 #include "bmcweb_config.h"
 
 #include "app.hpp"
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
 #include "generated/enums/action_info.hpp"
 #include "generated/enums/manager.hpp"
 #include "generated/enums/resource.hpp"
 #include "nvidia_managers.hpp"
+#include "http_request.hpp"
+#include "logging.hpp"
+#include "persistent_data.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
@@ -32,33 +26,66 @@ limitations under the License.
 #include "utils/systemd_utils.hpp"
 #include "utils/time_utils.hpp"
 
-#include <app.hpp>
+#include <systemd/sd-bus.h>
+
+#include <boost/asio/post.hpp>
+#include <boost/beast/http/status.hpp>
+#include <boost/beast/http/verb.hpp>
+#include <boost/container/flat_map.hpp>
+#include <boost/container/flat_set.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
+#include <boost/url/url.hpp>
+#include <nlohmann/json.hpp>
 #include <sdbusplus/asio/property.hpp>
+#include <sdbusplus/message.hpp>
+#include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <format>
+#include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <ranges>
-#include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <variant>
+#include <vector>
 
 namespace redfish
 {
+
+inline std::string getBMCUpdateServiceName()
+{
+    if constexpr (BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
+    {
+        return "xyz.openbmc_project.Software.Manager";
+    }
+    return "xyz.openbmc_project.Software.BMC.Updater";
+}
+
+inline std::string getBMCUpdateServicePath()
+{
+    if constexpr (BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
+    {
+        return "/xyz/openbmc_project/software/bmc";
+    }
+    return "/xyz/openbmc_project/software";
+}
 
 /**
  * Function reboots the BMC.
  *
  * @param[in] asyncResp - Shared pointer for completing asynchronous calls
  */
-inline void
-    doBMCGracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void doBMCGracefulRestart(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     const char* processName = "xyz.openbmc_project.State.BMC";
     const char* objectPath = "/xyz/openbmc_project/state/bmc0";
@@ -84,8 +111,8 @@ inline void
         });
 }
 
-inline void
-    doBMCForceRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void doBMCForceRestart(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     const char* processName = "xyz.openbmc_project.State.BMC";
     const char* objectPath = "/xyz/openbmc_project/state/bmc0";
@@ -272,8 +299,7 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
                     // Can't erase what the BMC is running on
                     doBMCGracefulRestart(asyncResp);
                 },
-                "xyz.openbmc_project.Software.BMC.Updater",
-                "/xyz/openbmc_project/software",
+                getBMCUpdateServiceName(), getBMCUpdateServicePath(),
                 "xyz.openbmc_project.Common.FactoryReset", "Reset");
         });
 }
@@ -342,8 +368,8 @@ static constexpr const char* stepwiseConfigurationIface =
 static constexpr const char* thermalModeIface =
     "xyz.openbmc_project.Control.ThermalMode";
 
-inline void
-    asyncPopulatePid(const std::string& connection, const std::string& path,
+inline void asyncPopulatePid(
+    const std::string& connection, const std::string& path,
                      const std::string& currentProfile,
                      const std::vector<std::string>& supportedProfiles,
                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -781,8 +807,8 @@ enum class CreatePIDRet
     patch
 };
 
-inline bool
-    getZonesFromJsonReq(const std::shared_ptr<bmcweb::AsyncResp>& response,
+inline bool getZonesFromJsonReq(
+    const std::shared_ptr<bmcweb::AsyncResp>& response,
                         std::vector<nlohmann::json::object_t>& config,
                         std::vector<std::string>& zones)
 {
@@ -818,9 +844,9 @@ inline bool
     return true;
 }
 
-inline const dbus::utility::ManagedObjectType::value_type*
-    findChassis(const dbus::utility::ManagedObjectType& managedObj,
-                std::string_view value, std::string& chassis)
+inline const dbus::utility::ManagedObjectType::value_type* findChassis(
+    const dbus::utility::ManagedObjectType& managedObj, std::string_view value,
+    std::string& chassis)
 {
     BMCWEB_LOG_DEBUG("Find Chassis: {}", value);
 
@@ -1290,7 +1316,7 @@ struct GetPIDValues : std::enable_shared_from_this<GetPIDValues>
                 const std::string& path = subtreeLocal[0].first;
                 const std::string& owner = subtreeLocal[0].second[0].first;
 
-                sdbusplus::asio::getAllProperties(
+                dbus::utility::getAllProperties(
                     *crow::connections::systemBus, owner, path,
                     thermalModeIface,
                     [path, owner,
@@ -1332,8 +1358,8 @@ struct GetPIDValues : std::enable_shared_from_this<GetPIDValues>
             });
     }
 
-    static void
-        processingComplete(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    static void processingComplete(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const CompletionValues& completion)
     {
         if (asyncResp->res.result() != boost::beast::http::status::ok)
@@ -1488,7 +1514,7 @@ struct SetPIDValues : std::enable_shared_from_this<SetPIDValues>
 
                 const std::string& path = subtree[0].first;
                 const std::string& owner = subtree[0].second[0].first;
-                sdbusplus::asio::getAllProperties(
+                dbus::utility::getAllProperties(
                     *crow::connections::systemBus, owner, path,
                     thermalModeIface,
                     [self, path,
@@ -1778,8 +1804,8 @@ inline void getLocation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     BMCWEB_LOG_DEBUG("Get BMC manager Location data.");
 
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, connectionName, path,
+    dbus::utility::getProperty<std::string>(
+        connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.LocationCode", "LocationCode",
         [asyncResp](const boost::system::error_code& ec,
                     const std::string& property) {
@@ -1797,15 +1823,14 @@ inline void getLocation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         });
 }
 // avoid name collision systems.hpp
-inline void
-    managerGetLastResetTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void managerGetLastResetTime(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Getting Manager Last Reset Time");
 
-    sdbusplus::asio::getProperty<uint64_t>(
-        *crow::connections::systemBus, "xyz.openbmc_project.State.BMC",
-        "/xyz/openbmc_project/state/bmc0", "xyz.openbmc_project.State.BMC",
-        "LastRebootTime",
+    dbus::utility::getProperty<uint64_t>(
+        "xyz.openbmc_project.State.BMC", "/xyz/openbmc_project/state/bmc0",
+        "xyz.openbmc_project.State.BMC", "LastRebootTime",
         [asyncResp](const boost::system::error_code& ec,
                     const uint64_t lastResetTime) {
             if (ec)
@@ -1832,8 +1857,8 @@ inline void
  *
  * @return void
  */
-inline void
-    setActiveFirmwareImage(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void setActiveFirmwareImage(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& runningFirmwareTarget)
 {
     // Get the Id from /redfish/v1/UpdateService/FirmwareInventory/<Id>
@@ -1858,7 +1883,7 @@ inline void
     // Make sure the image is valid before setting priority
     sdbusplus::message::object_path objPath("/xyz/openbmc_project/software");
     dbus::utility::getManagedObjects(
-        "xyz.openbmc_project.Software.BMC.Updater", objPath,
+        getBMCUpdateServiceName(), objPath,
         [asyncResp, firmwareId, runningFirmwareTarget](
             const boost::system::error_code& ec,
             const dbus::utility::ManagedObjectType& subtree) {
@@ -1916,8 +1941,7 @@ inline void
             // An addition could be a Redfish Setting like
             // ActiveSoftwareImageApplyTime and support OnReset
             sdbusplus::asio::setProperty(
-                *crow::connections::systemBus,
-                "xyz.openbmc_project.Software.BMC.Updater",
+                *crow::connections::systemBus, getBMCUpdateServiceName(),
                 "/xyz/openbmc_project/software/" + firmwareId,
                 "xyz.openbmc_project.Software.RedundancyPriority", "Priority",
                 static_cast<uint8_t>(0),
@@ -1987,11 +2011,11 @@ inline void setDateTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         interactive);
 }
 
-inline void
-    checkForQuiesced(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+inline void checkForQuiesced(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, "org.freedesktop.systemd1",
+    dbus::utility::getProperty<std::string>(
+        "org.freedesktop.systemd1",
         "/org/freedesktop/systemd1/unit/obmc-bmc-service-quiesce@0.target",
         "org.freedesktop.systemd1.Unit", "ActiveState",
         [asyncResp](const boost::system::error_code& ec,
@@ -2121,15 +2145,6 @@ inline void requestRoutesManager(App& app)
             asyncResp->res.jsonValue["DateTimeLocalOffset"] =
                 redfishDateTimeOffset.second;
 
-            // TODO (Gunnar): Remove these one day since moved to ComputerSystem
-            // Still used by OCP profiles
-            // https://github.com/opencomputeproject/OCP-Profiles/issues/23
-            // Fill in SerialConsole info
-            asyncResp->res.jsonValue["SerialConsole"]["ServiceEnabled"] = true;
-            asyncResp->res.jsonValue["SerialConsole"]["MaxConcurrentSessions"] =
-                15;
-            asyncResp->res.jsonValue["SerialConsole"]["ConnectTypesSupported"] =
-                nlohmann::json::array_t({"IPMI", "SSH"});
             if constexpr (BMCWEB_KVM)
             {
                 // Fill in GraphicalConsole info
@@ -2191,10 +2206,9 @@ inline void requestRoutesManager(App& app)
                     chassiUrl;
             });
 
-            sdbusplus::asio::getProperty<double>(
-                *crow::connections::systemBus, "org.freedesktop.systemd1",
-                "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager",
-                "Progress",
+            dbus::utility::getProperty<double>(
+                "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+                "org.freedesktop.systemd1.Manager", "Progress",
                 [asyncResp](const boost::system::error_code& ec, double val) {
                     if (ec)
                     {
@@ -2258,7 +2272,7 @@ inline void requestRoutesManager(App& app)
                         if (interfaceName ==
                             "xyz.openbmc_project.Inventory.Decorator.Asset")
                         {
-                            sdbusplus::asio::getAllProperties(
+                            dbus::utility::getAllProperties(
                                 *crow::connections::systemBus, connectionName,
                                 path,
                                 "xyz.openbmc_project.Inventory.Decorator.Asset",

@@ -1,23 +1,41 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "app.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
-#include "privileges.hpp"
+#include "logging.hpp"
 #include "websocket.hpp"
 
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/error.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/asio/readable_pipe.hpp>
 #include <boost/asio/writable_pipe.hpp>
-#include <boost/asio/write.hpp>
 #include <boost/beast/core/buffers_to_string.hpp>
+#include <boost/beast/core/error.hpp>
 #include <boost/beast/core/flat_static_buffer.hpp>
 #include <boost/container/flat_map.hpp>
 #include <boost/process/v2/process.hpp>
 #include <boost/process/v2/stdio.hpp>
-#include <sdbusplus/asio/property.hpp>
+#include <sdbusplus/message/native_types.hpp>
+#include <sdbusplus/unpack_properties.hpp>
 
+#include <cerrno>
 #include <csignal>
+#include <cstddef>
+#include <filesystem>
+#include <format>
+#include <functional>
+#include <memory>
+#include <string>
 #include <string_view>
+#include <system_error>
+#include <utility>
 
 namespace crow
 {
@@ -40,9 +58,7 @@ class Handler : public std::enable_shared_from_this<Handler>
         pipeOut(ios), pipeIn(ios),
         proxy(ios, "/usr/bin/nbd-proxy", {media},
               boost::process::v2::process_stdio{
-                  .in = pipeIn, .out = pipeOut, .err = nullptr}),
-        outputBuffer(new boost::beast::flat_static_buffer<nbdBufferSize>),
-        inputBuffer(new boost::beast::flat_static_buffer<nbdBufferSize>)
+                  .in = pipeIn, .out = pipeOut, .err = nullptr})
     {}
 
     ~Handler() = default;
@@ -56,6 +72,7 @@ class Handler : public std::enable_shared_from_this<Handler>
     {
         // boost::process::child::terminate uses SIGKILL, need to send SIGTERM
         // to allow the proxy to stop nbd-client and the USB device gadget.
+        // NOLINTNEXTLINE(misc-include-cleaner)
         int rc = kill(proxy.id(), SIGTERM);
         if (rc != 0)
         {
@@ -90,7 +107,7 @@ class Handler : public std::enable_shared_from_this<Handler>
             return;
         }
 
-        if (inputBuffer->size() == 0)
+        if (inputBuffer.size() == 0)
         {
             BMCWEB_LOG_DEBUG("inputBuffer empty.  Bailing out");
             return;
@@ -98,12 +115,12 @@ class Handler : public std::enable_shared_from_this<Handler>
 
         doingWrite = true;
         pipeIn.async_write_some(
-            inputBuffer->data(),
+            inputBuffer.data(),
             [this, self(shared_from_this())](const boost::beast::error_code& ec,
                                              std::size_t bytesWritten) {
                 BMCWEB_LOG_DEBUG("Wrote {}bytes", bytesWritten);
                 doingWrite = false;
-                inputBuffer->consume(bytesWritten);
+                inputBuffer.consume(bytesWritten);
 
                 if (session == nullptr)
                 {
@@ -126,10 +143,10 @@ class Handler : public std::enable_shared_from_this<Handler>
 
     void doRead()
     {
-        std::size_t bytes = outputBuffer->capacity() - outputBuffer->size();
+        std::size_t bytes = outputBuffer.capacity() - outputBuffer.size();
 
         pipeOut.async_read_some(
-            outputBuffer->prepare(bytes),
+            outputBuffer.prepare(bytes),
             [this, self(shared_from_this())](
                 const boost::system::error_code& ec, std::size_t bytesRead) {
                 BMCWEB_LOG_DEBUG("Read done.  Read {} bytes", bytesRead);
@@ -147,12 +164,12 @@ class Handler : public std::enable_shared_from_this<Handler>
                     return;
                 }
 
-                outputBuffer->commit(bytesRead);
+                outputBuffer.commit(bytesRead);
                 std::string_view payload(
-                    static_cast<const char*>(outputBuffer->data().data()),
+                    static_cast<const char*>(outputBuffer.data().data()),
                     bytesRead);
                 session->sendBinary(payload);
-                outputBuffer->consume(bytesRead);
+                outputBuffer.consume(bytesRead);
 
                 doRead();
             });
@@ -163,10 +180,8 @@ class Handler : public std::enable_shared_from_this<Handler>
     boost::process::v2::process proxy;
     bool doingWrite{false};
 
-    std::unique_ptr<boost::beast::flat_static_buffer<nbdBufferSize>>
-        outputBuffer;
-    std::unique_ptr<boost::beast::flat_static_buffer<nbdBufferSize>>
-        inputBuffer;
+    boost::beast::flat_static_buffer<nbdBufferSize> outputBuffer;
+    boost::beast::flat_static_buffer<nbdBufferSize> inputBuffer;
 };
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
@@ -412,8 +427,8 @@ using SessionMap = boost::container::flat_map<crow::websocket::Connection*,
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static SessionMap sessions;
 
-inline void
-    afterGetSocket(crow::websocket::Connection& conn,
+inline void afterGetSocket(
+    crow::websocket::Connection& conn,
                    const sdbusplus::message::object_path& path,
                    const boost::system::error_code& ec,
                    const dbus::utility::DBusPropertiesMap& propertiesList)
@@ -474,8 +489,8 @@ inline void onOpen(crow::websocket::Connection& conn)
     std::string path =
         std::format("/xyz/openbmc_project/VirtualMedia/Proxy/Slot_{}", index);
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "xyz.openbmc_project.VirtualMedia", path,
+    dbus::utility::getAllProperties(
+        "xyz.openbmc_project.VirtualMedia", path,
         "xyz.openbmc_project.VirtualMedia.MountPoint",
         [&conn, path](const boost::system::error_code& ec,
                       const dbus::utility::DBusPropertiesMap& propertiesList) {
@@ -582,14 +597,14 @@ inline void requestRoutes(App& app)
 
                 session = nullptr;
                 handler->doClose();
-                handler->inputBuffer->clear();
-                handler->outputBuffer->clear();
+                handler->inputBuffer.clear();
+                handler->outputBuffer.clear();
                 handler.reset();
             })
             .onmessage([](crow::websocket::Connection& conn,
                           const std::string& data, bool) {
-                if (data.length() > handler->inputBuffer->capacity() -
-                                        handler->inputBuffer->size())
+                if (data.length() > handler->inputBuffer.capacity() -
+                                        handler->inputBuffer.size())
                 {
                     BMCWEB_LOG_ERROR("Buffer overrun when writing {} bytes",
                                      data.length());
@@ -598,9 +613,9 @@ inline void requestRoutes(App& app)
                 }
 
                 size_t copied = boost::asio::buffer_copy(
-                    handler->inputBuffer->prepare(data.size()),
+                    handler->inputBuffer.prepare(data.size()),
                     boost::asio::buffer(data));
-                handler->inputBuffer->commit(copied);
+                handler->inputBuffer.commit(copied);
                 handler->doWrite();
             });
     }

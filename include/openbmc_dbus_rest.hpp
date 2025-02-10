@@ -1,18 +1,6 @@
-/*
-Copyright (c) 2018 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 
 #pragma once
 #include "app.hpp"
@@ -25,22 +13,19 @@ limitations under the License.
 #include "json_formatters.hpp"
 #include "logging.hpp"
 #include "parsing.hpp"
-#include "routing.hpp"
 #include "str_utility.hpp"
 
 #include <systemd/sd-bus-protocol.h>
 #include <systemd/sd-bus.h>
 #include <tinyxml2.h>
 
+#include <boost/beast/http/field.hpp>
 #include <boost/beast/http/status.hpp>
 #include <boost/beast/http/verb.hpp>
 #include <boost/container/flat_map.hpp>
-#include <boost/container/vector.hpp>
 #include <boost/system/error_code.hpp>
 #include <nlohmann/json.hpp>
 #include <sdbusplus/asio/connection.hpp>
-#include <sdbusplus/asio/property.hpp>
-#include <sdbusplus/exception.hpp>
 #include <sdbusplus/message.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
@@ -50,10 +35,8 @@ limitations under the License.
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
-#include <fstream>
 #include <functional>
 #include <initializer_list>
-#include <iterator>
 #include <limits>
 #include <map>
 #include <memory>
@@ -184,8 +167,8 @@ inline void getPropertiesForEnumerate(
     BMCWEB_LOG_DEBUG("getPropertiesForEnumerate {} {} {}", objectPath, service,
                      interface);
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, objectPath, interface,
+    dbus::utility::getAllProperties(
+        service, objectPath, interface,
         [asyncResp, objectPath, service,
          interface](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
@@ -207,19 +190,7 @@ inline void getPropertiesForEnumerate(
             for (const auto& [name, value] : propertiesList)
             {
                 nlohmann::json& propertyJson = objectJson[name];
-                std::visit(
-                    [&propertyJson](auto&& val) {
-                        if constexpr (std::is_same_v<
-                                          std::decay_t<decltype(val)>,
-                                          sdbusplus::message::unix_fd>)
-                        {
-                            propertyJson = val.fd;
-                        }
-                        else
-                        {
-                            propertyJson = val;
-                        }
-                    },
+                std::visit([&propertyJson](auto&& val) { propertyJson = val; },
                     value);
             }
         });
@@ -1744,8 +1715,6 @@ inline void handleGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             std::shared_ptr<nlohmann::json> response =
                 std::make_shared<nlohmann::json>(nlohmann::json::object());
-            // The mapper should never give us an empty interface names
-            // list, but check anyway
             for (const std::pair<std::string, std::vector<std::string>>&
                      connection : objectNames)
             {
@@ -1754,10 +1723,9 @@ inline void handleGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
                 if (interfaceNames.empty())
                 {
-                    setErrorResponse(asyncResp->res,
-                                     boost::beast::http::status::not_found,
-                                     notFoundDesc, notFoundMsg);
-                    return;
+                    // mapper allows empty interfaces in case an
+                    // object does not implement any interface.
+                    continue;
                 }
 
                 for (const std::string& interface : interfaceNames)

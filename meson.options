@@ -25,6 +25,17 @@ option(
                     https://github.com/openbmc/jsnbd/blob/master/README.''',
 )
 
+option(
+    'redfish-use-3-digit-messageid',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Prior to a bug fix, bmcweb exposed error messages with a
+                    MessageId of Base.x.y.z.Message which was incorrect.
+                    Enabling this option causes return codes to return the old
+                    incorrect version for backward compatibility.  Will be
+                    removed Q2-2025''',
+)
+
 # BMCWEB_NBDPROXY
 # if you use this option and are seeing this comment, please comment here:
 # https://github.com/openbmc/bmcweb/issues/188 and put forward your intentions
@@ -165,6 +176,21 @@ option(
     description: '''Enable DBUS log service transactions through Redfish. Paths
                     are under
                     /redfish/v1/Systems/system/LogServices/EventLog/Entries''',
+)
+
+# BMCWEB_EXPERIMENTAL_REDFISH_DBUS_LOG_SUBSCRIPTION
+option(
+    'experimental-redfish-dbus-log-subscription',
+    type: 'feature',
+    value: 'disabled',
+    description: '''
+        Allows EventService subscriptions when the redfish-dbus-log option is
+        enabled.
+        This option is currently non-functional, given Redfish requirements for
+        MessageId support in Events.
+        Option will be removed begining of Q2-2025.
+        Should not be enabled on any production systems.
+    ''',
 )
 
 # BMCWEB_REDFISH_HOST_LOGGER
@@ -443,7 +469,7 @@ option(
 option(
     'redfish-updateservice-use-dbus',
     type: 'feature',
-    value: 'disabled',
+    value: 'enabled',
     description: '''Enables xyz.openbmc_project.Software.Update D-Bus interface
                     to propagate UpdateService requests to the corresponding
                     updater daemons instead of moving files to /tmp/images dir.
@@ -453,6 +479,17 @@ option(
                     of Q3 2024.
                 ''',
 )
+
+# BMCWEB_REDFISH_ALLOW_SIMPLE_UPDATE
+option(
+    'redfish-allow-simple-update',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enables Redfish UpdateService SimpleUpdate Action.  Note
+                    that at this time this option is non-functional.  Redfish
+                    recommends using MultiPartUpdate.''',
+)
+
 
 # BMCWEB_HTTPS_PORT
 option(

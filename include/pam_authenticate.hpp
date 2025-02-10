@@ -1,11 +1,21 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
+#include "logging.hpp"
+
+#include <security/_pam_types.h>
 #include <security/pam_appl.h>
 
+#include <algorithm>
+#include <cstddef>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <span>
+#include <string>
 #include <string_view>
+#include <vector>
 
 struct PasswordData
 {
@@ -45,6 +55,7 @@ struct PasswordData
                 {
                     return PAM_CONV_ERR;
                 }
+                // NOLINTNEXTLINE(misc-include-cleaner)
                 response.resp = strdup(iter->value.c_str());
                 return PAM_SUCCESS;
             }

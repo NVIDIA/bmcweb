@@ -1,18 +1,6 @@
-/*
-Copyright (c) 2018 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
 
 #include "bmcweb_config.h"
@@ -24,23 +12,28 @@ limitations under the License.
 #include "persistent_data.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
-#include "utils/systemd_utils.hpp"
 
-#include <managers.hpp>
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/verb.hpp>
+#include <boost/url/format.hpp>
 #include <nlohmann/json.hpp>
 #include <persistent_data.hpp>
 #include <query.hpp>
 #include <registries/privilege_registry.hpp>
 #include <utils/systemd_utils.hpp>
 
+#include <functional>
+#include <memory>
+#include <string>
+
 namespace redfish
 {
 
 constexpr std::array<const char*, 1> bmcInterfaces = {
     "xyz.openbmc_project.Inventory.Item.BMC"};
-
-inline void
-    handleServiceRootHead(App& app, const crow::Request& req,
+    
+inline void handleServiceRootHead(
+    App& app, const crow::Request& req,
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -269,8 +262,8 @@ inline void handleServiceRootGetImpl(
     protocolFeatures["DeepOperations"]["DeepPOST"] = false;
     protocolFeatures["DeepOperations"]["DeepPATCH"] = false;
 }
-inline void
-    handleServiceRootGet(App& app, const crow::Request& req,
+inline void handleServiceRootGet(
+    App& app, const crow::Request& req,
                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))

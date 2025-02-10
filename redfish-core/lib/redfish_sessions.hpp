@@ -1,33 +1,37 @@
-/*
-Copyright (c) 2018 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
 
 #include "account_service.hpp"
 #include "app.hpp"
+#include "async_resp.hpp"
 #include "cookies.hpp"
+#include "dbus_privileges.hpp"
 #include "error_messages.hpp"
-#include "http/utility.hpp"
-#include "persistent_data.hpp"
+#include "http_request.hpp"
+#include "http_response.hpp"
+#include "pam_authenticate.hpp"
+#include "privileges.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "sessions.hpp"
 #include "utils/json_utils.hpp"
 
+#include <security/_pam_types.h>
+
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/status.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <boost/url/format.hpp>
 
+#include <chrono>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace redfish
@@ -53,8 +57,8 @@ inline void fillSessionObject(crow::Response& res,
     }
 }
 
-inline void
-    handleSessionHead(crow::App& app, const crow::Request& req,
+inline void handleSessionHead(
+    crow::App& app, const crow::Request& req,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& /*sessionId*/)
 {
@@ -67,8 +71,8 @@ inline void
         "</redfish/v1/JsonSchemas/Session/Session.json>; rel=describedby");
 }
 
-inline void
-    handleSessionGet(crow::App& app, const crow::Request& req,
+inline void handleSessionGet(
+    crow::App& app, const crow::Request& req,
                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const std::string& sessionId)
 {
@@ -93,8 +97,8 @@ inline void
     fillSessionObject(asyncResp->res, *session);
 }
 
-inline void
-    handleSessionDelete(crow::App& app, const crow::Request& req,
+inline void handleSessionDelete(
+    crow::App& app, const crow::Request& req,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& sessionId)
 {
@@ -210,6 +214,39 @@ inline void handleSessionCollectionMembersGet(
     asyncResp->res.jsonValue = getSessionCollectionMembers();
 }
 
+inline void processAfterSessionCreation(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req, const std::string& username,
+    std::shared_ptr<persistent_data::UserSession>& session)
+{
+    // When session is created by webui-vue give it session cookies as a
+    // non-standard Redfish extension. This is needed for authentication for
+    // WebSockets-based functionality.
+    if (!req.getHeaderValue("X-Requested-With").empty())
+    {
+        bmcweb::setSessionCookies(asyncResp->res, *session);
+    }
+    else
+    {
+        asyncResp->res.addHeader("X-Auth-Token", session->sessionToken);
+    }
+
+    asyncResp->res.addHeader(
+        "Location", "/redfish/v1/SessionService/Sessions/" + session->uniqueId);
+    asyncResp->res.result(boost::beast::http::status::created);
+    if (session->isConfigureSelfOnly)
+    {
+        messages::passwordChangeRequired(
+            asyncResp->res,
+            boost::urls::format("/redfish/v1/AccountService/Accounts/{}",
+                                session->username));
+    }
+
+    crow::getUserInfo(asyncResp, username, session, [asyncResp, session]() {
+        fillSessionObject(asyncResp->res, *session);
+    });
+}
+
 inline void handleSessionCollectionPost(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -266,30 +303,8 @@ inline void handleSessionCollectionPost(
         messages::internalError(asyncResp->res);
         return;
     }
+    processAfterSessionCreation(asyncResp, req, username, session);
 
-    // When session is created by webui-vue give it session cookies as a
-    // non-standard Redfish extension. This is needed for authentication for
-    // WebSockets-based functionality.
-    if (!req.getHeaderValue("X-Requested-With").empty())
-    {
-        bmcweb::setSessionCookies(asyncResp->res, *session);
-    }
-    else
-    {
-        asyncResp->res.addHeader("X-Auth-Token", session->sessionToken);
-    }
-
-    asyncResp->res.addHeader(
-        "Location", "/redfish/v1/SessionService/Sessions/" + session->uniqueId);
-    asyncResp->res.result(boost::beast::http::status::created);
-    if (session->isConfigureSelfOnly)
-    {
-        messages::passwordChangeRequired(
-            asyncResp->res,
-            boost::urls::format("/redfish/v1/AccountService/Accounts/{}",
-                                session->username));
-    }
-    fillSessionObject(asyncResp->res, *session);
     if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
     {
         // Send an event for session creation
@@ -300,6 +315,7 @@ inline void handleSessionCollectionPost(
             std::string(req.target()), event);
     }
 }
+
 inline void handleSessionServiceHead(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -312,8 +328,8 @@ inline void handleSessionServiceHead(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/SessionService/SessionService.json>; rel=describedby");
 }
-inline void
-    handleSessionServiceGet(crow::App& app, const crow::Request& req,
+inline void handleSessionServiceGet(
+    crow::App& app, const crow::Request& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 
 {

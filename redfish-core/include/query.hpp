@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "bmcweb_config.h"
@@ -11,8 +13,8 @@
 #include "nvidia_persistent_data.hpp"
 #include "utils/query_param.hpp"
 
+#include <boost/beast/http/field.hpp>
 #include <boost/beast/http/verb.hpp>
-#include <boost/url/params_view.hpp>
 #include <boost/url/url_view.hpp>
 
 #include <functional>
@@ -196,8 +198,8 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
 }
 
 // Sets up the Redfish Route. All parameters are handled by the default handler.
-[[nodiscard]] inline bool
-    setUpRedfishRoute(crow::App& app, const crow::Request& req,
+[[nodiscard]] inline bool setUpRedfishRoute(
+    crow::App& app, const crow::Request& req,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     // This route |delegated| is never used

@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+#include <unistd.h>
+
 #include <boost/beast/core/file_posix.hpp>
 
 struct DuplicatableFileHandle
@@ -21,7 +25,7 @@ struct DuplicatableFileHandle
         fileHandle.native_handle(dup(other.fileHandle.native_handle()));
         return *this;
     }
-    DuplicatableFileHandle&
-        operator=(DuplicatableFileHandle&& other) noexcept = default;
+    DuplicatableFileHandle& operator=(DuplicatableFileHandle&& other) noexcept =
+        default;
     ~DuplicatableFileHandle() = default;
 };

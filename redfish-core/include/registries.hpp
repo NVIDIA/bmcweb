@@ -1,29 +1,20 @@
-/*
-Copyright (c) 2019 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2019 Intel Corporation
 #pragma once
+
+#include "bmcweb_config.h"
 
 #include <nlohmann/json.hpp>
 
 #include <array>
 #include <charconv>
 #include <cstddef>
-#include <numeric>
+#include <format>
 #include <span>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <utility>
 
 namespace redfish::registries
@@ -32,12 +23,13 @@ struct Header
 {
     const char* copyright;
     const char* type;
-    const char* id;
+    unsigned int versionMajor;
+    unsigned int versionMinor;
+    unsigned int versionPatch;
     const char* name;
     const char* language;
     const char* description;
     const char* registryPrefix;
-    const char* registryVersion;
     const char* owningEntity;
 };
 
@@ -69,8 +61,8 @@ inline std::string fillMessageArgs(
         ret += msg.substr(0, stringIndex);
         msg.remove_prefix(stringIndex + 1);
         size_t number = 0;
-        auto it = std::from_chars(msg.data(), &*msg.end(), number);
-        if (it.ec != std::errc() || number == 0)
+        auto it = std::from_chars(&*msg.begin(), &*msg.end(), number);
+        if (it.ec != std::errc())
         {
             return "";
         }
@@ -101,10 +93,19 @@ inline nlohmann::json::object_t getLogFromRegistry(
     {
         jArgs.push_back(arg);
     }
-    std::string msgId = header.id;
-    msgId += ".";
-    msgId += entry.first;
-
+    std::string msgId;
+    if (BMCWEB_REDFISH_USE_3_DIGIT_MESSAGEID)
+    {
+        msgId = std::format("{}.{}.{}.{}.{}", header.registryPrefix,
+                            header.versionMajor, header.versionMinor,
+                            header.versionPatch, entry.first);
+    }
+    else
+    {
+        msgId =
+            std::format("{}.{}.{}.{}", header.registryPrefix,
+                        header.versionMajor, header.versionMinor, entry.first);
+    }
     nlohmann::json::object_t response;
     response["@odata.type"] = "#Message.v1_1_1.Message";
     response["MessageId"] = std::move(msgId);

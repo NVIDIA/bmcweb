@@ -1,14 +1,21 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include "logging.hpp"
 
 #include <boost/beast/http/fields.hpp>
 #include <boost/container/flat_map.hpp>
+#include <boost/system/result.hpp>
 #include <boost/url/parse.hpp>
 #include <boost/url/url.hpp>
 #include <nlohmann/json.hpp>
 
+#include <cstdint>
+#include <limits>
 #include <memory>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace persistent_data
@@ -22,6 +29,10 @@ struct UserSubscription
     std::string protocol;
     bool verifyCertificate = true;
     std::string retryPolicy;
+    bool sendHeartbeat = false;
+    // This value of hbIntervalMinutes is just a reasonable default value and
+    // most clients will update it if sendHeartbeat is turned on
+    uint64_t hbIntervalMinutes = 10;
     std::string customText;
     std::string eventFormatType;
     std::string subscriptionType;
@@ -93,6 +104,25 @@ struct UserSubscription
                     continue;
                 }
                 subvalue.retryPolicy = *value;
+            }
+            else if (element.first == "SendHeartbeat")
+            {
+                const bool* value = element.second.get_ptr<const bool*>();
+                if (value == nullptr)
+                {
+                    continue;
+                }
+                subvalue.sendHeartbeat = *value;
+            }
+            else if (element.first == "HeartbeatIntervalMinutes")
+            {
+                const uint64_t* value =
+                    element.second.get_ptr<const uint64_t*>();
+                if (value == nullptr || *value < 1 || *value > 65535)
+                {
+                    continue;
+                }
+                subvalue.hbIntervalMinutes = *value;
             }
             else if (element.first == "Context")
             {
@@ -339,7 +369,7 @@ struct EventServiceConfig
 class EventServiceStore
 {
   public:
-    boost::container::flat_map<std::string, UserSubscription>
+    boost::container::flat_map<std::string, std::shared_ptr<UserSubscription>>
         subscriptionsConfigMap;
     EventServiceConfig eventServiceConfig;
 
@@ -352,18 +382,6 @@ class EventServiceStore
     EventServiceConfig& getEventServiceConfig()
     {
         return eventServiceConfig;
-    }
-
-    void updateUserSubscriptionConfig(const UserSubscription& userSub)
-    {
-        const std::string& id = userSub.id;
-        auto obj = subscriptionsConfigMap.find(id);
-        if (obj == subscriptionsConfigMap.end())
-        {
-            BMCWEB_LOG_INFO("No UserSubscription exist with ID:{}", id);
-            return;
-        }
-        obj->second = userSub;
     }
 };
 

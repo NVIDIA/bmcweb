@@ -1,36 +1,41 @@
-/*
-Copyright (c) 2018 Intel Corporation
-Copyright (c) 2018 Ampere Computing LLC
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
+// SPDX-FileCopyrightText: Copyright 2018 Ampere Computing LLC
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
 #pragma once
 
 #include "app.hpp"
+#include "async_resp.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
 #include "generated/enums/power.hpp"
+#include "http_request.hpp"
+#include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "sensors.hpp"
 #include "utils/chassis_utils.hpp"
+#include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/sensor_utils.hpp"
 
-#include <sdbusplus/asio/property.hpp>
+#include <boost/beast/http/verb.hpp>
+#include <nlohmann/json.hpp>
+#include <sdbusplus/message/native_types.hpp>
 
 #include <array>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
+#include <utility>
+#include <variant>
 #include <vector>
 
 namespace redfish
@@ -99,8 +104,8 @@ inline void afterGetChassisPath(
     {
         return;
     }
-    sdbusplus::asio::getProperty<bool>(
-        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+    dbus::utility::getProperty<bool>(
+        "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/control/host0/power_cap",
         "xyz.openbmc_project.Control.Power.Cap", "PowerCapEnable",
         std::bind_front(afterGetPowerCapEnable, sensorsAsyncResp, *value));
@@ -254,8 +259,8 @@ inline void afterGetChassis(
         return;
     }
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+    dbus::utility::getAllProperties(
+        "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/control/host0/power_cap",
         "xyz.openbmc_project.Control.Power.Cap",
         [sensorAsyncResp](const boost::system::error_code& ec,
@@ -264,8 +269,8 @@ inline void afterGetChassis(
         ) { afterPowerCapSettingGet(sensorAsyncResp, ec, properties); });
 }
 
-inline void
-    handleChassisPowerGet(App& app, const crow::Request& req,
+inline void handleChassisPowerGet(
+    App& app, const crow::Request& req,
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& chassisName)
 {
@@ -296,8 +301,8 @@ inline void
         std::bind_front(afterGetChassis, sensorAsyncResp));
 }
 
-inline void
-    handleChassisPowerPatch(App& app, const crow::Request& req,
+inline void handleChassisPowerPatch(
+    App& app, const crow::Request& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& chassisName)
 {

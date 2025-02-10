@@ -244,19 +244,29 @@ Fields common to all schemas
 #### Chassis
 
 - Actions
+- AssetTag
 - ChassisType
+- Drives
 - HotPluggable
 - Links/ComputerSystems
 - Links/ManagedBy
+- Location/PartLocation/ServiceLabel
+- LocationIndicatorActive
+- Manufacturer
+- Model
+- PartNumber
 - Power
-  - Shall be included if component contains voltage/current sensing components,
-    otherwise will be omitted.
+- PowerSubsystem
 - PowerState
+- PhysicalSecurity
 - Sensors
+- SerialNumber
+- SparePartNumber
 - Status
 - Thermal
-  - Shall be included if component contains temperature sensors, otherwise shall
-    be omitted.
+- ThermalSubsystem
+- UUID
+- Version
 
 ### /redfish/v1/Chassis/{ChassisId}/Drive/
 
@@ -372,7 +382,7 @@ Fields common to all schemas
 
 - TemperatureReadingsCelsius[]/DataSourceUri
 - TemperatureReadingsCelsius[]/Reading
-- TemperatureReadingsCelsius@odata.count
+- `TemperatureReadingsCelsius@odata.count`
 
 #### /redfish/v1/Chassis/{ChassisId}/ThermalSubsystem/Fans
 
@@ -513,9 +523,11 @@ Fields common to all schemas
 - Destination
 - EventTypes
 - Context
+- HeartbeatIntervalMinutes
 - OriginResources
 - RegistryPrefixes
 - Protocol
+- SendHeartbeat
 
 ### /redfish/v1/JsonSchemas/
 
@@ -571,7 +583,6 @@ Fields common to all schemas
 - Oem
 - PartNumber
 - PowerState
-- SerialConsole
 - SerialNumber
 - ServiceEntryPointUUID
 - SparePartNumber
@@ -798,6 +809,7 @@ other.
 - Boot
 - BootProgress
 - Description
+- FabricAdapters
 - HostWatchdogTimer
 - IdlePowerSaver/Enable
 - IdlePowerSaver/EnterUtilizationPercent
@@ -814,12 +826,18 @@ other.
 - Memory
 - MemorySummary
 - Model
+- PCIeDevices
 - PartNumber
 - PowerMode
 - PowerRestorePolicy
 - PowerState
 - ProcessorSummary
 - Processors
+- SerialConsole/IPMI/ServiceEnabled
+- SerialConsole/MaxConcurrentSessions
+- SerialConsole/SSH/HotKeySequenceDisplay
+- SerialConsole/SSH/Port
+- SerialConsole/SSH/ServiceEnabled
 - SerialNumber
 - Status
 - Storage

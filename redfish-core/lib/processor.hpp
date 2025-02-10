@@ -1,59 +1,52 @@
-/*
-Copyright (c) 2018 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
+
+#include "bmcweb_config.h"
+
 #include "app.hpp"
-#include "dbus_singleton.hpp"
+#include "async_resp.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/processor.hpp"
-#include "health.hpp"
-#include "nvidia_processor.hpp"
-#include "pcie.hpp"
+#include "generated/enums/resource.hpp"
+#include "http_request.hpp"
+#include "logging.hpp"
 #include "query.hpp"
+#include "nvidia_processor.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 
-#include <boost/container/flat_map.hpp>
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
-#include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
-#include <sdbusplus/utility/dedup_variant.hpp>
-#include <utils/chassis_utils.hpp>
-#include <utils/collection.hpp>
-#include <utils/conditions_utils.hpp>
-#include <utils/dbus_utils.hpp>
-#include <utils/json_utils.hpp>
 #include <utils/nvidia_async_set_utils.hpp>
 #include <utils/nvidia_processor_utils.hpp>
 #include <utils/nvidia_utils.hpp>
-#include <utils/port_utils.hpp>
-#include <utils/processor_utils.hpp>
-#include <utils/time_utils.hpp>
-
+#include <algorithm>
 #include <array>
-#include <filesystem>
+#include <cstddef>
+#include <cstdint>
+#include <format>
+#include <functional>
 #include <limits>
+#include <memory>
+#include <optional>
 #include <ranges>
 #include <string>
 #include <string_view>
+#include <tuple>
+#include <utility>
+#include <variant>
+#include <vector>
 
 namespace redfish
 {
@@ -86,9 +79,8 @@ inline void getProcessorUUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                              const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Processor UUID");
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, service, objPath,
-        "xyz.openbmc_project.Common.UUID", "UUID",
+    dbus::utility::getProperty<std::string>(
+        service, objPath, "xyz.openbmc_project.Common.UUID", "UUID",
         [objPath, asyncResp{std::move(asyncResp)}](
             const boost::system::error_code& ec, const std::string& property) {
             if (ec)
@@ -269,48 +261,12 @@ inline void getCpuDataByService(
             asyncResp->res.jsonValue["ProcessorType"] =
                 processor::ProcessorType::CPU;
 
-            bool slotPresent = false;
-            std::string corePath = objPath + "/core";
-            size_t totalCores = 0;
             for (const auto& object : dbusData)
             {
                 if (object.first.str == objPath)
                 {
                     getCpuDataByInterface(asyncResp, object.second);
                 }
-                else if (object.first.str.starts_with(corePath))
-                {
-                    for (const auto& interface : object.second)
-                    {
-                        if (interface.first ==
-                            "xyz.openbmc_project.Inventory.Item")
-                        {
-                            for (const auto& property : interface.second)
-                            {
-                                if (property.first == "Present")
-                                {
-                                    const bool* present =
-                                        std::get_if<bool>(&property.second);
-                                    if (present != nullptr)
-                                    {
-                                        if (*present)
-                                        {
-                                            slotPresent = true;
-                                            totalCores++;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            // In getCpuDataByInterface(), state and health are set
-            // based on the present and functional status. If core
-            // count is zero, then it has a higher precedence.
-            if (slotPresent)
-            {
-                asyncResp->res.jsonValue["TotalCores"] = totalCores;
             }
             return;
         });
@@ -324,8 +280,8 @@ inline void getCpuDataByService(
  * @return Returns as a string, the throttle cause in Redfish terms. If
  * translation cannot be done, returns "Unknown" throttle reason.
  */
-inline processor::ThrottleCause
-    dbusToRfThrottleCause(const std::string& dbusSource)
+inline processor::ThrottleCause dbusToRfThrottleCause(
+    const std::string& dbusSource)
 {
     if (dbusSource ==
         "xyz.openbmc_project.Control.Power.Throttle.ThrottleReasons.ClockLimit")
@@ -355,8 +311,8 @@ inline processor::ThrottleCause
     return processor::ThrottleCause::Invalid;
 }
 
-inline void
-    readThrottleProperties(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void readThrottleProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const boost::system::error_code& ec,
                            const dbus::utility::DBusPropertiesMap& properties)
 {
@@ -400,9 +356,8 @@ inline void getThrottleProperties(
 {
     BMCWEB_LOG_DEBUG("Get processor throttle resources");
 
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, objectPath,
-        "xyz.openbmc_project.Control.Power.Throttle",
+    dbus::utility::getAllProperties(
+        service, objectPath, "xyz.openbmc_project.Control.Power.Throttle",
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& properties) {
             readThrottleProperties(asyncResp, ec, properties);
@@ -414,9 +369,8 @@ inline void getCpuAssetData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                             const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Cpu Asset Data");
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, objPath,
-        "xyz.openbmc_project.Inventory.Decorator.Asset",
+    dbus::utility::getAllProperties(
+        service, objPath, "xyz.openbmc_project.Inventory.Decorator.Asset",
         [objPath, asyncResp{std::move(asyncResp)}](
             const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& properties) {
@@ -488,9 +442,8 @@ inline void getCpuRevisionData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                                const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Cpu Revision Data");
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, objPath,
-        "xyz.openbmc_project.Inventory.Decorator.Revision",
+    dbus::utility::getAllProperties(
+        service, objPath, "xyz.openbmc_project.Inventory.Decorator.Revision",
         [objPath, asyncResp{std::move(asyncResp)}](
             const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& properties) {
@@ -525,26 +478,10 @@ inline void getAcceleratorDataByService(
     const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get available system Accelerator resources by service.");
-
-    if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-    {
-        std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
-            objPath, [aResp](const std::string& rootHealth,
-                             const std::string& healthRollup) {
-                aResp->res.jsonValue["Status"]["Health"] = rootHealth;
-                if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-                {
-                    aResp->res.jsonValue["Status"]["HealthRollup"] =
-                        healthRollup;
-                }
-            });
-        health->start();
-    }
-
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, objPath, "",
-        [acclrtrId, aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+    dbus::utility::getAllProperties(
+        service, objPath, "",
+        [acclrtrId, asyncResp{std::move(asyncResp)}](
+            const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -644,6 +581,21 @@ inline void getAcceleratorDataByService(
                 }
             }
         });
+
+    if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
+    {
+        std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
+            objPath, [aResp](const std::string& rootHealth,
+                             const std::string& healthRollup) {
+                aResp->res.jsonValue["Status"]["Health"] = rootHealth;
+                if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
+                {
+                    aResp->res.jsonValue["Status"]["HealthRollup"] =
+                        healthRollup;
+                }
+            });
+        health->start();
+    }
 }
 
 // OperatingConfig D-Bus Types
@@ -706,14 +658,15 @@ inline void highSpeedCoreIdsHandler(
  * @param[in]       objPath     D-Bus object to query.
  */
 inline void getCpuConfigData(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
-    const std::string& service, const std::string& objPath)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& cpuId, const std::string& service,
+    const std::string& objPath)
 {
     BMCWEB_LOG_INFO("Getting CPU operating configs for {}", cpuId);
 
     // First, GetAll CurrentOperatingConfig properties on the object
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, objPath,
+    dbus::utility::getAllProperties(
+        service, objPath,
         "xyz.openbmc_project.Control.Processor.CurrentOperatingConfig",
         [aResp, cpuId,
          service](const boost::system::error_code ec,
@@ -773,8 +726,8 @@ inline void getCpuConfigData(
                 // Once we found the current applied config, queue another
                 // request to read the base freq core ids out of that
                 // config.
-                sdbusplus::asio::getProperty<BaseSpeedPrioritySettingsProperty>(
-                    *crow::connections::systemBus, service, dbusPath,
+                dbus::utility::getProperty<BaseSpeedPrioritySettingsProperty>(
+                    service, dbusPath,
                     "xyz.openbmc_project.Inventory.Item.Cpu."
                     "OperatingConfig",
                     "BaseSpeedPrioritySettings",
@@ -814,8 +767,8 @@ inline void getCpuLocationCode(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Cpu Location Data");
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, service, objPath,
+    dbus::utility::getProperty<std::string>(
+        service, objPath,
         "xyz.openbmc_project.Inventory.Decorator.LocationCode", "LocationCode",
         [objPath, asyncResp{std::move(aResp)}](
             const boost::system::error_code& ec, const std::string& property) {
@@ -845,8 +798,8 @@ inline void getCpuUniqueId(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                            const std::string& objectPath)
 {
     BMCWEB_LOG_DEBUG("Get CPU UniqueIdentifier");
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, service, objectPath,
+    dbus::utility::getProperty<std::string>(
+        service, objectPath,
         "xyz.openbmc_project.Inventory.Decorator.UniqueIdentifier",
         "UniqueIdentifier",
         [aResp](boost::system::error_code ec, const std::string& id) {
@@ -873,8 +826,8 @@ inline void getOperatingConfigData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath, const std::string& deviceType)
 {
-    sdbusplus::asio::getAllProperties(
-        *crow::connections::systemBus, service, objPath,
+    dbus::utility::getAllProperties(
+        service, objPath,
         "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig",
         [aResp,
          deviceType](const boost::system::error_code ec,

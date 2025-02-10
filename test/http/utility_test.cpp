@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 
 #include "utility.hpp"
 
@@ -28,6 +30,13 @@ TEST(Utility, Base64DecodeAuthString)
     std::string result;
     EXPECT_TRUE(base64Decode(authString, result));
     EXPECT_EQ(result, "usern4me:passw0rd");
+}
+
+TEST(Utility, Base64DecodeUrlsafe)
+{
+    std::string result;
+    EXPECT_TRUE(base64Decode<true>("-_abcde", result));
+    EXPECT_EQ(result, "\xfb\xf6\x9b\x71\xd7");
 }
 
 TEST(Utility, Base64DecodeNonAscii)

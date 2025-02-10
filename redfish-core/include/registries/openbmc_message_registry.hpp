@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 /****************************************************************
  *                 READ THIS WARNING FIRST
@@ -20,16 +22,17 @@ namespace redfish::registries::openbmc
 const Header header = {
     "Copyright 2022 OpenBMC. All rights reserved.",
     "#MessageRegistry.v1_4_0.MessageRegistry",
-    "OpenBMC.0.5.0",
+    0,
+    5,
+    0,
     "OpenBMC Message Registry",
     "en",
     "This registry defines the base messages for OpenBMC.",
     "OpenBMC",
-    "0.5.0",
     "OpenBMC",
 };
 constexpr const char* url =
-    "";
+    "https://raw.githubusercontent.com/openbmc/bmcweb/refs/heads/master/redfish-core/include/registries/openbmc.json";
 
 constexpr std::array registry =
 {

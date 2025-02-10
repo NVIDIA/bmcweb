@@ -1,15 +1,17 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
+#include "bmcweb_config.h"
+
 #include "async_resp.hpp"
-#include "dbus_utility.hpp"
-#include "error_messages.hpp"
 #include "generated/enums/pcie_device.hpp"
 #include "generated/enums/pcie_slots.hpp"
-#include "http/utility.hpp"
 #include "utils/collection.hpp"
 
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
+#include <boost/url/url.hpp>
 #include <nlohmann/json.hpp>
 
 #include <array>
@@ -33,8 +35,8 @@ namespace pcie_util
  * @return void
  */
 
-inline void
-    getPCIeDeviceList(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void getPCIeDeviceList(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const nlohmann::json::json_pointer& jsonKeyName)
 {
     static constexpr std::array<std::string_view, 1> pcieDeviceInterface = {
@@ -46,8 +48,8 @@ inline void
         "/xyz/openbmc_project/inventory", jsonKeyName);
 }
 
-inline std::optional<pcie_slots::SlotTypes>
-    dbusSlotTypeToRf(const std::string& slotType)
+inline std::optional<pcie_slots::SlotTypes> dbusSlotTypeToRf(
+    const std::string& slotType)
 {
     if (slotType ==
         "xyz.openbmc_project.Inventory.Item.PCIeSlot.SlotTypes.FullLength")
@@ -100,8 +102,8 @@ inline std::optional<pcie_slots::SlotTypes>
     return pcie_slots::SlotTypes::Invalid;
 }
 
-inline std::optional<pcie_device::PCIeTypes>
-    redfishPcieGenerationFromDbus(const std::string& generationInUse)
+inline std::optional<pcie_device::PCIeTypes> redfishPcieGenerationFromDbus(
+    const std::string& generationInUse)
 {
     if (generationInUse ==
         "xyz.openbmc_project.Inventory.Item.PCIeSlot.Generations.Gen1")

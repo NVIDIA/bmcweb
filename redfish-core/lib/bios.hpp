@@ -1,16 +1,25 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
-#include "nlohmann/json.hpp"
+#include "bmcweb_config.h"
 
-#include <app.hpp>
-#include <boost/url/format.hpp>
-#include <dbus_utility.hpp>
-#include <query.hpp>
-#include <registries/privilege_registry.hpp>
-#include <utils/sw_utils.hpp>
+#include "app.hpp"
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
+#include "error_messages.hpp"
+#include "http_request.hpp"
+#include "logging.hpp"
+#include "query.hpp"
+#include "registries/privilege_registry.hpp"
+#include "utils/sw_utils.hpp"
 
-#include <fstream>
-#include <iostream>
+#include <boost/beast/http/verb.hpp>
+
+#include <format>
+#include <functional>
+#include <memory>
+#include <string>
 
 namespace redfish
 {
@@ -1930,8 +1939,8 @@ inline void
 /**
  * BiosService class supports handle get method for bios.
  */
-inline void
-    handleBiosServiceGet(crow::App& app, const crow::Request& req,
+inline void handleBiosServiceGet(
+    crow::App& app, const crow::Request& req,
                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          [[maybe_unused]] const std::string& systemName)
 {
@@ -2137,8 +2146,8 @@ inline void requestRoutesBiosSettings(App& app)
  * Function handles POST method request.
  * Analyzes POST body message before sends Reset request data to D-Bus.
  */
-inline void
-    handleBiosResetPost(crow::App& app, const crow::Request& req,
+inline void handleBiosResetPost(
+    crow::App& app, const crow::Request& req,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& systemName)
 {

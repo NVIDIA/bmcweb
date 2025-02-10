@@ -1,12 +1,16 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "logging.hpp"
 
 #include <zlib.h>
 
-#include <array>
-#include <filesystem>
+#include <cstddef>
+#include <cstdint>
+#include <iterator>
 #include <string>
+#include <utility>
 #include <vector>
 
 class GzFileReader

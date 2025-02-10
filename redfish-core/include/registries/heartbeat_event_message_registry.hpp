@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 /****************************************************************
  *                 READ THIS WARNING FIRST
@@ -20,12 +22,13 @@ namespace redfish::registries::heartbeat_event
 const Header header = {
     "Copyright 2021-2023 DMTF. All rights reserved.",
     "#MessageRegistry.v1_6_2.MessageRegistry",
-    "HeartbeatEvent.1.0.1",
+    1,
+    0,
+    1,
     "Heartbeat Event Message Registry",
     "en",
     "This registry defines the messages to use for periodic heartbeat, also known as 'keep alive', events.",
     "HeartbeatEvent",
-    "1.0.1",
     "DMTF",
 };
 constexpr const char* url =

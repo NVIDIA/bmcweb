@@ -1,17 +1,32 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
 #include "app.hpp"
+#include "async_resp.hpp"
 #include "error_messages.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
+#include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
-#include "utility.hpp"
+#include "str_utility.hpp"
 
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/status.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <boost/url/format.hpp>
 
+#include <array>
+#include <filesystem>
+#include <format>
+#include <functional>
+#include <memory>
 #include <ranges>
 #include <string>
+#include <system_error>
+#include <utility>
+#include <vector>
 
 namespace redfish
 {
@@ -71,8 +86,8 @@ inline void redfish405(App& app, const crow::Request& req,
     }
 }
 
-inline void
-    jsonSchemaIndexGet(App& app, const crow::Request& req,
+inline void jsonSchemaIndexGet(
+    App& app, const crow::Request& req,
                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -176,8 +191,8 @@ inline void jsonSchemaGet(App& app, const crow::Request& req,
     messages::resourceNotFound(asyncResp->res, "JsonSchemaFile", schema);
 }
 
-inline void
-    jsonSchemaGetFile(const crow::Request& /*req*/,
+inline void jsonSchemaGetFile(
+    const crow::Request& /*req*/,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& schema, const std::string& schemaFile)
 {

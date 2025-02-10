@@ -1,27 +1,17 @@
-/*
-Copyright (c) 2018 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2018 Intel Corporation
 #pragma once
 
 #include "error_messages.hpp"
-#include "http_connection.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "human_sort.hpp"
 #include "logging.hpp"
 
+#include <boost/system/result.hpp>
+#include <boost/url/parse.hpp>
+#include <boost/url/url_view.hpp>
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -661,8 +651,8 @@ bool readJson(nlohmann::json& jsonRequest, crow::Response& res,
                           std::forward<UnpackTypes&&>(in)...);
 }
 
-inline std::optional<nlohmann::json::object_t>
-    readJsonPatchHelper(const crow::Request& req, crow::Response& res)
+inline std::optional<nlohmann::json::object_t> readJsonPatchHelper(
+    const crow::Request& req, crow::Response& res)
 {
     nlohmann::json jsonRequest;
     if (!json_util::processJsonFromRequest(res, req, jsonRequest))
@@ -720,8 +710,6 @@ inline const nlohmann::json* findNestedKey(std::string_view key,
         }
         return findNestedKey(leftover, it.value());
     }
-    else
-    {
         it = value.find(key);
         if (it == value.end())
         {
@@ -729,7 +717,6 @@ inline const nlohmann::json* findNestedKey(std::string_view key,
         }
         return &*it;
     }
-}
 
 template <typename... UnpackTypes>
 bool readJsonPatch(const crow::Request& req, crow::Response& res,
@@ -841,22 +828,42 @@ inline int objectKeyCmp(std::string_view key, const nlohmann::json& a,
     {
         return 1;
     }
-    boost::urls::url_view aUrl(*nameA);
-    boost::urls::url_view bUrl(*nameB);
-    auto segmentsAIt = aUrl.segments().begin();
-    auto segmentsBIt = bUrl.segments().begin();
-
-    while (true)
+    if (key != "@odata.id")
     {
-        if (segmentsAIt == aUrl.segments().end())
-        {
-            if (segmentsBIt == bUrl.segments().end())
+        return alphanumComp(*nameA, *nameB);
+    }
+
+    boost::system::result<boost::urls::url_view> aUrl =
+        boost::urls::parse_relative_ref(*nameA);
+    boost::system::result<boost::urls::url_view> bUrl =
+        boost::urls::parse_relative_ref(*nameB);
+    if (!aUrl)
+    {
+        if (!bUrl)
             {
                 return 0;
             }
             return -1;
         }
-        if (segmentsBIt == bUrl.segments().end())
+    if (!bUrl)
+    {
+        return 1;
+    }
+
+    auto segmentsAIt = aUrl->segments().begin();
+    auto segmentsBIt = bUrl->segments().begin();
+
+    while (true)
+    {
+        if (segmentsAIt == aUrl->segments().end())
+        {
+            if (segmentsBIt == bUrl->segments().end())
+            {
+                return 0;
+            }
+            return -1;
+        }
+        if (segmentsBIt == bUrl->segments().end())
         {
             return 1;
         }
@@ -869,6 +876,7 @@ inline int objectKeyCmp(std::string_view key, const nlohmann::json& a,
         segmentsAIt++;
         segmentsBIt++;
     }
+    return 0;
 };
 
 // kept for backward compatibility

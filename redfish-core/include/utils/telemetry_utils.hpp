@@ -1,16 +1,26 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
-#include "dbus_utility.hpp"
 #include "generated/enums/metric_report_definition.hpp"
 #include "http/utility.hpp"
 #include "logging.hpp"
 #include "utility.hpp"
 
-#include <boost/container/flat_map.hpp>
 #include <boost/container/flat_set.hpp>
+#include <boost/system/result.hpp>
+#include <boost/url/parse.hpp>
+#include <boost/url/url_view.hpp>
+#include <nlohmann/json.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
+#include <cstddef>
+#include <functional>
+#include <optional>
+#include <span>
 #include <string>
+#include <string_view>
+#include <utility>
 
 namespace redfish
 {
@@ -34,8 +44,8 @@ inline std::string getDbusTriggerPath(std::string_view id)
     return {triggersPath / id};
 }
 
-inline std::optional<std::string>
-    getTriggerIdFromDbusPath(const std::string& dbusPath)
+inline std::optional<std::string> getTriggerIdFromDbusPath(
+    const std::string& dbusPath)
 {
     sdbusplus::message::object_path converted(dbusPath);
     if (converted.parent_path() !=
@@ -154,8 +164,8 @@ inline std::string toDbusCollectionFunction(std::string_view redfishValue)
     return "";
 }
 
-inline std::optional<nlohmann::json::array_t>
-    toRedfishCollectionFunctions(std::span<const std::string> dbusEnums)
+inline std::optional<nlohmann::json::array_t> toRedfishCollectionFunctions(
+    std::span<const std::string> dbusEnums)
 {
     nlohmann::json::array_t redfishEnums;
     redfishEnums.reserve(dbusEnums.size());

@@ -1,20 +1,18 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include "async_resp.hpp"
 #include "background_copy.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
-#include "in_band.hpp"
+#include "logging.hpp"
+
+#include <sdbusplus/message/native_types.hpp>
 #include "nvidia_async_call_utils.hpp"
-
-#include <async_resp.hpp>
-#include <boost/container/flat_map.hpp>
-#include <sdbusplus/asio/connection.hpp>
-#include <sdbusplus/asio/property.hpp>
-#include <utils/dbus_utils.hpp>
-
 #include <array>
-#include <filesystem>
-#include <fstream>
+#include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
 
 namespace redfish

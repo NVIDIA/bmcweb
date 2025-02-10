@@ -1,13 +1,22 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
-#include "filter_expr_executor.hpp"
-#include "privileges.hpp"
+#include "filter_expr_parser_ast.hpp"
+#include "filter_expr_printer.hpp"
+#include "http_request.hpp"
+#include "logging.hpp"
 #include "registries/privilege_registry.hpp"
+#include "server_sent_event.hpp"
+#include "subscription.hpp"
 
 #include <app.hpp>
+#include <boost/url/params_base.hpp>
 #include <event_service_manager.hpp>
 
+#include <format>
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace redfish
@@ -16,8 +25,7 @@ namespace redfish
 inline void createSubscription(crow::sse_socket::Connection& conn,
                                const crow::Request& req)
 {
-    EventServiceManager& manager =
-        EventServiceManager::getInstance(&conn.getIoContext());
+    EventServiceManager& manager = EventServiceManager::getInstance();
     if ((manager.getNumberOfSubscriptions() >= maxNoOfSubscriptions) ||
         manager.getNumberOfSSESubscriptions() >= maxNoOfSSESubscriptions)
     {
@@ -47,12 +55,19 @@ inline void createSubscription(crow::sse_socket::Connection& conn,
     std::shared_ptr<Subscription> subValue =
         std::make_shared<Subscription>(conn);
 
-    // GET on this URI means, Its SSE subscriptionType.
-    subValue->userSub.subscriptionType = redfish::subscriptionTypeSSE;
+    if (subValue->userSub == nullptr)
+    {
+        BMCWEB_LOG_ERROR("Subscription data is null");
+        conn.close("Internal Error");
+        return;
+    }
 
-    subValue->userSub.protocol = "Redfish";
-    subValue->userSub.retryPolicy = "TerminateAfterRetries";
-    subValue->userSub.eventFormatType = "Event";
+    // GET on this URI means, Its SSE subscriptionType.
+    subValue->userSub->subscriptionType = redfish::subscriptionTypeSSE;
+
+    subValue->userSub->protocol = "Redfish";
+    subValue->userSub->retryPolicy = "TerminateAfterRetries";
+    subValue->userSub->eventFormatType = "Event";
 
     std::string id = manager.addSSESubscription(subValue, lastEventId);
     if (id.empty())
@@ -63,8 +78,7 @@ inline void createSubscription(crow::sse_socket::Connection& conn,
 
 inline void deleteSubscription(crow::sse_socket::Connection& conn)
 {
-    redfish::EventServiceManager::getInstance(&conn.getIoContext())
-        .deleteSseSubscription(conn);
+    EventServiceManager::getInstance().deleteSseSubscription(conn);
 }
 
 inline void requestRoutesEventServiceSse(App& app)

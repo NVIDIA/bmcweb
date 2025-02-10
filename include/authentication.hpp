@@ -1,18 +1,32 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
-#include "cookies.hpp"
-#include "forward_unauthorized.hpp"
-#include "http_request.hpp"
-#include "http_response.hpp"
-#include "http_utility.hpp"
-#include "nvidia_persistent_data.hpp"
-#include "pam_authenticate.hpp"
-#include "persistent_data.hpp"
-#include "webroutes.hpp"
+#include "bmcweb_config.h"
 
+#include "http_response.hpp"
+#include "logging.hpp"
+#include "ossl_random.hpp"
+#include "pam_authenticate.hpp"
+#include "sessions.hpp"
+#include "utility.hpp"
+#include "utils/ip_utils.hpp"
+#include "webroutes.hpp"
+#include "nvidia_persistent_data.hpp"
+#include <security/_pam_types.h>
+
+#include <boost/asio/ip/address.hpp>
+#include <boost/beast/http/field.hpp>
+#include <boost/beast/http/message.hpp>
+#include <boost/beast/http/verb.hpp>
 #include <boost/container/flat_set.hpp>
 
-#include <random>
+#include <cstddef>
+#include <cstring>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <utility>
 
 namespace crow
@@ -88,8 +102,8 @@ inline std::shared_ptr<persistent_data::UserSession> performBasicAuth(
         isConfigureSelfOnly);
 }
 
-inline std::shared_ptr<persistent_data::UserSession>
-    performTokenAuth(std::string_view authHeader)
+inline std::shared_ptr<persistent_data::UserSession> performTokenAuth(
+    std::string_view authHeader)
 {
     BMCWEB_LOG_DEBUG("[AuthMiddleware] Token authentication");
     if (!authHeader.starts_with("Token "))
@@ -102,8 +116,8 @@ inline std::shared_ptr<persistent_data::UserSession>
     return sessionOut;
 }
 
-inline std::shared_ptr<persistent_data::UserSession>
-    performXtokenAuth(const boost::beast::http::header<true>& reqHeader)
+inline std::shared_ptr<persistent_data::UserSession> performXtokenAuth(
+    const boost::beast::http::header<true>& reqHeader)
 {
     BMCWEB_LOG_DEBUG("[AuthMiddleware] X-Auth-Token authentication");
 
@@ -117,8 +131,8 @@ inline std::shared_ptr<persistent_data::UserSession>
     return sessionOut;
 }
 
-inline std::shared_ptr<persistent_data::UserSession>
-    performCookieAuth(boost::beast::http::verb method [[maybe_unused]],
+inline std::shared_ptr<persistent_data::UserSession> performCookieAuth(
+    boost::beast::http::verb method [[maybe_unused]],
                       const boost::beast::http::header<true>& reqHeader)
 {
     using headers = boost::beast::http::header<true>;

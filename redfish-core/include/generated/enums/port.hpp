@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include <nlohmann/json.hpp>
 
@@ -166,6 +168,13 @@ enum class ConnectedDeviceType{
     Type3MLD,
 };
 
+enum class HostDeviceType{
+    Invalid,
+    None,
+    System,
+    Manager,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(PortType, {
     {PortType::Invalid, "Invalid"},
     {PortType::UpstreamPort, "UpstreamPort"},
@@ -325,6 +334,13 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ConnectedDeviceType, {
     {ConnectedDeviceType::Type2, "Type2"},
     {ConnectedDeviceType::Type3SLD, "Type3SLD"},
     {ConnectedDeviceType::Type3MLD, "Type3MLD"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(HostDeviceType, {
+    {HostDeviceType::Invalid, "Invalid"},
+    {HostDeviceType::None, "None"},
+    {HostDeviceType::System, "System"},
+    {HostDeviceType::Manager, "Manager"},
 });
 
 }

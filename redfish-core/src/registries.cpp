@@ -1,12 +1,8 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "registries.hpp"
 
-#include "registries/base_message_registry.hpp"
-#include "registries/openbmc_message_registry.hpp"
-#include "registries/platform_message_registry.hpp"
-#include "registries/resource_event_message_registry.hpp"
-#include "registries/task_event_message_registry.hpp"
-#include "registries/telemetry_message_registry.hpp"
-#include "registries/update_message_registry.hpp"
+#include "registries_selector.hpp"
 #include "str_utility.hpp"
 
 #include <algorithm>
@@ -47,52 +43,18 @@ const Message* getMessage(std::string_view messageID)
     std::vector<std::string> fields;
     fields.reserve(4);
     bmcweb::split(fields, messageID, '.');
-    if (fields.size() < 4)
+    if (fields.size() != 4)
     {
         return nullptr;
     }
+
     const std::string& registryName = fields[0];
     const std::string& messageKey = fields[3];
 
     // Find the right registry and check it for the MessageKey
-    if (std::string(base::header.registryPrefix) == registryName)
-    {
-        return getMessageFromRegistry(
-            messageKey, std::span<const MessageEntry>(base::registry));
-    }
-    if (std::string(openbmc::header.registryPrefix) == registryName)
-    {
-        return getMessageFromRegistry(
-            messageKey, std::span<const MessageEntry>(openbmc::registry));
-    }
-    if (std::string(telemetry::header.registryPrefix) == registryName)
-    {
-        return getMessageFromRegistry(
-            messageKey, std::span<const MessageEntry>(telemetry::registry));
-    }
-    if (std::string(task_event::header.registryPrefix) == registryName)
-    {
-        return getMessageFromRegistry(
-            messageKey, std::span<const MessageEntry>(task_event::registry));
-    }
-    if (std::string(resource_event::header.registryPrefix) == registryName)
-    {
-        return getMessageFromRegistry(
-            messageKey,
-            std::span<const MessageEntry>(resource_event::registry));
-    }
-    if (std::string(update::header.registryPrefix) == registryName)
-    {
-        return getMessageFromRegistry(
-            messageKey, std::span<const MessageEntry>(update::registry));
-    }
-    if (std::string(platform::header.registryPrefix) == registryName)
-    {
-        return getMessageFromRegistry(
-            messageKey, std::span<const MessageEntry>(platform::registry));
-    }
-
-    return nullptr;
+    // Find the right registry and check it for the MessageKey
+    return getMessageFromRegistry(messageKey,
+                                  getRegistryFromPrefix(registryName));
 }
 
 } // namespace redfish::registries
