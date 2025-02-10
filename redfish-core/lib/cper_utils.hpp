@@ -309,7 +309,7 @@ inline void parseAdditionalDataForCPER(
 
     // NVIDIA
     jOut["CPER"]["Oem"]["Nvidia"]["@odata.type"] =
-        "#NvidiaCPER.v1_0_0.NvidiaCPER";
+        "#NvidiaCPER.v0_7_0.NvidiaCPER";
 
     // OriginOfCondition
     if (originStr.empty())
