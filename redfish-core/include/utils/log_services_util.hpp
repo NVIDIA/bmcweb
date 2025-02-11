@@ -75,7 +75,7 @@ inline void populateBootEntryId(crow::Response& resp)
 
     ifs >> bootEntryId;
 
-    BMCWEB_LOG_ERROR("BootEntryID is {}.\n", bootEntryId);
+    BMCWEB_LOG_INFO("BootEntryID is {}.\n", bootEntryId);
 
     resp.jsonValue["Oem"]["Nvidia"]["BootEntryID"] = bootEntryId;
 }

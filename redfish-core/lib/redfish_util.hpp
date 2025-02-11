@@ -369,11 +369,13 @@ inline void
                     const std::vector<std::string>& objPaths) {
         if (ec)
         {
-            BMCWEB_LOG_ERROR(
-                "getComponentFirmwareVersion getProperty parent_chassis DBUS error");
-            BMCWEB_LOG_ERROR("error_code = ", ec);
-            BMCWEB_LOG_ERROR("error msg = ", ec.message());
-
+            if (ec.value() != EBADR)
+            {
+                BMCWEB_LOG_ERROR(
+                    "getComponentFirmwareVersion getProperty parent_chassis DBUS error");
+                BMCWEB_LOG_ERROR("error_code = {}", ec);
+                BMCWEB_LOG_ERROR("error msg = {}", ec.message());
+            }
             return;
         }
 
@@ -389,11 +391,13 @@ inline void
                             const std::vector<std::string>& objPaths) {
                 if (ec)
                 {
-                    BMCWEB_LOG_ERROR(
-                        "getComponentFirmwareVersion getProperty activation DBUS error");
-                    BMCWEB_LOG_ERROR("error_code = ", ec);
-                    BMCWEB_LOG_ERROR("error msg = ", ec.message());
-
+                    if (ec.value() != EBADR)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "getComponentFirmwareVersion getProperty activation DBUS error");
+                        BMCWEB_LOG_ERROR("error_code = {}", ec);
+                        BMCWEB_LOG_ERROR("error msg = {}", ec.message());
+                    }
                     return;
                 }
 
@@ -410,8 +414,8 @@ inline void
                         {
                             BMCWEB_LOG_ERROR(
                                 "getComponentFirmwareVersion async_method_call GetObject DBUS error");
-                            BMCWEB_LOG_ERROR("error_code = ", ec);
-                            BMCWEB_LOG_ERROR("error msg = ", ec.message());
+                            BMCWEB_LOG_ERROR("error_code = {}", ec);
+                            BMCWEB_LOG_ERROR("error msg = {}", ec.message());
 
                             return;
                         }
@@ -450,8 +454,8 @@ inline void
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "getComponentFirmwareVersion getProperty Version DBUS error");
-                                    BMCWEB_LOG_ERROR("error_code = ", ec);
-                                    BMCWEB_LOG_ERROR("error msg = ",
+                                    BMCWEB_LOG_ERROR("error_code = {}", ec);
+                                    BMCWEB_LOG_ERROR("error msg = {}",
                                                      ec.message());
 
                                     return;
