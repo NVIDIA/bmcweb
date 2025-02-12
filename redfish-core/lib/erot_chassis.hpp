@@ -336,7 +336,8 @@ inline void getEROTChassis(const crow::Request& req,
                                                     chassisId;
             asyncResp->res.jsonValue["Name"] = chassisId;
             asyncResp->res.jsonValue["Id"] = chassisId;
-#ifndef BMCWEB_ENABLE_NVIDIA_OEM_BF_PROPERTIES
+#if !defined(BMCWEB_ENABLE_NVIDIA_OEM_BF_PROPERTIES) ||                        \
+    defined(BMCWEB_ENABLE_NVIDIA_OEM_BF3_PROPERTIES)
             auto certsObject = std::string("/redfish/v1/Chassis/") + chassisId +
                                "/Certificates";
 

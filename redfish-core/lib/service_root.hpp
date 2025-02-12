@@ -204,7 +204,8 @@ inline void handleServiceRootGetImpl(
             "/redfish/v1/AggregationService";
     }
     asyncResp->res.jsonValue["Chassis"]["@odata.id"] = "/redfish/v1/Chassis";
-#ifndef BMCWEB_ENABLE_NVIDIA_OEM_BF_PROPERTIES
+#if !defined(BMCWEB_ENABLE_NVIDIA_OEM_BF_PROPERTIES) ||                        \
+    defined(BMCWEB_ENABLE_NVIDIA_OEM_BF3_PROPERTIES)
     asyncResp->res.jsonValue["ComponentIntegrity"]["@odata.id"] =
         "/redfish/v1/ComponentIntegrity";
 #endif
