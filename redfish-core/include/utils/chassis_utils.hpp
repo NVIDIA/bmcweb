@@ -1165,7 +1165,10 @@ inline void
             messages::internalError(asyncResp->res);
             return;
         }
-        asyncResp->res.jsonValue["SerialNumber"] = serialNumber;
+        if (!serialNumber.empty())
+        {
+            asyncResp->res.jsonValue["SerialNumber"] = serialNumber;
+        }
     });
 }
 
