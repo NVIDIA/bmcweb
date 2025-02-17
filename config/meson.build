@@ -163,6 +163,7 @@ feature_options = [
     'xtoken-auth',
     'sort-event-log',
     'enable-ist-mode',
+    'profiles-feature',
 ]
 
 string_options = [

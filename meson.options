@@ -798,6 +798,13 @@ option(
 )
 
 option(
+    'profiles-feature',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable profiles feature.''',
+)
+
+option(
     'insecure-tftp-update',
     type: 'feature',
     value: 'disabled',

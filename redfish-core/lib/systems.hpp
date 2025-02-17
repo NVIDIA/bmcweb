@@ -4197,7 +4197,7 @@ inline void
         "/Oem/Nvidia";
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
         "#NvidiaComputerSystem.v1_3_0.NvidiaComputerSystem";
-    if constexpr (BMCWEB_ENABLE_PROFILES)
+    if constexpr (BMCWEB_PROFILES_FEATURE)
     {
         asyncResp->res
             .jsonValue["Oem"]["Nvidia"]["SystemConfigProfile"]["@odata.type"] =

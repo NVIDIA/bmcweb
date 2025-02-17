@@ -88,7 +88,7 @@
 #include "system_host_eth.hpp"
 #endif
 #include "trusted_components.hpp"
-#ifdef BMCWEB_ENABLE_PROFILES
+#ifdef BMCWEB_PROFILES_FEATURE
 #include "nvidia_dpu_system_profiles.hpp"
 #endif
 
@@ -523,7 +523,7 @@ RedfishService::RedfishService(App& app)
 #endif
     // Note, this must be the last route registered
     requestRoutesRedfish(app);
-#ifdef BMCWEB_ENABLE_PROFILES
+#ifdef BMCWEB_PROFILES_FEATURE
     requestRoutesProfiles(app);
 #endif
 
