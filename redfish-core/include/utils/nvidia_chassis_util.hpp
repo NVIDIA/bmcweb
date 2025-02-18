@@ -22,7 +22,9 @@
 #include <boost/container/flat_set.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/system/linux_error.hpp>
+#include <boost/url/format.hpp>
 #include <health.hpp>
+#include <nlohmann/json.hpp>
 
 #include <memory>
 #include <string>

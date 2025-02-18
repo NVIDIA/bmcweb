@@ -39,7 +39,7 @@ TEST(DbusUtils, AfterPropertySetSuccess)
                             "@odata.type": "#Message.v1_1_1.Message",
                             "Message": "The request completed successfully.",
                             "MessageArgs": [],
-                            "MessageId": "Base.1.19.0.Success",
+                            "MessageId": "Base.1.19.Success",
                             "MessageSeverity": "OK",
                             "Resolution": "None."
                         }

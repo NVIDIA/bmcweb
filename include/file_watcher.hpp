@@ -51,7 +51,9 @@ struct FileWatcherEvent
 class InotifyFileWatcher
 {
   public:
-    InotifyFileWatcher() : io(nullptr), sd(nullptr), buf(), watchedDirs() {}
+    InotifyFileWatcher(boost::asio::io_context& ioService) :
+        io(ioService), sd(nullptr), buf(), watchedDirs()
+    {}
 
     ~InotifyFileWatcher()
     {
@@ -67,9 +69,8 @@ class InotifyFileWatcher
     InotifyFileWatcher& operator=(const InotifyFileWatcher&& fw) = delete;
     InotifyFileWatcher(const InotifyFileWatcher&& fw) = delete;
 
-    void setup(std::shared_ptr<boost::asio::io_context> ioIn)
+    void setup()
     {
-        io = std::move(ioIn);
         inotifyFd = inotify_init();
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
         if (fcntl(inotifyFd, F_SETFL, O_NONBLOCK) < 0)
@@ -78,7 +79,7 @@ class InotifyFileWatcher
             return;
         }
         sd = std::make_unique<boost::asio::posix::stream_descriptor>(
-            *io, inotifyFd);
+            io, inotifyFd);
     }
 
     void addPath(const std::string& path, uint32_t mask)
@@ -112,7 +113,7 @@ class InotifyFileWatcher
 
   private:
     int inotifyFd{};
-    std::shared_ptr<boost::asio::io_context> io;
+    boost::asio::io_context& io;
     std::unique_ptr<boost::asio::posix::stream_descriptor> sd;
     std::array<char, sizeof(inotify_event) + NAME_MAX + 1> buf;
     std::map<int, std::string> watchedDirs;

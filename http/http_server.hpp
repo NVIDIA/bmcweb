@@ -45,7 +45,7 @@ class Server
         ioService(io), acceptor(std::move(acceptorIn)),
         // NOLINTNEXTLINE(misc-include-cleaner)
         signals(ioService, SIGINT, SIGTERM, SIGHUP), handler(handlerIn),
-        adaptorCtx(std::move(adaptorCtxIn)), fileWatcher()
+        adaptorCtx(std::move(adaptorCtxIn)), fileWatcher(io)
     {}
 
     void updateDateStr()
@@ -129,7 +129,7 @@ class Server
 
     void watchCertificateChange()
     {
-        fileWatcher.setup(ioService);
+        fileWatcher.setup();
         fileWatcher.addPath("/etc/ssl/certs/https/", IN_CLOSE_WRITE);
         fileWatcher.watch([&](const std::vector<FileWatcherEvent>& events) {
             for (const auto& ev : events)

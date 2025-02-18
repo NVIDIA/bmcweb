@@ -15,6 +15,7 @@
 #include "logging.hpp"
 #include "mutual_tls.hpp"
 #include "nvidia_persistent_data.hpp"
+#include "redfish_util.hpp"
 #include "sessions.hpp"
 #include "str_utility.hpp"
 

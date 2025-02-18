@@ -4,6 +4,7 @@
 
 #include "privileges.hpp"
 #include "sserule.hpp"
+#include "streamingresponserule.hpp"
 #include "verb.hpp"
 #include "websocketrule.hpp"
 

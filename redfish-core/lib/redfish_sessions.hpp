@@ -141,7 +141,7 @@ inline void handleSessionDelete(
 
     persistent_data::SessionStore::getInstance().removeSession(session);
     messages::success(asyncResp->res);
-    if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+    if constexpr (BMCWEB_REDFISH_DBUS_LOG)
     {
         // Send an event for session deletion
         DsEvent event =
@@ -305,7 +305,7 @@ inline void handleSessionCollectionPost(
     }
     processAfterSessionCreation(asyncResp, req, username, session);
 
-    if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+    if constexpr (BMCWEB_REDFISH_DBUS_LOG)
     {
         // Send an event for session creation
         DsEvent event =
@@ -381,7 +381,7 @@ inline void handleSessionServicePatch(
 
         if (*sessionTimeout <= 86400 && *sessionTimeout >= 30)
         {
-            if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+            if constexpr (BMCWEB_REDFISH_DBUS_LOG)
             {
                 std::string currentSessionTimeout = std::to_string(
                     persistent_data::SessionStore::getInstance()
@@ -395,7 +395,7 @@ inline void handleSessionServicePatch(
             // update the message severity
             redfish::message_registries::updateMessageSeverity(
                 asyncResp, "SessionTimeOut", "OK");
-            if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+            if constexpr (BMCWEB_REDFISH_DBUS_LOG)
             {
                 // send redfish event for property change
                 DsEvent event =

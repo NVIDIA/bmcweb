@@ -154,13 +154,8 @@ class EventServiceManager
             if (getNumberOfSubscriptions() > 0)
             {
                 // start RF event listener and subscribe HMC eventService.
-                initRedfishEventListener(ioc);
+                initRedfishEventListener(getIoContext());
             }
-        }
-
-        if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
-        {
-            registerDbusLoggingSignal();
         }
     }
 
@@ -344,7 +339,7 @@ class EventServiceManager
             retryAttempts = cfg.retryAttempts;
             updateConfig = true;
             updateRetryCfg = true;
-            if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+            if constexpr (BMCWEB_REDFISH_DBUS_LOG)
             {
                 // Send an DsEvent for property change
                 DsEvent event =
@@ -362,7 +357,7 @@ class EventServiceManager
             retryTimeoutInterval = cfg.retryTimeoutInterval;
             updateConfig = true;
             updateRetryCfg = true;
-            if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+            if constexpr (BMCWEB_REDFISH_DBUS_LOG)
             {
                 // Send an event for property change
                 DsEvent event = redfish::EventUtil::getInstance()
@@ -773,6 +768,54 @@ class EventServiceManager
                 2, ' ', true, nlohmann::json::error_handler_t::replace);
             entry->sendEventToSubscriber(eventId, std::move(strMsg));
         }
+    }
+
+    /*!
+     * @brief   Send the event to all subscribers.
+     * @param[in] event   The event to be sent.
+     * @return  Void
+     */
+    void sendEvent(DsEvent& event)
+    {
+        nlohmann::json logEntry;
+        if (event.formatEventLogEntry(logEntry) != 0)
+        {
+            BMCWEB_LOG_ERROR("Failed to format the event log entry");
+        }
+        nlohmann::json eventsArray = nlohmann::json::array();
+        eventsArray.push_back(logEntry);
+        nlohmann::json::object_t msg;
+        msg["@odata.type"] = "#Event.v1_9_0.Event";
+        msg["Id"] = std::to_string(eventId);
+        msg["Name"] = "Event Log";
+        msg["Events"] = eventsArray;
+        messages.push_back(Event(eventId, msg));
+        for (const auto& it : this->subscriptionsMap)
+        {
+            std::shared_ptr<Subscription> entry = it.second;
+            if (!eventMatchesFilter(*entry->userSub, logEntry, "Event"))
+            {
+                BMCWEB_LOG_DEBUG("Filter didn't match");
+                continue;
+            }
+            std::string strMsg =
+                nlohmann::json(std::move(msg))
+                    .dump(2, ' ', true,
+                          nlohmann::json::error_handler_t::replace);
+            entry->sendEventToSubscriber(eventId, std::move(strMsg));
+        }
+        eventId++; // increament the eventId
+    }
+
+    /**
+     * Populates event with origin of condition
+     * then sends the event for Redfish Event Listener
+     * to pick up
+     */
+    void sendEventWithOOC(const std::string& ooc, DsEvent& event)
+    {
+        event.originOfCondition = ooc;
+        sendEvent(event);
     }
 };
 

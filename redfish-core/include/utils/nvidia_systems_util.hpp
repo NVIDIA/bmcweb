@@ -3,6 +3,7 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/pcie_util.hpp"
+#include "utils/privilege_utils.hpp"
 #include "utils/sw_utils.hpp"
 #include "utils/time_utils.hpp"
 

@@ -45,7 +45,7 @@
 #include "system_host_eth.hpp"
 #include "trigger.hpp"
 #include "trusted_components.hpp"
-//#include "update_service.hpp"
+// #include "update_service.hpp"
 
 namespace redfish
 {
@@ -108,7 +108,7 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesChassisEnvironmentMetricsClearOOBSetPoint(app);
         requestRoutesChassisFirmwareInfo(app);
         requestRoutesClearPCIeCountersActionInfo(app);
-        requestRoutesComputeDigestPost(app);
+        // requestRoutesComputeDigestPost(app);
         requestRoutesEdppReset(app);
         requestRoutesErrorInjection(app);
         requestRoutesManagerEmmcSecureEraseActionInfo(app);
@@ -123,7 +123,7 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesProcessorWorkloadPower(app);
         requestRoutesProcessorWorkloadPowerProfile(app);
         requestRoutesProcessorWorkloadPowerProfileCollection(app);
-        requestRoutesSplitUpdateService(app);
+        // requestRoutesSplitUpdateService(app);
         requestRoutesSwitchPowerMode(app);
         requestRoutesClearPCIeAerErrorStatus(app);
         requestRoutesSwitchHistogramCollection(app);
@@ -197,10 +197,10 @@ void requestRoutesNvidia(crow::App& app)
     requestRoutesUpdateServiceActionsSimpleUpdate(app);
 #endif
 
-    requestRoutesSoftwareInventoryCollection(app);
-    requestRoutesSoftwareInventory(app);
-    requestRoutesInventorySoftwareCollection(app);
-    requestRoutesInventorySoftware(app);
+    // requestRoutesSoftwareInventoryCollection(app);
+    // requestRoutesSoftwareInventory(app);
+    // requestRoutesInventorySoftwareCollection(app);
+    // requestRoutesInventorySoftware(app);
 
     if constexpr (BMCWEB_MANUFACTURING_TEST)
     {
@@ -267,7 +267,7 @@ void requestRoutesNvidia(crow::App& app)
     requestRoutesServiceConditions(app);
     requestRoutesChassisControls(app);
     requestRoutesChassisControlsCollection(app);
-    requestRoutesUpdateServiceCommitImage(app);
+    // requestRoutesUpdateServiceCommitImage(app);
     requestRoutesChassisControlsReset(app);
     requestRoutesTrustedComponents(app);
 

@@ -151,7 +151,6 @@ option(
                    and /redfish/v1/Managers/bmc/LogServices/Dump''',
 )
 
-# BMCWEB_REDFISH_DBUS_LOG
 option(
     'redfish-fdr-log',
     type: 'feature',
@@ -169,6 +168,7 @@ option(
 		   NVSwitch and NVLinkManagementNIC''', 
 )
 
+# BMCWEB_REDFISH_DBUS_LOG
 option(
     'redfish-dbus-log',
     type: 'feature',

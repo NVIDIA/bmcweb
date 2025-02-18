@@ -21,6 +21,8 @@
 
 #pragma once
 
+#include "str_utility.hpp"
+
 #include <map>
 #include <string>
 #include <vector>

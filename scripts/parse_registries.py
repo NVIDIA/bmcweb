@@ -685,8 +685,8 @@ def main():
                 )
             )
             registries_map[registry] = files[-1]
-    if "openbmc" in registries:
-        files.append(openbmc_local_getter())
+    if "nvidia" in registries:
+        files.append(nvidia_local_getter())
     if "openbmc" in registries:
         files.append(openbmc_local_getter())
     update_registries(files)

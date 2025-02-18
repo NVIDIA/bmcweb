@@ -57,7 +57,7 @@ static constexpr const std::array<const char*, 4> supportedRegPrefixes = {
 static constexpr const std::array<const char*, 3> supportedRetryPolicies = {
     "TerminateAfterRetries", "SuspendRetries", "RetryForever"};
 
-static constexpr const std::array<const char*, 11> supportedResourceTypes = {
+static constexpr const std::array<const char*, 12> supportedResourceTypes = {
     "Task",         "AccountService",     "ManagerAccount", "SessionService",
     "EventService", "UpdateService",      "Chassis",        "Systems",
     "Managers",     "CertificateService", "VirtualMedia",   "Heartbeat"};
@@ -181,7 +181,7 @@ inline void requestRoutesEventService(App& app)
                     }
                 }
 
-                if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+                if constexpr (BMCWEB_REDFISH_DBUS_LOG)
                 {
                     EventServiceManager::getInstance().setEventServiceConfig(
                         eventServiceConfig, req.target());
@@ -877,7 +877,7 @@ inline void requestRoutesEventDestination(App& app)
                 if (context)
                 {
                     subValue->userSub->customText = *context;
-                    if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+                    if constexpr (BMCWEB_REDFISH_DBUS_LOG)
                     {
                         // Send an event for property change
                         DsEvent event =
@@ -914,7 +914,7 @@ inline void requestRoutesEventDestination(App& app)
                         }
                     }
                     subValue->userSub->httpHeaders = std::move(fields);
-                    if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+                    if constexpr (BMCWEB_REDFISH_DBUS_LOG)
                     {
                         // Send an event for property change
                         DsEvent event =
@@ -938,7 +938,7 @@ inline void requestRoutesEventDestination(App& app)
                         return;
                     }
                     subValue->userSub->retryPolicy = *retryPolicy;
-                    if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+                    if constexpr (BMCWEB_REDFISH_DBUS_LOG)
                     {
                         // Send an event for property change
                         DsEvent event = redfish::EventUtil::getInstance()

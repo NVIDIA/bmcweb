@@ -9,6 +9,7 @@
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
+#include "erot_chassis.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/action_info.hpp"
 #include "generated/enums/chassis.hpp"
@@ -819,9 +820,9 @@ inline void handleChassisGetSubTree(
             dbus::utility::getAllProperties(
                 *crow::connections::systemBus, connectionName, path,
                 "xyz.openbmc_project.Inventory.Decorator.Asset",
-                [asyncResp, chassisId,
-                 path](const boost::system::error_code&,
-                       const dbus::utility::DBusPropertiesMap& propertiesList) {
+                [asyncResp, chassisId, path, connectionName, interfaces2](
+                    const boost::system::error_code&,
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
                     redfish::nvidia_chassis_utils::
                         handleChassisGetAllProperties(
                             asyncResp, chassisId, path, propertiesList,
@@ -960,7 +961,7 @@ inline void handleChassisGet(
         std::bind_front(handlePhysicalSecurityGetSubTree, asyncResp));
 }
 
-inline void handleChassisPatch(
+inline void handleChassisGetPreCheck(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId)
@@ -970,7 +971,8 @@ inline void handleChassisPatch(
         return;
     }
     redfish::chassis_utils::isEROTChassis(
-        chassisId, [req, asyncResp, chassisId](bool isEROT, bool isCpuEROT) {
+        chassisId,
+        [&app, req, asyncResp, chassisId](bool isEROT, bool isCpuEROT) {
             if (isEROT)
             {
                 BMCWEB_LOG_DEBUG(" EROT chassis");
@@ -978,20 +980,20 @@ inline void handleChassisPatch(
             }
             else
             {
-                handleChassisGet(asyncResp, chassisId);
+                handleChassisGet(app, req, asyncResp, chassisId);
             }
         });
 }
 
 inline void handleChassisPatch(
-    const crow::Request& req,
+    App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& param)
 {
-    // if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    // {
-    //     return;
-    // }
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
     std::optional<bool> locationIndicatorActive;
     std::optional<std::string> indicatorLed;
     std::optional<nlohmann::json> oemJsonObj;
@@ -1228,7 +1230,7 @@ inline void handleChassisPatchReq(
         return;
     }
     redfish::chassis_utils::isEROTChassis(
-        param, [req, asyncResp, param](bool isEROT, bool isCpuEROT) {
+        param, [&app, req, asyncResp, param](bool isEROT, bool isCpuEROT) {
             if (isEROT)
             {
                 BMCWEB_LOG_DEBUG(" EROT chassis");
@@ -1236,7 +1238,7 @@ inline void handleChassisPatchReq(
             }
             else
             {
-                handleChassisPatch(req, asyncResp, param);
+                handleChassisPatch(app, req, asyncResp, param);
             }
         });
 }

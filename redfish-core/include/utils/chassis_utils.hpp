@@ -5,16 +5,21 @@
 #include "background_copy.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "in_band.hpp"
 #include "logging.hpp"
 #include "nvidia_async_call_utils.hpp"
+#include "utils/dbus_utils.hpp"
 
+#include <boost/container/flat_map.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
 #include <array>
+#include <fstream>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace redfish
 {

@@ -177,7 +177,7 @@ inline void requestRoutesManagerResetAction(App& app)
                     return;
                 }
 
-                if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+                if constexpr (BMCWEB_REDFISH_DBUS_LOG)
                 {
                     sendRestartEvent(req, resetType);
                 }
@@ -283,7 +283,7 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
                 return;
             }
 
-            if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+            if constexpr (BMCWEB_REDFISH_DBUS_LOG)
             {
                 sendFactoryResetEvent(req);
             }

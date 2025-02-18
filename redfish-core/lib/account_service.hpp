@@ -1144,12 +1144,13 @@ inline void afterVerifyUserExists(
                                                "Password");
             // update the resolution message
             std::string resolution;
-            if (!checkPasswordQuality(username, *password, resolution))
+            if (!checkPasswordQuality(params.username, *params.password,
+                                      resolution))
             {
                 redfish::message_registries::updateResolution(
                     asyncResp, "Password", resolution);
                 BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
-                handle_nvidia_resolution(asyncResp, password);
+                handle_nvidia_resolution(asyncResp, params.password);
             }
             else
             {

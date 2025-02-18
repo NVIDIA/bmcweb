@@ -844,7 +844,7 @@ inline void sendRestartEvent(const crow::Request& req, std::string& resetType)
     if (resetType == "GracefulRestart" || resetType == "ForceRestart" ||
         resetType == "GracefulShutdown")
     {
-        if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+        if constexpr (BMCWEB_REDFISH_DBUS_LOG)
         {
             // Send an event for Manager Reset
             DsEvent event =
@@ -858,7 +858,7 @@ inline void sendRestartEvent(const crow::Request& req, std::string& resetType)
 
 inline void sendFactoryResetEvent(const crow::Request& req)
 {
-    if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+    if constexpr (BMCWEB_REDFISH_DBUS_LOG)
     {
         // Send an event for reset to defaults
         DsEvent event =

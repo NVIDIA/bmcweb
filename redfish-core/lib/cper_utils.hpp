@@ -17,9 +17,12 @@
 
 #pragma once
 
+#include "logging.hpp"
 #include "utils/dbus_log_utils.hpp"
 
 #include <boost/url/format.hpp>
+#include <boost/url/url.hpp>
+#include <nlohmann/json.hpp>
 
 #include <map>
 #include <optional>
@@ -326,10 +329,10 @@ inline void parseAdditionalDataForCPER(
         }
         else
         {
-            jOut["Links"]["OriginOfCondition"]["@odata.id"] = *origin;
             // Eventing needs ooc as a string
             // maintain support for sendEventWithOOC()
             originStr = std::string((*origin).buffer());
+            jOut["Links"]["OriginOfCondition"]["@odata.id"] = originStr;
         }
     }
 

@@ -475,7 +475,7 @@ inline void getCpuRevisionData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
 }
 
 inline void getAcceleratorDataByService(
-    std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& acclrtrId,
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp, const std::string& acclrtrId,
     const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get available system Accelerator resources by service.");
@@ -487,7 +487,7 @@ inline void getAcceleratorDataByService(
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
-                messages::internalError(aResp->res);
+                messages::internalError(asyncResp->res);
                 return;
             }
 
@@ -506,7 +506,7 @@ inline void getAcceleratorDataByService(
 
             if (!success)
             {
-                messages::internalError(aResp->res);
+                messages::internalError(asyncResp->res);
                 return;
             }
 
@@ -536,12 +536,12 @@ inline void getAcceleratorDataByService(
                 (void)functional;
             }
 
-            aResp->res.jsonValue["Id"] = acclrtrId;
-            aResp->res.jsonValue["Name"] = "Processor";
-            aResp->res.jsonValue["Status"]["State"] = state;
+            asyncResp->res.jsonValue["Id"] = acclrtrId;
+            asyncResp->res.jsonValue["Name"] = "Processor";
+            asyncResp->res.jsonValue["Status"]["State"] = state;
             if constexpr (!BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
             {
-                aResp->res.jsonValue["Status"]["Health"] = health;
+                asyncResp->res.jsonValue["Status"]["Health"] = health;
             }
 
             // Nvidia Added Code Block: Handling for Health, ProcessorType
@@ -567,16 +567,16 @@ inline void getAcceleratorDataByService(
                     // disable-health-rollup=disabled."
                 }
 
-                health_utils::getDeviceHealthInfo(aResp->res, acclrtrId);
+                health_utils::getDeviceHealthInfo(asyncResp->res, acclrtrId);
 
                 if (accType != nullptr && !accType->empty())
                 {
-                    aResp->res.jsonValue["ProcessorType"] =
+                    asyncResp->res.jsonValue["ProcessorType"] =
                         processor::ProcessorType::Accelerator;
                 }
                 if (operationalState != nullptr && !operationalState->empty())
                 {
-                    aResp->res.jsonValue["Status"]["State"] =
+                    asyncResp->res.jsonValue["Status"]["State"] =
                         redfish::chassis_utils::getPowerStateType(
                             *operationalState);
                 }
@@ -586,12 +586,12 @@ inline void getAcceleratorDataByService(
     if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
     {
         std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
-            objPath, [aResp](const std::string& rootHealth,
-                             const std::string& healthRollup) {
-                aResp->res.jsonValue["Status"]["Health"] = rootHealth;
+            objPath, [asyncResp](const std::string& rootHealth,
+                                 const std::string& healthRollup) {
+                asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
                 if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
                 {
-                    aResp->res.jsonValue["Status"]["HealthRollup"] =
+                    asyncResp->res.jsonValue["Status"]["HealthRollup"] =
                         healthRollup;
                 }
             });
@@ -613,13 +613,13 @@ using OperatingConfigProperties =
  * Fill out the HighSpeedCoreIDs in a Processor resource from the given
  * OperatingConfig D-Bus property.
  *
- * @param[in,out]   aResp               Async HTTP response.
+ * @param[in,out]   asyncResp               Async HTTP response.
  * @param[in]       baseSpeedSettings   Full list of base speed priority groups,
  *                                      to use to determine the list of high
  *                                      speed cores.
  */
 inline void highSpeedCoreIdsHandler(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const BaseSpeedPrioritySettingsProperty& baseSpeedSettings)
 {
     // The D-Bus property does not indicate which bucket is the "high
@@ -638,7 +638,7 @@ inline void highSpeedCoreIdsHandler(
         }
     }
 
-    nlohmann::json& jsonCoreIds = aResp->res.jsonValue["HighSpeedCoreIDs"];
+    nlohmann::json& jsonCoreIds = asyncResp->res.jsonValue["HighSpeedCoreIDs"];
     jsonCoreIds = nlohmann::json::array();
 
     // There may not be any entries in the D-Bus property, so only populate
@@ -653,7 +653,7 @@ inline void highSpeedCoreIdsHandler(
  * Fill out OperatingConfig related items in a Processor resource by requesting
  * data from the given D-Bus object.
  *
- * @param[in,out]   aResp       Async HTTP response.
+ * @param[in,out]   asyncResp       Async HTTP response.
  * @param[in]       cpuId       CPU D-Bus name.
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
@@ -669,17 +669,17 @@ inline void getCpuConfigData(
     dbus::utility::getAllProperties(
         service, objPath,
         "xyz.openbmc_project.Control.Processor.CurrentOperatingConfig",
-        [aResp, cpuId,
+        [asyncResp, cpuId,
          service](const boost::system::error_code ec,
                   const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_WARNING("D-Bus error: {}, {}", ec, ec.message());
-                messages::internalError(aResp->res);
+                messages::internalError(asyncResp->res);
                 return;
             }
 
-            nlohmann::json& json = aResp->res.jsonValue;
+            nlohmann::json& json = asyncResp->res.jsonValue;
 
             const sdbusplus::message::object_path* appliedConfig = nullptr;
             const bool* baseSpeedPriorityEnabled = nullptr;
@@ -691,7 +691,7 @@ inline void getCpuConfigData(
 
             if (!success)
             {
-                messages::internalError(aResp->res);
+                messages::internalError(asyncResp->res);
                 return;
             }
 
@@ -713,7 +713,7 @@ inline void getCpuConfigData(
                     // If the AppliedConfig was somehow not a valid path,
                     // skip adding any more properties, since everything
                     // else is tied to this applied config.
-                    messages::internalError(aResp->res);
+                    messages::internalError(asyncResp->res);
                     return;
                 }
                 nlohmann::json::object_t appliedOperatingConfig;
@@ -732,18 +732,18 @@ inline void getCpuConfigData(
                     "xyz.openbmc_project.Inventory.Item.Cpu."
                     "OperatingConfig",
                     "BaseSpeedPrioritySettings",
-                    [aResp](const boost::system::error_code& ec2,
-                            const BaseSpeedPrioritySettingsProperty&
-                                baseSpeedList) {
+                    [asyncResp](const boost::system::error_code& ec2,
+                                const BaseSpeedPrioritySettingsProperty&
+                                    baseSpeedList) {
                         if (ec2)
                         {
                             BMCWEB_LOG_WARNING("D-Bus Property Get error: {}",
                                                ec2);
-                            messages::internalError(aResp->res);
+                            messages::internalError(asyncResp->res);
                             return;
                         }
 
-                        highSpeedCoreIdsHandler(aResp, baseSpeedList);
+                        highSpeedCoreIdsHandler(asyncResp, baseSpeedList);
                     });
             }
 
@@ -759,11 +759,11 @@ inline void getCpuConfigData(
  * @brief Fill out location info of a processor by
  * requesting data from the given D-Bus object.
  *
- * @param[in,out]   aResp       Async HTTP response.
+ * @param[in,out]   asyncResp       Async HTTP response.
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-inline void getCpuLocationCode(std::shared_ptr<bmcweb::AsyncResp> aResp,
+inline void getCpuLocationCode(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                                const std::string& service,
                                const std::string& objPath)
 {
@@ -771,7 +771,7 @@ inline void getCpuLocationCode(std::shared_ptr<bmcweb::AsyncResp> aResp,
     dbus::utility::getProperty<std::string>(
         service, objPath,
         "xyz.openbmc_project.Inventory.Decorator.LocationCode", "LocationCode",
-        [objPath, asyncResp{std::move(aResp)}](
+        [objPath, asyncResp{std::move(asyncResp)}](
             const boost::system::error_code& ec, const std::string& property) {
             if (ec)
             {
@@ -790,11 +790,11 @@ inline void getCpuLocationCode(std::shared_ptr<bmcweb::AsyncResp> aResp,
  * Populate the unique identifier in a Processor resource by requesting data
  * from the given D-Bus object.
  *
- * @param[in,out]   aResp       Async HTTP response.
+ * @param[in,out]   asyncResp       Async HTTP response.
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-inline void getCpuUniqueId(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+inline void getCpuUniqueId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& service,
                            const std::string& objectPath)
 {
@@ -803,14 +803,14 @@ inline void getCpuUniqueId(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         service, objectPath,
         "xyz.openbmc_project.Inventory.Decorator.UniqueIdentifier",
         "UniqueIdentifier",
-        [aResp](boost::system::error_code ec, const std::string& id) {
+        [asyncResp](boost::system::error_code ec, const std::string& id) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Failed to read cpu unique id: {}", ec);
-                messages::internalError(aResp->res);
+                messages::internalError(asyncResp->res);
                 return;
             }
-            aResp->res
+            asyncResp->res
                 .jsonValue["ProcessorId"]["ProtectedIdentificationNumber"] = id;
         });
 }
@@ -819,24 +819,25 @@ inline void getCpuUniqueId(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
  * Request all the properties for the given D-Bus object and fill out the
  * related entries in the Redfish OperatingConfig response.
  *
- * @param[in,out]   aResp       Async HTTP response.
+ * @param[in,out]   asyncResp       Async HTTP response.
  * @param[in]       service     D-Bus service name to query.
  * @param[in]       objPath     D-Bus object to query.
  */
 inline void getOperatingConfigData(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
-    const std::string& objPath, const std::string& deviceType)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& objPath,
+    const std::string& deviceType)
 {
     dbus::utility::getAllProperties(
         service, objPath,
         "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig",
-        [aResp,
+        [asyncResp,
          deviceType](const boost::system::error_code ec,
                      const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_WARNING("D-Bus error: {}, {}", ec, ec.message());
-                messages::internalError(aResp->res);
+                messages::internalError(asyncResp->res);
                 return;
             }
 
@@ -867,11 +868,11 @@ inline void getOperatingConfigData(
 
             if (!success)
             {
-                messages::internalError(aResp->res);
+                messages::internalError(asyncResp->res);
                 return;
             }
 
-            nlohmann::json& json = aResp->res.jsonValue;
+            nlohmann::json& json = asyncResp->res.jsonValue;
 
             if (availableCoreCount != nullptr &&
                 deviceType != "xyz.openbmc_project.Inventory.Item.Accelerator")
@@ -957,19 +958,22 @@ inline void getOperatingConfigData(
 }
 
 inline void getProcessorMigModeData(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
-    const std::string& service, const std::string& objPath)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& cpuId, const std::string& service,
+    const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG(" get GpuMIGMode data");
-    redfish::nvidia_processor::getMigModeData(aResp, cpuId, service, objPath);
+    redfish::nvidia_processor::getMigModeData(asyncResp, cpuId, service,
+                                              objPath);
 }
 
 inline void getProcessorEgmModeData(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
-    const std::string& service, const std::string& objPath)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& cpuId, const std::string& service,
+    const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG(" get EGMMode data");
-    redfish::nvidia_processor_utils::getEgmModeData(aResp, cpuId, service,
+    redfish::nvidia_processor_utils::getEgmModeData(asyncResp, cpuId, service,
                                                     objPath);
 }
 
@@ -982,54 +986,59 @@ inline void getProcessorSystemGUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
 }
 
 inline void getMNNVLinkTopologyInfo(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
-    const std::string& service, const std::string& objPath,
-    const std::string& interface)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& cpuId, const std::string& service,
+    const std::string& objPath, const std::string& interface)
 {
     BMCWEB_LOG_DEBUG("Get MNNVLinkTopologyInfo");
     redfish::nvidia_processor_utils::getMNNVLinkTopologyInfo(
-        aResp, cpuId, service, objPath, interface);
+        asyncResp, cpuId, service, objPath, interface);
 }
 
 inline void getProcessorCCModeData(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
-    const std::string& service, const std::string& objPath)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& cpuId, const std::string& service,
+    const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG(" get GpuCCMode data");
-    redfish::nvidia_processor_utils::getCCModeData(aResp, cpuId, service,
+    redfish::nvidia_processor_utils::getCCModeData(asyncResp, cpuId, service,
                                                    objPath);
 }
 
 inline void getPowerSmoothingInfo(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, std::string processorId,
-    const std::string& service, const std::string& objPath)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string processorId, const std::string& service,
+    const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG(" get getPowerSmoothingInfo data");
     redfish::nvidia_processor_utils::getPowerSmoothingInfo(
-        aResp, processorId, service, objPath);
+        asyncResp, processorId, service, objPath);
 }
 
 inline void getResetMetricsInfo(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, std::string processorId,
-    const std::string& service, const std::string& objPath)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string processorId, const std::string& service,
+    const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG(" get getResetMetricsInfo data");
-    redfish::nvidia_processor_utils::getResetMetricsInfo(aResp, processorId,
+    redfish::nvidia_processor_utils::getResetMetricsInfo(asyncResp, processorId,
                                                          service, objPath);
 }
 
 inline void getWorkLoadPowerInfo(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, std::string processorId)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string processorId)
 {
     BMCWEB_LOG_DEBUG(" get getWorkLoadPowerInfo data");
-    redfish::nvidia_processor_utils::getWorkLoadPowerInfo(aResp, processorId);
+    redfish::nvidia_processor_utils::getWorkLoadPowerInfo(
+        asyncResp, processorId);
 }
 
-inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                             const std::string& processorId,
-                             const std::string& objectPath,
-                             const dbus::utility::MapperServiceMap& serviceMap,
-                             const std::string& deviceType)
+inline void getProcessorData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId, const std::string& objectPath,
+    const dbus::utility::MapperServiceMap& serviceMap,
+    const std::string& deviceType)
 {
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
@@ -1037,184 +1046,188 @@ inline void getProcessorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         {
             if (interface == "xyz.openbmc_project.Inventory.Decorator.Asset")
             {
-                getCpuAssetData(aResp, serviceName, objectPath);
+                getCpuAssetData(asyncResp, serviceName, objectPath);
             }
             else if (interface ==
                      "xyz.openbmc_project.Inventory.Decorator.Revision")
             {
-                getCpuRevisionData(aResp, serviceName, objectPath);
+                getCpuRevisionData(asyncResp, serviceName, objectPath);
             }
             else if (interface == "xyz.openbmc_project.Inventory.Item.Cpu")
             {
-                getCpuDataByService(aResp, processorId, serviceName,
+                getCpuDataByService(asyncResp, processorId, serviceName,
                                     objectPath);
                 if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                 {
                     redfish::nvidia_processor::getRemoteDebugState(
-                        aResp, serviceName, objectPath);
+                        asyncResp, serviceName, objectPath);
                 }
             }
             else if (interface ==
                      "xyz.openbmc_project.Inventory.Item.Accelerator")
             {
-                getAcceleratorDataByService(aResp, processorId, serviceName,
+                getAcceleratorDataByService(asyncResp, processorId, serviceName,
                                             objectPath);
             }
             else if (
                 interface ==
                 "xyz.openbmc_project.Control.Processor.CurrentOperatingConfig")
             {
-                getCpuConfigData(aResp, processorId, serviceName, objectPath);
+                getCpuConfigData(asyncResp, processorId, serviceName,
+                                 objectPath);
             }
             else if (interface ==
                      "xyz.openbmc_project.Inventory.Decorator.LocationCode")
             {
-                getCpuLocationCode(aResp, serviceName, objectPath);
+                getCpuLocationCode(asyncResp, serviceName, objectPath);
             }
             else if (interface ==
                      "xyz.openbmc_project.Inventory.Decorator.LocationContext")
             {
                 redfish::nvidia_processor::getProcessorLocationContext(
-                    aResp, serviceName, objectPath);
+                    asyncResp, serviceName, objectPath);
             }
             else if (interface == "xyz.openbmc_project.Inventory."
                                   "Decorator.Location")
             {
                 redfish::nvidia_processor::getCpuLocationType(
-                    aResp, serviceName, objectPath);
+                    asyncResp, serviceName, objectPath);
             }
             else if (interface == "xyz.openbmc_project.Common.UUID")
             {
-                getProcessorUUID(aResp, serviceName, objectPath);
+                getProcessorUUID(asyncResp, serviceName, objectPath);
             }
             else if (interface ==
                      "xyz.openbmc_project.Inventory.Decorator.UniqueIdentifier")
             {
-                getCpuUniqueId(aResp, serviceName, objectPath);
+                getCpuUniqueId(asyncResp, serviceName, objectPath);
             }
             else if (interface ==
                      "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig")
             {
-                getOperatingConfigData(aResp, serviceName, objectPath,
+                getOperatingConfigData(asyncResp, serviceName, objectPath,
                                        deviceType);
             }
             else if (interface ==
                      "xyz.openbmc_project.Inventory.Item.PersistentMemory")
             {
                 redfish::nvidia_processor::getProcessorMemoryData(
-                    aResp, processorId, serviceName, objectPath);
+                    asyncResp, processorId, serviceName, objectPath);
             }
             else if (interface == "xyz.openbmc_project.Memory.MemoryECC")
             {
                 redfish::nvidia_processor::getProcessorEccModeData(
-                    aResp, processorId, serviceName, objectPath);
+                    asyncResp, processorId, serviceName, objectPath);
             }
             else if (interface == "xyz.openbmc_project.Inventory."
                                   "Decorator.FpgaType")
             {
-                redfish::nvidia_processor::getFpgaTypeData(aResp, serviceName,
-                                                           objectPath);
+                redfish::nvidia_processor::getFpgaTypeData(
+                    asyncResp, serviceName, objectPath);
             }
             else if (interface == "xyz.openbmc_project.Control.Processor.Reset")
             {
                 redfish::nvidia_processor::getProcessorResetTypeData(
-                    aResp, processorId, serviceName, objectPath);
+                    asyncResp, processorId, serviceName, objectPath);
             }
             else if (interface ==
                      "xyz.openbmc_project.Inventory.Decorator.Replaceable")
             {
                 redfish::nvidia_processor::getProcessorReplaceable(
-                    aResp, serviceName, objectPath);
+                    asyncResp, serviceName, objectPath);
             }
 
             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
                 if (interface == "com.nvidia.MigMode")
                 {
-                    getProcessorMigModeData(aResp, processorId, serviceName,
+                    getProcessorMigModeData(asyncResp, processorId, serviceName,
                                             objectPath);
                 }
                 else if (interface == "com.nvidia.CCMode")
                 {
-                    getProcessorCCModeData(aResp, processorId, serviceName,
+                    getProcessorCCModeData(asyncResp, processorId, serviceName,
                                            objectPath);
                 }
                 else if (interface ==
                          "com.nvidia.PowerSmoothing.PowerSmoothing")
                 {
-                    getPowerSmoothingInfo(aResp, processorId, serviceName,
+                    getPowerSmoothingInfo(asyncResp, processorId, serviceName,
                                           objectPath);
                 }
                 else if (interface == "com.nvidia.NVLink.NvLinkTotalCount")
                 {
                     redfish::nvidia_processor_utils::getNvLinkTotalCount(
-                        aResp, processorId, serviceName, objectPath);
+                        asyncResp, processorId, serviceName, objectPath);
                 }
                 else if (interface == "com.nvidia.PowerProfile.ProfileInfo")
                 {
-                    getWorkLoadPowerInfo(aResp, processorId);
+                    getWorkLoadPowerInfo(asyncResp, processorId);
                 }
                 else if (interface == "com.nvidia.SysGUID.SysGUID")
                 {
-                    getProcessorSystemGUID(aResp, serviceName, objectPath);
+                    getProcessorSystemGUID(asyncResp, serviceName, objectPath);
                 }
                 else if (interface == "com.nvidia.EgmMode")
                 {
-                    getProcessorEgmModeData(aResp, processorId, serviceName,
+                    getProcessorEgmModeData(asyncResp, processorId, serviceName,
                                             objectPath);
                 }
                 else if (interface == "com.nvidia.NVLink.MNNVLinkTopology")
                 {
-                    getMNNVLinkTopologyInfo(aResp, processorId, serviceName,
+                    getMNNVLinkTopologyInfo(asyncResp, processorId, serviceName,
                                             objectPath, interface);
                 }
                 else if (
                     interface ==
                     "com.nvidia.ResetCounters.ResetCounterMetricsSupported")
                 {
-                    getResetMetricsInfo(aResp, processorId, serviceName,
+                    getResetMetricsInfo(asyncResp, processorId, serviceName,
                                         objectPath);
                 }
             }
         }
     }
 
-    getComponentFirmwareVersion(aResp, objectPath);
-    redfish::nvidia_processor_utils::getOperatingSpeedRange(aResp, objectPath);
+    getComponentFirmwareVersion(asyncResp, objectPath);
+    redfish::nvidia_processor_utils::getOperatingSpeedRange(
+        asyncResp, objectPath);
 
-    aResp->res.jsonValue["EnvironmentMetrics"] = {
+    asyncResp->res.jsonValue["EnvironmentMetrics"] = {
         {"@odata.id",
          "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
              "/Processors/" + processorId + "/EnvironmentMetrics"}};
-    aResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] =
+    asyncResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] =
         "#Settings.v1_3_3.Settings";
-    aResp->res.jsonValue["@Redfish.Settings"]["SettingsObject"] = {
+    asyncResp->res.jsonValue["@Redfish.Settings"]["SettingsObject"] = {
         {"@odata.id",
          "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
              "/Processors/" + processorId + "/Settings"}};
 
-    aResp->res.jsonValue["Ports"] = {
+    asyncResp->res.jsonValue["Ports"] = {
         {"@odata.id",
          "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
              "/Processors/" + processorId + "/Ports"}};
     // Links association to underneath memory
-    redfish::nvidia_processor::getProcessorMemoryLinks(aResp, objectPath);
+    redfish::nvidia_processor::getProcessorMemoryLinks(asyncResp, objectPath);
     // Link association to parent chassis
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        redfish::nvidia_processor::getProcessorChassisLink(aResp, objectPath,
-                                                           serviceName);
+        redfish::nvidia_processor::getProcessorChassisLink(
+            asyncResp, objectPath, serviceName);
     }
     // Get system and fpga interfaces properties
     redfish::nvidia_processor::getProcessorSystemPCIeInterface(
-        aResp, objectPath);
-    redfish::nvidia_processor::getProcessorFPGAPCIeInterface(aResp, objectPath);
+        asyncResp, objectPath);
+    redfish::nvidia_processor::getProcessorFPGAPCIeInterface(
+        asyncResp, objectPath);
 
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-        nvidia_processor_utils::getReconfigPermissionsData(aResp, processorId,
-                                                           objectPath);
-        nvidia_processor_utils::populateErrorInjectionData(aResp, processorId);
+        nvidia_processor_utils::getReconfigPermissionsData(
+            asyncResp, processorId, objectPath);
+        nvidia_processor_utils::populateErrorInjectionData(asyncResp,
+                                                           processorId);
     }
 }
 

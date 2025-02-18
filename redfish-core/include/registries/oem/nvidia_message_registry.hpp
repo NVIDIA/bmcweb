@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 /****************************************************************
  *                 READ THIS WARNING FIRST
@@ -20,12 +22,13 @@ namespace redfish::registries::nvidia
 const Header header = {
     "Copyright 2024 Nvidia. All rights reserved.",
     "#MessageRegistry.v1_4_0.MessageRegistry",
-    "NvidiaUpdate.1.0.0",
+    1,
+    0,
+    0,
     "Nvidia Message Registry",
     "en",
     "This registry defines the update messages for Nvidia.",
     "NvidiaUpdate",
-    "1.0.0",
     "Nvidia",
 };
 constexpr const char* url =
