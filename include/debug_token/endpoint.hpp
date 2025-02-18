@@ -60,7 +60,7 @@ class DebugTokenEndpoint
     {
         return request;
     }
-    virtual void setRequest(std::vector<uint8_t>&) = 0;
+    virtual void setRequest(const std::vector<uint8_t>&) = 0;
 
     virtual void getStatusAsJson(nlohmann::json&) const = 0;
 
@@ -105,10 +105,10 @@ class DebugTokenNsmEndpoint : public DebugTokenEndpoint
         return objectPath;
     }
 
-    void setRequest(std::vector<uint8_t>& r) override
+    void setRequest(const std::vector<uint8_t>& r) override
     {
-        NsmDebugTokenRequest* nsmReq =
-            reinterpret_cast<NsmDebugTokenRequest*>(r.data());
+        const NsmDebugTokenRequest* nsmReq =
+            reinterpret_cast<const NsmDebugTokenRequest*>(r.data());
         switch (nsmReq->status)
         {
             case NsmDebugTokenChallengeQueryStatus::OK:
@@ -154,6 +154,11 @@ class DebugTokenNsmEndpoint : public DebugTokenEndpoint
         state = EndpointState::StatusAcquired;
     }
 
+    void setStatus(NsmTokenStatus s)
+    {
+        setStatus(std::make_unique<NsmTokenStatus>(s));
+    }
+
     void setStatus(EndpointState s)
     {
         state = s;
@@ -191,7 +196,7 @@ class DebugTokenSpdmEndpoint : public DebugTokenEndpoint
         return mctpEp.getSpdmObject();
     }
 
-    void setRequest(std::vector<uint8_t>& r) override
+    void setRequest(const std::vector<uint8_t>& r) override
     {
         state = EndpointState::RequestAcquired;
         request = addTokenRequestHeader(r);
