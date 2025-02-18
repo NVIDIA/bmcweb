@@ -6,16 +6,9 @@
 #include "bmcweb_config.h"
 
 #include "app.hpp"
-#include "async_resp.hpp"
-#include "dbus_singleton.hpp"
+#include "component_integrity.hpp"
 #include "dbus_utility.hpp"
 #include "debug_token/erase_policy.hpp"
-#include "error_messages.hpp"
-#include "generated/enums/resource.hpp"
-#include "generated/enums/update_service.hpp"
-#include "http_request.hpp"
-#include "http_response.hpp"
-#include "logging.hpp"
 #include "multipart_parser.hpp"
 #include "nvidia_update_service.hpp"
 #include "ossl_random.hpp"
@@ -23,33 +16,22 @@
 #include "query.hpp"
 #include "redfish_aggregator.hpp"
 #include "registries/privilege_registry.hpp"
-#include "str_utility.hpp"
 #include "task.hpp"
-#include "task_messages.hpp"
-#include "utility.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/sw_utils.hpp"
 
 #include <sys/mman.h>
-#include <unistd.h>
 
-#include <boost/asio/error.hpp>
-#include <boost/asio/steady_timer.hpp>
-#include <boost/beast/http/fields.hpp>
-#include <boost/beast/http/status.hpp>
-#include <boost/beast/http/verb.hpp>
+#include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
-#include <boost/system/result.hpp>
 #include <boost/url/format.hpp>
-#include <boost/url/parse.hpp>
-#include <boost/url/url.hpp>
-#include <boost/url/url_view.hpp>
-#include <boost/url/url_view_base.hpp>
+#include <boost/uuid/uuid_generators.hpp>
+#include <boost/uuid/uuid_io.hpp>
+#include <http_client.hpp>
+#include <http_connection.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/bus/match.hpp>
-#include <sdbusplus/message.hpp>
-#include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <update_messages.hpp>
 #include <utils/conditions_utils.hpp>
@@ -57,21 +39,14 @@
 #include <utils/fw_utils.hpp>
 
 #include <array>
-#include <chrono>
 #include <cstddef>
-#include <cstdint>
-#include <cstdio>
 #include <filesystem>
-#include <format>
-#include <fstream>
 #include <functional>
-#include <memory>
+#include <iterator>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
-#include <utility>
-#include <variant>
 #include <vector>
 
 namespace redfish
@@ -682,8 +657,12 @@ inline std::optional<boost::urls::url> parseSimpleUpdateUrl(
                 res, imageURI, "ImageURI", "UpdateService.SimpleUpdate");
             return std::nullopt;
         }
-        // OpenBMC currently only supports HTTPS
-        if (*transferProtocol == "HTTPS")
+        // OpenBMC currently only supports TFTP or HTTPS
+        if (*transferProtocol == "TFTP")
+        {
+            imageURI = "tftp://" + imageURI;
+        }
+        else if (*transferProtocol == "HTTPS")
         {
             imageURI = "https://" + imageURI;
         }
@@ -764,7 +743,7 @@ inline void downloadViaSCP(
                      params->remoteServerIP, params->fwImagePath, targetPath,
                      params->transferProtocol);
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec) {
+        [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);
@@ -791,7 +770,7 @@ inline void downloadViaHTTP(
                      params->remoteServerIP, params->fwImagePath, targetPath,
                      params->transferProtocol);
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec) {
+        [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);
@@ -855,7 +834,7 @@ inline void downloadFirmwareImageToTarget(
         service, objPath);
     crow::connections::systemBus->async_method_call(
         [request, asyncResp,
-         params](const boost::system::error_code ec,
+         params](const boost::system::error_code& ec,
                  const std::variant<std::string>& property) {
             if (ec)
             {
@@ -919,7 +898,7 @@ inline void setUpdaterForceUpdateProperty(
         (params->forceUpdate ? "true" : "false"));
     crow::connections::systemBus->async_method_call(
         [request, asyncResp, params, serviceName,
-         fwItemObjPath](const boost::system::error_code ec) {
+         fwItemObjPath](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -957,7 +936,7 @@ inline void findObjectPathAssociatedWithService(
         serviceName, rootPath);
     crow::connections::systemBus->async_method_call(
         [request, asyncResp, params, serviceName, fwItemObjPath,
-         rootPath](const boost::system::error_code ec,
+         rootPath](const boost::system::error_code& ec,
                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -1053,7 +1032,7 @@ inline void findAssociatedUpdaterService(
                      fwItemObjPath);
     crow::connections::systemBus->async_method_call(
         [request, asyncResp, params,
-         fwItemObjPath](const boost::system::error_code ec,
+         fwItemObjPath](const boost::system::error_code& ec,
                         const MapperServiceMap& objInfo) {
             if (ec)
             {
@@ -1310,7 +1289,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                 crow::connections::systemBus->async_method_call(
                     [req, asyncResp, objName, fwFile, server, transferProtocol,
                      username](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& objInfo) {
                         if (ec)
@@ -1339,7 +1318,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                         crow::connections::systemBus->async_method_call(
                             [req, asyncResp, fwFile, server, transferProtocol,
                              username](
-                                const boost::system::error_code ecPath,
+                                const boost::system::error_code& ecPath,
                                 const std::variant<std::string>& property) {
                                 if (ecPath)
                                 {
@@ -1387,7 +1366,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                                     // not necessary
                                     crow::connections::systemBus->async_method_call(
                                         [asyncResp](
-                                            const boost::system::error_code
+                                            const boost::system::error_code&
                                                 ecSCP) {
                                             if (ecSCP)
                                             {
@@ -1415,7 +1394,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                                     // Call HTTP/HTTPS service
                                     crow::connections::systemBus->async_method_call(
                                         [asyncResp](
-                                            const boost::system::error_code
+                                            const boost::system::error_code&
                                                 ecH) {
                                             if (ecH)
                                             {
@@ -1635,7 +1614,7 @@ inline void setOemUpdateOption(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, oemUpdateOption, callback](
-            const boost::system::error_code errorCode,
+            const boost::system::error_code& errorCode,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) mutable {
             if (errorCode)
@@ -1713,7 +1692,7 @@ inline void setOemUpdateOption(
  * @return None
  */
 inline void validateUpdatePolicyCallback(
-    const boost::system::error_code errorCode,
+    const boost::system::error_code& errorCode,
     const dbus::utility::MapperServiceMap& objInfo,
     const std::shared_ptr<const crow::Request>& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1747,7 +1726,7 @@ inline void validateUpdatePolicyCallback(
 
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, objInfo,
-         oemUpdateOption](const boost::system::error_code ec) mutable {
+         oemUpdateOption](const boost::system::error_code& ec) mutable {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("error_code = {}", ec);
@@ -1827,7 +1806,7 @@ inline void areTargetsUpdateableCallback(
 
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, targets, oemUpdateOption](
-            const boost::system::error_code errorCode,
+            const boost::system::error_code& errorCode,
             const dbus::utility::MapperServiceMap& objInfo) mutable {
             validateUpdatePolicyCallback(errorCode, objInfo, req, asyncResp,
                                          targets, oemUpdateOption);
@@ -1858,7 +1837,7 @@ inline void areTargetsUpdateable(
 {
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, uriTargets,
-         oemUpdateOption](const boost::system::error_code ec,
+         oemUpdateOption](const boost::system::error_code& ec,
                           const std::vector<std::string>& swInvPaths) {
             if (ec)
             {
@@ -1873,7 +1852,7 @@ inline void areTargetsUpdateable(
                 "/xyz/openbmc_project/software/updateable",
                 "xyz.openbmc_project.Association", "endpoints",
                 [req, asyncResp, uriTargets, swInvPaths,
-                 oemUpdateOption](const boost::system::error_code ec,
+                 oemUpdateOption](const boost::system::error_code& ec,
                                   const std::vector<std::string>& objPaths) {
                     areTargetsUpdateableCallback(ec, objPaths, req, asyncResp,
                                                  uriTargets, swInvPaths,
@@ -2574,7 +2553,7 @@ inline void setForceUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, forceUpdate, objpath, callback](
-            const boost::system::error_code errorCode,
+            const boost::system::error_code& errorCode,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) mutable {
             if (errorCode)
@@ -2602,7 +2581,7 @@ inline void setForceUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             crow::connections::systemBus->async_method_call(
                 [asyncResp,
-                 callback](const boost::system::error_code errCodePolicy) {
+                 callback](const boost::system::error_code& errCodePolicy) {
                     if (errCodePolicy)
                     {
                         BMCWEB_LOG_ERROR("error_code = {}", errCodePolicy);
@@ -3563,7 +3542,7 @@ inline void requestRoutesUpdateService(App& app)
                 std::make_shared<BMCStatusAsyncResp>(asyncResp);
             crow::connections::systemBus->async_method_call(
                 [asyncResp, getUpdateStatus](
-                    const boost::system::error_code errorCode,
+                    const boost::system::error_code& errorCode,
                     const std::vector<
                         std::pair<std::string, std::vector<std::string>>>&
                         objInfo) mutable {
@@ -3593,7 +3572,7 @@ inline void requestRoutesUpdateService(App& app)
                     }
 
                     crow::connections::systemBus->async_method_call(
-                        [asyncResp](const boost::system::error_code ec,
+                        [asyncResp](const boost::system::error_code& ec,
                                     GetManagedPropertyType& resp) {
                             if (ec)
                             {
@@ -3649,7 +3628,7 @@ inline void requestRoutesUpdateService(App& app)
                     "xyz.openbmc_project.Software.UpdatePolicy"});
 
             crow::connections::systemBus->async_method_call(
-                [getUpdateStatus](boost::system::error_code ec,
+                [getUpdateStatus](boost::system::error_code& ec,
                                   const dbus::utility::MapperGetSubTreeResponse&
                                       subtree) mutable {
                     if (ec || !subtree.size())
@@ -3673,7 +3652,7 @@ inline void requestRoutesUpdateService(App& app)
                 *crow::connections::systemBus, "xyz.openbmc_project.State.BMC",
                 "/xyz/openbmc_project/state/bmc0",
                 "xyz.openbmc_project.State.BMC", "CurrentBMCState",
-                [getUpdateStatus](const boost::system::error_code ec,
+                [getUpdateStatus](const boost::system::error_code& ec,
                                   const std::string& bmcState) mutable {
                     if (ec)
                     {
@@ -3688,7 +3667,7 @@ inline void requestRoutesUpdateService(App& app)
                 *crow::connections::systemBus, "xyz.openbmc_project.State.Host",
                 "/xyz/openbmc_project/state/host0",
                 "xyz.openbmc_project.State.Host", "CurrentHostState",
-                [getUpdateStatus](const boost::system::error_code ec,
+                [getUpdateStatus](const boost::system::error_code& ec,
                                   const std::string& hostState) mutable {
                     if (ec)
                     {
@@ -3731,7 +3710,7 @@ inline void requestRoutesUpdateService(App& app)
             {
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, uriTargets{*imgTargets}](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const std::vector<std::string>& swInvPaths) {
                         if (ec)
                         {
@@ -3807,7 +3786,7 @@ inline void requestRoutesUpdateService(App& app)
                         }
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, httpPushUriTargets](
-                                const boost::system::error_code errorCode,
+                                const boost::system::error_code& errorCode,
                                 const std::vector<std::pair<
                                     std::string, std::vector<std::string>>>&
                                     objInfo) mutable {
@@ -3836,7 +3815,7 @@ inline void requestRoutesUpdateService(App& app)
                                 }
 
                                 crow::connections::systemBus->async_method_call(
-                                    [asyncResp](const boost::system::error_code
+                                    [asyncResp](const boost::system::error_code&
                                                     errCodePolicy) {
                                         if (errCodePolicy)
                                         {
@@ -3930,7 +3909,7 @@ inline void requestRoutesSoftwareInventoryCollection(App& app)
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
                     if (ec)
                     {
@@ -3958,7 +3937,7 @@ inline void requestRoutesSoftwareInventoryCollection(App& app)
 
                     crow::connections::systemBus->async_method_call(
                         [asyncResp, pathNames](
-                            const boost::system::error_code ec,
+                            const boost::system::error_code& ec,
                             const dbus::utility::MapperGetSubTreeResponse&
                                 subtree) mutable {
                             if (ec)
@@ -4038,7 +4017,7 @@ inline void requestRoutesInventorySoftwareCollection(App& app)
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const std::vector<std::pair<
                         std::string,
                         std::vector<
@@ -4121,7 +4100,7 @@ inline static void getRelatedItemsDrive(
 {
     // Drive is expected to be under a Chassis
     crow::connections::systemBus->async_method_call(
-        [aResp, objPath](const boost::system::error_code ec,
+        [aResp, objPath](const boost::system::error_code& ec,
                          const std::vector<std::string>& objects) {
             if (ec)
             {
@@ -4166,7 +4145,7 @@ inline static void getRelatedItemsStorageController(
     const sdbusplus::message::object_path& objPath)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp, objPath](const boost::system::error_code ec,
+        [aResp, objPath](const boost::system::error_code& ec,
                          const std::vector<std::string>& objects) {
             if (ec)
             {
@@ -4185,7 +4164,7 @@ inline static void getRelatedItemsStorageController(
 
                 crow::connections::systemBus->async_method_call(
                     [aResp, objPath,
-                     path](const boost::system::error_code errCodeController,
+                     path](const boost::system::error_code& errCodeController,
                            const dbus::utility::MapperGetSubTreeResponse&
                                subtree) {
                         if (errCodeController || !subtree.size())
@@ -4407,7 +4386,7 @@ inline static void getRelatedItemsOther(
     // Find supported device types.
     crow::connections::systemBus->async_method_call(
         [aResp, association](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objects) {
             if (ec)
@@ -4530,7 +4509,7 @@ inline static void getRelatedItemsOthers(
 
     crow::connections::systemBus->async_method_call(
         [aResp, swId](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string,
                 std::vector<std::pair<std::string, std::vector<std::string>>>>>&
@@ -4557,7 +4536,7 @@ inline static void getRelatedItemsOthers(
                     continue;
                 }
                 crow::connections::systemBus->async_method_call(
-                    [aResp](const boost::system::error_code errCodeAssoc,
+                    [aResp](const boost::system::error_code& errCodeAssoc,
                             std::variant<std::vector<std::string>>& resp) {
                         if (errCodeAssoc)
                         {
@@ -4651,8 +4630,9 @@ inline void getSoftwareVersion(
     const std::string& service, const std::string& path,
     const std::string& swId)
 {
-    dbus::utility::getAllProperties(
-        service, path, "xyz.openbmc_project.Software.Version",
+    sdbusplus::asio::getAllProperties(
+        *crow::connections::systemBus, service, path,
+        "xyz.openbmc_project.Software.Version",
         [asyncResp,
          swId](const boost::system::error_code& ec,
                const dbus::utility::DBusPropertiesMap& propertiesList) {
@@ -5018,7 +4998,7 @@ inline void requestRoutesUpdateServiceCommitImage(App& app)
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp{asyncResp}, req](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const std::vector<std::pair<
                         std::string,
                         std::vector<
@@ -5083,7 +5063,7 @@ inline void requestRoutesUpdateServiceCommitImage(App& app)
 
             crow::connections::systemBus->async_method_call(
                 [req, asyncResp{asyncResp}](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const std::vector<std::pair<
                         std::string,
                         std::vector<
@@ -5285,7 +5265,7 @@ inline void requestRoutesSoftwareInventory(App& app)
                         {
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, swId](
-                                    const boost::system::error_code errorCode,
+                                    const boost::system::error_code& errorCode,
                                     const boost::container::flat_map<
                                         std::string,
                                         dbus::utility::DbusVariantType>&
@@ -5518,7 +5498,7 @@ inline void requestRoutesInventorySoftware(App& app)
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp, swId, searchPath](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const std::vector<std::pair<
                         std::string,
                         std::vector<
@@ -5565,7 +5545,7 @@ inline void requestRoutesInventorySoftware(App& app)
                         }
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, swId, path, searchPath](
-                                const boost::system::error_code errorCode,
+                                const boost::system::error_code& errorCode,
                                 const boost::container::flat_map<
                                     std::string,
                                     dbus::utility::DbusVariantType>&
@@ -5682,7 +5662,7 @@ inline void requestRoutesInventorySoftware(App& app)
                 {
                     crow::connections::systemBus->async_method_call(
                         [asyncResp, swId, writeProtected](
-                            const boost::system::error_code ec,
+                            const boost::system::error_code& ec,
                             const std::vector<std::pair<
                                 std::string,
                                 std::vector<std::pair<
@@ -5757,7 +5737,7 @@ inline void handleStageLocationErrors(
         if (stdOut.find("emmc=enable") != std::string::npos)
         {
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code ec,
+                [asyncResp](const boost::system::error_code& ec,
                             const std::variant<int32_t>& property) {
                     if (ec)
                     {
@@ -5854,7 +5834,7 @@ inline void getPropertiesPersistentStoragePackageInformation(
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, service, path,
         "xyz.openbmc_project.Software.PackageInformation",
-        [asyncResp](const boost::system::error_code errorCode,
+        [asyncResp](const boost::system::error_code& errorCode,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (errorCode)
             {
@@ -5910,7 +5890,7 @@ inline void getPropertiesPersistentStorageComputeHash(
 {
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, service, path, "com.nvidia.ComputeHash",
-        [asyncResp](const boost::system::error_code errorCode,
+        [asyncResp](const boost::system::error_code& errorCode,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (errorCode)
             {
@@ -5965,7 +5945,7 @@ inline void getPropertiesPersistentStorageEpochTime(
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, service, path,
         "xyz.openbmc_project.Time.EpochTime",
-        [asyncResp](const boost::system::error_code errorCode,
+        [asyncResp](const boost::system::error_code& errorCode,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (errorCode)
             {
@@ -6022,7 +6002,7 @@ inline void handleUpdateServicePersistentStorageFwPackagesListGet(
     asyncResp->res.jsonValue["Name"] = "Firmware Package Collection";
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const crow::openbmc_mapper::GetSubTreeType& subtree) {
             BMCWEB_LOG_DEBUG("doGet callback...");
             if (ec)
@@ -6264,7 +6244,7 @@ inline void setTargetsInitiateFirmwarePackage(
     {
         crow::connections::systemBus->async_method_call(
             [req, asyncResp, foundService, foundPath,
-             uriTargets{*targets}](const boost::system::error_code ec,
+             uriTargets{*targets}](const boost::system::error_code& ec,
                                    const std::vector<std::string>& swInvPaths) {
                 if (ec)
                 {
@@ -6335,7 +6315,7 @@ inline void setTargetsInitiateFirmwarePackage(
                 }
                 crow::connections::systemBus->async_method_call(
                     [req, asyncResp, foundService, foundPath, httpUriTargets](
-                        const boost::system::error_code errorCode,
+                        const boost::system::error_code& errorCode,
                         const std::vector<
                             std::pair<std::string, std::vector<std::string>>>&
                             objInfo) mutable {
@@ -6364,7 +6344,8 @@ inline void setTargetsInitiateFirmwarePackage(
 
                         crow::connections::systemBus->async_method_call(
                             [&req, asyncResp, foundService, foundPath](
-                                const boost::system::error_code errCodePolicy) {
+                                const boost::system::error_code&
+                                    errCodePolicy) {
                                 if (errCodePolicy)
                                 {
                                     BMCWEB_LOG_ERROR("error_code = {}",
@@ -6427,7 +6408,7 @@ inline void initiateFirmwarePackage(
 {
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, targets,
-         forceUpdate](const boost::system::error_code ec,
+         forceUpdate](const boost::system::error_code& ec,
                       const crow::openbmc_mapper::GetSubTreeType& subtree) {
             BMCWEB_LOG_DEBUG("doGet callback...");
             if (ec)
@@ -6540,7 +6521,7 @@ inline void updateParametersForInitiateActionInfo(
         *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/software/updateable",
         "xyz.openbmc_project.Association", "endpoints",
-        [asyncResp, subtree](const boost::system::error_code ec,
+        [asyncResp, subtree](const boost::system::error_code& ec,
                              const std::vector<std::string>& objPaths) {
             if (ec)
             {
@@ -6607,7 +6588,7 @@ inline void populateStatusProperty(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const std::variant<int32_t>& property) {
             if (ec)
             {
@@ -6711,7 +6692,7 @@ inline void requestRoutesSplitUpdateService(App& app)
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp{asyncResp}](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const std::vector<std::pair<
                         std::string,
                         std::vector<

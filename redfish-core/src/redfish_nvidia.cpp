@@ -45,7 +45,7 @@
 #include "system_host_eth.hpp"
 #include "trigger.hpp"
 #include "trusted_components.hpp"
-#include "update_service.hpp"
+//#include "update_service.hpp"
 
 namespace redfish
 {

@@ -52,7 +52,7 @@
 #include "thermal_metrics.hpp"
 #include "thermal_subsystem.hpp"
 #include "trigger.hpp"
-#include "update_service.hpp"
+//#include "update_service.hpp"
 #include "virtual_media.hpp"
 namespace redfish
 {
