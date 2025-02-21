@@ -723,11 +723,13 @@ inline void handleChassisGetSubTree(
 
             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
-                const std::string itemSystemInterface =
-                    "xyz.openbmc_project.Inventory.Item.System";
-
-                if (std::find(interfaces2.begin(), interfaces2.end(),
-                              itemSystemInterface) != interfaces2.end())
+                if (std::any_of(interfaces2.begin(), interfaces2.end(),
+                                [](std::string_view itemInterface) {
+                    return itemInterface ==
+                               "xyz.openbmc_project.Inventory.Item.System" ||
+                           itemInterface ==
+                               "xyz.openbmc_project.Inventory.Item.Chassis";
+                }))
                 {
                     // static power hint
                     redfish::nvidia_chassis_utils::getStaticPowerHintByChassis(
