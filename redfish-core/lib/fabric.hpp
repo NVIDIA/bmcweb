@@ -4467,131 +4467,86 @@ inline void requestRoutesSwitchPowerMode(App& app)
             return;
         }
 
-        std::optional<bool> l1HWModeControl;
-        std::optional<bool> l1FWThrottlingMode;
-        std::optional<bool> l1PredictionMode;
-        std::optional<uint32_t> l1HWThreshold;
-        std::optional<uint32_t> l1HWActiveTime;
-        std::optional<uint32_t> l1HWInactiveTime;
-        std::optional<uint32_t> l1HWPredictionInactiveTime;
-        if (!redfish::json_util::readJsonAction(
-                req, asyncResp->res, "L1HWModeEnabled", l1HWModeControl,
-                "L1FWThermalThrottlingModeEnabled", l1FWThrottlingMode,
-                "L1PredictionModeEnabled", l1PredictionMode,
-                "L1HWThresholdBytes", l1HWThreshold,
-                "L1HWActiveTimeMicroseconds", l1HWActiveTime,
-                "L1HWInactiveTimeMicroseconds", l1HWInactiveTime,
-                "L1PredictionInactiveTimeMicroseconds",
-                l1HWPredictionInactiveTime))
+        std::vector<std::tuple<std::string, std::variant<bool, uint32_t>>>
+            properties;
+
+        // Define the mapping between JSON property names and D-Bus property
+        // names
+        const std::map<std::string, std::string> propertyNameMap = {
+            {"L1HWModeEnabled", "HWModeControl"},
+            {"L1FWThermalThrottlingModeEnabled", "FWThrottlingMode"},
+            {"L1PredictionModeEnabled", "PredictionMode"},
+            {"L1HWThresholdBytes", "HWThreshold"},
+            {"L1HWActiveTimeMicroseconds", "HWActiveTime"},
+            {"L1HWInactiveTimeMicroseconds", "HWInactiveTime"},
+            {"L1PredictionInactiveTimeMicroseconds",
+             "HWPredictionInactiveTime"}};
+
+        // Parse JSON body and extract properties
+        nlohmann::json requestJson;
+        if (!redfish::json_util::processJsonFromRequest(asyncResp->res, req,
+                                                        requestJson))
         {
             return;
         }
 
-        if (l1HWModeControl)
+        bool propertyFound = false;
+        std::string propertyName = "";
+        for (const auto& [jsonProperty, dbusProperty] : propertyNameMap)
         {
-            redfish::nvidia_fabric_utils::getSwitchObject(
-                asyncResp, fabricId, switchId,
-                [l1HWModeControl](
-                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
-                    const std::string& fabricId1, const std::string& switchId1,
-                    const std::string& objectPath,
-                    const MapperServiceMap& serviceMap) {
-                redfish::nvidia_fabric_utils::patchL1PowerModeBool(
-                    asyncResp1, fabricId1, switchId1, *l1HWModeControl,
-                    "HWModeControl", objectPath, serviceMap);
-            });
+            auto it = requestJson.find(jsonProperty);
+            if (it == requestJson.end())
+            {
+                continue;
+            }
+
+            propertyFound = true;
+
+            try
+            {
+                if (jsonProperty == "L1HWThresholdBytes" ||
+                    jsonProperty == "L1HWActiveTimeMicroseconds" ||
+                    jsonProperty == "L1HWInactiveTimeMicroseconds" ||
+                    jsonProperty == "L1PredictionInactiveTimeMicroseconds")
+                {
+                    uint32_t value = it->get<uint32_t>();
+                    properties.emplace_back(
+                        dbusProperty, std::variant<bool, uint32_t>(value));
+                }
+                else
+                {
+                    bool value = it->get<bool>();
+                    properties.emplace_back(
+                        dbusProperty, std::variant<bool, uint32_t>(value));
+                }
+                propertyName = dbusProperty;
+            }
+            catch (const std::exception& e)
+            {
+                messages::propertyValueTypeError(asyncResp->res, jsonProperty,
+                                                 e.what());
+                return;
+            }
         }
 
-        if (l1FWThrottlingMode)
+        if (!propertyFound)
         {
-            redfish::nvidia_fabric_utils::getSwitchObject(
-                asyncResp, fabricId, switchId,
-                [l1FWThrottlingMode](
-                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
-                    const std::string& fabricId1, const std::string& switchId1,
-                    const std::string& objectPath,
-                    const MapperServiceMap& serviceMap) {
-                redfish::nvidia_fabric_utils::patchL1PowerModeBool(
-                    asyncResp1, fabricId1, switchId1, *l1FWThrottlingMode,
-                    "FWThrottlingMode", objectPath, serviceMap);
-            });
+            messages::propertyMissing(asyncResp->res, "PowerMode");
+            return;
         }
 
-        if (l1PredictionMode)
-        {
-            redfish::nvidia_fabric_utils::getSwitchObject(
-                asyncResp, fabricId, switchId,
-                [l1PredictionMode](
-                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
-                    const std::string& fabricId1, const std::string& switchId1,
-                    const std::string& objectPath,
-                    const MapperServiceMap& serviceMap) {
-                redfish::nvidia_fabric_utils::patchL1PowerModeBool(
-                    asyncResp1, fabricId1, switchId1, *l1PredictionMode,
-                    "PredictionMode", objectPath, serviceMap);
-            });
-        }
-
-        if (l1HWThreshold)
-        {
-            redfish::nvidia_fabric_utils::getSwitchObject(
-                asyncResp, fabricId, switchId,
-                [l1HWThreshold](
-                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
-                    const std::string& fabricId1, const std::string& switchId1,
-                    const std::string& objectPath,
-                    const MapperServiceMap& serviceMap) {
-                redfish::nvidia_fabric_utils::patchL1PowerModeInt(
-                    asyncResp1, fabricId1, switchId1, *l1HWThreshold,
-                    "HWThreshold", objectPath, serviceMap);
-            });
-        }
-
-        if (l1HWActiveTime)
-        {
-            redfish::nvidia_fabric_utils::getSwitchObject(
-                asyncResp, fabricId, switchId,
-                [l1HWActiveTime](
-                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
-                    const std::string& fabricId1, const std::string& switchId1,
-                    const std::string& objectPath,
-                    const MapperServiceMap& serviceMap) {
-                redfish::nvidia_fabric_utils::patchL1PowerModeInt(
-                    asyncResp1, fabricId1, switchId1, *l1HWActiveTime,
-                    "HWActiveTime", objectPath, serviceMap);
-            });
-        }
-
-        if (l1HWInactiveTime)
-        {
-            redfish::nvidia_fabric_utils::getSwitchObject(
-                asyncResp, fabricId, switchId,
-                [l1HWInactiveTime](
-                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
-                    const std::string& fabricId1, const std::string& switchId1,
-                    const std::string& objectPath,
-                    const MapperServiceMap& serviceMap) {
-                redfish::nvidia_fabric_utils::patchL1PowerModeInt(
-                    asyncResp1, fabricId1, switchId1, *l1HWInactiveTime,
-                    "HWInactiveTime", objectPath, serviceMap);
-            });
-        }
-
-        if (l1HWPredictionInactiveTime)
-        {
-            redfish::nvidia_fabric_utils::getSwitchObject(
-                asyncResp, fabricId, switchId,
-                [l1HWPredictionInactiveTime](
-                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
-                    const std::string& fabricId1, const std::string& switchId1,
-                    const std::string& objectPath,
-                    const MapperServiceMap& serviceMap) {
-                redfish::nvidia_fabric_utils::patchL1PowerModeInt(
-                    asyncResp1, fabricId1, switchId1,
-                    *l1HWPredictionInactiveTime, "HWPredictionInactiveTime",
-                    objectPath, serviceMap);
-            });
-        }
+        // Get switch object and update properties
+        redfish::nvidia_fabric_utils::getSwitchObject(
+            asyncResp, fabricId, switchId,
+            [properties, propertyName](
+                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
+                const std::string& fabricId1, const std::string& switchId1,
+                const std::string& objectPath,
+                const MapperServiceMap& serviceMap) {
+            redfish::nvidia_fabric_utils::patchL1PowerMode(
+                asyncResp1, fabricId1, switchId1, properties, propertyName,
+                objectPath, serviceMap);
+        });
     });
 }
 

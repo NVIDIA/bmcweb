@@ -43,13 +43,13 @@ using MapperGetSubTreeResponse =
  * @param[in]       ObjectPath      Path of object to modify.
  * @param[in]       serviceMap      Service map for CPU object.
  */
-inline void patchL1PowerModeBool(const std::shared_ptr<bmcweb::AsyncResp>& resp,
-                                 const std::string& fabricId,
-                                 const std::string& switchId,
-                                 const bool propertyValue,
-                                 const std::string& propertyName,
-                                 const std::string& objectPath,
-                                 const MapperServiceMap& serviceMap)
+inline void patchL1PowerMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& fabricId,
+    const std::string& switchId,
+    const std::vector<std::tuple<std::string, std::variant<bool, uint32_t>>>&
+        properties,
+    const std::string& propertyName, const std::string& objectPath,
+    const MapperServiceMap& serviceMap)
 {
     // Check that the property even exists by checking for the interface
     const std::string* inventoryService = nullptr;
@@ -74,7 +74,7 @@ inline void patchL1PowerModeBool(const std::shared_ptr<bmcweb::AsyncResp>& resp,
         objectPath,
         std::array<std::string_view, 1>{
             nvidia_async_operation_utils::setAsyncInterfaceName},
-        [resp, propertyValue, propertyName, fabricId, switchId, objectPath,
+        [resp, properties, propertyName, fabricId, switchId, objectPath,
          service = *inventoryService](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetObject& object) {
@@ -94,79 +94,9 @@ inline void patchL1PowerModeBool(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                 nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
                     resp, std::chrono::seconds(60), service, objectPath,
                     "com.nvidia.PowerMode", propertyName,
-                    std::variant<bool>(propertyValue),
-                    nvidia_async_operation_utils::PatchPowerModeCallback{resp});
-
-                return;
-            }
-        }
-    });
-}
-
-/**
- * Handle the PATCH operation of the L1 Power Mode int Property. Do basic
- * validation of the input data, and then update using async way.
- *
- * @param[in,out]   resp            Async HTTP response.
- * @param[in]       fabricId        Fabric's Id.
- * @param[in]       switchId        Switch's Id.
- * @param[in]       propertyValue   New property value to apply.
- * @param[in]       propertyName    Property name for new value
- * @param[in]       ObjectPath      Path of object to modify.
- * @param[in]       serviceMap      Service map for CPU object.
- */
-inline void patchL1PowerModeInt(const std::shared_ptr<bmcweb::AsyncResp>& resp,
-                                const std::string& fabricId,
-                                const std::string& switchId,
-                                const uint32_t propertyValue,
-                                const std::string& propertyName,
-                                const std::string& objectPath,
-                                const MapperServiceMap& serviceMap)
-{
-    // Check that the property even exists by checking for the interface
-    const std::string* inventoryService = nullptr;
-    for (const auto& [serviceName, interfaceList] : serviceMap)
-    {
-        if (std::find(interfaceList.begin(), interfaceList.end(),
-                      "com.nvidia.PowerMode") != interfaceList.end())
-        {
-            inventoryService = &serviceName;
-            break;
-        }
-    }
-    if (inventoryService == nullptr)
-    {
-        BMCWEB_LOG_ERROR(" L1PowerMode interface not found while {} patch",
-                         propertyName);
-        messages::internalError(resp->res);
-        return;
-    }
-
-    dbus::utility::getDbusObject(
-        objectPath,
-        std::array<std::string_view, 1>{
-            nvidia_async_operation_utils::setAsyncInterfaceName},
-        [resp, propertyValue, propertyName, fabricId, switchId, objectPath,
-         service = *inventoryService](
-            const boost::system::error_code& ec,
-            const dbus::utility::MapperGetObject& object) {
-        if (!ec)
-        {
-            for (const auto& [serv, _] : object)
-            {
-                if (serv != service)
-                {
-                    continue;
-                }
-
-                BMCWEB_LOG_DEBUG(
-                    "Performing Patch using Set Async Method Call for {}",
-                    propertyName);
-
-                nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
-                    resp, std::chrono::seconds(60), service, objectPath,
-                    "com.nvidia.PowerMode", propertyName,
-                    std::variant<uint32_t>(propertyValue),
+                    std::variant<std::vector<
+                        std::tuple<std::string, std::variant<bool, uint32_t>>>>(
+                        properties),
                     nvidia_async_operation_utils::PatchPowerModeCallback{resp});
 
                 return;
