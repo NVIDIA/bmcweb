@@ -88,12 +88,14 @@ inline void afterGetPowerComplianceManagerProperties(
 
     sdbusplus::message::object_path powerDomainsDbusPath;
     sdbusplus::message::object_path powerPoliciesDbusPath;
+    sdbusplus::message::object_path powerStateGroupDbusPath;
 
     // clang-format off
     bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), properties,
         "PowerDomains", powerDomainsDbusPath,
-        "PowerPolicies", powerPoliciesDbusPath);
+        "PowerPolicies", powerPoliciesDbusPath,
+        "PowerStateGroup", powerStateGroupDbusPath);
     // clang-format on
 
     if (!success)
@@ -126,6 +128,13 @@ inline void afterGetPowerComplianceManagerProperties(
             std::bind_front(
                 nvidia_oem_power_policy::processGetTopLevelPowerPolicies,
                 asyncResp));
+    }
+
+    if (!powerStateGroupDbusPath.str.empty())
+    {
+        oemNvidia["PowerStateGroup"]["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Managers/{}/Oem/Nvidia_PowerCompliance/PowerStateGroup",
+            BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
 
     nlohmann::json& actions = jOut["Actions"]["Oem"];

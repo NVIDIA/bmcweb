@@ -39,6 +39,9 @@
 #include "nvidia_oem_managers_pmc.hpp"
 #include "nvidia_oem_power_domain.hpp"
 #include "nvidia_oem_power_policy.hpp"
+#include "nvidia_oem_power_state_group.hpp"
+#include "nvidia_oem_psc_state.hpp"
+#include "nvidia_oem_psu_state.hpp"
 #include "nvidia_policy.hpp"
 #include "nvidia_power_reset_metrics.hpp"
 #include "nvidia_processor.hpp"
@@ -536,6 +539,9 @@ RedfishService::RedfishService(App& app)
             requestRoutesNvidiaPowerComplianceManagerActions(app);
         nvidia_oem_power_domain::requestRoutesNvidiaPowerDomain(app);
         nvidia_oem_power_policy::requestRoutesNvidiaPowerPolicy(app);
+        nvidia_oem_power_state_group::requestRoutesNvidiaPowerStateGroup(app);
+        nvidia_oem_psc_state::requestRoutesNvidiaPscState(app);
+        nvidia_oem_psu_state::requestRoutesNvidiaPsuState(app);
     }
 }
 
