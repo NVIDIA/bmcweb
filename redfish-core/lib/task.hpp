@@ -625,10 +625,19 @@ inline void requestRoutesTask(App& app)
         {
             return;
         }
-
+        std::optional<std::string> taskState;
+        std::optional<nlohmann::json> messages;
+        if (!json_util::readJsonPatch(req, asyncResp->res, "TaskState",
+                                      taskState, "Messages", messages))
+        {
+            BMCWEB_LOG_DEBUG(
+                "/redfish/v1/TaskService/Tasks/<str>/Update/ readJsonPatch error");
+            return;
+        }
         privilege_utils::isBiosPrivilege(
-            req, [req, asyncResp, strParam](const boost::system::error_code ec,
-                                            const bool isBios) {
+            req.session->username,
+            [taskState, messages, asyncResp,
+             strParam](const boost::system::error_code ec, const bool isBios) {
             if (ec || isBios == false)
             {
                 asyncResp->res.addHeader(boost::beast::http::field::allow, "");
@@ -656,16 +665,6 @@ inline void requestRoutesTask(App& app)
             }
 
             const std::shared_ptr<task::TaskData>& ptr = *find;
-
-            std::optional<std::string> taskState;
-            std::optional<nlohmann::json> messages;
-            if (!json_util::readJsonPatch(req, asyncResp->res, "TaskState",
-                                          taskState, "Messages", messages))
-            {
-                BMCWEB_LOG_DEBUG(
-                    "/redfish/v1/TaskService/Tasks/<str>/Update/ readJsonPatch error");
-                return;
-            }
 
             if (messages)
             {

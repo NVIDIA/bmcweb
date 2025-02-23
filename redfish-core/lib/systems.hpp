@@ -2694,8 +2694,9 @@ inline void setBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     {
         // Only BIOS is allowed to patch active BootOrder
         privilege_utils::isBiosPrivilege(
-            req, [aResp, setBootOrderFunc](const boost::system::error_code ec,
-                                           const bool isBios) {
+            req.session->username,
+            [aResp, setBootOrderFunc](const boost::system::error_code ec,
+                                      const bool isBios) {
             if (ec || isBios == false)
             {
                 messages::propertyNotWritable(aResp->res, "BootOrder");
@@ -4626,7 +4627,7 @@ inline void handleComputerSystemPatch(
         bootSourceOverrideEnabledAllowableValues || biosVersion || serialNumber)
     {
         privilege_utils::isBiosPrivilege(
-            req,
+            req.session->username,
             [asyncResp, sku, uuid, bootSourceOverrideTargetAllowableValues](
                 const boost::system::error_code ec, const bool isBios) {
             if (ec || isBios == false)

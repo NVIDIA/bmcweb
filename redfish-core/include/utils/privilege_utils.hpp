@@ -42,7 +42,7 @@ inline void isRedfishHostInterfaceUser(const std::string& username,
         [callback{std::forward<Callback>(callback)}](
             const boost::system::error_code ec,
             const std::map<std::string, dbus::utility::DbusVariantType>&
-                userInfo) {
+                userInfo) mutable {
         BMCWEB_LOG_DEBUG("isRedfishHostInterfaceUser respHandler enter");
 
         if (ec)
@@ -100,11 +100,10 @@ inline void isRedfishHostInterfaceUser(const std::string& username,
  * bool isBios).
  */
 template <typename Callback>
-inline void isBiosPrivilege(const crow::Request& req, Callback&& callback)
+inline void isBiosPrivilege(const std::string& username, Callback&& callback)
 {
     // We assume the request from a redfish-hostiface user is from BIOS
-    isRedfishHostInterfaceUser(req.session->username,
-                               std::forward<Callback>(callback));
+    isRedfishHostInterfaceUser(username, std::forward<Callback>(callback));
 }
 
 } // namespace privilege_utils

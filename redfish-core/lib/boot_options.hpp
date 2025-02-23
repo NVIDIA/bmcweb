@@ -231,27 +231,27 @@ inline void handleBootOptionCollectionPost(
     {
         return;
     }
-
+    std::string newBootOptionReference;
+    bool newBootOptionEnabled = true;
+    std::optional<std::string> optBootOptionDescription;
+    std::optional<std::string> optBootOptionDisplayName;
+    std::optional<std::string> optBootOptionUefiDevicePath;
+    if (!json_util::readJsonPatch(
+            req, aResp->res, "BootOptionReference", newBootOptionReference,
+            "BootOptionEnabled", newBootOptionEnabled, "Description",
+            optBootOptionDescription, "DisplayName", optBootOptionDisplayName,
+            "UefiDevicePath", optBootOptionUefiDevicePath))
+    {
+        return;
+    }
     privilege_utils::isBiosPrivilege(
-        req,
-        [req, aResp](const boost::system::error_code ec, const bool isBios) {
+        req.session->username,
+        [newBootOptionReference, newBootOptionEnabled, optBootOptionDescription,
+         optBootOptionDisplayName, optBootOptionUefiDevicePath,
+         aResp](const boost::system::error_code ec, const bool isBios) {
         if (ec || isBios == false)
         {
             messages::insufficientPrivilege(aResp->res);
-            return;
-        }
-        std::string newBootOptionReference;
-        bool newBootOptionEnabled = true;
-        std::optional<std::string> optBootOptionDescription;
-        std::optional<std::string> optBootOptionDisplayName;
-        std::optional<std::string> optBootOptionUefiDevicePath;
-        if (!json_util::readJsonPatch(
-                req, aResp->res, "BootOptionReference", newBootOptionReference,
-                "BootOptionEnabled", newBootOptionEnabled, "Description",
-                optBootOptionDescription, "DisplayName",
-                optBootOptionDisplayName, "UefiDevicePath",
-                optBootOptionUefiDevicePath))
-        {
             return;
         }
 
@@ -421,21 +421,21 @@ inline void
     {
         return;
     }
+    bool newBootOptionEnabled = true;
+    if (!json_util::readJsonPatch(req, aResp->res, "BootOptionEnabled",
+                                  newBootOptionEnabled))
+    {
+        return;
+    }
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, bootOptionName](const boost::system::error_code ec,
-                                          const bool isBios) {
+        req.session->username,
+        [newBootOptionEnabled, aResp, bootOptionName](
+            const boost::system::error_code ec, const bool isBios) {
         if (ec || isBios == false)
         {
             messages::insufficientPrivilege(aResp->res);
             return;
         }
-        bool newBootOptionEnabled = true;
-        if (!json_util::readJsonPatch(req, aResp->res, "BootOptionEnabled",
-                                      newBootOptionEnabled))
-        {
-            return;
-        }
-
         dbus::utility::DBusPropertiesMap properties;
         properties.push_back({"Enabled", newBootOptionEnabled});
         setBootOption(
@@ -469,8 +469,9 @@ inline void
     }
 
     privilege_utils::isBiosPrivilege(
-        req, [aResp, bootOptionName](const boost::system::error_code ec,
-                                     const bool isBios) {
+        req.session->username,
+        [aResp, bootOptionName](const boost::system::error_code ec,
+                                const bool isBios) {
         if (ec || isBios == false)
         {
             messages::insufficientPrivilege(aResp->res);

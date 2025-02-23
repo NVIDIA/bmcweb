@@ -690,8 +690,9 @@ inline void handlePatchProfile(crow::App& app, const crow::Request& req,
     }
 
     privilege_utils::isBiosPrivilege(
-        req, [aResp, activateStatus, deleteStatus, addStatus, profileNumber](
-                 const boost::system::error_code& ec, const bool isBiosUser) {
+        req.session->username,
+        [aResp, activateStatus, deleteStatus, addStatus, profileNumber](
+            const boost::system::error_code& ec, const bool isBiosUser) {
         populateProfileStatues(aResp, ec, profileNumber, activateStatus,
                                deleteStatus, addStatus, isBiosUser);
     });
@@ -1230,10 +1231,11 @@ inline void handleProfileUpdate(crow::App& app, const crow::Request& req,
     profileData.assign(profileStr.begin(), profileStr.end());
     memFd->write(profileData);
 
+    task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, memFd = std::move(memFd)](
-                 const boost::system::error_code& ec, bool isBiosUser) {
-        task::Payload payload(req);
+        req.session->username,
+        [payload, aResp, memFd = std::move(memFd)](
+            const boost::system::error_code& ec, bool isBiosUser) mutable {
         handleProfileUpdateCall(std::move(payload), ec, aResp, isBiosUser,
                                 memFd);
     }); // end  isBiosPrivilege handler
@@ -1401,10 +1403,11 @@ inline void callbackGetFactoryResetStatusBeforePatch(
         messages::internalError(aResp->res);
         return;
     }
+    task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, requestedStatus, currentStatus](
-                 const boost::system::error_code& ec, bool isBiosUser) {
-        task::Payload payload(req);
+        req.session->username,
+        [payload, aResp, requestedStatus, currentStatus](
+            const boost::system::error_code& ec, bool isBiosUser) mutable {
         callbackPatchFactoryReset(std::move(payload), aResp, ec,
                                   requestedStatus, currentStatus, isBiosUser);
     });

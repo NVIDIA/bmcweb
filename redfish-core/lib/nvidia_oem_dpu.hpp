@@ -865,14 +865,14 @@ inline void handleTruststoreCertificatesCollectionGet(
 }
 
 inline void
-    createPendingRequest(const crow::Request& req,
+    createPendingRequest(task::Payload&& payload,
                          const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     auto task = task::TaskData::createTask(
         [](boost::system::error_code, sdbusplus::message_t&,
            const std::shared_ptr<task::TaskData>&) { return false; },
         "0");
-    task->payload.emplace(req);
+    task->payload.emplace(std::move(payload));
     task->state = "Pending";
     task->populateResp(aResp->res);
     return;
@@ -912,9 +912,11 @@ inline void handleTruststoreCertificatesCollectionPost(
         return;
     }
 
+    task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
-        req, [req, asyncResp, certString, certType,
-              owner](const boost::system::error_code ec, const bool isBios) {
+        req.session->username,
+        [payload, asyncResp, certString, certType,
+         owner](const boost::system::error_code ec, const bool isBios) mutable {
         if (ec)
         {
             messages::internalError(asyncResp->res);
@@ -923,7 +925,7 @@ inline void handleTruststoreCertificatesCollectionPost(
 
         if (isBios == false)
         {
-            createPendingRequest(req, asyncResp);
+            createPendingRequest(std::move(payload), asyncResp);
             return;
         }
 
@@ -1083,9 +1085,11 @@ inline void handleTruststoreCertificatesDelete(
         return;
     }
 
+    task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
-        req, [req, asyncResp, certId](const boost::system::error_code ec,
-                                      const bool isBios) {
+        req.session->username,
+        [payload, asyncResp, certId](const boost::system::error_code ec,
+                                     const bool isBios) mutable {
         if (ec)
         {
             messages::internalError(asyncResp->res);
@@ -1093,7 +1097,7 @@ inline void handleTruststoreCertificatesDelete(
         }
         if (isBios == false)
         {
-            createPendingRequest(req, asyncResp);
+            createPendingRequest(std::move(payload), asyncResp);
             return;
         }
         crow::connections::systemBus->async_method_call(
@@ -1139,9 +1143,11 @@ inline void handleTruststoreCertificatesResetKeys(
         return;
     }
 
+    crow::Request reqFixedTar(req);
     privilege_utils::isBiosPrivilege(
-        req, [req, asyncResp](const boost::system::error_code ec,
-                              const bool isBios) {
+        req.session->username,
+        [reqFixedTar, asyncResp](const boost::system::error_code ec,
+                                 const bool isBios) mutable {
         if (ec)
         {
             messages::internalError(asyncResp->res);
@@ -1153,12 +1159,12 @@ inline void handleTruststoreCertificatesResetKeys(
             // "Truststore/Certificates" in order to identify the source of this
             // action. Since the action is placed under the general "Action"
             // section, The request is being edited with the required TargetUri
-            crow::Request reqFixedTar(req);
             reqFixedTar.target(
                 "/redfish/v1/Systems/" +
                 std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                 "/Oem/Nvidia/Truststore/Certificates/Actions/TruststoreCertificates.ResetKeys");
-            createPendingRequest(reqFixedTar, asyncResp);
+            task::Payload payload(reqFixedTar);
+            createPendingRequest(std::move(payload), asyncResp);
             return;
         }
 
@@ -1317,12 +1323,33 @@ inline void handleSetOemFru([[maybe_unused]] crow::App& app,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Set OEM FRU info");
-
+    std::optional<std::string> productManufacturer;
+    std::optional<std::string> productSerialNumber;
+    std::optional<std::string> productPartNumber;
+    std::optional<std::string> productVersion;
+    std::optional<std::string> productExtra;
+    std::optional<std::string> productManufactureDate;
+    std::optional<std::string> productAssetTag;
+    std::optional<std::string> productGUID;
+    // Read the data from the post request and populate the optional
+    // variables
+    if (!json_util::readJsonPatch(
+            req, asyncResp->res, "ProductManufacturer", productManufacturer,
+            "ProductSerialNumber", productSerialNumber, "ProductPartNumber",
+            productPartNumber, "ProductVersion", productVersion, "ProductExtra",
+            productExtra, "ProductManufactureDate", productManufactureDate,
+            "ProductAssetTag", productAssetTag, "ProductGUID", productGUID))
+    {
+        return;
+    }
     // Check if the request has host interface privilege
     // The redfish host interface will be prevented to accesss the OEM FRU
     privilege_utils::isBiosPrivilege(
-        req, [req, asyncResp](const boost::system::error_code ec,
-                              const bool isBios) {
+        req.session->username,
+        [productManufacturer, productSerialNumber, productPartNumber,
+         productVersion, productExtra, productManufactureDate, productAssetTag,
+         productGUID,
+         asyncResp](const boost::system::error_code ec, const bool isBios) {
         if (ec)
         {
             messages::insufficientPrivilege(asyncResp->res);
@@ -1336,8 +1363,10 @@ inline void handleSetOemFru([[maybe_unused]] crow::App& app,
                 *crow::connections::systemBus, "xyz.openbmc_project.Settings",
                 "/xyz/openbmc_project/control/oem_fru",
                 "xyz.openbmc_project.Object.Enable", "Enabled",
-                [req, asyncResp](const boost::system::error_code& ec,
-                                 bool enabled) {
+                [productManufacturer, productSerialNumber, productPartNumber,
+                 productVersion, productExtra, productManufactureDate,
+                 productAssetTag, productGUID,
+                 asyncResp](const boost::system::error_code& ec, bool enabled) {
                 if (ec)
                 {
                     BMCWEB_LOG_ERROR(
@@ -1365,27 +1394,6 @@ inline void handleSetOemFru([[maybe_unused]] crow::App& app,
                     {"ProductGUID", "CHASSIS_INFO_AM1"}};
                 // Initialize the last property to be set
                 std::string lastProperty = "CHASSIS_INFO_AM1";
-                std::optional<std::string> productManufacturer;
-                std::optional<std::string> productSerialNumber;
-                std::optional<std::string> productPartNumber;
-                std::optional<std::string> productVersion;
-                std::optional<std::string> productExtra;
-                std::optional<std::string> productManufactureDate;
-                std::optional<std::string> productAssetTag;
-                std::optional<std::string> productGUID;
-                // Read the data from the post request and populate the optional
-                // variables
-                if (!json_util::readJsonPatch(
-                        req, asyncResp->res, "ProductManufacturer",
-                        productManufacturer, "ProductSerialNumber",
-                        productSerialNumber, "ProductPartNumber",
-                        productPartNumber, "ProductVersion", productVersion,
-                        "ProductExtra", productExtra, "ProductManufactureDate",
-                        productManufactureDate, "ProductAssetTag",
-                        productAssetTag, "ProductGUID", productGUID))
-                {
-                    return;
-                }
                 // Only sync the OEM FRU data one time when setting the last
                 // property Determine the last property to set based on the
                 // provided values

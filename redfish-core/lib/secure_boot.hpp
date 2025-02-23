@@ -143,44 +143,41 @@ inline void
     {
         return;
     }
+    std::optional<std::string> secureBootCurrentBoot;
+    std::optional<bool> secureBootEnable;
+    std::optional<std::string> secureBootMode;
+    if (!json_util::readJsonPatch(req, aResp->res, "SecureBootCurrentBoot",
+                                  secureBootCurrentBoot, "SecureBootEnable",
+                                  secureBootEnable, "SecureBootMode",
+                                  secureBootMode))
+    {
+        return;
+    }
 
     privilege_utils::isBiosPrivilege(
-        req,
-        [req, aResp](const boost::system::error_code ec, const bool isBios) {
-        std::optional<std::string> secureBootCurrentBoot;
-        std::optional<bool> secureBootEnable;
-        std::optional<std::string> secureBootMode;
+        req.session->username,
+        [secureBootCurrentBoot, secureBootEnable, secureBootMode,
+         aResp](const boost::system::error_code ec, const bool isBios) {
         if (ec || isBios == false)
         {
-            // Request is not from BIOS
-            if (!json_util::readJsonPatch(req, aResp->res, "SecureBootEnable",
-                                          secureBootEnable))
+            if (secureBootMode || secureBootCurrentBoot)
             {
+                BMCWEB_LOG_DEBUG("Not allow no none bios user");
                 return;
             }
         }
-        else
-        {
-            // Request from BIOS
-            if (!json_util::readJsonPatch(
-                    req, aResp->res, "SecureBootCurrentBoot",
-                    secureBootCurrentBoot, "SecureBootEnable", secureBootEnable,
-                    "SecureBootMode", secureBootMode))
-            {
-                return;
-            }
-        }
-
+        std::string secureBootCurrentBootStr;
+        std::string secureBootModeStr;
         if (secureBootCurrentBoot)
         {
             if (*secureBootCurrentBoot == "Enabled")
             {
-                *secureBootCurrentBoot =
+                secureBootCurrentBootStr =
                     "xyz.openbmc_project.BIOSConfig.SecureBoot.CurrentBootType.Enabled";
             }
             else if (*secureBootCurrentBoot == "Disabled")
             {
-                *secureBootCurrentBoot =
+                secureBootCurrentBootStr =
                     "xyz.openbmc_project.BIOSConfig.SecureBoot.CurrentBootType.Disabled";
             }
             else
@@ -196,22 +193,22 @@ inline void
         {
             if (*secureBootMode == "SetupMode")
             {
-                *secureBootMode =
+                secureBootModeStr =
                     "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.SetupMode";
             }
             else if (*secureBootMode == "UserMode")
             {
-                *secureBootMode =
+                secureBootModeStr =
                     "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.UserMode";
             }
             else if (*secureBootMode == "AuditMode")
             {
-                *secureBootMode =
+                secureBootModeStr =
                     "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.AuditMode";
             }
             else if (*secureBootMode == "DeployedMode")
             {
-                *secureBootMode =
+                secureBootModeStr =
                     "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.DeployedMode";
             }
             else
@@ -224,7 +221,7 @@ inline void
 
         aResp->res.result(boost::beast::http::status::no_content);
 
-        if (secureBootCurrentBoot)
+        if (!secureBootCurrentBootStr.empty())
         {
             crow::connections::systemBus->async_method_call(
                 [aResp](const boost::system::error_code ec) {
@@ -239,7 +236,7 @@ inline void
                 "/xyz/openbmc_project/bios_config/manager",
                 "org.freedesktop.DBus.Properties", "Set",
                 "xyz.openbmc_project.BIOSConfig.SecureBoot", "CurrentBoot",
-                dbus::utility::DbusVariantType(*secureBootCurrentBoot));
+                dbus::utility::DbusVariantType(secureBootCurrentBootStr));
         }
 
         if (secureBootEnable)
@@ -260,7 +257,7 @@ inline void
                 dbus::utility::DbusVariantType(*secureBootEnable));
         }
 
-        if (secureBootMode)
+        if (!secureBootModeStr.empty())
         {
             crow::connections::systemBus->async_method_call(
                 [aResp](const boost::system::error_code ec) {
@@ -275,7 +272,7 @@ inline void
                 "/xyz/openbmc_project/bios_config/manager",
                 "org.freedesktop.DBus.Properties", "Set",
                 "xyz.openbmc_project.BIOSConfig.SecureBoot", "Mode",
-                dbus::utility::DbusVariantType(*secureBootMode));
+                dbus::utility::DbusVariantType(secureBootModeStr));
         }
     });
 }

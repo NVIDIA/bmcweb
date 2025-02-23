@@ -116,14 +116,14 @@ inline bool hasSignature(const std::string& databaseId)
 }
 
 inline void
-    createPendingRequest(const crow::Request& req,
+    createPendingRequest(task::Payload&& payload,
                          const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     auto task = task::TaskData::createTask(
         [](boost::system::error_code, sdbusplus::message_t&,
            const std::shared_ptr<task::TaskData>&) { return false; },
         "0");
-    task->payload.emplace(req);
+    task->payload.emplace(std::move(payload));
     task->state = "Pending";
     task->populateResp(aResp->res);
     return;
@@ -300,9 +300,11 @@ inline void handleSecureBootDatabaseResetKeys(
         return;
     }
 
+    task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, databaseId](const boost::system::error_code ec,
-                                      const bool isBios) {
+        req.session->username,
+        [payload, aResp, databaseId](const boost::system::error_code ec,
+                                     const bool isBios) mutable {
         if (ec)
         {
             messages::internalError(aResp->res);
@@ -315,7 +317,7 @@ inline void handleSecureBootDatabaseResetKeys(
                 messages::insufficientPrivilege(aResp->res);
                 return;
             }
-            createPendingRequest(req, aResp);
+            createPendingRequest(std::move(payload), aResp);
             return;
         }
 
@@ -391,9 +393,11 @@ inline void handleCertificateCollectionPost(
         return;
     }
 
+    task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, databaseId, certString,
-              owner](const boost::system::error_code ec, const bool isBios) {
+        req.session->username,
+        [payload, aResp, databaseId, certString,
+         owner](const boost::system::error_code ec, const bool isBios) mutable {
         if (ec)
         {
             messages::internalError(aResp->res);
@@ -406,7 +410,7 @@ inline void handleCertificateCollectionPost(
                 messages::insufficientPrivilege(aResp->res);
                 return;
             }
-            createPendingRequest(req, aResp);
+            createPendingRequest(std::move(payload), aResp);
             return;
         }
 
@@ -565,9 +569,11 @@ inline void
         return;
     }
 
+    task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, databaseId,
-              certId](const boost::system::error_code ec, const bool isBios) {
+        req.session->username,
+        [payload, aResp, databaseId, certId](const boost::system::error_code ec,
+                                             const bool isBios) mutable {
         if (ec)
         {
             messages::internalError(aResp->res);
@@ -580,7 +586,7 @@ inline void
                 messages::insufficientPrivilege(aResp->res);
                 return;
             }
-            createPendingRequest(req, aResp);
+            createPendingRequest(std::move(payload), aResp);
             return;
         }
 
@@ -684,9 +690,11 @@ inline void handleSignatureCollectionPost(
         return;
     }
 
+    task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, databaseId, sigString, sigTypeDbus,
-              owner](const boost::system::error_code ec, const bool isBios) {
+        req.session->username,
+        [payload, aResp, databaseId, sigString, sigTypeDbus,
+         owner](const boost::system::error_code ec, const bool isBios) mutable {
         if (ec)
         {
             messages::internalError(aResp->res);
@@ -699,7 +707,7 @@ inline void handleSignatureCollectionPost(
                 messages::insufficientPrivilege(aResp->res);
                 return;
             }
-            createPendingRequest(req, aResp);
+            createPendingRequest(std::move(payload), aResp);
             return;
         }
 
@@ -834,9 +842,11 @@ inline void
         return;
     }
 
+    task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, databaseId, sigId](const boost::system::error_code ec,
-                                             const bool isBios) {
+        req.session->username,
+        [payload, aResp, databaseId, sigId](const boost::system::error_code ec,
+                                            const bool isBios) mutable {
         if (ec)
         {
             messages::internalError(aResp->res);
@@ -849,7 +859,7 @@ inline void
                 messages::insufficientPrivilege(aResp->res);
                 return;
             }
-            createPendingRequest(req, aResp);
+            createPendingRequest(std::move(payload), aResp);
             return;
         }
 
