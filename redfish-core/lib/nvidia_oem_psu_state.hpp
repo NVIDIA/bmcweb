@@ -66,7 +66,7 @@ inline void afterGetPsuStateProperties(
     }
 
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Managers/{}/Oem/Nvidia_PowerCompliance/PowerStateGroup/PowerSupplies/{}",
+        "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/PowerStateGroup/PowerSupplies/{}",
         BMCWEB_REDFISH_MANAGER_URI_NAME, id);
     asyncResp->res.jsonValue["@odata.type"] =
         "#NvidiaPsuState.v1_0_0.NvidiaPsuState";
@@ -147,7 +147,7 @@ inline void handlePsuStateCollectionGetRequest(
     nvidia_oem_power_profile::handlePowerProfileCollectionGetRequest(
         app, dbusPath, "com.Nvidia.State.PowerCompliance.PsuState",
         boost::urls::format(
-            "/redfish/v1/Managers/{}/Oem/Nvidia_PowerCompliance/PowerStateGroup/PowerSupplies",
+            "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/PowerStateGroup/PowerSupplies",
             BMCWEB_REDFISH_MANAGER_URI_NAME),
         req, asyncResp, managerId);
 }
@@ -159,7 +159,7 @@ inline void requestRoutesNvidiaPsuState(App& app)
      */
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia_PowerCompliance/PowerStateGroup/PowerSupplies/<str>/")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/PowerStateGroup/PowerSupplies/<str>/")
         .privileges(redfish::privileges::getManager)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handlePsuStateGetRequest, std::ref(app)));
@@ -169,7 +169,7 @@ inline void requestRoutesNvidiaPsuState(App& app)
      */
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia_PowerCompliance/PowerStateGroup/PowerSupplies/")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/PowerStateGroup/PowerSupplies/")
         .privileges(redfish::privileges::getManager)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handlePsuStateCollectionGetRequest, std::ref(app)));

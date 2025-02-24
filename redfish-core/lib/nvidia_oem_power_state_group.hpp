@@ -72,7 +72,7 @@ inline void afterGetPowerStateGroupProperties(
     }
 
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Managers/{}/Oem/Nvidia_PowerCompliance/PowerStateGroup",
+        "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/PowerStateGroup",
         BMCWEB_REDFISH_MANAGER_URI_NAME);
     asyncResp->res.jsonValue["@odata.type"] =
         "#NvidiaPowerStateGroup.v1_0_0.NvidiaPowerStateGroup";
@@ -88,7 +88,7 @@ inline void afterGetPowerStateGroupProperties(
     {
         asyncResp->res.jsonValue["PowerShelfControllers"]
                                 ["@odata.id"] = boost::urls::format(
-            "/redfish/v1/Managers/{}/Oem/Nvidia_PowerCompliance/PowerStateGroup/PowerShelfControllers",
+            "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/PowerStateGroup/PowerShelfControllers",
             BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
 
@@ -97,7 +97,7 @@ inline void afterGetPowerStateGroupProperties(
     {
         asyncResp->res
             .jsonValue["PowerSupplies"]["@odata.id"] = boost::urls::format(
-            "/redfish/v1/Managers/{}/Oem/Nvidia_PowerCompliance/PowerStateGroup/PowerSupplies",
+            "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/PowerStateGroup/PowerSupplies",
             BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
 }
@@ -141,7 +141,7 @@ inline void requestRoutesNvidiaPowerStateGroup(App& app)
      */
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia_PowerCompliance/PowerStateGroup/")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/PowerStateGroup/")
         .privileges(redfish::privileges::getManager)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handlePowerStateGroupGetRequest, std::ref(app)));

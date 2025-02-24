@@ -212,7 +212,7 @@ inline void handleManagedEntityCollectionGetRequest(
     nvidia_oem_power_profile::handlePowerProfileCollectionGetRequest(
         app, dbusPath, "com.Nvidia.State.PowerCompliance.ManagedEntity",
         boost::urls::format(
-            "/redfish/v1/Managers/{}/Oem/Nvidia_PowerCompliance/ManagedEntityGroups/{}/ManagedEntities",
+            "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/ManagedEntityGroups/{}/ManagedEntities",
             BMCWEB_REDFISH_MANAGER_URI_NAME, groupId),
         req, asyncResp, managerId);
 }
@@ -406,7 +406,7 @@ inline void requestRoutesNvidiaManagedEntity(App& app)
      */
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia_PowerCompliance/ManagedEntityGroups/<str>/ManagedEntities/<str>/")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/ManagedEntityGroups/<str>/ManagedEntities/<str>/")
         .privileges(redfish::privileges::getManager)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleManagedEntityGetRequest, std::ref(app)));
@@ -416,7 +416,7 @@ inline void requestRoutesNvidiaManagedEntity(App& app)
      */
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia_PowerCompliance/ManagedEntityGroups/<str>/ManagedEntities/<str>/")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/ManagedEntityGroups/<str>/ManagedEntities/<str>/")
         .privileges(redfish::privileges::patchManager)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleManagedEntityPatchRequest, std::ref(app)));
@@ -426,7 +426,7 @@ inline void requestRoutesNvidiaManagedEntity(App& app)
      */
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia_PowerCompliance/ManagedEntityGroups/<str>/ManagedEntities/<str>/")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/ManagedEntityGroups/<str>/ManagedEntities/<str>/")
         .privileges(redfish::privileges::deleteManager)
         .methods(boost::beast::http::verb::delete_)(
             std::bind_front(handleManagedEntityDeleteRequest, std::ref(app)));
@@ -436,7 +436,7 @@ inline void requestRoutesNvidiaManagedEntity(App& app)
      */
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia_PowerCompliance/ManagedEntityGroups/<str>/ManagedEntities/")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/ManagedEntityGroups/<str>/ManagedEntities/")
         .privileges(redfish::privileges::getManager)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleManagedEntityCollectionGetRequest, std::ref(app)));
@@ -446,7 +446,7 @@ inline void requestRoutesNvidiaManagedEntity(App& app)
      */
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia_PowerCompliance/ManagedEntityGroups/<str>/ManagedEntities/")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/ManagedEntityGroups/<str>/ManagedEntities/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             handleManagedEntityCollectionPostRequest, std::ref(app)));

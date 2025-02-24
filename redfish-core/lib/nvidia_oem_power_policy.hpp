@@ -57,9 +57,8 @@ inline void processGetTopLevelPowerPolicies(
             continue;
         }
 
-        asyncResp->res.jsonValue["Oem"]["Nvidia_PowerCompliance"][filename]
-                                ["@odata.id"] = boost::urls::format(
-            "/redfish/v1/Managers/{}/Oem/Nvidia_PowerCompliance/{}",
+        asyncResp->res.jsonValue[filename]["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/{}",
             BMCWEB_REDFISH_MANAGER_URI_NAME, filename);
     }
 }
@@ -159,7 +158,7 @@ inline void handlePowerPolicyGetRequest(
     dbusPath /= powerPolicyId;
 
     boost::urls::url redfishUri = boost::urls::format(
-        "/redfish/v1/Managers/{}/Oem/Nvidia_PowerCompliance/PowerDomains/{}/PowerPolicies/{}",
+        "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/PowerDomains/{}/PowerPolicies/{}",
         managerId, powerDomainId, powerPolicyId);
 
     // Get all properties from D-Bus
@@ -176,7 +175,7 @@ inline void handlePowerPolicyGetRequest(
 
 /**
  * @brief Handles GET request for top-level PowerPolicy under
- * /redfish/v1/Managers/{ManagerId}/Oem/Nvidia_PowerCompliance extension which
+ * /redfish/v1/Managers/{ManagerId}/Oem/Nvidia/PowerCompliance extension which
  * reads from top-level PowerPolicy DBus objects.
  * @param app - crow application
  * @param powerPolicyId - id of top-level PowerPolicy
@@ -207,7 +206,7 @@ inline void handlePowerPolicyTopLevelGetRequest(
     dbusPath /= powerPolicyId;
 
     boost::urls::url redfishUri = boost::urls::format(
-        "/redfish/v1/Managers/{}/Oem/Nvidia_PowerCompliance/{}", managerId,
+        "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/{}", managerId,
         powerPolicyId);
 
     // Get all properties from D-Bus
@@ -263,7 +262,7 @@ inline void handlePowerPolicyCollectionGetRequest(
     nvidia_oem_power_profile::handlePowerProfileCollectionGetRequest(
         app, dbusPath, "com.Nvidia.State.PowerCompliance.PowerPolicy",
         boost::urls::format(
-            "/redfish/v1/Managers/{}/Oem/Nvidia_PowerCompliance/PowerDomains/{}/PowerPolicies",
+            "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/PowerDomains/{}/PowerPolicies",
             BMCWEB_REDFISH_MANAGER_URI_NAME, powerDomainId),
         req, asyncResp, managerId);
 }
@@ -380,7 +379,7 @@ inline void requestRoutesNvidiaPowerPolicy(App& app)
      */
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia_PowerCompliance/PowerDomains/<str>/PowerPolicies/<str>/")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/PowerDomains/<str>/PowerPolicies/<str>/")
         .privileges(redfish::privileges::getManager)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handlePowerPolicyGetRequest, std::ref(app)));
@@ -390,14 +389,14 @@ inline void requestRoutesNvidiaPowerPolicy(App& app)
      */
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia_PowerCompliance/PowerDomains/<str>/PowerPolicies/")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/PowerDomains/<str>/PowerPolicies/")
         .privileges(redfish::privileges::getManager)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handlePowerPolicyCollectionGetRequest, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia_PowerCompliance/ACLossPolicy/")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/ACLossPolicy/")
         .privileges(redfish::privileges::getManager)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handlePowerPolicyTopLevelGetRequest, std::ref(app),
@@ -405,7 +404,7 @@ inline void requestRoutesNvidiaPowerPolicy(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia_PowerCompliance/PSUCompliancePolicy/")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/PSUCompliancePolicy/")
         .privileges(redfish::privileges::getManager)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handlePowerPolicyTopLevelGetRequest, std::ref(app),
@@ -416,7 +415,7 @@ inline void requestRoutesNvidiaPowerPolicy(App& app)
      */
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Oem/Nvidia_PowerCompliance/PowerDomains/<str>/PowerPolicies/<str>/")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/PowerDomains/<str>/PowerPolicies/<str>/")
         .privileges(redfish::privileges::patchManager)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handlePowerPolicyPatchRequest, std::ref(app)));

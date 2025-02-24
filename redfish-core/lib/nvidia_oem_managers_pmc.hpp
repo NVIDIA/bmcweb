@@ -43,7 +43,6 @@ namespace redfish
 
 namespace nvidia_oem_managers_pmc
 {
-
 inline void afterInvokePowerComplianceManagerAction(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec)
@@ -70,7 +69,7 @@ inline void afterInvokePowerComplianceManagerAction(
 inline void afterGetPowerComplianceManagerProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec,
-    const dbus::utility::DBusPropertiesMap& properties)
+    [[maybe_unused]] const dbus::utility::DBusPropertiesMap& properties)
 {
     if (ec.value() == EBADR || ec == boost::system::errc::host_unreachable)
     {
@@ -86,75 +85,11 @@ inline void afterGetPowerComplianceManagerProperties(
         return;
     }
 
-    sdbusplus::message::object_path managedEntityGroupsDbusPath;
-    sdbusplus::message::object_path powerDomainsDbusPath;
-    sdbusplus::message::object_path powerPoliciesDbusPath;
-    sdbusplus::message::object_path powerStateGroupDbusPath;
-
-    // clang-format off
-    bool success = sdbusplus::unpackPropertiesNoThrow(
-        dbus_utils::UnpackErrorPrinter(), properties,
-        "ManagedEntityGroups", managedEntityGroupsDbusPath,
-        "PowerDomains", powerDomainsDbusPath,
-        "PowerPolicies", powerPoliciesDbusPath,
-        "PowerStateGroup", powerStateGroupDbusPath);
-    // clang-format on
-
-    if (!success)
-    {
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
-    nlohmann::json& jOut = asyncResp->res.jsonValue;
-    nlohmann::json& oemNvidia = jOut["Oem"]["Nvidia_PowerCompliance"];
-
-    oemNvidia["@odata.type"] =
-        "#NvidiaPowerComplianceManager.v1_0_0.NvidiaPowerComplianceManager";
-    oemNvidia["ManagerType"] =
-        nvidia_power_compliance_manager::NvidiaManagerType::PowerManager;
-
-    if (!managedEntityGroupsDbusPath.str.empty())
-    {
-        oemNvidia["ManagedEntityGroups"]["@odata.id"] = boost::urls::format(
-            "/redfish/v1/Managers/{}/Oem/Nvidia_PowerCompliance/ManagedEntityGroups",
-            BMCWEB_REDFISH_MANAGER_URI_NAME);
-    }
-
-    if (!powerDomainsDbusPath.str.empty())
-    {
-        oemNvidia["PowerDomains"]["@odata.id"] = boost::urls::format(
-            "/redfish/v1/Managers/{}/Oem/Nvidia_PowerCompliance/PowerDomains",
-            BMCWEB_REDFISH_MANAGER_URI_NAME);
-    }
-
-    if (!powerPoliciesDbusPath.str.empty())
-    {
-        constexpr std::array<std::string_view, 1> interfaces = {
-            "com.Nvidia.State.PowerCompliance.PowerPolicy"};
-        dbus::utility::getSubTreePaths(
-            powerPoliciesDbusPath, 0, interfaces,
-            std::bind_front(
-                nvidia_oem_power_policy::processGetTopLevelPowerPolicies,
-                asyncResp));
-    }
-
-    if (!powerStateGroupDbusPath.str.empty())
-    {
-        oemNvidia["PowerStateGroup"]["@odata.id"] = boost::urls::format(
-            "/redfish/v1/Managers/{}/Oem/Nvidia_PowerCompliance/PowerStateGroup",
-            BMCWEB_REDFISH_MANAGER_URI_NAME);
-    }
-
-    nlohmann::json& actions = jOut["Actions"]["Oem"];
-    actions["#NvidiaPowerComplianceManager.AssertPowerBrake"]["target"] =
+    // Add the @odata.id property to the PowerCompliance object in the Manager
+    // response
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["PowerCompliance"]["@odata.id"] =
         boost::urls::format(
-            "/redfish/v1/Managers/{}/Actions/Oem/NvidiaPowerComplianceManager.AssertPowerBrake",
-            BMCWEB_REDFISH_MANAGER_URI_NAME);
-
-    actions["#NvidiaPowerComplianceManager.DeassertPowerBrake"]["target"] =
-        boost::urls::format(
-            "/redfish/v1/Managers/{}/Actions/Oem/NvidiaPowerComplianceManager.DeassertPowerBrake",
+            "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance",
             BMCWEB_REDFISH_MANAGER_URI_NAME);
 }
 
@@ -223,18 +158,156 @@ inline void
         "com.Nvidia.State.PowerCompliance", "AssertPowerBrake");
 }
 
+inline void handlePowerComplianceGetRequest(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "#Manager",
+                                   BMCWEB_REDFISH_MANAGER_URI_NAME);
+        return;
+    }
+
+    // Get all properties from D-Bus
+    std::function<void(const boost::system::error_code&,
+                       const dbus::utility::DBusPropertiesMap&)>
+        callback =
+            [asyncResp](const boost::system::error_code& ec,
+                        const dbus::utility::DBusPropertiesMap& properties) {
+        if (ec.value() == EBADR || ec == boost::system::errc::host_unreachable)
+        {
+            messages::resourceNotFound(asyncResp->res, "PowerComplianceManager",
+                                       BMCWEB_REDFISH_MANAGER_URI_NAME);
+            return;
+        }
+
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR(
+                "Power interface was not found. This is not an error {}", ec);
+            return;
+        }
+
+        sdbusplus::message::object_path managedEntityGroupsDbusPath;
+        sdbusplus::message::object_path powerDomainsDbusPath;
+        sdbusplus::message::object_path powerPoliciesDbusPath;
+        sdbusplus::message::object_path powerStateGroupDbusPath;
+
+        // clang-format off
+            bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), properties,
+                "ManagedEntityGroups", managedEntityGroupsDbusPath,
+                "PowerDomains", powerDomainsDbusPath,
+                "PowerPolicies", powerPoliciesDbusPath,
+                "PowerStateGroup", powerStateGroupDbusPath);
+        // clang-format on
+
+        if (!success)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        nlohmann::json& jOut = asyncResp->res.jsonValue;
+
+        // Set the resource properties in the exact order specified
+        jOut["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance",
+            BMCWEB_REDFISH_MANAGER_URI_NAME);
+        jOut["@odata.type"] =
+            "#NvidiaPowerComplianceManager.v1_0_0.NvidiaPowerComplianceManager";
+        jOut["Id"] = "PowerCompliance";
+        jOut["Name"] = "Rack Power Compliance";
+
+        if (!managedEntityGroupsDbusPath.str.empty())
+        {
+            jOut["ManagedEntityGroups"]["@odata.id"] = boost::urls::format(
+                "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/ManagedEntityGroups",
+                BMCWEB_REDFISH_MANAGER_URI_NAME);
+        }
+        // Add PowerDomains
+        if (!powerDomainsDbusPath.str.empty())
+        {
+            jOut["PowerDomains"]["@odata.id"] = boost::urls::format(
+                "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/PowerDomains",
+                BMCWEB_REDFISH_MANAGER_URI_NAME);
+        }
+
+        if (!powerStateGroupDbusPath.str.empty())
+        {
+            jOut["PowerStateGroup"]["@odata.id"] = boost::urls::format(
+                "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/PowerStateGroup",
+                BMCWEB_REDFISH_MANAGER_URI_NAME);
+        }
+
+        // Add ACLossPolicy
+        jOut["ACLossPolicy"]["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/ACLossPolicy",
+            BMCWEB_REDFISH_MANAGER_URI_NAME);
+
+        // Add PSUCompliancePolicy
+        jOut["PSUCompliancePolicy"]["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/PSUCompliancePolicy",
+            BMCWEB_REDFISH_MANAGER_URI_NAME);
+
+        // Add ManagerType last
+        jOut["ManagerType"] =
+            nvidia_power_compliance_manager::NvidiaManagerType::PowerManager;
+
+        // Process PowerPolicies
+        if (!powerPoliciesDbusPath.str.empty())
+        {
+            constexpr std::array<std::string_view, 1> interfaces = {
+                "com.Nvidia.State.PowerCompliance.PowerPolicy"};
+            dbus::utility::getSubTreePaths(
+                powerPoliciesDbusPath, 0, interfaces,
+                std::bind_front(
+                    nvidia_oem_power_policy::processGetTopLevelPowerPolicies,
+                    asyncResp));
+        }
+
+        // Add PowerBrake actions to the PowerCompliance resource
+        nlohmann::json& actions = jOut["Actions"];
+        actions["#NvidiaPowerComplianceManager.AssertPowerBrake"]["target"] =
+            boost::urls::format(
+                "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/Actions/NvidiaPowerComplianceManager.AssertPowerBrake",
+                BMCWEB_REDFISH_MANAGER_URI_NAME);
+
+        actions["#NvidiaPowerComplianceManager.DeassertPowerBrake"]["target"] =
+            boost::urls::format(
+                "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/Actions/NvidiaPowerComplianceManager.DeassertPowerBrake",
+                BMCWEB_REDFISH_MANAGER_URI_NAME);
+    };
+
+    sdbusplus::asio::getAllProperties(
+        *crow::connections::systemBus, "com.Nvidia.RackPowerCompliance",
+        "/com/nvidia/state/power_compliance",
+        "com.Nvidia.State.PowerCompliance", std::move(callback));
+}
+
 inline void requestRoutesNvidiaPowerComplianceManagerActions(App& app)
 {
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance")
+        .privileges(redfish::privileges::getManager)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handlePowerComplianceGetRequest, std::ref(app)));
+
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Actions/Oem/NvidiaPowerComplianceManager.AssertPowerBrake")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/Actions/NvidiaPowerComplianceManager.AssertPowerBrake")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(assertPowerBrake, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Managers/<str>/Actions/Oem/NvidiaPowerComplianceManager.DeassertPowerBrake")
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/Actions/NvidiaPowerComplianceManager.DeassertPowerBrake")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(deassertPowerBrake, std::ref(app)));
