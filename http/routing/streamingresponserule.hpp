@@ -24,7 +24,7 @@ class StreamingResponseRule : public BaseRule
 
     void validate() override {}
 
-    void handle(Request&, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    void handle(const Request& /*req*/, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const std::vector<std::string>&) override
     {
         asyncResp->res.result(boost::beast::http::status::not_found);

@@ -725,6 +725,7 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
         }
 
         auto conn = connections[connId];
+
         // Allow the connection's handler to be deleted
         // This is needed because of Redfish Aggregation passing an
         // AsyncResponse shared_ptr to this callback
@@ -938,7 +939,7 @@ class HttpClient
     HttpClient& operator=(HttpClient&& client) = default;
     ~HttpClient() = default;
 
-    // Send a request to destIP:destPort where additional processing of the
+    // Send a request to destIP where additional processing of the
     // result is not required
     void sendData(std::string&& data, const boost::urls::url_view_base& destUri,
                   ensuressl::VerifyCertificate verifyCert,

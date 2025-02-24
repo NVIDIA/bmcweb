@@ -230,6 +230,7 @@ class Server
     std::function<std::string()> getCachedDateStr;
     boost::asio::ip::tcp::acceptor acceptor;
     boost::asio::signal_set signals;
+
     std::string dateStr;
 
     Handler* handler;

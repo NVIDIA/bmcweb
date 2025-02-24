@@ -256,14 +256,14 @@ option(
 
 # BMCWEB_BASIC_AUTH
 option(
-    'bmcweb-chunking',
+    'http-chunking',
     type: 'feature',
     value: 'disabled',
     description: 'Enable bmcweb chunking.',
 )
 
 option(
-    'bmcweb-response-timeout',
+    'http-response-timeout',
     type: 'integer',
     value: 60,
     description: 'The bmcweb response timeout in seconds.',

@@ -7,7 +7,6 @@
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
-#include "persistent_data.hpp"
 #include "privileges.hpp"
 #include "routing/baserule.hpp"
 #include "routing/dynamicrule.hpp"
@@ -592,6 +591,7 @@ class Router
 
         BMCWEB_LOG_DEBUG("Matched rule (upgrade) '{}'", rule.rule);
 
+        // downstream change from no-auth 
         if (req->session == nullptr)
         {
             rule.handleUpgrade(*req, asyncResp, std::move(adaptor));

@@ -779,7 +779,7 @@ inline void requestPcieSlotsRoutes(App& app)
             crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisId(std::string(chassisId))](
                     const boost::system::error_code& ec,
-                    const crow::openbmc_mapper::GetSubTreeType& subtree) {
+                    const dbus::utility::GetSubTreeType& subtree) {
                     const std::array<const char*, 1> pcieslotIntf = {
                         "xyz.openbmc_project.Inventory.Item.PCIeSlot"};
                     if (ec)
@@ -813,7 +813,7 @@ inline void requestPcieSlotsRoutes(App& app)
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, chassisId(std::string(chassisId))](
                                 const boost::system::error_code& ec,
-                                const crow::openbmc_mapper::GetSubTreeType&
+                                const dbus::utility::GetSubTreeType&
                                     pcieSlotSubtree) {
                                 if (ec)
                                 {

@@ -9,7 +9,7 @@ endif
 feature_options = [
     'basic-auth',
     'bios',
-    'bmcweb-chunking',
+    'http-chunking',
     'command-shell',
     'command-smbpbi-oob',
     'cookie-auth',
@@ -147,7 +147,7 @@ string_options = [
 
 int_options = [
     'firmware-image-limit',
-    'bmcweb-response-timeout',
+    'http-response-timeout',
     'gpu-index-start',
     'http-body-limit',
     'manufacturing-test-timeout',

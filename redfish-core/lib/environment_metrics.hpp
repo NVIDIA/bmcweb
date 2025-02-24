@@ -194,7 +194,7 @@ inline void requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(App& app)
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, processorId](
                         const boost::system::error_code& ec,
-                        const crow::openbmc_mapper::GetSubTreeType& subtree) {
+                        const dbus::utility::GetSubTreeType& subtree) {
                         if (ec)
                         {
                             messages::internalError(asyncResp->res);
@@ -272,7 +272,7 @@ inline void requestRoutesChassisEnvironmentMetricsClearOOBSetPoint(App& app)
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisId](
                         const boost::system::error_code& ec,
-                        const crow::openbmc_mapper::GetSubTreeType& subtree) {
+                        const dbus::utility::GetSubTreeType& subtree) {
                         if (ec)
                         {
                             messages::internalError(asyncResp->res);
@@ -467,7 +467,7 @@ inline void requestRoutesEnvironmentMetrics(App& app)
                     crow::connections::systemBus->async_method_call(
                         [asyncResp, chassisId,
                          setPoint](const boost::system::error_code& ec,
-                                   const crow::openbmc_mapper::GetSubTreeType&
+                                   const dbus::utility::GetSubTreeType&
                                        subtree) {
                             if (ec)
                             {
@@ -731,7 +731,7 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
                     crow::connections::systemBus->async_method_call(
                         [asyncResp, processorId, setPoint, persistency](
                             const boost::system::error_code& ec,
-                            const crow::openbmc_mapper::GetSubTreeType&
+                            const dbus::utility::GetSubTreeType&
                                 subtree) {
                             if (ec)
                             {

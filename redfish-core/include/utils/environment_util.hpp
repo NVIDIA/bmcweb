@@ -1023,7 +1023,7 @@ inline void
     crow::connections::systemBus->async_method_call(
         [asyncResp,
          resourceId](const boost::system::error_code& ec,
-                     const crow::openbmc_mapper::GetSubTreeType& subtree) {
+                     const dbus::utility::GetSubTreeType& subtree) {
             if (ec)
             {
                 return;

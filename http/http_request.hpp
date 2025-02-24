@@ -49,7 +49,6 @@ struct Request
 
     Request& operator=(const Request&) = default;
     Request& operator=(Request&&) = default;
-
     ~Request() = default;
 
     void addHeader(std::string_view key, std::string_view value)

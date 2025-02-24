@@ -274,7 +274,7 @@ inline void getEROTChassis(const crow::Request& req,
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, chassisId(std::string(chassisId)),
          isCpuEROT](const boost::system::error_code& ec,
-                    const crow::openbmc_mapper::GetSubTreeType& subtree) {
+                    const dbus::utility::GetSubTreeType& subtree) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);
@@ -565,7 +565,7 @@ inline void requestRoutesEROTChassisCertificate(App& app)
                             [req, asyncResp, chassisID(std::string(chassisID)),
                              certificateID](
                                 const boost::system::error_code& ec,
-                                const crow::openbmc_mapper::GetSubTreeType&
+                                const dbus::utility::GetSubTreeType&
                                     subtree) {
                                 if (ec)
                                 {
@@ -727,7 +727,7 @@ inline void handleEROTChassisPatch(
         [req, asyncResp, chassisId(std::string(chassisId)),
          backgroundCopyEnabled,
          inBandEnabled](const boost::system::error_code& ec,
-                        const crow::openbmc_mapper::GetSubTreeType& subtree) {
+                        const dbus::utility::GetSubTreeType& subtree) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);
@@ -1369,7 +1369,7 @@ inline void handleEROTChassisResetAction(
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, chassisId(std::string(chassisId))](
             const boost::system::error_code& ec,
-            const crow::openbmc_mapper::GetSubTreeType& subtree) {
+            const dbus::utility::GetSubTreeType& subtree) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);

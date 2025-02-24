@@ -993,7 +993,7 @@ inline void requestRoutesFabric(App& app)
             crow::connections::systemBus->async_method_call(
                 [asyncResp, fabricId(std::string(fabricId))](
                     const boost::system::error_code& ec,
-                    const crow::openbmc_mapper::GetSubTreeType& subtree) {
+                    const dbus::utility::GetSubTreeType& subtree) {
                     if (ec)
                     {
                         messages::internalError(asyncResp->res);
@@ -1194,7 +1194,7 @@ inline void getSwitchParentChassisPCIeDeviceLink(
             crow::connections::systemBus->async_method_call(
                 [aResp, chassisName, parentChassisName](
                     const boost::system::error_code& ec,
-                    const crow::openbmc_mapper::GetSubTreeType& subtree) {
+                    const dbus::utility::GetSubTreeType& subtree) {
                     if (ec)
                     {
                         messages::internalError(aResp->res);
@@ -2832,7 +2832,7 @@ inline void requestRoutesZone(App& app)
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, fabricId,
                              zoneId](const boost::system::error_code& ec,
-                                     const crow::openbmc_mapper::GetSubTreeType&
+                                     const dbus::utility::GetSubTreeType&
                                          subtree) {
                                 if (ec)
                                 {
@@ -3152,7 +3152,7 @@ inline void getProcessorParentEndpointData(
                 [aResp, chassisName, parentChassisName, entityLink,
                  processorPath](
                     const boost::system::error_code& ec,
-                    const crow::openbmc_mapper::GetSubTreeType& subtree) {
+                    const dbus::utility::GetSubTreeType& subtree) {
                     if (ec)
                     {
                         messages::internalError(aResp->res);
@@ -3575,7 +3575,7 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 crow::connections::systemBus->async_method_call(
                     [aResp, objPath, entityPath, fabricId](
                         const boost::system::error_code& ec,
-                        const crow::openbmc_mapper::GetSubTreeType& subtree) {
+                        const dbus::utility::GetSubTreeType& subtree) {
                         if (ec)
                         {
                             messages::internalError(aResp->res);
@@ -3790,7 +3790,7 @@ inline void requestRoutesEndpoint(App& app)
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, fabricId, endpointId](
                                     const boost::system::error_code& ec,
-                                    const crow::openbmc_mapper::GetSubTreeType&
+                                    const dbus::utility::GetSubTreeType&
                                         subtree) {
                                     if (ec)
                                     {

@@ -2536,7 +2536,7 @@ inline void setForceUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  * @return None
  */
 inline void processMultipartFormData(
-    crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const MultipartParser& parser)
 {
     std::optional<std::string> applyTime;
@@ -2614,7 +2614,7 @@ inline void processMultipartFormData(
                     BMCWEB_LOG_DEBUG("forward image {}", uriTargets[0]);
 
                     // clear up the body buffer of the request to save memory
-                    req.clearBody();
+                    const_cast<crow::Request&>(req).clearBody(); 
                     RedfishAggregator::getSatelliteConfigs(std::bind_front(
                         forwardImage, req, parser, updateAll, asyncResp));
                 }
@@ -2720,7 +2720,7 @@ inline bool preCheckMultipartUpdateServiceReq(
  * @return None
  */
 inline void handleMultipartUpdateServicePost(
-    App& app, crow::Request& req,
+    App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
@@ -3311,7 +3311,7 @@ inline void requestRoutesUpdateService(App& app)
         .privileges(redfish::privileges::postUpdateService)
         .methods(boost::beast::http::verb::post)(
             [&app](
-                crow::Request& req,
+                const crow::Request& req,
                 const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) mutable {
                 handleMultipartUpdateServicePost(app, req, asyncResp);
             });
@@ -5410,7 +5410,7 @@ inline void handleUpdateServicePersistentStorageFwPackagesListGet(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
-                    const crow::openbmc_mapper::GetSubTreeType& subtree) {
+                    const dbus::utility::GetSubTreeType& subtree) {
             BMCWEB_LOG_DEBUG("doGet callback...");
             if (ec)
             {
@@ -5816,7 +5816,7 @@ inline void initiateFirmwarePackage(
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, targets,
          forceUpdate](const boost::system::error_code& ec,
-                      const crow::openbmc_mapper::GetSubTreeType& subtree) {
+                      const dbus::utility::GetSubTreeType& subtree) {
             BMCWEB_LOG_DEBUG("doGet callback...");
             if (ec)
             {
@@ -5922,7 +5922,7 @@ inline void initiateFirmwarePackage(
  */
 inline void updateParametersForInitiateActionInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const crow::openbmc_mapper::GetSubTreeType& subtree)
+    const dbus::utility::GetSubTreeType& subtree)
 {
     sdbusplus::asio::getProperty<std::vector<std::string>>(
         *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",

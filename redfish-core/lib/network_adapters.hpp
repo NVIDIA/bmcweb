@@ -502,7 +502,7 @@ inline void handleGet(App& app, const crow::Request& req,
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisId, id,
          isNDF](const boost::system::error_code& ec,
-                const crow::openbmc_mapper::GetSubTreeType& subtree) {
+                const dbus::utility::GetSubTreeType& subtree) {
             std::string dpuString = "host0";
             if (ec)
             {

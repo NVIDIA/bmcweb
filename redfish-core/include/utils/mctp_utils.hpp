@@ -30,6 +30,10 @@ namespace redfish
 namespace mctp_utils
 {
 
+using GetSubTreeType = std::vector<
+std::pair<std::string,
+            std::vector<std::pair<std::string, std::vector<std::string>>>>>;
+
 constexpr const std::string_view mctpBusPrefix = "xyz.openbmc_project.MCTP";
 constexpr const std::string_view mctpObjectPrefix =
     "/xyz/openbmc_project/mctp/";
@@ -231,7 +235,7 @@ inline void enumerateMctpEndpoints(
          errorCallback{std::forward<ErrorCallback>(errorCallback)},
          spdmObjectFilter](
             const boost::system::error_code& ec,
-            const crow::openbmc_mapper::GetSubTreeType& subtree) {
+            const dbus::utility::GetSubTreeType& subtree) {
             const std::string desc = "SPDM / MCTP endpoint enumeration";
             BMCWEB_LOG_DEBUG("{}", desc);
             if (ec)

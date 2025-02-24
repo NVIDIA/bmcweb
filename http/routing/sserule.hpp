@@ -28,7 +28,7 @@ class SseSocketRule : public BaseRule
 
     void validate() override {}
 
-    void handle(Request& /*req*/,
+    void handle(const Request& /*req*/,
                 const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const std::vector<std::string>& /*params*/) override
     {

@@ -406,7 +406,7 @@ inline void requestRoutesComponentIntegrity(App& app)
             crow::connections::systemBus->async_method_call(
                 [asyncResp](
                     const boost::system::error_code ec,
-                    const crow::openbmc_mapper::GetSubTreeType& subtree) {
+                    const dbus::utility::GetSubTreeType& subtree) {
                     if (ec)
                     {
                         messages::internalError(asyncResp->res);

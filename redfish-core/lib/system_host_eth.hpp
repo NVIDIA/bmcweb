@@ -79,7 +79,7 @@ void getEthernetIfaceService(
         [ethifaceId{std::string{ethifaceId}},
          callback{std::forward<CallbackFunc>(callback)}](
             const boost::system::error_code& ec,
-            const crow::openbmc_mapper::GetSubTreeType& subtree) {
+            const dbus::utility::GetSubTreeType& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error ", ec);

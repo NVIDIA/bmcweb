@@ -435,6 +435,7 @@ class Connection :
     void gracefulClose()
     {
         BMCWEB_LOG_DEBUG("{} Socket close requested", logPtr(this));
+
         if constexpr (IsTls<Adaptor>::value)
         {
             BMCWEB_LOG_DEBUG("{} Shutting down TLS", logPtr(this));
@@ -774,7 +775,7 @@ class Connection :
         BMCWEB_LOG_DEBUG("{} doWrite", logPtr(this));
         ForceChunking chunked = ForceChunking::Disabled;
 
-        if constexpr (BMCWEB_BMCWEB_CHUNKING)
+        if constexpr (BMCWEB_HTTP_CHUNKING)
         {
             if (req && req->version() == 11)
             {
@@ -844,16 +845,14 @@ class Connection :
 
     void startDeadline()
     {
-        cancelDeadlineTimer();
-
-        std::chrono::seconds timeout(BMCWEB_BMCWEB_RESPONSE_TIMEOUT);
-        // allow slow uploads for logged in users
-        bool loggedIn = userSession != nullptr;
-        if (loggedIn)
+        // Timer is already started so no further action is required.
+        if (timerStarted)
         {
-            timeout = std::chrono::seconds(BMCWEB_BMCWEB_RESPONSE_TIMEOUT);
             return;
         }
+
+        std::chrono::seconds timeout(BMCWEB_HTTP_RESPONSE_TIMEOUT);
+
         std::weak_ptr<Connection<Adaptor, Handler>> weakSelf = weak_from_this();
         timer.expires_after(timeout);
         timer.async_wait(std::bind_front(&self_type::afterTimerWait, this,

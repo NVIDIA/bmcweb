@@ -26,7 +26,7 @@ struct Wrapped<Func, std::tuple<ArgsWrapped...>>
 
     std::function<void(ArgsWrapped...)> handler;
 
-    void operator()(Request& req,
+    void operator()(const Request& req,
                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     const std::vector<std::string>& params)
     {
@@ -72,7 +72,7 @@ class DynamicRule : public BaseRule, public RuleParameterTraits<DynamicRule>
         }
     }
 
-    void handle(Request& req,
+    void handle(const Request& req,
                 const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const std::vector<std::string>& params) override
     {
@@ -87,7 +87,8 @@ class DynamicRule : public BaseRule, public RuleParameterTraits<DynamicRule>
     }
 
   private:
-    std::function<void(Request&, const std::shared_ptr<bmcweb::AsyncResp>&,
+    std::function<void(const Request&,
+                       const std::shared_ptr<bmcweb::AsyncResp>&,
                        const std::vector<std::string>&)>
         erasedHandler;
 };
