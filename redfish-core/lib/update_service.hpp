@@ -127,6 +127,101 @@ struct MemoryFileDescriptor
     }
 };
 
+/**
+ * @brief A session for asynchronously writing image data to a file.
+ *
+ * This struct manages the asynchronous writing of image data to a specified
+ * file path using Boost.Asio. It handles writing data in chunks and ensures
+ * that the file is properly closed upon completion or error.
+ */
+struct AsyncImageWriteSession :
+    public std::enable_shared_from_this<AsyncImageWriteSession>
+{
+    /**
+     * @brief Constructs an AsyncImageWriteSession.
+     *
+     * @param asyncRespIn A shared pointer to the asynchronous response object.
+     * @param streamIn A shared pointer to the Boost.Asio stream descriptor.
+     * @param filepathIn The file path where the image data will be written.
+     * @param dataRefIn A reference to the string containing the image data.
+     * @param sharedReqIn An optional shared pointer to the request object.
+     */
+    AsyncImageWriteSession(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
+        std::shared_ptr<boost::asio::posix::stream_descriptor> streamIn,
+        const std::filesystem::path& filepathIn, const std::string& dataRefIn,
+        std::shared_ptr<const crow::Request> sharedReqIn = nullptr) :
+        asyncResp(asyncRespIn),
+        stream(std::move(streamIn)), filepath(filepathIn), dataRef(dataRefIn),
+        sharedReq(std::move(sharedReqIn))
+    {}
+
+    /**
+     * @brief Starts the asynchronous write operation.
+     *
+     * Initiates the process of writing the image data to the file in chunks.
+     */
+    void start()
+    {
+        writeChunk(0);
+    }
+
+  private:
+    /**
+     * @brief Writes a chunk of data to the file.
+     *
+     * @param offset The current offset in the data to start writing from.
+     */
+    void writeChunk(std::size_t offset)
+    {
+        if (offset >= dataRef.size())
+        {
+            boost::system::error_code ec;
+            stream->close(ec);
+            BMCWEB_LOG_INFO("Finished writing file to {}", filepath.string());
+            return;
+        }
+
+        static constexpr std::size_t CHUNK_SIZE = 8192;
+        const std::size_t bytesToWrite = std::min(CHUNK_SIZE,
+                                                  dataRef.size() - offset);
+
+        std::string_view dataRefView{dataRef};
+        std::string_view chunk = dataRefView.substr(offset, bytesToWrite);
+
+        auto buffer = boost::asio::buffer(chunk.data(), chunk.size());
+
+        auto self = shared_from_this();
+        boost::asio::async_write(*stream, buffer,
+                                 [self, offset, bytesToWrite](
+                                     const boost::system::error_code& ec,
+                                     std::size_t /*bytesTransferred*/) mutable {
+            if (!ec)
+            {
+                const std::size_t newOffset = offset + bytesToWrite;
+                BMCWEB_LOG_DEBUG("Wrote {} bytes [offset={}] to {}",
+                                 bytesToWrite, newOffset,
+                                 self->filepath.string());
+                self->writeChunk(newOffset);
+            }
+            else
+            {
+                BMCWEB_LOG_ERROR("Write error on {}: {}",
+                                 self->filepath.string(), ec.message());
+                boost::system::error_code closeEc;
+                self->stream->close(closeEc);
+                messages::internalError(self->asyncResp->res);
+            }
+        });
+    }
+
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp;
+    std::shared_ptr<boost::asio::posix::stream_descriptor> stream;
+    std::filesystem::path filepath;
+    const std::string& dataRef;
+    std::shared_ptr<const crow::Request> sharedReq;
+};
+
 inline void cleanUp()
 {
     fwUpdateInProgress = false;
@@ -2601,21 +2696,29 @@ inline void doHTTPUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        [asyncResp, sharedReq]() mutable {
             setOemUpdateOption(asyncResp, "StageAndActivate",
                                [asyncResp, sharedReq]() mutable {
-                std::string filepath(updateServiceImageLocation +
-                                     boost::uuids::to_string(
-                                         boost::uuids::random_generator()()));
+                std::filesystem::path filepath(updateServiceImageLocation +
+                                               bmcweb::getRandomUUID());
 
                 monitorForSoftwareAvailable(asyncResp, *sharedReq,
                                             fwObjectCreationDefaultTimeout,
                                             filepath);
+                BMCWEB_LOG_INFO("Writing file to {}", filepath.string());
+                int fd = open(filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC,
+                              0640);
+                if (fd < 0)
+                {
+                    BMCWEB_LOG_ERROR("Failed to open {}", filepath.string());
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
 
-                BMCWEB_LOG_DEBUG("Writing file to {}", filepath);
-                std::ofstream out(filepath, std::ofstream::out |
-                                                std::ofstream::binary |
-                                                std::ofstream::trunc);
-                out << sharedReq->body();
-                out.close();
-                BMCWEB_LOG_DEBUG("file upload complete!!");
+                auto stream =
+                    std::make_shared<boost::asio::posix::stream_descriptor>(
+                        *sharedReq->ioService, fd);
+                const std::string& crowBody = sharedReq->body();
+                auto session = std::make_shared<AsyncImageWriteSession>(
+                    asyncResp, stream, filepath, crowBody, sharedReq);
+                session->start();
             });
         });
     }
