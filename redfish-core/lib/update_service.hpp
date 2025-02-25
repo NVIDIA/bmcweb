@@ -1205,15 +1205,9 @@ inline void uploadImageFile(const std::shared_ptr<const crow::Request>& req,
     monitorForSoftwareAvailable(asyncResp, *req, fwObjectCreationDefaultTimeout,
                                 filepath);
 
-    BMCWEB_LOG_DEBUG("Writing file to {}", filepath.string());
-    std::ofstream out(filepath, std::ofstream::out | std::ofstream::binary |
-                                    std::ofstream::trunc);
-    // set the permission of the file to 640
-    std::filesystem::perms permission = std::filesystem::perms::owner_read |
-                                        std::filesystem::perms::group_read;
-    std::filesystem::permissions(filepath, permission);
+    BMCWEB_LOG_INFO("Writing file to {}", filepath.string());
 
-    MultipartParser parser;
+    MultipartParser parser(filepath);
     ParserError ec = parser.parse(*req);
     if (ec != ParserError::PARSER_SUCCESS)
     {
@@ -1227,36 +1221,10 @@ inline void uploadImageFile(const std::shared_ptr<const crow::Request>& req,
 
     for (const FormPart& formpart : parser.mime_fields)
     {
-        boost::beast::http::fields::const_iterator it =
-            formpart.fields.find("Content-Disposition");
-
-        size_t index = it->value().find(';');
-        if (index == std::string::npos)
+        if (formpart.isUpdateFile)
         {
-            continue;
-        }
-
-        for (const auto& param :
-             boost::beast::http::param_list{it->value().substr(index)})
-        {
-            if (param.first != "name" || param.second.empty())
-            {
-                continue;
-            }
-
-            if (param.second == "UpdateFile")
-            {
-                hasUpdateFile = true;
-                out << formpart.content;
-
-                if (out.bad())
-                {
-                    BMCWEB_LOG_ERROR("Error writing to file: {}",
-                                     filepath.string());
-                    messages::internalError(asyncResp->res);
-                    cleanUp();
-                }
-            }
+            hasUpdateFile = true;
+            break;
         }
     }
 
@@ -2145,7 +2113,7 @@ void handleSatBMCResponse(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  * @return None
  */
 inline void forwardImage(
-    crow::Request& req, const MultipartParser& parser, const bool updateAll,
+    crow::Request& req, const bool updateAll,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
@@ -2172,6 +2140,17 @@ inline void forwardImage(
     std::function<void(crow::Response&)> cb =
         std::bind_front(handleSatBMCResponse, asyncResp);
 
+    MultipartParser parser;
+    ParserError parserEc = parser.parse(req);
+    if (parserEc != ParserError::PARSER_SUCCESS)
+    {
+        BMCWEB_LOG_ERROR("MIME parse failed, ec : {}",
+                         static_cast<int>(parserEc));
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    // clear up the body buffer of the request to save memory
+    req.clearBody();
     bool hasUpdateFile = false;
     std::string data;
     std::string_view boundary(parser.boundary);
@@ -2452,10 +2431,8 @@ inline void processMultipartFormData(
                 // All URIs in Target has the prepended prefix
                 BMCWEB_LOG_DEBUG("forward image {}", uriTargets[0]);
 
-                // clear up the body buffer of the request to save memory
-                req.clearBody();
-                RedfishAggregator::getSatelliteConfigs(std::bind_front(
-                    forwardImage, req, parser, updateAll, asyncResp));
+                RedfishAggregator::getSatelliteConfigs(
+                    std::bind_front(forwardImage, req, updateAll, asyncResp));
             }
             return;
         }
@@ -2580,7 +2557,7 @@ inline void handleMultipartUpdateServicePost(
         return;
     }
 
-    MultipartParser parser;
+    MultipartParser parser(true);
     ParserError ec = parser.parse(req);
     if (ec == ParserError::ERROR_BOUNDARY_FORMAT)
     {
