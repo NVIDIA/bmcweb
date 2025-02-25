@@ -44,6 +44,7 @@
 #include <utils/dbus_log_utils.hpp>
 #include <utils/json_utils.hpp>
 #include <utils/log_services_util.hpp>
+#include <utils/nvidia_utils.hpp>
 #include <utils/origin_utils.hpp>
 #include <utils/registry_utils.hpp>
 

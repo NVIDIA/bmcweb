@@ -66,6 +66,7 @@
 #include <utils/dbus_log_utils.hpp>
 #include <utils/dbus_utils.hpp>
 #include <utils/log_services_util.hpp>
+#include <utils/nvidia_utils.hpp>
 #include <utils/origin_utils.hpp>
 #include <utils/time_utils.hpp>
 
@@ -2915,40 +2916,22 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                 if (additionalDataRaw != nullptr)
                 {
                     AdditionalData additional(*additionalDataRaw);
-                    if (additional.count("REDFISH_MESSAGE_ID") == 1)
+                    auto it = additional.equals_range("REDFISH_MESSAGE_ID");
+                    auto msgCount = std::distance(it.first, it.second);
+                    if (msgCount == 1)
                     {
                         isMessageRegistry = true;
                         messageId = additional["REDFISH_MESSAGE_ID"];
-                        if (additional.count("REDFISH_MESSAGE_ARGS") == 1)
+                        auto msgArg =
+                            additional.equals_range("REDFISH_MESSAGE_ARGS");
+                        auto msgArgCount = std::distance(msgArg.first,
+                                                         msgArg.second);
+                        if (msgArgCount == 1)
                         {
-                            std::string args =
-                                additional["REDFISH_MESSAGE_ARGS"];
-                            bmcweb::split(messageArgsDbus, args, ',');
-                            for (auto& msgArg : messageArgsDbus)
-                            {
-                                boost::trim(msgArg);
-                            }
-                            if (!messageArgsDbus.empty() &&
-                                !messageArgsDbus[0].empty())
-                            {
-                                if (dBusToRedfishProperty.find(
-                                        messageArgsDbus[0]) !=
-                                    dBusToRedfishProperty.end())
-                                {
-                                    messageArgsDbus[0] = dBusToRedfishProperty
-                                        [messageArgsDbus[0]];
-                                    messageArgs = boost::algorithm::join(
-                                        messageArgsDbus, ", ");
-                                }
-                                else
-                                {
-                                    BMCWEB_LOG_WARNING(
-                                        "property mapping not found for {}",
-                                        messageArgsDbus[0]);
-                                }
-                            }
+                            convertDbusToRedfishProperty(additional,
+                                                         messageArgs);
                         }
-                        else if (additional.count("REDFISH_MESSAGE_ARGS") > 0)
+                        else if (msgArgCount > 1)
                         {
                             BMCWEB_LOG_ERROR("Multiple "
                                              "REDFISH_MESSAGE_ARGS in the Dbus "
@@ -2956,16 +2939,12 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                             return;
                         }
                     }
-                    else
+                    else if (msgCount > 1)
                     {
-                        auto counter = additional.count("REDFISH_MESSAGE_ID");
-                        if (counter > 0)
-                        {
-                            BMCWEB_LOG_ERROR(
-                                "There should be exactly one MessageId in the Dbus signal message. Found {}",
-                                std::to_string(counter));
-                            return;
-                        }
+                        BMCWEB_LOG_ERROR(
+                            "There should be exactly one MessageId in the Dbus signal message. Found {}",
+                            std::to_string(msgCount));
+                        return;
                     }
                     if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
                     {

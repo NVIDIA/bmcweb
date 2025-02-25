@@ -25,7 +25,6 @@
 
 #include <map>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 namespace redfish
@@ -51,87 +50,6 @@ inline std::string translateSeverityDbusToRedfish(const std::string_view s)
     }
     return "";
 }
-
-const std::string minpasswordLengthDbus = "MinPasswordLength";
-const std::string minpasswordLength = "MinPasswordLength";
-const std::string accountUnlockTimeoutDbus = "AccountUnlockTimeout";
-const std::string accountLockoutDuration = "AccountLockoutDuration";
-const std::string maxLoginAttemptBeforeLockoutDbus =
-    "MaxLoginAttemptBeforeLockout";
-const std::string maxLoginAttemptBeforeLockout = "MaxLoginAttemptBeforeLockout";
-const std::string userEnabledDbus = "UserEnabled";
-const std::string userEnabled = "UserEnabled";
-const std::string userLockedForFailedAttemptDbus = "UserLockedForFailedAttempt";
-const std::string locked = "Locked";
-const std::string userPrivilegeDbus = "UserPrivilege";
-const std::string roleid = "RoleId";
-const std::string ldapbindDNPasswordDbus = "LDAPBindDNPassword";
-const std::string password = "Password";
-const std::string ldapBindDNDbus = "LDAPBindDN";
-const std::string usernameDbus = "UserName";
-const std::string username = "UserName";
-const std::string ldapServerURIDbus = "LDAPServerURI";
-const std::string serviceAddresses = "ServiceAddresses";
-const std::string enabledDbus = "Enabled";
-const std::string srvcEnabled = "ServiceEnabled";
-const std::string ldapBaseDNDbus = "LDAPBaseDN";
-const std::string baseDistinguishedNames = "BaseDistinguishedNames";
-const std::string groupNameAttributeDbus = "GroupNameAttribute";
-const std::string groupsAttribute = "GroupsAttribute";
-const std::string userNameAttributeDbus = "UserNameAttribute";
-const std::string userNameAttribute = "UsernameAttribute";
-const std::string privilageDbus = "Privilege";
-const std::string localRole = "LocalRole";
-const std::string groupNameDbus = "GroupName";
-const std::string remoteGroup = "RemoteGroup";
-const std::string modulePowercapDbus = "ModulePowerCap";
-const std::string setpoint = "SetPoint";
-const std::string nicEnabledDbus = "NICEnabled";
-const std::string vlanEnable = "VLANEnable";
-const std::string dhcbEnableDbus = "DHCPEnabled";
-const std::string dhcbEnabled = "DHCPEnabled";
-const std::string secureBootEnableDbus = "SecureBootEnable";
-const std::string secureBootEnable = "SecureBootEnable";
-const std::string secureBootModeDbus = "SecureBootMode";
-const std::string secureBootMode = "SecureBootMode";
-const std::string secureCurrentBootDbus = "ScureCurrentBoot";
-const std::string secureCurrentBoot = "ScureCurrentBoot";
-const std::string resetBIOSSettingsDbus = "ResetBIOSSettings";
-const std::string resetBIOSSettings = "ResetBIOSSettings";
-const std::string biosPassowrdDbus = "BIOSPassword";
-const std::string biosPassword = "NewPassword";
-const std::string hostPowerStateDbus = "RequestedHostTransition";
-const std::string hostPowerState = "ResetType";
-
-/**
- * @brief Map Dbus Property to Redfish Property
- */
-inline std::unordered_map<std::string, std::string> dBusToRedfishProperty = {
-    {minpasswordLengthDbus, minpasswordLength},
-    {accountUnlockTimeoutDbus, accountLockoutDuration},
-    {maxLoginAttemptBeforeLockoutDbus, maxLoginAttemptBeforeLockout},
-    {userEnabledDbus, userEnabled},
-    {userLockedForFailedAttemptDbus, locked},
-    {userPrivilegeDbus, roleid},
-    {ldapbindDNPasswordDbus, password},
-    {ldapBindDNDbus, username},
-    {ldapServerURIDbus, serviceAddresses},
-    {enabledDbus, srvcEnabled},
-    {ldapBaseDNDbus, baseDistinguishedNames},
-    {usernameDbus, username},
-    {groupNameAttributeDbus, groupsAttribute},
-    {userNameAttributeDbus, userNameAttribute},
-    {privilageDbus, localRole},
-    {groupNameDbus, remoteGroup},
-    {modulePowercapDbus, setpoint},
-    {nicEnabledDbus, vlanEnable},
-    {dhcbEnableDbus, dhcbEnabled},
-    {secureBootEnableDbus, secureBootEnable},
-    {secureBootModeDbus, secureBootMode},
-    {resetBIOSSettingsDbus, resetBIOSSettings},
-    {biosPassowrdDbus, biosPassword},
-    {secureCurrentBootDbus, secureCurrentBoot},
-    {hostPowerStateDbus, hostPowerState}};
 
 class AdditionalData
 {
@@ -191,6 +109,11 @@ class AdditionalData
     std::size_t count(const std::string& key) const
     {
         return data.count(key);
+    }
+
+    auto equals_range(const std::string& key) const
+    {
+        return data.equal_range(key);
     }
 
     std::map<std::string, std::string>::const_iterator begin() const
