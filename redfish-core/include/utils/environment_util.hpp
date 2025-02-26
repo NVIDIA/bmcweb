@@ -14,8 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
 
+#include <algorithm>
+#include <ranges>
 namespace redfish
 {
 namespace nvidia_env_utils
@@ -26,6 +29,41 @@ using SetPointProperties =
 // Map of service name to list of interfaces
 using MapperServiceMap =
     std::vector<std::pair<std::string, std::vector<std::string>>>;
+
+struct InterfaceGroup
+{
+    std::string_view name;
+    std::array<const char*, 4> interfaces;
+    size_t interfaceCount;
+};
+
+struct PowerControlInfo
+{
+    std::string controlPath;
+    std::string serviceName;
+};
+
+static constexpr std::array<InterfaceGroup, 4> requiredInterfaceGroups{
+    {{std::string_view{"PowerCapPersistence"},
+      {"xyz.openbmc_project.Control.Power.Cap",
+       "xyz.openbmc_project.State.Decorator.Persistence", nullptr, nullptr},
+      2},
+     {std::string_view{"ControlMode"},
+      {"xyz.openbmc_project.Control.Power.Cap",
+       "xyz.openbmc_project.State.Decorator.Persistence",
+       "xyz.openbmc_project.Control.Mode", nullptr},
+      3},
+     {std::string_view{"ControlPowerMode"},
+      {"xyz.openbmc_project.Control.Power.Cap",
+       "xyz.openbmc_project.State.Decorator.Persistence",
+       "xyz.openbmc_project.Control.Power.Mode", nullptr},
+      3},
+     {std::string_view{"ClearPowerCap"},
+      {"xyz.openbmc_project.Control.Power.Cap",
+       "xyz.openbmc_project.State.Decorator.Persistence",
+       "com.nvidia.Common.ClearPowerCap",
+       "com.nvidia.Common.ClearPowerCapAsync"},
+      4}}};
 
 /**
  * Handle the PATCH operation of the Edpp Scale limit property. Do basic
@@ -978,102 +1016,217 @@ inline void getControlMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "xyz.openbmc_project.Control.Mode");
 }
 
+inline PowerControlInfo processCPUPowerControlInterfaces(
+    const dbus::utility::MapperGetSubTreeResponse& resp,
+    const std::vector<std::string>& requiredInterfaces)
+{
+    bool found = false;
+
+    for (const auto& [path, serviceMap] : resp)
+    {
+        for (const auto& [service, interfaces] : serviceMap)
+        {
+            bool allInterfacesPresent = std::all_of(
+                requiredInterfaces.begin(), requiredInterfaces.end(),
+                [&interfaces](const std::string& requiredInterface) {
+                return std::ranges::find(interfaces, requiredInterface) !=
+                       interfaces.end();
+            });
+
+            if (allInterfacesPresent)
+            {
+                if (found)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "Multiple CPU control paths found implementing required interfaces.");
+                    return PowerControlInfo{"",
+                                            ""}; // Hard error: multiple matches
+                }
+                BMCWEB_LOG_DEBUG(
+                    "processCPUPowerControlInterfaces Found control path implementing required interfaces. service = {}, path = {}",
+                    service, path);
+                found = true;
+                return PowerControlInfo{path, service};
+            }
+        }
+    }
+
+    BMCWEB_LOG_ERROR(
+        "Multiple or NO CPU control paths found implementing required interfaces.");
+    return PowerControlInfo{
+        "", ""}; // Return an empty string if no valid control path is found
+}
+
+inline void processChassisGetPowerControlAssociatedSubTreeResponse(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& resourceId, const std::string& connectionName,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& resp)
+{
+    if (ec || resp.empty())
+    {
+        return;
+    }
+
+    std::map<std::string_view, PowerControlInfo> controlPaths;
+
+    // Process each interface group
+    for (const auto& group : requiredInterfaceGroups)
+    {
+        // Convert the fixed-size array to a vector, only including non-null
+        // entries
+        std::vector<std::string> interfaces;
+        interfaces.reserve(group.interfaceCount);
+        for (size_t i = 0; i < group.interfaceCount; ++i)
+        {
+            interfaces.push_back(group.interfaces[i]);
+        }
+
+        controlPaths[group.name] =
+            redfish::nvidia_env_utils::processCPUPowerControlInterfaces(
+                resp, interfaces);
+    }
+
+    auto& powerCapPersistence = controlPaths["PowerCapPersistence"];
+    if (powerCapPersistence.controlPath.empty() ||
+        powerCapPersistence.serviceName.empty())
+    {
+        // if the GetAssociatedSubTrees call response is not empty
+        // (CPU + SMBIOS path) then not having a ctrl path that
+        // implements the Power Cap || Persistence path is a hard
+        // error
+        BMCWEB_LOG_ERROR(
+            "No CPU control path found implementing required interfaces: PowerCapPersistence");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    getPowerCap(asyncResp, resourceId, powerCapPersistence.controlPath);
+    getPowerLimitDataSourceUri(asyncResp, resourceId,
+                               powerCapPersistence.controlPath);
+    getPowerReadings(asyncResp, connectionName, powerCapPersistence.controlPath,
+                     resourceId);
+
+    auto& controlMode = controlPaths["ControlMode"];
+    if (!controlMode.controlPath.empty() && !controlMode.serviceName.empty())
+    {
+        getControlMode(asyncResp, connectionName, controlMode.controlPath);
+    }
+    if (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        auto& controlPowerMode = controlPaths["ControlPowerMode"];
+        if (!controlPowerMode.controlPath.empty() &&
+            !controlPowerMode.serviceName.empty())
+        {
+            getPowerMode(asyncResp, connectionName,
+                         controlPowerMode.controlPath);
+        }
+        auto clearPowerCap = controlPaths["ClearPowerCap"];
+        if (!clearPowerCap.controlPath.empty() &&
+            !clearPowerCap.serviceName.empty())
+        {
+            getClearPowerCap(asyncResp, connectionName,
+                             clearPowerCap.controlPath);
+        }
+    }
+}
+
+inline void handleChassisGetPowerControlGetAssociatedSubTree(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& resourceId, const std::string& connectionName,
+    const std::string& objPath,
+    const std::array<std::string_view, 2>& interfacesArray)
+{
+    std::span<const std::string_view> interfacesRequired(interfacesArray);
+    sdbusplus::message::object_path path(objPath);
+
+    dbus::utility::getAssociatedSubTree(
+        path /= "power_controls",
+        sdbusplus::message::object_path("/xyz/openbmc_project/control"), 0,
+        interfacesRequired,
+        [asyncResp, resourceId,
+         connectionName](const boost::system::error_code& ec,
+                         const dbus::utility::MapperGetSubTreeResponse& resp) {
+        processChassisGetPowerControlAssociatedSubTreeResponse(
+            asyncResp, resourceId, connectionName, ec, resp);
+    });
+}
+
+inline void handleChassisGetInventorySubTreeResponse(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& resourceId, const boost::system::error_code& ec,
+    const crow::openbmc_mapper::GetSubTreeType& subtree)
+{
+    if (ec)
+    {
+        return;
+    }
+
+    // Iterate over all retrieved ObjectPaths.
+    for (const std::pair<
+             std::string,
+             std::vector<std::pair<std::string, std::vector<std::string>>>>&
+             object : subtree)
+    {
+        const std::string& path = object.first;
+        const std::vector<std::pair<std::string, std::vector<std::string>>>&
+            connectionNames = object.second;
+
+        sdbusplus::message::object_path objPath(path);
+        if (objPath.filename() != resourceId)
+        {
+            continue;
+        }
+
+        if (connectionNames.size() < 1)
+        {
+            BMCWEB_LOG_ERROR("Got 0 Connection names");
+            continue;
+        }
+
+        const std::string& connectionName = connectionNames[0].first;
+        const std::vector<std::string>& interfaces = connectionNames[0].second;
+
+        // Doesn't do anything - SMBIOS or EM CPU path do not implement the
+        // xyz.openbmc_project.Inventory.Item.Cpu intf
+        // TODO - Convert to std::ranges::find() ?
+        if (std::find(interfaces.begin(), interfaces.end(),
+                      "xyz.openbmc_project.Inventory.Item.Cpu") !=
+            interfaces.end())
+        {
+            // Skip PowerAndControlData for
+            // /Chassis/CPU_{ID}/EnvironmentMetrics URI The CPU power cap is
+            // handled by /Systems/{ID}/Processor/CPU_{ID}/Controls URI
+            continue;
+        }
+
+        const std::array<std::string_view, 2> interfacesArray = {
+            "xyz.openbmc_project.Control.Power.Cap",
+            "xyz.openbmc_project.State.Decorator.Persistence"};
+
+        handleChassisGetPowerControlGetAssociatedSubTree(
+            asyncResp, resourceId, connectionName, path, interfacesArray);
+    }
+}
+
 template <std::size_t SIZE>
 inline void
     getPowerAndControlData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& resourceId,
                            const std::array<const char*, SIZE>& interfaces)
 {
+    BMCWEB_LOG_DEBUG("Getting Power and Control Data");
     crow::connections::systemBus->async_method_call(
         [asyncResp,
          resourceId](const boost::system::error_code ec,
                      const crow::openbmc_mapper::GetSubTreeType& subtree) {
-        if (ec)
-        {
-            return;
-        }
-
-        // Iterate over all retrieved ObjectPaths.
-        for (const std::pair<
-                 std::string,
-                 std::vector<std::pair<std::string, std::vector<std::string>>>>&
-                 object : subtree)
-        {
-            const std::string& path = object.first;
-            const std::vector<std::pair<std::string, std::vector<std::string>>>&
-                connectionNames = object.second;
-
-            sdbusplus::message::object_path objPath(path);
-            if (objPath.filename() != resourceId)
-            {
-                continue;
-            }
-
-            if (connectionNames.size() < 1)
-            {
-                BMCWEB_LOG_ERROR("Got 0 Connection names");
-                continue;
-            }
-
-            const std::string& connectionName = connectionNames[0].first;
-            const std::vector<std::string>& interfaces =
-                connectionNames[0].second;
-
-            if (std::find(interfaces.begin(), interfaces.end(),
-                          "xyz.openbmc_project.Inventory.Item.Cpu") !=
-                interfaces.end())
-            {
-                // Skip PowerAndControlData for
-                // /Chassis/CPU_{ID}/EnvironmentMetrics URI The CPU power cap is
-                // handled by /Systems/{ID}/Processor/CPU_{ID}/Controls URI
-                continue;
-            }
-
-            crow::connections::systemBus->async_method_call(
-                [asyncResp, connectionName, interfaces,
-                 resourceId](const boost::system::error_code& e,
-                             std::variant<std::vector<std::string>>& resp) {
-                if (e)
-                {
-                    return;
-                }
-                std::vector<std::string>* data =
-                    std::get_if<std::vector<std::string>>(&resp);
-                if (data == nullptr)
-                {
-                    return;
-                }
-                for (const std::string& ctrlPath : *data)
-                {
-                    getPowerCap(asyncResp, connectionName, ctrlPath);
-                    getPowerCap(asyncResp, resourceId, ctrlPath);
-                    getPowerLimitDataSourceUri(asyncResp, resourceId, ctrlPath);
-                    // Skip getControlMode if it does not support the Control
-                    // Mode
-                    if (std::find(interfaces.begin(), interfaces.end(),
-                                  "xyz.openbmc_project.Control.Mode") !=
-                        interfaces.end())
-                    {
-                        getControlMode(asyncResp, connectionName, ctrlPath);
-                    }
-                    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-                    {
-                        getPowerMode(asyncResp, connectionName, ctrlPath);
-                        getClearPowerCap(asyncResp, resourceId, ctrlPath);
-                    }
-                    getPowerReadings(asyncResp, connectionName, ctrlPath,
-                                     resourceId);
-                }
-            },
-                "xyz.openbmc_project.ObjectMapper", path + "/power_controls",
-                "org.freedesktop.DBus.Properties", "Get",
-                "xyz.openbmc_project.Association", "endpoints");
-        }
+        handleChassisGetInventorySubTreeResponse(asyncResp, resourceId, ec,
+                                                 subtree);
     },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0, interfaces);
+        "/xyz/openbmc_project/inventory/system/board/", 0, interfaces);
 }
 
 /**
@@ -1652,6 +1805,92 @@ inline void
         sensorInterfaces);
 }
 
+inline void processProcessorsGetPowerControlAssociatedSubTreeResponse(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    // const std::string& objPath,
+    const std::string& service, const std::string& cpuId,
+    const std::array<std::string_view, 2>& interfacesArray,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& resp)
+{
+    if (ec || resp.empty())
+    {
+        return;
+    }
+
+    PowerControlInfo controlInfo = processCPUPowerControlInterfaces(
+        resp, std::vector<std::string>(interfacesArray.begin(),
+                                       interfacesArray.end()));
+    if (!controlInfo.controlPath.empty() && !controlInfo.serviceName.empty())
+    {
+        std::string resourceType = "Cpu";
+        getCpuPowerCapService(aResp, service, controlInfo.controlPath, cpuId);
+    }
+    else
+    {
+        BMCWEB_LOG_ERROR(
+            "No CPU control path found implementing all required interfaces");
+        messages::internalError(aResp->res);
+    }
+}
+
+inline void handleProcessorsGetPowerControlGetAssociatedSubTree(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath,
+    const std::string& service, const std::string& cpuId,
+    const std::array<std::string_view, 2>& interfacesArray)
+{
+    std::span<const std::string_view> interfaces(interfacesArray);
+    sdbusplus::message::object_path path(objPath);
+
+    dbus::utility::getAssociatedSubTree(
+        // sdbusplus::message::object_path(objPath + "/power_controls"),
+        path /= "power_controls",
+        sdbusplus::message::object_path("/xyz/openbmc_project/control"), 0,
+        interfaces,
+        [aResp, objPath, service, cpuId,
+         interfacesArray](const boost::system::error_code& ec,
+                          const dbus::utility::MapperGetSubTreeResponse& resp) {
+        // processProcessorsGetPowerControlAssociatedSubTreeResponse(
+        //     aResp, objPath, cpuId, interfacesArray, ec, resp);
+        processProcessorsGetPowerControlAssociatedSubTreeResponse(
+            aResp, service, cpuId, interfacesArray, ec, resp);
+    });
+}
+
+inline void handleProcessorsGetResponse(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
+    const std::string& objPath, const boost::system::error_code& ec,
+    const std::variant<std::vector<std::string>>& resp)
+{
+    if (ec)
+    {
+        return; // no chassis = no failures
+    }
+    const std::vector<std::string>* data =
+        std::get_if<std::vector<std::string>>(&resp);
+    if (data == nullptr || data->empty())
+    {
+        // Object must have single parent chassis
+        return;
+    }
+    const std::string& chassisPath = data->front();
+    sdbusplus::message::object_path objectPath(chassisPath);
+    std::string cpuName = objectPath.filename();
+    if (cpuName.empty())
+    {
+        messages::internalError(aResp->res);
+        return;
+    }
+    const std::string& cpuId = cpuName;
+
+    const std::array<std::string_view, 2> interfacesArray = {
+        "xyz.openbmc_project.Control.Power.Cap",
+        "xyz.openbmc_project.State.Decorator.Persistence"};
+
+    handleProcessorsGetPowerControlGetAssociatedSubTree(aResp, objPath, service,
+                                                        cpuId, interfacesArray);
+}
+
 inline void
     getCpuPowerCapByService(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             const std::string& service,
@@ -1662,52 +1901,8 @@ inline void
     crow::connections::systemBus->async_method_call(
         [aResp, service,
          objPath](const boost::system::error_code& ec,
-                  std::variant<std::vector<std::string>>& resp) {
-        if (ec)
-        {
-            return; // no chassis = no failures
-        }
-        std::vector<std::string>* data =
-            std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr || data->empty())
-        {
-            // Object must have single parent chassis
-            return;
-        }
-        const std::string& chassisPath = data->front();
-        sdbusplus::message::object_path objectPath(chassisPath);
-        std::string cpuName = objectPath.filename();
-        if (cpuName.empty())
-        {
-            messages::internalError(aResp->res);
-            return;
-        }
-        const std::string& cpuId = cpuName;
-        crow::connections::systemBus->async_method_call(
-            [aResp, service, objPath,
-             cpuId](const boost::system::error_code& e,
-                    std::variant<std::vector<std::string>>& resp) {
-            if (e)
-            {
-                // The path does not implement any power cap interfaces.
-                return;
-            }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR("Failed to get all sensors: {}", e.message());
-                messages::internalError(aResp->res);
-                return;
-            }
-            for (const std::string& sensorPath : *data)
-            {
-                getCpuPowerCapService(aResp, service, sensorPath, cpuId);
-            }
-        },
-            "xyz.openbmc_project.ObjectMapper", objPath + "/power_controls",
-            "org.freedesktop.DBus.Properties", "Get",
-            "xyz.openbmc_project.Association", "endpoints");
+                  const std::variant<std::vector<std::string>>& resp) {
+        handleProcessorsGetResponse(aResp, service, objPath, ec, resp);
     },
         "xyz.openbmc_project.ObjectMapper", objPath + "/parent_chassis",
         "org.freedesktop.DBus.Properties", "Get",
@@ -1841,7 +2036,9 @@ inline void
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
+        "/xyz/openbmc_project/inventory",
+        0, // cannot change because the GPU path lives under
+           // /xyz/openbmc_project/inventory/system/accelerator/GPU_$n
         std::array<const char*, 3>{
             "xyz.openbmc_project.Inventory.Item.Accelerator",
             "xyz.openbmc_project.Inventory.Item.Cpu", "com.nvidia.GPMMetrics"});
