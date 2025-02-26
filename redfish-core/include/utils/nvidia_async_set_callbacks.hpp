@@ -332,6 +332,7 @@ inline void patch(std::shared_ptr<bmcweb::AsyncResp> aResp,
             {
                 BMCWEB_LOG_DEBUG("Set {} property for {} succeeded", property,
                                  interface);
+                messages::success(aResp->res);
                 return;
             }
             BMCWEB_LOG_WARNING("Set {} property for {} failed: {}. Serv: {}",
