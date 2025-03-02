@@ -52,11 +52,15 @@ inline std::string getLastWordAfterDot(std::string str)
 
 inline std::optional<bool> isEnabled(const std::optional<std::string>& input)
 {
-    if (*input == "Enabled")
+    if (!input)
     {
-        return true; // Enabled
+        return std::nullopt;
     }
-    return false; // Not enabled
+    if (input.value() == "Enabled")
+    {
+        return true;
+    }
+    return false;
 }
 
 inline std::optional<std::string>
@@ -64,7 +68,7 @@ inline std::optional<std::string>
 {
     if (!state.has_value())
     {
-        return std::nullopt; // No value provided
+        return std::nullopt;                       // No value provided
     }
     return state.value() ? "Enabled" : "Disabled"; // Map true/false to strings
 }
@@ -87,7 +91,7 @@ inline bool isValidIPv4(const std::string& ipAddress)
         }
         for (char ch : part)
         {
-            if (!isdigit(ch))
+            if (isdigit(ch) == 0)
             {
                 return false; // Only digits are allowed
             }
@@ -119,7 +123,7 @@ inline bool isValidIPv6(const std::string& ipAddress)
         }
         for (char ch : part)
         {
-            if (!isxdigit(ch))
+            if (isxdigit(ch) == 0)
             {
                 return false; // Only hex digits are allowed
             }
@@ -139,7 +143,7 @@ inline bool isValidIpAddress(const std::string& ipAddress)
     {
         return isValidIPv6(ipAddress); // Check for IPv6
     }
-    return false; // Not a valid IP address
+    return false;                      // Not a valid IP address
 }
 
 // Function to validate port
@@ -219,8 +223,11 @@ inline void populateRsyslogClientSettings(
             // Populate JSON response with the retrieved properties
             if (enabled)
             {
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["State"] =
-                    getEnabledState(enabled);
+                std::optional<std::string> state = getEnabledState(enabled);
+                if (state)
+                {
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["State"] = *state;
+                }
             }
             if (address)
             {
@@ -235,8 +242,11 @@ inline void populateRsyslogClientSettings(
             }
             if (tls)
             {
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["TLS"] =
-                    getEnabledState(tls);
+                std::optional<std::string> tlsState = getEnabledState(tls);
+                if (tlsState)
+                {
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["TLS"] = *tlsState;
+                }
             }
             if (facility)
             {
@@ -288,7 +298,7 @@ inline void processRsyslogClientSettings(
     const std::optional<std::string>& address = std::nullopt,
     const std::optional<uint16_t>& port = std::nullopt,
     const std::optional<std::string>& state = std::nullopt,
-    const std::optional<std::string>& TLS = std::nullopt,
+    const std::optional<std::string>& tls = std::nullopt,
     const std::optional<std::vector<std::string>>& facilities = std::nullopt,
     const std::optional<std::string>& severity = std::nullopt,
     const std::optional<std::string>& transportProtocol = std::nullopt)
@@ -299,10 +309,15 @@ inline void processRsyslogClientSettings(
     // Set State
     if (state.has_value() && !state->empty())
     {
-        const std::optional<bool>& enabled = isEnabled(state);
+        const std::optional<bool> enabled = isEnabled(state);
+        if (!enabled)
+        {
+            messages::propertyValueFormatError(asyncResp->res, state.value(), "State");
+            return;
+        }
         setRsyslogProperty(asyncResp, service, path,
                            "xyz.openbmc_project.Logging.RsyslogClient",
-                           "Enabled", *enabled);
+                           "Enabled", enabled.value());
     }
 
     // Set Address
@@ -321,12 +336,17 @@ inline void processRsyslogClientSettings(
     }
 
     // Set TLS
-    if (TLS.has_value() && !TLS->empty())
+    if (tls.has_value() && !tls->empty())
     {
-        const std::optional<bool>& tls = isEnabled(TLS);
+        const std::optional<bool> tlsEnabled = isEnabled(tls);
+        if (!tlsEnabled)
+        {
+            messages::propertyValueFormatError(asyncResp->res, tls.value(), "TLS");
+            return;
+        }
         setRsyslogProperty(asyncResp, service, path,
                            "xyz.openbmc_project.Logging.RsyslogClient", "Tls",
-                           *tls);
+                           tlsEnabled.value());
     }
 
     // Validate and Set Facility
@@ -339,11 +359,11 @@ inline void processRsyslogClientSettings(
             {
                 // If "All" is found, clear the array and only add "All"
                 facilityDbus.clear();
-                facilityDbus.push_back(
+                facilityDbus.emplace_back(
                     "xyz.openbmc_project.Logging.RsyslogClient.FacilityType.All");
                 break; // Exit the loop as "All" supersedes other values
             }
-            else if (f == "Daemon" || f == "Kern")
+            if (f == "Daemon" || f == "Kern")
             {
                 facilityDbus.push_back(
                     "xyz.openbmc_project.Logging.RsyslogClient.FacilityType." +

@@ -19,7 +19,7 @@
 
 #include <sys/mman.h> // for memfd_create
 #include <sys/stat.h> // for fstat
-#include <unistd.h> // for write and lseek
+#include <unistd.h>   // for write and lseek
 
 #include <cstdint>
 #include <cstring>
@@ -82,7 +82,7 @@ struct MemoryFD
             throw std::runtime_error(
                 "MemoryFD - write failed: " + std::string(strerror(errno)));
         }
-        else if (static_cast<size_t>(bytesWritten) != data.size())
+        if (static_cast<size_t>(bytesWritten) != data.size())
         {
             throw std::runtime_error(
                 "MemoryFD - Fewer bytes written than expected");
@@ -95,7 +95,8 @@ struct MemoryFD
             throw std::runtime_error(
                 "MemoryFD - lseek failed: " + std::string(strerror(errno)));
         }
-        struct stat fileStat;
+        struct stat fileStat
+        {};
         if (fstat(fd, &fileStat) < 0)
         {
             throw std::runtime_error(
@@ -112,7 +113,7 @@ struct MemoryFD
             throw std::runtime_error(
                 "MemoryFD - read failed: " + std::string(strerror(errno)));
         }
-        else if (static_cast<size_t>(bytesRead) != data.size())
+        if (static_cast<size_t>(bytesRead) != data.size())
         {
             throw std::runtime_error(
                 "MemoryFD - Fewer bytes read than expected");

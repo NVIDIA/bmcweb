@@ -69,9 +69,12 @@ inline std::string debugStateToString(const std::string& dbusStr)
 inline void debugPropertiesFill(crow::Response& resp,
                                 const dbus::utility::DBusPropertiesMap& prop)
 {
-    std::optional<std::string> jtagDebug, deviceDebug,
-        securePrivilegeInvasiveDebug, securePrivilegeNonInvasiveDebug,
-        nonInvasiveDebug, invasiveDebug;
+    std::optional<std::string> jtagDebug;
+    std::optional<std::string> deviceDebug;
+    std::optional<std::string> securePrivilegeInvasiveDebug;
+    std::optional<std::string> securePrivilegeNonInvasiveDebug;
+    std::optional<std::string> nonInvasiveDebug;
+    std::optional<std::string> invasiveDebug;
     std::optional<unsigned> timeout;
 
     const bool success = sdbusplus::unpackPropertiesNoThrow(
@@ -160,8 +163,8 @@ inline void
 
 using findDebugInterfaceCallback =
     std::function<void(std::shared_ptr<bmcweb::AsyncResp>, // Async response
-                       const std::string&, // Service
-                       const std::string&)>; // Path
+                       const std::string&,                 // Service
+                       const std::string&)>;               // Path
 
 inline void
     findDebugInterface(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -289,7 +292,7 @@ inline bool fetchDebugPropertyFromJson(
 inline bool fetchDebugTimeoutPropertyFromJson(nlohmann::json& json,
                                               std::optional<unsigned>& val)
 {
-    const auto key = "Timeout";
+    const auto* const key = "Timeout";
     auto it = json.find(key);
     if (it == json.end())
     {

@@ -720,15 +720,12 @@ inline const nlohmann::json* findNestedKey(std::string_view key,
         }
         return findNestedKey(leftover, it.value());
     }
-    else
+    it = value.find(key);
+    if (it == value.end())
     {
-        it = value.find(key);
-        if (it == value.end())
-        {
-            return nullptr;
-        }
-        return &*it;
+        return nullptr;
     }
+    return &*it;
 }
 
 template <typename... UnpackTypes>

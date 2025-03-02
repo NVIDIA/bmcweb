@@ -53,13 +53,13 @@ inline void processFeatureReadyPropertiesList(
             stateValue = std::get_if<std::string>(&property.second);
         }
 
-        if (featureType && stateValue)
+        if ((featureType != nullptr) && (stateValue != nullptr))
         {
             break; // Exit early if both values are found
         }
     }
 
-    if (!featureType ||
+    if ((featureType == nullptr) ||
         *featureType !=
             "xyz.openbmc_project.State.FeatureReady.FeatureTypes.Manager")
     {
@@ -68,7 +68,7 @@ inline void processFeatureReadyPropertiesList(
         return;
     }
 
-    if (!stateValue)
+    if (stateValue == nullptr)
     {
         BMCWEB_LOG_DEBUG("Null value returned for manager service state");
         messages::internalError(aResp->res);
@@ -422,7 +422,7 @@ inline void getFabricManagerInformation(
 }
 
 inline void
-    getNSMRawCommandActions(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
+    getNSMRawCommandActions(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     auto& oemNsmRawCommand =
         asyncResp->res
@@ -458,8 +458,10 @@ inline void requestRouteNSMRawCommand(App& app)
                     return;
                 }
 
-                uint8_t deviceIdentificationId = 0, deviceInstanceId = 0,
-                        messageType = 0, commandCode = 0;
+                uint8_t deviceIdentificationId = 0;
+                uint8_t deviceInstanceId = 0;
+                uint8_t messageType = 0;
+                uint8_t commandCode = 0;
                 uint16_t dataSizeInBytes = 0;
                 bool isLongRunning = false;
                 std::vector<uint8_t> data;

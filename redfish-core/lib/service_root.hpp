@@ -28,10 +28,6 @@ limitations under the License.
 
 #include <managers.hpp>
 #include <nlohmann/json.hpp>
-#include <persistent_data.hpp>
-#include <query.hpp>
-#include <registries/privilege_registry.hpp>
-#include <utils/systemd_utils.hpp>
 
 namespace redfish
 {

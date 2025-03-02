@@ -40,7 +40,7 @@ class Server
            std::shared_ptr<boost::asio::io_context> io) :
         ioService(std::move(io)), acceptor(std::move(acceptorIn)),
         signals(*ioService, SIGINT, SIGTERM, SIGHUP), handler(handlerIn),
-        adaptorCtx(std::move(adaptorCtxIn)), timer(*ioService), fileWatcher()
+        adaptorCtx(adaptorCtxIn), timer(*ioService)
     {}
 
     void updateDateStr()
@@ -230,7 +230,6 @@ class Server
     std::function<std::string()> getCachedDateStr;
     boost::asio::ip::tcp::acceptor acceptor;
     boost::asio::signal_set signals;
-
     std::string dateStr;
 
     Handler* handler;

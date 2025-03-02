@@ -119,11 +119,11 @@ inline bool headerContains(std::string_view header, std::string_view content)
         lastIndex = index + 1;
 
         // trim spaces
-        while (!token.empty() && std::isspace(token.front()))
+        while (!token.empty() && (std::isspace(token.front()) != 0))
         {
             token.remove_prefix(1);
         }
-        while (!token.empty() && std::isspace(token.back()))
+        while (!token.empty() && (std::isspace(token.back()) != 0))
         {
             token.remove_suffix(1);
         }

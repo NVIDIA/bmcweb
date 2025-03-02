@@ -16,11 +16,28 @@
  */
 #include "utils/nsm_cmd_support.hpp"
 
+#include "async_resp.hpp"
+#include "http_request.hpp"
+#include "logging.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/memfd_utils.hpp"
 #include "utils/nvidia_async_call_utils.hpp"
+#include "utils/nvidia_async_set_utils.hpp"
+
+#include <endian.h>
 
 #include <error_messages.hpp>
+#include <sdbusplus/message/native_types.hpp>
+
+#include <chrono>
+#include <cstdint>
+#include <cstring>
+#include <exception>
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace redfish
 {
@@ -103,7 +120,7 @@ static void parseResponse(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     }
     asyncResp->res.jsonValue["MessageType"] = messageType;
     asyncResp->res.jsonValue["CommandCode"] = commandCode;
-    if (responseData.size() < 1)
+    if (responseData.empty())
     {
         BMCWEB_LOG_ERROR("Send Nsm Raw Command response data is empty");
         messages::internalError(asyncResp->res);
@@ -113,7 +130,7 @@ static void parseResponse(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     asyncResp->res.jsonValue["CompletionCode"] = cc;
     if (cc != 0 && responseData.size() == 3)
     {
-        uint16_t resonCode;
+        uint16_t resonCode = 0;
         memcpy(&resonCode, &responseData[1], sizeof(uint16_t));
         resonCode = le16toh(resonCode);
         asyncResp->res.jsonValue["ReasonCode"] = resonCode;

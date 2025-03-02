@@ -19,7 +19,6 @@
 #include "nlohmann/json.hpp"
 #include "task.hpp"
 
-#include <app.hpp>
 #include <dbus_utility.hpp>
 #include <query.hpp>
 #include <registries/privilege_registry.hpp>
@@ -29,6 +28,7 @@
 #include <cstdint> //max uint
 #include <fstream>
 #include <iostream>
+#include <utility>
 
 namespace redfish
 {
@@ -123,8 +123,8 @@ inline void
             for (const auto& object : objects)
             {
                 sdbusplus::message::object_path path(object);
-                std::string profile_number = path.filename();
-                if (profile_number.empty())
+                std::string profileNumber = path.filename();
+                if (profileNumber.empty())
                 {
                     continue;
                 }
@@ -132,11 +132,11 @@ inline void
                     "/redfish/v1/Systems/" +
                     std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                     "/Oem/Nvidia/SystemConfigurationProfile/List/";
-                newPath += profile_number;
+                newPath += profileNumber;
                 nlohmann::json::object_t member;
                 member["@odata.id"] = std::move(newPath);
                 members.push_back(std::move(member));
-                BMCWEB_LOG_DEBUG("Profile: {}", profile_number);
+                BMCWEB_LOG_DEBUG("Profile: {}", profileNumber);
             }
             aResp->res.jsonValue["Members@odata.count"] = members.size();
         },
@@ -494,7 +494,7 @@ inline void
             auto assignedIfValid = [aResp](int profileNumber, std::string str) {
                 if (profileNumber != invalidProfileNumber)
                 {
-                    aResp->res.jsonValue[str] = profileNumber;
+                    aResp->res.jsonValue[std::move(str)] = profileNumber;
                 }
             };
             assignedIfValid(*activeProfileNumber, "ActiveProfileNumber");
@@ -545,9 +545,9 @@ inline void handleProfilesUrls(crow::App& app, const crow::Request& req,
  * @param messagesStr - messages string
  * @return bool -always true - task is completed
  */
-inline bool finishProfileTask(const std::shared_ptr<task::TaskData>& taskData,
-                              std::string_view state, nlohmann::json messages,
-                              std::string_view messagesStr)
+inline bool finishProfileTask(
+    const std::shared_ptr<task::TaskData>& taskData, std::string_view state,
+    const nlohmann::json& messages, std::string_view messagesStr)
 {
     taskData->timer.cancel();
     taskData->finishTask();
@@ -567,20 +567,20 @@ inline bool finishProfileTask(const std::shared_ptr<task::TaskData>& taskData,
  * @param  profileNumber - profile number
  * @return bool - is task completed or not
  */
-inline bool handleTaskStatus(const std::shared_ptr<task::TaskData>& taskData,
-                             std::string action, std::string fullStatus,
-                             uint16_t profileNumber)
+inline bool handleTaskStatus(
+    const std::shared_ptr<task::TaskData>& taskData, const std::string& action,
+    const std::string& fullStatus, uint16_t profileNumber)
 {
     // {task status, progress percent}
     const std::unordered_map<std::string, int> taskNotCompleted = {
-        {"Start", 0}, // Start update of a profile
-        {"StartBios", 0}, // Start update of a by Bios
+        {"Start", 0},              // Start update of a profile
+        {"StartBios", 0},          // Start update of a by Bios
         {"StartVerification", 20}, // Start Verification of profile by BMC
-        {"ProfileSaved", 30}, // Profile Saved by BMC
-        {"PendingBios", 40}, // Pending Bios to complete update of profile
-        {"BiosStarted", 50}, // Bios Started update of profile
-        {"BiosFinished", 60}, // Bios Finished update of profile
-        {"BmcStarted", 80}}; // Bmc start last stage of update of profile
+        {"ProfileSaved", 30},      // Profile Saved by BMC
+        {"PendingBios", 40},       // Pending Bios to complete update of profile
+        {"BiosStarted", 50},       // Bios Started update of profile
+        {"BiosFinished", 60},      // Bios Finished update of profile
+        {"BmcStarted", 80}};       // Bmc start last stage of update of profile
     const std::vector<std::string> taskCompleted = {"None", "Active"};
     std::string index = std::to_string(taskData->index);
 
@@ -607,8 +607,8 @@ inline bool handleTaskStatus(const std::shared_ptr<task::TaskData>& taskData,
             index, static_cast<size_t>(statusNotCompleted->second)));
         return !task::completed;
     }
-    else if (std::find(taskCompleted.begin(), taskCompleted.end(), status) !=
-             taskCompleted.end())
+    if (std::find(taskCompleted.begin(), taskCompleted.end(), status) !=
+        taskCompleted.end())
     {
         taskData->percentComplete = 100;
         return finishProfileTask(taskData, "Completed",
@@ -616,7 +616,7 @@ inline bool handleTaskStatus(const std::shared_ptr<task::TaskData>& taskData,
                                  "Profile " + std::to_string(profileNumber) +
                                      " " + action + " completed");
     }
-    else if (status == "Failed")
+    if (status == "Failed")
     {
         return finishProfileTask(taskData, "Failed",
                                  messages::taskAborted(status),
@@ -692,7 +692,8 @@ inline void handleProfileUpdate(crow::App& app, const crow::Request& req,
             messages::internalError(aResp->res);
             return;
         }
-        BMCWEB_LOG_DEBUG("Is bios: {}", std::to_string(isBios));
+        BMCWEB_LOG_DEBUG("Is bios: {}",
+                         std::to_string(static_cast<int>(isBios)));
         crow::connections::systemBus->async_method_call(
             [req, aResp, isBios](const boost::system::error_code& ec,
                                  const uint16_t& profileNumber) {

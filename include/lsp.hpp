@@ -38,7 +38,8 @@ inline std::vector<char>& getLsp()
     return lspBuf;
 }
 
-inline int passwordCallback(char* buf, int size, int, void*)
+inline int passwordCallback(char* buf, int size, int /*unused*/,
+                            void* /*unused*/)
 {
     std::vector<char>& pwd = getLsp();
     size_t pwdsz = static_cast<unsigned int>(size) < pwd.size()
@@ -50,7 +51,8 @@ inline int passwordCallback(char* buf, int size, int, void*)
 
 // This is required to avoid passphrase prompts in certain cases when using
 // openssl APIs
-inline int emptyPasswordCallback(char*, int, int, void*)
+inline int emptyPasswordCallback(char* /*unused*/, int /*unused*/,
+                                 int /*unused*/, void* /*unused*/)
 {
     return 0;
 }

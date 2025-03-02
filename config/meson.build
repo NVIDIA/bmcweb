@@ -177,7 +177,11 @@ foreach option_key : feature_options + string_options + int_options + array_opti
 
     opt = get_option(option_key)
     if string_options.contains(option_key)
-        string_options_string += 'constexpr std::string_view  ' + option_key_config + ' = "' + opt + '";\n'
+        if opt != ''
+            string_options_string += 'constexpr std::string_view  ' + option_key_config + ' = "' + opt + '";\n'
+        else
+            string_options_string += 'constexpr std::string_view  ' + option_key_config + ';\n'
+        endif
     elif int_options.contains(option_key)
         int_options_string += 'constexpr const int         ' + option_key_config + ' = ' + opt.to_string() + ';\n'
     elif array_options.contains(option_key)

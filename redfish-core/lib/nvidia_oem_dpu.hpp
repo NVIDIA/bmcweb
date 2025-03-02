@@ -31,20 +31,20 @@ namespace redfish
 {
 namespace bluefield
 {
-static const char* dbusPropertyInterface = "org.freedesktop.DBus.Properties";
-static const char* systemdServiceBf = "org.freedesktop.systemd1";
-static const char* systemdUnitIntfBf = "org.freedesktop.systemd1.Unit";
+static const char* const dbusPropertyInterface = "org.freedesktop.DBus.Properties";
+static const char* const systemdServiceBf = "org.freedesktop.systemd1";
+static const char* const systemdUnitIntfBf = "org.freedesktop.systemd1.Unit";
 
-static const char* switchModeSystemdObj =
+static const char* const switchModeSystemdObj =
     "/org/freedesktop/systemd1/unit/torswitch_2dmode_2eservice";
-static const char* ctlBMCSwitchModeService = "xyz.openbmc_project.Settings";
-static const char* ctlBMCSwitchModeBMCObj =
+static const char* const ctlBMCSwitchModeService = "xyz.openbmc_project.Settings";
+static const char* const ctlBMCSwitchModeBMCObj =
     "/xyz/openbmc_project/control/torswitchportsmode";
-static const char* ctlBMCSwitchModeIntf =
+static const char* const ctlBMCSwitchModeIntf =
     "xyz.openbmc_project.Control.TorSwitchPortsMode";
-static const char* ctlBMCSwitchMode = "TorSwitchPortsMode";
+static const char* const ctlBMCSwitchMode = "TorSwitchPortsMode";
 
-static const char* ctl3PortSwitchLinkStatusTool =
+static const char* const ctl3PortSwitchLinkStatusTool =
     "/usr/bin/get_3port_switch_link";
 
 static const std::string& truststoreBiosService =
@@ -60,16 +60,16 @@ static const std::string socForceResetTraget =
     "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
     "/Oem/Nvidia/SOC.ForceReset";
 
-static const char* oemFruService = "xyz.openbmc_project.DPU.Config_oem_fru";
-static const char* oemFruObj = "/xyz/openbmc_project/oem_fru";
-static const char* oemFruIntf = "xyz.openbmc_project.OemFruDevice";
+static const char* const oemFruService = "xyz.openbmc_project.DPU.Config_oem_fru";
+static const char* const oemFruObj = "/xyz/openbmc_project/oem_fru";
+static const char* const oemFruIntf = "xyz.openbmc_project.OemFruDevice";
 
 struct PropertyInfo
 {
     const std::string intf;
     const std::string prop;
-    const std::unordered_map<std::string, std::string> dbusToRedfish = {};
-    const std::unordered_map<std::string, std::string> redfishToDbus = {};
+    const std::unordered_map<std::string, std::string> dbusToRedfish;
+    const std::unordered_map<std::string, std::string> redfishToDbus;
 };
 
 struct ObjectInfo
@@ -83,60 +83,65 @@ struct ObjectInfo
 class DpuCommonProperties
 {
   public:
-    DpuCommonProperties(
+    explicit DpuCommonProperties(
         const std::unordered_map<std::string, ObjectInfo>& objects) :
         objects(objects)
     {}
     // function assumes input is valid
-    inline std::string toRedfish(const std::string& str,
-                                 const std::string& name) const
+    std::string toRedfish(const std::string& str, const std::string& name) const
     {
         auto it = objects.find(name);
 
         if (it == objects.end())
+        {
             return "";
+        }
 
         auto it2 = it->second.propertyInfo.dbusToRedfish.find(str);
         if (it2 == it->second.propertyInfo.dbusToRedfish.end())
+        {
             return "";
+        }
         return it2->second;
     }
-    inline std::string toDbus(const std::string& str,
-                              const std::string& name) const
+    std::string toDbus(const std::string& str, const std::string& name) const
     {
         auto it = objects.find(name);
 
         if (it == objects.end())
+        {
             return "";
+        }
 
         auto it2 = it->second.propertyInfo.redfishToDbus.find(str);
         if (it2 == it->second.propertyInfo.redfishToDbus.end())
+        {
             return "";
+        }
         return it2->second;
     }
 
-    inline bool isValueAllowed(const std::string& str,
-                               const std::string& name) const
+    bool isValueAllowed(const std::string& str, const std::string& name) const
     {
         bool ret = false;
         auto it = objects.find(name);
 
         if (it != objects.end())
         {
-            ret = it->second.propertyInfo.redfishToDbus.count(str) != 0;
+            ret = it->second.propertyInfo.redfishToDbus.contains(str);
         }
 
         return ret;
     }
 
-    inline std::vector<std::string> getAllowableValues(const std::string& name)
+    std::vector<std::string> getAllowableValues(const std::string& name)
     {
         std::vector<std::string> ret;
         auto it = objects.find(name);
 
         if (it != objects.end())
         {
-            for (auto pair : it->second.propertyInfo.redfishToDbus)
+            for (const auto& pair : it->second.propertyInfo.redfishToDbus)
             {
                 ret.push_back(pair.first);
             }
@@ -150,14 +155,14 @@ class DpuCommonProperties
 class DpuGetProperties : virtual public DpuCommonProperties
 {
   public:
-    DpuGetProperties(
+    explicit DpuGetProperties(
         const std::unordered_map<std::string, ObjectInfo>& objects2) :
         DpuCommonProperties(objects2)
     {}
 
     int getObject(nlohmann::json* const json,
-                  const std::shared_ptr<bmcweb::AsyncResp> asyncResp,
-                  std::string name, const ObjectInfo& objectInfo) const
+                  const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                  const std::string& name, const ObjectInfo& objectInfo) const
     {
         crow::connections::systemBus->async_method_call(
             [&, json, asyncResp,
@@ -179,9 +184,9 @@ class DpuGetProperties : virtual public DpuCommonProperties
         return 0;
     }
     int getProperty(nlohmann::json* const json,
-                    const std::shared_ptr<bmcweb::AsyncResp> asyncResp)
+                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     {
-        for (auto pair : objects)
+        for (const auto& pair : objects)
         {
             getObject(json, asyncResp, pair.first, pair.second);
         }
@@ -194,7 +199,7 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
   public:
     DpuActionSetProperties(
         const std::unordered_map<std::string, ObjectInfo>& objects2,
-        const std::string targetIn) :
+        const std::string& targetIn) :
         DpuCommonProperties(objects2), target(targetIn)
     {}
     std::string getActionTarget()
@@ -205,17 +210,17 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
     {
         nlohmann::json actionInfo;
         nlohmann::json::array_t parameters;
-        for (auto& pair : objects)
+        for (const auto& pair : objects)
         {
-            auto& name = pair.first;
-            auto& objectInfo = pair.second;
+            const auto& name = pair.first;
+            const auto& objectInfo = pair.second;
             nlohmann::json::object_t parameter;
             parameter["Name"] = name;
             parameter["Required"] = objectInfo.required;
             parameter["DataType"] = "String";
             parameter["AllowableValues"] = getAllowableValues(name);
 
-            parameters.push_back(std::move(parameter));
+            parameters.emplace_back(std::move(parameter));
         }
 
         (*json)["target"] = target;
@@ -238,10 +243,10 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
             return;
         }
 
-        for (auto pair : objects)
+        for (const auto& pair : objects)
         {
-            auto& name = pair.first;
-            auto& objectInfo = pair.second;
+            const auto& name = pair.first;
+            const auto& objectInfo = pair.second;
             std::optional<std::string> value;
             if (objectInfo.required && !jsonRequest.contains(name.c_str()))
             {
@@ -250,7 +255,7 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
                 return;
             }
         }
-        for (auto item : jsonRequest.items())
+        for (const auto& item : jsonRequest.items())
         {
             auto name = item.key();
             auto it = objects.find(name);
@@ -260,8 +265,8 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
                                                       target);
                 return;
             }
-            auto value = item.value().get_ptr<const std::string*>();
-            if (!value)
+            const auto* value = item.value().get_ptr<const std::string*>();
+            if (value == nullptr)
             {
                 messages::actionParameterValueError(asyncResp->res, name,
                                                     target);
@@ -275,9 +280,9 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
             }
         }
 
-        for (auto item : jsonRequest.items())
+        for (const auto& item : jsonRequest.items())
         {
-            auto name = item.key();
+            const auto& name = item.key();
             auto value = item.value().get<std::string>();
             auto objectInfo = objects.find(name)->second;
             crow::connections::systemBus->async_method_call(
@@ -308,7 +313,7 @@ class DpuActionSetAndGetProp :
   public:
     DpuActionSetAndGetProp(
         const std::unordered_map<std::string, ObjectInfo>& objects3,
-        const std::string target2) :
+        const std::string& target2) :
         DpuCommonProperties(objects3),
         DpuActionSetProperties(objects3, target2), DpuGetProperties(objects3)
 
@@ -380,10 +385,11 @@ const std::string dpuStrpOptionGet =
 const std::string dpuHostPrivGet =
     "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
     "/Oem/Nvidia/Connectx/ExternalHostPrivileges";
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 const std::string externalHostPrivilegeTarget =
     "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
     "/Oem/Nvidia/Connectx/ExternalHostPrivileges/Actions/ExternalHostPrivileges.Set";
-
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline bluefield::DpuActionSetAndGetProp externalHostPrivilege(
     {{"HostPrivFlashAccess",
       {.service = "xyz.openbmc_project.Settings.connectx",
@@ -426,6 +432,7 @@ inline bluefield::DpuActionSetAndGetProp externalHostPrivilege(
            "/xyz/openbmc_project/network/connectx/external_host_privileges/external_host_privileges/HOST_PRIV_PCC_UPDATE",
        .propertyInfo = bluefield::nicTristateAttributeInfo}}},
     bluefield::externalHostPrivilegeTarget);
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline bluefield::DpuGetProperties starpOptions(
     {{"2PcoreActive",
       {.service = "xyz.openbmc_project.Settings.connectx",
@@ -482,6 +489,7 @@ inline bluefield::DpuGetProperties starpOptions(
        .obj =
            "/xyz/openbmc_project/network/connectx/strap_options/strap_options/SOCKET_DIRECT",
        .propertyInfo = bluefield::nicAttributeInfo}}});
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline bluefield::DpuGetProperties starpOptionsMask(
     {{"2PcoreActive",
       {.service = "xyz.openbmc_project.Settings.connectx",
@@ -537,6 +545,7 @@ inline bluefield::DpuGetProperties starpOptionsMask(
        .obj =
            "/xyz/openbmc_project/network/connectx/strap_options/mask/SOCKET_DIRECT",
        .propertyInfo = bluefield::nicAttributeInfo}}});
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline bluefield::DpuActionSetAndGetProp hostRshim(
     {{"HostRshim",
       {.service = "xyz.openbmc_project.Settings.connectx",
@@ -545,6 +554,7 @@ inline bluefield::DpuActionSetAndGetProp hostRshim(
        .propertyInfo = bluefield::nicAttributeInfo,
        .required = true}}},
     bluefield::hostRhimTarget);
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline DpuActionSetAndGetProp mode(
     {{"Mode",
       {.service = "xyz.openbmc_project.Settings.connectx",
@@ -610,7 +620,7 @@ inline void
                 return;
             }
         },
-        systemdServiceBf, rshimSystemdObjBf, systemdUnitIntfBf, method.c_str(),
+        systemdServiceBf, rshimSystemdObjBf, systemdUnitIntfBf, method,
         "replace");
 
     messages::success(asyncResp->res);
@@ -632,7 +642,7 @@ inline void getOemNvidiaSwitchLinkStatus(
             messages::internalError(asyncResp->res);
             return;
         }
-        port::LinkStatus status;
+        port::LinkStatus status = port::LinkStatus::Invalid; // Initialize with default value
         if (exitCode == static_cast<int>(port::LinkStatus::LinkUp))
         {
             status = port::LinkStatus::LinkUp;
@@ -758,11 +768,11 @@ inline void
     // User can't use redfish to disable the BMC OOB Port.
     // If user set BMC Port as disabled, it will return
     // actionParameterValueError error.
-    if (bmcOobEnabled == true && dpuOobEnabled == true)
+    if (bmcOobEnabled && dpuOobEnabled)
     {
         strValue = "xyz.openbmc_project.Control.TorSwitchPortsMode.Modes.All";
     }
-    else if (bmcOobEnabled == true && dpuOobEnabled == false)
+    else if (bmcOobEnabled && !dpuOobEnabled)
     {
         strValue = "xyz.openbmc_project.Control.TorSwitchPortsMode.Modes.BMC";
     }
@@ -817,7 +827,7 @@ inline void resetTorSwitch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
         boost::process::child execProg("/usr/sbin/mlnx_bf_reset_control",
                                        "do_tor_eswitch_reset");
         execProg.wait();
-        if (!execProg.exit_code())
+        if (execProg.exit_code() == 0)
         {
             BMCWEB_LOG_DEBUG("Reset switch to default");
         }
@@ -871,7 +881,7 @@ inline void handleTruststoreCertificatesCollectionGet(
         boost::urls::url("/redfish/v1/Systems/" +
                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                          "/Oem/Nvidia/Truststore/Certificates"),
-        interfaces, std::string(truststoreBiosPath).c_str());
+        interfaces, std::string(truststoreBiosPath));
 }
 
 inline void createPendingRequest(
@@ -884,7 +894,6 @@ inline void createPendingRequest(
     task->payload.emplace(req);
     task->state = "Pending";
     task->populateResp(aResp->res);
-    return;
 }
 
 inline void handleTruststoreCertificatesCollectionPost(
@@ -907,7 +916,7 @@ inline void handleTruststoreCertificatesCollectionPost(
         return;
     }
 
-    if (certString.size() == 0)
+    if (certString.empty())
     {
         messages::propertyValueIncorrect(asyncResp->res, "CertificateString",
                                          certString);
@@ -930,7 +939,7 @@ inline void handleTruststoreCertificatesCollectionPost(
                 return;
             }
 
-            if (isBios == false)
+            if (!isBios)
             {
                 createPendingRequest(req, asyncResp);
                 return;
@@ -1094,7 +1103,7 @@ inline void handleTruststoreCertificatesDelete(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            if (isBios == false)
+            if (!isBios)
             {
                 createPendingRequest(req, asyncResp);
                 return;
@@ -1153,7 +1162,7 @@ inline void handleTruststoreCertificatesResetKeys(
             messages::internalError(asyncResp->res);
             return;
         }
-        if (isBios == false)
+        if (!isBios)
         {
             // UEFI requires the "Action" target to be under
             // "Truststore/Certificates" in order to identify the source of this
@@ -1219,7 +1228,7 @@ inline void handleGetOemFru([[maybe_unused]] crow::App& app,
                     const std::string* productVersion = nullptr;
                     const std::string* productExtra = nullptr;
                     const std::string* productManufactureDate = nullptr;
-                    const std::string* ProductAssetTag = nullptr;
+                    const std::string* productAssetTag = nullptr;
                     const std::string* productGUID = nullptr;
                     // Unpack properties from the property list
                     const bool success = sdbusplus::unpackPropertiesNoThrow(
@@ -1230,7 +1239,7 @@ inline void handleGetOemFru([[maybe_unused]] crow::App& app,
                         "PRODUCT_VERSION", productVersion, "PRODUCT_INFO_AM1",
                         productExtra, "BOARD_MANUFACTURE_DATE",
                         productManufactureDate, "PRODUCT_ASSET_TAG",
-                        ProductAssetTag, "CHASSIS_INFO_AM1", productGUID);
+                        productAssetTag, "CHASSIS_INFO_AM1", productGUID);
                     if (!success)
                     {
                         BMCWEB_LOG_ERROR("Unpack OEM FRU Property error");
@@ -1268,10 +1277,10 @@ inline void handleGetOemFru([[maybe_unused]] crow::App& app,
                         asyncResp->res.jsonValue["ProductManufactureDate"] =
                             *productManufactureDate;
                     }
-                    if (ProductAssetTag != nullptr)
+                    if (productAssetTag != nullptr)
                     {
                         asyncResp->res.jsonValue["ProductAssetTag"] =
-                            *ProductAssetTag;
+                            *productAssetTag;
                     }
                     if (productGUID != nullptr)
                     {
@@ -1341,7 +1350,7 @@ inline void handleSetOemFru([[maybe_unused]] crow::App& app,
             messages::insufficientPrivilege(asyncResp->res);
             return;
         }
-        if (isBios == false)
+        if (!isBios)
         {
             // Check if the OEM FRU is enabled
             // OEM FRU only available when the "Enabled" property is true

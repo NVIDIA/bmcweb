@@ -172,7 +172,7 @@ inline void doNetworkAdaptersGenericCollection(
 
     const std::string networkInterface =
         "xyz.openbmc_project.Inventory.Item.NetworkInterface";
-    std::string path = *validChassisPath;
+    const std::string& path = *validChassisPath;
 
     if (std::find(chassisIntfList.begin(), chassisIntfList.end(),
                   networkInterface) != chassisIntfList.end())
@@ -507,10 +507,10 @@ inline void getAssetData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             {"xyz.openbmc_project.Inventory.Decorator.Asset"}));
 }
 
-inline void
-    getPCIeInterfaceData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& deviceId, const std::string& path,
-                         std::shared_ptr<nlohmann::json> controllerObject)
+inline void getPCIeInterfaceData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& deviceId, const std::string& path,
+    const std::shared_ptr<nlohmann::json>& controllerObject)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, deviceId, path, controllerObject](
@@ -633,7 +633,7 @@ inline void getPCIeData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& devicePath,
                         const std::string& chassisId,
                         const std::string& networkAdapterId,
-                        std::shared_ptr<nlohmann::json> controllerObject)
+                        const std::shared_ptr<nlohmann::json>& controllerObject)
 {
     BMCWEB_LOG_DEBUG("Get PCIe interface data and PCIe device on {}",
                      networkAdapterId);
@@ -842,7 +842,7 @@ inline void doPortCollection(
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters/{}/Ports",
                             chassisId, networkAdapterId);
-    std::string path = *validNetworkAdapterPath;
+    const std::string& path = *validNetworkAdapterPath;
 
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Chassis/" + chassisId + "/NetworkAdapters/" +

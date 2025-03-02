@@ -105,7 +105,7 @@ inline void handleTrustedComponentsCollectionGet(
                 "xyz.openbmc_project.Inventory.Item.Tpm"};
             redfish::collection_util::getCollectionMembers(
                 asyncResp, boost::urls::url(collectionPath), interfaces,
-                validChassisPath->c_str());
+                *validChassisPath);
         });
 }
 

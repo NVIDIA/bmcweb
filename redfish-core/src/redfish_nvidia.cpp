@@ -2,9 +2,11 @@
 
 #include "bmcweb_config.h"
 
+#include "app.hpp"
 #include "assembly.hpp"
 #include "bios.hpp"
 #include "boot_options.hpp"
+#include "component_integrity.hpp"
 #include "control.hpp"
 #include "environment_metrics.hpp"
 #include "erot_chassis.hpp"
@@ -13,6 +15,7 @@
 #include "leak_detection.hpp"
 #include "leak_detector.hpp"
 #include "log_services_manufacturing_test.hpp"
+#include "managers.hpp"
 #include "memory.hpp"
 #include "network_adapters.hpp"
 #include "network_adapters_generic.hpp"
@@ -41,11 +44,13 @@
 #include "profiles.hpp"
 #include "secure_boot.hpp"
 #include "secure_boot_database.hpp"
+#include "sensors.hpp"
 #include "service_conditions.hpp"
 #include "system_host_eth.hpp"
-#include "trigger.hpp"
 #include "trusted_components.hpp"
 #include "update_service.hpp"
+#include "utils/nvidia_manager_utils.hpp"
+#include "utils/nvidia_pcie_utils.hpp"
 
 namespace redfish
 {

@@ -267,7 +267,7 @@ inline void requestAssemblyRoutes(App& app)
                         {
                             continue;
                         }
-                        if (connectionNames.size() < 1)
+                        if (connectionNames.empty())
                         {
                             std::cerr << "Got 0 Connection names";
                             continue;
@@ -335,21 +335,19 @@ inline void requestAssemblyRoutes(App& app)
                                     return;
                                 }
 
-                                else
-                                {
-                                    std::vector<std::string>* assemblyList =
-                                        std::get_if<std::vector<std::string>>(
-                                            &resp);
+                                std::vector<std::string>* assemblyList =
+                                    std::get_if<std::vector<std::string>>(
+                                        &resp);
 
-                                    for (const std::string& assembly :
-                                         *assemblyList)
-                                    {
-                                        BMCWEB_LOG_DEBUG(
-                                            "Found Assembly Path, {}",
-                                            assembly);
-                                        asyncResp->res.jsonValue["Assemblies"] =
-                                            nlohmann::json::array();
-                                        crow::connections::systemBus->async_method_call(
+                                for (const std::string& assembly :
+                                     *assemblyList)
+                                {
+                                    BMCWEB_LOG_DEBUG("Found Assembly Path, {}",
+                                                     assembly);
+                                    asyncResp->res.jsonValue["Assemblies"] =
+                                        nlohmann::json::array();
+                                    crow::connections::systemBus
+                                        ->async_method_call(
                                             [asyncResp, assembly,
                                              chassisId(std::string(chassisId))](
                                                 const boost::system::error_code&
@@ -369,21 +367,18 @@ inline void requestAssemblyRoutes(App& app)
 
                                                     return;
                                                 }
-                                                else
-                                                {
-                                                    updateAssemblies(
-                                                        asyncResp,
-                                                        objInfo[0].first,
-                                                        assembly, chassisId);
-                                                }
+
+                                                updateAssemblies(
+                                                    asyncResp, objInfo[0].first,
+                                                    assembly, chassisId);
                                             },
                                             "xyz.openbmc_project.ObjectMapper",
                                             "/xyz/openbmc_project/object_mapper",
                                             "xyz.openbmc_project.ObjectMapper",
                                             "GetObject", assembly,
                                             assemblyIntf);
-                                    }
                                 }
+                               
                             },
                             "xyz.openbmc_project.ObjectMapper",
                             path + "/assembly",

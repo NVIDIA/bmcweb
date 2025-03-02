@@ -305,7 +305,8 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                             nlohmann::json::
                                                                 array();
 
-                                                        for (auto& objectPath :
+                                                        for (const auto&
+                                                                 objectPath :
                                                              resp)
                                                         {
                                                             nlohmann::json
@@ -314,7 +315,7 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                                         object();
 
                                                             for (
-                                                                auto&
+                                                                const auto&
                                                                     interfaceMap :
                                                                 objectPath
                                                                     .second)
@@ -328,7 +329,7 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                                             object();
 
                                                                     for (
-                                                                        auto&
+                                                                        const auto&
                                                                             propertyMap :
                                                                         interfaceMap
                                                                             .second)
@@ -600,8 +601,7 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                                     // that
                                                                     // case.
                                                                     if (thisEntry["Id"]
-                                                                            .size() ==
-                                                                        0)
+                                                                            .empty())
                                                                     {
                                                                         thisEntry
                                                                             ["@odata.type"] =

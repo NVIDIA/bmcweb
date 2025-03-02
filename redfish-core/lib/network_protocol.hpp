@@ -563,12 +563,12 @@ inline void handleManagersNetworkProtocolPatch(
     std::optional<std::string> severity;
 
     if (!json_util::readJsonPatch(
-            req, asyncResp->res, //
-            "HostName", newHostName, //
-            "NTP/NTPServers", ntpServerObjects, //
-            "NTP/ProtocolEnabled", ntpEnabled, //
+            req, asyncResp->res,                 //
+            "HostName", newHostName,             //
+            "NTP/NTPServers", ntpServerObjects,  //
+            "NTP/ProtocolEnabled", ntpEnabled,   //
             "IPMI/ProtocolEnabled", ipmiEnabled, //
-            "SSH/ProtocolEnabled", sshEnabled, //
+            "SSH/ProtocolEnabled", sshEnabled,   //
             "Oem/Nvidia/Rsyslog/State", state, "Oem/Nvidia/Rsyslog/Address",
             address, "Oem/Nvidia/Rsyslog/Port", port,
             "Oem/Nvidia/Rsyslog/Protocol", protocol, "Oem/Nvidia/Rsyslog/TLS",

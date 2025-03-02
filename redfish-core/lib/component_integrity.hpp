@@ -50,8 +50,8 @@ struct SPDMMeasurementData
 {
     uint8_t slot{};
     SPDMCertificates certs;
-    std::string hashAlgo{};
-    std::string signAlgo{};
+    std::string hashAlgo;
+    std::string signAlgo;
     uint8_t version{};
     std::string measurement;
 };
@@ -61,7 +61,7 @@ struct SPDMMeasurementData
 // In a worst case scenario measurements for 254 indices will take
 // 286 seconds - rounded up to 300 seconds.
 static const int spdmMeasurementTimeout = 300;
-
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::map<std::string, SPDMMeasurementData> spdmMeasurementData;
 
 inline std::string getVersionStr(const uint8_t version)
@@ -90,7 +90,7 @@ inline std::string stripPrefix(const std::string& str,
 }
 inline bool startsWithPrefix(const std::string& str, const std::string& prefix)
 {
-    return str.rfind(prefix, 0) == 0;
+    return str.starts_with(prefix);
 }
 
 inline SPDMMeasurementData
@@ -311,8 +311,8 @@ inline void handleSPDMGETSignedMeasurement(
                 BMCWEB_LOG_DEBUG("Did not receive an SPDM Status value");
                 return !task::completed;
             }
-            auto value = std::get_if<std::string>(&(it->second));
-            if (!value)
+            auto* value = std::get_if<std::string>(&(it->second));
+            if (value == nullptr)
             {
                 BMCWEB_LOG_ERROR("Received SPDM Status is not a string");
                 return !task::completed;
@@ -671,7 +671,7 @@ inline void requestRoutesComponentIntegrity(App& app)
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    if (resp.size() == 0)
+                    if (resp.empty())
                     {
                         BMCWEB_LOG_ERROR(
                             "No objects with SPDM interface found for {}",

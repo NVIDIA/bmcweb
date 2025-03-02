@@ -14,11 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <cstdio>
+#include <string>
 #include <vector>
 
 extern "C"
 {
+#include <openssl/evp.h>
 #include <openssl/pem.h>
+#include <openssl/types.h>
 #include <openssl/x509.h>
 }
 
@@ -34,13 +38,13 @@ namespace ensuressl
 void encryptCredentials(const std::string& filename)
 {
     std::vector<char>& pwd = lsp::getLsp();
-    auto fp = fopen(filename.c_str(), "r");
+    auto* fp = fopen(filename.c_str(), "r");
     if (fp == nullptr)
     {
         BMCWEB_LOG_ERROR("Cannot open filename for reading: {}", filename);
         return;
     }
-    auto pkey =
+    auto* pkey =
         PEM_read_PrivateKey(fp, nullptr, lsp::emptyPasswordCallback, nullptr);
     if (pkey == nullptr)
     {
@@ -48,7 +52,7 @@ void encryptCredentials(const std::string& filename)
         return;
     }
     fseek(fp, 0, SEEK_SET);
-    auto x509 = PEM_read_X509(fp, nullptr, nullptr, nullptr);
+    auto* x509 = PEM_read_X509(fp, nullptr, nullptr, nullptr);
     fclose(fp);
 
     fp = fopen(filename.c_str(), "w");
@@ -57,9 +61,11 @@ void encryptCredentials(const std::string& filename)
         BMCWEB_LOG_ERROR("Cannot open filename for writing: {}", filename);
         return;
     }
-    PEM_write_PrivateKey(fp, pkey, EVP_aes_256_cbc(),
-                         reinterpret_cast<const unsigned char*>(pwd.data()),
-                         static_cast<int>(pwd.size()), nullptr, nullptr);
+    PEM_write_PrivateKey(
+        fp, pkey, EVP_aes_256_cbc(),
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        reinterpret_cast<const unsigned char*>(pwd.data()),
+        static_cast<int>(pwd.size()), nullptr, nullptr);
     if (x509 != nullptr)
     {
         BMCWEB_LOG_INFO("Writing x509 cert.");
@@ -79,7 +85,7 @@ std::string
     std::string cert;
     bool pkeyIsEncrypted = false;
 
-    auto ret = asn1::pemPkeyIsEncrypted(filepath.c_str(), &pkeyIsEncrypted);
+    auto ret = asn1::pemPkeyIsEncrypted(filepath, &pkeyIsEncrypted);
     if (ret == -1)
     {
         BMCWEB_LOG_INFO("No private key file available.");
@@ -128,6 +134,7 @@ int writeBioEncryptedPrivateKey(BIO* out, const EVP_PKEY* x)
     std::vector<char>& pwd = lsp::getLsp();
     return PEM_write_bio_PrivateKey(
         out, x, EVP_aes_256_cbc(),
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
         reinterpret_cast<const unsigned char*>(pwd.data()),
         static_cast<int>(pwd.size()), nullptr, nullptr);
 }

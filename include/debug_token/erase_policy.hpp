@@ -40,12 +40,13 @@ static inline void getErasePolicyObjectPath(
         [callback{std::forward<Callback>(callback)},
          asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
-            std::string path, service;
+            std::string path;
+            std::string service;
             if (ec)
             {
                 BMCWEB_LOG_ERROR("getSubTree error: {}", ec.message());
             }
-            else if (subtree.size() == 0)
+            else if (subtree.empty())
             {
                 BMCWEB_LOG_ERROR("No erase policy objects found");
             }
@@ -79,12 +80,12 @@ inline void getErasePolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
             return;
         }
         std::string policyStr = policy.substr(policy.find_last_of('.') + 1);
-        bool erasePolicy = policyStr == "Automatic" ? true : false;
+        bool erasePolicy = policyStr == "Automatic";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["AutomaticDebugTokenErased"] =
             erasePolicy;
     };
-    auto pathCallback = [asyncResp,
-                         getCallback](std::string service, std::string path) {
+    auto pathCallback = [asyncResp, getCallback](const std::string& service,
+                                                 const std::string& path) {
         sdbusplus::asio::getProperty<std::string>(
             *crow::connections::systemBus, service, path,
             std::string(erasePolicyIntf), "Policy", getCallback);
@@ -105,8 +106,9 @@ inline void setErasePolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         messages::success(asyncResp->res);
     };
     auto pathCallback = [asyncResp, value,
-                         setCallback](std::string service, std::string path) {
-        std::string erasePolicy = value == true ? "Automatic" : "Manual";
+                         setCallback](const std::string& service,
+                                      const std::string& path) {
+        std::string erasePolicy = value ? "Automatic" : "Manual";
         std::string dbusValue =
             std::string(erasePolicyEnumPrefix) + erasePolicy;
         sdbusplus::asio::setProperty(*crow::connections::systemBus, service,

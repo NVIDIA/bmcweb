@@ -32,7 +32,6 @@ limitations under the License.
 #include "utils/systemd_utils.hpp"
 #include "utils/time_utils.hpp"
 
-#include <app.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
@@ -226,10 +225,10 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
             std::optional<std::string> resetType;
             std::optional<std::string> resetToDefaultsType;
 
-            if (!json_util::readJsonAction( //
-                    req, asyncResp->res, //
+            if (!json_util::readJsonAction(                     //
+                    req, asyncResp->res,                        //
                     "ResetToDefaultsType", resetToDefaultsType, //
-                    "ResetType", resetType //
+                    "ResetType", resetType                      //
                     ))
             {
                 BMCWEB_LOG_DEBUG("Missing property ResetType.");
@@ -988,25 +987,25 @@ inline CreatePIDRet createPidInterface(
         std::optional<std::vector<std::string>> outputs;
         std::map<std::string, std::optional<double>> doubles;
         std::optional<std::string> setpointOffset;
-        if (!redfish::json_util::readJson( //
-                jsonValue, response->res, //
-                "FFGainCoefficient", doubles["FFGainCoefficient"], //
-                "FFOffCoefficient", doubles["FFOffCoefficient"], //
-                "ICoefficient", doubles["ICoefficient"], //
-                "ILimitMax", doubles["ILimitMax"], //
-                "ILimitMin", doubles["ILimitMin"], //
-                "Inputs", inputs, //
+        if (!redfish::json_util::readJson(                           //
+                jsonValue, response->res,                            //
+                "FFGainCoefficient", doubles["FFGainCoefficient"],   //
+                "FFOffCoefficient", doubles["FFOffCoefficient"],     //
+                "ICoefficient", doubles["ICoefficient"],             //
+                "ILimitMax", doubles["ILimitMax"],                   //
+                "ILimitMin", doubles["ILimitMin"],                   //
+                "Inputs", inputs,                                    //
                 "NegativeHysteresis", doubles["NegativeHysteresis"], //
-                "OutLimitMax", doubles["OutLimitMax"], //
-                "OutLimitMin", doubles["OutLimitMin"], //
-                "Outputs", outputs, //
-                "PCoefficient", doubles["PCoefficient"], //
+                "OutLimitMax", doubles["OutLimitMax"],               //
+                "OutLimitMin", doubles["OutLimitMin"],               //
+                "Outputs", outputs,                                  //
+                "PCoefficient", doubles["PCoefficient"],             //
                 "PositiveHysteresis", doubles["PositiveHysteresis"], //
-                "SetPoint", doubles["SetPoint"], //
-                "SetPointOffset", setpointOffset, //
-                "SlewNeg", doubles["SlewNeg"], //
-                "SlewPos", doubles["SlewPos"], //
-                "Zones", zones //
+                "SetPoint", doubles["SetPoint"],                     //
+                "SetPointOffset", setpointOffset,                    //
+                "SlewNeg", doubles["SlewNeg"],                       //
+                "SlewPos", doubles["SlewPos"],                       //
+                "Zones", zones                                       //
                 ))
         {
             return CreatePIDRet::fail;
@@ -1097,9 +1096,9 @@ inline CreatePIDRet createPidInterface(
         std::optional<std::string> chassisId;
         std::optional<double> failSafePercent;
         std::optional<double> minThermalOutput;
-        if (!redfish::json_util::readJson( //
-                jsonValue, response->res, //
-                "Chassis/@odata.id", chassisId, //
+        if (!redfish::json_util::readJson(          //
+                jsonValue, response->res,           //
+                "Chassis/@odata.id", chassisId,     //
                 "FailSafePercent", failSafePercent, //
                 "MinThermalOutput", minThermalOutput))
         {
@@ -1137,14 +1136,14 @@ inline CreatePIDRet createPidInterface(
         std::optional<double> positiveHysteresis;
         std::optional<double> negativeHysteresis;
         std::optional<std::string> direction; // upper clipping curve vs lower
-        if (!redfish::json_util::readJson( //
-                jsonValue, response->res, //
-                "Direction", direction, //
-                "Inputs", inputs, //
+        if (!redfish::json_util::readJson(    //
+                jsonValue, response->res,     //
+                "Direction", direction,       //
+                "Inputs", inputs,             //
                 "NegativeHysteresis", negativeHysteresis, //
                 "PositiveHysteresis", positiveHysteresis, //
-                "Steps", steps, //
-                "Zones", zones //
+                "Steps", steps,                           //
+                "Zones", zones                            //
                 ))
         {
             return CreatePIDRet::fail;
@@ -1179,9 +1178,9 @@ inline CreatePIDRet createPidInterface(
                 double out = 0.0;
 
                 if (!redfish::json_util::readJsonObject( //
-                        step, response->res, //
-                        "Output", out, //
-                        "Target", target //
+                        step, response->res,             //
+                        "Output", out,                   //
+                        "Target", target                 //
                         ))
                 {
                     return CreatePIDRet::fail;
@@ -2372,17 +2371,17 @@ inline void requestRoutesManager(App& app)
                 std::optional<nlohmann::json::object_t> stepwiseControllers;
                 std::optional<std::string> profile;
 
-                if (!json_util::readJsonPatch( //
-                        req, asyncResp->res, //
-                        "DateTime", datetime, //
+                if (!json_util::readJsonPatch(                            //
+                        req, asyncResp->res,                              //
+                        "DateTime", datetime,                             //
                         "Links/ActiveSoftwareImage/@odata.id",
-                        activeSoftwareImageOdataId, //
+                        activeSoftwareImageOdataId,                       //
                         "Oem/OpenBmc/Fan/FanControllers", fanControllers, //
-                        "Oem/OpenBmc/Fan/FanZones", fanZones, //
+                        "Oem/OpenBmc/Fan/FanZones", fanZones,             //
                         "Oem/OpenBmc/Fan/PidControllers", pidControllers, //
-                        "Oem/OpenBmc/Fan/Profile", profile, //
+                        "Oem/OpenBmc/Fan/Profile", profile,               //
                         "Oem/OpenBmc/Fan/StepwiseControllers",
-                        stepwiseControllers //
+                        stepwiseControllers                               //
                         ))
                 {
                     return;
@@ -2514,7 +2513,7 @@ inline void requestRoutesNvidiaManagerResetToDefaultsAction(App& app)
                         const std::vector<
                             std::pair<std::string, std::vector<std::string>>>&
                             interfaceNames) {
-                        if (ec || interfaceNames.size() <= 0)
+                        if (ec || interfaceNames.empty())
                         {
                             BMCWEB_LOG_ERROR("Can't find object");
                             messages::internalError(asyncResp->res);
@@ -2571,7 +2570,6 @@ inline void requestRoutesNvidiaManagerEmmcSecureErase(App& app)
                    [[maybe_unused]] const std::string& systemName) {
                 std::string setCommand =
                     "/sbin/fw_setenv emmc_secure_erase yes";
-                PersistentStorageUtil persistentStorageUtil;
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
@@ -2588,7 +2586,7 @@ inline void requestRoutesNvidiaManagerEmmcSecureErase(App& app)
                     BMCWEB_LOG_INFO("Setting eMMC Secure Erase uboot env");
                     return;
                 };
-                persistentStorageUtil.executeEnvCommand(
+                redfish::PersistentStorageUtil::executeEnvCommand(
                     req, asyncResp, setCommand,
                     std::move(resetEMMCSecureEraseCallback));
                 doBMCGracefulRestart(asyncResp);

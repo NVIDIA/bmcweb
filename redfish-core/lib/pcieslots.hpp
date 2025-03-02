@@ -131,8 +131,7 @@ inline void
 {
     for (const auto& [key, val] : dbusProperties)
     {
-        if (key.compare("ServiceLabel") == 0 &&
-            std::holds_alternative<std::string>(val))
+        if (key == "ServiceLabel" && std::holds_alternative<std::string>(val))
         {
             json["Location"]["PartLocation"]["ServiceLabel"] =
                 std::get<std::string>(val);
@@ -833,7 +832,7 @@ inline void requestPcieSlotsRoutes(App& app)
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         connectionNames = object.second;
-                                    if (connectionNames.size() < 1)
+                                    if (connectionNames.empty())
                                     {
                                         continue;
                                     }

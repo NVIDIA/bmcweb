@@ -86,8 +86,6 @@ inline void updateInBandEnabled(
                                std::monostate(), req, asyncResp,
                                responseCallback);
     }
-
-    return;
 }
 
 /**
@@ -116,11 +114,11 @@ inline void enableInBand(const crow::Request& req,
             [[maybe_unused]] const std::string& stdOut,
             [[maybe_unused]] const std::string& stdErr,
             const boost::system::error_code& ec, int errorCode) -> void {
-        if (ec || errorCode)
+        if (ec || errorCode != 0)
         {
             const std::string errorMessage =
-                (enabled == true) ? "MCTP Command Failure: In-Band Enable"
-                                  : "MCTP Command Failure: In-Band Disable";
+                enabled ? "MCTP Command Failure: In-Band Enable"
+                        : "MCTP Command Failure: In-Band Disable";
 
             redfish::messages::resourceErrorsDetectedFormatError(
                 asyncResp->res, "/redfish/v1/Chassis/" + chassisId,

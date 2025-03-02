@@ -32,6 +32,7 @@ namespace redfish
 {
 
 /* holds compute digest operation state to allow one operation at a time */
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static bool computeDigestInProgress = false;
 const std::string hashComputeInterface = "com.Nvidia.ComputeHash";
 constexpr auto retimerHashMaxTimeSec =
@@ -100,7 +101,7 @@ inline void updateOemActionComputeDigest(
                 // device
                 return;
             }
-            for (auto& obj : subtree)
+            for (const auto& obj : subtree)
             {
                 sdbusplus::message::object_path hashPath(obj.first);
                 std::string hashId = hashPath.filename();
@@ -158,12 +159,12 @@ inline void computeDigest(const crow::Request& req,
                 return;
             }
             const std::string hashComputeService = objInfo[0].first;
-            unsigned retimerId;
+            unsigned retimerId = 0;
             try
             {
                 // TODO this needs moved to from_chars
                 retimerId = static_cast<unsigned>(
-                    std::stoul(swId.substr(swId.rfind("_") + 1)));
+                    std::stoul(swId.substr(swId.rfind('_') + 1)));
             }
             catch (const std::exception& e)
             {
@@ -221,8 +222,8 @@ inline void computeDigest(const crow::Request& req,
                                 "Signal doesn't have Digest value");
                             return !task::completed;
                         }
-                        auto value = std::get_if<std::string>(&(it->second));
-                        if (!value)
+                        auto* value = std::get_if<std::string>(&(it->second));
+                        if (value == nullptr)
                         {
                             BMCWEB_LOG_ERROR("Digest value is not a string");
                             return !task::completed;
@@ -287,19 +288,16 @@ inline void computeDigest(const crow::Request& req,
                             computeDigestInProgress = false;
                             return task::completed;
                         }
-                        else
-                        {
-                            BMCWEB_LOG_ERROR(
-                                "GetHash failed. Digest is empty.");
-                            taskData->state = "Exception";
-                            taskData->messages.emplace_back(
-                                messages::resourceErrorsDetectedFormatError(
-                                    "NvidiaSoftwareInventory.ComputeDigest",
-                                    "Hash Computation Failed"));
-                            taskData->finishTask();
-                            computeDigestInProgress = false;
-                            return task::completed;
-                        }
+
+                        BMCWEB_LOG_ERROR("GetHash failed. Digest is empty.");
+                        taskData->state = "Exception";
+                        taskData->messages.emplace_back(
+                            messages::resourceErrorsDetectedFormatError(
+                                "NvidiaSoftwareInventory.ComputeDigest",
+                                "Hash Computation Failed"));
+                        taskData->finishTask();
+                        computeDigestInProgress = false;
+                        return task::completed;
                     }
                     return !task::completed;
                 },
@@ -363,7 +361,7 @@ inline void
                 BMCWEB_LOG_ERROR("Invalid object path: {}", ec);
                 return;
             }
-            for (auto& obj : subtree)
+            for (const auto& obj : subtree)
             {
                 sdbusplus::message::object_path hashPath(obj.first);
                 std::string hashId = hashPath.filename();
@@ -437,14 +435,7 @@ inline bool isInventoryAllowableValue(const std::string_view inventoryPath)
         find(allowableValues.begin(), allowableValues.end(),
              static_cast<std::string>(inventoryPath));
 
-    if (it != allowableValues.end())
-    {
-        isAllowable = true;
-    }
-    else
-    {
-        isAllowable = false;
-    }
+    isAllowable = it != allowableValues.end();
 
     return isAllowable;
 }
@@ -476,7 +467,7 @@ inline void updateParametersForCommitImageInfo(
 
     nlohmann::json& allowableValues = parameterTargets["AllowableValues"];
 
-    for (auto& obj : subtree)
+    for (const auto& obj : subtree)
     {
         sdbusplus::message::object_path path(obj.first);
         std::string fwId = path.filename();
@@ -527,7 +518,7 @@ inline void handleCommitImagePost(
 
     bool hasTargets = false;
 
-    if (targets && targets.value().empty() == false)
+    if (targets && !targets.value().empty())
     {
         hasTargets = true;
     }
@@ -545,7 +536,7 @@ inline void handleCommitImagePost(
                 "/xyz/openbmc_project/software/" + objectPath.filename();
             std::pair<bool, CommitImageValueEntry> result =
                 getAllowableValue(inventoryPath);
-            if (result.first == true)
+            if (result.first)
             {
                 targetUuidInventoryUriMap[result.second.uuid] =
                     result.second.inventoryUri;
@@ -561,12 +552,12 @@ inline void handleCommitImagePost(
     }
     else
     {
-        for (auto& obj : subtree)
+        for (const auto& obj : subtree)
         {
             std::pair<bool, CommitImageValueEntry> result =
                 getAllowableValue(obj.first);
 
-            if (result.first == true)
+            if (result.first)
             {
                 targetUuidInventoryUriMap[result.second.uuid] =
                     result.second.inventoryUri;
@@ -575,16 +566,16 @@ inline void handleCommitImagePost(
     }
 
     auto initBackgroundCopyCallback =
-        [req, asyncResp]([[maybe_unused]] const UUID uuid, const EID eid,
-                         const URI inventoryUri) mutable {
+        [req, asyncResp]([[maybe_unused]] const UUID& uuid, const EID eid,
+                         const URI& inventoryUri) mutable {
             BMCWEB_LOG_DEBUG("Run CommitImage operation for EID {}, UUID {}",
                              eid, uuid);
             initBackgroundCopy(req, asyncResp, eid, inventoryUri);
         };
 
     auto errorCallback =
-        [req, asyncResp]([[maybe_unused]] const std::string desc,
-                         [[maybe_unused]] const std::string errMsg) mutable {
+        [req, asyncResp]([[maybe_unused]] const std::string& desc,
+                         [[maybe_unused]] const std::string& errMsg) mutable {
             BMCWEB_LOG_ERROR("The CommitImage operation failed: {}, {}", desc,
                              errMsg);
             messages::internalError(asyncResp->res);

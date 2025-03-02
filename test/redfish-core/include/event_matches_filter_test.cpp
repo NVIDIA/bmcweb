@@ -2,9 +2,14 @@
 #include "event_service_manager.hpp"
 #include "event_service_store.hpp"
 
+#include <boost/asio/io_context.hpp>
+#include <boost/url/url.hpp>
 #include <nlohmann/json.hpp>
 
+#include <memory>
+#include <string>
 #include <string_view>
+#include <vector>
 
 #include <gtest/gtest.h>
 

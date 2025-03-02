@@ -1,6 +1,7 @@
 #pragma once
 
 #include "utils/nvidia_async_set_callbacks.hpp"
+#include "utils/processor_utils.hpp"
 
 namespace redfish
 {
@@ -36,19 +37,18 @@ inline void parseReconfigSettingsJson(
     {
         if (allowOneShotConfig)
         {
-            permissions.emplace_back(std::make_tuple(
-                featureName, "AllowOneShotConfig", *allowOneShotConfig));
+            permissions.emplace_back(featureName, "AllowOneShotConfig",
+                                     *allowOneShotConfig);
         }
         if (allowPersistentConfig)
         {
-            permissions.emplace_back(std::make_tuple(
-                featureName, "AllowPersistentConfig", *allowPersistentConfig));
+            permissions.emplace_back(featureName, "AllowPersistentConfig",
+                                     *allowPersistentConfig);
         }
         if (allowFLRPersistentConfig)
         {
-            permissions.emplace_back(
-                std::make_tuple(featureName, "AllowFLRPersistentConfig",
-                                *allowFLRPersistentConfig));
+            permissions.emplace_back(featureName, "AllowFLRPersistentConfig",
+                                     *allowFLRPersistentConfig);
         }
     }
 }
@@ -155,11 +155,12 @@ inline void patchInbandReconfigPermissions(
             {
                 for (const auto& [featureName, property, value] : patchRequests)
                 {
+                    std::string path = objectPath;
+                    path += "/InbandReconfigPermissions/";
+                    path += featureName;
                     nvidia_async_operation_utils::patch(
-                        asyncResp, service,
-                        objectPath + "/InbandReconfigPermissions/" +
-                            featureName,
-                        "com.nvidia.InbandReconfigSettings", property, value);
+                        asyncResp, service, path, "com.nvidia.InbandReconfigSettings",
+                        property, value);
                 }
             }
         });
@@ -189,10 +190,12 @@ inline void patchDOEReconfigPermissions(
             {
                 for (const auto& [featureName, property, value] : patchRequests)
                 {
+                    std::string path = objectPath;
+                    path += "/DOEReconfigPermissions/";
+                    path += featureName;
                     nvidia_async_operation_utils::patch(
-                        asyncResp, service,
-                        objectPath + "/DOEReconfigPermissions/" + featureName,
-                        "com.nvidia.InbandReconfigSettings", property, value);
+                        asyncResp, service, path, "com.nvidia.InbandReconfigSettings",
+                        property, value);
                 }
             }
         });
@@ -471,7 +474,6 @@ static void egmAsyncRespHandler(const std::shared_ptr<bmcweb::AsyncResp>& resp,
         BMCWEB_LOG_ERROR("UnknownError While Doing Patch on EGMMode");
         messages::internalError(resp->res);
     }
-    return;
 }
 
 static void egmGetDbusObjectHandler(
@@ -511,8 +513,6 @@ static void egmGetDbusObjectHandler(
         },
         service, cpuObjectPath, "org.freedesktop.DBus.Properties", "Set",
         "com.nvidia.EgmMode", "EGMModeEnabled", std::variant<bool>(egmMode));
-
-    return;
 }
 
 /**
@@ -563,8 +563,6 @@ inline void patchEgmMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
             egmGetDbusObjectHandler(resp, egmMode, processorId, cpuObjectPath,
                                     service, ec, obj);
         });
-
-    return;
 }
 
 /*
@@ -678,7 +676,7 @@ inline void getReconfigPermissionsData(
                 sdbusplus::message::object_path(objPath).filename();
             aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                 "#NvidiaProcessor.v1_5_0.NvidiaGPU";
-            std::string reconfigPermissionsType = "";
+            std::string reconfigPermissionsType;
             if (objPath.find("InbandReconfigPermissions") != std::string::npos)
             {
                 reconfigPermissionsType = "InbandReconfigPermissions";
@@ -1079,9 +1077,9 @@ inline void getClearablePcieCounters(
                     const std::vector<std::string>* data =
                         std::get_if<std::vector<std::string>>(&property.second);
 
-                    if (data)
+                    if (data != nullptr)
                     {
-                        for (auto counter : *data)
+                        for (const auto& counter : *data)
                         {
                             clearableDataSource.push_back(
                                 counter.substr(counter.find_last_of('.') + 1));
@@ -1204,7 +1202,7 @@ inline void getClearPCIeCountersActionInfo(
                                     for (const auto& [service, interfaces] :
                                          object)
                                     {
-                                        for (auto interface : interfaces)
+                                        for (const auto& interface : interfaces)
                                         {
                                             if (interface ==
                                                 "xyz.openbmc_project.PCIe.ClearPCIeCounters")
@@ -1360,7 +1358,7 @@ inline void getPortDisableFutureStatus(
                 const std::string& propertyName = property.first;
                 if (propertyName == "PortDisableFuture")
                 {
-                    auto* value =
+                    const auto* value =
                         std::get_if<std::vector<uint8_t>>(&property.second);
                     if (value == nullptr)
                     {
@@ -1498,14 +1496,18 @@ inline void getPortNumberAndCallSetAsync(
                                     if (propertyValue == "Disabled")
                                     {
                                         if (it == portListToDisable.end())
+                                        {
                                             portListToDisable.push_back(
                                                 static_cast<uint8_t>(
                                                     portNumber));
+                                        }
                                     }
                                     else if (propertyValue == "Enabled")
                                     {
                                         if (it != portListToDisable.end())
+                                        {
                                             portListToDisable.erase(it);
+                                        }
                                     }
                                     else
                                     {
@@ -1590,7 +1592,7 @@ inline void patchPortDisableFuture(
                 const std::string& propertyName = property.first;
                 if (propertyName == "PortDisableFuture")
                 {
-                    auto* value =
+                    const auto* value =
                         std::get_if<std::vector<uint8_t>>(&property.second);
                     if (value == nullptr)
                     {
@@ -1740,7 +1742,7 @@ inline void getMNNVLinkTopologyInfo(
                     *traySerialNumber;
             }
 
-            if (systemGUID != nullptr && systemGUID->empty() == false)
+            if (systemGUID != nullptr && !systemGUID->empty())
             {
                 json["Oem"]["Nvidia"]["MNNVLinkTopology"]["SystemGUID"] =
                     *systemGUID;
@@ -1906,7 +1908,8 @@ inline void postPCIeClearCounter(
                                         return;
                                     }
 
-                                    for (auto [connection, interfaces] : object)
+                                    for (const auto& [connection, interfaces] :
+                                         object)
                                     {
                                         clearPCIeCounter(asyncResp, connection,
                                                          sensorpath,
@@ -1957,7 +1960,7 @@ inline void setOperatingSpeedRange(
                 return;
             }
 
-            for (auto& [service, interfaces] : objInfo)
+            for (const auto& [service, interfaces] : objInfo)
             {
                 if (std::find(
                         interfaces.begin(), interfaces.end(),
@@ -2020,7 +2023,7 @@ inline void setOperatingSpeedRange(
 inline void patchOperatingSpeedRangeMHz(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& processorId, const uint32_t& value,
-    const std::string& patchProp, const std::string processorObjPath)
+    const std::string& patchProp, const std::string& processorObjPath)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, value, patchProp, processorId,
@@ -2035,9 +2038,9 @@ inline void patchOperatingSpeedRangeMHz(
             const std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
 
-            if (data)
+            if (data != nullptr)
             {
-                for (auto chassisPath : *data)
+                for (const auto& chassisPath : *data)
                 {
                     crow::connections::systemBus->async_method_call(
                         [asyncResp, value, patchProp, processorId, chassisPath](
@@ -2052,7 +2055,7 @@ inline void patchOperatingSpeedRangeMHz(
                             std::vector<std::string>* data =
                                 std::get_if<std::vector<std::string>>(&resp);
 
-                            for (auto clockLimitPath : *data)
+                            for (const auto& clockLimitPath : *data)
                             {
                                 setOperatingSpeedRange(asyncResp, value,
                                                        patchProp,
@@ -2144,7 +2147,7 @@ inline void getOperatingSpeedRangeData(
                                                       [propertyName] = *value;
                                         continue;
                                     }
-                                    else if (propertyName == "MinSpeed")
+                                    if (propertyName == "MinSpeed")
                                     {
                                         propertyName = "AllowableMin";
                                         const uint32_t* value =
@@ -2163,8 +2166,7 @@ inline void getOperatingSpeedRangeData(
                                                       [propertyName] = *value;
                                         continue;
                                     }
-                                    else if (propertyName ==
-                                             "RequestedSpeedLimitMax")
+                                    if(propertyName == "RequestedSpeedLimitMax")
                                     {
                                         propertyName = "SettingMax";
                                         const uint32_t* value =
@@ -2183,7 +2185,7 @@ inline void getOperatingSpeedRangeData(
                                                       [propertyName] = *value;
                                         continue;
                                     }
-                                    else if (propertyName ==
+                                    if (propertyName ==
                                              "RequestedSpeedLimitMin")
                                     {
                                         propertyName = "SettingMin";
@@ -2238,7 +2240,7 @@ inline void getOperatingSpeedRange(
             std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
 
-            for (auto chassisPath : *data)
+            for (const auto& chassisPath : *data)
             {
                 crow::connections::systemBus->async_method_call(
                     [aResp, chassisPath](
@@ -2251,7 +2253,7 @@ inline void getOperatingSpeedRange(
                         std::vector<std::string>* data =
                             std::get_if<std::vector<std::string>>(&resp);
 
-                        for (auto clockControlPath : *data)
+                        for (const auto& clockControlPath : *data)
                         {
                             aResp->res.jsonValue["OperatingSpeedRangeMHz"]
                                                 ["DataSourceUri"] =
@@ -2306,8 +2308,6 @@ static void getEgmModePendingDataHandler(
             json["Oem"]["Nvidia"]["EGMModeEnabled"] = *pendingEgmState;
         }
     }
-
-    return;
 }
 
 /**
@@ -2333,8 +2333,6 @@ inline void getEgmModePendingData(
         },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
         "com.nvidia.EgmMode");
-
-    return;
 }
 
 // Function to handle the getEgmModeData async method call response
@@ -2365,8 +2363,6 @@ inline void
             json["Oem"]["Nvidia"]["EGMModeEnabled"] = *egmModeEnabled;
         }
     }
-
-    return;
 }
 
 /**
@@ -2392,8 +2388,6 @@ inline void getEgmModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
         "com.nvidia.EgmMode");
-
-    return;
 }
 
 } // namespace nvidia_processor_utils

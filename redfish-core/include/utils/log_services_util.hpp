@@ -50,7 +50,7 @@ inline static std::string convertEventSeverity(const std::string& severity)
 
 inline void populateBootEntryId(crow::Response& resp)
 {
-    std::string bootEntryId{""};
+    std::string bootEntryId;
     std::string filePath{"/run/bootentryid"};
 
     std::ifstream ifs(filePath);

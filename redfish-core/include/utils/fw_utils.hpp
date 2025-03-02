@@ -49,7 +49,7 @@ constexpr const char* serviceObjectMapper = "xyz.openbmc_project.ObjectMapper";
 /**
  * @brief Maps D-Bus firmware states to human-readable values.
  */
-static std::map<std::string, std::string> firmwareState = {
+static const std::map<std::string, std::string> firmwareState = {
     {"xyz.openbmc_project.Software.State.FirmwareState.Unknown", "Unknown"},
     {"xyz.openbmc_project.Software.State.FirmwareState.Activated", "Activated"},
     {"xyz.openbmc_project.Software.State.FirmwareState.PendingActivation",
@@ -64,7 +64,7 @@ static std::map<std::string, std::string> firmwareState = {
 /**
  * @brief Maps D-Bus firmware build types to human-readable values.
  */
-static std::map<std::string, std::string> buildType = {
+static const std::map<std::string, std::string> buildType = {
     {"xyz.openbmc_project.Software.BuildType.FirmwareBuildType.Release",
      "Release"},
     {"xyz.openbmc_project.Software.BuildType.FirmwareBuildType.Development",
@@ -105,7 +105,7 @@ inline void populateFirmwareInformation(
                 return;
             }
 
-            if (functionalFw.size() == 0)
+            if (functionalFw.empty())
             {
                 // Could keep going and try to populate SoftwareImages but
                 // something is seriously wrong, so just fail
@@ -118,7 +118,7 @@ inline void populateFirmwareInformation(
             // example functionalFw:
             // v as 2 "/xyz/openbmc_project/software/ace821ef"
             //        "/xyz/openbmc_project/software/230fb078"
-            for (auto& fw : functionalFw)
+            for (const auto& fw : functionalFw)
             {
                 sdbusplus::message::object_path path(fw);
                 std::string leaf = path.filename();
@@ -300,8 +300,6 @@ inline void populateFirmwareInformation(
                 std::array<const char*, 1>{
                     "xyz.openbmc_project.Software.Version"});
         });
-
-    return;
 }
 
 /**
@@ -374,8 +372,8 @@ inline void getFwRecoveryStatus(
     const std::shared_ptr<std::string>& swId, const std::string& dbusSvc)
 {
     auto getLastSegnmentFromDotterString =
-        [](const std::string input) -> std::string {
-        size_t pos = input.rfind(".");
+        [](const std::string& input) -> std::string {
+        size_t pos = input.rfind('.');
         if (pos == std::string::npos)
         {
             BMCWEB_LOG_ERROR("Unable to extract last segment from input {}",
@@ -583,9 +581,9 @@ inline void getFwWriteProtectedStatus(
  * @param slotType The type of the slot (e.g., "ActiveFirmwareSlot",
  * "InactiveFirmwareSlot").
  */
-inline void populateSlotInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
-                             const std::string& slotObjPath,
-                             const std::string& slotType)
+inline void populateSlotInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& slotObjPath, const std::string& slotType)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, slotObjPath, slotType](const boost::system::error_code& ec,
@@ -741,8 +739,9 @@ inline void populateSlotInfo(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
  * @param objectPath    Dbus object path used to query slot information
  *
  */
-inline void getFWSlotInformation(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
-                                 const std::string& objectPath)
+inline void
+    getFWSlotInformation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                         const std::string& objectPath)
 {
     sdbusplus::asio::getProperty<std::vector<std::string>>(
         *crow::connections::systemBus, serviceObjectMapper,
@@ -856,8 +855,6 @@ inline void getFwUpdateableStatus(
                 return;
             }
         });
-
-    return;
 }
 
 } // namespace fw_util

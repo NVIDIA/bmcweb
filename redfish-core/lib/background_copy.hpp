@@ -86,8 +86,6 @@ inline void updateBackgroundCopyEnabled(
                                std::monostate(), req, asyncResp,
                                responseCallback);
     }
-
-    return;
 }
 
 /**
@@ -154,8 +152,6 @@ inline void updateBackgroundCopyStatusPending(
                                std::monostate(), req, asyncResp,
                                std::move(bgCopyQueryResponseCallback));
     }
-
-    return;
 }
 
 /**
@@ -232,7 +228,6 @@ inline void updateBackgroundCopyStatus(
             MctpVdmUtilCommand::BACKGROUNDCOPY_QUERY_PROGRESS, std::monostate(),
             req, asyncResp, bgCopyQueryResponseCallback);
     }
-    return;
 }
 
 /**
@@ -262,12 +257,11 @@ inline void enableBackgroundCopy(
             [[maybe_unused]] const std::string& stdOut,
             [[maybe_unused]] const std::string& stdErr,
             const boost::system::error_code& ec, int errorCode) -> void {
-        if (ec || errorCode)
+        if (ec || errorCode != 0)
         {
             const std::string errorMessage =
-                (enabled == true)
-                    ? "MCTP Command Failure: Background Copy Enable"
-                    : "MCTP Command Failure: Background Copy Disable";
+                (enabled) ? "MCTP Command Failure: Background Copy Enable"
+                          : "MCTP Command Failure: Background Copy Disable";
 
             redfish::messages::resourceErrorsDetectedFormatError(
                 asyncResp->res, "/redfish/v1/Chassis/" + chassisId,
@@ -292,7 +286,6 @@ inline void enableBackgroundCopy(
                                std::monostate(), req, asyncResp,
                                responseCallback);
     }
-    return;
 }
 
 /**
@@ -320,7 +313,7 @@ inline void
             [[maybe_unused]] const std::string& stdOut,
             [[maybe_unused]] const std::string& stdErr,
             const boost::system::error_code& ec, int errorCode) -> void {
-        if (ec || errorCode)
+        if (ec || errorCode != 0)
         {
             redfish::messages::resourceErrorsDetectedFormatError(
                 asyncResp->res, inventoryURI,
@@ -343,5 +336,4 @@ inline void
                     inventoryURI);
     mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_INIT,
                            std::monostate(), req, asyncResp, responseCallback);
-    return;
 }

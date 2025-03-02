@@ -78,7 +78,7 @@ inline std::string metricId(const std::string& input,
     std::string result = input;
 
     // Check if the input string starts with the platformDevicePrefix
-    if (result.find(platformDevicePrefix) == 0)
+    if (result.starts_with(platformDevicePrefix))
     {
         // Remove the platformDevicePrefix from the input string
         result = result.substr(platformDevicePrefix.length());

@@ -91,9 +91,9 @@ inline void enableTLSAuth()
             std::filesystem::create_directory(dropinDir);
         }
         std::ofstream out(confPath.string());
-        out << "[Socket]" << std::endl;
-        out << "ListenStream=" << std::endl; // disable port 80
-        out << "ListenStream=443" << std::endl; // enable port 443
+        out << "[Socket]" << '\n';
+        out << "ListenStream=" << '\n';    // disable port 80
+        out << "ListenStream=443" << '\n'; // enable port 443
     }
     catch (const std::exception& e)
     {
@@ -177,17 +177,17 @@ inline void
 // convert sync command input request data to raw datain
 inline uint32_t formatSyncDataIn(std::vector<std::string>& data)
 {
-    size_t found;
+    size_t found = 0;
     std::string dataStr;
     uint32_t dataIn = 0;
-    for (auto it = data.rbegin(); it != data.rend(); ++it)
+    for (auto& it : std::ranges::reverse_view(data))
     {
-        found = (*it).find(hexPrefix);
+        found = it.find(hexPrefix);
         if (found != std::string::npos)
         {
-            (*it).erase(found, hexPrefix.length());
+            it.erase(found, hexPrefix.length());
         }
-        dataStr.append(*it);
+        dataStr.append(it);
     }
 
     try
@@ -217,13 +217,13 @@ inline uint32_t formatSyncDataIn(std::vector<std::string>& data)
 inline void executeRawSynCommand(
     const std::shared_ptr<bmcweb::AsyncResp>& resp,
     const std::string& serviceName, const std::string& objPath,
-    const std::string& Type, uint8_t id, uint8_t opCode, uint8_t arg1,
+    const std::string& type, uint8_t id, uint8_t opCode, uint8_t arg1,
     uint8_t arg2, uint32_t dataIn, uint32_t extDataIn)
 {
     BMCWEB_LOG_DEBUG("executeRawSynCommand fn");
     crow::connections::systemBus->async_method_call(
-        [resp, Type,
-         id](boost::system::error_code& ec, sdbusplus::message::message& msg,
+        [resp, type,
+         id](boost::system::error_code ec, sdbusplus::message::message& msg,
              const std::tuple<int, uint32_t, uint32_t, uint32_t>& res) {
             if (!ec)
             {
@@ -270,21 +270,21 @@ inline void executeRawSynCommand(
             return;
         },
         serviceName, objPath, "com.nvidia.Protocol.SMBPBI.Raw", "SyncCommand",
-        Type, id, opCode, arg1, arg2, dataIn, extDataIn);
+        type, id, opCode, arg1, arg2, dataIn, extDataIn);
 }
 
 // function to convert dataInbyte array to dataIn uint32 vector
 inline std::vector<std::uint32_t>
     formatAsyncDataIn(std::vector<std::string>& asynDataInBytes)
 {
-    size_t j;
-    size_t found;
+    size_t j = 0;
+    size_t found = 0;
     std::string temp;
     std::vector<std::uint32_t> asyncDataIn;
     auto dataInSize = asynDataInBytes.size();
     try
     {
-        if (dataInSize)
+        if (dataInSize != 0U)
         {
             for (size_t i = 0; i < dataInSize; i++)
             {
@@ -335,13 +335,13 @@ inline std::vector<std::uint32_t>
 inline void executeRawAsynCommand(
     const std::shared_ptr<bmcweb::AsyncResp>& resp,
     const std::string& serviceName, const std::string& objPath,
-    const std::string& Type, uint8_t id, uint8_t argRaw,
+    const std::string& type, uint8_t id, uint8_t argRaw,
     const std::vector<uint32_t>& asyncDataInRaw, uint32_t requestedDataOutBytes)
 {
     BMCWEB_LOG_DEBUG("executeRawAsynCommand fn");
     crow::connections::systemBus->async_method_call(
-        [resp, Type, requestedDataOutBytes,
-         id](boost::system::error_code& ec, sdbusplus::message::message& msg,
+        [resp, type, requestedDataOutBytes,
+         id](boost::system::error_code ec, sdbusplus::message::message& msg,
              const std::tuple<int, uint32_t, uint32_t, std::vector<uint32_t>>&
                  res) {
             if (!ec)
@@ -408,7 +408,7 @@ inline void executeRawAsynCommand(
             return;
         },
         serviceName, objPath, "com.nvidia.Protocol.SMBPBI.Raw", "AsyncCommand",
-        Type, id, argRaw, asyncDataInRaw, requestedDataOutBytes);
+        type, id, argRaw, asyncDataInRaw, requestedDataOutBytes);
 }
 
 inline void
@@ -688,7 +688,7 @@ inline void
             }
             for (const auto& [objectPath, serviceMap] : subtree)
             {
-                if (serviceMap.size() < 1)
+                if (serviceMap.empty())
                 {
                     BMCWEB_LOG_ERROR("Got 0 service "
                                      "names");
@@ -847,9 +847,8 @@ inline void sendRestartEvent(const crow::Request& req, std::string& resetType)
         if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
         {
             // Send an event for Manager Reset
-            DsEvent event =
-                redfish::EventUtil::getInstance().createEventRebootReason(
-                    "ManagerReset", "Managers");
+            DsEvent event = redfish::EventUtil::createEventRebootReason(
+                "ManagerReset", "Managers");
             redfish::EventServiceManager::getInstance().sendEventWithOOC(
                 std::string(req.target()), event);
         }
@@ -861,9 +860,8 @@ inline void sendFactoryResetEvent(const crow::Request& req)
     if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
     {
         // Send an event for reset to defaults
-        DsEvent event =
-            redfish::EventUtil::getInstance().createEventRebootReason(
-                "FactoryReset", "Managers");
+        DsEvent event = redfish::EventUtil::createEventRebootReason(
+            "FactoryReset", "Managers");
         redfish::EventServiceManager::getInstance().sendEventWithOOC(
             std::string(req.target()), event);
     }
@@ -1098,7 +1096,8 @@ inline void requestRouteSyncRawOobCommand(App& app)
                     return;
                 }
 
-                if ((dataIn) && ((*dataIn).size()))
+                if ((dataIn) &&
+                    (static_cast<unsigned int>(!(*dataIn).empty()) != 0U))
                 {
                     try
                     {
@@ -1113,7 +1112,8 @@ inline void requestRouteSyncRawOobCommand(App& app)
                     }
                 }
 
-                if ((extDataIn) && ((*extDataIn).size()))
+                if ((extDataIn) &&
+                    (static_cast<unsigned int>(!(*extDataIn).empty()) != 0U))
                 {
                     try
                     {
@@ -1159,7 +1159,7 @@ inline void requestRouteSyncRawOobCommand(App& app)
                         }
                         for (const auto& [objectPath, serviceMap] : subtree)
                         {
-                            if (serviceMap.size() < 1)
+                            if (serviceMap.empty())
                             {
                                 BMCWEB_LOG_ERROR("No service Present");
                                 messages::internalError(asyncResp->res);
@@ -1214,7 +1214,8 @@ inline void requestRouteAsyncRawOobCommand(App& app)
                     return;
                 }
 
-                if ((asynDataIn) && ((*asynDataIn).size()))
+                if ((asynDataIn) &&
+                    (static_cast<unsigned int>(!(*asynDataIn).empty()) != 0U))
                 {
                     try
                     {
@@ -1254,7 +1255,7 @@ inline void requestRouteAsyncRawOobCommand(App& app)
                         }
                         for (const auto& [objectPath, serviceMap] : subtree)
                         {
-                            if (serviceMap.size() < 1)
+                            if (serviceMap.empty())
                             {
                                 BMCWEB_LOG_ERROR("No service Present");
                                 messages::internalError(asyncResp->res);
@@ -1309,7 +1310,7 @@ inline void
                 {
                     continue;
                 }
-                if (connectionNames.size() < 1)
+                if (connectionNames.empty())
                 {
                     BMCWEB_LOG_ERROR("Got 0 Connection names");
                     continue;
@@ -1380,7 +1381,6 @@ inline void
         "/xyz/openbmc_project/inventory", int32_t(0),
         std::array<const char*, 1>{"xyz.openbmc_project.Inventory."
                                    "Item.ManagementService"});
-    return;
 }
 
 inline void
@@ -1436,7 +1436,7 @@ inline void
                         }
                         for (const auto& [objectPath, serviceMap] : subtree)
                         {
-                            if (serviceMap.size() < 1)
+                            if (serviceMap.empty())
                             {
                                 BMCWEB_LOG_ERROR("Got 0 service "
                                                  "names");
@@ -1534,7 +1534,7 @@ inline void
     nlohmann::json::object_t manager;
     manager["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    managerForServers.push_back(std::move(manager));
+    managerForServers.emplace_back(std::move(manager));
 
     asyncResp->res.jsonValue["Links"]["ManagerForServers"] =
         std::move(managerForServers);
@@ -1716,9 +1716,9 @@ inline void
         const std::string prefix = "BUILD_DESC=";
         std::string descriptionContent;
         while (getline(buildDescriptionFile, line) &&
-               descriptionContent.size() == 0)
+               descriptionContent.empty())
         {
-            if (line.rfind(prefix, 0) == 0)
+            if (line.starts_with(prefix))
             {
                 descriptionContent = line.substr(prefix.size());
                 descriptionContent.erase(
@@ -1727,27 +1727,27 @@ inline void
                     descriptionContent.end());
             }
         }
-        if (descriptionContent.rfind("debug-prov", 0) == 0)
+        if (descriptionContent.starts_with("debug-prov"))
         {
             buildType = "ProvisioningDebug";
         }
-        else if (descriptionContent.rfind("prod-prov", 0) == 0)
+        else if (descriptionContent.starts_with("prod-prov"))
         {
             buildType = "ProvisioningProduction";
         }
-        else if (descriptionContent.rfind("dev-prov", 0) == 0)
+        else if (descriptionContent.starts_with("dev-prov"))
         {
             buildType = "ProvisioningDevelopment";
         }
-        else if (descriptionContent.rfind("debug-platform", 0) == 0)
+        else if (descriptionContent.starts_with("debug-platform"))
         {
             buildType = "PlatformDebug";
         }
-        else if (descriptionContent.rfind("prod-platform", 0) == 0)
+        else if (descriptionContent.starts_with("prod-platform"))
         {
             buildType = "PlatformProduction";
         }
-        else if (descriptionContent.rfind("dev-platform", 0) == 0)
+        else if (descriptionContent.starts_with("dev-platform"))
         {
             buildType = "PlatformDevelopment";
         }

@@ -10,8 +10,6 @@
 
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
-#include <dbus_utility.hpp>
-#include <query.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <utils/nvidia_cable_util.hpp>

@@ -120,11 +120,11 @@ inline void requestRoutesEventService(App& app)
                 std::optional<bool> serviceEnabled;
                 std::optional<uint32_t> retryAttemps;
                 std::optional<uint32_t> retryInterval;
-                if (!json_util::readJsonPatch( //
-                        req, asyncResp->res, //
-                        "DeliveryRetryAttempts", retryAttemps, //
+                if (!json_util::readJsonPatch(                         //
+                        req, asyncResp->res,                           //
+                        "DeliveryRetryAttempts", retryAttemps,         //
                         "DeliveryRetryIntervalSeconds", retryInterval, //
-                        "ServiceEnabled", serviceEnabled //
+                        "ServiceEnabled", serviceEnabled               //
                         ))
                 {
                     return;
@@ -333,21 +333,21 @@ inline void requestRoutesEventDestinationCollection(App& app)
             std::optional<std::vector<nlohmann::json::object_t>> headers;
             std::optional<std::vector<nlohmann::json::object_t>> mrdJsonArray;
 
-            if (!json_util::readJsonPatch( //
-                    req, asyncResp->res, //
-                    "Context", context, //
-                    "DeliveryRetryPolicy", retryPolicy, //
-                    "Destination", destUrl, //
-                    "EventFormatType", eventFormatType2, //
-                    "HttpHeaders", headers, //
-                    "MessageIds", msgIds, //
+            if (!json_util::readJsonPatch(                   //
+                    req, asyncResp->res,                     //
+                    "Context", context,                      //
+                    "DeliveryRetryPolicy", retryPolicy,      //
+                    "Destination", destUrl,                  //
+                    "EventFormatType", eventFormatType2,     //
+                    "HttpHeaders", headers,                  //
+                    "MessageIds", msgIds,                    //
                     "MetricReportDefinitions", mrdJsonArray, //
-                    "OriginResources", originResources, //
-                    "Protocol", protocol, //
-                    "RegistryPrefixes", regPrefixes, //
-                    "ResourceTypes", resTypes, //
-                    "SubscriptionType", subscriptionType, //
-                    "VerifyCertificate", verifyCertificate //
+                    "OriginResources", originResources,      //
+                    "Protocol", protocol,                    //
+                    "RegistryPrefixes", regPrefixes,         //
+                    "ResourceTypes", resTypes,               //
+                    "SubscriptionType", subscriptionType,    //
+                    "VerifyCertificate", verifyCertificate   //
                     ))
             {
                 return;
@@ -794,11 +794,11 @@ inline void requestRoutesEventDestination(App& app)
                 std::optional<bool> verifyCertificate;
                 std::optional<std::vector<nlohmann::json::object_t>> headers;
 
-                if (!json_util::readJsonPatch( //
-                        req, asyncResp->res, //
-                        "Context", context, //
-                        "DeliveryRetryPolicy", retryPolicy, //
-                        "HttpHeaders", headers, //
+                if (!json_util::readJsonPatch(                 //
+                        req, asyncResp->res,                   //
+                        "Context", context,                    //
+                        "DeliveryRetryPolicy", retryPolicy,    //
+                        "HttpHeaders", headers,                //
                         "VerifyCertificate", verifyCertificate //
                         ))
                 {
@@ -812,8 +812,7 @@ inline void requestRoutesEventDestination(App& app)
                     {
                         // Send an event for property change
                         DsEvent event =
-                            redfish::EventUtil::getInstance()
-                                .createEventPropertyModified(
+                            redfish::EventUtil::createEventPropertyModified(
                                     "Context", *context, "EventService");
                         redfish::EventServiceManager::getInstance()
                             .sendEventWithOOC(std::string(req.target()), event);
@@ -849,8 +848,7 @@ inline void requestRoutesEventDestination(App& app)
                     {
                         // Send an event for property change
                         DsEvent event =
-                            redfish::EventUtil::getInstance()
-                                .createEventPropertyModified(
+                            redfish::EventUtil::createEventPropertyModified(
                                     "Headers", keyValues, "EventService");
                         redfish::EventServiceManager::getInstance()
                             .sendEventWithOOC(std::string(req.target()), event);
@@ -872,8 +870,7 @@ inline void requestRoutesEventDestination(App& app)
                     if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
                     {
                         // Send an event for property change
-                        DsEvent event = redfish::EventUtil::getInstance()
-                                            .createEventPropertyModified(
+                        DsEvent event = redfish::EventUtil::createEventPropertyModified(
                                                 "RetryPolicy", *retryPolicy,
                                                 "EventService");
                         redfish::EventServiceManager::getInstance()

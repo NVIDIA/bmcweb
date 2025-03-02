@@ -360,7 +360,7 @@ inline std::string getHealth(nlohmann::json& sensorJson,
     if (success)
     {
         // Check if sensor is functional
-        if (functional != nullptr && *functional == false)
+        if (functional != nullptr && !*functional)
         {
             sensorJson["Status"]["State"] = resource::State::Absent;
             sensorJson["Status"]["Health"] = "Critical";
@@ -730,7 +730,7 @@ inline void objectPropertiesToJson(
                 }
                 continue;
             }
-            else if (stringValue != nullptr)
+            if (stringValue != nullptr)
             {
                 if (valueName == "PhysicalContext")
                 {

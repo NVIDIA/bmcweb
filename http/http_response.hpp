@@ -379,12 +379,18 @@ struct DynamicResponse
 
     void addHeader(const std::string_view key, const std::string_view value)
     {
-        bufferResponse->set(key, value);
+        if (bufferResponse)
+        {
+            bufferResponse->set(key, value);
+        }
     }
 
     void addHeader(boost::beast::http::field key, std::string_view value)
     {
-        bufferResponse->set(key, value);
+        if (bufferResponse)
+        {
+            bufferResponse->set(key, value);
+        }
     }
 
     DynamicResponse() : bufferResponse(response_type{}) {}
@@ -408,22 +414,37 @@ struct DynamicResponse
 
     void result(boost::beast::http::status v)
     {
-        bufferResponse->result(v);
+        if (bufferResponse)
+        {
+            bufferResponse->result(v);
+        }
     }
 
     boost::beast::http::status result()
     {
-        return bufferResponse->result();
+        if (bufferResponse)
+        {
+            return bufferResponse->result();
+        }
+        return boost::beast::http::status::internal_server_error;
     }
 
     unsigned resultInt()
     {
-        return bufferResponse->result_int();
+        if (bufferResponse)
+        {
+            return bufferResponse->result_int();
+        }
+        return 500;
     }
 
     std::string_view reason()
     {
-        return bufferResponse->reason();
+        if (bufferResponse)
+        {
+            return bufferResponse->reason();
+        }
+        return "Internal Server Error";
     }
 
     bool isCompleted() const noexcept
@@ -433,23 +454,36 @@ struct DynamicResponse
 
     void keepAlive(bool k)
     {
-        bufferResponse->keep_alive(k);
+        if (bufferResponse)
+        {
+            bufferResponse->keep_alive(k);
+        }
     }
 
     bool keepAlive()
     {
-        return bufferResponse->keep_alive();
+        if (bufferResponse)
+        {
+            return bufferResponse->keep_alive();
+        }
+        return false;
     }
 
     void preparePayload()
     {
-        bufferResponse->prepare_payload();
+        if (bufferResponse)
+        {
+            bufferResponse->prepare_payload();
+        }
     }
 
     void clear()
     {
         BMCWEB_LOG_DEBUG("{} Clearing response containers", logPtr(this));
-        bufferResponse.emplace(response_type{});
+        if (bufferResponse)
+        {
+            bufferResponse.emplace(response_type{});
+        }
         completed = false;
     }
 

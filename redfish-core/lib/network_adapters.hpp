@@ -60,7 +60,7 @@ inline void getNetworkAdapterCollectionMembers(
             std::vector<std::string> pathNames;
             for (const auto& object : objects)
             {
-                std::string p = object;
+                const std::string& p = object;
                 if (p.find(dpuString) == std::string::npos)
                 {
                     continue;
@@ -139,7 +139,7 @@ inline void doNetworkAdaptersCollection(
             std::vector<std::string> pathNames;
             for (const auto& object : objects)
             {
-                std::string p = object;
+                const std::string& p = object;
                 if (p.find(dpuString) == std::string::npos)
                 {
                     continue;
@@ -151,7 +151,7 @@ inline void doNetworkAdaptersCollection(
             members = nlohmann::json::array();
             asyncResp->res.jsonValue["Members@odata.count"] =
                 networkAdaptersCount;
-            if (networkAdaptersCount)
+            if (networkAdaptersCount != 0)
             {
                 nlohmann::json::object_t member;
                 member["@odata.id"] = boost::urls::format(
@@ -373,8 +373,10 @@ inline void doPort(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         return;
                     }
                     if (value->find("InfiniBand") != std::string::npos)
+                    {
                         asyncResp->res.jsonValue["LinkNetworkTechnology"] =
                             "InfiniBand";
+                    }
                 }
             }
         },
@@ -477,10 +479,14 @@ inline void doNDF(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         return;
                     }
                     if (value->find("InfiniBand") != std::string::npos)
+                    {
                         asyncResp->res.jsonValue["NetDevFuncType"] =
                             "InfiniBand";
+                    }
                     else
+                    {
                         asyncResp->res.jsonValue["NetDevFuncType"] = "Ethernet";
+                    }
                 }
             }
         },

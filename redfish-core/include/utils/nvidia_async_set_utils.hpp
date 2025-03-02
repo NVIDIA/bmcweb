@@ -63,7 +63,7 @@ struct SetAsyncStatusHandlerInfo
     const std::string interface;
     const std::string property;
     boost::asio::steady_timer timeoutTimer;
-    bool completed;
+    bool completed{};
 };
 
 template <typename SetAsyncStatusInfo>

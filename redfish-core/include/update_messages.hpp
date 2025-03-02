@@ -279,20 +279,20 @@ inline nlohmann::json stageSuccessful(const std::string& arg1,
 inline nlohmann::json getUpdateMessage(const std::string& msgId,
                                        std::vector<std::string>& args)
 {
-    std::string arg0 = "";
-    std::string arg1 = "";
-    if (args.size() >= 1)
+    std::string arg1;
+    std::string arg2;
+    if (!args.empty())
     {
-        arg0 = args[0];
+        arg1 = args[0];
     }
     if (args.size() >= 2)
     {
-        arg1 = args[1];
+        arg2 = args[1];
     }
 
     if (msgId == "Update.1.0.TargetDetermined")
     {
-        return targetDetermined(arg0, arg1);
+        return targetDetermined(arg1, arg2);
     }
     if (msgId == "Update.1.0.AllTargetsDetermined")
     {
@@ -304,79 +304,79 @@ inline nlohmann::json getUpdateMessage(const std::string& msgId,
     }
     if (msgId == "Update.1.0.TransferringToComponent")
     {
-        return transferringToComponent(arg0, arg1);
+        return transferringToComponent(arg1, arg2);
     }
     if (msgId == "Update.1.0.VerifyingAtComponent")
     {
-        return verifyingAtComponent(arg0, arg1);
+        return verifyingAtComponent(arg1, arg2);
     }
     if (msgId == "Update.1.0.InstallingOnComponent")
     {
-        return installingOnComponent(arg0, arg1);
+        return installingOnComponent(arg1, arg2);
     }
     if (msgId == "Update.1.0.ApplyingOnComponent")
     {
-        return applyingOnComponent(arg0, arg1);
+        return applyingOnComponent(arg1, arg2);
     }
     if (msgId == "Update.1.0.TransferFailed")
     {
-        return transferFailed(arg0, arg1);
+        return transferFailed(arg1, arg2);
     }
     if (msgId == "Update.1.0.VerificationFailed")
     {
-        return verificationFailed(arg0, arg1);
+        return verificationFailed(arg1, arg2);
     }
     if (msgId == "Update.1.0.ApplyFailed")
     {
-        return applyFailed(arg0, arg1);
+        return applyFailed(arg1, arg2);
     }
     if (msgId == "Update.1.0.ActivateFailed")
     {
-        return activateFailed(arg0, arg1);
+        return activateFailed(arg1, arg2);
     }
     if (msgId == "Update.1.0.AwaitToUpdate")
     {
-        return awaitToUpdate(arg0, arg1);
+        return awaitToUpdate(arg1, arg2);
     }
     if (msgId == "Update.1.0.AwaitToActivate")
     {
-        return awaitToActivate(arg0, arg1);
+        return awaitToActivate(arg1, arg2);
     }
     if (msgId == "Update.1.0.UpdateSuccessful")
     {
-        return updateSuccessful(arg0, arg1);
+        return updateSuccessful(arg1, arg2);
     }
     if (msgId == "Update.1.0.OperationTransitionedToJob")
     {
-        return operationTransitionedToJob(arg0);
+        return operationTransitionedToJob(arg1);
     }
     if (msgId == "ResourceEvent.1.0.ResourceErrorsDetected")
     {
-        return resourceErrorsDetected(arg0, arg1);
+        return resourceErrorsDetected(arg1, arg2);
     }
     if (msgId == "NvidiaUpdate.1.0.ComponentUpdateSkipped")
     {
-        return componentUpdateSkipped(arg0, arg1);
+        return componentUpdateSkipped(arg1, arg2);
     }
     if (msgId == "NvidiaUpdate.1.0.RecoveryStarted")
     {
-        return recoveryStarted(arg0);
+        return recoveryStarted(arg1);
     }
     if (msgId == "NvidiaUpdate.1.0.RecoverySuccessful")
     {
-        return recoverySuccessful(arg0);
+        return recoverySuccessful(arg1);
     }
     if (msgId == "NvidiaUpdate.1.0.FirmwareNotInRecovery")
     {
-        return firmwareNotInRecovery(arg0);
+        return firmwareNotInRecovery(arg1);
     }
     if (msgId == "NvidiaUpdate.1.0.StageSuccessful")
     {
-        return stageSuccessful(arg0, arg1);
+        return stageSuccessful(arg1, arg2);
     }
     if (msgId == "NvidiaUpdate.1.0.DebugTokenEraseFailed")
     {
-        return messages::debugTokenEraseFailed(arg0, arg1);
+        return messages::debugTokenEraseFailed(arg1, arg2);
     }
 
     return {};

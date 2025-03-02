@@ -102,7 +102,7 @@ const std::string softwarePrefixDbus = "/xyz/openbmc_project/software/";
 const std::string firmwarePrefix =
     "/redfish/v1/UpdateService/FirmwareInventory/";
 
-static std::map<std::string, std::string> dBusToRedfishURI = {
+static const std::map<std::string, std::string> dBusToRedfishURI = {
     {chassisPrefixDbus, chassisPrefix},
     {fabricsPrefixDbus, fabricsPrefix},
     {processorPrefixDbus, processorPrefix},
@@ -139,7 +139,7 @@ inline void oocUtilServiceConditions(
     bmcweb::split(fields, messageArgs, ',');
 
     std::span<std::string> msgArgs;
-    msgArgs = {&fields[0], fields.size()};
+    msgArgs = {fields.data(), fields.size()};
 
     std::string message = msg->message;
     int i = 0;
@@ -163,7 +163,7 @@ inline void oocUtilServiceConditions(
         "LogServices/EventLog/Entries/" +
         id;
     j["@odata.type"] = "#LogEntry.v1_13_0.LogEntry";
-    if (ooc.size() > 0)
+    if (!ooc.empty())
     {
         BMCWEB_LOG_DEBUG("Populating service conditions with ooc {}", ooc);
         j["OriginOfCondition"]["@odata.id"] = ooc;
@@ -195,7 +195,7 @@ inline void oocUtil(
                                  severity, id, messageId);
         return;
     }
-    if (ooc.size() > 0)
+    if (!ooc.empty())
     {
         if (!asyncResp->res.jsonValue.contains("Members"))
         {
@@ -205,7 +205,6 @@ inline void oocUtil(
         }
         logEntry["Links"]["OriginOfCondition"]["@odata.id"] = ooc;
     }
-    return;
 }
 
 /**
@@ -234,7 +233,7 @@ inline void convertDbusObjectToOriginOfCondition(
                 messageId);
         return;
     }
-    for (auto& it : dBusToRedfishURI)
+    for (const auto& it : dBusToRedfishURI)
     {
         if (path.find(it.first) != std::string::npos)
         {
@@ -263,7 +262,6 @@ inline void convertDbusObjectToOriginOfCondition(
     BMCWEB_LOG_ERROR(
         "No Matching prefix found for OriginOfCondition DBus object Path: {}",
         path);
-    return;
 }
 
 inline std::string getDeviceRedfishURI(const std::string& device)
@@ -279,11 +277,8 @@ inline std::string getDeviceRedfishURI(const std::string& device)
         return systemsPrefixRedfish +
                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
-    else
-    {
-        return std::format("{}{}{}", chassisPrefix,
-                           BMCWEB_PLATFORM_DEVICE_PREFIX, device);
-    }
+    return std::format("{}{}{}", chassisPrefix, BMCWEB_PLATFORM_DEVICE_PREFIX,
+                       device);
 }
 
 } // namespace origin_utils

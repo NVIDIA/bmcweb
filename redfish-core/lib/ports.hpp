@@ -58,7 +58,7 @@ inline void getLldpStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                   const std::string& stdOut, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
-            if (ec || errorCode)
+            if (ec || (errorCode != 0))
             {
                 messages::resourceErrorsDetectedFormatError(
                     asyncResp->res,
@@ -98,7 +98,7 @@ inline void setLldpStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                   const std::string&, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
-            if (ec || errorCode)
+            if (ec || (errorCode != 0))
             {
                 messages::resourceErrorsDetectedFormatError(
                     asyncResp->res,
@@ -210,7 +210,7 @@ inline void
         [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                   const std::string& stdOut, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
-            if (ec || errorCode)
+            if (ec || (errorCode != 0))
             {
                 messages::resourceErrorsDetectedFormatError(
                     asyncResp->res,
@@ -237,7 +237,7 @@ inline void
         [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                   const std::string& stdOut, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
-            if (ec || errorCode)
+            if (ec || (errorCode != 0))
             {
                 messages::resourceErrorsDetectedFormatError(
                     asyncResp->res,
@@ -263,7 +263,7 @@ inline void
         [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                   const std::string& stdOut, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
-            if (ec || errorCode)
+            if (ec || (errorCode != 0))
             {
                 messages::resourceErrorsDetectedFormatError(
                     asyncResp->res,
@@ -307,7 +307,7 @@ inline std::string getTlvString(const std::string& commandOutput,
                 result.erase(result.begin(),
                              std::find_if(result.begin(), result.end(),
                                           [](unsigned char ch) {
-                                              return !std::isspace(ch);
+                                              return std::isspace(ch) == 0;
                                           }));
             }
         }
@@ -333,7 +333,7 @@ inline std::string findLineContaining(const std::string& commandOutput,
             result.erase(result.begin(),
                          std::find_if(result.begin(), result.end(),
                                       [](unsigned char ch) {
-                                          return !std::isspace(ch);
+                                          return std::isspace(ch) == 0;
                                       }));
         }
     }
@@ -363,7 +363,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
          isReceived](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      const std::string& stdOut, const std::string&,
                      const boost::system::error_code& ec, int errorCode) {
-            if (ec || errorCode)
+            if (ec || (errorCode != 0))
             {
                 messages::resourceErrorsDetectedFormatError(
                     asyncResp->res,

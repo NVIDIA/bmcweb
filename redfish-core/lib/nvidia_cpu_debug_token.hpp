@@ -88,8 +88,7 @@ inline void getCpuObjectPath(
                     }
                 }
                 if (enabled != nullptr && capabilities != nullptr &&
-                    *enabled == false &&
-                    (*capabilities & spdmCertCapability) == 0)
+                    !*enabled && (*capabilities & spdmCertCapability) == 0)
                 {
                     callback(ec, objectPath.str);
                     return;
@@ -102,8 +101,9 @@ inline void getCpuObjectPath(
 inline void getCpuEid(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       std::function<void(uint32_t)>&& callback)
 {
-    getCpuObjectPath([asyncResp, callback](const boost::system::error_code& ec,
-                                           const std::string path) {
+    getCpuObjectPath([asyncResp, callback = std::move(callback)](
+                         const boost::system::error_code& ec,
+                         const std::string& path) {
         if (ec || path.empty())
         {
             BMCWEB_LOG_ERROR("Failed to find CPU object path: {}",
@@ -113,10 +113,10 @@ inline void getCpuEid(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         auto objectName = sdbusplus::message::object_path(path).filename();
         mctp_utils::enumerateMctpEndpoints(
-            [asyncResp, callback](
+            [asyncResp, callback = callback](
                 const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
                     endpoints) {
-                if (!endpoints || endpoints->size() == 0)
+                if (!endpoints || endpoints->empty())
                 {
                     BMCWEB_LOG_ERROR("Failed to find CPU MCTP EID");
                     messages::internalError(asyncResp->res);
@@ -148,7 +148,7 @@ inline void
     }
     getCpuObjectPath([asyncResp,
                       systemName](const boost::system::error_code& ec,
-                                  const std::string path) {
+                                  const std::string& path) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("Failed to find CPU object path: {}",
@@ -192,7 +192,7 @@ inline void handleCpuDebugTokenResourceInfo(
                          uint32_t, const std::string& stdOut,
                          const std::string&,
                          const boost::system::error_code& ec, int errorCode) {
-                if (ec || errorCode)
+                if (ec || errorCode != 0)
                 {
                     BMCWEB_LOG_ERROR("mctp-vdm-util error: {} {}", ec.message(),
                                      errorCode);
@@ -354,7 +354,7 @@ inline void
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t,
                const std::string& stdOut, const std::string&,
                const boost::system::error_code& ec, int errorCode) {
-                if (ec || errorCode)
+                if (ec || errorCode != 0)
                 {
                     BMCWEB_LOG_ERROR("mctp-vdm-util error: {} {}", ec.message(),
                                      errorCode);
@@ -374,7 +374,7 @@ inline void
                 std::vector<std::string> bytes{
                     std::istream_iterator<std::string>{iss},
                     std::istream_iterator<std::string>{}};
-                if (bytes.size() != MctpVdmUtilErrorCodeOffset + 1)
+                if (bytes.size() != mctpVdmUtilErrorCodeOffset + 1)
                 {
                     BMCWEB_LOG_ERROR("Invalid VDM command response: {}",
                                      rxData);
@@ -383,7 +383,7 @@ inline void
                 }
                 try
                 {
-                    int vdmCode = std::stoi(bytes[MctpVdmUtilErrorCodeOffset]);
+                    int vdmCode = std::stoi(bytes[mctpVdmUtilErrorCodeOffset]);
                     if (vdmCode == 0)
                     {
                         messages::success(asyncResp->res);
@@ -402,8 +402,9 @@ inline void
             });
     });
 }
-
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::unique_ptr<sdbusplus::bus::match_t> match;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::unique_ptr<boost::asio::steady_timer> timer;
 inline void
     handleCpuGenerateToken(App& app, const crow::Request& req,
@@ -433,7 +434,7 @@ inline void
         return;
     }
     getCpuObjectPath([asyncResp](const boost::system::error_code& ec,
-                                 const std::string path) {
+                                 const std::string& path) {
         if (ec || path.empty())
         {
             BMCWEB_LOG_ERROR("Failed to find CPU object path: {}",
@@ -482,8 +483,8 @@ inline void
                     auto it = props.find("Status");
                     if (it != props.end())
                     {
-                        auto status = std::get_if<std::string>(&(it->second));
-                        if (status)
+                        auto* status = std::get_if<std::string>(&(it->second));
+                        if (status != nullptr)
                         {
                             opStatus =
                                 status->substr(status->find_last_of('.') + 1);
@@ -494,7 +495,7 @@ inline void
                 {
                     return;
                 }
-                if (opStatus.rfind("Error_", 0) == 0)
+                if (opStatus.starts_with("Error_"))
                 {
                     timer.reset(nullptr);
                     boost::asio::post(
@@ -508,10 +509,8 @@ inline void
                 }
                 if (opStatus == "Success")
                 {
+                    match.reset(nullptr);
                     timer.reset(nullptr);
-                    boost::asio::post(
-                        crow::connections::systemBus->get_io_context(),
-                        [] { match.reset(nullptr); });
                     sdbusplus::asio::getProperty<std::vector<uint8_t>>(
                         *crow::connections::systemBus, spdmBusName, path,
                         spdmResponderIntf, "SignedMeasurements",
@@ -528,9 +527,8 @@ inline void
                             std::vector<std::vector<uint8_t>> requestVec{
                                 addTokenRequestHeader(meas)};
                             auto file = generateTokenRequestFile(requestVec);
-                            std::string_view binaryData(
-                                reinterpret_cast<const char*>(file.data()),
-                                file.size());
+                            std::string fileStr(file.begin(), file.end());
+                            std::string_view binaryData(fileStr);
                             asyncResp->res.jsonValue["Token"] =
                                 crow::utility::base64encode(binaryData);
                         });
@@ -594,7 +592,7 @@ inline void
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t,
                const std::string& stdOut, const std::string&,
                const boost::system::error_code& ec, int errorCode) {
-                if (ec || errorCode)
+                if (ec || errorCode != 0)
                 {
                     BMCWEB_LOG_ERROR("mctp-vdm-util error: {} {}", ec.message(),
                                      errorCode);
@@ -614,7 +612,7 @@ inline void
                 std::vector<std::string> bytes{
                     std::istream_iterator<std::string>{iss},
                     std::istream_iterator<std::string>{}};
-                if (bytes.size() != MctpVdmUtilErrorCodeOffset + 1)
+                if (bytes.size() != mctpVdmUtilErrorCodeOffset + 1)
                 {
                     BMCWEB_LOG_ERROR("Invalid VDM command response: {}",
                                      rxData);
@@ -623,7 +621,7 @@ inline void
                 }
                 try
                 {
-                    int vdmCode = std::stoi(bytes[MctpVdmUtilErrorCodeOffset]);
+                    int vdmCode = std::stoi(bytes[mctpVdmUtilErrorCodeOffset]);
                     if (vdmCode == 0)
                     {
                         messages::success(asyncResp->res);

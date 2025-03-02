@@ -33,7 +33,6 @@
 #include <json_html_serializer.hpp>
 #include <redfish_util.hpp>
 #include <security_headers.hpp>
-#include <ssl_key_handler.hpp>
 
 #include <atomic>
 #include <chrono>
@@ -435,7 +434,6 @@ class Connection :
     void gracefulClose()
     {
         BMCWEB_LOG_DEBUG("{} Socket close requested", logPtr(this));
-
         if constexpr (IsTls<Adaptor>::value)
         {
             BMCWEB_LOG_DEBUG("{} Shutting down TLS", logPtr(this));
@@ -779,9 +777,10 @@ class Connection :
         {
             if (req && req->version() == 11)
             {
-                std::string_view accept_encodings = req->getHeaderValue(
-                    boost::beast::http::field::accept_encoding);
-                if (http_helpers::headerContains(accept_encodings, "chunked"))
+                std::string_view acceptEncodings = req->getHeaderValue(
+                    boost::beast::http::field::
+                        accept_encoding); // NOLINTNEXTLINE(readability-identifier-naming)
+                if (http_helpers::headerContains(acceptEncodings, "chunked"))
                 {
                     chunked = ForceChunking::Enabled;
                 }

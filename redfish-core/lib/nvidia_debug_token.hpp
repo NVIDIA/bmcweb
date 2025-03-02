@@ -31,9 +31,10 @@ namespace redfish
 
 namespace debug_token
 {
-
-static std::map<std::string, std::unique_ptr<TargetedOperationHandler>>
-    tokenOpMap;
+using operationMap =
+    std::map<std::string, std::unique_ptr<TargetedOperationHandler>>;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+static operationMap tokenOpMap;
 
 inline void
     getChassisDebugToken(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -50,7 +51,7 @@ inline void
                 BMCWEB_LOG_ERROR("GetSubTreePaths error: {}", ec);
                 return;
             }
-            if (resp.size() == 0)
+            if (resp.empty())
             {
                 return;
             }
@@ -60,16 +61,16 @@ inline void
                     std::filesystem::path(path).filename().string();
                 if (chassisId == pathChassis)
                 {
-                    int timeout;
+                    int timeout = 0;
                     auto currentOp = tokenOpMap.find(chassisId);
                     if (currentOp != tokenOpMap.end() &&
                         !currentOp->second->finished(timeout))
                     {
                         return;
                     }
-                    auto resultCallback = [asyncResp,
-                                           chassisId](EndpointState state,
-                                                      TargetedOperationResult) {
+                    auto resultCallback = [asyncResp, chassisId](
+                                              EndpointState state,
+                                              const TargetedOperationResult&) {
                         if (state != EndpointState::DebugTokenUnsupported)
                         {
                             auto& oemNvidia =
@@ -122,7 +123,7 @@ inline void handleDebugTokenResourceInfo(
             return;
         }
         NsmTokenStatus* tokenStatus = std::get_if<NsmTokenStatus>(&result);
-        if (!tokenStatus)
+        if (tokenStatus == nullptr)
         {
             messages::internalError(asyncResp->res);
             return;
@@ -152,7 +153,7 @@ inline void handleDebugTokenResourceInfo(
     chassis_utils::getValidChassisID(
         asyncResp, chassisId,
         [asyncResp, chassisId,
-         resultCallback](std::optional<std::string> valid) {
+         resultCallback](const std::optional<std::string>& valid) {
             if (!valid.has_value())
             {
                 messages::resourceNotFound(asyncResp->res, "Chassis",
@@ -195,7 +196,7 @@ inline void handleGenerateTokenActionInfo(
     chassis_utils::getValidChassisID(
         asyncResp, chassisId,
         [asyncResp, chassisId, resUri{std::string(req.url().buffer())}](
-            std::optional<std::string> valid) {
+            const std::optional<std::string>& valid) {
             if (!valid.has_value())
             {
                 messages::resourceNotFound(asyncResp->res, "Chassis",
@@ -234,7 +235,7 @@ inline void handleInstallTokenActionInfo(
     chassis_utils::getValidChassisID(
         asyncResp, chassisId,
         [asyncResp, chassisId, resUri{std::string(req.url().buffer())}](
-            std::optional<std::string> valid) {
+            const std::optional<std::string>& valid) {
             if (!valid.has_value())
             {
                 messages::resourceNotFound(asyncResp->res, "Chassis",
@@ -259,12 +260,14 @@ inline void handleInstallTokenActionInfo(
 }
 
 inline void handleDisableTokens(
-    const crow::Request&, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& /*unused*/,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, TargetedOperationArgument& arg,
     TargetedOperationResultCallback& cb)
 {
     arg = std::monostate();
-    cb = [asyncResp, chassisId](EndpointState state, TargetedOperationResult) {
+    cb = [asyncResp,
+          chassisId](EndpointState state, const TargetedOperationResult&) {
         if (state == EndpointState::DebugTokenUnsupported)
         {
             messages::debugTokenUnsupported(asyncResp->res, chassisId);
@@ -312,12 +315,13 @@ inline void handleGenerateTokenRequest(
         }
         std::vector<uint8_t>* request =
             std::get_if<std::vector<uint8_t>>(&result);
-        if (!request)
+        if (request == nullptr)
         {
             messages::internalError(asyncResp->res);
             return;
         }
         std::string_view binaryData(
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
             reinterpret_cast<const char*>(request->data()), request->size());
         asyncResp->res.jsonValue["Token"] =
             crow::utility::base64encode(binaryData);
@@ -344,7 +348,8 @@ inline void handleInstallToken(
         return;
     }
     arg = std::vector<uint8_t>(binaryData.begin(), binaryData.end());
-    cb = [asyncResp, chassisId](EndpointState state, TargetedOperationResult) {
+    cb = [asyncResp,
+          chassisId](EndpointState state, const TargetedOperationResult&) {
         if (state == EndpointState::DebugTokenUnsupported)
         {
             messages::debugTokenUnsupported(asyncResp->res, chassisId);
@@ -371,7 +376,7 @@ inline void
     }
     chassis_utils::getValidChassisID(
         asyncResp, chassisId,
-        [req, asyncResp, chassisId](std::optional<std::string> valid) {
+        [req, asyncResp, chassisId](const std::optional<std::string>& valid) {
             if (!valid.has_value())
             {
                 messages::resourceNotFound(asyncResp->res, "Chassis",

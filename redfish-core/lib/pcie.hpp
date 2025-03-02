@@ -25,7 +25,6 @@ limitations under the License.
 #include "utils/dbus_utils.hpp"
 #include "utils/pcie_util.hpp"
 
-#include <app.hpp>
 #include <boost/system/linux_error.hpp>
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/property.hpp>
@@ -1179,7 +1178,7 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         connectionNames = object.second;
-                                    if (connectionNames.size() < 1)
+                                    if (connectionNames.empty())
                                     {
                                         BMCWEB_LOG_ERROR(
                                             "Got 0 Connection names");
@@ -1212,7 +1211,7 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                                     redfish::nvidia_chassis_utils::
                                         getHealthByAssociation(
                                             asyncResp,
-                                            chassisPCIePath + "/" + device,
+                                            std::string(chassisPCIePath).append("/").append(device),
                                             "chassis", device);
 
                                     // Get asset properties

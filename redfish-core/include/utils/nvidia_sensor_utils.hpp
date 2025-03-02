@@ -60,7 +60,7 @@ inline void
         return;
     }
 
-    if (!(BMCWEB_PLATFORM_DEVICE_PREFIX.length() > 0) ||
+    if (BMCWEB_PLATFORM_DEVICE_PREFIX.empty() ||
         !(boost::starts_with(chassisPath.filename(),
                              BMCWEB_PLATFORM_DEVICE_PREFIX)))
     {

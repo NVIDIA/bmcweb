@@ -67,7 +67,8 @@ inline uint8_t hexCharToInt(char ch)
 
 inline std::vector<uint8_t> hexStringToVector(std::string_view str)
 {
-    if (str.size() % 2)
+    auto res = str.size() % 2;
+    if (res != 0)
     {
         throw std::invalid_argument("String not an even number of characters");
     }

@@ -591,10 +591,9 @@ class Router
 
         BMCWEB_LOG_DEBUG("Matched rule (upgrade) '{}'", rule.rule);
 
-        // downstream change from no-auth 
         if (req->session == nullptr)
         {
-            rule.handleUpgrade(*req, asyncResp, std::move(adaptor));
+            rule.handleUpgrade(*req, asyncResp, std::forward<Adaptor>(adaptor));
             return;
         }
         // TODO(ed) This should be able to use std::bind_front, but it doesn't

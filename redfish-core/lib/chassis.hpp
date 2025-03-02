@@ -34,7 +34,6 @@ limitations under the License.
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
-#include <dbus_utility.hpp>
 #include <erot_chassis.hpp>
 #include <openbmc_dbus_rest.hpp>
 #include <sdbusplus/asio/property.hpp>
@@ -163,9 +162,9 @@ inline void getChassisState(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
  * @return None.
  */
 inline void getChassisStateWrapper(
-    std::shared_ptr<bmcweb::AsyncResp> asyncResp,
-    const dbus::utility::DBusPropertiesMap& propertiesList, std::string service,
-    std::string path)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const dbus::utility::DBusPropertiesMap& propertiesList,
+    const std::string& service, const std::string& path)
 {
     const std::string* state = nullptr;
     const std::string* currentPowerState = nullptr;
@@ -840,7 +839,7 @@ inline void handleChassisGetSubTree(
         // service
     }
 
-    if (isFoundChassisObject == false)
+    if (!isFoundChassisObject)
     {
         // Couldn't find an object with that name.  return an error
         messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
@@ -918,11 +917,11 @@ inline void
         return;
     }
 
-    if (!json_util::readJsonPatch( //
-            req, asyncResp->res, //
-            "IndicatorLED", indicatorLed, //
+    if (!json_util::readJsonPatch(                              //
+            req, asyncResp->res,                                //
+            "IndicatorLED", indicatorLed,                       //
             "LocationIndicatorActive", locationIndicatorActive, //
-            "Oem", oemJsonObj //
+            "Oem", oemJsonObj                                   //
             ))
     {
         return;
@@ -1073,7 +1072,7 @@ inline void
                     if (hardwareWriteProtectEnable)
                     {
                         redfish::nvidia_chassis_utils::
-                            OemChassisHardwareWriteProtectEnable(
+                            oemChassisHardwareWriteProtectEnable(
                                 asyncResp, chassisId,
                                 *hardwareWriteProtectEnable);
                     }

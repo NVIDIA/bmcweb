@@ -51,9 +51,9 @@ limitations under the License.
 #include <utils/nvidia_pcie_utils.hpp>
 #include <utils/nvidia_systems_util.hpp>
 #include <utils/privilege_utils.hpp>
-#include <utils/sw_utils.hpp>
 
 #include <array>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -159,8 +159,7 @@ inline void modifyCpuPresenceState(
         }
         else
         {
-            asyncResp->res.jsonValue["ProcessorSummary"]["Count"] =
-                static_cast<int>(1);
+            asyncResp->res.jsonValue["ProcessorSummary"]["Count"] = 1;
         }
     }
 }
@@ -291,12 +290,14 @@ inline void
         if (preValue == nullptr)
         {
             asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"] =
-                static_cast<int64_t>(*memorySizeInKB) / (1024 * 1024);
+                static_cast<int64_t>(*memorySizeInKB) /
+                (static_cast<int64_t>(1024 * 1024));
         }
         else
         {
             asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"] =
-                static_cast<int64_t>(*memorySizeInKB) / (1024 * 1024) +
+                static_cast<int64_t>(*memorySizeInKB) /
+                    (static_cast<int64_t>(1024 * 1024)) +
                 static_cast<int64_t>(*preValue);
         }
     }
@@ -2058,7 +2059,7 @@ inline void
                                  "Populate from entity manager ");
                 return;
             }
-            for (auto& property : propertiesList)
+            for (const auto& property : propertiesList)
             {
                 const std::string& propertyName = property.first;
                 if (propertyName == "SKU")
@@ -2193,7 +2194,7 @@ inline void
                                              "Populate from Settings service ");
                             return;
                         }
-                        for (auto& property : propertiesList)
+                        for (const auto& property : propertiesList)
                         {
                             const std::string& propertyName = property.first;
                             if (propertyName == "TargetURI" &&
@@ -3837,7 +3838,7 @@ inline void
     {
         asyncResp->res.jsonValue["ProcessorSummary"]["Count"] = 0;
     }
-    asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"] = int(0);
+    asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"] = 0;
 
     if constexpr (BMCWEB_HIDE_HOST_OS_FEATURES_INIT_VALUE)
     {
@@ -4359,8 +4360,8 @@ inline void handleComputerSystemPatch(
         privilege_utils::isBiosPrivilege(
             req,
             [asyncResp, sku, uuid, bootSourceOverrideTargetAllowableValues](
-                const boost::system::error_code& ec, const bool isBios) {
-            if (ec || isBios == false)
+                const boost::system::error_code ec, const bool isBios) {
+            if (ec || !isBios)
             {
                 messages::propertyNotWritable(asyncResp->res,
                                                 "AllowableValues");
@@ -4646,38 +4647,47 @@ inline void handleSystemProcessorDiagSysConfigActionGet(
     }
 
     asyncResp->res.jsonValue["@odata.id"] =
-        "/redfish/v1/Systems/" + systemName +
-        "/Oem/Nvidia/ProcessorDiagSysConfigActionInfo";
+        std::string("/redfish/v1/Systems/").append(systemName).append(
+            "/Oem/Nvidia/ProcessorDiagSysConfigActionInfo");
     asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
     asyncResp->res.jsonValue["Name"] = "DiagSysConfig Action Info";
     asyncResp->res.jsonValue["Id"] = "DiagSysConfigActionInfo";
 
     nlohmann::json::array_t parameters;
-    nlohmann::json::object_t parameter;
 
-    parameter["Name"] = "ConfigType";
-    parameter["Required"] = true;
-    parameter["DataType"] = "Number";
-    nlohmann::json::array_t allowableValues;
-    allowableValues.emplace_back(0);
-    allowableValues.emplace_back(1);
-    parameter["AllowableValues"] = std::move(allowableValues);
-    parameters.emplace_back(std::move(parameter));
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "ConfigType";
+        parameter["Required"] = true;
+        parameter["DataType"] = "Number";
+        nlohmann::json::array_t allowableValues;
+        allowableValues.emplace_back(0);
+        allowableValues.emplace_back(1);
+        parameter["AllowableValues"] = std::move(allowableValues);
+        parameters.emplace_back(std::move(parameter));
+    }
 
-    parameter["Name"] = "TestDuration";
-    parameter["Required"] = true;
-    parameter["DataType"] = "Number";
-    parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
-    parameters.emplace_back(std::move(parameter));
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "TestDuration";
+        parameter["Required"] = true;
+        parameter["DataType"] = "Number";
+        parameter["MinimumValue"] = 0;
+        parameter["MaximunValue"] = 255;
+        parameters.emplace_back(std::move(parameter));
+    }
 
-    parameter["Name"] = "DynamicData";
-    parameter["Required"] = true;
-    parameter["DataType"] = "NumberArray";
-    parameter["ArraySizeMaximum"] = 199;
-    parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
-    parameters.emplace_back(std::move(parameter));
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "DynamicData";
+        parameter["Required"] = true;
+        parameter["DataType"] = "NumberArray";
+        parameter["ArraySizeMaximum"] = 199;
+        parameter["MinimumValue"] = 0;
+        parameter["MaximunValue"] = 255;
+        parameters.emplace_back(std::move(parameter));
+    }
+
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
 }
 //TODO: move to new file
@@ -4699,56 +4709,75 @@ inline void handleSystemProcessorDiagTidConfigActionGet(
     }
 
     asyncResp->res.jsonValue["@odata.id"] =
-        "/redfish/v1/Systems/" + systemName +
-        "/Oem/Nvidia/ProcessorDiagTidConfigActionInfo";
+        std::string("/redfish/v1/Systems/").append(systemName).append(
+            "/Oem/Nvidia/ProcessorDiagTidConfigActionInfo");
     asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
     asyncResp->res.jsonValue["Name"] = "DiagTidConfig Action Info";
     asyncResp->res.jsonValue["Id"] = "DiagTidConfigActionInfo";
 
     nlohmann::json::array_t parameters;
-    nlohmann::json::object_t parameter;
 
-    parameter["Name"] = "Tid";
-    parameter["Required"] = true;
-    parameter["DataType"] = "Number";
-    parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
-    parameters.emplace_back(std::move(parameter));
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "Tid";
+        parameter["Required"] = true;
+        parameter["DataType"] = "Number";
+        parameter["MinimumValue"] = 0;
+        parameter["MaximunValue"] = 255;
+        parameters.emplace_back(std::move(parameter));
+    }
 
-    parameter["Name"] = "TestDuration";
-    parameter["Required"] = true;
-    parameter["DataType"] = "Number";
-    parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
-    parameters.emplace_back(std::move(parameter));
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "TestDuration";
+        parameter["Required"] = true;
+        parameter["DataType"] = "Number";
+        parameter["MinimumValue"] = 0;
+        parameter["MaximunValue"] = 255;
+        parameters.emplace_back(std::move(parameter));
+    }
 
-    parameter["Name"] = "Loops";
-    parameter["Required"] = true;
-    parameter["DataType"] = "Number";
-    parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 65535;
-    parameters.emplace_back(std::move(parameter));
-    parameter["Name"] = "LogLevel";
-    parameter["Required"] = true;
-    parameter["DataType"] = "Number";
-    parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
-    parameters.emplace_back(std::move(parameter));
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "Loops";
+        parameter["Required"] = true;
+        parameter["DataType"] = "Number";
+        parameter["MinimumValue"] = 0;
+        parameter["MaximunValue"] = 65535;
+        parameters.emplace_back(std::move(parameter));
+    }
 
-    parameter["Name"] = "DynamicDataSize";
-    parameter["Required"] = true;
-    parameter["DataType"] = "Number";
-    parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
-    parameters.emplace_back(std::move(parameter));
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "LogLevel";
+        parameter["Required"] = true;
+        parameter["DataType"] = "Number";
+        parameter["MinimumValue"] = 0;
+        parameter["MaximunValue"] = 255;
+        parameters.emplace_back(std::move(parameter));
+    }
 
-    parameter["Name"] = "DynamicData";
-    parameter["Required"] = true;
-    parameter["DataType"] = "NumberArray";
-    parameter["ArraySizeMaximum"] = 194;
-    parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
-    parameters.emplace_back(std::move(parameter));
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "DynamicDataSize";
+        parameter["Required"] = true;
+        parameter["DataType"] = "Number";
+        parameter["MinimumValue"] = 0;
+        parameter["MaximunValue"] = 255;
+        parameters.emplace_back(std::move(parameter));
+    }
+
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "DynamicData";
+        parameter["Required"] = true;
+        parameter["DataType"] = "NumberArray";
+        parameter["ArraySizeMaximum"] = 194;
+        parameter["MinimumValue"] = 0;
+        parameter["MaximunValue"] = 255;
+        parameters.emplace_back(std::move(parameter));
+    }
+
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
 }
 

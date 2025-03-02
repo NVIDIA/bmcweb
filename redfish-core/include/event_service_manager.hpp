@@ -46,7 +46,6 @@ limitations under the License.
 #include <dbus_singleton.hpp>
 #include <sdbusplus/bus/match.hpp>
 #include <utils/dbus_log_utils.hpp>
-#include <utils/json_utils.hpp>
 #include <utils/log_services_util.hpp>
 #include <utils/origin_utils.hpp>
 #include <utils/registry_utils.hpp>
@@ -94,6 +93,12 @@ struct TestEvent
     TestEvent& operator=(const TestEvent&) = default;
     // default copy constructor
     TestEvent(const TestEvent&) = default;
+    // default move constructor
+    TestEvent(TestEvent&&) = default;
+    // default move assignment operator
+    TestEvent& operator=(TestEvent&&) = default;
+    // destructor
+    ~TestEvent() = default;
     // constructor with all the aruments
     TestEvent(std::optional<int64_t> eventGroupId,
               std::optional<std::string> eventId,
@@ -104,11 +109,11 @@ struct TestEvent
               std::optional<std::string> originOfCondition,
               std::optional<std::string> resolution,
               std::optional<std::string> severity) :
-        eventGroupId(eventGroupId), eventId(eventId),
-        eventTimestamp(eventTimestamp), message(message),
-        messageArgs(messageArgs), messageId(messageId),
-        originOfCondition(originOfCondition), resolution(resolution),
-        severity(severity)
+        eventGroupId(eventGroupId), eventId(std::move(eventId)),
+        eventTimestamp(std::move(eventTimestamp)), message(std::move(message)),
+        messageArgs(std::move(messageArgs)), messageId(std::move(messageId)),
+        originOfCondition(std::move(originOfCondition)),
+        resolution(std::move(resolution)), severity(std::move(severity))
     {}
 };
 
@@ -701,7 +706,7 @@ class EventServiceManager
         }
         if constexpr (BMCWEB_REDFISH_AGGREGATION)
         {
-            redfish::subscribeSatBmc::getInstance().createSubscribeTimer();
+            redfish::SubscribeSatBmc::getInstance().createSubscribeTimer();
 
             if (getNumberOfSubscriptions() > 0)
             {
@@ -838,9 +843,9 @@ class EventServiceManager
             {
                 // Send an DsEvent for session creation
                 DsEvent event =
-                    redfish::EventUtil::getInstance()
-                        .createEventPropertyModified(
-                            "ServiceEnabled", std::to_string(serviceEnabled),
+                    redfish::EventUtil::createEventPropertyModified(
+                            "ServiceEnabled",
+                            std::to_string(static_cast<int>(serviceEnabled)),
                             "EventService");
                 redfish::EventServiceManager::getInstance().sendEventWithOOC(
                     std::string(url), event);
@@ -877,8 +882,7 @@ class EventServiceManager
             {
                 // Send an DsEvent for property change
                 DsEvent event =
-                    redfish::EventUtil::getInstance()
-                        .createEventPropertyModified(
+                    redfish::EventUtil::createEventPropertyModified(
                             "DeliveryRetryAttempts",
                             std::to_string(retryAttempts), "EventService");
                 redfish::EventServiceManager::getInstance().sendEventWithOOC(
@@ -894,8 +898,7 @@ class EventServiceManager
             if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
             {
                 // Send an event for property change
-                DsEvent event = redfish::EventUtil::getInstance()
-                                    .createEventPropertyModified(
+                DsEvent event = redfish::EventUtil::createEventPropertyModified(
                                         "DeliveryRetryIntervalSeconds",
                                         std::to_string(retryTimeoutInterval),
                                         "EventService");
@@ -1226,10 +1229,8 @@ class EventServiceManager
                 BMCWEB_LOG_DEBUG("Filter didn't match");
                 continue;
             }
-            std::string strMsg =
-                nlohmann::json(std::move(msg))
-                    .dump(2, ' ', true,
-                          nlohmann::json::error_handler_t::replace);
+            std::string strMsg = nlohmann::json(msg).dump(
+                2, ' ', true, nlohmann::json::error_handler_t::replace);
             entry->sendEventToSubscriber(std::move(strMsg));
         }
         eventId++; // increament the eventId
@@ -1778,7 +1779,7 @@ class EventServiceManager
         bool operator()(const std::string& a, const std::string& b) const
         {
             // Using std::greater to sort in descending order
-            return std::greater<std::string>()(a, b);
+            return std::greater<>()(a, b);
         }
     };
     /**
@@ -1844,12 +1845,11 @@ class EventServiceManager
                                                bool, std::vector<std::string>>>>
                     properties;
 
-                std::string messageId = "";
-                std::string eventId = "";
-                std::string severity = "";
-                std::string timestamp = "";
-                std::string originOfCondition = "";
-                std::string message;
+                std::string messageId;
+                std::string eventId;
+                std::string severity;
+                std::string timestamp;
+                std::string originOfCondition;
                 std::string deviceName;
                 std::string resourceType;
                 std::string logEntryId;
@@ -1858,7 +1858,7 @@ class EventServiceManager
                 std::string satBMCLogEntryUrl;
                 std::string resolution;
                 std::vector<std::string> messageArgs = {};
-                const std::vector<std::string>* additionalDataPtr;
+                const std::vector<std::string>* additionalDataPtr = nullptr;
                 nlohmann::json::object_t cper;
 
                 msg.read(objPath, properties);
@@ -1964,7 +1964,7 @@ class EventServiceManager
                     }
                     else if (key == "EventId")
                     {
-                        const std::string* eventIdPtr;
+                        const std::string* eventIdPtr = nullptr;
 
                         eventIdPtr = std::get_if<std::string>(&val);
                         if (eventIdPtr != nullptr)
@@ -1993,11 +1993,11 @@ class EventServiceManager
                     }
                     else if (key == "Resolution")
                     {
-                        const std::string* resolutionPtr;
+                        const std::string* resolutionPtr = nullptr;
                         resolutionPtr = std::get_if<std::string>(&val);
                         if (resolutionPtr != nullptr)
                         {
-                            resolution = std::move(*resolutionPtr);
+                            resolution = *resolutionPtr;
                         }
                         else
                         {
@@ -2008,12 +2008,12 @@ class EventServiceManager
                     }
                     else if (key == "Severity")
                     {
-                        const std::string* severityPtr;
+                        const std::string* severityPtr = nullptr;
 
                         severityPtr = std::get_if<std::string>(&val);
                         if (severityPtr != nullptr)
                         {
-                            severity = std::move(*severityPtr);
+                            severity = *severityPtr;
                         }
                         else
                         {
@@ -2024,7 +2024,7 @@ class EventServiceManager
                     }
                     else if (key == "Timestamp")
                     {
-                        const uint64_t* timestampPtr;
+                        const uint64_t* timestampPtr = nullptr;
 
                         timestampPtr = std::get_if<uint64_t>(&val);
                         if (timestampPtr != nullptr)
@@ -2046,64 +2046,62 @@ class EventServiceManager
                     }
                 }
 
-                if (messageId == "")
+                if (messageId.empty())
                 {
                     // it happens when removing entries
                     BMCWEB_LOG_DEBUG("Invalid Dbus log entry.");
                     return;
                 }
+
+                DsEvent event(messageId);
+                if (!event.isValid())
+                {
+                    return;
+                }
+                event.messageSeverity =
+                    translateSeverityDbusToRedfish(severity);
+                event.eventTimestamp = timestamp;
+                event.setRegistryMsg(messageArgs);
+                event.messageArgs = messageArgs;
+                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                {
+                    event.oem = {
+                        {"Oem",
+                         {{"Nvidia",
+                           {{"@odata.type", "#NvidiaEvent.v1_0_0.EventRecord"},
+                            {"Device", deviceName},
+                            {"ErrorId", eventId}}}}}};
+                }
+                if (!cper.empty())
+                {
+                    event.cper = cper;
+                }
+                event.eventResolution = resolution;
+                event.logEntryId = logEntryId;
+                event.satBMCLogEntryUrl = satBMCLogEntryUrl;
+                if (!originOfCondition.empty())
+                {
+                    for (auto& it : dBusToResourceType)
+                    {
+                        if (originOfCondition.find(it.first) !=
+                            std::string::npos)
+                        {
+                            resourceType = it.second;
+                            break;
+                        }
+                    }
+                    // resourceType empty error case not handled because it
+                    // will impact existing resourceErrordetected error
+                    // messages
+                    event.resourceType = resourceType;
+                    eventServiceOOC(originOfCondition, deviceName, event);
+                }
                 else
                 {
-                    DsEvent event(messageId);
-                    if (!event.isValid())
-                    {
-                        return;
-                    }
-                    event.messageSeverity =
-                        translateSeverityDbusToRedfish(severity);
-                    event.eventTimestamp = timestamp;
-                    event.setRegistryMsg(messageArgs);
-                    event.messageArgs = messageArgs;
-                    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-                    {
-                        event.oem = {{"Oem",
-                                      {{"Nvidia",
-                                        {{"@odata.type",
-                                          "#NvidiaEvent.v1_0_0.EventRecord"},
-                                         {"Device", deviceName},
-                                         {"ErrorId", eventId}}}}}};
-                    }
-                    if (!cper.empty())
-                    {
-                        event.cper = cper;
-                    }
-                    event.eventResolution = resolution;
-                    event.logEntryId = logEntryId;
-                    event.satBMCLogEntryUrl = satBMCLogEntryUrl;
-                    if (!originOfCondition.empty())
-                    {
-                        for (auto& it : dBusToResourceType)
-                        {
-                            if (originOfCondition.find(it.first) !=
-                                std::string::npos)
-                            {
-                                resourceType = it.second;
-                                break;
-                            }
-                        }
-                        // resourceType empty error case not handled because it
-                        // will impact existing resourceErrordetected error
-                        // messages
-                        event.resourceType = resourceType;
-                        eventServiceOOC(originOfCondition, deviceName, event);
-                    }
-                    else
-                    {
-                        BMCWEB_LOG_WARNING(
-                            "no OriginOfCondition in event log. MsgId: {}",
-                            messageId);
-                        sendEventWithOOC(std::string{""}, event);
-                    }
+                    BMCWEB_LOG_WARNING(
+                        "no OriginOfCondition in event log. MsgId: {}",
+                        messageId);
+                    sendEventWithOOC(std::string{""}, event);
                 }
             };
 
@@ -2118,8 +2116,8 @@ class EventServiceManager
      * @param path  orginal path that came from Phosphor Logging
      * @param event  the event to be sent out
      */
-    inline void eventServiceOOC(const std::string& path,
-                                const std::string& devName, DsEvent& event)
+    void eventServiceOOC(const std::string& path, const std::string& devName,
+                         DsEvent& event)
     {
         if constexpr (BMCWEB_REDFISH_AGGREGATION)
         {
@@ -2135,7 +2133,7 @@ class EventServiceManager
         }
         sdbusplus::message::object_path objPath(path);
         std::string deviceName = objPath.filename();
-        if (false == deviceName.empty())
+        if (deviceName.empty())
         {
             for (auto& it : dBusToRedfishURI)
             {
@@ -2170,9 +2168,9 @@ class EventServiceManager
         sendEventWithOOC(std::string{""}, event);
     }
 
-    bool validateAndSplitUrl(const std::string& destUrl, std::string& urlProto,
-                             std::string& host, std::string& port,
-                             std::string& path)
+    bool static validateAndSplitUrl(const std::string& destUrl,
+                                    std::string& urlProto, std::string& host,
+                                    std::string& port, std::string& path)
     {
         // Validate URL using regex expression
         // Format: <protocol>://<host>:<port>/<path>

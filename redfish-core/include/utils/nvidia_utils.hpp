@@ -27,6 +27,7 @@ namespace nlohmann
 template <typename T>
 struct adl_serializer<std::optional<T>>
 {
+    // NOLINTNEXTLINE(readability-identifier-naming)
     static void to_json(json& j, const std::optional<T>& opt)
     {
         if (opt.has_value())
@@ -39,7 +40,7 @@ struct adl_serializer<std::optional<T>>
         }
     }
 
-    static void from_json(const json& j, std::optional<T>& opt)
+    static void fromJson(const json& j, std::optional<T>& opt)
     {
         if (j.is_null())
         {

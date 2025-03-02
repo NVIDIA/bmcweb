@@ -304,7 +304,7 @@ inline void parseDumpEntryFromDbusObject(
         {
             const std::string* type = nullptr;
             const std::string* additionalTypeName = nullptr;
-            for (auto& propertyMap : interfaceMap.second)
+            for (const auto& propertyMap : interfaceMap.second)
             {
                 if (propertyMap.first == "Type")
                 {
@@ -346,7 +346,7 @@ inline void parseDumpEntryFromDbusObject(
             const std::string* pcieSecondaryBusNumberPtr = nullptr;
             const std::string* pcieSlotNumberPtr = nullptr;
 
-            for (auto& propertyMap : interfaceMap.second)
+            for (const auto& propertyMap : interfaceMap.second)
             {
                 if (propertyMap.first == "FRU_ID")
                 {
@@ -1226,7 +1226,7 @@ inline void downloadEntryCallback(
             boost::beast::http::field::content_transfer_encoding, "Base64");
         return;
     }
-    else if (downloadEntryType == "FDR")
+    if (downloadEntryType == "FDR")
     {
         if (!asyncResp->res.openFd(fd, bmcweb::EncodingType::Raw))
         {
@@ -1549,9 +1549,9 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
         createDumpParamVec;
 
-    if (!redfish::json_util::readJsonAction( //
-            req, asyncResp->res, //
-            "DiagnosticDataType", diagnosticDataType, //
+    if (!redfish::json_util::readJsonAction(               //
+            req, asyncResp->res,                           //
+            "DiagnosticDataType", diagnosticDataType,      //
             "OEMDiagnosticDataType", oemDiagnosticDataType //
             ))
     {
@@ -1560,69 +1560,76 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     if (dumpType == "System")
     {
-        // Decode oemDiagnosticDataType string format
-        createDumpParamVec = parseOEMAdditionalData(*oemDiagnosticDataType);
-
-        if (!oemDiagnosticDataType || !diagnosticDataType)
+        if (oemDiagnosticDataType)
         {
-            BMCWEB_LOG_ERROR(
-                "CreateDump action parameter 'DiagnosticDataType'/'OEMDiagnosticDataType' value not found!");
-            messages::actionParameterMissing(
-                asyncResp->res, "CollectDiagnosticData",
-                "DiagnosticDataType & OEMDiagnosticDataType");
-            return;
-        }
+            // Decode oemDiagnosticDataType string format
+            createDumpParamVec = parseOEMAdditionalData(*oemDiagnosticDataType);
 
-        if (*diagnosticDataType != "OEM")
-        {
-            BMCWEB_LOG_ERROR("Wrong parameter values passed");
-            messages::actionParameterValueError(
-                asyncResp->res, "DiagnosticDataType",
-                "LogService.CollectDiagnosticData");
-            return;
-        }
-
-        if constexpr (BMCWEB_CHECK_OEM_DIAGNOSTIC_TYPE)
-        {
-            bool isValidParam = false;
-            for (const auto& dumpPara : createDumpParamVec)
+            if (!oemDiagnosticDataType || !diagnosticDataType)
             {
-                if (dumpPara.first == "DiagnosticType")
-                {
-                    const std::string* oemDiagType =
-                        std::get_if<std::string>(&dumpPara.second);
-                    if (oemDiagType == nullptr)
-                    {
-                        continue;
-                    }
-                    auto it = std::ranges::find(
-                        BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE, *oemDiagType);
-                    if (it !=
-                        std::ranges::end(BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE))
-                    {
-                        isValidParam = true;
-                        break;
-                    }
-                }
+                BMCWEB_LOG_ERROR(
+                    "CreateDump action parameter 'DiagnosticDataType'/'OEMDiagnosticDataType' value not found!");
+                messages::actionParameterMissing(
+                    asyncResp->res, "CollectDiagnosticData",
+                    "DiagnosticDataType & OEMDiagnosticDataType");
+                return;
             }
 
-            if (isValidParam == false)
+            if (*diagnosticDataType != "OEM")
             {
                 BMCWEB_LOG_ERROR("Wrong parameter values passed");
                 messages::actionParameterValueError(
-                    asyncResp->res, "OEMDiagnosticDataType",
+                    asyncResp->res, "DiagnosticDataType",
                     "LogService.CollectDiagnosticData");
                 return;
             }
-        }
 
+            if constexpr (BMCWEB_CHECK_OEM_DIAGNOSTIC_TYPE)
+            {
+                bool isValidParam = false;
+                for (const auto& dumpPara : createDumpParamVec)
+                {
+                    if (dumpPara.first == "DiagnosticType")
+                    {
+                        const std::string* oemDiagType =
+                            std::get_if<std::string>(&dumpPara.second);
+                        if (oemDiagType == nullptr)
+                        {
+                            continue;
+                        }
+                        const auto* it = std::ranges::find(
+                            BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE, *oemDiagType);
+                        if (it != std::ranges::end(
+                                      BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE))
+                        {
+                            isValidParam = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!isValidParam)
+                {
+                    BMCWEB_LOG_ERROR("Wrong parameter values passed");
+                    messages::actionParameterValueError(
+                        asyncResp->res, "OEMDiagnosticDataType",
+                        "LogService.CollectDiagnosticData");
+                    return;
+                }
+            }
+        }
         dumpPath = std::format("/redfish/v1/Systems/{}/LogServices/Dump/",
                                BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
     else if (dumpType == "FDR")
     {
         // Decode oemDiagnosticDataType string format
-        createDumpParamVec = parseOEMAdditionalData(*oemDiagnosticDataType);
+        if (!oemDiagnosticDataType)
+        {
+            messages::propertyMissing(asyncResp->res, "OemDiagnosticDataType");
+            return;
+        }
+        createDumpParamVec = parseOEMAdditionalData(oemDiagnosticDataType.value());
 
         if (!oemDiagnosticDataType || !diagnosticDataType)
         {
@@ -1660,7 +1667,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 }
             }
 
-            if (isValidParam == false)
+            if (!isValidParam)
             {
                 BMCWEB_LOG_ERROR("Wrong parameter values passed");
                 messages::actionParameterValueError(
@@ -3852,9 +3859,9 @@ inline void requestRoutesCrashdumpCollect(App& app)
 
                 std::string diagnosticDataType;
                 std::string oemDiagnosticDataType;
-                if (!redfish::json_util::readJsonAction( //
-                        req, asyncResp->res, //
-                        "DiagnosticDataType", diagnosticDataType, //
+                if (!redfish::json_util::readJsonAction(               //
+                        req, asyncResp->res,                           //
+                        "DiagnosticDataType", diagnosticDataType,      //
                         "OEMDiagnosticDataType", oemDiagnosticDataType //
                         ))
                 {

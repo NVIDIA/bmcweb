@@ -37,10 +37,7 @@ limitations under the License.
 #include <sdbusplus/unpack_properties.hpp>
 #include <sdbusplus/utility/dedup_variant.hpp>
 #include <utils/chassis_utils.hpp>
-#include <utils/collection.hpp>
 #include <utils/conditions_utils.hpp>
-#include <utils/dbus_utils.hpp>
-#include <utils/json_utils.hpp>
 #include <utils/nvidia_async_set_utils.hpp>
 #include <utils/nvidia_processor_utils.hpp>
 #include <utils/nvidia_utils.hpp>
@@ -54,6 +51,7 @@ limitations under the License.
 #include <ranges>
 #include <string>
 #include <string_view>
+#include <utility>
 
 namespace redfish
 {
@@ -573,7 +571,7 @@ inline void getAcceleratorDataByService(
             }
 
             std::string state = "Enabled";
-            std::string health = "";
+            std::string health;
             if constexpr (!BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
             {
                 health = "OK";
@@ -1024,7 +1022,8 @@ inline void getProcessorSystemGUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                                    const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get System-GUID");
-    redfish::nvidia_processor_utils::getSysGUID(asyncResp, service, objPath);
+    redfish::nvidia_processor_utils::getSysGUID(std::move(asyncResp), service,
+                                                objPath);
 }
 
 inline void getMNNVLinkTopologyInfo(
@@ -1047,25 +1046,28 @@ inline void getProcessorCCModeData(
 }
 
 inline void getPowerSmoothingInfo(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, std::string processorId,
-    const std::string& service, const std::string& objPath)
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& processorId, const std::string& service,
+    const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG(" get getPowerSmoothingInfo data");
     redfish::nvidia_processor_utils::getPowerSmoothingInfo(
         aResp, processorId, service, objPath);
 }
 
-inline void getResetMetricsInfo(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, std::string processorId,
-    const std::string& service, const std::string& objPath)
+inline void getResetMetricsInfo(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                                const std::string& processorId,
+                                const std::string& service,
+                                const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG(" get getResetMetricsInfo data");
     redfish::nvidia_processor_utils::getResetMetricsInfo(aResp, processorId,
                                                          service, objPath);
 }
 
-inline void getWorkLoadPowerInfo(
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp, std::string processorId)
+inline void
+    getWorkLoadPowerInfo(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                         const std::string& processorId)
 {
     BMCWEB_LOG_DEBUG(" get getWorkLoadPowerInfo data");
     redfish::nvidia_processor_utils::getWorkLoadPowerInfo(aResp, processorId);

@@ -219,7 +219,7 @@ inline void requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(App& app)
                                 continue;
                             }
 
-                            if (connectionNames.size() < 1)
+                            if (connectionNames.empty())
                             {
                                 BMCWEB_LOG_ERROR("Got 0 Connection names");
                                 continue;
@@ -297,7 +297,7 @@ inline void requestRoutesChassisEnvironmentMetricsClearOOBSetPoint(App& app)
                                 continue;
                             }
 
-                            if (connectionNames.size() < 1)
+                            if (connectionNames.empty())
                             {
                                 BMCWEB_LOG_ERROR("Got 0 Connection names");
                                 continue;
@@ -410,7 +410,7 @@ inline void handleEnvironmentMetricsGet(
             asyncResp, chassisId, *validChassisPath);
 
         // TODO: Remove interfaces from here
-        const std::array<const char*, 2> interfaces = {
+        const std::array<std::string_view, 2> interfaces = {
             "xyz.openbmc_project.Inventory.Item.Board",
             "xyz.openbmc_project.Inventory.Item.Chassis"};
         redfish::nvidia_env_utils::getPowerAndControlData(asyncResp, chassisId,
@@ -494,7 +494,7 @@ inline void requestRoutesEnvironmentMetrics(App& app)
                                     continue;
                                 }
 
-                                if (connectionNames.size() < 1)
+                                if (connectionNames.empty())
                                 {
                                     BMCWEB_LOG_ERROR("Got 0 Connection names");
                                     continue;
@@ -647,20 +647,20 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
                     oemObject && json_util::readJson(*oemObject, asyncResp->res,
                                                      "Nvidia", oemNvidiaObject))
                 {
-                    if (std::optional<nlohmann::json> EdppObject;
+                    if (std::optional<nlohmann::json> edppObject;
                         oemNvidiaObject &&
                         json_util::readJson(*oemNvidiaObject, asyncResp->res,
-                                            "EDPpPercent", EdppObject,
+                                            "EDPpPercent", edppObject,
                                             "PowerLimitPersistency",
                                             powerLimitPersistency))
                     {
-                        if (EdppObject)
+                        if (edppObject)
                         {
                             std::optional<size_t> setPoint;
                             std::optional<bool> persistency;
 
                             if (!json_util::readJson(
-                                    *EdppObject, asyncResp->res, "SetPoint",
+                                    *edppObject, asyncResp->res, "SetPoint",
                                     setPoint, "Persistency", persistency))
                             {
                                 BMCWEB_LOG_ERROR(
@@ -758,7 +758,7 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
                                     continue;
                                 }
 
-                                if (connectionNames.size() < 1)
+                                if (connectionNames.empty())
                                 {
                                     BMCWEB_LOG_ERROR("Got 0 Connection names");
                                     continue;

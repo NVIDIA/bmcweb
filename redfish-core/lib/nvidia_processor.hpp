@@ -18,6 +18,7 @@
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_processor_utils.hpp>
 #include <utils/port_utils.hpp>
+#include "utils/processor_utils.hpp"
 namespace redfish
 {
 namespace nvidia_processor
@@ -341,7 +342,7 @@ inline void postResetType(
                 return;
             }
 
-            static const auto resetAsyncIntf =
+            static const auto* const resetAsyncIntf =
                 "xyz.openbmc_project.Control.Processor.ResetAsync";
 
             dbus::utility::getDbusObject(
@@ -591,7 +592,7 @@ inline void getPowerBreakThrottleData(
 
 inline void getPowerBreakThrottle(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
-    const std::string objPath, const std::string& deviceType)
+    const std::string& objPath, const std::string& deviceType)
 {
     BMCWEB_LOG_DEBUG("Get processor module link");
     crow::connections::systemBus->async_method_call(
@@ -753,7 +754,7 @@ inline void getProcessorPCIeFunctionsLinks(
                     "Function" + std::to_string(functionNum) + "DeviceId";
                 std::string* property =
                     std::get_if<std::string>(&pcieDevProperties[devIDProperty]);
-                if (property && !property->empty())
+                if ((property != nullptr) && !property->empty())
                 {
                     pcieFunctionList.push_back(
                         {{"@odata.id", pcieDeviceLink + "/PCIeFunctions/" +
@@ -869,7 +870,7 @@ inline void getParentChassisPCIeDeviceLink(
                         pcieDeviceLink += chassisName;
                         aResp->res.jsonValue["Links"]["PCIeDevice"] = {
                             {"@odata.id", pcieDeviceLink}};
-                        if (serviceMap.size() < 1)
+                        if (serviceMap.empty())
                         {
                             BMCWEB_LOG_ERROR("Got 0 service "
                                              "names");
@@ -1304,7 +1305,7 @@ inline void getProcessorPerformanceData(
                         return;
                     }
 
-                    for (auto val : *throttleReasons)
+                    for (const auto& val : *throttleReasons)
                     {
                         reason = redfish::dbus_utils::toReasonType(val);
                         if (!reason.empty())
@@ -2300,7 +2301,8 @@ inline void patchRemoteDebug(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                              const std::string& cpuObjectPath)
 {
     BMCWEB_LOG_DEBUG("Set Remote Debug {} on CPU: {}",
-                     std::to_string(remoteDebugEnabled), processorId);
+                     std::to_string(static_cast<int>(remoteDebugEnabled)),
+                     processorId);
 
     // Find remote debug effecters from all effecters attached to "all_controls"
     crow::connections::systemBus->async_method_call(
@@ -3034,7 +3036,7 @@ inline void getProcessorMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     processorId + " Processor Metrics";
                 for (const auto& [service, interfaces] : object)
                 {
-                    std::string deviceType = "";
+                    std::string deviceType;
                     if (std::find(
                             interfaces.begin(), interfaces.end(),
                             "xyz.openbmc_project.Inventory.Item.Accelerator") !=
@@ -3161,16 +3163,15 @@ inline void getProcessorMemoryDataByService(
                 const std::vector<
                     std::pair<std::string, std::vector<std::string>>>&
                     connectionNames = object.second;
-                if (connectionNames.size() < 1)
+                if (connectionNames.empty())
                 {
                     BMCWEB_LOG_ERROR("Got 0 Connection names");
                     continue;
                 }
 
-                for (size_t i = 0; i < connectionNames.size(); i++)
+                for (const auto& i : connectionNames)
                 {
-                    const std::string& connectionName =
-                        connectionNames[i].first;
+                    const std::string& connectionName = i.first;
                     crow::connections::systemBus->async_method_call(
                         [aResp{aResp}, processorCECount, processorUECount](
                             const boost::system::error_code& ec1,

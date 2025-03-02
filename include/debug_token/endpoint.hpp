@@ -54,7 +54,7 @@ class DebugTokenEndpoint
 
     virtual int getMctpEid() const = 0;
 
-    virtual const std::string getObject() const = 0;
+    virtual std::string getObject() const = 0;
 
     const std::vector<uint8_t>& getRequest() const
     {
@@ -87,20 +87,21 @@ class DebugTokenEndpoint
 class DebugTokenNsmEndpoint : public DebugTokenEndpoint
 {
   public:
-    DebugTokenNsmEndpoint(std::string nsmObjectPath) : objectPath(nsmObjectPath)
+    explicit DebugTokenNsmEndpoint(std::string nsmObjectPath) :
+        objectPath(std::move(nsmObjectPath))
     {}
     DebugTokenNsmEndpoint() = delete;
     DebugTokenNsmEndpoint(const DebugTokenNsmEndpoint&) = delete;
     DebugTokenNsmEndpoint(DebugTokenNsmEndpoint&&) = delete;
     DebugTokenNsmEndpoint& operator=(const DebugTokenNsmEndpoint&) = delete;
     DebugTokenNsmEndpoint& operator=(const DebugTokenNsmEndpoint&&) = delete;
-
+    ~DebugTokenNsmEndpoint() override = default;
     int getMctpEid() const override
     {
         return -1;
     }
 
-    const std::string getObject() const override
+    std::string getObject() const override
     {
         return objectPath;
     }
@@ -108,6 +109,7 @@ class DebugTokenNsmEndpoint : public DebugTokenEndpoint
     void setRequest(std::vector<uint8_t>& r) override
     {
         NsmDebugTokenRequest* nsmReq =
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
             reinterpret_cast<NsmDebugTokenRequest*>(r.data());
         switch (nsmReq->status)
         {
@@ -172,7 +174,7 @@ class DebugTokenNsmEndpoint : public DebugTokenEndpoint
 class DebugTokenSpdmEndpoint : public DebugTokenEndpoint
 {
   public:
-    DebugTokenSpdmEndpoint(mctp_utils::MctpEndpoint& mctpEndpoint) :
+    explicit DebugTokenSpdmEndpoint(mctp_utils::MctpEndpoint& mctpEndpoint) :
         mctpEp(std::move(mctpEndpoint))
     {}
     DebugTokenSpdmEndpoint() = delete;
@@ -180,13 +182,14 @@ class DebugTokenSpdmEndpoint : public DebugTokenEndpoint
     DebugTokenSpdmEndpoint(DebugTokenSpdmEndpoint&&) = delete;
     DebugTokenSpdmEndpoint& operator=(const DebugTokenSpdmEndpoint&) = delete;
     DebugTokenSpdmEndpoint& operator=(const DebugTokenSpdmEndpoint&&) = delete;
+    ~DebugTokenSpdmEndpoint() override = default;
 
     int getMctpEid() const override
     {
         return mctpEp.getMctpEid();
     }
 
-    const std::string getObject() const override
+    std::string getObject() const override
     {
         return mctpEp.getSpdmObject();
     }

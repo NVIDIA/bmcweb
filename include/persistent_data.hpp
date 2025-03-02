@@ -344,7 +344,7 @@ class ConfigFile
         std::string out = nlohmann::json(data).dump(
             -1, ' ', true, nlohmann::json::error_handler_t::replace);
         size_t writeBytes = persistentFile.write(out.data(), out.size(), ec);
-        if (ec || !writeBytes)
+        if (ec || writeBytes == 0U)
         {
             BMCWEB_LOG_ERROR("Failed to write file {}", ec.message());
         }

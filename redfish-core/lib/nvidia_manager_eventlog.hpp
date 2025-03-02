@@ -94,12 +94,12 @@ inline void fillManagerEventLogLogEntryFromPropertyMap(
     objectToFillOut["Severity"] =
         translateSeverityDbusToRedfish(entry.Severity);
 
-    if (entry.Timestamp)
+    if (entry.Timestamp != 0U)
     {
         objectToFillOut["Created"] =
             redfish::time_utils::getDateTimeUintMs(entry.Timestamp);
     }
-    if (entry.UpdateTimestamp)
+    if (entry.UpdateTimestamp != 0U)
     {
         objectToFillOut["Modified"] =
             redfish::time_utils::getDateTimeUintMs(entry.UpdateTimestamp);

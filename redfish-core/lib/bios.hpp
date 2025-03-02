@@ -27,9 +27,10 @@ constexpr const char* biosConfigIface =
 /**
  * BiosAttributeRegistry DB for DPU bios managment
  */
-static nlohmann::json BiosRegistryJson;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+static nlohmann::json biosRegistryJson;
 
-const std::string BiosRegistryJsonFileName =
+const std::string biosRegistryJsonFileName =
     "/var/lib/bmcweb/BiosRegistryJson.json";
 
 /**
@@ -472,7 +473,7 @@ inline void
                             {
                                 if (attrType == "Boolean")
                                 {
-                                    if (*attrCurrValue)
+                                    if (*attrCurrValue != 0)
                                     {
                                         attributesJson.emplace(attr, true);
                                     }
@@ -591,7 +592,7 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             propertyValueTypeValid = true;
         }
 
-        if (propertyValueTypeValid == false)
+        if (!propertyValueTypeValid)
         {
             messages::propertyValueTypeError(asyncResp->res,
                                              attrJson[key].dump(), key);
@@ -937,7 +938,7 @@ inline void
                             {
                                 if (attrType == "Boolean")
                                 {
-                                    if (*attrCurrValue)
+                                    if (*attrCurrValue != 0)
                                     {
                                         attributesJson.emplace(attr, true);
                                     }
@@ -1476,7 +1477,7 @@ inline void setBiosServicCurrentAttr(
                             {
                                 if (attrType == "Boolean")
                                 {
-                                    if (*attrCurrValue)
+                                    if (*attrCurrValue != 0)
                                     {
                                         attributeIt["CurrentValue"] = true;
                                     }
@@ -1506,7 +1507,7 @@ inline void setBiosServicCurrentAttr(
                             {
                                 if (attrType == "Boolean")
                                 {
-                                    if (*attrDefaultValue)
+                                    if (*attrDefaultValue != 0)
                                     {
                                         attributeIt["DefaultValue"] = true;
                                     }
@@ -1586,7 +1587,7 @@ inline void setBiosServicCurrentAttr(
                                                 boundValueIt));
                                     if (currBoundVal != nullptr)
                                     {
-                                        if (*currBoundVal)
+                                        if (*currBoundVal != 0)
                                         {
                                             boundValJson["ValueName"] = true;
                                         }
@@ -1772,14 +1773,14 @@ static void
                     }
 
                     auto& attributes =
-                        redfish::bios::BiosRegistryJson["RegistryEntries"]
+                        redfish::bios::biosRegistryJson["RegistryEntries"]
                                                        ["Attributes"];
 
-                    bool BiosTableLoopEntered = false;
+                    bool biosTableLoopEntered = false;
 
                     for (const BaseBIOSTableItem& attrIt : *baseBiosTable)
                     {
-                        BiosTableLoopEntered = true;
+                        biosTableLoopEntered = true;
                         std::string attrType = getBiosAttrType(std::string(
                             std::get<BaseBiosTableIndex::baseBiosAttrType>(
                                 attrIt.second)));
@@ -1816,7 +1817,7 @@ static void
                             {
                                 if (attrType == "Boolean")
                                 {
-                                    if (*attrCurrValue)
+                                    if (*attrCurrValue != 0)
                                     {
                                         (*it)["CurrentValue"] =
                                             nlohmann::json(true);
@@ -1839,11 +1840,11 @@ static void
                             BMCWEB_LOG_ERROR("Attribute type not supported");
                         }
                     }
-                    if (!BiosTableLoopEntered)
+                    if (!biosTableLoopEntered)
                     {
-                        redfish::bios::BiosRegistryJson = nlohmann::json();
+                        redfish::bios::biosRegistryJson = nlohmann::json();
                     }
-                    asyncResp->res.jsonValue = redfish::bios::BiosRegistryJson;
+                    asyncResp->res.jsonValue = redfish::bios::biosRegistryJson;
                 },
                 biosService, biosConfigObj, "org.freedesktop.DBus.Properties",
                 "Get", biosConfigIface, "BaseBIOSTable");
@@ -1899,7 +1900,7 @@ inline void
             auto found = std::find_if(
                 userGroupPtr->begin(), userGroupPtr->end(),
                 [](const auto& group) {
-                    return (group == "redfish-hostiface") ? true : false;
+                    return static_cast<bool>(group == "redfish-hostiface");
                 });
 
             // Only Host Iface (redfish-hostiface) group user should
@@ -2018,7 +2019,7 @@ inline void
             auto found = std::find_if(
                 userGroupPtr->begin(), userGroupPtr->end(),
                 [](const auto& group) {
-                    return (group == "redfish-hostiface") ? true : false;
+                    return static_cast<bool>(group == "redfish-hostiface");
                 });
 
             // Only Host Iface (redfish-hostiface) group user should
@@ -2185,9 +2186,9 @@ enum class SecureSelector
 /**
  * Set ClearNonVolatileVariables.Clear to requested value
  */
-inline void setClearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                              const std::string service, const std::string path,
-                              const bool requestToClear)
+inline void setClearVariables(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
+    const std::string& path, const bool requestToClear)
 {
     crow::connections::systemBus->async_method_call(
         [aResp, path, service](const boost::system::error_code& ec,
@@ -2227,8 +2228,8 @@ inline void setClearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 inline void handleClearSecureStateSubtree(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const SecureSelector secure, const bool requestToClear,
-    const dbus::utility::MapperGetSubTreeResponse clearSubtree,
-    const dbus::utility::MapperGetSubTreeResponse secureSubtree)
+    const dbus::utility::MapperGetSubTreeResponse& clearSubtree,
+    const dbus::utility::MapperGetSubTreeResponse& secureSubtree)
 {
     for (const auto& [clearPath, clearServices] : clearSubtree)
     {
@@ -2275,16 +2276,14 @@ inline void handleClearSecureStateSubtree(
                     }
 
                     const bool* secureState = std::get_if<bool>(&resp);
-                    if (!secureState)
+                    if (secureState == nullptr)
                     {
                         messages::internalError(aResp->res);
                         return;
                     }
 
-                    if ((*secureState == true &&
-                         secure == SecureSelector::secure) ||
-                        (*secureState == false &&
-                         secure == SecureSelector::nonSecure))
+                    if ((*secureState && secure == SecureSelector::secure) ||
+                        (!*secureState && secure == SecureSelector::nonSecure))
                     {
                         setClearVariables(aResp, clearService, clearPath,
                                           requestToClear);
@@ -2300,7 +2299,7 @@ inline void handleClearSecureStateSubtree(
 inline void handleClearNonVolatileVariablesSubtree(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const SecureSelector secure, const bool requestToClear,
-    const dbus::utility::MapperGetSubTreeResponse clearSubtree)
+    const dbus::utility::MapperGetSubTreeResponse& clearSubtree)
 {
     if (secure == SecureSelector::both)
     {
@@ -2481,10 +2480,11 @@ inline void handleBiosChangePasswordPost(
                             sdbusplus::message_t& msg) {
                     if (ec)
                     {
-                        const auto error = msg.get_error();
+                        const auto* const error = msg.get_error();
                         if (sd_bus_error_has_name(
                                 error,
-                                "xyz.openbmc_project.BIOSConfig.Common.Error.InvalidCurrentPassword"))
+                                "xyz.openbmc_project.BIOSConfig.Common.Error.InvalidCurrentPassword") !=
+                            0)
                         {
                             BMCWEB_LOG_ERROR(
                                 "Failed to change password message: {}",
@@ -2534,21 +2534,21 @@ inline void handleBiosAttrRegistryGet(
     }
     if constexpr (BMCWEB_DPU_BIOS)
     {
-        std::ifstream inputFile(redfish::bios::BiosRegistryJsonFileName);
+        std::ifstream inputFile(redfish::bios::biosRegistryJsonFileName);
         if (!inputFile.is_open())
         {
             BMCWEB_LOG_DEBUG("Can't opening file for reading: {}",
-                             redfish::bios::BiosRegistryJsonFileName);
+                             redfish::bios::biosRegistryJsonFileName);
 
             // Return empty json object if file not found
-            redfish::bios::BiosRegistryJson = nlohmann::json();
+            redfish::bios::biosRegistryJson = nlohmann::json();
         }
         else
         {
             std::string contents{std::istreambuf_iterator<char>{inputFile},
                                  std::istreambuf_iterator<char>{}};
             inputFile.close();
-            redfish::bios::BiosRegistryJson = nlohmann::json::parse(contents);
+            redfish::bios::biosRegistryJson = nlohmann::json::parse(contents);
             bios::updateBiosAttrRegistry(asyncResp);
         }
     }
@@ -2614,7 +2614,7 @@ inline void handleBiosAttrRegistryPut(
             auto found = std::find_if(
                 userGroupPtr->begin(), userGroupPtr->end(),
                 [](const auto& group) {
-                    return (group == "redfish-hostiface") ? true : false;
+                    return static_cast<bool>(group == "redfish-hostiface");
                 });
 
             // Only Host Iface (redfish-hostiface) group user should
@@ -2627,26 +2627,26 @@ inline void handleBiosAttrRegistryPut(
             }
 
             if (!json_util::processJsonFromRequest(
-                    asyncResp->res, req, redfish::bios::BiosRegistryJson))
+                    asyncResp->res, req, redfish::bios::biosRegistryJson))
             {
                 BMCWEB_LOG_ERROR("Json value not readable");
                 return;
             }
 
             // Save BiosRegistryJson into file
-            std::ofstream outputFile(redfish::bios::BiosRegistryJsonFileName,
+            std::ofstream outputFile(redfish::bios::biosRegistryJsonFileName,
                                      std::ios::trunc);
             if (!outputFile.is_open())
             {
                 BMCWEB_LOG_ERROR("Error opening file for writing: {}",
-                                 redfish::bios::BiosRegistryJsonFileName);
+                                 redfish::bios::biosRegistryJsonFileName);
                 return;
             }
-            redfish::bios::BiosRegistryJson["Id"] = "BiosAttributeRegistry";
-            outputFile << redfish::bios::BiosRegistryJson.dump();
+            redfish::bios::biosRegistryJson["Id"] = "BiosAttributeRegistry";
+            outputFile << redfish::bios::biosRegistryJson.dump();
             outputFile.close();
 
-            auto attributes = redfish::bios::BiosRegistryJson["RegistryEntries"]
+            auto attributes = redfish::bios::biosRegistryJson["RegistryEntries"]
                                                              ["Attributes"];
 
             // Loop over the "Attributes" array

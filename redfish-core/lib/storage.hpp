@@ -42,6 +42,7 @@ limitations under the License.
 namespace redfish
 {
 // task uri for long-run drive operation
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::map<std::string, std::string> taskUri;
 // drive resouce has two interfaces from Dbus.
 // EM will also populate drive resource with the only one interface
@@ -1114,8 +1115,8 @@ inline void getChassisID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
 
             // Find the chassisId that contains this driveId
-            sdbusplus::message::object_path chassis_path(resp[0]);
-            auto chassisId = std::string(chassis_path.filename());
+            sdbusplus::message::object_path chassisPath(resp[0]);
+            auto chassisId = std::string(chassisPath.filename());
 
             asyncResp->res.jsonValue["Links"]["Chassis"]["@odata.id"] =
                 "/redfish/v1/Chassis/" + chassisId;
@@ -1347,8 +1348,8 @@ inline void handleDriveSanitizePost(
 }
 
 inline void handleDriveSanitizetActionInfoGet(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string&,
-    const std::string& driveId)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& /*unused*/, const std::string& driveId)
 {
     asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
     asyncResp->res.jsonValue["Name"] = "Sanitize Action Info";
@@ -1425,29 +1426,29 @@ inline void handleDriveSanitizetActionInfoGet(
                     {
                         parameter["Name"] = "OverwritePasses";
                         parameter["DataType"] = "integer";
-                        parameters.push_back(parameter);
+                        parameters.emplace_back(parameter);
 
-                        allowed.push_back("Overwrite");
+                        allowed.emplace_back("Overwrite");
                     }
                     if (std::find(
                             cap.begin(), cap.end(),
                             "xyz.openbmc_project.Nvme.SecureErase.EraseMethod.BlockErase") !=
                         cap.end())
                     {
-                        allowed.push_back("BlockErase");
+                        allowed.emplace_back("BlockErase");
                     }
                     if (std::find(
                             cap.begin(), cap.end(),
                             "xyz.openbmc_project.Nvme.SecureErase.EraseMethod.CryptoErase") !=
                         cap.end())
                     {
-                        allowed.push_back("CryptographicErase");
+                        allowed.emplace_back("CryptographicErase");
                     }
                     parameter["Name"] = "SanitizationType";
                     parameter["DataType"] = "String";
 
                     parameter["AllowableValues"] = allowed;
-                    parameters.push_back(parameter);
+                    parameters.emplace_back(parameter);
 
                     asyncResp->res.jsonValue["Parameters"] = parameters;
                 });

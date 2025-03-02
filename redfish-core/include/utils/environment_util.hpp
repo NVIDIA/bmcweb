@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 #pragma once
-
+#include "dbus_utility.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 namespace redfish
 {
@@ -567,10 +567,6 @@ inline void
                         {
                             return;
                         }
-                        std::string tempPath =
-                            "/redfish/v1/Chassis/" + chassisID + "/Sensors/";
-                        asyncResp->res.jsonValue["PowerLimitWatts"]["Reading"] =
-                            *attributeValue;
                     },
                     connectionName, sensorPath,
                     "org.freedesktop.DBus.Properties", "Get",
@@ -1001,7 +997,7 @@ inline void getControlMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         return;
                     }
                     std::string controlMode = "Automatic";
-                    if (*value == true)
+                    if (*value)
                     {
                         controlMode = "Manual";
                     }
@@ -1018,9 +1014,10 @@ template <std::size_t SIZE>
 inline void
     getPowerAndControlData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& resourceId,
-                           const std::array<const char*, SIZE>& interfaces)
+                           const std::array<std::string_view, SIZE>& interfaces)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
         [asyncResp,
          resourceId](const boost::system::error_code& ec,
                      const dbus::utility::GetSubTreeType& subtree) {
@@ -1046,7 +1043,7 @@ inline void
                     continue;
                 }
 
-                if (connectionNames.size() < 1)
+                if (connectionNames.empty())
                 {
                     BMCWEB_LOG_ERROR("Got 0 Connection names");
                     continue;
@@ -1109,11 +1106,7 @@ inline void
                     path + "/power_controls", "org.freedesktop.DBus.Properties",
                     "Get", "xyz.openbmc_project.Association", "endpoints");
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0, interfaces);
+        });
 }
 
 /**
@@ -1371,7 +1364,7 @@ inline void getSensorDataByService(
                             {"Reading", *attributeValue},
                             {"DataSourceUri", sensorURI},
                         };
-                        if (isSupportPowerLimit == true)
+                        if (isSupportPowerLimit)
                         {
                             aResp->res.jsonValue["PowerLimitWatts"]["Reading"] =
                                 *attributeValue;
@@ -1863,7 +1856,8 @@ inline void postEdppReset(const std::shared_ptr<bmcweb::AsyncResp>& resp,
         return;
     }
 
-    static const auto resetEdppAsyncIntf = "com.nvidia.Common.ResetEdppAsync";
+    static const auto* const resetEdppAsyncIntf =
+        "com.nvidia.Common.ResetEdppAsync";
 
     dbus::utility::getDbusObject(
         cpuObjectPath, std::array<std::string_view, 1>{resetEdppAsyncIntf},

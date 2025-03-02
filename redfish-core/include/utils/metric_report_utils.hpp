@@ -760,7 +760,7 @@ inline void getMetricValue(
         else if (const bool* reading = std::get_if<bool>(&value))
         {
             thisMetric["MetricValue"] = "false";
-            if (*reading == true)
+            if (*reading)
             {
                 thisMetric["MetricValue"] = "true";
             }

@@ -51,7 +51,7 @@ struct FileWatcherEvent
 class InotifyFileWatcher
 {
   public:
-    InotifyFileWatcher() : io(nullptr), sd(nullptr), buf(), watchedDirs() {}
+    InotifyFileWatcher() : io(nullptr), sd(nullptr), buf() {}
 
     ~InotifyFileWatcher()
     {
@@ -132,8 +132,9 @@ class InotifyFileWatcher
 
         while (offset < bytes)
         {
-            // NOLINTNEXTLINE(cppcoreguidelines-no-malloc)
+            // NOLINTNEXTLINE(readability-qualified-auto)
             auto alignedEvp = static_cast<inotify_event*>(
+                // NOLINTNEXTLINE(cppcoreguidelines-no-malloc)
                 std::malloc(sizeof(inotify_event) + NAME_MAX + 1 - offset));
             if (alignedEvp == nullptr)
             {

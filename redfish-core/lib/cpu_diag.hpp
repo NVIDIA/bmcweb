@@ -229,7 +229,7 @@ inline void
             BMCWEB_LOG_DEBUG("Diag mode update done.");
             nlohmann::json& json = asyncResp->res.jsonValue;
             bool diagMode = std::get<bool>(resp);
-            if (diagMode == 0)
+            if (static_cast<int>(diagMode) == 0)
             {
                 json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]["DiagMode"] =
                     false;
@@ -325,6 +325,8 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     if (propStr == "Enable"s)
     {
         val = true;
+        // Suppress warning about system() call
+        // NOLINTNEXTLINE(cert-env33-c)
         auto r = system(startupDiagTimerString.c_str());
         if (r != 0)
         {
@@ -337,6 +339,8 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         val = false;
         clearDiagResult(aResp);
         initDiagStatus(aResp);
+        // Suppress warning about system() call
+        // NOLINTNEXTLINE(cert-env33-c)
         auto r = system(stopDiagTimerString.c_str());
         if (r != 0)
         {

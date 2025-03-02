@@ -80,14 +80,16 @@ inline void requestRoutesProcessorPortCollection(App& app)
                     return;
                 }
                 BMCWEB_LOG_DEBUG("Get available system processor resource");
-                crow::connections::systemBus->async_method_call(
+
+                std::array<std::string_view, 2> interfaces = {
+                    "xyz.openbmc_project.Inventory.Item.Cpu",
+                    "xyz.openbmc_project.Inventory.Item.Accelerator"};
+
+                dbus::utility::getSubTree(
+                    "/xyz/openbmc_project/inventory", 0, interfaces,
                     [processorId,
                      asyncResp](const boost::system::error_code& ec,
-                                const boost::container::flat_map<
-                                    std::string,
-                                    boost::container::flat_map<
-                                        std::string, std::vector<std::string>>>&
-                                    subtree) {
+                                const GetSubTreeType& subtree) {
                         if (ec)
                         {
                             BMCWEB_LOG_DEBUG("DBUS response error");
@@ -124,14 +126,7 @@ inline void requestRoutesProcessorPortCollection(App& app)
                         messages::resourceNotFound(
                             asyncResp->res, "#Processor.v1_20_0.Processor",
                             processorId);
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                    "/xyz/openbmc_project/inventory", 0,
-                    std::array<const char*, 2>{
-                        "xyz.openbmc_project.Inventory.Item.Cpu",
-                        "xyz.openbmc_project.Inventory.Item.Accelerator"});
+                    });
             });
 }
 
@@ -510,14 +505,14 @@ inline void getProcessorAcceleratorPortData(
                     continue;
                 }
 
-                crow::connections::systemBus->async_method_call(
+                std::array<std::string_view, 1> interfaces = {
+                    "xyz.openbmc_project.Inventory.Item.Port"};
+
+                dbus::utility::getSubTree(
+                    objPath, 0, interfaces,
                     [aResp, sensorpath, processorId,
                      portId](const boost::system::error_code& ec,
-                             const boost::container::flat_map<
-                                 std::string,
-                                 boost::container::flat_map<
-                                     std::string, std::vector<std::string>>>&
-                                 subtree1) {
+                             const GetSubTreeType& subtree1) {
                         if (ec)
                         {
                             // the path does not implement port interfaces
@@ -573,13 +568,7 @@ inline void getProcessorAcceleratorPortData(
                             }
                             return;
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetSubTree", objPath,
-                    0,
-                    std::array<const char*, 1>{
-                        "xyz.openbmc_project.Inventory.Item.Port"});
+                    });
             }
         },
         "xyz.openbmc_project.ObjectMapper", objPath + "/all_states",
@@ -608,12 +597,9 @@ inline void requestRoutesProcessorPort(App& app)
             }
             BMCWEB_LOG_DEBUG("Get available system processor resource");
             crow::connections::systemBus->async_method_call(
-                [processorId, port, asyncResp](
-                    const boost::system::error_code& ec,
-                    const boost::container::flat_map<
-                        std::string,
-                        boost::container::flat_map<
-                            std::string, std::vector<std::string>>>& subtree) {
+                [processorId, port,
+                 asyncResp](const boost::system::error_code& ec,
+                            const GetSubTreeType& subtree) {
                     if (ec)
                     {
                         BMCWEB_LOG_DEBUG("DBUS response error");
@@ -1230,13 +1216,15 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                 return;
             }
             BMCWEB_LOG_DEBUG("Get available system processor resource");
-            crow::connections::systemBus->async_method_call(
-                [processorId, portId, asyncResp](
-                    const boost::system::error_code& ec,
-                    const boost::container::flat_map<
-                        std::string,
-                        boost::container::flat_map<
-                            std::string, std::vector<std::string>>>& subtree) {
+            std::array<std::string_view, 2> interfaces = {
+                "xyz.openbmc_project.Inventory.Item.Cpu",
+                "xyz.openbmc_project.Inventory.Item.Accelerator"};
+
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project/inventory", 0, interfaces,
+                [processorId, portId,
+                 asyncResp](const boost::system::error_code& ec,
+                            const GetSubTreeType& subtree) {
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR("DBUS response error");
@@ -1371,14 +1359,7 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                     messages::resourceNotFound(asyncResp->res,
                                                "#Processor.v1_20_0.Processor",
                                                processorId);
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                "/xyz/openbmc_project/inventory", 0,
-                std::array<const char*, 2>{
-                    "xyz.openbmc_project.Inventory.Item.Cpu",
-                    "xyz.openbmc_project.Inventory.Item.Accelerator"});
+                });
         });
 }
 

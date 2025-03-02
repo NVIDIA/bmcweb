@@ -19,7 +19,6 @@ limitations under the License.
 #include "logging.hpp"
 #include "registries.hpp"
 #include "registries/base_message_registry.hpp"
-#include "registries/openbmc_message_registry.hpp"
 #include "update_messages.hpp"
 
 #include <boost/beast/http/field.hpp>
@@ -36,6 +35,7 @@ limitations under the License.
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace redfish
 {

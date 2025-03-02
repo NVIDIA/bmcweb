@@ -71,17 +71,21 @@ class ConnectionImpl : public Connection
     void sendStreamErrorStatus(boost::beast::http::status status) override
     {
         streamres.result(status);
-        boost::beast::http::async_write(
-            adaptor, *streamres.bufferResponse,
-            [this, self(shared_from_this())](
-                const boost::system::error_code& ec2, std::size_t) {
-                if (ec2)
-                {
-                    BMCWEB_LOG_DEBUG("Error while writing on socket{}", ec2);
-                    close();
-                    return;
-                }
-            });
+        if (streamres.bufferResponse)
+        {
+            boost::beast::http::async_write(
+                adaptor, *streamres.bufferResponse,
+                [this, self(shared_from_this())](
+                    const boost::system::error_code& ec2, std::size_t) {
+                    if (ec2)
+                    {
+                        BMCWEB_LOG_DEBUG("Error while writing on socket{}",
+                                         ec2);
+                        close();
+                        return;
+                    }
+                });
+        }
     }
 
     void sendStreamHeaders(const std::string& streamDataSize,
@@ -89,28 +93,35 @@ class ConnectionImpl : public Connection
     {
         streamres.addHeader("Content-Length", streamDataSize);
         streamres.addHeader("Content-Type", contentType);
-        boost::beast::http::async_write(
-            adaptor, *streamres.bufferResponse,
-            [this, self(shared_from_this())](
-                const boost::system::error_code& ec2, std::size_t) {
-                if (ec2)
-                {
-                    BMCWEB_LOG_DEBUG("Error while writing on socket{}", ec2);
-                    close();
-                    return;
-                }
-            });
+        if (streamres.bufferResponse)
+        {
+            boost::beast::http::async_write(
+                adaptor, *streamres.bufferResponse,
+                [this, self(shared_from_this())](
+                    const boost::system::error_code& ec2, std::size_t) {
+                    if (ec2)
+                    {
+                        BMCWEB_LOG_DEBUG("Error while writing on socket{}",
+                                         ec2);
+                        close();
+                        return;
+                    }
+                });
+        }
     }
     void sendMessage(const boost::asio::mutable_buffer& buffer,
                      std::function<void(bool)> handler) override
     {
-        if (buffer.size())
+        std::size_t size = buffer.size();
+        if (size > 0)
         {
             this->handlerFunc = handler;
-            auto bytes = boost::asio::buffer_copy(
-                streamres.bufferResponse->body().prepare(buffer.size()),
-                buffer);
-            streamres.bufferResponse->body().commit(bytes);
+            if (streamres.bufferResponse)
+            {
+                auto bytes = boost::asio::buffer_copy(
+                    streamres.bufferResponse->body().prepare(size), buffer);
+                streamres.bufferResponse->body().commit(bytes);
+            }
             doWrite();
         }
     }
@@ -119,26 +130,41 @@ class ConnectionImpl : public Connection
     {
         streamres.end();
         boost::beast::get_lowest_layer(adaptor).close();
-        closeHandler(*this);
+        if (closeHandler != nullptr)
+        {
+            closeHandler(*this);
+        }
     }
 
     void doWrite()
     {
-        boost::asio::async_write(
-            adaptor, streamres.bufferResponse->body().data(),
-            [this, self(shared_from_this())](boost::beast::error_code ec,
-                                             std::size_t bytesWritten) {
-                streamres.bufferResponse->body().consume(bytesWritten);
+        if (streamres.bufferResponse)
+        {
+            boost::asio::async_write(
+                adaptor, streamres.bufferResponse->body().data(),
+                [this, self(shared_from_this())](boost::beast::error_code ec,
+                                                 std::size_t bytesWritten) {
+                    if (streamres.bufferResponse)
+                    {
+                        streamres.bufferResponse->body().consume(bytesWritten);
+                    }
 
-                if (ec)
-                {
-                    BMCWEB_LOG_DEBUG("Error in async_write {}", ec);
-                    (handlerFunc)(true);
-                    close();
-                    return;
-                }
-                (handlerFunc)(false);
-            });
+                    if (ec)
+                    {
+                        BMCWEB_LOG_DEBUG("Error in async_write {}", ec);
+                        if (this->handlerFunc != nullptr)
+                        {
+                            (handlerFunc)(true);
+                        }
+                        close();
+                        return;
+                    }
+                    if (this->handlerFunc != nullptr)
+                    {
+                        (handlerFunc)(false);
+                    }
+                });
+        }
     }
 
   private:

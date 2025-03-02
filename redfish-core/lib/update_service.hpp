@@ -71,18 +71,15 @@ static std::unique_ptr<sdbusplus::bus::match_t> fwUpdateMatcher;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static bool fwUpdateInProgress = false;
 // allowed firmware image size
-constexpr const size_t firmwareImageLimitBytes =
-    BMCWEB_FIRMWARE_IMAGE_LIMIT * 1024 * 1024;
-// Timer for staging software available
-static std::unique_ptr<boost::asio::steady_timer> fwStageAvailableTimer;
+constexpr size_t firmwareImageLimitBytes =
+    static_cast<size_t>(BMCWEB_FIRMWARE_IMAGE_LIMIT) * 1024UL * 1024UL;
 // Timer for software available
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::unique_ptr<boost::asio::steady_timer> fwAvailableTimer;
 // match for logging
 constexpr auto fwObjectCreationDefaultTimeout = 40;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::unique_ptr<sdbusplus::bus::match::match> loggingMatch = nullptr;
-
-#define SUPPORTED_RETIMERS 8
 
 const std::string firmwarePrefix =
     "redfish/v1/UpdateService/FirmwareInventory/";
@@ -156,9 +153,9 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
     {
         if (interface.first == "xyz.openbmc_project.Logging.Entry")
         {
-            std::string rfMessage = "";
-            std::string resolution = "";
-            std::string messageNamespace = "";
+            std::string rfMessage;
+            std::string resolution;
+            std::string messageNamespace;
             std::vector<std::string> rfArgs;
             const std::vector<std::string>* vData = nullptr;
             for (auto& propertyMap : interface.second)
@@ -168,7 +165,7 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
                     vData = std::get_if<std::vector<std::string>>(
                         &propertyMap.second);
 
-                    for (auto& kv : *vData)
+                    for (const auto& kv : *vData)
                     {
                         std::vector<std::string> fields;
                         bmcweb::split(fields, kv, '=');
@@ -210,7 +207,7 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
                     redfish::messages::getUpdateMessage(rfMessage, rfArgs);
                 if (message.find("Message") != message.end())
                 {
-                    if (resolution != "")
+                    if (!resolution.empty())
                     {
                         message["Resolution"] = resolution;
                     }
@@ -234,7 +231,7 @@ inline void loggingMatchCallback(const std::shared_ptr<task::TaskData>& task,
     }
     handleLogMatchCallback(m, task->messages);
 }
-
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static nlohmann::json preTaskMessages = {};
 inline void preTaskLoggingHandler(sdbusplus::message_t& m)
 {
@@ -392,7 +389,7 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         [task](sdbusplus::message_t& msgLog) {
             loggingMatchCallback(task, msgLog);
         });
-    if (preTaskMessages.size() > 0)
+    if (!preTaskMessages.empty())
     {
         task->messages.insert(task->messages.end(), preTaskMessages.begin(),
                               preTaskMessages.end());
@@ -677,6 +674,7 @@ inline void
         },
         "xyz.openbmc_project.Software.Download",
         "/xyz/openbmc_project/software", "xyz.openbmc_project.Common.SCP",
+        // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
         "DownloadViaSCP", params->remoteServerIP, (params->username).value(),
         params->fwImagePath, targetPath);
 }
@@ -868,7 +866,7 @@ inline void findObjectPathAssociatedWithService(
                 }
                 return;
             }
-            else if (subtree.empty())
+            if (subtree.empty())
             {
                 BMCWEB_LOG_DEBUG(
                     "Could not find any services implementing "
@@ -1065,16 +1063,16 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
             std::vector<std::string> supportedProtocols;
             if constexpr (BMCWEB_INSECURE_PUSH_STYLE_NOTIFICATION)
             {
-                supportedProtocols.push_back("TFTP");
+                supportedProtocols.emplace_back("TFTP");
             }
             if constexpr (BMCWEB_SCP_UPDATE)
             {
-                supportedProtocols.push_back("SCP");
+                supportedProtocols.emplace_back("SCP");
             }
             if constexpr (BMCWEB_REDFISH_UPDATESERVICE_HTTP_PULL)
             {
-                supportedProtocols.push_back("HTTP");
-                supportedProtocols.push_back("HTTPS");
+                supportedProtocols.emplace_back("HTTP");
+                supportedProtocols.emplace_back("HTTPS");
             }
 
             auto searchProtocol =
@@ -1099,7 +1097,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                     BMCWEB_LOG_DEBUG("Missing Target URI");
                     return;
                 }
-                else if (targets->empty())
+                if (targets->empty())
                 {
                     messages::propertyValueIncorrect(asyncResp->res, "Targets",
                                                      targets.value());
@@ -1134,7 +1132,7 @@ inline void requestRoutesUpdateServiceActionsSimpleUpdate(App& app)
                              *transferProtocol);
 
             // Allow only one operation at a time
-            if (fwUpdateInProgress != false)
+            if (fwUpdateInProgress)
             {
                 if (asyncResp)
                 {
@@ -1500,8 +1498,7 @@ inline bool areTargetsInvalidOrUnupdatable(
             if (std::find(updateables.begin(), updateables.end(),
                           componentName) != updateables.end())
             {
-                validTargets.emplace_back(
-                    sdbusplus::message::object_path(softwarePath));
+                validTargets.emplace_back(softwarePath);
             }
             else
             {
@@ -1711,7 +1708,7 @@ inline void areTargetsUpdateableCallback(
 
     std::vector<sdbusplus::message::object_path> targets = {};
     // validate TargetUris if entries are present
-    if (uriTargets.size() != 0)
+    if (!uriTargets.empty())
     {
         if (areTargetsInvalidOrUnupdatable(uriTargets, updateableFw, swInvPaths,
                                            targets))
@@ -2273,16 +2270,23 @@ inline void handleSatBMCResponse(
                 std::string path =
                     std::filesystem::path(*strValue).parent_path();
 
-                file = rfaPrefix + "_" + file;
+                std::string tempFile = file; // Store original filename
+                file = rfaPrefix;
+                file += '_';
+                file += tempFile;
+
                 path += "/";
                 // add prefix on odata.id property.
-                prop.second = path + file;
+                prop.second = path;
+                prop.second += file;
             }
             if (prop.first == "Id")
             {
                 std::string file = std::filesystem::path(*strValue).filename();
                 // add prefix on Id property.
-                prop.second = rfaPrefix + "_" + file;
+                prop.second = rfaPrefix;
+                prop.second += "_";
+                prop.second += file;
             }
             else
             {
@@ -2364,7 +2368,7 @@ inline void forwardImage(
             if (param.second == "UpdateFile")
             {
                 data += "Content-Type: application/octet-stream\r\n\r\n";
-                data += std::move(formpart.content);
+                data += formpart.content;
                 data += "\r\n";
                 hasUpdateFile = true;
             }
@@ -2390,7 +2394,7 @@ inline void forwardImage(
                 const std::string urlPrefix =
                     std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX);
                 // individual components update
-                if (targets && updateAll == false)
+                if (targets && !updateAll)
                 {
                     paramJson["Targets"] = nlohmann::json::array();
 
@@ -2404,8 +2408,6 @@ inline void forwardImage(
                         {
                             // remove prefix before the update request is
                             // forwarded.
-                            std::string file =
-                                std::filesystem::path(uri).filename();
                             size_t pos = uri.find(urlPrefix + "_");
                             if (pos != std::string::npos)
                             {
@@ -2563,13 +2565,18 @@ inline void processMultipartFormData(
         return;
     }
 
-    std::vector<std::string> uriTargets{*targets};
+    if (!targets.has_value())
+    {
+        messages::propertyMissing(asyncResp->res, "Targets");
+        return;
+    }
+    std::vector<std::string> uriTargets{targets.value()};
     if constexpr (BMCWEB_REDFISH_AGGREGATION)
     {
         bool updateAll = false;
         uint8_t count = 0;
         std::string rfaPrefix = std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX);
-        if (uriTargets.size() > 0)
+        if (!uriTargets.empty())
         {
             for (const auto& uri : uriTargets)
             {
@@ -2614,6 +2621,7 @@ inline void processMultipartFormData(
                     BMCWEB_LOG_DEBUG("forward image {}", uriTargets[0]);
 
                     // clear up the body buffer of the request to save memory
+                    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
                     const_cast<crow::Request&>(req).clearBody(); 
                     RedfishAggregator::getSatelliteConfigs(std::bind_front(
                         forwardImage, req, parser, updateAll, asyncResp));
@@ -2622,7 +2630,7 @@ inline void processMultipartFormData(
             }
         }
         // the update request is for BMC so only allow one FW update at a time
-        if (fwUpdateInProgress != false)
+        if (fwUpdateInProgress)
         {
             if (asyncResp)
             {
@@ -2676,7 +2684,7 @@ inline bool preCheckMultipartUpdateServiceReq(
     }
 
     // Only allow one FW update at a time
-    if (enableFWInProgCheck && fwUpdateInProgress != false)
+    if (enableFWInProgCheck && fwUpdateInProgress)
     {
         if (asyncResp)
         {
@@ -2831,7 +2839,8 @@ inline void
 class BMCStatusAsyncResp
 {
   public:
-    BMCStatusAsyncResp(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) :
+    explicit BMCStatusAsyncResp(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) :
         asyncResp(asyncResp)
     {}
 
@@ -3015,10 +3024,10 @@ inline void requestRoutesUpdateService(App& app)
                             {
                                 if (propertyMap.first == "Targets")
                                 {
-                                    auto targets = std::get_if<std::vector<
+                                    auto* targets = std::get_if<std::vector<
                                         sdbusplus::message::object_path>>(
                                         &propertyMap.second);
-                                    if (targets)
+                                    if (targets != nullptr)
                                     {
                                         std::vector<std::string> pushURITargets;
                                         for (auto& target : *targets)
@@ -3060,14 +3069,8 @@ inline void requestRoutesUpdateService(App& app)
                 [getUpdateStatus](boost::system::error_code& ec,
                                   const dbus::utility::MapperGetSubTreeResponse&
                                       subtree) mutable {
-                    if (ec || !subtree.size())
-                    {
-                        getUpdateStatus->mctp_serviceStatus = false;
-                    }
-                    else
-                    {
-                        getUpdateStatus->mctp_serviceStatus = true;
-                    }
+                    getUpdateStatus->mctp_serviceStatus =
+                        !(ec || subtree.empty());
                     return;
                 },
                 "xyz.openbmc_project.ObjectMapper",
@@ -3151,7 +3154,7 @@ inline void requestRoutesUpdateService(App& app)
                         std::vector<sdbusplus::message::object_path>
                             httpPushUriTargets = {};
                         // validate TargetUris if entries are present
-                        if (uriTargets.size() != 0)
+                        if (!uriTargets.empty())
                         {
                             std::vector<std::string> invalidTargets;
                             for (const std::string& target : uriTargets)
@@ -3196,7 +3199,7 @@ inline void requestRoutesUpdateService(App& app)
                             }
                             // return HTTP200 - Success with errors
                             // when there is partial valid targets
-                            if (invalidTargets.size() > 0)
+                            if (!invalidTargets.empty())
                             {
                                 for (const std::string& invalidTarget :
                                      invalidTargets)
@@ -3468,7 +3471,7 @@ inline void requestRoutesInventorySoftwareCollection(App& app)
                         nlohmann::json::array();
                     asyncResp->res.jsonValue["Members@odata.count"] = 0;
 
-                    for (auto& obj : subtree)
+                    for (const auto& obj : subtree)
                     {
                         sdbusplus::message::object_path path(obj.first);
                         std::string swId = path.filename();
@@ -3596,7 +3599,7 @@ inline static void getRelatedItemsStorageController(
                      path](const boost::system::error_code& errCodeController,
                            const dbus::utility::MapperGetSubTreeResponse&
                                subtree) {
-                        if (errCodeController || !subtree.size())
+                        if (errCodeController || subtree.empty())
                         {
                             return;
                         }
@@ -3960,7 +3963,7 @@ inline static void getRelatedItemsOthers(
                     continue;
                 }
 
-                if (obj.second.size() < 1)
+                if (obj.second.empty())
                 {
                     continue;
                 }
@@ -4178,7 +4181,7 @@ inline bool handleSatBMCCommitImagePost(
 
     bool hasTargets = false;
 
-    if (targets && targets.value().empty() == false)
+    if (targets && !targets.value().empty())
     {
         hasTargets = true;
     }
@@ -4190,7 +4193,8 @@ inline bool handleSatBMCCommitImagePost(
         std::string rfaPrefix(BMCWEB_REDFISH_AGGREGATION_PREFIX);
         rfaPrefix += "_";
 
-        bool prefix = false, noPrefix = false;
+        bool prefix = false;
+        bool noPrefix = false;
         for (auto& target : targetsCollection)
         {
             std::string file = std::filesystem::path(target).filename();
@@ -4213,7 +4217,7 @@ inline bool handleSatBMCCommitImagePost(
             // don't pass the request to the local
             return false;
         }
-        else if (prefix && noPrefix)
+        if (prefix && noPrefix)
         {
             // drop the request with mixed targets.
             boost::urls::url_view targetURL("Target");
@@ -4455,7 +4459,7 @@ inline void requestRoutesUpdateServiceCommitImage(App& app)
                 }
             }
 
-            if (fwUpdateInProgress == true)
+            if (fwUpdateInProgress)
             {
                 redfish::messages::updateInProgressMsg(
                     asyncResp->res,
@@ -4607,7 +4611,7 @@ inline void requestRoutesSoftwareInventory(App& app)
                             continue;
                         }
 
-                        if (obj.second.size() < 1)
+                        if (obj.second.empty())
                         {
                             continue;
                         }
@@ -4933,7 +4937,7 @@ inline void requestRoutesInventorySoftware(App& app)
                             continue;
                         }
 
-                        if (obj.second.size() < 1)
+                        if (obj.second.empty())
                         {
                             continue;
                         }
@@ -5094,7 +5098,7 @@ inline void requestRoutesInventorySoftware(App& app)
                                     continue;
                                 }
 
-                                if (obj.second.size() < 1)
+                                if (obj.second.empty())
                                 {
                                     continue;
                                 }
@@ -5194,9 +5198,8 @@ inline void handleStageLocationErrors(
         }
         return;
     };
-    PersistentStorageUtil persistentStorageUtil;
-    persistentStorageUtil.executeEnvCommand(req, asyncResp, getCommand,
-                                            std::move(emmcStatusCallback));
+    redfish::PersistentStorageUtil::executeEnvCommand(
+        req, asyncResp, getCommand, std::move(emmcStatusCallback));
 }
 
 /**
@@ -5425,7 +5428,7 @@ inline void handleUpdateServicePersistentStorageFwPackagesListGet(
             {
                 const auto& obj = subtree.front();
 
-                if (obj.second.size() >= 1)
+                if (!obj.second.empty())
                 {
                     asyncResp->res.jsonValue["Members"] =
                         nlohmann::json::array();
@@ -5615,7 +5618,7 @@ inline void initiateStagedFirmwareUpdate(
         [task](sdbusplus::message_t& msgLog) {
             loggingMatchCallback(task, msgLog);
         });
-    if (preTaskMessages.size() > 0)
+    if (!preTaskMessages.empty())
     {
         task->messages.emplace_back(preTaskMessages);
     }
@@ -5663,7 +5666,7 @@ inline void setTargetsInitiateFirmwarePackage(
                 std::vector<sdbusplus::message::object_path> httpUriTargets =
                     {};
                 // validate TargetUris if entries are present
-                if (uriTargets.size() != 0)
+                if (!uriTargets.empty())
                 {
                     std::vector<std::string> invalidTargets;
                     for (const std::string& target : uriTargets)
@@ -5707,7 +5710,7 @@ inline void setTargetsInitiateFirmwarePackage(
                     }
                     // return HTTP200 - Success with errors
                     // when there is partial valid targets
-                    if (invalidTargets.size() > 0)
+                    if (!invalidTargets.empty())
                     {
                         for (const std::string& invalidTarget : invalidTargets)
                         {
@@ -5832,7 +5835,7 @@ inline void initiateFirmwarePackage(
 
             for (const auto& obj : subtree)
             {
-                if (obj.second.size() < 1)
+                if (obj.second.empty())
                 {
                     break;
                 }
@@ -5956,7 +5959,7 @@ inline void updateParametersForInitiateActionInfo(
             nlohmann::json& allowableValues =
                 parameterTargets["AllowableValues"];
             std::string inventoryPath = "/xyz/openbmc_project/software/";
-            for (auto& obj : subtree)
+            for (const auto& obj : subtree)
             {
                 sdbusplus::message::object_path path(obj.first);
                 std::string fwId = path.filename();

@@ -18,7 +18,7 @@ inline void bootModeQuery(const crow::Request& req,
         [req, asyncResp, chassisId](
             const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
                 endpoints) {
-            if (!endpoints || endpoints->size() == 0)
+            if (!endpoints || endpoints->empty())
             {
                 BMCWEB_LOG_ERROR("Endpoint ID for {} not found", chassisId);
                 nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
@@ -44,7 +44,7 @@ inline void bootModeQuery(const crow::Request& req,
                         asyncResp->res.jsonValue["Oem"]["Nvidia"];
                     oem["@odata.type"] =
                         "#NvidiaChassis.v1_5_0.NvidiaRoTChassis";
-                    if (ec || errorCode)
+                    if (ec || (errorCode != 0))
                     {
                         oem["ManualBootModeEnabled"] = nullptr;
                         messages::resourceErrorsDetectedFormatError(
@@ -95,7 +95,7 @@ inline void bootModeSet(const crow::Request& req,
         [req, asyncResp, chassisId,
          enabled](const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
                       endpoints) {
-            if (!endpoints || endpoints->size() == 0)
+            if (!endpoints || endpoints->empty())
             {
                 BMCWEB_LOG_ERROR("Endpoint ID for {} not found", chassisId);
                 messages::resourceErrorsDetectedFormatError(
@@ -116,7 +116,7 @@ inline void bootModeSet(const crow::Request& req,
                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     uint32_t, const std::string& stdOut, const std::string&,
                     const boost::system::error_code& ec, int errorCode) {
-                    if (ec || errorCode)
+                    if (ec || (errorCode != 0))
                     {
                         messages::resourceErrorsDetectedFormatError(
                             asyncResp->res, "Oem/Nvidia/ManualBootModeEnabled",
@@ -164,7 +164,7 @@ inline void bootAp(const crow::Request& req,
         [req, asyncResp, chassisId](
             const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
                 endpoints) {
-            if (!endpoints || endpoints->size() == 0)
+            if (!endpoints || endpoints->empty())
             {
                 BMCWEB_LOG_ERROR("Endpoint ID for {} not found", chassisId);
                 messages::internalError(asyncResp->res);
@@ -180,7 +180,7 @@ inline void bootAp(const crow::Request& req,
                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     uint32_t, const std::string& stdOut, const std::string&,
                     const boost::system::error_code& ec, int errorCode) {
-                    if (ec || errorCode)
+                    if (ec || (errorCode != 0))
                     {
                         messages::internalError(asyncResp->res);
                         return;

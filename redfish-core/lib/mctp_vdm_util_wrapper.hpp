@@ -30,7 +30,7 @@
 #include <variant>
 #include <vector>
 
-constexpr const size_t MctpVdmUtilErrorCodeOffset = 8;
+constexpr const size_t mctpVdmUtilErrorCodeOffset = 8;
 
 enum class MctpVdmUtilCommand
 {
@@ -83,7 +83,7 @@ struct MctpVdmUtil
 {
   private:
     void translateOperationToCommand(MctpVdmUtilCommand mctpVdmUtilcommand,
-                                     MctpVdmUtilData data)
+                                     MctpVdmUtilData&& data)
     {
         std::string cmd;
 
@@ -153,8 +153,9 @@ struct MctpVdmUtil
 
         command = "mctp-vdm-util -t " + std::to_string(endpointId) + " -c " +
                   cmd;
+        auto movedData = std::move(data);
         std::vector<uint8_t>* vectorData =
-            std::get_if<std::vector<uint8_t>>(&data);
+            std::get_if<std::vector<uint8_t>>(&movedData);
         if (vectorData != nullptr)
         {
             std::stringstream ss;
@@ -171,7 +172,7 @@ struct MctpVdmUtil
     std::string command;
 
   public:
-    MctpVdmUtil(uint32_t endpointId) : endpointId(endpointId) {}
+    explicit MctpVdmUtil(uint32_t endpointId) : endpointId(endpointId) {}
 
     /**
      *@brief Execute mctp-vdm-util tool command for
@@ -189,7 +190,7 @@ struct MctpVdmUtil
              const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
              ResponseCallback responseCallback)
     {
-        translateOperationToCommand(mctpVdmUtilcommand, data);
+        translateOperationToCommand(mctpVdmUtilcommand, std::move(data));
         auto dataOut = std::make_shared<boost::process::ipstream>();
         auto dataErr = std::make_shared<boost::process::ipstream>();
         auto exitCallback =
@@ -213,7 +214,7 @@ struct MctpVdmUtil
                     stdErr += line + "\n";
                 }
                 dataErr->close();
-                if (ec || errorCode)
+                if (ec || errorCode != 0)
                 {
                     BMCWEB_LOG_ERROR(
                         "Error while executing command: {} Error Code: {}",

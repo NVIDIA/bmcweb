@@ -34,11 +34,7 @@
 #include <boost/process/child.hpp>
 #include <boost/system/linux_error.hpp>
 #include <boost/url/format.hpp>
-#include <dbus_utility.hpp>
-#include <error_messages.hpp>
 #include <openbmc_dbus_rest.hpp>
-#include <query.hpp>
-#include <registries/privilege_registry.hpp>
 #include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/exception.hpp>
@@ -46,10 +42,8 @@
 #include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <utils/dbus_log_utils.hpp>
-#include <utils/dbus_utils.hpp>
 #include <utils/log_services_util.hpp>
 #include <utils/origin_utils.hpp>
-#include <utils/time_utils.hpp>
 
 #include <array>
 #include <charconv>
@@ -98,7 +92,7 @@ static void generateMessageRegistry(
     // Severity & Resolution can be overwritten by caller. Using the one defined
     // in the message registries by default.
     std::string sev;
-    if (severity.size() == 0)
+    if (severity.empty())
     {
         sev = msg->messageSeverity;
     }
@@ -108,7 +102,7 @@ static void generateMessageRegistry(
     }
 
     std::string res(resolution);
-    if (res.size() == 0)
+    if (res.empty())
     {
         res = msg->resolution;
     }
@@ -124,7 +118,7 @@ static void generateMessageRegistry(
         boost::trim(f);
     }
     std::span<std::string> msgArgs;
-    msgArgs = {&fields[0], fields.size()};
+    msgArgs = {fields.data(), fields.size()};
 
     std::string message = msg->message;
     int i = 0;
@@ -357,18 +351,18 @@ inline void requestRoutesBMCDumpServiceActionInfo(App& app)
                 asyncResp->res.jsonValue["Id"] =
                     "CollectDiagnosticDataActionInfo";
 
-                nlohmann::json::object_t parameter_diagnosticDataType;
-                parameter_diagnosticDataType["Name"] = "DiagnosticDataType";
-                parameter_diagnosticDataType["Required"] = true;
-                parameter_diagnosticDataType["DataType"] = "String";
+                nlohmann::json::object_t parameterDiagnosticDataType;
+                parameterDiagnosticDataType["Name"] = "DiagnosticDataType";
+                parameterDiagnosticDataType["Required"] = true;
+                parameterDiagnosticDataType["DataType"] = "String";
 
-                nlohmann::json::array_t diagnosticDataType_allowableValues;
-                diagnosticDataType_allowableValues.push_back("Manager");
-                parameter_diagnosticDataType["AllowableValues"] =
-                    std::move(diagnosticDataType_allowableValues);
+                nlohmann::json::array_t diagnosticDataTypeAllowableValues;
+                diagnosticDataTypeAllowableValues.emplace_back("Manager");
+                parameterDiagnosticDataType["AllowableValues"] =
+                    std::move(diagnosticDataTypeAllowableValues);
 
                 nlohmann::json::array_t parameters;
-                parameters.push_back(std::move(parameter_diagnosticDataType));
+                parameters.emplace_back(std::move(parameterDiagnosticDataType));
 
                 asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
             });
@@ -400,41 +394,41 @@ inline void requestRoutesSystemDumpServiceActionInfo(App& app)
                 asyncResp->res.jsonValue["Id"] =
                     "CollectDiagnosticDataActionInfo";
 
-                nlohmann::json::object_t parameter_diagnosticDataType;
-                parameter_diagnosticDataType["Name"] = "DiagnosticDataType";
-                parameter_diagnosticDataType["Required"] = true;
-                parameter_diagnosticDataType["DataType"] = "String";
+                nlohmann::json::object_t parameterDiagnosticDataType;
+                parameterDiagnosticDataType["Name"] = "DiagnosticDataType";
+                parameterDiagnosticDataType["Required"] = true;
+                parameterDiagnosticDataType["DataType"] = "String";
 
-                nlohmann::json::array_t diagnosticDataType_allowableValues;
-                diagnosticDataType_allowableValues.push_back("OEM");
-                parameter_diagnosticDataType["AllowableValues"] =
-                    std::move(diagnosticDataType_allowableValues);
+                nlohmann::json::array_t diagnosticDataTypeAllowableValues;
+                diagnosticDataTypeAllowableValues.emplace_back("OEM");
+                parameterDiagnosticDataType["AllowableValues"] =
+                    std::move(diagnosticDataTypeAllowableValues);
 
-                nlohmann::json::object_t parameter_OEMDiagnosticDataType;
-                parameter_OEMDiagnosticDataType["Name"] =
+                nlohmann::json::object_t parameterOemDiagnosticDataType;
+                parameterOemDiagnosticDataType["Name"] =
                     "OEMDiagnosticDataType";
-                parameter_OEMDiagnosticDataType["Required"] = true;
-                parameter_OEMDiagnosticDataType["DataType"] = "String";
+                parameterOemDiagnosticDataType["Required"] = true;
+                parameterOemDiagnosticDataType["DataType"] = "String";
 
-                nlohmann::json::array_t OEMDiagnosticDataType_allowableValues;
+                nlohmann::json::array_t oeMdiagnosticDataTypeAllowableValues;
 
                 // Get the OEMDiagnosticDataType from meson option to push back
-                std::string diagTypeStr = "";
+                std::string diagTypeStr;
                 for (const auto& typeStr : BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE)
                 {
                     diagTypeStr = std::string("DiagnosticType=") +
                                   std::string(typeStr);
-                    OEMDiagnosticDataType_allowableValues.emplace_back(
+                    oeMdiagnosticDataTypeAllowableValues.emplace_back(
                         diagTypeStr);
                 }
 
-                parameter_OEMDiagnosticDataType["AllowableValues"] =
-                    std::move(OEMDiagnosticDataType_allowableValues);
+                parameterOemDiagnosticDataType["AllowableValues"] =
+                    std::move(oeMdiagnosticDataTypeAllowableValues);
 
                 nlohmann::json::array_t parameters;
-                parameters.push_back(std::move(parameter_diagnosticDataType));
-                parameters.push_back(
-                    std::move(parameter_OEMDiagnosticDataType));
+                parameters.emplace_back(std::move(parameterDiagnosticDataType));
+                parameters.emplace_back(
+                    std::move(parameterOemDiagnosticDataType));
 
                 asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
             });
@@ -514,8 +508,8 @@ inline void
                 "xyz.openbmc_project.Dump.Manager",
                 "/xyz/openbmc_project/dump/retimer",
                 "xyz.openbmc_project.Dump.DebugMode", "DebugMode",
-                [asyncResp](const boost::system::error_code& ec,
-                            const bool DebugModeEnabled) {
+                [asyncResp](const boost::system::error_code ec,
+                            const bool debugModeEnabled) {
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR(
@@ -528,7 +522,7 @@ inline void
                         "#NvidiaLogService.v1_2_0.NvidiaLogService";
                     asyncResp->res
                         .jsonValue["Oem"]["Nvidia"]["RetimerDebugModeEnabled"] =
-                        DebugModeEnabled;
+                        debugModeEnabled;
                 });
         } // BMCWEB_NVIDIA_RETIMER_DEBUGMODE
     }
@@ -583,7 +577,7 @@ inline void dBusEventLogEntryGetAdditionalInfo(
         }
     }
 
-    if (deviceEventData && (entry.Path != nullptr) && (entry.Id))
+    if (deviceEventData && (entry.Path != nullptr) && (entry.Id != 0U))
     {
         asyncResp->res.jsonValue["AdditionalDataURI"] =
             getLogEntryAdditionalDataURI(std::to_string(entry.Id));
@@ -653,8 +647,7 @@ inline std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
             // Include only <key,value> pair with '=' delimiter
             if (subTokens.size() == 2)
             {
-                additionalData.emplace_back(
-                    std::make_pair(subTokens[0], subTokens[1]));
+                additionalData.emplace_back(subTokens[0], subTokens[1]);
                 if (subTokens[0] == "DiagnosticType")
                 {
                     // Reassign the oemData to stay value only

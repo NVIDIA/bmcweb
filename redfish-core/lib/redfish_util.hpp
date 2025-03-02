@@ -363,7 +363,8 @@ inline void
  * @param[in]       objectPath  D-Bus object to query.
  */
 inline void getComponentFirmwareVersion(
-    std::shared_ptr<bmcweb::AsyncResp> asyncResp, const std::string& objectPath)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath)
 {
     const std::string serviceObjectMapper = "xyz.openbmc_project.ObjectMapper";
 
@@ -413,9 +414,9 @@ inline void getComponentFirmwareVersion(
                                                                  "xyz.openbmc_project.Association",
                                                                  "endpoints",
                                                                  [asyncResp](
-                                                                     const boost::system::error_code ec, const std::vector<
-                                                                                                             std::
-                                                                                                                 string>& objPaths) {
+                                                                     const boost::system::error_code ec, const std::
+                                                                                                             vector<std::
+                                                                                                                        string>& objPaths) {
                                                                      if (ec)
                                                                      {
                                                                          BMCWEB_LOG_ERROR(
@@ -447,8 +448,6 @@ inline void getComponentFirmwareVersion(
                                                                                              ec,
                                                                                      const GetObjectType&
                                                                                          resp) {
-                                                                                     std::string
-                                                                                         url;
                                                                                      if (ec)
                                                                                      {
                                                                                          BMCWEB_LOG_ERROR(
@@ -560,50 +559,52 @@ inline void getComponentFirmwareVersion(
                                              });
 }
 
-inline bool checkPasswordQuality(const std::string username [[maybe_unused]],
-                                 const std::string password [[maybe_unused]],
+inline bool checkPasswordQuality(const std::string& username [[maybe_unused]],
+                                 const std::string& password [[maybe_unused]],
                                  std::string& errorMsg [[maybe_unused]])
 {
 #ifdef HAVE_PWQUALITY
-        void* auxerror;
-        char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
-        const char* oldpassword = nullptr;
-        int result;
+    void* auxerror = nullptr;
+    std::array<char, PWQ_MAX_ERROR_MESSAGE_LEN> buf{};
+    const char* oldpassword = nullptr;
+    int result = 0;
 
-        pwquality_settings_t* settings = pwquality_default_settings();
-        if (!settings)
-        {
-            BMCWEB_LOG_ERROR(
-                "Error occurred while creatinf pwquality default settings");
-            return false;
-        }
+    pwquality_settings_t* settings = pwquality_default_settings();
+    if (settings == nullptr)
+    {
+        BMCWEB_LOG_ERROR(
+            "Error occurred while creatinf pwquality default settings");
+        return false;
+    }
 
-        // Read the configuration file (default if nullptr)
-        if ((result = pwquality_read_config(settings, nullptr, &auxerror)) != 0)
-        {
-            // Free the settings
-            pwquality_free_settings(settings);
-            BMCWEB_LOG_ERROR("Error occurred while reading pwquality settings");
-            return false;
-        }
-
-        result = pwquality_check(settings, password.c_str(), oldpassword,
-                                 username.c_str(), &auxerror);
+    // Read the configuration file (default if nullptr)
+    result = pwquality_read_config(settings, nullptr, &auxerror);
+    if (result != 0)
+    {
         // Free the settings
         pwquality_free_settings(settings);
-        if (result < 0)
-        {
-            // Copy the error message to errorMsg
-            errorMsg = pwquality_strerror(buf, sizeof(buf), result, auxerror);
-            return false;
-        }
+        BMCWEB_LOG_ERROR("Error occurred while reading pwquality settings");
+        return false;
+    }
 
-        // Clear errorMsg if the password is acceptable
-        errorMsg.clear();
-        return true;
+    result = pwquality_check(settings, password.c_str(), oldpassword,
+                             username.c_str(), &auxerror);
+    // Free the settings
+    pwquality_free_settings(settings);
+    if (result < 0)
+    {
+        // Copy the error message to errorMsg
+        errorMsg = pwquality_strerror(buf.data(), PWQ_MAX_ERROR_MESSAGE_LEN,
+                                      result, auxerror);
+        return false;
+    }
+
+    // Clear errorMsg if the password is acceptable
+    errorMsg.clear();
+    return true;
 #else
-        return true;
-#endif 
+    return true;
+#endif
 }
 
 } // namespace redfish

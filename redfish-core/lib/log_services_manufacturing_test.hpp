@@ -24,10 +24,13 @@
 
 namespace redfish
 {
-
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::shared_ptr<task::TaskData> mfgTestTask;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::shared_ptr<boost::process::child> mfgTestProc;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::vector<char> mfgTestProcOutput(128, 0);
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::vector<std::string> scriptExecOutputFiles;
 
 /**
@@ -101,16 +104,25 @@ inline void mfgTestProcExitHandler(int exitCode, const std::error_code& ec)
             int id = copyMfgTestOutputFile(output);
             if (id != -1)
             {
-                std::string path = "/redfish/v1/Systems/" +
-                                   std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                                   "/LogServices/EventLog/DiagnosticData/" +
-                                   std::to_string(id);
-                std::string location = "Location: " + path + "/attachment";
-                t->payload->httpHeaders.emplace_back(std::move(location));
-                t->state = "Completed";
-                t->percentComplete = 100;
-                t->messages.emplace_back(
-                    messages::taskCompletedOK(std::to_string(t->index)));
+                std::string path =
+                    std::string("/redfish/v1/Systems/")
+                        .append(BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                        .append("/LogServices/EventLog/DiagnosticData/")
+                        .append(std::to_string(id));
+                std::string location = "Location: ";
+                location += path;
+                location += "/attachment";
+                if (t)
+                {
+                    if (auto* payload = t->payload.operator->())
+                    {
+                        payload->httpHeaders.emplace_back(std::move(location));
+                        t->state = "Completed";
+                        t->percentComplete = 100;
+                        t->messages.emplace_back(
+                            messages::taskCompletedOK(std::to_string(t->index)));
+                    }
+                }
             }
             else
             {

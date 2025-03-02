@@ -23,6 +23,7 @@
 #include "debug_token/status_utils.hpp"
 
 #include <memory>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -58,7 +59,7 @@ class TargetedOperationHandler
     TargetedOperationHandler(const std::string& chassisId, TargetedOperation op,
                              TargetedOperationResultCallback&& cb,
                              TargetedOperationArgument arg = std::monostate()) :
-        operation(op), argument(arg), callback(cb)
+        operation(op), argument(std::move(arg)), callback(std::move(cb))
     {
         constexpr std::array<std::string_view, 1> interfaces = {debugTokenIntf};
         dbus::utility::getSubTree(
@@ -72,7 +73,7 @@ class TargetedOperationHandler
                     tokenUnsupportedHandler();
                     return;
                 }
-                if (resp.size() == 0)
+                if (resp.empty())
                 {
                     BMCWEB_LOG_ERROR(
                         "No objects with DebugToken interface found");
@@ -140,9 +141,9 @@ class TargetedOperationHandler
                             auto it = props.find("Status");
                             if (it != props.end())
                             {
-                                auto status =
+                                auto* status =
                                     std::get_if<std::string>(&(it->second));
-                                if (status)
+                                if (status != nullptr)
                                 {
                                     opStatus = status->substr(
                                         status->find_last_of('.') + 1);
@@ -201,7 +202,7 @@ class TargetedOperationHandler
                     {
                         std::string* tokenOpcode =
                             std::get_if<std::string>(&argument);
-                        if (!tokenOpcode)
+                        if (tokenOpcode == nullptr)
                         {
                             BMCWEB_LOG_ERROR("Invalid argument");
                             generalErrorHandler();
@@ -220,7 +221,7 @@ class TargetedOperationHandler
                     {
                         std::string* tokenType =
                             std::get_if<std::string>(&argument);
-                        if (!tokenType)
+                        if (tokenType == nullptr)
                         {
                             BMCWEB_LOG_ERROR("Invalid argument");
                             generalErrorHandler();
@@ -238,7 +239,7 @@ class TargetedOperationHandler
                     {
                         std::vector<uint8_t>* token =
                             std::get_if<std::vector<uint8_t>>(&argument);
-                        if (!token)
+                        if (token == nullptr)
                         {
                             BMCWEB_LOG_ERROR("Invalid argument");
                             generalErrorHandler();
@@ -300,8 +301,9 @@ class TargetedOperationHandler
                     generalErrorHandler();
                     return;
                 }
-                NsmDebugTokenRequest* nsmReq =
-                    reinterpret_cast<NsmDebugTokenRequest*>(request.data());
+                using nsmptr = NsmDebugTokenRequest*;
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+                nsmptr nsmReq = reinterpret_cast<nsmptr>(request.data());
                 switch (nsmReq->status)
                 {
                     case NsmDebugTokenChallengeQueryStatus::OK:

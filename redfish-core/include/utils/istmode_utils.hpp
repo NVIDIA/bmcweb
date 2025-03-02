@@ -64,7 +64,7 @@ inline void getIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
                     }
                     bool istModeEnabled = false;
                     nlohmann::json& json = aResp->res.jsonValue;
-                    auto modePtr = std::get_if<std::string>(&istMode);
+                    const auto* modePtr = std::get_if<std::string>(&istMode);
                     if (modePtr == nullptr)
                     {
                         BMCWEB_LOG_ERROR("ISTMode not received");
@@ -138,7 +138,7 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    auto modePtr = std::get_if<std::string>(&istMode);
+                    const auto* modePtr = std::get_if<std::string>(&istMode);
                     if (modePtr == nullptr)
                     {
                         BMCWEB_LOG_ERROR("ISTMode not received");
@@ -179,7 +179,7 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             }
                             // If ISTMode Setting is already in progress,
                             // return error
-                            auto statusPtr =
+                            const auto* statusPtr =
                                 std::get_if<std::string>(&istStatus);
                             if (statusPtr == nullptr)
                             {
@@ -257,16 +257,15 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                                     "Did not receive an ISTMode Status value");
                                                 return !task::completed;
                                             }
-                                            auto value =
+                                            auto* value =
                                                 std::get_if<std::string>(
                                                     &(it->second));
-                                            if (!value)
+                                            if (value == nullptr)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "Received ISTMode Status is not a string");
                                                 return !task::completed;
                                             }
-                                            std::string propName = "ISTMode";
                                             auto mode =
                                                 dbus_utils::toIstmgrStatus(
                                                     *value);

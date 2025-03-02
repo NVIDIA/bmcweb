@@ -406,7 +406,7 @@ inline void getAggregatedDeviceMetrics(
             {
                 continue;
             }
-            std::string subDeviceName = "";
+            std::string subDeviceName;
             auto timeStampMap = timestampIterator->second;
             auto timestampPropertiesIterator = std::find_if(
                 timeStampMap.begin(), timeStampMap.end(),

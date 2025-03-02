@@ -303,18 +303,20 @@ inline void getProcessorPowerSmoothingData(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& processorId)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    std::array<std::string_view, 3> processorifaces = {
+        "xyz.openbmc_project.Inventory.Item.Accelerator",
+        "xyz.openbmc_project.Inventory.Item.Cpu",
+        "com.nvidia.PowerSmoothing.PowerSmoothing"};
+
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, processorifaces,
         [processorId, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, boost::container::flat_map<
-                                 std::string, std::vector<std::string>>>&
-                subtree) {
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
                 messages::internalError(aResp->res);
-
                 return;
             }
             for (const auto& [path, object] : subtree)
@@ -406,15 +408,7 @@ inline void getProcessorPowerSmoothingData(
             messages::resourceNotFound(
                 aResp->res, "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
                 processorId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 3>{
-            "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu",
-            "com.nvidia.PowerSmoothing.PowerSmoothing"});
+        });
 }
 
 inline void getAdminProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
@@ -488,13 +482,16 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& processorId)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    std::array<std::string_view, 3> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Accelerator",
+        "xyz.openbmc_project.Inventory.Item.Cpu",
+        "com.nvidia.PowerSmoothing.PowerSmoothing"};
+
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
         [processorId, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, boost::container::flat_map<
-                                 std::string, std::vector<std::string>>>&
-                subtree) {
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -547,9 +544,8 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
                                 return;
                             }
                             crow::connections::systemBus->async_method_call(
-                                [processorId, profilePath,
-                                 aResp{std::move(aResp)}](
-                                    const boost::system::error_code& ec,
+                                [processorId, profilePath, aResp{aResp}](
+                                    const boost::system::error_code ec,
                                     const boost::container::flat_map<
                                         std::string,
                                         boost::container::flat_map<
@@ -604,15 +600,7 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
             messages::resourceNotFound(
                 aResp->res, "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
                 processorId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 3>{
-            "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu",
-            "com.nvidia.PowerSmoothing.PowerSmoothing"});
+        });
 }
 
 inline void getProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
@@ -683,16 +671,19 @@ inline void getProcessorPowerSmoothingPresetProfileData(
     const std::string& profileId)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    std::array<std::string_view, 3> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Accelerator",
+        "xyz.openbmc_project.Inventory.Item.Cpu",
+        "com.nvidia.PowerSmoothing.PowerSmoothing"};
+
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
         [processorId, profileId, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, boost::container::flat_map<
-                                 std::string, std::vector<std::string>>>&
-                subtree) {
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
-                BMCWEB_LOG_DEBUG("DBUS response error");
+                BMCWEB_LOG_ERROR("DBUS response error");
                 messages::internalError(aResp->res);
 
                 return;
@@ -750,8 +741,8 @@ inline void getProcessorPowerSmoothingPresetProfileData(
                                 profilePath;
                             crow::connections::systemBus->async_method_call(
                                 [processorId, objectPathToGetProfileData,
-                                 aResp{std::move(aResp)}](
-                                    const boost::system::error_code& ec,
+                                 aResp{aResp}](
+                                    const boost::system::error_code ec,
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         object) {
@@ -790,31 +781,26 @@ inline void getProcessorPowerSmoothingPresetProfileData(
             messages::resourceNotFound(
                 aResp->res, "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
                 processorId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 3>{
-            "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu",
-            "com.nvidia.PowerSmoothing.PowerSmoothing"});
+        });
 }
 
 inline void getProcessorPowerSmoothingPresetProfileCollectionData(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& processorId)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    std::array<std::string_view, 3> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Accelerator",
+        "xyz.openbmc_project.Inventory.Item.Cpu",
+        "com.nvidia.PowerSmoothing.PowerSmoothing"};
+
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
         [processorId, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, boost::container::flat_map<
-                                 std::string, std::vector<std::string>>>&
-                subtree) {
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
-                BMCWEB_LOG_DEBUG("DBUS response error");
+                BMCWEB_LOG_ERROR("DBUS response error");
                 messages::internalError(aResp->res);
 
                 return;
@@ -879,29 +865,24 @@ inline void getProcessorPowerSmoothingPresetProfileCollectionData(
             messages::resourceNotFound(
                 aResp->res, "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
                 processorId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 3>{
-            "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu",
-            "com.nvidia.PowerSmoothing.PowerSmoothing"});
+        });
 }
 
 inline void patchPowerSmoothingFeature(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& processorId,
-    std::string propName, const bool& propValue)
+    const std::string& propName, const bool& propValue)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    std::array<std::string_view, 3> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Accelerator",
+        "xyz.openbmc_project.Inventory.Item.Cpu",
+        "com.nvidia.PowerSmoothing.PowerSmoothing"};
+
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
         [processorId, propName, propValue, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, boost::container::flat_map<
-                                 std::string, std::vector<std::string>>>&
-                subtree) {
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -963,29 +944,24 @@ inline void patchPowerSmoothingFeature(
                         }
                     });
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 3>{
-            "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu",
-            "com.nvidia.PowerSmoothing.PowerSmoothing"});
+        });
 }
 
-inline void patchAdminOverrideProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                      const std::string& processorId,
-                                      std::string propName, double propValue)
+inline void patchAdminOverrideProfile(
+    std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& processorId,
+    const std::string& propName, double propValue)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    std::array<std::string_view, 3> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Accelerator",
+        "xyz.openbmc_project.Inventory.Item.Cpu",
+        "com.nvidia.PowerSmoothing.PowerSmoothing"};
+
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
         [processorId, propName, propValue, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, boost::container::flat_map<
-                                 std::string, std::vector<std::string>>>&
-                subtree) {
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -1030,8 +1006,8 @@ inline void patchAdminOverrideProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                 {"com.nvidia.PowerSmoothing.AdminPowerProfile"};
                             crow::connections::systemBus->async_method_call(
                                 [processorId, propName, profilePath, propValue,
-                                 aResp{std::move(aResp)}](
-                                    const boost::system::error_code& ec,
+                                 aResp{aResp}](
+                                    const boost::system::error_code ec,
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         object) {
@@ -1074,29 +1050,24 @@ inline void patchAdminOverrideProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
             messages::resourceNotFound(
                 aResp->res, "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
                 processorId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 3>{
-            "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu",
-            "com.nvidia.PowerSmoothing.PowerSmoothing"});
+        });
 }
 
 inline void patchPresetProfile(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& processorId,
-    const std::string& profileId, std::string propName, double propValue)
+    const std::string& profileId, const std::string& propName, double propValue)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    std::array<std::string_view, 3> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Accelerator",
+        "xyz.openbmc_project.Inventory.Item.Cpu",
+        "com.nvidia.PowerSmoothing.PowerSmoothing"};
+
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
         [processorId, profileId, propName, propValue, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, boost::container::flat_map<
-                                 std::string, std::vector<std::string>>>&
-                subtree) {
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -1143,8 +1114,8 @@ inline void patchPresetProfile(
                                 {"com.nvidia.PowerSmoothing.PowerProfile"};
                             crow::connections::systemBus->async_method_call(
                                 [processorId, profileId, propName, propValue,
-                                 profilePath, aResp{std::move(aResp)}](
-                                    const boost::system::error_code& ec,
+                                 profilePath, aResp{aResp}](
+                                    const boost::system::error_code ec,
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         object) {
@@ -1195,15 +1166,7 @@ inline void patchPresetProfile(
             messages::resourceNotFound(
                 aResp->res, "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
                 processorId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 3>{
-            "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu",
-            "com.nvidia.PowerSmoothing.PowerSmoothing"});
+        });
 }
 
 inline void
@@ -1259,13 +1222,16 @@ inline void postApplyAdminOverride(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                    const std::string& processorId)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    std::array<std::string_view, 3> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Accelerator",
+        "xyz.openbmc_project.Inventory.Item.Cpu",
+        "com.nvidia.PowerSmoothing.PowerSmoothing"};
+
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
         [processorId, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, boost::container::flat_map<
-                                 std::string, std::vector<std::string>>>&
-                subtree) {
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -1298,15 +1264,7 @@ inline void postApplyAdminOverride(std::shared_ptr<bmcweb::AsyncResp> aResp,
             messages::resourceNotFound(
                 aResp->res, "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
                 processorId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 3>{
-            "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu",
-            "com.nvidia.PowerSmoothing.PowerSmoothing"});
+        });
 }
 
 inline void
@@ -1366,13 +1324,16 @@ inline void postActivatePresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
 {
     BMCWEB_LOG_DEBUG(
         "activatePresetProfile: Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    std::array<std::string_view, 3> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Accelerator",
+        "xyz.openbmc_project.Inventory.Item.Cpu",
+        "com.nvidia.PowerSmoothing.PowerSmoothing"};
+
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
         [processorId, profileId, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, boost::container::flat_map<
-                                 std::string, std::vector<std::string>>>&
-                subtree) {
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -1405,15 +1366,7 @@ inline void postActivatePresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
             messages::resourceNotFound(
                 aResp->res, "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing",
                 processorId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 3>{
-            "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu",
-            "com.nvidia.PowerSmoothing.PowerSmoothing"});
+        });
 }
 
 inline void requestRoutesProcessorPowerSmoothing(App& app)

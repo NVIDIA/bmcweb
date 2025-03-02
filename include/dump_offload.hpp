@@ -29,8 +29,7 @@ namespace crow
 {
 namespace obmc_dump
 {
-
-static std::string unixSocketPathDir = "/var/lib/bmcweb/";
+static const std::string unixSocketPathDir = "/var/lib/bmcweb/";
 
 inline void handleDumpOffloadUrl(const crow::Request& req, crow::Response& res,
                                  const std::string& entryId,
@@ -52,9 +51,7 @@ class Handler : public std::enable_shared_from_this<Handler>
             const std::string& dumpTypeIn,
             const std::string& unixSocketPathIn) :
         entryID(entryIDIn), dumpType(dumpTypeIn),
-        outputBuffer(boost::beast::flat_static_buffer<socketBufferSize>()),
-        unixSocketPath(unixSocketPathIn), unixSocket(ios), dumpSize(0),
-        waitTimer(ios), connectRetryCount(0)
+        unixSocketPath(unixSocketPathIn), unixSocket(ios), waitTimer(ios)
     {}
 
     /**
@@ -236,20 +233,22 @@ class Handler : public std::enable_shared_from_this<Handler>
             });
     }
 
-    std::string entryID;
-    std::string dumpType;
-    boost::beast::flat_static_buffer<socketBufferSize> outputBuffer;
-    std::filesystem::path unixSocketPath;
+    const std::string entryID;
+    const std::string dumpType;
+    const std::string unixSocketPath;
     boost::asio::local::stream_protocol::socket unixSocket;
-    uint64_t dumpSize;
+    boost::beast::flat_static_buffer<socketBufferSize> outputBuffer;
+    size_t dumpSize{0};
     boost::asio::steady_timer waitTimer;
     std::shared_ptr<crow::streaming_response::Connection> connection = nullptr;
-    uint16_t connectRetryCount;
+    size_t connectRetryCount{0};
 };
 
-static boost::container::flat_map<crow::streaming_response::Connection*,
-                                  std::shared_ptr<Handler>>
-    handlers;
+using connection_ptr = crow::streaming_response::Connection*;
+using connection_map =
+    boost::container::flat_map<connection_ptr, std::shared_ptr<Handler>>;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+static connection_map handlers;
 
 inline void handleSetUpRedfishRoute(
     crow::App& app, [[maybe_unused]] const std::string& dumpType,
@@ -265,7 +264,6 @@ inline void handleSetUpRedfishRoute(
     }
 
     // Do nothing for the Host BMC because it will not invoke this function
-    return;
 }
 
 inline void requestRoutes(App& app)

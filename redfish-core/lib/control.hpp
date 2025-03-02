@@ -55,8 +55,7 @@ constexpr std::string_view setPointUnits()
         return "W";
     }
 }
-
-static std::map<std::string, std::string> modes = {
+static const std::map<std::string, std::string> modes = {
     {"xyz.openbmc_project.Control.Power.Mode.PowerMode.MaximumPerformance",
      "Automatic"},
     {"xyz.openbmc_project.Control.Power.Mode.PowerMode.OEM", "Override"},
@@ -163,7 +162,7 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                             *value;
                                         continue;
                                     }
-                                    else if (propertyName == "MinPowerCapValue")
+                                    if (propertyName == "MinPowerCapValue")
                                     {
                                         propertyName = "AllowableMin";
                                         const auto* value = std::get_if<size_t>(
@@ -180,7 +179,7 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                             *value;
                                         continue;
                                     }
-                                    else if (propertyName == setPointPropName())
+                                    if (propertyName == setPointPropName())
                                     {
                                         propertyName = "SetPoint";
                                         const auto* value = std::get_if<size_t>(
@@ -197,7 +196,7 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                             *value;
                                         continue;
                                     }
-                                    else if (propertyName == "DefaultPowerCap")
+                                    if (propertyName == "DefaultPowerCap")
                                     {
                                         propertyName = "DefaultSetPoint";
                                         const auto* value = std::get_if<size_t>(
@@ -214,7 +213,7 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                             *value;
                                         continue;
                                     }
-                                    else if (propertyName == "PhysicalContext")
+                                    if (propertyName == "PhysicalContext")
                                     {
                                         const auto* physicalcontext =
                                             std::get_if<std::string>(
@@ -225,7 +224,7 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                                     *physicalcontext);
                                         continue;
                                     }
-                                    else if (propertyName == "PowerMode")
+                                    if (propertyName == "PowerMode")
                                     {
                                         propertyName = "ControlMode";
                                         const std::string* mode =
@@ -233,7 +232,7 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                                 &property.second);
                                         std::map<std::string,
                                                  std::string>::iterator itr;
-                                        for (auto& itr : modes)
+                                        for (const auto& itr : modes)
                                         {
                                             if (*mode == itr.first)
                                             {
@@ -297,7 +296,7 @@ inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     continue;
                 }
 
-                if (connectionNames.size() < 1)
+                if (connectionNames.empty())
                 {
                     BMCWEB_LOG_ERROR("Got 0 Connection names");
                     continue;
@@ -1154,7 +1153,7 @@ inline void requestRoutesChassisControls(App& app)
                             return;
                         }
 
-                        for (auto processorPath : *data)
+                        for (const auto& processorPath : *data)
                         {
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, controlID, chassisID, processorPath,
@@ -1408,7 +1407,7 @@ inline void requestRoutesChassisControls(App& app)
                             return;
                         }
 
-                        for (auto processorPath : *data)
+                        for (const auto& processorPath : *data)
                         {
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, controlID, chassisID, processorPath,
@@ -1505,7 +1504,6 @@ inline void requestRoutesChassisControls(App& app)
                                 validendpoint = true;
                                 std::optional<std::string> mode;
                                 std::optional<uint32_t> setpoint;
-                                std::string controlMode;
                                 if (!json_util::readJsonPatch(
                                         req, asyncResp->res, "ControlMode",
                                         mode, "SetPoint", setpoint))
@@ -1735,7 +1733,7 @@ inline void requestRoutesChassisControlsReset(App& app)
                             return;
                         }
 
-                        for (auto processorPath : *data)
+                        for (const auto& processorPath : *data)
                         {
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, controlId, processorPath,

@@ -34,7 +34,7 @@ using UUID = std::string;
 using EID = uint8_t;
 using URI = std::string;
 
-static std::unordered_map<MctpMedium, Priority> mediumPriority = {
+static const std::unordered_map<MctpMedium, Priority> mediumPriority = {
     {"xyz.openbmc_project.MCTP.Endpoint.MediaTypes.PCIe", 0},
     {"xyz.openbmc_project.MCTP.Endpoint.MediaTypes.USB", 1},
     {"xyz.openbmc_project.MCTP.Endpoint.MediaTypes.SPI", 2},
@@ -42,7 +42,7 @@ static std::unordered_map<MctpMedium, Priority> mediumPriority = {
     {"xyz.openbmc_project.MCTP.Endpoint.MediaTypes.Serial", 4},
     {"xyz.openbmc_project.MCTP.Endpoint.MediaTypes.SMBus", 5}};
 
-static std::unordered_map<MctpBinding, Priority> bindingPriority = {
+static const std::unordered_map<MctpBinding, Priority> bindingPriority = {
     {"xyz.openbmc_project.MCTP.Binding.BindingTypes.PCIe", 0},
     {"xyz.openbmc_project.MCTP.Binding.BindingTypes.USB", 1},
     {"xyz.openbmc_project.MCTP.Binding.BindingTypes.SPI", 2},
@@ -81,12 +81,12 @@ inline std::vector<CommitImageValueEntry> getAllowableValues()
 {
     static std::vector<CommitImageValueEntry> allowableValues;
 
-    if (allowableValues.empty() == false)
+    if (!allowableValues.empty())
     {
         return allowableValues;
     }
 
-    std::string configPath(BMCWEB_FW_MCTP_MAPPING_JSON);
+    std::string configPath("BMCWEB_FW_MCTP_MAPPING_JSON");
 
     if (!fs::exists(configPath))
     {
@@ -158,9 +158,9 @@ inline void updateUuidToEidMapping(
     auto eidIter = uuidToEidMap.find(uuid);
     if (eidIter != uuidToEidMap.end())
     {
-        EID prevEid;
-        Priority prevMediumPriority;
-        Priority prevBindingPriority;
+        EID prevEid = 0;
+        Priority prevMediumPriority = 0;
+        Priority prevBindingPriority = 0;
         std::tie(prevEid, prevMediumPriority, prevBindingPriority) =
             eidIter->second;
         if (currentMediumPriority < prevMediumPriority)
@@ -211,9 +211,9 @@ inline void retrieveEidFromMctpServiceProperties(
     const std::vector<std::string>& serviceNames,
     const std::unordered_map<UUID, URI>& uuidToUriMap,
     const ResultCallback& resultCallback, const ErrorCallback& errorCallback,
-    UuidToEidMap uuidToEidMap = {})
+    const UuidToEidMap& uuidToEidMap = {})
 {
-    std::string currentServiceName = serviceNames.front();
+    const std::string& currentServiceName = serviceNames.front();
     const std::vector<std::string> remainingServices(serviceNames.begin() + 1,
                                                      serviceNames.end());
     sdbusplus::message::object_path path(mctpObjectPath);
@@ -336,9 +336,9 @@ inline void retrieveEidFromMctpServiceProperties(
 
                 for (const auto& [uuid, eidTuple] : updatedUuidToEidMap)
                 {
-                    EID eid;
-                    Priority mediumPriority;
-                    Priority bindingPriority;
+                    EID eid = 0;
+                    Priority mediumPriority = 0;
+                    Priority bindingPriority = 0;
                     std::tie(eid, mediumPriority, bindingPriority) = eidTuple;
                     auto uriIter = uuidToUriMap.find(uuid);
                     if (uriIter != uuidToUriMap.end())

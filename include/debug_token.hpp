@@ -122,7 +122,7 @@ class OperationHandler
                             std::get_if<std::string>(&(it->second));
                     }
                 }
-                if (!progressStatus)
+                if (progressStatus == nullptr)
                 {
                     return;
                 }
@@ -163,7 +163,7 @@ class OperationHandler
                         spdmStatus = std::get_if<std::string>(&(it->second));
                     }
                 }
-                if (!spdmStatus)
+                if (spdmStatus == nullptr)
                 {
                     return;
                 }
@@ -183,14 +183,14 @@ class OperationHandler
 class StatusQueryHandler : public OperationHandler
 {
   public:
-    StatusQueryHandler(ResultCallback&& resultCallback,
-                       ErrorCallback&& errorCallback, bool useNsm = true)
+    StatusQueryHandler(const ResultCallback&& resultCallback,
+                       const ErrorCallback&& errorCallback, bool useNsm = true)
     {
         BMCWEB_LOG_DEBUG("StatusQueryHandler constructor");
         resCallback = resultCallback;
         errCallback = errorCallback;
-        getCpuObjectPath([this, errorCallback](const boost::system::error_code&,
-                                               const std::string cpuPath) {
+        getCpuObjectPath([this, &errorCallback](const boost::system::error_code&,
+                                               const std::string& cpuPath) {
             mctp_utils::enumerateMctpEndpoints(
                 [this, cpuPath](
                     const std::shared_ptr<
@@ -198,7 +198,7 @@ class StatusQueryHandler : public OperationHandler
                     spdmEnumerationFinished = true;
                     const std::string desc = "SPDM endpoint enumeration";
                     BMCWEB_LOG_DEBUG("{}", desc);
-                    if (!mctpEndpoints || mctpEndpoints->size() == 0)
+                    if (!mctpEndpoints || mctpEndpoints->empty())
                     {
                         BMCWEB_LOG_ERROR("{}: {}", desc, "no endpoints found");
                         finalize();
@@ -234,14 +234,14 @@ class StatusQueryHandler : public OperationHandler
                     getMctpVdmStatus();
                     finalize();
                 },
-                [this, errorCallback](bool, const std::string& desc,
-                                      const std::string& error) {
+                [this, &errorCallback](
+                    bool, const std::string& desc, const std::string& error) {
                     spdmEnumerationFinished = true;
                     errorCallback(false, desc, error);
                     finalize();
                 },
                 "",
-                static_cast<uint64_t>(statusQueryTimeoutSeconds) * 1000000u);
+                static_cast<uint64_t>(statusQueryTimeoutSeconds) * 1000000U);
         });
 
         if (!useNsm)
@@ -263,7 +263,7 @@ class StatusQueryHandler : public OperationHandler
                     finalize();
                     return;
                 }
-                if (paths.size() == 0)
+                if (paths.empty())
                 {
                     BMCWEB_LOG_ERROR("{}: {}", desc, "no endpoints found");
                     finalize();
@@ -362,7 +362,7 @@ class StatusQueryHandler : public OperationHandler
                 return;
             }
             DebugTokenNsmEndpoint* nsmEp =
-                static_cast<DebugTokenNsmEndpoint*>(ep.get());
+                dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
             if (status == "Aborted")
             {
                 sdbusplus::asio::getProperty<std::tuple<uint16_t, std::string>>(
@@ -435,7 +435,7 @@ class StatusQueryHandler : public OperationHandler
                 continue;
             }
             DebugTokenNsmEndpoint* nsmEp =
-                static_cast<DebugTokenNsmEndpoint*>(ep.get());
+                dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
             auto objectPath = ep->getObject();
             crow::connections::systemBus->async_method_call(
                 [this, nsmEp, objectPath](const boost::system::error_code& ec) {
@@ -516,7 +516,7 @@ class StatusQueryHandler : public OperationHandler
                 continue;
             }
             DebugTokenSpdmEndpoint* spdmEp =
-                static_cast<DebugTokenSpdmEndpoint*>(ep->get());
+                dynamic_cast<DebugTokenSpdmEndpoint*>(ep->get());
             spdmEp->setStatus(std::make_unique<VdmTokenStatus>(vdmStatus));
         }
         finalize();
@@ -555,7 +555,7 @@ class StatusQueryHandler : public OperationHandler
                 args.emplace_back(std::to_string(mctpEid));
             }
         }
-        if (args.size() == 0)
+        if (args.empty())
         {
             errCallback(false, desc, "no valid endpoints");
             finalize();
@@ -588,7 +588,7 @@ class StatusQueryHandler : public OperationHandler
         {
             return;
         }
-        if (!endpoints || endpoints->size() == 0)
+        if (!endpoints || endpoints->empty())
         {
             errCallback(true, desc, "No valid debug token status responses");
             return;
@@ -617,8 +617,8 @@ class StatusQueryHandler : public OperationHandler
 class RequestHandler : public OperationHandler
 {
   public:
-    RequestHandler(ResultCallback&& resultCallback,
-                   ErrorCallback&& errorCallback, RequestType type) : type(type)
+    RequestHandler(const ResultCallback&& resultCallback,
+                   const ErrorCallback&& errorCallback, RequestType type) : type(type)
     {
         BMCWEB_LOG_DEBUG("RequestHandler constructor");
         resCallback = resultCallback;
@@ -626,7 +626,7 @@ class RequestHandler : public OperationHandler
         statusHandler = std::make_unique<StatusQueryHandler>(
             [this, type](const std::shared_ptr<std::vector<
                              std::unique_ptr<DebugTokenEndpoint>>>& endpoints) {
-                if (!endpoints || endpoints->size() == 0)
+                if (!endpoints || endpoints->empty())
                 {
                     errCallback(true, "Debug token status check",
                                 "No valid endpoints");
@@ -642,8 +642,8 @@ class RequestHandler : public OperationHandler
                     resCallback(endpoints);
                 }
             },
-            [errorCallback](bool critical, const std::string& desc,
-                            const std::string& error) {
+            [&errorCallback](bool critical, const std::string& desc,
+                          const std::string& error) {
                 errorCallback(critical, desc, error);
             },
             type == RequestType::DebugTokenRequest);
@@ -668,7 +668,7 @@ class RequestHandler : public OperationHandler
         {
             if (ep->getState() == EndpointState::RequestAcquired)
             {
-                requests.emplace_back(std::move(ep->getRequest()));
+                requests.emplace_back(ep->getRequest());
             }
         }
         auto file = generateTokenRequestFile(requests);
@@ -680,7 +680,7 @@ class RequestHandler : public OperationHandler
 
     RequestType type;
 
-    uint8_t typeToMeasurementIndex(RequestType type)
+    static uint8_t typeToMeasurementIndex(RequestType type)
     {
         static const std::map<RequestType, uint8_t> indexMap{
             {RequestType::DebugTokenRequest, 50},
@@ -710,7 +710,7 @@ class RequestHandler : public OperationHandler
                 continue;
             }
             DebugTokenNsmEndpoint* nsmEp =
-                static_cast<DebugTokenNsmEndpoint*>(ep.get());
+                dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
             auto objectPath = ep->getObject();
             crow::connections::systemBus->async_method_call(
                 [this, nsmEp, objectPath](const boost::system::error_code& ec) {
@@ -757,7 +757,7 @@ class RequestHandler : public OperationHandler
                 continue;
             }
             DebugTokenSpdmEndpoint* spdmEp =
-                static_cast<DebugTokenSpdmEndpoint*>(ep.get());
+                dynamic_cast<DebugTokenSpdmEndpoint*>(ep.get());
             auto objectPath = ep->getObject();
             const std::string desc = "SPDM refresh call for " + objectPath;
             BMCWEB_LOG_DEBUG("{}", desc);
@@ -816,7 +816,7 @@ class RequestHandler : public OperationHandler
             return;
         }
         DebugTokenNsmEndpoint* nsmEp =
-            static_cast<DebugTokenNsmEndpoint*>(ep.get());
+            dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
         if (status == "Aborted")
         {
             sdbusplus::asio::getProperty<std::tuple<uint16_t, std::string>>(
@@ -907,7 +907,7 @@ class RequestHandler : public OperationHandler
         else if (status == "Success")
         {
             DebugTokenSpdmEndpoint* spdmEp =
-                static_cast<DebugTokenSpdmEndpoint*>(ep.get());
+                dynamic_cast<DebugTokenSpdmEndpoint*>(ep.get());
             crow::connections::systemBus->async_method_call(
                 [this, spdmEp](
                     const boost::system::error_code& ec,
@@ -934,9 +934,9 @@ class RequestHandler : public OperationHandler
                         finalize();
                         return;
                     }
-                    auto sign =
+                    const auto* sign =
                         std::get_if<std::vector<uint8_t>>(&itSign->second);
-                    if (!sign)
+                    if (sign == nullptr)
                     {
                         errCallback(
                             false, desc,
@@ -954,8 +954,8 @@ class RequestHandler : public OperationHandler
                         finalize();
                         return;
                     }
-                    auto caps = std::get_if<uint32_t>(&itCaps->second);
-                    if (!caps)
+                    const auto* caps = std::get_if<uint32_t>(&itCaps->second);
+                    if (caps == nullptr)
                     {
                         errCallback(false, desc,
                                     "cannot decode Capabilities property");
@@ -964,7 +964,7 @@ class RequestHandler : public OperationHandler
                         return;
                     }
                     std::string pem;
-                    if (*caps & spdmCertCapability)
+                    if ((*caps & spdmCertCapability) != 0U)
                     {
                         auto itCert = props.find("Certificate");
                         if (itCert == props.end())
@@ -975,10 +975,10 @@ class RequestHandler : public OperationHandler
                             finalize();
                             return;
                         }
-                        auto cert = std::get_if<
+                        const auto* cert = std::get_if<
                             std::vector<std::tuple<uint8_t, std::string>>>(
                             &itCert->second);
-                        if (!cert)
+                        if (cert == nullptr)
                         {
                             errCallback(false, desc,
                                         "cannot decode Certificate property");

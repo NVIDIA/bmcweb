@@ -14,7 +14,6 @@
 #include "utils/time_utils.hpp"
 
 #include <boost/system/error_code.hpp>
-#include <utils/chassis_utils.hpp>
 
 #include <array>
 #include <functional>
@@ -401,7 +400,7 @@ inline void processSensorServices(
         std::set<std::string> sensorServices;
         for (const auto& [objectPath, serviceMap] : subtree)
         {
-            if (serviceMap.size() < 1)
+            if (serviceMap.empty())
             {
                 BMCWEB_LOG_DEBUG("Got 0 service names for sensorpath:{}",
                                  objectPath);

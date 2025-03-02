@@ -236,8 +236,8 @@ inline void handleBootOptionCollectionPost(
 
     privilege_utils::isBiosPrivilege(
         req,
-        [req, aResp](const boost::system::error_code& ec, const bool isBios) {
-            if (ec || isBios == false)
+        [req, aResp](const boost::system::error_code ec, const bool isBios) {
+            if (ec || !isBios)
             {
                 messages::insufficientPrivilege(aResp->res);
                 return;
@@ -268,21 +268,21 @@ inline void handleBootOptionCollectionPost(
 
             dbus::utility::escapePathForDbus(id);
             dbus::utility::DBusPropertiesMap properties;
-            properties.push_back({"Enabled", newBootOptionEnabled});
+            properties.emplace_back("Enabled", newBootOptionEnabled);
             if (optBootOptionDescription)
             {
-                properties.push_back(
-                    {"Description", *optBootOptionDescription});
+                properties.emplace_back("Description",
+                                        *optBootOptionDescription);
             }
             if (optBootOptionDisplayName)
             {
-                properties.push_back(
-                    {"DisplayName", *optBootOptionDisplayName});
+                properties.emplace_back("DisplayName",
+                                        *optBootOptionDisplayName);
             }
             if (optBootOptionUefiDevicePath)
             {
-                properties.push_back(
-                    {"UefiDevicePath", *optBootOptionUefiDevicePath});
+                properties.emplace_back("UefiDevicePath",
+                                        *optBootOptionUefiDevicePath);
             }
 
             createBootOption(id, [aResp, id, properties](
@@ -432,7 +432,7 @@ inline void handleBootOptionPatch(
     privilege_utils::isBiosPrivilege(
         req, [req, aResp, bootOptionName](const boost::system::error_code& ec,
                                           const bool isBios) {
-            if (ec || isBios == false)
+            if (ec || !isBios)
             {
                 messages::insufficientPrivilege(aResp->res);
                 return;
@@ -445,7 +445,7 @@ inline void handleBootOptionPatch(
             }
 
             dbus::utility::DBusPropertiesMap properties;
-            properties.push_back({"Enabled", newBootOptionEnabled});
+            properties.emplace_back("Enabled", newBootOptionEnabled);
             setBootOption(
                 bootOptionName, properties,
                 [aResp, bootOptionName](const boost::system::error_code& ec) {
@@ -479,7 +479,7 @@ inline void handleBootOptionDelete(
     privilege_utils::isBiosPrivilege(
         req, [aResp, bootOptionName](const boost::system::error_code& ec,
                                      const bool isBios) {
-            if (ec || isBios == false)
+            if (ec || !isBios)
             {
                 messages::insufficientPrivilege(aResp->res);
                 return;
@@ -556,7 +556,7 @@ inline void handleComputerSystemSettingsBootOptionPatch(
         return;
     }
 
-    bool bootOptionEnabled;
+    bool bootOptionEnabled = false;
 
     if (!json_util::readJsonPatch(req, asyncResp->res, "BootOptionEnabled",
                                   bootOptionEnabled))
@@ -567,7 +567,7 @@ inline void handleComputerSystemSettingsBootOptionPatch(
     }
 
     dbus::utility::DBusPropertiesMap properties;
-    properties.push_back({"PendingEnabled", bootOptionEnabled});
+    properties.emplace_back("PendingEnabled", bootOptionEnabled);
     boot_options::setBootOption(
         bootOptionName, properties,
         [asyncResp](const boost::system::error_code& ec) {

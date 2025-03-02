@@ -27,7 +27,7 @@ inline void
             }
 
             bool enabledNmi = std::get<bool>(resp);
-            if (enabledNmi == true)
+            if (enabledNmi)
             {
                 asyncResp->res.jsonValue["Parameters"][0]["AllowableValues"]
                     .emplace_back("Nmi");
@@ -59,7 +59,7 @@ inline void
                                  "Populate from entity manager ");
                 return;
             }
-            for (auto& property : propertiesList)
+            for (const auto& property : propertiesList)
             {
                 const std::string& propertyName = property.first;
                 if (propertyName == "SKU")
@@ -136,7 +136,7 @@ inline void setBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     BMCWEB_LOG_DEBUG("Set boot order.");
 
     auto setBootOrderFunc = [aResp, bootOrder, isSettingsResource]() {
-        if (isSettingsResource == false)
+        if (!isSettingsResource)
         {
             sdbusplus::asio::setProperty(
                 *crow::connections::systemBus,
@@ -217,13 +217,13 @@ inline void setBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         }
     };
 
-    if (isSettingsResource == false)
+    if (!isSettingsResource)
     {
         // Only BIOS is allowed to patch active BootOrder
         privilege_utils::isBiosPrivilege(
             req, [aResp, setBootOrderFunc](const boost::system::error_code& ec,
                                            const bool isBios) {
-                if (ec || isBios == false)
+                if (ec || !isBios)
                 {
                     messages::propertyNotWritable(aResp->res, "BootOrder");
                     return;
@@ -266,7 +266,7 @@ inline void getBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 
             std::vector<std::string> bootOrder;
             std::vector<std::string> pendingBootOrder;
-            for (auto& [propertyName, propertyVariant] : properties)
+            for (const auto& [propertyName, propertyVariant] : properties)
             {
                 if (propertyName == "BootOrder" &&
                     std::holds_alternative<std::vector<std::string>>(
@@ -283,7 +283,7 @@ inline void getBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         std::get<std::vector<std::string>>(propertyVariant);
                 }
             }
-            if (isSettingsResource == false)
+            if (!isSettingsResource)
             {
                 aResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] =
                     "#Settings.v1_3_5.Settings";

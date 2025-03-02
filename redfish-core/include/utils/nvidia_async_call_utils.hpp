@@ -45,7 +45,7 @@ struct CallAsyncStatusHandlerInfo
     const std::string valueInterface;
     const std::string valueProperty;
     boost::asio::steady_timer timeoutTimer;
-    bool completed;
+    bool completed{};
     using Value = ValueType;
 };
 

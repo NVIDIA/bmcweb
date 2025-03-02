@@ -248,12 +248,6 @@ inline void handleMessageRegistryGet(
     {
         if constexpr (BMCWEB_BIOS)
         {
-            header = &registries::bios::header;
-            for (const registries::MessageEntry& entry :
-                 registries::bios::registry)
-            {
-                registryEntries.emplace_back(&entry);
-            }
             handleBiosAttrRegistryGet(app, req, asyncResp);
             return;
         }

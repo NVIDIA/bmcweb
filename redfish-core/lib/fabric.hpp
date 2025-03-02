@@ -1015,7 +1015,7 @@ inline void requestRoutesFabric(App& app)
                         {
                             continue;
                         }
-                        if (connectionNames.size() < 1)
+                        if (connectionNames.empty())
                         {
                             BMCWEB_LOG_ERROR("Got 0 Connection names");
                             continue;
@@ -2027,13 +2027,19 @@ inline void switchPostResetType(
             {
                 inventoryService = &serviceName;
                 if (iface == "xyz.openbmc_project.Control.ResetAsync")
+                {
                     resetAsyncIntfImp = true;
+                }
                 if (iface == "xyz.openbmc_project.Control.Processor.Reset")
+                {
                     resetIntfImp = true;
+                }
             }
         }
         if (resetIntfImp || resetAsyncIntfImp)
+        {
             break;
+        }
     }
     if (inventoryService == nullptr)
     {
@@ -2781,7 +2787,7 @@ inline void requestRoutesZoneCollection(App& app)
                                 asyncResp,
                                 boost::urls::format("/redfish/v1/Fabrics/" +
                                                     fabricId + "/Zones"),
-                                interface, object.c_str());
+                                interface, object);
                             return;
                         }
                         // Couldn't find an object with that name. Return an
@@ -2858,7 +2864,7 @@ inline void requestRoutesZone(App& app)
                                     {
                                         continue;
                                     }
-                                    if (connectionNames.size() < 1)
+                                    if (connectionNames.empty())
                                     {
                                         BMCWEB_LOG_ERROR(
                                             "Got 0 Connection names");
@@ -2956,7 +2962,7 @@ inline void requestRoutesEndpointCollection(App& app)
                                 asyncResp,
                                 boost::urls::format("/redfish/v1/Fabrics/" +
                                                     fabricId + "/Endpoints"),
-                                interface, object.c_str());
+                                interface, object);
                             return;
                         }
                         // Couldn't find an object with that name. Return an
@@ -2999,7 +3005,10 @@ inline void getProcessorPCIeDeviceData(
             }
             // Get the device data from single function
             const std::string& function = "0";
-            std::string deviceId, vendorId, subsystemId, subsystemVendorId;
+            std::string deviceId;
+            std::string vendorId;
+            std::string subsystemId;
+            std::string subsystemVendorId;
             for (const auto& property : pcieDevProperties)
             {
                 const std::string& propertyName = property.first;
@@ -3086,7 +3095,7 @@ inline void getProcessorEndpointHealth(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    if (*isPresent == false)
+                    if (!*isPresent)
                     {
                         aResp->res.jsonValue["Status"]["State"] = "Absent";
                     }
@@ -3100,7 +3109,7 @@ inline void getProcessorEndpointHealth(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    if (*isFunctional == false)
+                    if (!*isFunctional)
                     {
                         aResp->res.jsonValue["Status"]["Health"] = "Critical";
                     }
@@ -3108,7 +3117,6 @@ inline void getProcessorEndpointHealth(
             }
         },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
-    return;
 }
 
 /**
@@ -3165,7 +3173,7 @@ inline void getProcessorParentEndpointData(
                         {
                             continue;
                         }
-                        if (serviceMap.size() < 1)
+                        if (serviceMap.empty())
                         {
                             BMCWEB_LOG_ERROR("Got 0 service "
                                              "names");
@@ -3596,7 +3604,7 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             const std::vector<std::pair<
                                 std::string, std::vector<std::string>>>&
                                 connectionNames = object.second;
-                            if (connectionNames.size() < 1)
+                            if (connectionNames.empty())
                             {
                                 BMCWEB_LOG_ERROR("Got 0 Connection names");
                                 continue;

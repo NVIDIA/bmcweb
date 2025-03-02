@@ -109,13 +109,15 @@ inline void validateProcessorAndGetWorkloadPowerInfo(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& processorId)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    std::array<std::string_view, 3> processorifaces = {
+        "xyz.openbmc_project.Inventory.Item.Accelerator",
+        "xyz.openbmc_project.Inventory.Item.Cpu",
+        "com.nvidia.PowerProfile.ProfileInfo"};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, processorifaces,
         [processorId, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, boost::container::flat_map<
-                                 std::string, std::vector<std::string>>>&
-                subtree) {
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -197,15 +199,7 @@ inline void validateProcessorAndGetWorkloadPowerInfo(
             messages::resourceNotFound(
                 aResp->res, "#NvidiaWorkloadPower.v1_0_0.NvidiaWorkloadPower",
                 processorId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 3>{
-            "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu",
-            "com.nvidia.PowerProfile.ProfileInfo"});
+        });
 }
 
 inline void getWorkLoadProfileData(
@@ -274,13 +268,14 @@ inline void validateProcessorWorkloadPowerProfile(
     const std::string& profileId)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    std::array<std::string_view, 2> processorifaces = {
+        "xyz.openbmc_project.Inventory.Item.Accelerator",
+        "xyz.openbmc_project.Inventory.Item.Cpu"};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, processorifaces,
         [processorId, profileId, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, boost::container::flat_map<
-                                 std::string, std::vector<std::string>>>&
-                subtree) {
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -336,8 +331,8 @@ inline void validateProcessorWorkloadPowerProfile(
                                 profilePath;
                             crow::connections::systemBus->async_method_call(
                                 [processorId, objectPathToGetProfileData,
-                                 aResp{std::move(aResp)}](
-                                    const boost::system::error_code& ec,
+                                 aResp{aResp}](
+                                    const boost::system::error_code ec,
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         object) {
@@ -378,27 +373,21 @@ inline void validateProcessorWorkloadPowerProfile(
             // Object not found
             messages::resourceNotFound(
                 aResp->res, "#Processor.v1_20_0.Processor", processorId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
-            "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+        });
 }
 
 inline void getProcessorWorkloadPowerProfileCollectionData(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& processorId)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    std::array<std::string_view, 2> processorifaces = {
+        "xyz.openbmc_project.Inventory.Item.Accelerator",
+        "xyz.openbmc_project.Inventory.Item.Cpu"};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, processorifaces,
         [processorId, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, boost::container::flat_map<
-                                 std::string, std::vector<std::string>>>&
-                subtree) {
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -468,14 +457,7 @@ inline void getProcessorWorkloadPowerProfileCollectionData(
                 aResp->res,
                 "#NvidiaWorkloadPowerProfileCollection.NvidiaWorkloadPowerProfileCollection",
                 processorId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 2>{
-            "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu"});
+        });
 }
 
 inline void enableWorkLoadPowerProfile(
@@ -534,13 +516,15 @@ inline void postEnableWorkLoadPowerProfile(
     std::vector<uint8_t>& profileMask)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
-        [processorId, aResp{std::move(aResp)}, profileMask](
-            const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, boost::container::flat_map<
-                                 std::string, std::vector<std::string>>>&
-                subtree) {
+    std::array<std::string_view, 3> processorifaces = {
+        "xyz.openbmc_project.Inventory.Item.Accelerator",
+        "xyz.openbmc_project.Inventory.Item.Cpu",
+        "com.nvidia.PowerProfile.ProfileInfoAsync"};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, processorifaces,
+        [processorId, aResp{std::move(aResp)},
+         profileMask](const boost::system::error_code& ec,
+                      const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -572,15 +556,7 @@ inline void postEnableWorkLoadPowerProfile(
             messages::resourceNotFound(
                 aResp->res, "#NvidiaWorkloadPower.v1_0_0.NvidiaWorkloadPower",
                 processorId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 3>{
-            "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu",
-            "com.nvidia.PowerProfile.ProfileInfoAsync"});
+        });
 }
 
 inline void disableWorkLoadPowerProfile(
@@ -639,13 +615,15 @@ inline void postDisableWorkLoadPowerProfile(
     std::vector<uint8_t>& profileMask)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
-        [processorId, aResp{std::move(aResp)}, profileMask](
-            const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, boost::container::flat_map<
-                                 std::string, std::vector<std::string>>>&
-                subtree) {
+    std::array<std::string_view, 3> processorifaces = {
+        "xyz.openbmc_project.Inventory.Item.Accelerator",
+        "xyz.openbmc_project.Inventory.Item.Cpu",
+        "com.nvidia.PowerProfile.ProfileInfoAsync"};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, processorifaces,
+        [processorId, aResp{std::move(aResp)},
+         profileMask](const boost::system::error_code& ec,
+                      const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -677,15 +655,7 @@ inline void postDisableWorkLoadPowerProfile(
             messages::resourceNotFound(
                 aResp->res, "#NvidiaWorkloadPower.v1_0_0.NvidiaWorkloadPower",
                 processorId);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 3>{
-            "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Inventory.Item.Cpu",
-            "com.nvidia.PowerProfile.ProfileInfoAsync"});
+        });
 }
 
 inline void requestRoutesProcessorWorkloadPower(App& app)

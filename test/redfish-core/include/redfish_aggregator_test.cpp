@@ -1,3 +1,5 @@
+#include "bmcweb_config.h"
+
 #include "async_resp.hpp"
 #include "error_messages.hpp"
 #include "http_response.hpp"
@@ -257,7 +259,7 @@ TEST(addPrefixes, FixHttpHeadersInResponseBody)
     }
     )",
                                                     nullptr, false);
-
+    // NOLINTNEXTLINE(misc-include-cleaner)
     std::string prefix(BMCWEB_REDFISH_AGGREGATION_PREFIX);
     addPrefixes(taskResp, prefix);
     EXPECT_EQ(taskResp["@odata.id"],

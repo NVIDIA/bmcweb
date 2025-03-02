@@ -268,10 +268,11 @@ static inline void
                                     redfish::dbus_utils::getRedfishLtssmState(
                                         *value);
                                 if (val.empty())
+                                {
                                     asyncResp->res.jsonValue["Oem"]["Nvidia"]
                                                             [propertyName] =
                                         nlohmann::json::value_t::null;
-
+                                }
                                 else
                                 {
                                     asyncResp->res.jsonValue["Oem"]["Nvidia"]
@@ -464,7 +465,7 @@ static inline void getPCIeDeviceFunctionsList(
                     "Function" + std::to_string(functionNum) + "DeviceId";
                 std::string* property =
                     std::get_if<std::string>(&pcieDevProperties[devIDProperty]);
-                if (property && !property->empty())
+                if ((property != nullptr) && !property->empty())
                 {
                     if (!chassisId.empty())
                     {
@@ -534,7 +535,7 @@ static inline void getPCIeDeviceFunction(
         std::string devIDProperty = "Function" + function + "DeviceId";
         if (std::string* property =
                 std::get_if<std::string>(&pcieDevProperties[devIDProperty]);
-            property && property->empty())
+            (property != nullptr) && property->empty())
         {
             messages::resourceNotFound(
                 asyncResp->res, "#PCIeFunction.v1_2_0.PCIeFunction", function);
@@ -1074,7 +1075,7 @@ inline void requestRoutesChassisPCIeFunctionCollection(App& app)
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         connectionNames = object.second;
-                                    if (connectionNames.size() < 1)
+                                    if (connectionNames.empty())
                                     {
                                         BMCWEB_LOG_ERROR(
                                             "Got 0 Connection names");
@@ -1181,7 +1182,7 @@ inline void requestRoutesChassisPCIeFunction(App& app)
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         connectionNames = object.second;
-                                    if (connectionNames.size() < 1)
+                                    if (connectionNames.empty())
                                     {
                                         BMCWEB_LOG_ERROR(
                                             "Got 0 Connection names");

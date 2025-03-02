@@ -441,7 +441,9 @@ inline auto deferTask(Callback&& callback)
         DeferTaskStruct(DeferTaskStruct&&) = delete;
         DeferTaskStruct& operator=(DeferTaskStruct&&) = delete;
 
-        DeferTaskStruct(Callback&& callback) : callback(callback) {}
+        explicit DeferTaskStruct(Callback&& callback) :
+            callback(std::move(callback))
+        {}
 
         ~DeferTaskStruct()
         {
@@ -460,14 +462,11 @@ inline std::string toSMPBIPrivilegeString(uint8_t privilege)
     {
         return "HMC";
     }
-    else if (privilege == 0x02)
+    if (privilege == 0x02)
     {
         return "HostBMC";
     }
-    else
-    {
-        return "None";
-    }
+    return "None";
 }
 
 inline uint8_t toSMPBIPrivilegeType(const std::string& privilegeType)
@@ -476,14 +475,11 @@ inline uint8_t toSMPBIPrivilegeType(const std::string& privilegeType)
     {
         return 0x01;
     }
-    else if (privilegeType == "HostBMC")
+    if (privilegeType == "HostBMC")
     {
         return 0x02;
     }
-    else
-    {
-        return 0x00;
-    }
+    return 0x00;
 }
 
 } // namespace dbus_utils

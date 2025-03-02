@@ -172,7 +172,6 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
         }
         else if (propertyMap.first == "AdditionalData")
         {
-            std::string eventDir;
             std::string recordType;
             additionalDataVectorString =
                 std::get_if<std::vector<std::string>>(&propertyMap.second);
@@ -239,7 +238,7 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
                     }
                     else
                     {
-                        if (eventDir)
+                        if (eventDir != 0U)
                         {
                             entryCode = log_entry::LogEntryCode::Assert;
                         }
@@ -297,7 +296,7 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
     // generateMessageRegistry will not create the entry if
     // the messageId can't be found in message registries.
     // So check the entry 'Id' anyway to cover that case.
-    if (thisEntry["Id"].size() == 0)
+    if (thisEntry["Id"].empty())
     {
         thisEntry["@odata.type"] = "#LogEntry.v1_15_0.LogEntry";
         thisEntry["@odata.id"] =

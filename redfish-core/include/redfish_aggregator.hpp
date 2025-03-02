@@ -942,7 +942,8 @@ class RedfishAggregator
     {
         static std::unordered_map<std::string, boost::urls::url> cachedSatInfo =
             {};
-        if (cachedSatInfo.size())
+        std::size_t cacheSize = cachedSatInfo.size();
+        if (cacheSize != 0)
         {
             auto ec = boost::system::errc::make_error_code(
                 boost::system::errc::success);

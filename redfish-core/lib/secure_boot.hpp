@@ -69,7 +69,7 @@ inline void handleSecureBootGet(crow::App& app, const crow::Request& req,
             std::string secureBootCurrentBoot;
             bool secureBootEnable = false;
             std::string secureBootMode;
-            for (auto& [propertyName, propertyVariant] : properties)
+            for (const auto& [propertyName, propertyVariant] : properties)
             {
                 if (propertyName == "CurrentBoot" &&
                     std::holds_alternative<std::string>(propertyVariant))
@@ -154,7 +154,7 @@ inline void
         std::optional<std::string> secureBootCurrentBoot;
         std::optional<bool> secureBootEnable;
         std::optional<std::string> secureBootMode;
-        if (ec || isBios == false)
+        if (ec || !isBios)
         {
             // Request is not from BIOS
             if (!json_util::readJsonPatch(req, aResp->res, "SecureBootEnable",

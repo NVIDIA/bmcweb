@@ -153,7 +153,7 @@ inline void getLeakDetectorPolicyPaths(
 
     dbus::utility::getSubTreePaths(
         inventoryPath, 0, leakDetectorConfigInterfaces,
-        [asyncResp, callback = std::move(callback)](
+        [asyncResp, callback = callback](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
             if (ec)

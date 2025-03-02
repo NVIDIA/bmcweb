@@ -125,7 +125,6 @@ inline void createPendingRequest(
     task->payload.emplace(req);
     task->state = "Pending";
     task->populateResp(aResp->res);
-    return;
 }
 
 inline void handleSecureBootDatabaseCollectionGet(
@@ -257,7 +256,7 @@ inline void handleSecureBootDatabaseGet(
                     return;
                 }
 
-                if (objects.size() > 0)
+                if (!objects.empty())
                 {
                     aResp->res
                         .jsonValue["Actions"]["#SecureBootDatabase.ResetKeys"]
@@ -309,7 +308,7 @@ inline void handleSecureBootDatabaseResetKeys(
                 messages::internalError(aResp->res);
                 return;
             }
-            if (isBios == false)
+            if (!isBios)
             {
                 if (isDefaultDatabase(databaseId))
                 {
@@ -351,9 +350,8 @@ inline void handleCertificateCollectionGet(
         "xyz.openbmc_project.Certs.Certificate"};
     collection_util::getCollectionMembers(
         aResp, boost::urls::url(certURI), interfaces,
-        std::string(
-            "/xyz/openbmc_project/secureBootDatabase/" + databaseId + "/certs")
-            .c_str());
+        std::string("/xyz/openbmc_project/secureBootDatabase/" + databaseId +
+                    "/certs"));
 }
 
 inline void handleCertificateCollectionPost(
@@ -378,7 +376,7 @@ inline void handleCertificateCollectionPost(
         return;
     }
 
-    if (certString.size() == 0)
+    if (certString.empty())
     {
         messages::propertyValueIncorrect(aResp->res, "CertificateString",
                                          certString);
@@ -400,7 +398,7 @@ inline void handleCertificateCollectionPost(
                 messages::internalError(aResp->res);
                 return;
             }
-            if (isBios == false)
+            if (!isBios)
             {
                 if (isDefaultDatabase(databaseId))
                 {
@@ -574,7 +572,7 @@ inline void handleCertificateDelete(
                 messages::internalError(aResp->res);
                 return;
             }
-            if (isBios == false)
+            if (!isBios)
             {
                 if (isDefaultDatabase(databaseId))
                 {
@@ -631,8 +629,7 @@ inline void handleSignatureCollectionGet(
     collection_util::getCollectionMembers(
         aResp, boost::urls::url(signatureURL), interfaces,
         std::string("/xyz/openbmc_project/secureBootDatabase/" + databaseId +
-                    "/signature")
-            .c_str());
+                    "/signature"));
 }
 
 inline void handleSignatureCollectionPost(
@@ -665,7 +662,7 @@ inline void handleSignatureCollectionPost(
         return;
     }
 
-    if (sigString.size() == 0)
+    if (sigString.empty())
     {
         messages::propertyValueIncorrect(aResp->res, "SignatureString",
                                          sigString);
@@ -673,7 +670,7 @@ inline void handleSignatureCollectionPost(
     }
 
     auto sigTypeDbus = signatureFormatRfToDbus(sigType);
-    if (sigTypeDbus.size() == 0)
+    if (sigTypeDbus.empty())
     {
         messages::propertyValueNotInList(aResp->res, sigType, "SignatureType");
         return;
@@ -696,7 +693,7 @@ inline void handleSignatureCollectionPost(
             messages::internalError(aResp->res);
             return;
         }
-        if (isBios == false)
+        if (!isBios)
         {
             if (isDefaultDatabase(databaseId))
             {
@@ -846,7 +843,7 @@ inline void handleSignatureDelete(
                 messages::internalError(aResp->res);
                 return;
             }
-            if (isBios == false)
+            if (!isBios)
             {
                 if (isDefaultDatabase(databaseId))
                 {

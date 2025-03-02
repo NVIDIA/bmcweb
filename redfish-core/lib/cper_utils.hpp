@@ -32,7 +32,7 @@ namespace redfish
 inline std::string capitalizeProp(const std::string& key)
 {
     std::string ret = std::string(key);
-    if (ret.length() && isalpha(ret[0]))
+    if (!ret.empty() && isalpha(ret[0]) != 0)
     {
         ret[0] = static_cast<char>(toupper(ret[0]));
     }
@@ -41,7 +41,7 @@ inline std::string capitalizeProp(const std::string& key)
 
 template <class UnaryFunction>
 inline void jsonIterate(nlohmann::json& jOut, const nlohmann::json& jIn,
-                        UnaryFunction changeProp, bool debug = 0)
+                        UnaryFunction changeProp, bool debug = false)
 {
     if (!jIn.is_structured())
     {
@@ -71,10 +71,10 @@ inline void jsonIterate(nlohmann::json& jOut, const nlohmann::json& jIn,
             else if (it.value().is_array())
             {
                 jOut[kstr] = nlohmann::json::array();
-                for (auto& arr_i : *it)
+                for (const auto& arrI : *it)
                 {
                     jOut[kstr].push_back(nlohmann::json());
-                    jsonIterate(jOut[kstr].back(), arr_i, changeProp);
+                    jsonIterate(jOut[kstr].back(), arrI, changeProp);
                 }
             }
             else
@@ -98,10 +98,10 @@ inline void jsonIterate(nlohmann::json& jOut, const nlohmann::json& jIn,
 
 inline int severityToStr(const std::string& code, std::string& out)
 {
-    const std::map<std::string, std::string> code_map = {
+    const std::map<std::string, std::string> codeMap = {
         {"0", "Warning"}, {"1", "Critical"}, {"2", "OK"}, {"3", "Warning"}};
-    const auto it = code_map.find(code);
-    if (it != code_map.end())
+    const auto it = codeMap.find(code);
+    if (it != codeMap.end())
     {
         out = it->second;
         return 0;
@@ -115,7 +115,7 @@ inline boost::urls::url handleMemProcessorOrigin(const nlohmann::json& mainCper)
     if (nodeIt == mainCper.end())
     {
         BMCWEB_LOG_ERROR("Node property not found");
-        return boost::urls::url();
+        return {};
     }
     uint64_t node = *(nodeIt->get_ptr<const uint64_t*>());
 
@@ -129,7 +129,7 @@ inline boost::urls::url handleNvProcessorOrigin(const nlohmann::json& mainCper)
     if (sockIt == mainCper.end())
     {
         BMCWEB_LOG_ERROR("Socket property not found");
-        return boost::urls::url();
+        return {};
     }
     uint64_t sock = *(sockIt->get_ptr<const uint64_t*>());
 
@@ -144,7 +144,7 @@ inline boost::urls::url handleArmProcessorOrigin(const nlohmann::json& mainCper)
     if (mpIt == mainCper.end())
     {
         BMCWEB_LOG_ERROR("Aff3 not found");
-        return boost::urls::url();
+        return {};
     }
 
     // mpidrEli bits 32:39 denote aff3/socket num
@@ -228,11 +228,11 @@ inline void parseAdditionalDataForCPER(
         return;
     }
 
-    std::string code_val;
-    if (!severityToStr(sevCode->second, code_val))
+    std::string codeVal;
+    if (0 == severityToStr(sevCode->second, codeVal))
     {
         BMCWEB_LOG_DEBUG("Adding severity code");
-        jOut["Severity"] = code_val;
+        jOut["Severity"] = codeVal;
     }
 
     const auto& diagData = additional.find("diagnosticData");

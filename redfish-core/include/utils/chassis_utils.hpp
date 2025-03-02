@@ -6,7 +6,6 @@
 #include "in_band.hpp"
 #include "nvidia_async_call_utils.hpp"
 
-#include <async_resp.hpp>
 #include <boost/container/flat_map.hpp>
 #include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/asio/property.hpp>
@@ -696,13 +695,13 @@ inline void handleMctpInBandActions(
                 return;
             }
             auto chassisProcessed = std::make_shared<bool>(false);
-            for (auto it = resp.begin(); it != resp.end(); ++it)
+            for (const auto& it : resp)
             {
                 if (*chassisProcessed)
                 {
                     return;
                 }
-                std::string serviceName = it->first;
+                std::string serviceName = it.first;
                 crow::connections::systemBus->async_method_call(
                     [req, asyncResp, chassisUUID, serviceName, option, enabled,
                      chassisId, chassisProcessed](
@@ -721,14 +720,14 @@ inline void handleMctpInBandActions(
                         const std::vector<uint8_t>* supportedMsgTypes = nullptr;
                         bool foundEID = false;
 
-                        for (auto& objectPath : resp)
+                        for (const auto& objectPath : resp)
                         {
-                            for (auto& interfaceMap : objectPath.second)
+                            for (const auto& interfaceMap : objectPath.second)
                             {
                                 if (interfaceMap.first ==
                                     "xyz.openbmc_project.Common.UUID")
                                 {
-                                    for (auto& propertyMap :
+                                    for (const auto& propertyMap :
                                          interfaceMap.second)
                                     {
                                         if (propertyMap.first == "UUID")
@@ -742,7 +741,7 @@ inline void handleMctpInBandActions(
                                 if (interfaceMap.first ==
                                     "xyz.openbmc_project.MCTP.Endpoint")
                                 {
-                                    for (auto& propertyMap :
+                                    for (const auto& propertyMap :
                                          interfaceMap.second)
                                     {
                                         if (propertyMap.first == "EID")
@@ -768,8 +767,8 @@ inline void handleMctpInBandActions(
                                 messages::internalError(asyncResp->res);
                                 continue;
                             }
-                            if (uuid && (*uuid) == chassisUUID &&
-                                supportedMsgTypes)
+                            if (uuid != nullptr && (*uuid) == chassisUUID &&
+                                supportedMsgTypes != nullptr)
                             {
                                 if (std::find(supportedMsgTypes->begin(),
                                               supportedMsgTypes->end(),
@@ -782,7 +781,7 @@ inline void handleMctpInBandActions(
                             }
                         }
 
-                        if (foundEID and not*chassisProcessed)
+                        if (foundEID and not *chassisProcessed)
                         {
                             *chassisProcessed = true;
                             switch (option)
@@ -919,7 +918,7 @@ inline void handleMctpInBandActions(
  */
 inline void
     getOemBootStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     const std::string chassisObjPath)
+                     const std::string& chassisObjPath)
 {
     static constexpr std::array<std::string_view, 1> interfaces = {
         bootStatusIntf};
@@ -1219,9 +1218,9 @@ inline void isEROTChassis(const std::string& chassisID, CallbackFunc&& callback)
                         std::string,
                         std::vector<std::pair<
                             std::string, std::vector<std::string>>>>& object) {
-                    return !chassisID.compare(
-                        sdbusplus::message::object_path(object.first)
-                            .filename());
+                    return chassisID ==
+                           sdbusplus::message::object_path(object.first)
+                               .filename();
                 });
             if (objIt == subtree.end())
             {
@@ -1285,7 +1284,7 @@ inline void isEROTChassis(const std::string& chassisID, CallbackFunc&& callback)
                                            const dbus::utility::
                                                MapperGetSubTreePathsResponse&
                                                    subtreePaths) {
-                                    if ((ec2) || (subtreePaths.size() == 0))
+                                    if ((ec2) || (subtreePaths.empty()))
                                     {
                                         callback(true, false);
                                         return;
@@ -1324,7 +1323,7 @@ inline void
             }
             std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr || data->size() == 0)
+            if (data == nullptr || data->empty())
             {
                 BMCWEB_LOG_ERROR(
                     "{}(busctl call {} {} {} Get ss {} endpoints)",

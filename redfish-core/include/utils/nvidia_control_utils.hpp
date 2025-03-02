@@ -25,8 +25,7 @@ namespace redfish
 {
 namespace nvidia_control_utils
 {
-
-static std::map<std::string, std::string> clockLimitModes = {
+static const std::map<std::string, std::string> clockLimitModes = {
     {"com.nvidia.ClockMode.Mode.MaximumPerformance", "Automatic"},
     {"com.nvidia.ClockMode.Mode.OEM", "Override"},
     {"com.nvidia.ClockMode.Mode.PowerSaving", "Manual"},
@@ -128,7 +127,7 @@ inline void getChassisClockLimit(
                                             *value;
                                         continue;
                                     }
-                                    else if (propertyName == "MinSpeed")
+                                    if (propertyName == "MinSpeed")
                                     {
                                         propertyName = "AllowableMin";
                                         const uint32_t* value =
@@ -146,8 +145,8 @@ inline void getChassisClockLimit(
                                             *value;
                                         continue;
                                     }
-                                    else if (propertyName ==
-                                             "RequestedSpeedLimitMax")
+                                    if (propertyName ==
+                                        "RequestedSpeedLimitMax")
                                     {
                                         propertyName = "SettingMax";
                                         const uint32_t* value =
@@ -165,8 +164,8 @@ inline void getChassisClockLimit(
                                             *value;
                                         continue;
                                     }
-                                    else if (propertyName ==
-                                             "RequestedSpeedLimitMin")
+                                    if (propertyName ==
+                                        "RequestedSpeedLimitMin")
                                     {
                                         propertyName = "SettingMin";
                                         const uint32_t* value =
@@ -184,7 +183,7 @@ inline void getChassisClockLimit(
                                             *value;
                                         continue;
                                     }
-                                    else if (propertyName == "PhysicalContext")
+                                    if (propertyName == "PhysicalContext")
                                     {
                                         const std::string* physicalcontext =
                                             std::get_if<std::string>(
@@ -195,7 +194,7 @@ inline void getChassisClockLimit(
                                                     *physicalcontext);
                                         continue;
                                     }
-                                    else if (propertyName == "ClockMode")
+                                    if (propertyName == "ClockMode")
                                     {
                                         propertyName = "ControlMode";
                                         const std::string* mode =
@@ -203,7 +202,7 @@ inline void getChassisClockLimit(
                                                 &property.second);
                                         std::map<std::string,
                                                  std::string>::iterator itr;
-                                        for (auto& itr : clockLimitModes)
+                                        for (const auto& itr : clockLimitModes)
                                         {
                                             if (*mode == itr.first)
                                             {
@@ -278,7 +277,10 @@ inline void getClockLimitControl(
                 if (objPath.filename() == controlID)
                 {
                     asyncResp->res.jsonValue["Name"] =
-                        "Control for " + processorName + " " + controlID;
+                        std::string("Control for ")
+                            .append(processorName)
+                            .append(" ")
+                            .append(controlID);
                     asyncResp->res.jsonValue["ControlType"] = "FrequencyMHz";
                     asyncResp->res.jsonValue["Status"]["Health"] = "OK";
                     asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
@@ -286,15 +288,19 @@ inline void getClockLimitControl(
                         asyncResp->res.jsonValue["RelatedItem"];
                     relatedItemsArray = nlohmann::json::array();
                     relatedItemsArray.push_back(
-                        {{"@odata.id",
-                          "/redfish/v1/Systems/HGX_Baseboard_0/Processors/" +
-                              processorName}});
+                        {{"@odata.id", std::string("/redfish/v1/Systems/")
+                                           .append(chassisID)
+                                           .append("/Processors/")
+                                           .append(processorName)}});
 
                     asyncResp->res
                         .jsonValue["Actions"]["#Control.ResetToDefaults"]
                                   ["target"] =
-                        "/redfish/v1/Chassis/" + chassisID + "/Controls/" +
-                        controlID + "/Actions/Control.ResetToDefaults";
+                        std::string("/redfish/v1/Chassis/")
+                            .append(chassisID)
+                            .append("/Controls/")
+                            .append(controlID)
+                            .append("/Actions/Control.ResetToDefaults");
                     redfish::nvidia_control_utils::getChassisClockLimit(
                         asyncResp, object, *validChassisPath);
                     validendpoint = true;
@@ -521,7 +527,7 @@ inline void postClockLimitControl(
                 return;
             }
 
-            for (auto sensorpath : *data)
+            for (const auto& sensorpath : *data)
             {
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, sensorpath](
@@ -537,7 +543,7 @@ inline void postClockLimitControl(
                                 sensorpath);
                             return;
                         }
-                        for (auto [connection, interfaces] : object)
+                        for (const auto& [connection, interfaces] : object)
                         {
                             resetClockLimitControl(asyncResp, connection,
                                                    sensorpath);
@@ -574,6 +580,7 @@ inline void
     // to ensure the object has `all_processors` and go ahead.
     sdbusplus::asio::getProperty<std::vector<std::string>>(
         *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
+        // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
         *validChassisPath + "/all_processors",
         "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, getControlCpu,

@@ -18,6 +18,9 @@
 
 #include <atomic>
 #include <cstdint>
+#include <string>
+#include <vector>
+
 namespace redfish
 {
 
@@ -268,7 +271,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                                 path, std::array<const char*, 0>());
                             isFoundSwitchObject = true;
                         }
-                        if (isFoundSwitchObject == false)
+                        if (!isFoundSwitchObject)
                         {
                             messages::resourceNotFound(resp->res, "Switch",
                                                        switchId);
@@ -281,7 +284,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
                 isFoundFabricObject = true;
             }
-            if (isFoundFabricObject == false)
+            if (!isFoundFabricObject)
             {
                 messages::resourceNotFound(resp->res, "Fabric", fabricId);
             }
@@ -337,8 +340,11 @@ inline void populateErrorInjectionData(
                         aResp->res
                             .jsonValue["Oem"]["Nvidia"]["ErrorInjection"] = {
                             {"@odata.id",
-                             "/redfish/v1/Fabrics/" + fabricId + "/Switches/" +
-                                 switchId + "/Oem/Nvidia/ErrorInjection"}};
+                             std::string("/redfish/v1/Fabrics/")
+                                 .append(fabricId)
+                                 .append("/Switches/")
+                                 .append(switchId)
+                                 .append("/Oem/Nvidia/ErrorInjection")}};
                         return;
                     }
                 },
@@ -614,7 +620,6 @@ inline void getSwitchHistogramLink(
         "#NvidiaSwitch.v1_3_0.NvidiaSwitch";
     asyncResp->res.jsonValue["Oem"]["Nvidia"]["Histograms"]["@odata.id"] =
         switchHistogramURI;
-    return;
 }
 
 } // namespace nvidia_fabric_utils

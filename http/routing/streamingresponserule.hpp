@@ -1,6 +1,5 @@
 #pragma once
 #include "baserule.hpp"
-#include "dynamicrule.hpp"
 #include "http_stream.hpp"
 
 #include <boost/beast/http/verb.hpp>
@@ -17,15 +16,16 @@ class StreamingResponseRule : public BaseRule
     using self_t = StreamingResponseRule;
 
   public:
-    StreamingResponseRule(const std::string& ruleIn) : BaseRule(ruleIn)
+    explicit StreamingResponseRule(const std::string& ruleIn) : BaseRule(ruleIn)
     {
         isUpgrade = true;
     }
 
-    void validate() override {}
+    void validate(/*unused*/) override {} /*unused*/
 
-    void handle(const Request& /*req*/, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const std::vector<std::string>&) override
+    void handle(const Request& /*unused*/,
+                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                const std::vector<std::string>& /*unused*/) override
     {
         asyncResp->res.result(boost::beast::http::status::not_found);
     }
