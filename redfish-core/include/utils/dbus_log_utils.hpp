@@ -111,6 +111,11 @@ class AdditionalData
         return data.count(key);
     }
 
+    auto equals_range(const std::string& key) const
+    {
+        return data.equal_range(key);
+    }
+
     std::map<std::string, std::string>::const_iterator begin() const
     {
         return data.cbegin();

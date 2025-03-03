@@ -66,6 +66,7 @@
 #include <utils/dbus_log_utils.hpp>
 #include <utils/dbus_utils.hpp>
 #include <utils/log_services_util.hpp>
+#include <utils/nvidia_utils.hpp>
 #include <utils/origin_utils.hpp>
 #include <utils/time_utils.hpp>
 
@@ -2908,22 +2909,42 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
                 bool device_event_data = false;
                 std::string messageId;
                 std::string messageArgs;
+                std::vector<std::string> messageArgsDbus = {};
                 std::string originOfCondition;
                 std::string deviceName;
                 nlohmann::json::object_t cper;
                 if (additionalDataRaw != nullptr)
                 {
                     AdditionalData additional(*additionalDataRaw);
-                    if (additional.count("REDFISH_MESSAGE_ID") > 0)
+                    auto it = additional.equals_range("REDFISH_MESSAGE_ID");
+                    auto msgCount = std::distance(it.first, it.second);
+                    if (msgCount == 1)
                     {
                         isMessageRegistry = true;
                         messageId = additional["REDFISH_MESSAGE_ID"];
-                        BMCWEB_LOG_DEBUG("MessageId: [{}]", messageId);
-
-                        if (additional.count("REDFISH_MESSAGE_ARGS") > 0)
+                        auto msgArg =
+                            additional.equals_range("REDFISH_MESSAGE_ARGS");
+                        auto msgArgCount = std::distance(msgArg.first,
+                                                         msgArg.second);
+                        if (msgArgCount == 1)
                         {
-                            messageArgs = additional["REDFISH_MESSAGE_ARGS"];
+                            convertDbusToRedfishProperty(additional,
+                                                         messageArgs);
                         }
+                        else if (msgArgCount > 1)
+                        {
+                            BMCWEB_LOG_ERROR("Multiple "
+                                             "REDFISH_MESSAGE_ARGS in the Dbus "
+                                             "signal message.");
+                            return;
+                        }
+                    }
+                    else if (msgCount > 1)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "There should be exactly one MessageId in the Dbus signal message. Found {}",
+                            std::to_string(msgCount));
+                        return;
                     }
                     if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
                     {
