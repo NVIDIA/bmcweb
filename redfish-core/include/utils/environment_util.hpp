@@ -1440,6 +1440,72 @@ inline void getEnvironmentMetricsDataByService(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
+inline void getMemoryEnvironmentMetricsDataByService(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
+    const std::string& objPath, bool isSupportPowerLimit = false)
+{
+    BMCWEB_LOG_DEBUG("Get environment metrics data.");
+
+    // Get parent chassis for sensors URI
+    crow::connections::systemBus->async_method_call(
+        [aResp, service, objPath,
+         isSupportPowerLimit](const boost::system::error_code& ec,
+                              std::variant<std::vector<std::string>>& resp) {
+        if (ec)
+        {
+            return; // no chassis = no failures
+        }
+        std::vector<std::string>* data =
+            std::get_if<std::vector<std::string>>(&resp);
+        if (data == nullptr || data->empty())
+        {
+            // Object must have single parent chassis
+            return;
+        }
+        const std::string& chassisPath = data->front();
+        sdbusplus::message::object_path objectPath(chassisPath);
+        std::string chassisName = objectPath.filename();
+        if (chassisName.empty())
+        {
+            messages::internalError(aResp->res);
+            return;
+        }
+        const std::string& chassisId = chassisName;
+        crow::connections::systemBus->async_method_call(
+            [aResp, service, chassisId, isSupportPowerLimit](
+                const boost::system::error_code& e,
+                std::variant<std::vector<std::string>>& resp) {
+            if (e)
+            {
+                BMCWEB_LOG_ERROR("Failed to get all sensors: {}", e.message());
+                messages::internalError(aResp->res);
+                return;
+            }
+            std::vector<std::string>* data =
+                std::get_if<std::vector<std::string>>(&resp);
+            if (data == nullptr)
+            {
+                return;
+            }
+            const std::string resourceType = "Memory";
+            for (const std::string& sensorPath : *data)
+            {
+                getSensorDataByService(aResp, service, chassisId, sensorPath,
+                                       resourceType, isSupportPowerLimit);
+            }
+        },
+            // all_sensors association to get sensors associated with dimm
+            // Note: objPath belong to dimm where Item.Dimm iface is implemented
+            "xyz.openbmc_project.ObjectMapper", objPath + "/all_sensors",
+            "org.freedesktop.DBus.Properties", "Get",
+            "xyz.openbmc_project.Association", "endpoints");
+    },
+        // parent_chassis to get the chassis, dimm is present on
+        "xyz.openbmc_project.ObjectMapper", objPath + "/parent_chassis",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
+}
+
 inline void getCpuEnvironmentMetricsDataByService(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath)
@@ -1800,7 +1866,6 @@ inline void
 
             return;
         }
-        const std::string resourceType = "Memory";
         for (const auto& [path, object] : subtree)
         {
             if (!boost::ends_with(path, dimmId))
@@ -1809,8 +1874,7 @@ inline void
             }
             for (const auto& [service, interfaces] : object)
             {
-                getEnvironmentMetricsDataByService(aResp, service, path,
-                                                   resourceType);
+                getMemoryEnvironmentMetricsDataByService(aResp, service, path);
             }
             return;
         }
