@@ -92,6 +92,7 @@ inline std::vector<ReconfigPermission> parseReconfigPermissionsJson(
         {"PowerSmoothingPrivilegeLevel1", {}},
         {"PowerSmoothingPrivilegeLevel2", {}},
         {"EGMMode", {}},
+        {"InfoROMFileSystemRecreate", {}},
     };
 
     if (redfish::json_util::readJson(
@@ -118,7 +119,8 @@ inline std::vector<ReconfigPermission> parseReconfigPermissionsJson(
             features["PowerSmoothingPrivilegeLevel1"],
             "PowerSmoothingPrivilegeLevel2",
             features["PowerSmoothingPrivilegeLevel2"], "EGMMode",
-            features["EGMMode"]))
+            features["EGMMode"], "InfoROMFileSystemRecreate",
+            features["InfoROMFileSystemRecreate"]))
     {
         for (auto& [featureName, feature] : features)
         {
