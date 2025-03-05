@@ -663,7 +663,7 @@ inline void getReconfigPermissionsData(
         auto reconfigPermissionsName =
             sdbusplus::message::object_path(objPath).filename();
         aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaProcessor.v1_5_0.NvidiaGPU";
+            "#NvidiaProcessor.v1_6_0.NvidiaGPU";
         std::string reconfigPermissionsType = "";
         if (objPath.find("InbandReconfigPermissions") != std::string::npos)
         {
