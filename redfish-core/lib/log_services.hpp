@@ -3305,8 +3305,9 @@ inline void requestRoutesSystemDumpEntryDownload(App& app)
         app,
         "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/<str>/attachment/")
         .privileges(redfish::privileges::getLogEntry)
-        .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleLogServicesSystemDumpEntryDownloadGet, std::ref(app), "System"));
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleLogServicesSystemDumpEntryDownloadGet,
+                            std::ref(app), "System"));
 }
 
 inline void requestRoutesBMCDumpCreate(App& app)
@@ -4063,8 +4064,5 @@ inline void requestRoutesDBusLogServiceActionsClear(App& app)
                 dBusLogServiceActionsClear(asyncResp);
             });
 }
-
-// Add this near the top with other constants
-constexpr bool BMCWEB_SYSTEM_DUMP_BASE64_ENCODE = false; // Disabled by default
 
 } // namespace redfish

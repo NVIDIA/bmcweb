@@ -5,6 +5,7 @@
 #include "app.hpp"
 #include "dbus_monitor.hpp"
 #include "dbus_singleton.hpp"
+#include "dump_aggregation.hpp"
 #include "event_service_manager.hpp"
 #include "google/google_service_root.hpp"
 #include "hostname_monitor.hpp"
@@ -18,7 +19,6 @@
 #include "openbmc_dbus_rest.hpp"
 #include "redfish.hpp"
 #include "redfish_aggregator.hpp"
-#include "dump_aggregation.hpp"
 #include "user_monitor.hpp"
 #include "vm_websocket.hpp"
 #include "webassets.hpp"
@@ -138,11 +138,6 @@ int run()
             BMCWEB_LOG_INFO("Start Hostname Monitor Service...");
             crow::hostname_monitor::registerHostnameSignal();
         }
-    }
-
-    if constexpr (BMCWEB_REDFISH_DUMP_LOG)
-    {
-        crow::obmc_dump::requestRoutes(app);
     }
 
     if constexpr (BMCWEB_SHMEM_PLATFORM_METRICS)

@@ -3,6 +3,7 @@
 #include "app.hpp"
 #include "async_resp.hpp"
 #include "error_messages.hpp"
+#include "redfish_util.hpp"
 #include "redfish_aggregator.hpp"
 
 namespace redfish
@@ -29,28 +30,26 @@ inline void handleSetUpRedfishRoute(
 
 inline void requestRoutes(App& app)
 {
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Managers/" +
-                     std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX) +
-                     "<str>/LogServices/Dump/Entries/<str>/attachment/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/" +
+                          std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX) +
+                          "<str>/LogServices/Dump/Entries/<str>/attachment/")
         .privileges({{"ConfigureComponents", "ConfigureManager"}})
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleSetUpRedfishRoute, std::ref(app), "BMC"));
 
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/" +
-                     std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX) +
-                     "<str>/LogServices/Dump/Entries/<str>/attachment/")
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
+                          std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX) +
+                          "<str>/LogServices/Dump/Entries/<str>/attachment/")
         .privileges({{"ConfigureComponents", "ConfigureManager"}})
-        .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleSetUpRedfishRoute, std::ref(app), "System"));
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleSetUpRedfishRoute, std::ref(app), "System"));
 
     if constexpr (BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG)
     {
-        BMCWEB_ROUTE(
-            app, "/redfish/v1/Systems/" +
-                     std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX) +
-                     "<str>/LogServices/FaultLog/Entries/<str>/attachment/")
+        BMCWEB_ROUTE(app,
+                     "/redfish/v1/Systems/" +
+                         std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX) +
+                         "<str>/LogServices/FaultLog/Entries/<str>/attachment/")
             .privileges({{"ConfigureComponents", "ConfigureManager"}})
             .methods(boost::beast::http::verb::get)(std::bind_front(
                 handleSetUpRedfishRoute, std::ref(app), "FaultLog"));
@@ -58,4 +57,4 @@ inline void requestRoutes(App& app)
 }
 
 } // namespace dump_aggregation
-} // namespace redfish 
+} // namespace redfish

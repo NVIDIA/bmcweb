@@ -362,43 +362,6 @@ class Connection :
             return;
         }
 
-#ifdef LEGACY_DUMP_FILE_OFFLOAD_FEATURE  
-        std::string url(req->target());
-        std::size_t dumpPos = url.rfind("Dump");
-
-        if constexpr (BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG)
-        {
-            if (dumpPos == std::string::npos)
-            {
-                dumpPos = url.rfind("FaultLog");
-            }
-        }
-
-        std::size_t attachmentPos = url.rfind("attachment");
-        std::size_t satellitesPos = std::string::npos;
-
-        if constexpr (BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG)
-        {
-            if (dumpPos == std::string::npos)
-            {
-                dumpPos = url.rfind("FaultLog");
-            }
-        }
-
-        if constexpr (BMCWEB_REDFISH_AGGREGATION)
-        {
-            satellitesPos = url.rfind(BMCWEB_REDFISH_AGGREGATION_PREFIX);
-        }
-
-        if ((dumpPos != std::string::npos) &&
-            (attachmentPos != std::string::npos) &&
-            (satellitesPos == std::string::npos))
-        {
-            BMCWEB_LOG_DEBUG("upgrade stream connection");
-            handler->handleUpgrade(req, asyncResp, std::move(adaptor));
-            return;
-        }
-#endif 
         std::string_view expected =
             req->getHeaderValue(boost::beast::http::field::if_none_match);
         if (!expected.empty())
