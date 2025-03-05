@@ -2453,7 +2453,7 @@ inline void processMultipartFormData(
     }
 #endif
 
-    auto sharedReq = std::make_shared<const crow::Request>(req);
+    auto sharedReq = std::make_shared<const crow::Request>(std::move(req));
 
     setForceUpdate(asyncResp, "/xyz/openbmc_project/software",
                    forceUpdate.value_or(false),
