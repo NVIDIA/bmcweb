@@ -88,6 +88,7 @@ feature_options = [
     'redfish-oem-manager-fan-data',
     'redfish-post-to-old-updateservice',
     'redfish-provisioning-feature',
+    'system-dump-base64-encode',
     'redfish-system-faultlog-dump-log',
     'redfish-updateservice-http-pull',
     'redfish-updateservice-use-dbus',

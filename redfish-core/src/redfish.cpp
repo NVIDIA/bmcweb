@@ -139,8 +139,8 @@ RedfishService::RedfishService(App& app)
         requestRoutesBMCDumpService(app);
         requestRoutesBMCDumpEntryCollection(app);
         requestRoutesBMCDumpEntry(app);
-        // Need to migrate dump-offload feature to upstream work
-        // requestRoutesBMCDumpEntryDownload(app);
+        requestRoutesBMCDumpEntryDownload(app);
+        requestRoutesSystemDumpEntryDownload(app);
         requestRoutesBMCDumpCreate(app);
         requestRoutesBMCDumpClear(app);
     }

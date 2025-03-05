@@ -268,6 +268,8 @@ inline void handleSetUpRedfishRoute(
 
 inline void requestRoutes(App& app)
 {
+
+#ifdef LEGACY_DUMP_FILE_OFFLOAD_FEATURE    
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/" +
                           std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                           "/LogServices/Dump/Entries/<str>/attachment/")
@@ -365,37 +367,7 @@ inline void requestRoutes(App& app)
                 handler->second->outputBuffer.clear();
             });
     }
-
-    if constexpr (BMCWEB_REDFISH_AGGREGATION)
-    {
-        BMCWEB_ROUTE(app,
-                     "/redfish/v1/Managers/" +
-                         std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX) +
-                         "<str>/LogServices/Dump/Entries/<str>/attachment/")
-            .privileges({{"ConfigureComponents", "ConfigureManager"}})
-            .methods(boost::beast::http::verb::get)(
-                std::bind_front(handleSetUpRedfishRoute, std::ref(app), "BMC"));
-
-        BMCWEB_ROUTE(app,
-                     "/redfish/v1/Systems/" +
-                         std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX) +
-                         "<str>/LogServices/Dump/Entries/<str>/attachment/")
-            .privileges({{"ConfigureComponents", "ConfigureManager"}})
-            .methods(boost::beast::http::verb::get)(std::bind_front(
-                handleSetUpRedfishRoute, std::ref(app), "System"));
-
-        if constexpr (BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG)
-        {
-            BMCWEB_ROUTE(
-                app, "/redfish/v1/Systems/" +
-                         std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX) +
-                         "<str>/LogServices/FaultLog/Entries/<str>/attachment/")
-                .privileges({{"ConfigureComponents", "ConfigureManager"}})
-                .methods(boost::beast::http::verb::get)(std::bind_front(
-                    handleSetUpRedfishRoute, std::ref(app), "FaultLog"));
-        }
-    }
+#endif 
 }
-
 } // namespace obmc_dump
 } // namespace crow

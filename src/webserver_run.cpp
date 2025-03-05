@@ -18,12 +18,12 @@
 #include "openbmc_dbus_rest.hpp"
 #include "redfish.hpp"
 #include "redfish_aggregator.hpp"
+#include "dump_aggregation.hpp"
 #include "user_monitor.hpp"
 #include "vm_websocket.hpp"
 #include "webassets.hpp"
 
 #include <boost/asio/io_context.hpp>
-#include <dump_offload.hpp>
 #include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/asio/object_server.hpp>
 #include <watchdog.hpp>
@@ -167,6 +167,11 @@ int run()
 
     // TODO(ed) Make event log monitor an RAII object instead of global vars
     redfish::EventServiceManager::stopEventLogMonitor();
+
+    if constexpr (BMCWEB_REDFISH_AGGREGATION)
+    {
+        redfish::dump_aggregation::requestRoutes(app);
+    }
 
     return 0;
 }

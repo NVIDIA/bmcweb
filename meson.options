@@ -1190,3 +1190,11 @@ option(
     value: 'disabled',
     description: 'Enable/Disable ist mode support',
 )
+
+option(
+    'system-dump-base64-encode',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable base64 encoding for system dump downloads. When disabled,
+                    system dumps are served as raw binary data.''',
+)

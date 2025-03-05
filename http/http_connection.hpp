@@ -361,6 +361,8 @@ class Connection :
             handler->handleUpgrade(req, asyncResp, std::move(adaptor));
             return;
         }
+
+#ifdef LEGACY_DUMP_FILE_OFFLOAD_FEATURE  
         std::string url(req->target());
         std::size_t dumpPos = url.rfind("Dump");
 
@@ -396,7 +398,7 @@ class Connection :
             handler->handleUpgrade(req, asyncResp, std::move(adaptor));
             return;
         }
-
+#endif 
         std::string_view expected =
             req->getHeaderValue(boost::beast::http::field::if_none_match);
         if (!expected.empty())
