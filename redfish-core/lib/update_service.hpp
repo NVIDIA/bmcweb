@@ -2690,7 +2690,7 @@ inline void doHTTPUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     }
     else
     {
-        auto sharedReq = std::make_shared<const crow::Request>(req);
+        auto sharedReq = std::make_shared<const crow::Request>(std::move(req));
 
         setForceUpdate(asyncResp, "/xyz/openbmc_project/software", true,
                        [asyncResp, sharedReq]() mutable {
