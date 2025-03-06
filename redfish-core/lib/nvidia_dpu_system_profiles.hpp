@@ -312,6 +312,156 @@ inline std::string dbusOwnerToString(std::string dbusOwner)
     return "";
 }
 
+/**
+ * @brief Finish the profile task
+ * @param taskData - task data object
+ * @param state - profile state
+ * @param messages - json messages
+ * @return bool -if true - task is completed
+ */
+inline bool finishProfileTask(const std::shared_ptr<task::TaskData>& taskData,
+                              std::string_view state, nlohmann::json messages)
+{
+    taskData->state = state;
+    taskData->messages.emplace_back(messages);
+    return task::completed;
+}
+
+/**
+ * @brief handle new task status change
+ * This function is called when the status profile action changes.
+ * if the status is invalid, the task is aborted.
+ * if the status is none or active, the task is completed.
+ * if the status is failed, the task is aborted.
+ * if the status is pending, the task is not completed.
+ * @param taskData - task data object
+ * @param fullStatus - full status string
+ * @return bool - is task completed or not
+ */
+inline bool handleTaskStatus(const std::shared_ptr<task::TaskData>& taskData,
+                             std::string fullStatus)
+{
+    BMCWEB_LOG_DEBUG("Handle status: {}", fullStatus);
+    std::string index = std::to_string(taskData->index);
+    nvidia_system_profile::ActionStatus actionStatus =
+        getStatusActionFromDbusStatus(fullStatus);
+    if (actionStatus == nvidia_system_profile::ActionStatus::Invalid)
+    {
+        BMCWEB_LOG_ERROR("Invalid action status: {}", fullStatus);
+        return finishProfileTask(taskData, "Invalid",
+                                 messages::taskAborted(index));
+    }
+    else if (actionStatus == nvidia_system_profile::ActionStatus::None ||
+             actionStatus == nvidia_system_profile::ActionStatus::Active)
+    {
+        taskData->percentComplete = 100;
+        return finishProfileTask(taskData, "Completed",
+                                 messages::taskCompletedOK(index));
+    }
+    else if (actionStatus == nvidia_system_profile::ActionStatus::Failed)
+    {
+        return finishProfileTask(taskData, "Exception",
+                                 messages::taskAborted(index));
+    }
+    return !task::completed;
+}
+
+/**
+ * @brief update task handler
+ * This is called in case of match on the profile status interface change
+ * @param ec - error code
+ * @param msg - dbus message
+ * @param taskData - task data object
+ * @return bool - is task completed or not
+ */
+inline bool updateTaskHandler(boost::system::error_code ec,
+                              sdbusplus::message_t& msg,
+                              const std::shared_ptr<task::TaskData>& taskData)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Profile dbus error ");
+        return finishProfileTask(
+            taskData, "Aborted",
+            messages::taskAborted(std::to_string(taskData->index)));
+    }
+    std::string iface;
+    dbus::utility::DBusPropertiesMap values;
+    std::vector<std::string> properties;
+    msg.read(iface, values, properties);
+
+    BMCWEB_LOG_DEBUG("Status changed on index: {}, path: {}, interface: {}",
+                     std::to_string(taskData->index),
+                     std::string(msg.get_path()), iface);
+    if (iface != "xyz.openbmc_project.Profiles.Statuses")
+    {
+        return !task::completed;
+    }
+    const std::string* activateStatus = nullptr;
+    const std::string* addStatus = nullptr;
+    const std::string* deleteStatus = nullptr;
+    const uint16_t* activateProgress = nullptr;
+    const uint16_t* addProgress = nullptr;
+    const uint16_t* deleteProgress = nullptr;
+    if (!sdbusplus::unpackPropertiesNoThrow(
+            redfish::dbus_utils::UnpackErrorPrinter(), values,
+            "ActivateProfile", activateStatus, "AddProfile", addStatus,
+            "DeleteProfile", deleteStatus, "ActivateProgress", activateProgress,
+            "AddProgress", addProgress, "DeleteProgress", deleteProgress))
+    {
+        taskData->messages.emplace_back(messages::internalError());
+        return !task::completed;
+    }
+    if (activateStatus != nullptr)
+    {
+        handleTaskStatus(taskData, *activateStatus);
+    }
+    else if (addStatus != nullptr)
+    {
+        handleTaskStatus(taskData, *addStatus);
+    }
+    else if (deleteStatus != nullptr)
+    {
+        handleTaskStatus(taskData, *deleteStatus);
+    }
+
+    if (activateProgress != nullptr)
+    {
+        taskData->percentComplete = static_cast<int>(*activateProgress);
+        taskData->messages.emplace_back(
+            messages::taskProgressChanged(std::to_string(taskData->index),
+                                          static_cast<int>(*activateProgress)));
+    }
+    else if (addProgress != nullptr)
+    {
+        taskData->percentComplete = static_cast<int>(*addProgress);
+        taskData->messages.emplace_back(messages::taskProgressChanged(
+            std::to_string(taskData->index), static_cast<int>(*addProgress)));
+    }
+    else if (deleteProgress != nullptr)
+    {
+        taskData->percentComplete = static_cast<int>(*deleteProgress);
+        taskData->messages.emplace_back(
+            messages::taskProgressChanged(std::to_string(taskData->index),
+                                          static_cast<int>(*deleteProgress)));
+    }
+    return !task::completed;
+}
+
+inline void
+    startProfileUpdateTask(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                           const std::string& profileNumber,
+                           task::Payload&& payload)
+{
+    std::string matchString = sdbusplus::bus::match::rules::propertiesChanged(
+        profilePath + profileNumber, statusIntrf);
+    std::shared_ptr<task::TaskData> task =
+        task::TaskData::createTask(updateTaskHandler, matchString);
+    task->startTimer(std::chrono::minutes(20));
+    task->populateResp(aResp->res);
+    task->payload.emplace(std::move(payload));
+}
+
 inline void setProfileProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                const std::string& profileNumber,
                                const std::string& interface,
@@ -978,141 +1128,6 @@ inline void handleProfilesUrls(crow::App& app, const crow::Request& req,
         BMCWEB_REDFISH_SYSTEM_URI_NAME, oemProfileTruststore);
 }
 
-/**
- * @brief Finish the profile task
- * @param taskData - task data object
- * @param  state - profile state
- * @param messages - json messages
- * @param messagesStr - messages string
- * @return bool -always true - task is completed
- */
-inline bool finishProfileTask(const std::shared_ptr<task::TaskData>& taskData,
-                              std::string_view state, nlohmann::json messages,
-                              std::string_view messagesStr)
-{
-    taskData->timer.cancel();
-    taskData->finishTask();
-    boost::asio::post(crow::connections::systemBus->get_io_context(),
-                      [taskData] { taskData->match.reset(); });
-    taskData->state = state;
-    taskData->messages.emplace_back(messages);
-    taskData->messages.emplace_back(messagesStr);
-    return task::completed;
-}
-
-/**
- * @brief handle new task status
- * @param taskData - task data object
- * @param action - the profile action that changed the status
- * @param fullStatus - full status string
- * @param  profileNumber - profile number
- * @return bool - is task completed or not
- */
-inline bool
-    handleTaskStatus(const std::shared_ptr<task::TaskData>& taskData,
-                     std::string action, std::string fullStatus,
-                     std::optional<uint16_t> profileNumber = std::nullopt)
-{
-    std::string index = std::to_string(taskData->index);
-
-    std::string message;
-    if (action == "FactoryReset")
-    {
-        message = action;
-    }
-    else if (profileNumber)
-    {
-        message = std::format("Profile {} {}", std::to_string(*profileNumber),
-                              action);
-    }
-
-    nvidia_system_profile::ActionStatus actionStatus =
-        getStatusActionFromDbusStatus(fullStatus);
-    if (actionStatus == nvidia_system_profile::ActionStatus::Invalid)
-    {
-        BMCWEB_LOG_ERROR("Can not parse the status");
-        return finishProfileTask(taskData, "Aborted", messages::internalError(),
-                                 message + " failed");
-    }
-    std::string status = actionStatusToString(actionStatus);
-    if (actionStatus == nvidia_system_profile::ActionStatus::None ||
-        actionStatus == nvidia_system_profile::ActionStatus::Active)
-    {
-        taskData->percentComplete = 100;
-        return finishProfileTask(taskData, "Completed",
-                                 messages::taskCompletedOK(index),
-                                 message + " completed");
-    }
-    else if (actionStatus == nvidia_system_profile::ActionStatus::Failed)
-    {
-        return finishProfileTask(taskData, status,
-                                 messages::taskAborted(status),
-                                 message + " failed");
-    }
-    else
-    {
-        // taskData->percentComplete = statusNotCompleted;
-        taskData->state = status;
-        taskData->messages.emplace_back(messages::updateInProgress(status));
-        return !task::completed;
-    }
-    BMCWEB_LOG_ERROR("No status is not found");
-    return finishProfileTask(taskData, "Aborted", messages::internalError(),
-                             "No status is not found");
-}
-
-inline bool updateTaskHandler(uint16_t profileNumber,
-                              boost::system::error_code ec,
-                              sdbusplus::message_t& msg,
-                              const std::shared_ptr<task::TaskData>& taskData)
-{
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("Profile dbus error ");
-        return finishProfileTask(taskData, "Aborted", messages::internalError(),
-                                 " More than one changed property");
-    }
-    std::string iface;
-    dbus::utility::DBusPropertiesMap values;
-    std::vector<std::string> properties;
-
-    msg.read(iface, values, properties);
-
-    BMCWEB_LOG_DEBUG("Status changed on index: {}, path: {}, interface: {}",
-                     std::to_string(taskData->index),
-                     std::string(msg.get_path()), iface);
-    if (iface != "xyz.openbmc_project.Profiles.Statuses")
-    {
-        return !task::completed;
-    }
-    const std::string* activateStatus = nullptr;
-    const std::string* addStatus = nullptr;
-    const std::string* deleteStatus = nullptr;
-    if (!sdbusplus::unpackPropertiesNoThrow(
-            redfish::dbus_utils::UnpackErrorPrinter(), values,
-            "ActivateProfile", activateStatus, "AddProfile", addStatus,
-            "DeleteProfile", deleteStatus))
-    {
-        taskData->messages.emplace_back(messages::internalError());
-        return !task::completed;
-    }
-    if (activateStatus != nullptr)
-    {
-        handleTaskStatus(taskData, "ActivateProfile", *activateStatus,
-                         profileNumber);
-    }
-    if (addStatus != nullptr)
-    {
-        handleTaskStatus(taskData, "AddProfile", *addStatus, profileNumber);
-    }
-    if (deleteStatus != nullptr)
-    {
-        handleTaskStatus(taskData, "DeleteProfile", *deleteStatus,
-                         profileNumber);
-    }
-    return !task::completed;
-}
-
 inline void callbackProfileUpdate(
     const boost::system::error_code& ec, sdbusplus::message::message& msg,
     task::Payload&& payload, const std::shared_ptr<bmcweb::AsyncResp>& aResp,
@@ -1157,13 +1172,8 @@ inline void callbackProfileUpdate(
     }
     BMCWEB_LOG_DEBUG("Update Profile number: {} ",
                      std::to_string(profileNumber));
-    std::string matchString = sdbusplus::bus::match::rules::propertiesChanged(
-        profilePath + std::to_string(profileNumber), statusIntrf);
-    std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
-        std::bind_front(updateTaskHandler, profileNumber), matchString);
-    task->startTimer(std::chrono::minutes(20));
-    task->populateResp(aResp->res);
-    task->payload.emplace(std::move(payload));
+    startProfileUpdateTask(aResp, std::to_string(profileNumber),
+                           std::move(payload));
 }
 
 void handleProfileUpdateCall(task::Payload&& payload,
@@ -1237,8 +1247,9 @@ inline bool
     if (ec)
     {
         BMCWEB_LOG_ERROR("Profile dbus error ");
-        return finishProfileTask(taskData, "Aborted", messages::internalError(),
-                                 " More than one changed property");
+        return finishProfileTask(
+            taskData, "Aborted",
+            messages::taskAborted(std::to_string(taskData->index)));
     }
     std::string iface;
 
@@ -1254,20 +1265,27 @@ inline bool
         return !task::completed;
     }
     const std::string* status = nullptr;
+    const uint16_t* progress = nullptr;
     if (!sdbusplus::unpackPropertiesNoThrow(
             redfish::dbus_utils::UnpackErrorPrinter(), propertiesChanged,
-            "FactoryResetStatus", status))
+            "FactoryResetStatus", status, "FactoryResetProgress", progress))
     {
         taskData->messages.emplace_back(messages::internalError());
         return !task::completed;
     }
 
-    if (status == nullptr)
+    if (status != nullptr)
     {
-        taskData->messages.emplace_back(messages::internalError());
+        return handleTaskStatus(taskData, *status);
+    }
+    if (progress != nullptr)
+    {
+        taskData->percentComplete = static_cast<int>(*progress);
+        taskData->messages.emplace_back(messages::taskProgressChanged(
+            std::to_string(taskData->index), static_cast<int>(*progress)));
         return !task::completed;
     }
-    return handleTaskStatus(taskData, "Factory Reset", *status);
+    return !task::completed;
 }
 
 inline void callbackSetFactorResetProperty(
