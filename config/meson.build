@@ -58,7 +58,6 @@ feature_options = [
     'nvidia-bootentryid',
     'nvidia-oem-bf-properties',
     'nvidia-oem-bf3-properties',
-    'nvidia-oem-common-properties',
     'nvidia-oem-device-status-from-file',
     'nvidia-oem-fw-update-staging',
     'nvidia-oem-logservices',

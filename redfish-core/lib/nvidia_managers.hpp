@@ -1665,7 +1665,7 @@ inline void
                               std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                               "/Truststore/Certificates"}};
 
-        if constexpr (BMCWEB_NVIDIA_OEM_COMMON_PROPERTIES)
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
             oem["Nvidia"]["@odata.id"] =
                 "/redfish/v1/Managers/" +

@@ -606,12 +606,6 @@ option(
     description: 'Enable OEM GB200Nvl properties',
 )
 option(
-    'nvidia-oem-common-properties',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable OEM Nvidia common properties.',
-)
-option(
     'nvidia-retimer-debugmode',
     type: 'feature',
     value: 'disabled',

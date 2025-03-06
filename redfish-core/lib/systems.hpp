@@ -3927,7 +3927,7 @@ inline void
         asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
         redfish::conditions_utils::populateServiceConditions(
             asyncResp, std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
-        if constexpr (BMCWEB_NVIDIA_OEM_COMMON_PROPERTIES)
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.id"] =
                 "/redfish/v1/Systems/" +
