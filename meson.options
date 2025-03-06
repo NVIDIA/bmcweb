@@ -676,12 +676,6 @@ option(
     description: 'Platform specific computer system description',
 )
 option(
-    'platform-bmc-id',
-    type: 'string',
-    value: 'bmc',
-    description: 'Platform specific managers bmc id',
-)
-option(
     'platform-network-adapter',
     type: 'string',
     value: 'networkadapter',
@@ -912,13 +906,6 @@ option(
     type: 'string',
     value: '/tmp/images/',
     description: 'Update service image location',
-)
-
-option(
-    'redfish-new-powersubsystem',
-    type: 'feature',
-    value: 'enabled',
-    description: 'Enable/disable the new Power sub system.',
 )
 
 option(

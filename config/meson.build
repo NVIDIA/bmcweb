@@ -125,7 +125,6 @@ string_options = [
     'nvidia-network-adapter-link-prefix',
     'nvidia-network-adapter-prefix',
     'otp-provisioning-status-file-path',
-    'platform-bmc-id',
     'platform-chassis-name',
     'platform-device-prefix',
     'platform-gpu-name-prefix',
