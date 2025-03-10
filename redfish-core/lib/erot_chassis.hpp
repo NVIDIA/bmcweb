@@ -162,7 +162,7 @@ static void
                         });
                         if (it != (*certs).end())
                         {
-                            std::cout << "Found" << std::endl;
+                            BMCWEB_LOG_DEBUG("Found certificate");
                         }
                         std::string certStr = std::get<1>(*it);
                         asyncResp->res.jsonValue["CertificateString"] = certStr;
