@@ -697,6 +697,12 @@ class RequestHandler : public OperationHandler
         return indexMap.at(type);
     }
 
+    bool isEndpointRequestPending(EndpointState state)
+    {
+        return state == EndpointState::StatusAcquired ||
+               state == EndpointState::TokenInstalled;
+    }
+
     bool getNsmRequest()
     {
         createNsmMatch(
@@ -709,8 +715,7 @@ class RequestHandler : public OperationHandler
         {
             auto type = ep->getType();
             auto state = ep->getState();
-            if (type != EndpointType::NSM ||
-                state != EndpointState::StatusAcquired)
+            if (type != EndpointType::NSM || !isEndpointRequestPending(state))
             {
                 continue;
             }
@@ -755,8 +760,7 @@ class RequestHandler : public OperationHandler
         {
             auto type = ep->getType();
             auto state = ep->getState();
-            if (type != EndpointType::SPDM ||
-                state != EndpointState::StatusAcquired)
+            if (type != EndpointType::SPDM || !isEndpointRequestPending(state))
             {
                 continue;
             }
@@ -806,7 +810,6 @@ class RequestHandler : public OperationHandler
         auto& ep = *endpoint;
         auto state = ep->getState();
         if (state == EndpointState::Error ||
-            state == EndpointState::TokenInstalled ||
             state == EndpointState::RequestAcquired)
         {
             errCallback(false, desc, "received unexpected update");
@@ -902,7 +905,6 @@ class RequestHandler : public OperationHandler
         auto& ep = *endpoint;
         auto state = ep->getState();
         if (state == EndpointState::Error ||
-            state == EndpointState::TokenInstalled ||
             state == EndpointState::RequestAcquired)
         {
             errCallback(false, desc, "received unexpected update");
@@ -1027,12 +1029,11 @@ class RequestHandler : public OperationHandler
         for (const auto& ep : *endpoints)
         {
             auto state = ep->getState();
-            if (state == EndpointState::StatusAcquired)
+            if (isEndpointRequestPending(state))
             {
                 return;
             }
-            if (state == EndpointState::RequestAcquired ||
-                state == EndpointState::TokenInstalled)
+            if (state == EndpointState::RequestAcquired)
             {
                 ++completedRequestsCount;
             }
