@@ -525,6 +525,7 @@ RedfishService::RedfishService(App& app)
 
     if constexpr (BMCWEB_NVIDIA_OEM_PMC)
     {
+        nvidia_oem_managers_pmc::requestRoutesNvidiaPowerCompliance(app);
         nvidia_oem_managers_pmc::
             requestRoutesNvidiaPowerComplianceManagerActions(app);
         nvidia_oem_power_domain::requestRoutesNvidiaPowerDomain(app);
