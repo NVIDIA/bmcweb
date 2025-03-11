@@ -128,7 +128,7 @@ if (cxx.get_id() == 'gcc')
         '-Wunused-parameter',
         '-Wdouble-promotion',
         #'-Wshadow',
-        #'-Wno-psabi',
+        '-Wno-psabi',
         '-Wno-attributes',
         '-Wno-error=deprecated-declarations',
         '-Wno-comment',
