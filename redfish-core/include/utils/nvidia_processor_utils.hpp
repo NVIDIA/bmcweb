@@ -1628,6 +1628,237 @@ inline void patchPortDisableFuture(
         *inventoryService, objectPath, "org.freedesktop.DBus.Properties",
         "GetAll", "com.nvidia.NVLink.NVLinkDisableFuture");
 }
+
+inline std::string getLinkDownReasonCode(const std::string& linkDownReasonCode)
+{
+    if (linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.NoLinkDown")
+    {
+        return "NoLinkDown";
+    }
+    else if (linkDownReasonCode ==
+             "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.Unknown")
+    {
+        return "Unknown";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.HighBitErrorRate")
+    {
+        return "HighBitErrorRate";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.BlockLockLost")
+    {
+        return "BlockLockLost";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.AlignmentLost")
+    {
+        return "AlignmentLost";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.FECSyncLost")
+    {
+        return "FECSyncLost";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PllLockLost")
+    {
+        return "PllLockLost";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.FIFOOverflow")
+    {
+        return "FIFOOverflow";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.FalseSkipDetected")
+    {
+        return "FalseSkipDetected";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.MinorErrorThresholdExceeded")
+    {
+        return "MinorErrorThresholdExceeded";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PhyRetransmitTimeout")
+    {
+        return "PhyRetransmitTimeout";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.HeartbeatErrors")
+    {
+        return "HeartbeatErrors";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.CreditMonitorWatchdogTimeout")
+    {
+        return "CreditMonitorWatchdogTimeout";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.LinkLayerIntegrityThresholdExceeded")
+    {
+        return "LinkLayerIntegrityThresholdExceeded";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.LinkLayerBufferOverrun")
+    {
+        return "LinkLayerBufferOverrun";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.OOBCommandLinkHealthy")
+    {
+        return "OOBCommandLinkHealthy";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.OOBCommandLinkHighBER")
+    {
+        return "OOBCommandLinkHighBER";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.InbandCommandLinkHealthy")
+    {
+        return "InbandCommandLinkHealthy";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.InbandCommandLinkHighBER")
+    {
+        return "InbandCommandLinkHighBER";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.VerificationGatewayDown")
+    {
+        return "VerificationGatewayDown";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.RemoteFaultReceived")
+    {
+        return "RemoteFaultReceived";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.TrainingSequenceReceived")
+    {
+        return "TrainingSequenceReceived";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.ManagementCommandDown")
+    {
+        return "ManagementCommandDown";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.CableDisconnected")
+    {
+        return "CableDisconnected";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.CableAccessFault")
+    {
+        return "CableAccessFault";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.ThermalShutdown")
+    {
+        return "ThermalShutdown";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.CurrentIssue")
+    {
+        return "CurrentIssue";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PowerBudgetExceeded")
+    {
+        return "PowerBudgetExceeded";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.FastRawBERRecovery")
+    {
+        return "FastRawBERRecovery";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.FastEffectiveBERRecovery")
+    {
+        return "FastEffectiveBERRecovery";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.FastSymbolBERRecovery")
+    {
+        return "FastSymbolBERRecovery";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.FastCreditWatchdogRecovery")
+    {
+        return "FastCreditWatchdogRecovery";
+    }
+    else if (linkDownReasonCode ==
+             "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PeerSleep")
+    {
+        return "PeerSleep";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PeerDisabled")
+    {
+        return "PeerDisabled";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PeerDisableLocked")
+    {
+        return "PeerDisableLocked";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PeerThermalEvent")
+    {
+        return "PeerThermalEvent";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PeerForcedEvent")
+    {
+        return "PeerForcedEvent";
+    }
+    else if (
+        linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PeerResetEvent")
+    {
+        return "PeerResetEvent";
+    }
+    return "Unknown";
+}
+
 inline void
     getWorkLoadPowerInfo(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                          const std::string& processorId)
