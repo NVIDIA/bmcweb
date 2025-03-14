@@ -26,6 +26,9 @@
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaSystemConfigProfileStatus_v1.xml">
     <edmx:Include Namespace="NvidiaSystemConfigProfileStatus"/>
   </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/CertificateCollection_v1.xml">
+    <edmx:Include Namespace="CertificateCollection"/>
+  </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSystemConfigProfile">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -70,6 +73,22 @@
         <Annotation Term="OData.Description" String="The available actions for this resource."/>
         <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
       </ComplexType>
+      <ComplexType Name="Truststore">
+        <Annotation Term="OData.Description" String="The truststore supported for profile certificate."/>
+        <Annotation Term="OData.LongDescription" String="The truststore supported for profile certificate."/>
+        <NavigationProperty Name="NvidiaCertificates" Type="CertificateCollection.CertificateCollection">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The links to the profile CA certificate truststore that are issued by the NVIDIA authority."/>
+          <Annotation Term="OData.LongDescription" String="The links to the NVIDIA profile CA certificate truststore. Only one CA certificate can be installed, and you cannot delete it. The certificate will be saved in the config flash and be persistent to the factory reset."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+        <NavigationProperty Name="OemCertificates" Type="CertificateCollection.CertificateCollection">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The links to the profile CA certificate truststore that are issued by the OEM authority."/>
+          <Annotation Term="OData.LongDescription" String="The links to the OEM profile CA certificate truststore. Only one CA certificate can be installed, and you cannot delete it. The certificate will be saved in the config flash and be persistent to factory reset."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
       <EntityType Name="NvidiaSystemConfigProfile" BaseType="NvidiaSystemConfigProfile.NvidiaSystemConfigProfile">
         <NavigationProperty Name="Profiles" Type="NvidiaSystemProfileCollection.NvidiaSystemProfileCollection" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
@@ -86,6 +105,10 @@
         <Property Name="Actions" Type="NvidiaSystemConfigProfile.v1_0_0.Actions" Nullable="false">
           <Annotation Term="OData.Description" String="The available actions for this resource."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
+        <Property Name="Truststore" Type="NvidiaSystemConfigProfile.v1_0_0.Truststore" Nullable="false">
+          <Annotation Term="OData.Description" String="The truststore for the profile certificate."/>
+          <Annotation Term="OData.LongDescription" String="The profile file is signed and includes the certificate with the public key. This certificate will be verified with the CA certificate installed in this truststore."/>
         </Property>
       </EntityType>
     </Schema>

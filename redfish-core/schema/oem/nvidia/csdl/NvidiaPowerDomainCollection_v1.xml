@@ -48,7 +48,8 @@
         </Annotation>
         <Annotation Term="Redfish.Uris">
           <Collection>
-            <String>/redfish/v1/Managers/{PowerComplianceManagerId}/Oem/Nvidia/PowerDomains</String>
+            <String>/redfish/v1/Managers/{ManagerId}/Oem/Nvidia/PowerCompliance/PowerDomains</String>
+            <String>/redfish/v1/Managers/{ManagerId}/Oem/Nvidia/PowerCompliance/PowerDomains/</String>
           </Collection>
         </Annotation>
         <NavigationProperty Name="Members" Type="Collection(NvidiaPowerDomain.NvidiaPowerDomain)">

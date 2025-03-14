@@ -29,7 +29,7 @@
       <EntityType Name="NvidiaSystemProfile" BaseType="Resource.v1_0_0.Resource" Abstract="true">
         <Annotation Term="OData.Description" String="Parameters for NvidiaSystemProfile."/>
         <Annotation Term="OData.LongDescription" String="Parameters for NvidiaSystemProfile."/>
-         <Annotation Term="Capabilities.InsertRestrictions">
+        <Annotation Term="Capabilities.InsertRestrictions">
           <Record>
             <PropertyValue Property="Insertable" Bool="false"/>
           </Record>

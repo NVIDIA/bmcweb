@@ -93,7 +93,7 @@
           <Annotation Term="Validation.Minimum" Int="0"/>
           <Annotation Term="Validation.Maximum" Int="65535"/>
         </Property>
-        <Property Name="Protocol" Type="NvidiaNetworkProtocol.v1_0_0.Protocol">
+        <Property Name="TransportProtocol" Type="NvidiaNetworkProtocol.v1_0_0.Protocol">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="The transport protocol used to connect to the rsyslog server."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate the transport protocol (TCP/UDP) used to connect to the rsyslog server"/>
@@ -121,6 +121,12 @@
           <Annotation Term="OData.LongDescription" String="This property shall indicate an array of facilities from which logs must be sent to the rsyslog server."/>
         </Property>
       </ComplexType>
+      <ComplexType Name="NvidiaNetworkProtocol">
+        <Property Name="Rsyslog" Type="NvidiaNetworkProtocol.v1_0_0.Rsyslog">
+          <Annotation Term="OData.Description" String="Rsyslog client configuration of the BMC."/>
+          <Annotation Term="OData.LongDescription" String="The object shall indicate the rsyslog client configuration setting of the BMC."/>
+        </Property>
+      </ComplexType>      
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

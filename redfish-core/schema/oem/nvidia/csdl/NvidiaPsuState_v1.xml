@@ -44,7 +44,8 @@
         </Annotation>
         <Annotation Term="Redfish.Uris">
           <Collection>
-            <String>/redfish/v1/Managers/{PowerComplianceManagerId}/Oem/Nvidia/PowerStateGroup/PowerSupplies/{PsuStateId}</String>
+            <String>/redfish/v1/Managers/{ManagerId}/Oem/Nvidia/PowerCompliance/PowerStateGroup/PowerSupplies/{PsuStateId}</String>
+            <String>/redfish/v1/Managers/{ManagerId}/Oem/Nvidia/PowerCompliance/PowerStateGroup/PowerSupplies/{PsuStateId}/</String>
           </Collection>
         </Annotation>
       </EntityType>

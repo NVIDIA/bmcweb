@@ -36,7 +36,7 @@
         </Annotation>
         <Annotation Term="Capabilities.UpdateRestrictions">
           <Record>
-            <PropertyValue Property="Updatable" Bool="false"/>
+            <PropertyValue Property="Updatable" Bool="true"/>
             <Annotation Term="OData.Description" String="Any writable properties, such as limits and exceptions, can be updated for sensors."/>
           </Record>
         </Annotation>
@@ -47,7 +47,8 @@
         </Annotation>
         <Annotation Term="Redfish.Uris">
           <Collection>
-            <String>/redfish/v1/Managers/{PowerComplianceManagerId}/Oem/Nvidia/ManagedEntityGroups/{ManagedEntityGroupId}</String>
+            <String>/redfish/v1/Managers/{ManagerId}/Oem/Nvidia/PowerCompliance/ManagedEntityGroups/{ManagedEntityGroupId}</String>
+            <String>/redfish/v1/Managers/{ManagerId}/Oem/Nvidia/PowerCompliance/ManagedEntityGroups/{ManagedEntityGroupId}/</String>
           </Collection>
         </Annotation>
       </EntityType>
@@ -61,7 +62,7 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="Redfish.Required" Bool="true"/>
         </Property>
-        <NavigationProperty Name="ManagedEntities" Type="NvidiaManagedEntityCollection.NvidiaManagedEntityCollection" Nullable="false">
+        <NavigationProperty Name="ManagedEntities" Type="NvidiaManagedEntityCollection.NvidiaManagedEntityCollection" ContainsTarget="true" Nullable="false">
           <Annotation Term="OData.Description" String="A reference to the collection of Managed Entities under this Managed Entity Group."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate a reference to the collection of Managed Entities under this Managed Entity Group."/>
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
