@@ -577,7 +577,7 @@ inline void getSysGUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
             return;
         }
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaProcessor.v1_4_0.NvidiaGPU";
+            "#NvidiaProcessor.v1_6_0.NvidiaGPU";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["MNNVLinkTopology"]
                                 ["SystemGUID"] = property;
     });
@@ -610,7 +610,7 @@ inline void getCCModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         for (const auto& property : properties)
         {
             json["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaProcessor.v1_5_0.NvidiaGPU";
+                "#NvidiaProcessor.v1_6_0.NvidiaGPU";
             if (property.first == "CCModeEnabled")
             {
                 const bool* ccModeEnabled = std::get_if<bool>(&property.second);
@@ -788,7 +788,7 @@ inline void
                     continue;
                 }
                 aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaProcessor.v1_5_0.NvidiaGPU";
+                    "#NvidiaProcessor.v1_6_0.NvidiaGPU";
                 aResp->res.jsonValue["Oem"]["Nvidia"]["ErrorInjection"] = {
                     {"@odata.id",
                      "/redfish/v1/Systems/" +
@@ -832,7 +832,7 @@ inline void
         }
         nlohmann::json& json = aResp->res.jsonValue;
         json["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaProcessor.v1_5_0.NvidiaGPU";
+            "#NvidiaProcessor.v1_6_0.NvidiaGPU";
         for (const auto& property : properties)
         {
             if (property.first == "PendingCCModeState")
@@ -2488,7 +2488,7 @@ static void getEgmModePendingDataHandler(
     }
 
     nlohmann::json& json = aResp->res.jsonValue;
-    json["Oem"]["Nvidia"]["@odata.type"] = "#NvidiaProcessor.v1_4_0.NvidiaGPU";
+    json["Oem"]["Nvidia"]["@odata.type"] = "#NvidiaProcessor.v1_6_0.NvidiaGPU";
     for (const auto& property : properties)
     {
         if (property.first == "PendingEGMModeState")
@@ -2551,7 +2551,7 @@ inline void
     for (const auto& property : properties)
     {
         json["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaProcessor.v1_4_0.NvidiaGPU";
+            "#NvidiaProcessor.v1_6_0.NvidiaGPU";
         if (property.first == "EGMModeEnabled")
         {
             const bool* egmModeEnabled = std::get_if<bool>(&property.second);
