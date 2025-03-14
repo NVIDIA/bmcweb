@@ -9,6 +9,7 @@
 #include "gzfile.hpp"
 #include "http_utility.hpp"
 #include "human_sort.hpp"
+#include "nvidia_error_messages.hpp"
 #include "nvidia_messages.hpp"
 #include "query.hpp"
 #include "registries.hpp"

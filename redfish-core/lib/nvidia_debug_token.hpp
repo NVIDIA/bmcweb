@@ -17,6 +17,7 @@
 #pragma once
 
 #include "debug_token/targeted_operation.hpp"
+#include "nvidia_error_messages.hpp"
 #include "nvidia_messages.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"

@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 #pragma once
+#include "nvidia_error_messages.hpp"
+
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_processor_utils.hpp>
 #include <utils/port_utils.hpp>

@@ -21,6 +21,7 @@
 #include "background_copy.hpp"
 #include "commit_image.hpp"
 #include "debug_token/erase_policy.hpp"
+#include "nvidia_error_messages.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 

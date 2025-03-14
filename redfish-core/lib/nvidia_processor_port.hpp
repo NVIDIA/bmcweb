@@ -22,6 +22,7 @@
 #include "generated/enums/processor.hpp"
 #include "generated/enums/resource.hpp"
 #include "health.hpp"
+#include "nvidia_error_messages.hpp"
 
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>

@@ -24,6 +24,7 @@
 #include "in_band.hpp"
 #include "lsp.hpp"
 #include "manual_boot.hpp"
+#include "nvidia_error_messages.hpp"
 #include "nvidia_protected_component.hpp"
 #include "query.hpp"
 #include "utils/health_utils.hpp"

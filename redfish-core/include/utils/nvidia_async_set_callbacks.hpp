@@ -17,6 +17,7 @@
 #pragma once
 
 #include "async_resp.hpp"
+#include "nvidia_error_messages.hpp"
 #include "utils/nvidia_async_set_utils.hpp"
 
 namespace redfish

@@ -6,6 +6,7 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/account_service.hpp"
+#include "nvidia_error_messages.hpp"
 #include "persistent_data.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"

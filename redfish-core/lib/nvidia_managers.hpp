@@ -26,6 +26,7 @@
 #include "generated/enums/manager.hpp"
 #include "generated/enums/resource.hpp"
 #include "health.hpp"
+#include "nvidia_error_messages.hpp"
 #include "nvidia_event_service_manager.hpp"
 #include "persistentstorage_util.hpp"
 #include "query.hpp"

@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include "nvidia_error_messages.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/chassis_utils.hpp"
