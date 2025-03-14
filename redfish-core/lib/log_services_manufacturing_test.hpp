@@ -119,8 +119,8 @@ inline void mfgTestProcExitHandler(int exitCode, const std::error_code& ec)
                         payload->httpHeaders.emplace_back(std::move(location));
                         t->state = "Completed";
                         t->percentComplete = 100;
-                        t->messages.emplace_back(
-                            messages::taskCompletedOK(std::to_string(t->index)));
+                        t->messages.emplace_back(messages::taskCompletedOK(
+                            std::to_string(t->index)));
                     }
                 }
             }

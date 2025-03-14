@@ -523,10 +523,10 @@ inline void afterSystemGetSubTree(
                                 *crow::connections::systemBus, connection.first,
                                 path, "xyz.openbmc_project.Common.UUID",
                                 [asyncResp](
-                                    const boost::system::error_code& ec3,
+                                    const boost::system::error_code& ec1,
                                     const dbus::utility::DBusPropertiesMap&
                                         properties) {
-                                    afterGetUUID(asyncResp, ec3, properties);
+                                    afterGetUUID(asyncResp, ec1, properties);
                                 });
                         }
                     }
@@ -539,10 +539,10 @@ inline void afterSystemGetSubTree(
                                 *crow::connections::systemBus, connection.first,
                                 path, "xyz.openbmc_project.Common.UUID",
                                 [asyncResp](
-                                    const boost::system::error_code& ec3,
+                                    const boost::system::error_code& ec1,
                                     const dbus::utility::DBusPropertiesMap&
                                         properties) {
-                                    afterGetUUID(asyncResp, ec3, properties);
+                                    afterGetUUID(asyncResp, ec1, properties);
                                 });
                         }
                     }
@@ -553,10 +553,10 @@ inline void afterSystemGetSubTree(
                     sdbusplus::asio::getAllProperties(
                         *crow::connections::systemBus, connection.first, path,
                         "xyz.openbmc_project.Inventory.Decorator.Asset",
-                        [asyncResp](const boost::system::error_code& ec3,
+                        [asyncResp](const boost::system::error_code& ec1,
                                     const dbus::utility::DBusPropertiesMap&
                                         properties) {
-                            afterGetInventory(asyncResp, ec3, properties);
+                            afterGetInventory(asyncResp, ec1, properties);
                         });
 
                     sdbusplus::asio::getProperty<std::string>(
@@ -2184,11 +2184,11 @@ inline void
                 crow::connections::systemBus->async_method_call(
                     [aResp, isIncludeUefiTarget, isIncludeUefiBootNext,
                      isIncludeUefiHttp](
-                        const boost::system::error_code& ec,
+                        const boost::system::error_code& ec1,
                         const std::vector<
                             std::pair<std::string, std::variant<std::string>>>&
                             propertiesList) {
-                        if (ec)
+                        if (ec1)
                         {
                             BMCWEB_LOG_DEBUG("DBUS response error for "
                                              "Populate from Settings service ");
@@ -4025,12 +4025,12 @@ inline void
                             path + "/chassis",
                             "xyz.openbmc_project.Association", "endpoints",
                             [asyncResp](
-                                const boost::system::error_code& ec,
+                                const boost::system::error_code& ec1,
                                 const std::vector<std::string>& property) {
-                                if (ec)
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_ERROR("DBUS response error: {}",
-                                                     ec);
+                                                     ec1);
                                     return; // no chassis = no failures
                                 }
 

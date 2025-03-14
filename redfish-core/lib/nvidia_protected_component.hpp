@@ -351,12 +351,12 @@ inline void handleNvidiaRoTImageSlot(
                         "xyz.openbmc_project.Software.Slot",
                         [asyncResp, service, objectPath, chassisId, slotNum,
                          slotNumStr, fwTypeStr, slotCount, parsedSlotCount,
-                         slotFound](const boost::system::error_code& ec,
+                         slotFound](const boost::system::error_code& ec1,
                                     const dbus::utility::DBusPropertiesMap&
                                         propertiesList) {
-                            if (ec)
+                            if (ec1)
                             {
-                                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                                BMCWEB_LOG_ERROR("DBUS response error {}", ec1);
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
@@ -498,20 +498,21 @@ inline void handleNvidiaRoTProtectedComponentCollection(
                         *crow::connections::systemBus, service, objectPath,
                         "xyz.openbmc_project.Software.Slot",
                         [asyncResp, objectPath,
-                         chassisId](const boost::system::error_code& ec,
+                         chassisId](const boost::system::error_code& ec1,
                                     const dbus::utility::DBusPropertiesMap&
                                         propertiesList) {
-                            if (ec)
+                            if (ec1)
                             {
-                                if (ec == boost::system::errc::host_unreachable)
+                                if (ec1 ==
+                                    boost::system::errc::host_unreachable)
                                 {
                                     // Service not available, no error, just
                                     // don't return chassis state info
                                     BMCWEB_LOG_ERROR("Service not available {}",
-                                                     ec);
+                                                     ec1);
                                     return;
                                 }
-                                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                                BMCWEB_LOG_ERROR("DBUS response error {}", ec1);
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
@@ -618,20 +619,21 @@ inline void handleNvidiaRoTImageSlotCollection(
                         "xyz.openbmc_project.Software.Slot",
                         [asyncResp, objectPath, chassisId, fwTypeStr, slotCount,
                          parsedSlotCount,
-                         slotFound](const boost::system::error_code& ec,
+                         slotFound](const boost::system::error_code& ec1,
                                     const dbus::utility::DBusPropertiesMap&
                                         propertiesList) {
-                            if (ec)
+                            if (ec1)
                             {
-                                if (ec == boost::system::errc::host_unreachable)
+                                if (ec1 ==
+                                    boost::system::errc::host_unreachable)
                                 {
                                     // Service not available, no error, just
                                     // don't return chassis state info
                                     BMCWEB_LOG_ERROR("Service not available {}",
-                                                     ec);
+                                                     ec1);
                                     return;
                                 }
-                                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                                BMCWEB_LOG_ERROR("DBUS response error {}", ec1);
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
@@ -735,20 +737,20 @@ inline void updateSigningKeyProperties(
             const std::string& service = valueIface.first;
             crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisId,
-                 componentId](const boost::system::error_code& ec,
+                 componentId](const boost::system::error_code& ec1,
                               const boost::container::flat_map<
                                   std::string, dbus::utility::DbusVariantType>&
                                   properties) {
-                    if (ec)
+                    if (ec1)
                     {
-                        if (ec == boost::system::errc::host_unreachable)
+                        if (ec1 == boost::system::errc::host_unreachable)
                         {
                             // Service not available, no error, just don't
                             // return chassis state info
-                            BMCWEB_LOG_ERROR("Service not available {}", ec);
+                            BMCWEB_LOG_ERROR("Service not available {}", ec1);
                             return;
                         }
-                        BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                        BMCWEB_LOG_ERROR("DBUS response error {}", ec1);
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -864,9 +866,9 @@ inline void updateSecurityVersionProperties(
                 *crow::connections::systemBus, service, securityPath,
                 securityVersionInterface, "Version",
                 [asyncResp, chassisId,
-                 componentId](const boost::system::error_code& ec,
+                 componentId](const boost::system::error_code& ec1,
                               const uint16_t property) {
-                    if (ec)
+                    if (ec1)
                     {
                         BMCWEB_LOG_ERROR(
                             "MinSecurityVersion DBUS response error");
@@ -934,20 +936,20 @@ inline void updatePendingProperties(
             const auto& valueIface = *mapperResponse.begin();
             const std::string& service = valueIface.first;
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code& ec,
+                [asyncResp](const boost::system::error_code& ec1,
                             const boost::container::flat_map<
                                 std::string, dbus::utility::DbusVariantType>&
                                 properties) {
-                    if (ec)
+                    if (ec1)
                     {
-                        if (ec == boost::system::errc::host_unreachable)
+                        if (ec1 == boost::system::errc::host_unreachable)
                         {
                             // Service not available, no error, just don't
                             // return chassis state info
-                            BMCWEB_LOG_ERROR("Service not available {}", ec);
+                            BMCWEB_LOG_ERROR("Service not available {}", ec1);
                             return;
                         }
-                        BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                        BMCWEB_LOG_ERROR("DBUS response error {}", ec1);
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -1063,20 +1065,21 @@ inline void handleNvidiaRoTProtectedComponentSettings(
                         "xyz.openbmc_project.Software.Slot",
                         [asyncResp, objectPath, chassisId, fwTypeStr,
                          componentId, slotCount, parsedSlotCount,
-                         slotFound](const boost::system::error_code& ec,
+                         slotFound](const boost::system::error_code& ec1,
                                     const dbus::utility::DBusPropertiesMap&
                                         propertiesList) {
-                            if (ec)
+                            if (ec1)
                             {
-                                if (ec == boost::system::errc::host_unreachable)
+                                if (ec1 ==
+                                    boost::system::errc::host_unreachable)
                                 {
                                     // Service not available, no error, just
                                     // don't return chassis state info
                                     BMCWEB_LOG_ERROR("Service not available {}",
-                                                     ec);
+                                                     ec1);
                                     return;
                                 }
-                                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+                                BMCWEB_LOG_ERROR("DBUS response error {}", ec1);
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
@@ -1216,15 +1219,14 @@ inline void handleNvidiaRoTProtectedComponent(
                                                                     componentId,
                                                                     slotCount,
                                                                     parsedSlotCount,
-                                                                    slotFound](const boost::
-                                                                                   system::error_code&
-                                                                                       ec,
-                                                                               const dbus::utility::
-                                                                                   DBusPropertiesMap&
-                                                                                       propertiesList) {
-                                                                       if (ec)
+                                                                    slotFound](
+                                                                       const boost::
+                                                                           system::error_code&
+                                                                               ec1,
+                                                                       const dbus::utility::DBusPropertiesMap& propertiesList) {
+                                                                       if (ec1)
                                                                        {
-                                                                           if (ec ==
+                                                                           if (ec1 ==
                                                                                boost::system::
                                                                                    errc::
                                                                                        host_unreachable)
@@ -1233,12 +1235,12 @@ inline void handleNvidiaRoTProtectedComponent(
                                                                                // return chassis state info
                                                                                BMCWEB_LOG_ERROR(
                                                                                    "Service not available {}",
-                                                                                   ec);
+                                                                                   ec1);
                                                                                return;
                                                                            }
                                                                            BMCWEB_LOG_ERROR(
                                                                                "DBUS response error {}",
-                                                                               ec);
+                                                                               ec1);
                                                                            messages::internalError(
                                                                                asyncResp
                                                                                    ->res);
@@ -1436,9 +1438,9 @@ inline void updateIrreversibleConfigEnabled(
             sdbusplus::asio::getProperty<bool>(
                 *crow::connections::systemBus, service, chassisCfgPath,
                 securityConfigInterface, "IrreversibleConfigState",
-                [asyncResp, chassisId](const boost::system::error_code& ec,
+                [asyncResp, chassisId](const boost::system::error_code& ec1,
                                        const bool property) {
-                    if (ec)
+                    if (ec1)
                     {
                         BMCWEB_LOG_ERROR(
                             "updateIrreversibleConfigEnabled DBUS response error");
@@ -1566,8 +1568,8 @@ inline void
             irreversibleConfigTimer->expires_after(
                 std::chrono::seconds(timeoutTimeSeconds));
             irreversibleConfigTimer->async_wait(
-                [asyncResp](const boost::system::error_code& ec) {
-                    if (ec == boost::asio::error::operation_aborted)
+                [asyncResp](const boost::system::error_code& innerEc) {
+                    if (innerEc == boost::asio::error::operation_aborted)
                     {
                         // expected, we were canceled before the timer
                         // completed.
@@ -1576,9 +1578,9 @@ inline void
                     BMCWEB_LOG_ERROR(
                         "Timed out waiting for IrreversibleConfig response");
                     updateIrreversibleConfigMatch = nullptr;
-                    if (ec)
+                    if (innerEc)
                     {
-                        BMCWEB_LOG_ERROR("Async_wait failed {}", ec);
+                        BMCWEB_LOG_ERROR("Async_wait failed {}", innerEc);
                         return;
                     }
                     if (asyncResp)
@@ -1600,10 +1602,10 @@ inline void
                         chassisCfgPath + "'",
                     callback);
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code& ec) {
-                    if (ec)
+                [asyncResp](const boost::system::error_code& ec1) {
+                    if (ec1)
                     {
-                        BMCWEB_LOG_INFO("DBUS response error {}", ec);
+                        BMCWEB_LOG_INFO("DBUS response error {}", ec1);
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -1794,8 +1796,8 @@ inline void updateMinSecurityVersion(
             updateMinSecVersionTimer->expires_after(
                 std::chrono::seconds(timeoutTimeSeconds));
             updateMinSecVersionTimer->async_wait(
-                [asyncResp](const boost::system::error_code& ec) {
-                    if (ec == boost::asio::error::operation_aborted)
+                [asyncResp](const boost::system::error_code& ec1) {
+                    if (ec1 == boost::asio::error::operation_aborted)
                     {
                         // expected, we were canceled before the timer
                         // completed.
@@ -1804,9 +1806,9 @@ inline void updateMinSecurityVersion(
                     BMCWEB_LOG_ERROR(
                         "Timed out waiting for updateMinSecVersion response");
                     updateMinSecVersionMatch = nullptr;
-                    if (ec)
+                    if (ec1)
                     {
-                        BMCWEB_LOG_ERROR("Async_wait failed {}", ec);
+                        BMCWEB_LOG_ERROR("Async_wait failed {}", ec1);
                         return;
                     }
                     if (asyncResp)
@@ -1828,10 +1830,10 @@ inline void updateMinSecurityVersion(
                         securityPath + "'",
                     callback);
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code& ec) {
-                    if (ec)
+                [asyncResp](const boost::system::error_code& ec1) {
+                    if (ec1)
                     {
-                        BMCWEB_LOG_INFO("DBUS response error {}", ec);
+                        BMCWEB_LOG_INFO("DBUS response error {}", ec1);
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -2032,8 +2034,8 @@ inline void revokeKeys(const crow::Request& req,
             revokeKeysTimer->expires_after(
                 std::chrono::seconds(timeoutTimeSeconds));
             revokeKeysTimer->async_wait(
-                [asyncResp](const boost::system::error_code& ec) {
-                    if (ec == boost::asio::error::operation_aborted)
+                [asyncResp](const boost::system::error_code& ec1) {
+                    if (ec1 == boost::asio::error::operation_aborted)
                     {
                         // expected, we were canceled before the timer
                         // completed.
@@ -2042,9 +2044,9 @@ inline void revokeKeys(const crow::Request& req,
                     BMCWEB_LOG_ERROR(
                         "Timed out waiting for revokeKeys response");
                     revokeKeysMatch = nullptr;
-                    if (ec)
+                    if (ec1)
                     {
-                        BMCWEB_LOG_ERROR("Async_wait failed {}", ec);
+                        BMCWEB_LOG_ERROR("Async_wait failed {}", ec1);
                         return;
                     }
                     if (asyncResp)
@@ -2064,10 +2066,10 @@ inline void revokeKeys(const crow::Request& req,
                     securityPath + "'",
                 callback);
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code& ec) {
-                    if (ec)
+                [asyncResp](const boost::system::error_code& ec1) {
+                    if (ec1)
                     {
-                        BMCWEB_LOG_INFO("DBUS response error {}", ec);
+                        BMCWEB_LOG_INFO("DBUS response error {}", ec1);
                         messages::internalError(asyncResp->res);
                         return;
                     }

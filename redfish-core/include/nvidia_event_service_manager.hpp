@@ -93,8 +93,8 @@ class DsEvent
     bool valid;
 
   public:
-    explicit DsEvent(const std::string& messageId) :
-        messageId(messageId),
+    explicit DsEvent(const std::string& messageIdIn) :
+        messageId(messageIdIn),
         registryMsg(redfish::registries::getMessage(messageId))
     {
         if (registryMsg == nullptr)
@@ -118,7 +118,7 @@ class DsEvent
         return valid;
     }
 
-    int setRegistryMsg(const std::vector<std::string>& messageArgs =
+    int setRegistryMsg(const std::vector<std::string>& messageArgsIn =
                            std::vector<std::string>{})
     {
         if (!valid)
@@ -126,7 +126,7 @@ class DsEvent
             BMCWEB_LOG_ERROR("Invalid Event instance.");
             return redfishInvalidEvent;
         }
-        if (messageArgs.size() != registryMsg->numberOfArgs)
+        if (messageArgsIn.size() != registryMsg->numberOfArgs)
         {
             BMCWEB_LOG_ERROR("Message argument number mismatched.");
             return redfishInvalidArgs;
@@ -137,7 +137,7 @@ class DsEvent
 
         message = registryMsg->message;
         // Fill the MessageArgs into the Message
-        for (const std::string& messageArg : messageArgs)
+        for (const std::string& messageArg : messageArgsIn)
         {
             argStr = "%" + std::to_string(i++);
             size_t argPos = message.find(argStr);
@@ -146,15 +146,15 @@ class DsEvent
                 message.replace(argPos, argStr.length(), messageArg);
             }
         }
-        this->messageArgs = messageArgs;
+        this->messageArgs = messageArgsIn;
         return 0;
     }
 
-    int setCustomMsg(const std::string& message,
-                     const std::vector<std::string>& messageArgs =
+    int setCustomMsg(const std::string& messageIn,
+                     const std::vector<std::string>& messageArgsIn =
                          std::vector<std::string>{})
     {
-        std::string msg = message;
+        std::string msg = messageIn;
         int i = 1;
         std::string argStr;
 
@@ -164,7 +164,7 @@ class DsEvent
             return redfishInvalidEvent;
         }
         // Fill the MessageArgs into the Message
-        for (const std::string& messageArg : messageArgs)
+        for (const std::string& messageArg : messageArgsIn)
         {
             argStr = "%" + std::to_string(i++);
             size_t argPos = msg.find(argStr);
@@ -186,7 +186,7 @@ class DsEvent
         }
 
         this->message = std::move(msg);
-        this->messageArgs = messageArgs;
+        this->messageArgs = messageArgsIn;
         return 0;
     }
 

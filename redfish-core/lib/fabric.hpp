@@ -164,8 +164,8 @@ inline void getConnectedPortLinks(
             linksArray = nlohmann::json::array();
             for (const std::string& portPath : *data)
             {
-                sdbusplus::message::object_path objPath(portPath);
-                const std::string& endpointId = objPath.filename();
+                sdbusplus::message::object_path newObjPath(portPath);
+                const std::string& endpointId = newObjPath.filename();
                 BMCWEB_LOG_DEBUG("{}", endpointId);
                 std::string endpointURI =
                     "/redfish/v1/Systems/" +
@@ -499,14 +499,14 @@ inline void updateSwitchDataByAssociation(
 
     crow::connections::systemBus->async_method_call(
         [aResp, objPath](const boost::system::error_code& ec,
-                         std::variant<std::vector<std::string>>& resp) {
+                         std::variant<std::vector<std::string>>& newResp) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Dbus response error: associated switch");
                 return; // no endpoint = no failures
             }
             std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
+                std::get_if<std::vector<std::string>>(&newResp);
             if (data == nullptr)
             {
                 BMCWEB_LOG_DEBUG(
@@ -520,10 +520,10 @@ inline void updateSwitchDataByAssociation(
                 //  then get all the data
                 crow::connections::systemBus->async_method_call(
                     [aResp, switchPath](
-                        const boost::system::error_code& ec,
+                        const boost::system::error_code& ec1,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
-                        if (ec)
+                        if (ec1)
                         {
                             BMCWEB_LOG_ERROR(
                                 "Error no Switch interface on {} path",
@@ -536,9 +536,9 @@ inline void updateSwitchDataByAssociation(
                         // Get interface properties
                         crow::connections::systemBus->async_method_call(
                             [aResp,
-                             switchPath](const boost::system::error_code& ec,
+                             switchPath](const boost::system::error_code& ec2,
                                          const PropertiesMap& properties) {
-                                if (ec)
+                                if (ec2)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "Error while fetching peoperties on {} path",
@@ -1044,12 +1044,12 @@ inline void requestRoutesFabric(App& app)
                         // Fabric item properties
                         crow::connections::systemBus->async_method_call(
                             [asyncResp](
-                                const boost::system::error_code& ec,
+                                const boost::system::error_code& ec1,
                                 const std::vector<
                                     std::pair<std::string,
                                               dbus::utility::DbusVariantType>>&
                                     propertiesList) {
-                                if (ec)
+                                if (ec1)
                                 {
                                     messages::internalError(asyncResp->res);
                                     return;
@@ -1171,21 +1171,21 @@ inline void getSwitchParentChassisPCIeDeviceLink(
 {
     crow::connections::systemBus->async_method_call(
         [aResp, chassisName](const boost::system::error_code& ec,
-                             std::variant<std::vector<std::string>>& resp) {
+                             std::variant<std::vector<std::string>>& newResp) {
             if (ec)
             {
                 return; // no chassis = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr || data->size() > 1)
+            std::vector<std::string>* newData =
+                std::get_if<std::vector<std::string>>(&newResp);
+            if (newData == nullptr || newData->size() > 1)
             {
                 // Chassis must have single parent chassis
                 return;
             }
-            const std::string& parentChassisPath = data->front();
-            sdbusplus::message::object_path objectPath(parentChassisPath);
-            std::string parentChassisName = objectPath.filename();
+            const std::string& parentChassisPath = newData->front();
+            sdbusplus::message::object_path newObjectPath(parentChassisPath);
+            std::string parentChassisName = newObjectPath.filename();
             if (parentChassisName.empty())
             {
                 messages::internalError(aResp->res);
@@ -1193,17 +1193,17 @@ inline void getSwitchParentChassisPCIeDeviceLink(
             }
             crow::connections::systemBus->async_method_call(
                 [aResp, chassisName, parentChassisName](
-                    const boost::system::error_code& ec,
+                    const boost::system::error_code& ec1,
                     const dbus::utility::GetSubTreeType& subtree) {
-                    if (ec)
+                    if (ec1)
                     {
                         messages::internalError(aResp->res);
                         return;
                     }
-                    for (const auto& [objectPath, serviceMap] : subtree)
+                    for (const auto& [newObjPath, serviceMap] : subtree)
                     {
                         // Process same device
-                        if (!objectPath.ends_with(chassisName))
+                        if (!newObjPath.ends_with(chassisName))
                         {
                             continue;
                         }
@@ -1253,8 +1253,8 @@ inline void getSwitchChassisLink(
                 return;
             }
             const std::string& chassisPath = data->front();
-            sdbusplus::message::object_path objectPath(chassisPath);
-            std::string chassisName = objectPath.filename();
+            sdbusplus::message::object_path newObjectPath(chassisPath);
+            std::string chassisName = newObjectPath.filename();
             if (chassisName.empty())
             {
                 messages::internalError(aResp->res);
@@ -1266,28 +1266,28 @@ inline void getSwitchChassisLink(
             // Get PCIeDevice on this chassis
             crow::connections::systemBus->async_method_call(
                 [aResp,
-                 chassisName](const boost::system::error_code& ec,
-                              std::variant<std::vector<std::string>>& resp) {
-                    if (ec)
+                 chassisName](const boost::system::error_code& ec1,
+                              std::variant<std::vector<std::string>>& newResp) {
+                    if (ec1)
                     {
                         BMCWEB_LOG_ERROR(
                             "Chassis has no connected PCIe devices");
                         return; // no pciedevices = no failures
                     }
-                    std::vector<std::string>* data =
-                        std::get_if<std::vector<std::string>>(&resp);
-                    if (data == nullptr || data->size() > 1)
+                    std::vector<std::string>* newData =
+                        std::get_if<std::vector<std::string>>(&newResp);
+                    if (newData == nullptr || newData->size() > 1)
                     {
                         // Chassis must have single pciedevice
                         BMCWEB_LOG_ERROR("chassis must have single pciedevice");
                         return;
                     }
 
-                    for (const std::string& pcieDevicePath : *data)
+                    for (const std::string& pcieDevicePath : *newData)
                     {
-                        sdbusplus::message::object_path objectPath(
+                        sdbusplus::message::object_path newObjPath(
                             pcieDevicePath);
-                        std::string pcieDeviceName = objectPath.filename();
+                        std::string pcieDeviceName = newObjPath.filename();
                         if (pcieDeviceName.empty())
                         {
                             BMCWEB_LOG_ERROR("chassis pciedevice name empty");
@@ -1325,24 +1325,24 @@ inline void getSwitchEndpointsLink(
     BMCWEB_LOG_DEBUG("Get endpoint links");
     crow::connections::systemBus->async_method_call(
         [aResp, fabricId](const boost::system::error_code& ec,
-                          std::variant<std::vector<std::string>>& resp) {
+                          std::variant<std::vector<std::string>>& newResp) {
             if (ec)
             {
                 return; // no endpoints = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+            std::vector<std::string>* newData =
+                std::get_if<std::vector<std::string>>(&newResp);
+            if (newData == nullptr)
             {
                 return;
             }
             nlohmann::json& linksArray =
                 aResp->res.jsonValue["Links"]["Endpoints"];
             linksArray = nlohmann::json::array();
-            for (const std::string& endpointPath : *data)
+            for (const std::string& endpointPath : *newData)
             {
-                sdbusplus::message::object_path objPath(endpointPath);
-                const std::string& endpointId = objPath.filename();
+                sdbusplus::message::object_path newObjPath(endpointPath);
+                const std::string& endpointId = newObjPath.filename();
                 std::string endpointURI = "/redfish/v1/Fabrics/";
                 endpointURI += fabricId;
                 endpointURI += "/Endpoints/";
@@ -1368,24 +1368,24 @@ inline void getManagerLink(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     BMCWEB_LOG_DEBUG("Get managed_by links");
     crow::connections::systemBus->async_method_call(
         [aResp](const boost::system::error_code& ec,
-                std::variant<std::vector<std::string>>& resp) {
+                std::variant<std::vector<std::string>>& newResp) {
             if (ec)
             {
                 return; // no managed_by association = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+            std::vector<std::string>* newData =
+                std::get_if<std::vector<std::string>>(&newResp);
+            if (newData == nullptr)
             {
                 return;
             }
             nlohmann::json& linksArray =
                 aResp->res.jsonValue["Links"]["ManagedBy"];
             linksArray = nlohmann::json::array();
-            for (const std::string& endpointPath : *data)
+            for (const std::string& endpointPath : *newData)
             {
-                sdbusplus::message::object_path objPath(endpointPath);
-                const std::string& endpointId = objPath.filename();
+                sdbusplus::message::object_path newObjPath(endpointPath);
+                const std::string& endpointId = newObjPath.filename();
                 std::string endpointURI = "/redfish/v1/Managers/";
                 endpointURI += endpointId;
                 linksArray.push_back({{"@odata.id", endpointURI}});
@@ -1409,18 +1409,18 @@ inline void getHealthByAssociatedChassis(
     BMCWEB_LOG_DEBUG("Get health by association");
     crow::connections::systemBus->async_method_call(
         [aResp, objId](const boost::system::error_code& ec,
-                       std::variant<std::vector<std::string>>& resp) {
+                       std::variant<std::vector<std::string>>& newResp) {
             if (ec)
             {
                 return; // no managed_by association = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+            std::vector<std::string>* newData =
+                std::get_if<std::vector<std::string>>(&newResp);
+            if (newData == nullptr)
             {
                 return;
             }
-            for (const std::string& path : *data)
+            for (const std::string& path : *newData)
             {
                 redfish::nvidia_chassis_utils::getHealthByAssociation(
                     aResp, path, "all_states", objId);
@@ -1446,24 +1446,24 @@ inline void getZoneEndpointsLink(
     BMCWEB_LOG_DEBUG("Get zone endpoint links");
     crow::connections::systemBus->async_method_call(
         [aResp, fabricId](const boost::system::error_code& ec,
-                          std::variant<std::vector<std::string>>& resp) {
+                          std::variant<std::vector<std::string>>& newResp) {
             if (ec)
             {
                 return; // no endpoints = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+            std::vector<std::string>* newData =
+                std::get_if<std::vector<std::string>>(&newResp);
+            if (newData == nullptr)
             {
                 return;
             }
             nlohmann::json& linksArray =
                 aResp->res.jsonValue["Links"]["Endpoints"];
             linksArray = nlohmann::json::array();
-            for (const std::string& endpointPath : *data)
+            for (const std::string& endpointPath : *newData)
             {
-                sdbusplus::message::object_path objPath(endpointPath);
-                const std::string& endpointId = objPath.filename();
+                sdbusplus::message::object_path newObjPath(endpointPath);
+                const std::string& endpointId = newObjPath.filename();
                 std::string endpointURI = "/redfish/v1/Fabrics/";
                 endpointURI += fabricId;
                 endpointURI += "/Endpoints/";
@@ -1510,24 +1510,26 @@ inline void requestRoutesSwitch(App& app)
                             continue;
                         }
                         crow::connections::systemBus->async_method_call(
-                            [asyncResp, fabricId, switchId](
-                                const boost::system::error_code& ec,
-                                std::variant<std::vector<std::string>>& resp) {
-                                if (ec)
+                            [asyncResp, fabricId,
+                             switchId](const boost::system::error_code& ec1,
+                                       std::variant<std::vector<std::string>>&
+                                           newRespVariant) {
+                                if (ec1)
                                 {
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
-                                std::vector<std::string>* data =
+                                std::vector<std::string>* dataVariant =
                                     std::get_if<std::vector<std::string>>(
-                                        &resp);
-                                if (data == nullptr)
+                                        &newRespVariant);
+                                if (dataVariant == nullptr)
                                 {
+                                    BMCWEB_LOG_ERROR(
+                                        "DBUS response error while getting switches");
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
-                                // Iterate over all retrieved ObjectPaths.
-                                for (const std::string& path : *data)
+                                for (const std::string& path : *dataVariant)
                                 {
                                     sdbusplus::message::object_path objPath(
                                         path);
@@ -1569,13 +1571,14 @@ inline void requestRoutesSwitch(App& app)
                                           {"ForceRestart"}}};
 
                                     crow::connections::systemBus->async_method_call(
-                                        [asyncResp, switchURI, path](
-                                            const boost::system::error_code& ec,
-                                            const std::vector<std::pair<
-                                                std::string,
-                                                std::vector<std::string>>>&
-                                                object) {
-                                            if (ec)
+                                        [asyncResp, switchURI,
+                                         path](const boost::system::error_code&
+                                                   ec2,
+                                               const std::vector<std::pair<
+                                                   std::string,
+                                                   std::vector<std::string>>>&
+                                                   objectPair) {
+                                            if (ec2)
                                             {
                                                 // the path does not implement
                                                 // Item Switch interfaces
@@ -1589,33 +1592,36 @@ inline void requestRoutesSwitch(App& app)
                                                 redfish::nvidia_fabric_utils::
                                                     getSwitchPowerModeLink(
                                                         asyncResp,
-                                                        object.front().second,
+                                                        objectPair.front()
+                                                            .second,
                                                         switchURI);
                                                 redfish::nvidia_fabric_utils::
                                                     getSwitchHistogramLink(
                                                         asyncResp,
-                                                        object.front().second,
+                                                        objectPair.front()
+                                                            .second,
                                                         switchURI);
                                                 if (std::find(
-                                                        object.front()
+                                                        objectPair.front()
                                                             .second.begin(),
-                                                        object.front()
+                                                        objectPair.front()
                                                             .second.end(),
                                                         "com.nvidia.SwitchIsolation") !=
-                                                    object.front().second.end())
+                                                    objectPair.front()
+                                                        .second.end())
                                                 {
                                                     redfish::nvidia_fabric_utils::
                                                         getSwitchIsolationMode(
                                                             asyncResp,
-                                                            object.front()
+                                                            objectPair.front()
                                                                 .first,
                                                             path,
                                                             "com.nvidia.SwitchIsolation");
                                                 }
                                             }
                                             updateSwitchData(
-                                                asyncResp, object.front().first,
-                                                path);
+                                                asyncResp,
+                                                objectPair.front().first, path);
                                         },
                                         "xyz.openbmc_project.ObjectMapper",
                                         "/xyz/openbmc_project/object_mapper",
@@ -1812,25 +1818,26 @@ inline void requestRoutesSwitchMetrics(App& app)
                             continue;
                         }
                         crow::connections::systemBus->async_method_call(
-                            [asyncResp, fabricId, switchId](
-                                const boost::system::error_code& ec,
-                                std::variant<std::vector<std::string>>& resp) {
-                                if (ec)
+                            [asyncResp, fabricId,
+                             switchId](const boost::system::error_code& ec1,
+                                       std::variant<std::vector<std::string>>&
+                                           newRespVariant) {
+                                if (ec1)
                                 {
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
-                                std::vector<std::string>* data =
+                                std::vector<std::string>* dataVariant =
                                     std::get_if<std::vector<std::string>>(
-                                        &resp);
-                                if (data == nullptr)
+                                        &newRespVariant);
+                                if (dataVariant == nullptr)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "DBUS response error while getting switches");
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
-                                for (const std::string& path : *data)
+                                for (const std::string& path : *dataVariant)
                                 {
                                     // Get the switchId object
                                     if (!path.ends_with(switchId))
@@ -1839,13 +1846,14 @@ inline void requestRoutesSwitchMetrics(App& app)
                                     }
 
                                     crow::connections::systemBus->async_method_call(
-                                        [asyncResp, fabricId, switchId, path](
-                                            const boost::system::error_code& ec,
-                                            const std::vector<std::pair<
-                                                std::string,
-                                                std::vector<std::string>>>&
-                                                object) {
-                                            if (ec)
+                                        [asyncResp, fabricId, switchId,
+                                         path](const boost::system::error_code&
+                                                   ec2,
+                                               const std::vector<std::pair<
+                                                   std::string,
+                                                   std::vector<std::string>>>&
+                                                   objectPair) {
+                                            if (ec2)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "Error while fetching service for {}",
@@ -1855,7 +1863,7 @@ inline void requestRoutesSwitchMetrics(App& app)
                                                 return;
                                             }
 
-                                            if (object.empty())
+                                            if (objectPair.empty())
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "Empty response received");
@@ -1883,10 +1891,10 @@ inline void requestRoutesSwitchMetrics(App& app)
                                             asyncResp->res.jsonValue["Name"] =
                                                 switchId + " Metrics";
                                             const std::string& connectionName =
-                                                object.front().first;
+                                                objectPair.front().first;
                                             const std::vector<std::string>&
                                                 interfaces =
-                                                    object.front().second;
+                                                    objectPair.front().second;
                                             if (std::find(
                                                     interfaces.begin(),
                                                     interfaces.end(),
@@ -2129,9 +2137,9 @@ inline void switchPostResetType(
 
                 // Set the property, with handler to check error responses
                 crow::connections::systemBus->async_method_call(
-                    [resp, switchId](boost::system::error_code& ec,
+                    [resp, switchId](boost::system::error_code& ec1,
                                      const int retValue) {
-                        if (!ec)
+                        if (!ec1)
                         {
                             if (retValue != 0)
                             {
@@ -2143,7 +2151,7 @@ inline void switchPostResetType(
                             messages::success(resp->res);
                             return;
                         }
-                        BMCWEB_LOG_ERROR("Error: {}", ec);
+                        BMCWEB_LOG_ERROR("Error: {}", ec1);
                         messages::internalError(resp->res);
                         return;
                     },
@@ -2206,26 +2214,27 @@ inline void requestRoutesNVSwitchReset(App& app)
                             }
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, fabricId, switchId, resetType](
-                                    const boost::system::error_code& ec,
+                                    const boost::system::error_code& ec1,
                                     std::variant<std::vector<std::string>>&
-                                        resp) {
-                                    if (ec)
+                                        newRespVariant) {
+                                    if (ec1)
                                     {
                                         BMCWEB_LOG_ERROR("DBUS response error");
                                         messages::internalError(asyncResp->res);
                                         return;
                                     }
-                                    std::vector<std::string>* data =
+                                    std::vector<std::string>* dataVariant =
                                         std::get_if<std::vector<std::string>>(
-                                            &resp);
-                                    if (data == nullptr)
+                                            &newRespVariant);
+                                    if (dataVariant == nullptr)
                                     {
                                         BMCWEB_LOG_ERROR(
                                             "DBUS response error while getting switches");
                                         messages::internalError(asyncResp->res);
                                         return;
                                     }
-                                    for (const std::string& objectPath : *data)
+                                    for (const std::string& objectPath :
+                                         *dataVariant)
                                     {
                                         // Get the switchId object
                                         if (!objectPath.ends_with(switchId))
@@ -2237,12 +2246,12 @@ inline void requestRoutesNVSwitchReset(App& app)
                                             [asyncResp, switchId, resetType,
                                              objectPath](
                                                 const boost::system::error_code&
-                                                    ec,
+                                                    ec2,
                                                 const std::vector<std::pair<
                                                     std::string,
                                                     std::vector<std::string>>>&
                                                     obj) {
-                                                if (ec)
+                                                if (ec2)
                                                 {
                                                     BMCWEB_LOG_ERROR(
                                                         "DBUS response error while getting service");
@@ -2334,35 +2343,36 @@ inline void requestRoutesPortCollection(App& app)
                             continue;
                         }
                         crow::connections::systemBus->async_method_call(
-                            [asyncResp, fabricId, switchId, portsURI](
-                                const boost::system::error_code& ec,
-                                std::variant<std::vector<std::string>>& resp) {
-                                if (ec)
+                            [asyncResp, fabricId, switchId,
+                             portsURI](const boost::system::error_code& ec1,
+                                       std::variant<std::vector<std::string>>&
+                                           newRespVariant) {
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_ERROR("DBUS response error");
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
-                                std::vector<std::string>* data =
+                                std::vector<std::string>* dataVariant =
                                     std::get_if<std::vector<std::string>>(
-                                        &resp);
-                                if (data == nullptr)
+                                        &newRespVariant);
+                                if (dataVariant == nullptr)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "DBUS response error while getting switches");
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
-                                for (const std::string& object : *data)
+                                for (const std::string& obj : *dataVariant)
                                 {
                                     // Get the switchId object
-                                    if (!object.ends_with(switchId))
+                                    if (!obj.ends_with(switchId))
                                     {
                                         continue;
                                     }
                                     collection_util::getCollectionMembersByAssociation(
                                         asyncResp, portsURI,
-                                        object + "/all_states",
+                                        obj + "/all_states",
                                         {"xyz.openbmc_project.Inventory.Item.Port"});
                                     return;
                                 }
@@ -2435,12 +2445,12 @@ inline void requestRoutesPort(App& app)
                                                     [asyncResp, fabricId,
                                                      switchId, portId](
                                                         const boost::system::
-                                                            error_code ec,
+                                                            error_code ec1,
                                                         std::variant<
                                                             std::vector<
                                                                 std::string>>&
-                                                            resp) {
-                                                        if (ec)
+                                                            newRespVariant) {
+                                                        if (ec1)
                                                         {
                                                             BMCWEB_LOG_ERROR(
                                                                 "DBUS response error");
@@ -2451,13 +2461,15 @@ inline void requestRoutesPort(App& app)
                                                             return;
                                                         }
                                                         std::vector<
-                                                            std::string>* data =
+                                                            std::
+                                                                string>* dataVariant =
                                                             std::get_if<
                                                                 std::vector<
                                                                     std::
                                                                         string>>(
-                                                                &resp);
-                                                        if (data == nullptr)
+                                                                &newRespVariant);
+                                                        if (dataVariant ==
+                                                            nullptr)
                                                         {
                                                             BMCWEB_LOG_ERROR(
                                                                 "DBUS response error while getting switches");
@@ -2469,7 +2481,7 @@ inline void requestRoutesPort(App& app)
                                                         }
                                                         for (const std::string&
                                                                  switchPath :
-                                                             *data)
+                                                             *dataVariant)
                                                         {
                                                             // Get the switchId
                                                             // object
@@ -2488,11 +2500,11 @@ inline void requestRoutesPort(App& app)
                                                                              fabricId,
                                                                              switchId, portId](const boost::
                                                                                                    system::error_code
-                                                                                                       ec,
-                                                                                               std::
-                                                                                                   variant<std::
-                                                                                                               vector<std::string>>& resp) {
-                                                                                if (ec)
+                                                                                                       ec2,
+                                                                                               std::variant<
+                                                                                                   std::vector<std::
+                                                                                                                   string>>& respVariant) {
+                                                                                if (ec2)
                                                                                 {
                                                                                     BMCWEB_LOG_ERROR(
                                                                                         "DBUS response error");
@@ -2503,13 +2515,13 @@ inline void requestRoutesPort(App& app)
                                                                                 }
                                                                                 std::vector<
                                                                                     std::
-                                                                                        string>* data =
+                                                                                        string>* dtaVariant =
                                                                                     std::get_if<
                                                                                         std::vector<
                                                                                             std::
                                                                                                 string>>(
-                                                                                        &resp);
-                                                                                if (data ==
+                                                                                        &respVariant);
+                                                                                if (dtaVariant ==
                                                                                     nullptr)
                                                                                 {
                                                                                     BMCWEB_LOG_ERROR(
@@ -2523,9 +2535,10 @@ inline void requestRoutesPort(App& app)
                                                                                     const std::
                                                                                         string&
                                                                                             portPath :
-                                                                                    *data)
+                                                                                    *dtaVariant)
                                                                                 {
-                                                                                    // Get the portId object
+                                                                                    // Get the portId
+                                                                                    // object
                                                                                     sdbusplus::
                                                                                         message::object_path
                                                                                             pPath(
@@ -2546,16 +2559,16 @@ inline void requestRoutesPort(App& app)
                                                                                              portPath](
                                                                                                 const boost::
                                                                                                     system::error_code&
-                                                                                                        ec,
+                                                                                                        ec3,
                                                                                                 std::variant<
                                                                                                     std::vector<
                                                                                                         std::
                                                                                                             string>>&
-                                                                                                    response) {
+                                                                                                    newResp) {
                                                                                                 std::string
                                                                                                     objectPathToGetPortData =
                                                                                                         portPath;
-                                                                                                if (!ec)
+                                                                                                if (!ec3)
                                                                                                 {
                                                                                                     std::vector<
                                                                                                         std::
@@ -2564,7 +2577,7 @@ inline void requestRoutesPort(App& app)
                                                                                                             std::vector<
                                                                                                                 std::
                                                                                                                     string>>(
-                                                                                                            &response);
+                                                                                                            &newResp);
                                                                                                     if (pathData !=
                                                                                                         nullptr)
                                                                                                     {
@@ -2590,7 +2603,7 @@ inline void requestRoutesPort(App& app)
                                                                                                              objectPathToGetPortData](
                                                                                                                 const boost::
                                                                                                                     system::error_code
-                                                                                                                        ec,
+                                                                                                                        ec4,
                                                                                                                 const std::vector<
                                                                                                                     std::pair<
                                                                                                                         std::
@@ -2598,8 +2611,8 @@ inline void requestRoutesPort(App& app)
                                                                                                                         std::
                                                                                                                             vector<
                                                                                                                                 std::
-                                                                                                                                    string>>>& object) {
-                                                                                                                if (ec)
+                                                                                                                                    string>>>& objectPair) {
+                                                                                                                if (ec4)
                                                                                                                 {
                                                                                                                     // the path does not
                                                                                                                     // implement Item
@@ -2659,7 +2672,7 @@ inline void requestRoutesPort(App& app)
 
                                                                                                                 redfish::port_utils::getPortData(
                                                                                                                     asyncResp,
-                                                                                                                    object
+                                                                                                                    objectPair
                                                                                                                         .front()
                                                                                                                         .first,
                                                                                                                     objectPathToGetPortData);
@@ -2696,7 +2709,8 @@ inline void requestRoutesPort(App& app)
                                                                                             "endpoints");
                                                                                     return;
                                                                                 }
-                                                                                // Couldn't find an object with that
+                                                                                // Couldn't find an
+                                                                                // object with that
                                                                                 // name. Return an error
                                                                                 messages::resourceNotFound(
                                                                                     asyncResp
@@ -2836,11 +2850,10 @@ inline void requestRoutesZone(App& app)
                             continue;
                         }
                         crow::connections::systemBus->async_method_call(
-                            [asyncResp, fabricId,
-                             zoneId](const boost::system::error_code& ec,
-                                     const dbus::utility::GetSubTreeType&
-                                         subtree) {
-                                if (ec)
+                            [asyncResp, fabricId, zoneId](
+                                const boost::system::error_code& ec1,
+                                const dbus::utility::GetSubTreeType& subtree) {
+                                if (ec1)
                                 {
                                     messages::internalError(asyncResp->res);
                                     return;
@@ -2850,14 +2863,14 @@ inline void requestRoutesZone(App& app)
                                          std::string,
                                          std::vector<std::pair<
                                              std::string,
-                                             std::vector<std::string>>>>&
-                                         object : subtree)
+                                             std::vector<std::string>>>>& obj :
+                                     subtree)
                                 {
                                     // Get the zoneId object
-                                    const std::string& path = object.first;
+                                    const std::string& path = obj.first;
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
-                                        connectionNames = object.second;
+                                        connectionNames = obj.second;
                                     sdbusplus::message::object_path objPath(
                                         path);
                                     if (objPath.filename() != zoneId)
@@ -3136,21 +3149,21 @@ inline void getProcessorParentEndpointData(
     crow::connections::systemBus->async_method_call(
         [aResp, chassisName, entityLink,
          processorPath](const boost::system::error_code& ec,
-                        std::variant<std::vector<std::string>>& resp) {
+                        std::variant<std::vector<std::string>>& newResp) {
             if (ec)
             {
                 return; // no chassis = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr || data->size() > 1)
+            std::vector<std::string>* newData =
+                std::get_if<std::vector<std::string>>(&newResp);
+            if (newData == nullptr || newData->size() > 1)
             {
                 // Chassis must have single parent chassis
                 return;
             }
-            const std::string& parentChassisPath = data->front();
-            sdbusplus::message::object_path objectPath(parentChassisPath);
-            std::string parentChassisName = objectPath.filename();
+            const std::string& parentChassisPath = newData->front();
+            sdbusplus::message::object_path newObjectPath(parentChassisPath);
+            std::string parentChassisName = newObjectPath.filename();
             if (parentChassisName.empty())
             {
                 messages::internalError(aResp->res);
@@ -3158,10 +3171,9 @@ inline void getProcessorParentEndpointData(
             }
             crow::connections::systemBus->async_method_call(
                 [aResp, chassisName, parentChassisName, entityLink,
-                 processorPath](
-                    const boost::system::error_code& ec,
-                    const dbus::utility::GetSubTreeType& subtree) {
-                    if (ec)
+                 processorPath](const boost::system::error_code& ec1,
+                                const dbus::utility::GetSubTreeType& subtree) {
+                    if (ec1)
                     {
                         messages::internalError(aResp->res);
                         return;
@@ -3240,25 +3252,26 @@ inline void getEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 
             crow::connections::systemBus->async_method_call(
                 [aResp, processorPath, serviceName,
-                 entityLink](const boost::system::error_code& ec,
-                             std::variant<std::vector<std::string>>& resp) {
-                    if (ec)
+                 entityLink](const boost::system::error_code& ec1,
+                             std::variant<std::vector<std::string>>& dbusResp) {
+                    if (ec1)
                     {
                         BMCWEB_LOG_ERROR(
                             "Chassis has no connected PCIe devices");
                         return; // no pciedevices = no failures
                     }
-                    std::vector<std::string>* data =
-                        std::get_if<std::vector<std::string>>(&resp);
-                    if (data == nullptr || data->size() > 1)
+                    std::vector<std::string>* newData =
+                        std::get_if<std::vector<std::string>>(&dbusResp);
+                    if (newData == nullptr || newData->size() > 1)
                     {
                         // Chassis must have single pciedevice
                         BMCWEB_LOG_ERROR("chassis must have single pciedevice");
                         return;
                     }
-                    const std::string& pcieDevicePath = data->front();
-                    sdbusplus::message::object_path objectPath(pcieDevicePath);
-                    std::string pcieDeviceName = objectPath.filename();
+                    const std::string& pcieDevicePath = newData->front();
+                    sdbusplus::message::object_path newObjectPath(
+                        pcieDevicePath);
+                    std::string pcieDeviceName = newObjectPath.filename();
                     if (pcieDeviceName.empty())
                     {
                         BMCWEB_LOG_ERROR("chassis pciedevice name empty");
@@ -3294,12 +3307,12 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 {
     crow::connections::systemBus->async_method_call(
         [aResp, objPath](const boost::system::error_code& ec,
-                         std::variant<std::vector<std::string>>& response) {
+                         std::variant<std::vector<std::string>>& newResp) {
             std::string objectPathToGetPortData = objPath;
             if (!ec)
             {
                 std::vector<std::string>* pathData =
-                    std::get_if<std::vector<std::string>>(&response);
+                    std::get_if<std::vector<std::string>>(&newResp);
                 if (pathData != nullptr)
                 {
                     for (const std::string& associatedPortPath : *pathData)
@@ -3310,23 +3323,23 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             }
             crow::connections::systemBus->async_method_call(
                 [aResp, objectPathToGetPortData](
-                    const boost::system::error_code& ec,
+                    const boost::system::error_code& ec1,
                     const std::vector<std::pair<
                         std::string, std::vector<std::string>>>& object) {
-                    if (ec)
+                    if (ec1)
                     {
                         BMCWEB_LOG_DEBUG("No port interface found {}",
                                          objectPathToGetPortData);
                         return;
                     }
                     crow::connections::systemBus->async_method_call(
-                        [aResp](const boost::system::error_code& ec,
+                        [aResp](const boost::system::error_code& ec2,
                                 const boost::container::flat_map<
                                     std::string,
                                     std::variant<std::string, bool, size_t,
                                                  std::vector<std::string>>>&
                                     properties) {
-                            if (ec)
+                            if (ec2)
                             {
                                 BMCWEB_LOG_ERROR("DBUS response error");
                                 messages::internalError(aResp->res);
@@ -3438,14 +3451,14 @@ inline void getEndpointZoneData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     // Get connected zone link
     crow::connections::systemBus->async_method_call(
         [aResp, fabricId](const boost::system::error_code& ec,
-                          std::variant<std::vector<std::string>>& resp) {
+                          std::variant<std::vector<std::string>>& newResp) {
             if (ec)
             {
                 return; // no zones = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+            std::vector<std::string>* newData =
+                std::get_if<std::vector<std::string>>(&newResp);
+            if (newData == nullptr)
             {
                 return;
             }
@@ -3453,7 +3466,7 @@ inline void getEndpointZoneData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 aResp->res.jsonValue["Links"]["Zones"];
             linksZonesArray = nlohmann::json::array();
             std::string zoneURI;
-            for (const std::string& zonePath : *data)
+            for (const std::string& zonePath : *newData)
             {
                 // Get subtree for switchPath link path
                 sdbusplus::message::object_path dbusObjPath(zonePath);
@@ -3509,23 +3522,23 @@ inline void getEndpointPortData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             // Get connected switches port links
             crow::connections::systemBus->async_method_call(
                 [aResp, portPaths,
-                 fabricId](const boost::system::error_code& ec,
-                           std::variant<std::vector<std::string>>& resp) {
-                    if (ec)
+                 fabricId](const boost::system::error_code& ec1,
+                           std::variant<std::vector<std::string>>& newResp) {
+                    if (ec1)
                     {
                         return; // no switches = no failures
                     }
-                    std::vector<std::string>* data =
-                        std::get_if<std::vector<std::string>>(&resp);
-                    if (data == nullptr)
+                    std::vector<std::string>* newData =
+                        std::get_if<std::vector<std::string>>(&newResp);
+                    if (newData == nullptr)
                     {
                         return;
                     }
                     nlohmann::json& linksConnectedPortsArray =
                         aResp->res.jsonValue["Links"]["ConnectedPorts"];
                     linksConnectedPortsArray = nlohmann::json::array();
-                    std::sort(data->begin(), data->end());
-                    for (const std::string& switchPath : *data)
+                    std::sort(newData->begin(), newData->end());
+                    for (const std::string& switchPath : *newData)
                     {
                         getConnectedPortsLinks(aResp, portPaths, fabricId,
                                                switchPath);
@@ -3581,10 +3594,10 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     entityPath.substr(0, separator);
                 // Get entity subtree
                 crow::connections::systemBus->async_method_call(
-                    [aResp, objPath, entityPath, fabricId](
-                        const boost::system::error_code& ec,
-                        const dbus::utility::GetSubTreeType& subtree) {
-                        if (ec)
+                    [aResp, objPath, entityPath,
+                     fabricId](const boost::system::error_code& ec1,
+                               const dbus::utility::GetSubTreeType& subtree) {
+                        if (ec1)
                         {
                             messages::internalError(aResp->res);
                             return;
@@ -3594,16 +3607,16 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                  std::string,
                                  std::vector<std::pair<
                                      std::string, std::vector<std::string>>>>&
-                                 object : subtree)
+                                 newObject : subtree)
                         {
                             // Filter entity link object
-                            if (object.first != entityPath)
+                            if (newObject.first != entityPath)
                             {
                                 continue;
                             }
                             const std::vector<std::pair<
                                 std::string, std::vector<std::string>>>&
-                                connectionNames = object.second;
+                                connectionNames = newObject.second;
                             if (connectionNames.empty())
                             {
                                 BMCWEB_LOG_ERROR("Got 0 Connection names");
@@ -3623,13 +3636,13 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                     interfaces.end())
                                 {
                                     std::string servName = connectionName.first;
-                                    sdbusplus::message::object_path objectPath(
+                                    sdbusplus::message::object_path newObjPath(
                                         entityPath);
                                     const std::string& entityLink =
                                         "/redfish/v1/Systems/" +
                                         std::string(
                                             BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                                        "/Processors/" + objectPath.filename();
+                                        "/Processors/" + newObjPath.filename();
                                     // Get processor PCIe device data
                                     getEndpointData(aResp, entityPath,
                                                     entityLink, servName);
@@ -3650,18 +3663,19 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                     BMCWEB_LOG_DEBUG("Item type switch ");
                                     std::string servName = connectionName.first;
 
-                                    sdbusplus::message::object_path objectPath(
+                                    sdbusplus::message::object_path newObjPath(
                                         entityPath);
                                     std::string entityName =
-                                        objectPath.filename();
+                                        newObjPath.filename();
                                     // get switch type endpint
                                     crow::connections::systemBus->async_method_call(
                                         [aResp, objPath, entityPath, entityName,
                                          servName, fabricId](
-                                            const boost::system::error_code& ec,
+                                            const boost::system::error_code&
+                                                newEc1,
                                             std::variant<std::vector<
-                                                std::string>>& resp) {
-                                            if (ec)
+                                                std::string>>& newResp) {
+                                            if (newEc1)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "fabric not found for switch entity");
@@ -3670,11 +3684,11 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                                         // pcieslotpath
                                             }
 
-                                            std::vector<std::string>* data =
+                                            std::vector<std::string>* newData1 =
                                                 std::get_if<
                                                     std::vector<std::string>>(
-                                                    &resp);
-                                            if (data == nullptr)
+                                                    &newResp);
+                                            if (newData1 == nullptr)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "processor data null for pcieslot ");
@@ -3683,7 +3697,7 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 
                                             std::string fabricName;
                                             for (const std::string& fabricPath :
-                                                 *data)
+                                                 *newData1)
                                             {
                                                 sdbusplus::message::object_path
                                                     dbusObjPath(fabricPath);
@@ -3722,13 +3736,13 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                     interfaces.end())
                                 {
                                     std::string servName = connectionName.first;
-                                    sdbusplus::message::object_path objectPath(
+                                    sdbusplus::message::object_path newObjPath(
                                         entityPath);
                                     const std::string& entityLink =
                                         "/redfish/v1/Systems/" +
                                         std::string(
                                             BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                                        "/Processors/" + objectPath.filename();
+                                        "/Processors/" + newObjPath.filename();
                                     // Add EntityLink
                                     nlohmann::json& connectedEntitiesArray =
                                         aResp->res
@@ -3770,106 +3784,104 @@ inline void requestRoutesEndpoint(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Fabrics/<str>/Endpoints/<str>/")
         .privileges({{"Login"}})
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& fabricId, const std::string& endpointId) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                crow::connections::systemBus->async_method_call(
-                    [asyncResp, fabricId,
-                     endpointId](const boost::system::error_code& ec,
-                                 const std::vector<std::string>& objects) {
-                        if (ec)
-                        {
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& fabricId,
+                            const std::string& endpointId) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, fabricId,
+                 endpointId](const boost::system::error_code& ec,
+                             const std::vector<std::string>& objects) {
+                    if (ec)
+                    {
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
 
-                        for (const std::string& object : objects)
+                    for (const std::string& object : objects)
+                    {
+                        // Get the fabricId object
+                        if (!object.ends_with(fabricId))
                         {
-                            // Get the fabricId object
-                            if (!object.ends_with(fabricId))
-                            {
-                                continue;
-                            }
-                            crow::connections::systemBus->async_method_call(
-                                [asyncResp, fabricId, endpointId](
-                                    const boost::system::error_code& ec,
-                                    const dbus::utility::GetSubTreeType&
-                                        subtree) {
-                                    if (ec)
-                                    {
-                                        messages::internalError(asyncResp->res);
-                                        return;
-                                    }
-                                    // Iterate over all retrieved ObjectPaths.
-                                    for (const std::pair<
-                                             std::string,
-                                             std::vector<std::pair<
-                                                 std::string,
-                                                 std::vector<std::string>>>>&
-                                             object : subtree)
-                                    {
-                                        // Get the endpointId object
-                                        const std::string& path = object.first;
-                                        sdbusplus::message::object_path objPath(
-                                            path);
-                                        if (objPath.filename() != endpointId)
-                                        {
-                                            continue;
-                                        }
-                                        asyncResp->res
-                                            .jsonValue["@odata.type"] =
-                                            "#Endpoint.v1_6_0.Endpoint";
-                                        asyncResp->res.jsonValue["@odata.id"] =
-                                            std::string("/redfish/v1/Fabrics/")
-                                                .append(fabricId)
-                                                .append("/Endpoints/")
-                                                .append(endpointId);
-                                        asyncResp->res.jsonValue["Id"] =
-                                            endpointId;
-                                        asyncResp->res.jsonValue["Name"] =
-                                            endpointId + " Endpoint Resource";
-                                        nlohmann::json& connectedEntitiesArray =
-                                            asyncResp->res
-                                                .jsonValue["ConnectedEntities"];
-                                        connectedEntitiesArray =
-                                            nlohmann::json::array();
-                                        updateEndpointData(asyncResp, path,
-                                                           fabricId);
-                                        return;
-                                    }
-                                    // Couldn't find an object with that name.
-                                    // Return an error
-                                    messages::resourceNotFound(
-                                        asyncResp->res,
-                                        "#Endpoint.v1_6_0.Endpoint",
-                                        endpointId);
-                                },
-                                "xyz.openbmc_project.ObjectMapper",
-                                "/xyz/openbmc_project/object_mapper",
-                                "xyz.openbmc_project.ObjectMapper",
-                                "GetSubTree", object, 0,
-                                std::array<const char*, 1>{
-                                    "xyz.openbmc_project.Inventory.Item."
-                                    "Endpoint"});
-                            return;
+                            continue;
                         }
-                        // Couldn't find an object with that name. Return an
-                        // error
-                        messages::resourceNotFound(
-                            asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
-                    "/xyz/openbmc_project/inventory", 0,
-                    std::array<const char*, 1>{
-                        "xyz.openbmc_project.Inventory.Item.Fabric"});
-            });
+                        crow::connections::systemBus->async_method_call(
+                            [asyncResp, fabricId, endpointId](
+                                const boost::system::error_code& ec1,
+                                const dbus::utility::GetSubTreeType& subtree) {
+                                if (ec1)
+                                {
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                // Iterate over all retrieved ObjectPaths.
+                                for (const std::pair<
+                                         std::string,
+                                         std::vector<std::pair<
+                                             std::string,
+                                             std::vector<std::string>>>>&
+                                         newObject : subtree)
+                                {
+                                    // Get the endpointId object
+                                    const std::string& path = newObject.first;
+                                    sdbusplus::message::object_path newObjPath(
+                                        path);
+                                    if (newObjPath.filename() != endpointId)
+                                    {
+                                        continue;
+                                    }
+                                    asyncResp->res.jsonValue["@odata.type"] =
+                                        "#Endpoint.v1_6_0.Endpoint";
+                                    asyncResp->res.jsonValue["@odata.id"] =
+                                        std::string("/redfish/v1/Fabrics/")
+                                            .append(fabricId)
+                                            .append("/Endpoints/")
+                                            .append(endpointId);
+                                    asyncResp->res.jsonValue["Id"] = endpointId;
+                                    asyncResp->res.jsonValue["Name"] =
+                                        endpointId + " Endpoint Resource";
+                                    nlohmann::json& connectedEntitiesArray =
+                                        asyncResp->res
+                                            .jsonValue["ConnectedEntities"];
+                                    connectedEntitiesArray =
+                                        nlohmann::json::array();
+                                    updateEndpointData(asyncResp, path,
+                                                       fabricId);
+                                    return;
+                                }
+                                // Couldn't find an object with that name.
+                                // Return an error
+                                messages::resourceNotFound(
+                                    asyncResp->res, "#Endpoint.v1_6_0.Endpoint",
+                                    endpointId);
+                            },
+                            "xyz.openbmc_project.ObjectMapper",
+                            "/xyz/openbmc_project/object_mapper",
+                            "xyz.openbmc_project.ObjectMapper", "GetSubTree",
+                            object, 0,
+                            std::array<const char*, 1>{
+                                "xyz.openbmc_project.Inventory.Item."
+                                "Endpoint"});
+                        return;
+                    }
+                    // Couldn't find an object with that name. Return an
+                    // error
+                    messages::resourceNotFound(
+                        asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
+                },
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+                "/xyz/openbmc_project/inventory", 0,
+                std::array<const char*, 1>{
+                    "xyz.openbmc_project.Inventory.Item.Fabric"});
+        });
 }
 
 /**
@@ -4511,26 +4523,28 @@ inline void requestRoutesPortMetrics(App& app)
                             continue;
                         }
                         crow::connections::systemBus->async_method_call(
-                            [asyncResp, fabricId, switchId, portId](
-                                const boost::system::error_code& ec,
-                                std::variant<std::vector<std::string>>& resp) {
-                                if (ec)
+                            [asyncResp, fabricId, switchId,
+                             portId](const boost::system::error_code& ec1,
+                                     std::variant<std::vector<std::string>>&
+                                         dbusResponse) {
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_ERROR("DBUS response error");
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
-                                std::vector<std::string>* data =
+                                std::vector<std::string>* dataVariant =
                                     std::get_if<std::vector<std::string>>(
-                                        &resp);
-                                if (data == nullptr)
+                                        &dbusResponse);
+                                if (dataVariant == nullptr)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "DBUS response error while getting switches");
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
-                                for (const std::string& switchPath : *data)
+                                for (const std::string& switchPath :
+                                     *dataVariant)
                                 {
                                     // Get the switchId object
                                     if (!switchPath.ends_with(switchId))
@@ -4540,10 +4554,11 @@ inline void requestRoutesPortMetrics(App& app)
 
                                     crow::connections::systemBus->async_method_call(
                                         [asyncResp, fabricId, switchId, portId](
-                                            const boost::system::error_code& ec,
+                                            const boost::system::error_code&
+                                                ec2,
                                             std::variant<std::vector<
-                                                std::string>>& resp) {
-                                            if (ec)
+                                                std::string>>& newRespVariant) {
+                                            if (ec2)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "DBUS response error");
@@ -4551,11 +4566,11 @@ inline void requestRoutesPortMetrics(App& app)
                                                     asyncResp->res);
                                                 return;
                                             }
-                                            std::vector<std::string>* data =
-                                                std::get_if<
+                                            std::vector<std::string>*
+                                                dtaVariant = std::get_if<
                                                     std::vector<std::string>>(
-                                                    &resp);
-                                            if (data == nullptr)
+                                                    &newRespVariant);
+                                            if (dtaVariant == nullptr)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "DBUS response error while getting ports");
@@ -4564,7 +4579,7 @@ inline void requestRoutesPortMetrics(App& app)
                                                 return;
                                             }
                                             for (const std::string& portPath :
-                                                 *data)
+                                                 *dtaVariant)
                                             {
                                                 // Get the portId object
                                                 sdbusplus::message::object_path
@@ -4578,15 +4593,15 @@ inline void requestRoutesPortMetrics(App& app)
                                                      switchId, portId,
                                                      portPath](
                                                         const boost::system::
-                                                            error_code ec,
+                                                            error_code ec3,
                                                         const std::vector<
                                                             std::pair<
                                                                 std::string,
                                                                 std::vector<
                                                                     std::
                                                                         string>>>&
-                                                            object) {
-                                                        if (ec)
+                                                            objectPair) {
+                                                        if (ec3)
                                                         {
                                                             // the path does not
                                                             // implement Item
@@ -4617,7 +4632,7 @@ inline void requestRoutesPortMetrics(App& app)
 
                                                         getFabricsPortMetricsData(
                                                             asyncResp,
-                                                            object.front()
+                                                            objectPair.front()
                                                                 .first,
                                                             portPath, fabricId,
                                                             switchId, portId);
@@ -4709,20 +4724,21 @@ inline void requestRoutesSwitchPowerMode(App& app)
                             continue;
                         }
                         crow::connections::systemBus->async_method_call(
-                            [asyncResp, fabricId, switchId](
-                                const boost::system::error_code& ec,
-                                std::variant<std::vector<std::string>>& resp) {
-                                if (ec)
+                            [asyncResp, fabricId,
+                             switchId](const boost::system::error_code& ec1,
+                                       std::variant<std::vector<std::string>>&
+                                           newRespVariant) {
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "DBUS response error while getting switch on fabric");
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
-                                std::vector<std::string>* data =
+                                std::vector<std::string>* dataVariant =
                                     std::get_if<std::vector<std::string>>(
-                                        &resp);
-                                if (data == nullptr)
+                                        &newRespVariant);
+                                if (dataVariant == nullptr)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "Null data response while getting switch on fabric");
@@ -4730,7 +4746,7 @@ inline void requestRoutesSwitchPowerMode(App& app)
                                     return;
                                 }
                                 // Iterate over all retrieved ObjectPaths.
-                                for (const std::string& path : *data)
+                                for (const std::string& path : *dataVariant)
                                 {
                                     sdbusplus::message::object_path objPath(
                                         path);
@@ -4756,13 +4772,14 @@ inline void requestRoutesSwitchPowerMode(App& app)
                                         switchId + " PowerMode Resource";
 
                                     crow::connections::systemBus->async_method_call(
-                                        [asyncResp, path](
-                                            const boost::system::error_code& ec,
-                                            const std::vector<std::pair<
-                                                std::string,
-                                                std::vector<std::string>>>&
-                                                object) {
-                                            if (ec)
+                                        [asyncResp,
+                                         path](const boost::system::error_code&
+                                                   ec2,
+                                               const std::vector<std::pair<
+                                                   std::string,
+                                                   std::vector<std::string>>>&
+                                                   objectPair) {
+                                            if (ec2)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "Dbus response error while getting service name for switch");
@@ -4773,7 +4790,8 @@ inline void requestRoutesSwitchPowerMode(App& app)
                                             redfish::nvidia_fabric_utils::
                                                 updateSwitchPowerModeData(
                                                     asyncResp,
-                                                    object.front().first, path);
+                                                    objectPair.front().first,
+                                                    path);
                                         },
                                         "xyz.openbmc_project.ObjectMapper",
                                         "/xyz/openbmc_project/object_mapper",

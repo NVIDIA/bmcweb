@@ -86,13 +86,13 @@ inline void getResetMetricsInterfaceProperties(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath](
-            const boost::system::error_code& errorCode,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) {
-            if (errorCode)
+            if (ec)
             {
                 BMCWEB_LOG_ERROR("Failed to get object info for path {}: {}",
-                                 objPath, errorCode.message());
+                                 objPath, ec.message());
                 messages::internalError(asyncResp->res);
                 return;
             }
@@ -124,13 +124,13 @@ inline void getResetMetricsInterfaceProperties(
                 *crow::connections::systemBus, targetService, objPath,
                 "com.nvidia.ResetCounters.ResetCounterMetrics",
                 [asyncResp,
-                 objPath](const boost::system::error_code& ec,
+                 objPath](const boost::system::error_code& ec1,
                           const dbus::utility::DBusPropertiesMap& properties) {
-                    if (ec)
+                    if (ec1)
                     {
                         BMCWEB_LOG_ERROR(
                             "Failed to fetch properties for path {}: {}",
-                            objPath, ec.message());
+                            objPath, ec1.message());
                         messages::internalError(asyncResp->res);
                         return;
                     }

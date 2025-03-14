@@ -305,12 +305,12 @@ inline void getProcessor(std::shared_ptr<bmcweb::AsyncResp> aResp,
                 getErrorInjectionService(
                     aResp, path,
                     [processorId, aResp, handler](const std::string& service,
-                                                  const std::string& path) {
+                                                  const std::string& eiPath) {
                         handler(
                             "/redfish/v1/Systems/" +
                                 std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                                 "/Processors/" + processorId,
-                            service, path);
+                            service, eiPath);
                     });
                 return;
             }
@@ -339,8 +339,8 @@ inline void getProcessorErrorInjectionData(
     }
     getProcessor(aResp, processorId,
                  [aResp](const std::string& uri, const std::string& service,
-                         const std::string& path) {
-                     getErrorInjectionData(aResp, uri, service, path);
+                         const std::string& objPath) {
+                     getErrorInjectionData(aResp, uri, service, objPath);
                  });
 }
 
@@ -354,12 +354,13 @@ inline void patchProcessorErrorInjectionData(
         return;
     }
     auto properties = parseErrorInjectionJson(req, aResp);
-    getProcessor(aResp, processorId,
-                 [aResp, properties]([[maybe_unused]] const std::string& uri,
-                                     const std::string& service,
-                                     const std::string& path) {
-                     patchErrorInjectionData(aResp, service, path, properties);
-                 });
+    getProcessor(
+        aResp, processorId,
+        [aResp,
+         properties]([[maybe_unused]] const std::string& uri,
+                     const std::string& service, const std::string& objPath) {
+            patchErrorInjectionData(aResp, service, objPath, properties);
+        });
 }
 
 template <typename Handler>
@@ -392,12 +393,12 @@ inline void getNetworkAdapter(
                 getErrorInjectionService(
                     aResp, path,
                     [chassisId, networkAdapterId, aResp, handler](
-                        const std::string& service, const std::string& path) {
+                        const std::string& service, const std::string& eiPath) {
                         handler(std::string("/redfish/v1/Chassis/")
                                     .append(chassisId)
                                     .append("/NetworkAdapters/")
                                     .append(networkAdapterId),
-                                service, path);
+                                service, eiPath);
                     });
                 return;
             }
@@ -426,8 +427,8 @@ inline void getNetworkAdapterErrorInjectionData(
     getNetworkAdapter(
         aResp, chassisId, networkAdapterId,
         [aResp](const std::string& uri, const std::string& service,
-                const std::string& path) {
-            getErrorInjectionData(aResp, uri, service, path);
+                const std::string& objPath) {
+            getErrorInjectionData(aResp, uri, service, objPath);
         });
 }
 inline void patchNetworkAdapterErrorInjectionData(
@@ -444,8 +445,8 @@ inline void patchNetworkAdapterErrorInjectionData(
         aResp, chassisId, networkAdapterId,
         [aResp,
          properties]([[maybe_unused]] const std::string& uri,
-                     const std::string& service, const std::string& path) {
-            patchErrorInjectionData(aResp, service, path, properties);
+                     const std::string& service, const std::string& objPath) {
+            patchErrorInjectionData(aResp, service, objPath, properties);
         });
 }
 
@@ -478,12 +479,12 @@ inline void getSwitch(std::shared_ptr<bmcweb::AsyncResp> aResp,
                 getErrorInjectionService(
                     aResp, path,
                     [fabricId, switchId, aResp, handler](
-                        const std::string& service, const std::string& path) {
+                        const std::string& service, const std::string& eiPath) {
                         handler(std::string("/redfish/v1/Fabrics/")
                                     .append(fabricId)
                                     .append("/Switches/")
                                     .append(switchId),
-                                service, path);
+                                service, eiPath);
                     });
                 return;
             }
@@ -511,8 +512,8 @@ inline void getSwitchErrorInjectionData(
     }
     getSwitch(aResp, fabricId, switchId,
               [aResp](const std::string& uri, const std::string& service,
-                      const std::string& path) {
-                  getErrorInjectionData(aResp, uri, service, path);
+                      const std::string& objPath) {
+                  getErrorInjectionData(aResp, uri, service, objPath);
               });
 }
 inline void patchSwitchErrorInjectionData(
@@ -528,8 +529,8 @@ inline void patchSwitchErrorInjectionData(
     getSwitch(aResp, fabricId, switchId,
               [aResp, properties]([[maybe_unused]] const std::string& uri,
                                   const std::string& service,
-                                  const std::string& path) {
-                  patchErrorInjectionData(aResp, service, path, properties);
+                                  const std::string& objPath) {
+                  patchErrorInjectionData(aResp, service, objPath, properties);
               });
 }
 

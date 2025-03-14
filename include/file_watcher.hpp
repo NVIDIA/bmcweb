@@ -43,8 +43,8 @@ struct FileWatcherEvent
     std::string name;
     uint32_t mask{0};
 
-    FileWatcherEvent(std::string path, std::string name, uint32_t mask) :
-        path(std::move(path)), name(std::move(name)), mask(mask)
+    FileWatcherEvent(std::string pathIn, std::string nameIn, uint32_t maskIn) :
+        path(std::move(pathIn)), name(std::move(nameIn)), mask(maskIn)
     {}
 };
 

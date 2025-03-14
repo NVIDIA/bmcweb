@@ -107,17 +107,17 @@ class TargetedOperationHandler
                 tokenOperationTimer->expires_after(
                     std::chrono::seconds(targetedOpTimeoutSeconds));
                 tokenOperationTimer->async_wait(
-                    [this](const boost::system::error_code& ec) {
+                    [this](const boost::system::error_code& ec2) {
                         match.reset(nullptr);
-                        if (!ec)
+                        if (!ec2)
                         {
                             BMCWEB_LOG_ERROR("Debug token operation timeout");
                             generalErrorHandler();
                             return;
                         }
-                        if (ec != boost::asio::error::operation_aborted)
+                        if (ec2 != boost::asio::error::operation_aborted)
                         {
-                            BMCWEB_LOG_ERROR("async_wait error {}", ec);
+                            BMCWEB_LOG_ERROR("async_wait error {}", ec2);
                             generalErrorHandler();
                         }
                     });
@@ -181,10 +181,11 @@ class TargetedOperationHandler
                         generalErrorHandler();
                     });
                 auto dbusErrorHandler =
-                    [this](const boost::system::error_code& ec) {
-                        if (ec)
+                    [this](const boost::system::error_code& lambdaEc) {
+                        if (lambdaEc)
                         {
-                            BMCWEB_LOG_ERROR("DBus error: {}", ec.message());
+                            BMCWEB_LOG_ERROR("DBus error: {}",
+                                             lambdaEc.message());
                             generalErrorHandler();
                         }
                     };
@@ -208,12 +209,12 @@ class TargetedOperationHandler
                             generalErrorHandler();
                             return;
                         }
-                        std::string arg =
+                        std::string dbusArg =
                             std::string(debugTokenOpcodesEnumPrefix) +
                             *tokenOpcode;
                         crow::connections::systemBus->async_method_call(
                             dbusErrorHandler, service, objectPath,
-                            std::string(debugTokenIntf), "GetRequest", arg);
+                            std::string(debugTokenIntf), "GetRequest", dbusArg);
                         break;
                     }
 
@@ -227,11 +228,11 @@ class TargetedOperationHandler
                             generalErrorHandler();
                             return;
                         }
-                        std::string arg =
+                        std::string dbusArg =
                             std::string(debugTokenTypesEnumPrefix) + *tokenType;
                         crow::connections::systemBus->async_method_call(
                             dbusErrorHandler, service, objectPath,
-                            std::string(debugTokenIntf), "GetStatus", arg);
+                            std::string(debugTokenIntf), "GetStatus", dbusArg);
                         break;
                     }
 

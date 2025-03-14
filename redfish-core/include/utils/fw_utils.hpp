@@ -387,10 +387,10 @@ inline void getFwRecoveryStatus(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, swId, &getLastSegnmentFromDotterString](
-            const boost::system::error_code& errorCode,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, dbus::utility::DbusVariantType>& propertiesList) {
-            if (errorCode)
+            if (ec)
             {
                 // OK since not all fwtypes support recovery
                 return;
@@ -423,10 +423,10 @@ inline void getFwRecoveryStatus(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, swId, &getLastSegnmentFromDotterString](
-            const boost::system::error_code& errorCode,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, dbus::utility::DbusVariantType>& propertiesList) {
-            if (errorCode)
+            if (ec)
             {
                 // OK since not all fwtypes support recovery
                 return;
@@ -478,10 +478,10 @@ inline void getFwStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, swId](
-            const boost::system::error_code& errorCode,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, dbus::utility::DbusVariantType>& propertiesList) {
-            if (errorCode)
+            if (ec)
             {
                 // not all fwtypes are updateable, this is ok
                 asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
@@ -537,10 +537,10 @@ inline void getFwWriteProtectedStatus(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, swId](
-            const boost::system::error_code& errorCode,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, dbus::utility::DbusVariantType>& propertiesList) {
-            if (errorCode)
+            if (ec)
             {
                 return;
             }
@@ -586,12 +586,13 @@ inline void populateSlotInfo(
     const std::string& slotObjPath, const std::string& slotType)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp, slotObjPath, slotType](const boost::system::error_code& ec,
-                                           const GetObjectType& response) {
+        [asyncResp, slotObjPath,
+         slotType](const boost::system::error_code& ec,
+                   const dbus::utility::MapperGetObject& subtree) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR("error_code = ", ec);
-                BMCWEB_LOG_ERROR("error msg = ", ec.message());
+                BMCWEB_LOG_ERROR("error_code = {}", ec);
+                BMCWEB_LOG_ERROR("error msg = {}", ec.message());
                 return;
             }
 
@@ -599,10 +600,10 @@ inline void populateSlotInfo(
                 "xyz.openbmc_project.Software.Slot";
             std::string slotService;
 
-            for (const auto& [service, interfaces] : response)
+            for (const auto& [service, interfacesList] : subtree)
             {
-                if (std::find(interfaces.begin(), interfaces.end(),
-                              softwareSlotInterface) != interfaces.end())
+                if (std::find(interfacesList.begin(), interfacesList.end(),
+                              softwareSlotInterface) != interfacesList.end())
                 {
                     slotService = service;
                     break;
@@ -613,14 +614,14 @@ inline void populateSlotInfo(
             {
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, slotService, slotObjPath,
-                     slotType](const boost::system::error_code& ec,
+                     slotType](const boost::system::error_code& ec1,
                                const boost::container::flat_map<
                                    std::string, dbus::utility::DbusVariantType>&
                                    properties) {
-                        if (ec)
+                        if (ec1)
                         {
-                            BMCWEB_LOG_ERROR("error_code = ", ec);
-                            BMCWEB_LOG_ERROR("error msg = ", ec.message());
+                            BMCWEB_LOG_ERROR("error_code = {}", ec1);
+                            BMCWEB_LOG_ERROR("error msg = {}", ec1.message());
                             return;
                         }
                         nlohmann::json& oemSlot =
@@ -772,18 +773,18 @@ inline void
                 *crow::connections::systemBus, serviceObjectMapper,
                 objectPath + "/InactiveSlot", "xyz.openbmc_project.Association",
                 "endpoints",
-                [asyncResp](const boost::system::error_code& ec,
-                            const std::vector<std::string>& objPaths) {
-                    if (ec)
+                [asyncResp](const boost::system::error_code& ec2,
+                            const std::vector<std::string>& innerObjPaths) {
+                    if (ec2)
                     {
-                        BMCWEB_LOG_ERROR("error_code = ", ec);
-                        BMCWEB_LOG_ERROR("error msg = ", ec.message());
+                        BMCWEB_LOG_ERROR("error_code = {}", ec2);
+                        BMCWEB_LOG_ERROR("error msg = {}", ec2.message());
                         return;
                     }
 
-                    if (!objPaths.empty())
+                    if (!innerObjPaths.empty())
                     {
-                        populateSlotInfo(asyncResp, objPaths.front(),
+                        populateSlotInfo(asyncResp, innerObjPaths.front(),
                                          "InactiveFirmwareSlot");
                     }
                 });

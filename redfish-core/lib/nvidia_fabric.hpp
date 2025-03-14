@@ -201,14 +201,14 @@ inline void getHistogramDataByAssociation(
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, histoPath, histogramId](
-                        const boost::system::error_code& ec,
+                        const boost::system::error_code& ec1,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
-                        if (ec)
+                        if (ec1)
                         {
                             BMCWEB_LOG_ERROR(
                                 "Dbus response error while getting service name for histogram {}: {}",
-                                histogramId, ec.message());
+                                histogramId, ec1.message());
                             messages::internalError(asyncResp->res);
                             return;
                         }
@@ -304,8 +304,8 @@ inline void getBucketDataByAssociation(
             // Iterate over all retrieved ObjectPaths.
             for (const std::string& bucketPath : *data)
             {
-                sdbusplus::message::object_path objPath(bucketPath);
-                if (objPath.filename() != bucketId)
+                sdbusplus::message::object_path bucketObjPath(bucketPath);
+                if (bucketObjPath.filename() != bucketId)
                 {
                     continue;
                 }
@@ -331,14 +331,14 @@ inline void getBucketDataByAssociation(
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, bucketPath, bucketId](
-                        const boost::system::error_code& ec,
+                        const boost::system::error_code& ec1,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
-                        if (ec)
+                        if (ec1)
                         {
                             BMCWEB_LOG_ERROR(
                                 "Dbus response error while getting service name for bucket {}: {}",
-                                bucketId, ec.message());
+                                bucketId, ec1.message());
                             messages::internalError(asyncResp->res);
                             return;
                         }
@@ -408,20 +408,20 @@ inline void requestRoutesSwitchHistogramBucket(App& app)
                         }
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, fabricId, switchId, histogramId,
-                             bucketId](
-                                const boost::system::error_code& ec,
-                                std::variant<std::vector<std::string>>& resp) {
-                                if (ec)
+                             bucketId](const boost::system::error_code& ec1,
+                                       std::variant<std::vector<std::string>>&
+                                           response) {
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "DBUS response error while getting switch on fabric: {}",
-                                        ec.message());
+                                        ec1.message());
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
                                 std::vector<std::string>* data =
                                     std::get_if<std::vector<std::string>>(
-                                        &resp);
+                                        &response);
                                 if (data == nullptr)
                                 {
                                     BMCWEB_LOG_ERROR(
@@ -441,23 +441,24 @@ inline void requestRoutesSwitchHistogramBucket(App& app)
                                     crow::connections::systemBus->async_method_call(
                                         [asyncResp, fabricId, switchId,
                                          histogramId, bucketId](
-                                            const boost::system::error_code& ec,
+                                            const boost::system::error_code&
+                                                newEc,
                                             std::variant<std::vector<
-                                                std::string>>& resp) {
-                                            if (ec)
+                                                std::string>>& dbusResp) {
+                                            if (newEc)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "DBUS response error while getting histogram on switch: {}",
-                                                    ec.message());
+                                                    newEc.message());
                                                 messages::internalError(
                                                     asyncResp->res);
                                                 return;
                                             }
-                                            std::vector<std::string>* data =
+                                            std::vector<std::string>* dataPtr =
                                                 std::get_if<
                                                     std::vector<std::string>>(
-                                                    &resp);
-                                            if (data == nullptr)
+                                                    &dbusResp);
+                                            if (dataPtr == nullptr)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "Null data response while getting histogram on switch");
@@ -468,7 +469,7 @@ inline void requestRoutesSwitchHistogramBucket(App& app)
                                             // Iterate over all retrieved
                                             // ObjectPaths.
                                             for (const std::string& histoPath :
-                                                 *data)
+                                                 *dataPtr)
                                             {
                                                 sdbusplus::message::object_path
                                                     histoObjPath(histoPath);
@@ -561,19 +562,20 @@ inline void requestRoutesSwitchHistogramBucketCollection(App& app)
                         }
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, fabricId, switchId, histogramId](
-                                const boost::system::error_code& ec,
-                                std::variant<std::vector<std::string>>& resp) {
-                                if (ec)
+                                const boost::system::error_code& ec1,
+                                std::variant<std::vector<std::string>>&
+                                    response) {
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "DBUS response error while getting switch on fabric: {}",
-                                        ec.message());
+                                        ec1.message());
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
                                 std::vector<std::string>* data =
                                     std::get_if<std::vector<std::string>>(
-                                        &resp);
+                                        &response);
                                 if (data == nullptr)
                                 {
                                     BMCWEB_LOG_ERROR(
@@ -593,23 +595,24 @@ inline void requestRoutesSwitchHistogramBucketCollection(App& app)
                                     crow::connections::systemBus->async_method_call(
                                         [asyncResp, fabricId, switchId,
                                          histogramId](
-                                            const boost::system::error_code& ec,
+                                            const boost::system::error_code&
+                                                newEc,
                                             std::variant<std::vector<
-                                                std::string>>& resp) {
-                                            if (ec)
+                                                std::string>>& dbusResp) {
+                                            if (newEc)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "DBUS response error while getting switch on fabric: {}",
-                                                    ec.message());
+                                                    newEc.message());
                                                 messages::internalError(
                                                     asyncResp->res);
                                                 return;
                                             }
-                                            std::vector<std::string>* data =
+                                            std::vector<std::string>* dataPtr =
                                                 std::get_if<
                                                     std::vector<std::string>>(
-                                                    &resp);
-                                            if (data == nullptr)
+                                                    &dbusResp);
+                                            if (dataPtr == nullptr)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "Null data response while getting switch on fabric");
@@ -620,7 +623,7 @@ inline void requestRoutesSwitchHistogramBucketCollection(App& app)
                                             // Iterate over all retrieved
                                             // ObjectPaths.
                                             for (const std::string& histoPath :
-                                                 *data)
+                                                 *dataPtr)
                                             {
                                                 sdbusplus::message::object_path
                                                     histoObjPath(histoPath);
@@ -743,19 +746,20 @@ inline void requestRoutesSwitchHistogram(App& app)
                         }
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, fabricId, switchId, histogramId](
-                                const boost::system::error_code& ec,
-                                std::variant<std::vector<std::string>>& resp) {
-                                if (ec)
+                                const boost::system::error_code& ec1,
+                                std::variant<std::vector<std::string>>&
+                                    response) {
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "DBUS response error while getting switch on fabric: {}",
-                                        ec.message());
+                                        ec1.message());
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
                                 std::vector<std::string>* data =
                                     std::get_if<std::vector<std::string>>(
-                                        &resp);
+                                        &response);
                                 if (data == nullptr)
                                 {
                                     BMCWEB_LOG_ERROR(
@@ -843,20 +847,21 @@ inline void requestRoutesSwitchHistogramCollection(App& app)
                             continue;
                         }
                         crow::connections::systemBus->async_method_call(
-                            [asyncResp, fabricId, switchId](
-                                const boost::system::error_code& ec,
-                                std::variant<std::vector<std::string>>& resp) {
-                                if (ec)
+                            [asyncResp, fabricId,
+                             switchId](const boost::system::error_code& ec1,
+                                       std::variant<std::vector<std::string>>&
+                                           response) {
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "DBUS response error while getting switch on fabric: {}",
-                                        ec.message());
+                                        ec1.message());
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
                                 std::vector<std::string>* data =
                                     std::get_if<std::vector<std::string>>(
-                                        &resp);
+                                        &response);
                                 if (data == nullptr)
                                 {
                                     BMCWEB_LOG_ERROR(
@@ -895,7 +900,8 @@ inline void requestRoutesSwitchHistogramCollection(App& app)
                                     histoURI += "/Oem/Nvidia/Histograms/";
                                     collection_util::
                                         getCollectionMembersByAssociation(
-                                            asyncResp, histogmURI, histoPath, {});
+                                            asyncResp, histogmURI, histoPath,
+                                            {});
                                     return;
                                 }
                                 // Couldn't find an object with that name.

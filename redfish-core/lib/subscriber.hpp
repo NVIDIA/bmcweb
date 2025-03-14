@@ -18,8 +18,8 @@
 #pragma once
 // Dbus service for EventService Listener
 constexpr const char* mode = "replace";
-constexpr const char* serviceName = "org.freedesktop.systemd1";
-constexpr const char* objectPath = "/org/freedesktop/systemd1";
+constexpr const char* systemdServiceName = "org.freedesktop.systemd1";
+constexpr const char* systemdObjectPath = "/org/freedesktop/systemd1";
 constexpr const char* interfaceName = "org.freedesktop.systemd1.Manager";
 constexpr const char* startService = "StartUnit";
 constexpr const char* stopService = "StopUnit";
@@ -192,7 +192,7 @@ inline void invokeRedfishEventListener()
                 return;
             }
         },
-        serviceName, objectPath, interfaceName, startService,
+        systemdServiceName, systemdObjectPath, interfaceName, startService,
         listenerServiceName, mode);
 }
 
@@ -331,7 +331,7 @@ inline int stopRedfishEventListener(boost::asio::io_context& ioc)
                 return;
             }
         },
-        serviceName, objectPath, interfaceName, stopService,
+        systemdServiceName, systemdObjectPath, interfaceName, stopService,
         listenerServiceName, mode);
     return 0;
 }

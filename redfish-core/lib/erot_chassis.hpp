@@ -89,9 +89,9 @@ inline void getChassisCertificate(
             {
                 crow::connections::systemBus->async_method_call(
                     [req, asyncResp, object, objectPath, certificateID](
-                        const boost::system::error_code& ec,
+                        const boost::system::error_code& innerEc,
                         std::variant<std::vector<std::string>>& resp) {
-                        if (ec)
+                        if (innerEc)
                         {
                             BMCWEB_LOG_ERROR(
                                 "Didn't find the inventory object");
@@ -204,9 +204,9 @@ inline void getChassisOEMComponentProtected(
 {
     std::string objPath = path + "/inventory";
     chassis_utils::getAssociationEndpoint(objPath, [objPath, asyncResp](
-                                                       const bool& status,
+                                                       const bool& innerStatus,
                                                        const std::string& ep) {
-        if (!status)
+        if (!innerStatus)
         {
             BMCWEB_LOG_DEBUG("Unable to get the association endpoint for {}",
                              objPath);
@@ -555,8 +555,7 @@ inline void requestRoutesEROTChassisCertificate(App& app)
                             [req, asyncResp, chassisID(std::string(chassisID)),
                              certificateID](
                                 const boost::system::error_code& ec,
-                                const dbus::utility::GetSubTreeType&
-                                    subtree) {
+                                const dbus::utility::GetSubTreeType& subtree) {
                                 if (ec)
                                 {
                                     messages::internalError(asyncResp->res);
@@ -752,10 +751,10 @@ inline void handleEROTChassisPatch(
                         *crow::connections::systemBus, connection.first, path,
                         "xyz.openbmc_project.Common.UUID", "UUID",
                         [req, asyncResp, chassisId(std::string(chassisId)),
-                         backgroundCopyEnabled,
-                         inBandEnabled](const boost::system::error_code& ec,
-                                        const std::string& chassisUUID) {
-                            if (ec)
+                         backgroundCopyEnabled, inBandEnabled](
+                            const boost::system::error_code& innerEc,
+                            const std::string& chassisUUID) {
+                            if (innerEc)
                             {
                                 return;
                             }
@@ -1174,21 +1173,23 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         return;
     }
 
-    std::string command = erotResetPrePath + " " + std::to_string(endpointId);
+    std::string preCommand =
+        erotResetPrePath + " " + std::to_string(endpointId);
     auto dataOut = std::make_shared<boost::process::ipstream>();
     auto dataErr = std::make_shared<boost::process::ipstream>();
     auto exitCallback = [asyncResp, dataOut, dataErr, erotResetPath,
-                         endpointId](const boost::system::error_code& ec,
-                                     int errorCode) mutable {
-        BMCWEB_LOG_DEBUG("ec: {}  errorCode {}", ec, errorCode);
-        if (ec)
+                         endpointId](
+                            const boost::system::error_code& errorCode1,
+                            int exitCode1) mutable {
+        BMCWEB_LOG_DEBUG("ec: {}  errorCode {}", errorCode1, exitCode1);
+        if (errorCode1)
         {
-            BMCWEB_LOG_DEBUG("ERROR DBUS response error {}", ec);
+            BMCWEB_LOG_DEBUG("ERROR DBUS response error {}", errorCode1);
             messages::internalError(asyncResp->res);
             return;
         }
 
-        if (errorCode == EROTRstErr::UpdateInProgress)
+        if (exitCode1 == EROTRstErr::UpdateInProgress)
         {
             BMCWEB_LOG_DEBUG(
                 "ERROR Cannot perform ERoT self reset: An update is in progress");
@@ -1198,7 +1199,7 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
 
-        if (errorCode == EROTRstErr::NoFwPending)
+        if (exitCode1 == EROTRstErr::NoFwPending)
         {
             BMCWEB_LOG_DEBUG(
                 "ERROR Cannot perform ERoT self reset: There is no EC FW pending");
@@ -1207,7 +1208,7 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
 
-        if (errorCode == EROTRstErr::CmdNotSupported)
+        if (exitCode1 == EROTRstErr::CmdNotSupported)
         {
             BMCWEB_LOG_DEBUG(
                 "ERROR Cannot perform ERoT self reset: The action is not supported by the current ERoT version");
@@ -1215,10 +1216,12 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
 
-        std::string command = erotResetPath + " " + std::to_string(endpointId);
+        std::string resetCommand =
+            erotResetPath + " " + std::to_string(endpointId);
         auto secondExitCallback =
-            [](const boost::system::error_code& ec, int errorCode) mutable {
-                BMCWEB_LOG_DEBUG("ec: {}  errorCode {}", ec, errorCode);
+            [](const boost::system::error_code& errorCode2,
+               int exitCode2) mutable {
+                BMCWEB_LOG_DEBUG("ec: {}  errorCode {}", errorCode2, exitCode2);
             };
         BMCWEB_LOG_DEBUG("Sending ERoT self-reset command");
 
@@ -1228,12 +1231,12 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         messages::success(asyncResp->res);
 
         bp::async_system(crow::connections::systemBus->get_io_context(),
-                         std::move(secondExitCallback), command,
+                         std::move(secondExitCallback), resetCommand,
                          bp::std_in.close(), bp::std_out > *dataOut,
                          bp::std_err > *dataErr);
     };
     bp::async_system(crow::connections::systemBus->get_io_context(),
-                     std::move(exitCallback), command, bp::std_in.close(),
+                     std::move(exitCallback), preCommand, bp::std_in.close(),
                      bp::std_out > *dataOut, bp::std_err > *dataErr);
 }
 
@@ -1402,9 +1405,9 @@ inline void handleEROTChassisResetAction(
                 sdbusplus::asio::getProperty<std::string>(
                     *crow::connections::systemBus, connectionNames[0].first,
                     path, "xyz.openbmc_project.Common.UUID", "UUID",
-                    [req, asyncResp](const boost::system::error_code& ec,
+                    [req, asyncResp](const boost::system::error_code& ecLambda,
                                      const std::string& chassisUUID) {
-                        if (ec)
+                        if (ecLambda)
                         {
                             BMCWEB_LOG_DEBUG(
                                 "ERROR DBUS response error for UUID");

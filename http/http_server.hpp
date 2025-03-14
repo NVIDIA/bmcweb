@@ -40,7 +40,7 @@ class Server
            std::shared_ptr<boost::asio::io_context> io) :
         ioService(std::move(io)), acceptor(std::move(acceptorIn)),
         signals(*ioService, SIGINT, SIGTERM, SIGHUP), handler(handlerIn),
-        adaptorCtx(adaptorCtxIn), timer(*ioService)
+        adaptorCtx(adaptorCtxIn), timerIo(*ioService)
     {}
 
     void updateDateStr()
@@ -235,7 +235,7 @@ class Server
     Handler* handler;
 
     std::shared_ptr<boost::asio::ssl::context> adaptorCtx;
-    boost::asio::steady_timer timer;
+    boost::asio::steady_timer timerIo;
     InotifyFileWatcher fileWatcher;
 };
 } // namespace crow

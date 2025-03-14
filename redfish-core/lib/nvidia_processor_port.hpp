@@ -430,8 +430,8 @@ inline void getProcessorPortData(
                             return;
                         }
 
-                        sdbusplus::message::object_path path(sensorpath);
-                        if (path.filename() != portId || object.size() != 1)
+                        sdbusplus::message::object_path pathObj(sensorpath);
+                        if (pathObj.filename() != portId || object.size() != 1)
                         {
                             return;
                         }
@@ -499,17 +499,17 @@ inline void getProcessorAcceleratorPortData(
                 // Check Interface in Object or not
                 BMCWEB_LOG_DEBUG("processor state sensor object path {}",
                                  sensorpath);
-                sdbusplus::message::object_path path(sensorpath);
-                if (path.filename() != portId)
+                sdbusplus::message::object_path pathObj(sensorpath);
+                if (pathObj.filename() != portId)
                 {
                     continue;
                 }
 
-                std::array<std::string_view, 1> interfaces = {
+                std::array<std::string_view, 1> interfacesList = {
                     "xyz.openbmc_project.Inventory.Item.Port"};
 
                 dbus::utility::getSubTree(
-                    objPath, 0, interfaces,
+                    objPath, 0, interfacesList,
                     [aResp, sensorpath, processorId,
                      portId](const boost::system::error_code& ec,
                              const GetSubTreeType& subtree1) {
@@ -559,7 +559,8 @@ inline void getProcessorAcceleratorPortData(
                                 aResp->res.jsonValue["Status"]["Conditions"] =
                                     nlohmann::json::array();
                             }
-                            for (const auto& [service, interfaces] : object1)
+                            for (const auto& [service, interfacesInner] :
+                                 object1)
                             {
                                 redfish::port_utils::getPortData(aResp, service,
                                                                  sensorpath);
@@ -1216,12 +1217,11 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                 return;
             }
             BMCWEB_LOG_DEBUG("Get available system processor resource");
-            std::array<std::string_view, 2> interfaces = {
-                "xyz.openbmc_project.Inventory.Item.Cpu",
-                "xyz.openbmc_project.Inventory.Item.Accelerator"};
+            std::array<std::string_view, 1> interfacesList = {
+                "xyz.openbmc_project.Inventory.Item.Port"};
 
             dbus::utility::getSubTree(
-                "/xyz/openbmc_project/inventory", 0, interfaces,
+                "/xyz/openbmc_project/inventory", 0, interfacesList,
                 [processorId, portId,
                  asyncResp](const boost::system::error_code& ec,
                             const GetSubTreeType& subtree) {
@@ -1267,12 +1267,13 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                                     crow::connections::systemBus->async_method_call(
                                         [asyncResp, sensorpath, processorId,
                                          portId](
-                                            const boost::system::error_code& ec,
+                                            const boost::system::error_code&
+                                                innerEc,
                                             const std::vector<std::pair<
                                                 std::string,
                                                 std::vector<std::string>>>&
-                                                object) {
-                                            if (ec)
+                                                objectData) {
+                                            if (innerEc)
                                             {
                                                 // the path does not implement
                                                 // port interfaces
@@ -1283,8 +1284,8 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                                             }
 
                                             sdbusplus::message::object_path
-                                                path(sensorpath);
-                                            if (path.filename() != portId)
+                                                pathObj(sensorpath);
+                                            if (pathObj.filename() != portId)
                                             {
                                                 return;
                                             }
@@ -1310,8 +1311,8 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                                                 "Metrics";
 
                                             for (const auto& [service,
-                                                              interfaces] :
-                                                 object)
+                                                              interfacesInner] :
+                                                 objectData)
                                             {
                                                 getProcessorPortMetricsData(
                                                     asyncResp, service,
@@ -1320,10 +1321,12 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                                                     BMCWEB_NVIDIA_OEM_PROPERTIES)
                                                 {
                                                     if (std::find(
-                                                            interfaces.begin(),
-                                                            interfaces.end(),
+                                                            interfacesInner
+                                                                .begin(),
+                                                            interfacesInner
+                                                                .end(),
                                                             "xyz.openbmc_project.PCIe.ClearPCIeCounters") !=
-                                                        interfaces.end())
+                                                        interfacesInner.end())
                                                     {
                                                         asyncResp->res.jsonValue
                                                             ["Actions"]["Oem"]

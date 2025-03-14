@@ -705,9 +705,9 @@ inline void handleMctpInBandActions(
                 crow::connections::systemBus->async_method_call(
                     [req, asyncResp, chassisUUID, serviceName, option, enabled,
                      chassisId, chassisProcessed](
-                        const boost::system::error_code& ec,
-                        const dbus::utility::ManagedObjectType& resp) {
-                        if (ec)
+                        const boost::system::error_code& ec1,
+                        const dbus::utility::ManagedObjectType& objects) {
+                        if (ec1)
                         {
                             BMCWEB_LOG_DEBUG(
                                 "DBUS response error for MCTP.Control");
@@ -720,7 +720,7 @@ inline void handleMctpInBandActions(
                         const std::vector<uint8_t>* supportedMsgTypes = nullptr;
                         bool foundEID = false;
 
-                        for (const auto& objectPath : resp)
+                        for (const auto& objectPath : objects)
                         {
                             for (const auto& interfaceMap : objectPath.second)
                             {
@@ -953,11 +953,11 @@ inline void
             }
             crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisObjPath](
-                    const boost::system::error_code& errorCode,
+                    const boost::system::error_code& ec1,
                     const boost::container::flat_map<
                         std::string, dbus::utility::DbusVariantType>&
                         propertiesList) {
-                    if (errorCode)
+                    if (ec1)
                     {
                         // OK since not all fwtypes support bootstatus
                         return;
@@ -1253,9 +1253,9 @@ inline void isEROTChassis(const std::string& chassisID, CallbackFunc&& callback)
             sdbusplus::asio::getProperty<Associations>(
                 *crow::connections::systemBus, serviceName, objIt->first,
                 "xyz.openbmc_project.Association.Definitions", "Associations",
-                [chassisID, callback](const boost::system::error_code& ec,
+                [chassisID, callback](const boost::system::error_code& ec1,
                                       const Associations& associations) {
-                    if (ec)
+                    if (ec1)
                     {
                         callback(false, false);
                         return;
@@ -1363,13 +1363,13 @@ inline void getRedfishURL(const std::filesystem::path& invObjPath,
     crow::connections::systemBus->async_method_call(
         [invObjPath, callback](const boost::system::error_code& ec,
                                const GetObjectType& resp) {
-            std::string url;
+            std::string urlStr;
             if (ec || resp.empty())
             {
                 BMCWEB_LOG_ERROR(
                     "DBUS response error during getting of service name: {}",
                     ec);
-                callback(false, url);
+                callback(false, urlStr);
                 return;
             }
             // if accelerator interface then the object would be
@@ -1402,23 +1402,21 @@ inline void getRedfishURL(const std::filesystem::path& invObjPath,
                            - "xyz.openbmc_project.GpuMgr" ...
                            - "xyz.openbmc_project.ObjectMapper" ...
                         */
-                        url = std::string(
-                                  "/redfish/v1/Systems/" +
-                                  std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                                  "/Processors/") +
-                              invObjPath.filename().string();
+                        urlStr = std::string("/redfish/v1/Systems/") +
+                                 std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                                 invObjPath.filename().string();
                         BMCWEB_LOG_DEBUG("{} {} => URL: {}", service, interface,
-                                         url);
-                        callback(true, url);
+                                         urlStr);
+                        callback(true, urlStr);
                         return;
                     }
                     if (interface == chassisInvInterf)
                     {
-                        url = std::string("/redfish/v1/Chassis/") +
-                              invObjPath.filename().string();
+                        urlStr = std::string("/redfish/v1/Chassis/") +
+                                 invObjPath.filename().string();
                         BMCWEB_LOG_DEBUG("{} {} => URL: {}", service, interface,
-                                         url);
-                        callback(true, url);
+                                         urlStr);
+                        callback(true, urlStr);
                         return;
                     }
                     if (interface == nvLinkMgmtInvIntf)
@@ -1456,13 +1454,13 @@ inline void getRedfishURL(const std::filesystem::path& invObjPath,
                             invObjPath.string() + "/fabrics",
                             [switchID, callback](const bool& status,
                                                  const std::string& ep) {
-                                std::string url;
+                                std::string urlResult;
                                 if (!status)
                                 {
                                     BMCWEB_LOG_DEBUG(
                                         "Unable to get the association endpoint");
 
-                                    callback(false, url);
+                                    callback(false, urlResult);
                                     return;
                                 }
                                 sdbusplus::message::object_path invObjectPath(
@@ -1470,24 +1468,24 @@ inline void getRedfishURL(const std::filesystem::path& invObjPath,
                                 const std::string& fabricID =
                                     invObjectPath.filename();
 
-                                url = std::string("/redfish/v1/Fabrics/");
-                                url += fabricID;
-                                url += "/Switches/";
-                                url += switchID;
+                                urlResult = std::string("/redfish/v1/Fabrics/");
+                                urlResult += fabricID;
+                                urlResult += "/Switches/";
+                                urlResult += switchID;
 
-                                callback(true, url);
+                                callback(true, urlResult);
                                 return;
                             });
                         return;
                     }
                     if (interface == bmcInvInterf)
                     {
-                        url = std::string(
+                        urlStr = std::string(
                             "/redfish/v1/Managers/" +
                             std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
                         BMCWEB_LOG_DEBUG("{} {} => URL: {}", service, interface,
-                                         url);
-                        callback(true, url);
+                                         urlStr);
+                        callback(true, urlStr);
                         return;
                     }
                 }
@@ -1495,7 +1493,7 @@ inline void getRedfishURL(const std::filesystem::path& invObjPath,
                                  service);
             }
             BMCWEB_LOG_ERROR("Failed to find proper URL");
-            callback(false, url);
+            callback(false, urlStr);
         },
         dbus_utils::mapperBusName, dbus_utils::mapperObjectPath,
         dbus_utils::mapperIntf, "GetObject", invObjPath.string(),

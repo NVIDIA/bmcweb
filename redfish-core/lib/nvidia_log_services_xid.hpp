@@ -89,9 +89,9 @@ inline void requestRoutesChassisXIDLogService(App& app)
                             *crow::connections::systemBus, connectionName, path,
                             inventoryItemInterface, "PrettyName",
                             [asyncResp, chassisId(std::string(chassisId))](
-                                const boost::system::error_code& ec,
+                                const boost::system::error_code& ec1,
                                 const std::string& chassisName) {
-                                if (ec)
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_DEBUG(
                                         "DBus response error for PrettyName");
@@ -102,14 +102,15 @@ inline void requestRoutesChassisXIDLogService(App& app)
                                 // LatestEntryTimestamp and LatestEntryID
                                 crow::connections::systemBus->async_method_call(
                                     [asyncResp](
-                                        const boost::system::error_code& ec,
+                                        const boost::system::error_code&
+                                            latestEntryError,
                                         const std::tuple<uint32_t, uint64_t>&
                                             reqData) {
-                                        if (ec)
+                                        if (latestEntryError)
                                         {
                                             BMCWEB_LOG_ERROR(
                                                 "Failed to get Data from xyz.openbmc_project.Logging GetStats: {}",
-                                                ec);
+                                                latestEntryError.message());
                                             messages::internalError(
                                                 asyncResp->res);
                                             return;
@@ -217,9 +218,10 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                 *crow::connections::systemBus, connectionName,
                                 path, inventoryItemInterface, "PrettyName",
                                 [asyncResp, chassisId(std::string(chassisId))](
-                                    const boost::system::error_code& ec,
+                                    const boost::system::error_code&
+                                        prettyNameError,
                                     const std::string& chassisName) {
-                                    if (ec)
+                                    if (prettyNameError)
                                     {
                                         BMCWEB_LOG_DEBUG(
                                             "DBus response error for PrettyName");
@@ -258,16 +260,16 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                      chassisId(
                                                          std::
                                                              string(
-                                                                 chassisId))](const boost::system::error_code& ec, const GetManagedObjectsType&
-                                                                                                                       resp) {
-                                                        if (ec)
+                                                                 chassisId))](const boost::system::error_code& ec2, const GetManagedObjectsType&
+                                                                                                                        resp) {
+                                                        if (ec2)
                                                         {
                                                             // TODO Handle for
                                                             // specific error
                                                             // code
                                                             BMCWEB_LOG_ERROR(
                                                                 "getLogEntriesIfaceData resp_handler got error {}",
-                                                                ec.message());
+                                                                ec2.message());
                                                             messages::
                                                                 internalError(
                                                                     asyncResp
@@ -309,10 +311,10 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                                  objectPath :
                                                              resp)
                                                         {
-                                                            nlohmann::json
-                                                                thisEntry =
+                                                            nlohmann::json& entryData =
+                                                                entriesArray.emplace_back(
                                                                     nlohmann::json::
-                                                                        object();
+                                                                        object());
 
                                                             for (
                                                                 const auto&
@@ -324,10 +326,6 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                                         .first ==
                                                                     "xyz.openbmc_project.Logging.Entry")
                                                                 {
-                                                                    nlohmann::json thisEntry =
-                                                                        nlohmann::json::
-                                                                            object();
-
                                                                     for (
                                                                         const auto&
                                                                             propertyMap :
@@ -546,7 +544,7 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                                     if (isMessageRegistry)
                                                                     {
                                                                         message_registries::generateMessageRegistry(
-                                                                            thisEntry,
+                                                                            entryData,
                                                                             "/redfish/v1/Systems/" +
                                                                                 std::string(
                                                                                     BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -578,7 +576,7 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                                                 std::to_string(
                                                                                     *id),
                                                                                 asyncResp,
-                                                                                thisEntry,
+                                                                                entryData,
                                                                                 deviceName);
                                                                         }
                                                                     } // BMCWEB_DISABLE_HEALTH_ROLLUP
@@ -600,13 +598,13 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                                     // cover
                                                                     // that
                                                                     // case.
-                                                                    if (thisEntry["Id"]
+                                                                    if (entryData["Id"]
                                                                             .empty())
                                                                     {
-                                                                        thisEntry
+                                                                        entryData
                                                                             ["@odata.type"] =
                                                                                 "#LogEntry.v1_13_0.LogEntry";
-                                                                        thisEntry["@odata.id"] =
+                                                                        entryData["@odata.id"] =
                                                                             "/redfish/v1/Systems/" +
                                                                             std::string(
                                                                                 BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -615,29 +613,29 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                                             "Entries/" +
                                                                             std::to_string(
                                                                                 *id);
-                                                                        thisEntry
+                                                                        entryData
                                                                             ["Name"] =
                                                                                 "System Event Log Entry";
-                                                                        thisEntry["Id"] =
+                                                                        entryData["Id"] =
                                                                             std::to_string(
                                                                                 *id);
-                                                                        thisEntry
+                                                                        entryData
                                                                             ["Message"] =
                                                                                 *message;
-                                                                        thisEntry
+                                                                        entryData
                                                                             ["Resolved"] =
                                                                                 resolved;
-                                                                        thisEntry
+                                                                        entryData
                                                                             ["EntryType"] =
                                                                                 "Event";
-                                                                        thisEntry["Severity"] =
+                                                                        entryData["Severity"] =
                                                                             translateSeverityDbusToRedfish(
                                                                                 *severity);
-                                                                        thisEntry["Created"] =
+                                                                        entryData["Created"] =
                                                                             redfish::time_utils::
                                                                                 getDateTimeStdtime(
                                                                                     timestamp);
-                                                                        thisEntry["Modified"] =
+                                                                        entryData["Modified"] =
                                                                             redfish::time_utils::
                                                                                 getDateTimeStdtime(
                                                                                     updateTimestamp);
@@ -676,7 +674,7 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                                                        std::string(
                                                                                            *eventId);
                                                                             }
-                                                                            thisEntry
+                                                                            entryData
                                                                                 .update(
                                                                                     oem);
                                                                         }
@@ -684,14 +682,14 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                                     if (filePath !=
                                                                         nullptr)
                                                                     {
-                                                                        thisEntry["AdditionalDataURI"] =
+                                                                        entryData["AdditionalDataURI"] =
                                                                             getLogEntryAdditionalDataURI(
                                                                                 std::to_string(
                                                                                     *id));
                                                                     }
                                                                     entriesArray
                                                                         .push_back(
-                                                                            thisEntry);
+                                                                            entryData);
                                                                     asyncResp
                                                                         ->res
                                                                         .jsonValue

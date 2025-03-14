@@ -37,18 +37,18 @@ inline void bootModeQuery(const crow::Request& req,
                 cmd, std::monostate(), req, asyncResp,
                 [chassisId](
                     const crow::Request&,
-                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                    const std::shared_ptr<bmcweb::AsyncResp>& innerAsyncResp,
                     uint32_t, const std::string& stdOut, const std::string&,
                     const boost::system::error_code& ec, int errorCode) {
                     nlohmann::json& oem =
-                        asyncResp->res.jsonValue["Oem"]["Nvidia"];
+                        innerAsyncResp->res.jsonValue["Oem"]["Nvidia"];
                     oem["@odata.type"] =
                         "#NvidiaChassis.v1_5_0.NvidiaRoTChassis";
                     if (ec || (errorCode != 0))
                     {
                         oem["ManualBootModeEnabled"] = nullptr;
                         messages::resourceErrorsDetectedFormatError(
-                            asyncResp->res,
+                            innerAsyncResp->res,
 
                             "Oem/Nvidia/ManualBootModeEnabled",
                             "command failure");
@@ -70,7 +70,7 @@ inline void bootModeQuery(const crow::Request& req,
                                      stdOut);
                     oem["ManualBootModeEnabled"] = nullptr;
                     messages::resourceErrorsDetectedFormatError(
-                        asyncResp->res, "Oem/Nvidia/ManualBootModeEnabled",
+                        innerAsyncResp->res, "Oem/Nvidia/ManualBootModeEnabled",
                         "invalid backend response");
                 });
         },
@@ -113,13 +113,14 @@ inline void bootModeSet(const crow::Request& req,
                 cmd, std::monostate(), req, asyncResp,
                 [chassisId](
                     const crow::Request&,
-                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                    const std::shared_ptr<bmcweb::AsyncResp>& innerAsyncResp,
                     uint32_t, const std::string& stdOut, const std::string&,
                     const boost::system::error_code& ec, int errorCode) {
                     if (ec || (errorCode != 0))
                     {
                         messages::resourceErrorsDetectedFormatError(
-                            asyncResp->res, "Oem/Nvidia/ManualBootModeEnabled",
+                            innerAsyncResp->res,
+                            "Oem/Nvidia/ManualBootModeEnabled",
                             "device enumeration failure");
                         return;
                     }
@@ -127,19 +128,19 @@ inline void bootModeSet(const crow::Request& req,
                     std::string reFailure = "(.|\n)*RX:( \\d\\d){8} 81(.|\n)*";
                     if (std::regex_match(stdOut, std::regex(reSuccess)))
                     {
-                        messages::success(asyncResp->res);
+                        messages::success(innerAsyncResp->res);
                         return;
                     }
                     if (std::regex_match(stdOut, std::regex(reFailure)))
                     {
-                        messages::internalError(asyncResp->res);
+                        messages::internalError(innerAsyncResp->res);
                         return;
                     }
                     BMCWEB_LOG_ERROR("Invalid disable_boot_mode"
                                      " / enable_boot_mode response: {}",
                                      stdOut);
                     messages::resourceErrorsDetectedFormatError(
-                        asyncResp->res, "Oem/Nvidia/ManualBootModeEnabled",
+                        innerAsyncResp->res, "Oem/Nvidia/ManualBootModeEnabled",
                         "invalid backend response");
                 });
         },
@@ -177,30 +178,30 @@ inline void bootAp(const crow::Request& req,
                 MctpVdmUtilCommand::BOOT_AP, std::monostate(), req, asyncResp,
                 [chassisId](
                     const crow::Request&,
-                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                    const std::shared_ptr<bmcweb::AsyncResp>& innerAsyncResp,
                     uint32_t, const std::string& stdOut, const std::string&,
                     const boost::system::error_code& ec, int errorCode) {
                     if (ec || (errorCode != 0))
                     {
-                        messages::internalError(asyncResp->res);
+                        messages::internalError(innerAsyncResp->res);
                         return;
                     }
                     std::string reSuccess = "(.|\n)*RX:( \\d\\d){8} 00(.|\n)*";
                     std::string reFailure = "(.|\n)*RX:( \\d\\d){8} 01(.|\n)*";
                     if (std::regex_match(stdOut, std::regex(reSuccess)))
                     {
-                        messages::success(asyncResp->res);
+                        messages::success(innerAsyncResp->res);
                         return;
                     }
                     if (std::regex_match(stdOut, std::regex(reFailure)))
                     {
                         messages::resourceErrorsDetectedFormatError(
-                            asyncResp->res, "BootProtectedDevice",
+                            innerAsyncResp->res, "BootProtectedDevice",
                             "attestation mode is off (manual boot is disabled)");
                         return;
                     }
                     BMCWEB_LOG_ERROR("Invalid boot_ap response: {}", stdOut);
-                    messages::internalError(asyncResp->res);
+                    messages::internalError(innerAsyncResp->res);
                 });
         },
         [asyncResp, chassisId](bool critical, const std::string& desc,

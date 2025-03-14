@@ -100,20 +100,22 @@ struct TestEvent
     // destructor
     ~TestEvent() = default;
     // constructor with all the aruments
-    TestEvent(std::optional<int64_t> eventGroupId,
-              std::optional<std::string> eventId,
-              std::optional<std::string> eventTimestamp,
-              std::optional<std::string> message,
-              std::optional<std::vector<std::string>> messageArgs,
-              std::optional<std::string> messageId,
-              std::optional<std::string> originOfCondition,
-              std::optional<std::string> resolution,
-              std::optional<std::string> severity) :
-        eventGroupId(eventGroupId), eventId(std::move(eventId)),
-        eventTimestamp(std::move(eventTimestamp)), message(std::move(message)),
-        messageArgs(std::move(messageArgs)), messageId(std::move(messageId)),
-        originOfCondition(std::move(originOfCondition)),
-        resolution(std::move(resolution)), severity(std::move(severity))
+    TestEvent(std::optional<int64_t> eventGroupIdIn,
+              std::optional<std::string> eventIdIn,
+              std::optional<std::string> eventTimestampIn,
+              std::optional<std::string> messageIn,
+              std::optional<std::vector<std::string>> messageArgsIn,
+              std::optional<std::string> messageIdIn,
+              std::optional<std::string> originOfConditionIn,
+              std::optional<std::string> resolutionIn,
+              std::optional<std::string> severityIn) :
+
+        eventGroupId(eventGroupIdIn), eventId(std::move(eventIdIn)),
+        eventTimestamp(std::move(eventTimestampIn)),
+        message(std::move(messageIn)), messageArgs(std::move(messageArgsIn)),
+        messageId(std::move(messageIdIn)),
+        originOfCondition(std::move(originOfConditionIn)),
+        resolution(std::move(resolutionIn)), severity(std::move(severityIn))
     {}
 };
 
@@ -1846,7 +1848,7 @@ class EventServiceManager
                     properties;
 
                 std::string messageId;
-                std::string eventId;
+                std::string localEventId;
                 std::string severity;
                 std::string timestamp;
                 std::string originOfCondition;
@@ -1969,7 +1971,7 @@ class EventServiceManager
                         eventIdPtr = std::get_if<std::string>(&val);
                         if (eventIdPtr != nullptr)
                         {
-                            eventId = *eventIdPtr;
+                            localEventId = *eventIdPtr;
                         }
                         else
                         {
@@ -2070,7 +2072,7 @@ class EventServiceManager
                          {{"Nvidia",
                            {{"@odata.type", "#NvidiaEvent.v1_0_0.EventRecord"},
                             {"Device", deviceName},
-                            {"ErrorId", eventId}}}}}};
+                            {"ErrorId", localEventId}}}}}};
                 }
                 if (!cper.empty())
                 {

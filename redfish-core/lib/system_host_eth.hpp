@@ -134,13 +134,13 @@ void getEthernetIfaceDataHost(
             }
             crow::connections::systemBus->async_method_call(
                 [ethifaceId,
-                 callback](const boost::system::error_code& errorCode,
+                 callback](const boost::system::error_code& ec,
                            const dbus::utility::ManagedObjectType& resp) {
                     EthernetInterfaceData ethData{};
                     std::vector<IPv4AddressData> ipv4Data;
                     std::vector<IPv6AddressData> ipv6Data;
 
-                    if (errorCode)
+                    if (ec)
                     {
                         callback(false, ethData, ipv4Data, ipv6Data);
                         return;

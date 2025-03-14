@@ -219,13 +219,13 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
                 crow::connections::systemBus->async_method_call(
                     [resp, fabricId, switchId, handler](
-                        const boost::system::error_code& ec,
+                        const boost::system::error_code& ec1,
                         std::variant<std::vector<std::string>>& response) {
-                        if (ec)
+                        if (ec1)
                         {
                             BMCWEB_LOG_ERROR(
                                 "DBUS response error: {} while getting switch",
-                                ec);
+                                ec1);
                             messages::internalError(resp->res);
                             return;
                         }
@@ -251,11 +251,11 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
                             crow::connections::systemBus->async_method_call(
                                 [resp, fabricId, switchId, path, handler](
-                                    const boost::system::error_code& ec,
+                                    const boost::system::error_code& innerError,
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         object) {
-                                    if (ec)
+                                    if (innerError)
                                     {
                                         BMCWEB_LOG_ERROR(
                                             "Dbus response error while getting service name for switch");
@@ -312,13 +312,13 @@ inline void populateErrorInjectionData(
     getSwitchObject(
         resp, fabricId, switchId,
         [](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-           const std::string& fabricId, const std::string& switchId,
+           const std::string& fabricIdInput, const std::string& switchIdInput,
            const std::string& path,
            [[maybe_unused]] const MapperServiceMap& serviceMap) {
             crow::connections::systemBus->async_method_call(
-                [aResp, fabricId, switchId,
+                [aResp, fabricIdInput, switchIdInput,
                  path](const boost::system::error_code& ec,
-                       const MapperServiceMap& serviceMap) {
+                       const MapperServiceMap& serviceMapInput) {
                     if (ec)
                     {
                         BMCWEB_LOG_DEBUG(
@@ -326,7 +326,7 @@ inline void populateErrorInjectionData(
                         return;
                     }
 
-                    for (const auto& [_, interfaces] : serviceMap)
+                    for (const auto& [_, interfaces] : serviceMapInput)
                     {
                         if (std::find(
                                 interfaces.begin(), interfaces.end(),
@@ -341,9 +341,9 @@ inline void populateErrorInjectionData(
                             .jsonValue["Oem"]["Nvidia"]["ErrorInjection"] = {
                             {"@odata.id",
                              std::string("/redfish/v1/Fabrics/")
-                                 .append(fabricId)
+                                 .append(fabricIdInput)
                                  .append("/Switches/")
-                                 .append(switchId)
+                                 .append(switchIdInput)
                                  .append("/Oem/Nvidia/ErrorInjection")}};
                         return;
                     }

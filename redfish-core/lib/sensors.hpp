@@ -1054,7 +1054,7 @@ void getInventoryItemsData(
  * Gets the D-Bus connections (services) that provide data for the inventory
  * items that are associated with sensors.
  *
- * Finds the connections asynchronously.  Invokes callback when information has
+ * Finds the connections asynchronously.  Invokes callback when connections have
  * been obtained.
  *
  * The callback must have the following signature:
@@ -2201,10 +2201,10 @@ inline void setSensorsOverride(
         }
         for (auto& item : collectionItems.second)
         {
-            if (!json_util::readJsonObject(                //
+            if (!json_util::readJsonObject( //
                     item, sensorAsyncResp->asyncResp->res, //
-                    "MemberId", memberId,                  //
-                    propertyValueName, value               //
+                    "MemberId", memberId, //
+                    propertyValueName, value //
                     ))
             {
                 return;
@@ -2894,48 +2894,48 @@ inline void requestRoutesSensorPatch(App& app)
                 }
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisId, sensorId,
-                     req](const boost::system::error_code& ec,
+                     req](const boost::system::error_code& ec1,
                           const std::vector<std::string>& objects) {
-                        if (ec)
+                        if (ec1)
                         {
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        for (const std::string& object : objects)
+                        for (const std::string& obj : objects)
                         {
-                            if (!object.ends_with(chassisId))
+                            if (!obj.ends_with(chassisId))
                             {
                                 continue;
                             }
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, sensorId,
-                                 req](const boost::system::error_code& ec,
+                                 req](const boost::system::error_code& ec2,
                                       const std::vector<std::pair<
                                           std::string,
                                           std::vector<std::pair<
                                               std::string,
                                               std::vector<std::string>>>>>&
                                           subtree) {
-                                    if (ec)
+                                    if (ec2)
                                     {
                                         messages::internalError(asyncResp->res);
                                         return;
                                     }
                                     std::string str;
                                     size_t found = 0;
-                                    for (const auto& object : subtree)
+                                    for (const auto& subtreeObj : subtree)
                                     {
-                                        str = object.first;
+                                        str = subtreeObj.first;
                                         found = str.find(sensorId);
                                         if (found != std::string::npos)
                                         {
                                             for (const auto& service :
-                                                 object.second)
+                                                 subtreeObj.second)
                                             {
                                                 processSensorThresholdValues(
                                                     req, asyncResp,
                                                     service.first,
-                                                    object.first);
+                                                    subtreeObj.first);
                                                 return;
                                             }
                                         }

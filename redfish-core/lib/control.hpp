@@ -125,17 +125,17 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          "xyz.openbmc_project.Inventory.Decorator.Area"))
                     {
                         crow::connections::systemBus->async_method_call(
-                            [asyncResp, path, interface](
-                                const boost::system::error_code& errorno,
-                                const std::vector<std::pair<
-                                    std::string,
-                                    std::variant<size_t, std::string>>>&
-                                    propertiesList) {
-                                if (errorno)
+                            [asyncResp, path,
+                             interface](const boost::system::error_code& ec1,
+                                        const std::vector<std::pair<
+                                            std::string,
+                                            std::variant<size_t, std::string>>>&
+                                            propertiesList) {
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "ObjectMapper::GetObject call failed:{}",
-                                        errorno);
+                                        ec1);
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
@@ -230,8 +230,6 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                         const std::string* mode =
                                             std::get_if<std::string>(
                                                 &property.second);
-                                        std::map<std::string,
-                                                 std::string>::iterator itr;
                                         for (const auto& itr : modes)
                                         {
                                             if (*mode == itr.first)
@@ -306,11 +304,12 @@ inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 // Read Sensor value
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisID, sensorName, serviceName,
-                     path](const boost::system::error_code& ec,
+                     path](const boost::system::error_code& ec1,
                            const std::variant<double>& totalPower) {
-                        if (ec)
+                        if (ec1)
                         {
-                            BMCWEB_LOG_ERROR("Get Sensor value failed: {}", ec);
+                            BMCWEB_LOG_ERROR("Get Sensor value failed: {}",
+                                             ec1);
                             messages::internalError(asyncResp->res);
                             return;
                         }
@@ -318,7 +317,8 @@ inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const auto* value = std::get_if<double>(&totalPower);
                         if (value == nullptr)
                         {
-                            BMCWEB_LOG_ERROR("Get Sensor value failed: {}", ec);
+                            BMCWEB_LOG_ERROR("Get Sensor value failed: {}",
+                                             ec1);
                             messages::internalError(asyncResp->res);
                             return;
                         }
@@ -401,15 +401,14 @@ inline void
             {
                 crow::connections::systemBus->async_method_call(
                     [asyncResp,
-                     path](const boost::system::error_code& errorno,
+                     path](const boost::system::error_code& ec1,
                            const std::vector<std::pair<
                                std::string, dbus::utility::DbusVariantType>>&
                                propertiesList) {
-                        if (errorno)
+                        if (ec1)
                         {
                             BMCWEB_LOG_ERROR(
-                                "ObjectMapper::GetObject call failed:{}",
-                                errorno);
+                                "ObjectMapper::GetObject call failed:{}", ec1);
                             messages::internalError(asyncResp->res);
                             return;
                         }
@@ -456,11 +455,11 @@ inline void
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp,
-                     path](const boost::system::error_code& errorno,
+                     path](const boost::system::error_code& ec,
                            const std::vector<std::pair<
                                std::string, dbus::utility::DbusVariantType>>&
                                propertiesList) {
-                        if (errorno)
+                        if (ec)
                         {
                             return;
                         }
@@ -1158,10 +1157,10 @@ inline void requestRoutesChassisControls(App& app)
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, controlID, chassisID, processorPath,
                                  validChassisPath](
-                                    const boost::system::error_code& ec,
+                                    const boost::system::error_code& ec1,
                                     const dbus::utility::MapperGetObject&
                                         objType) {
-                                    if (ec || objType.empty())
+                                    if (ec1 || objType.empty())
                                     {
                                         BMCWEB_LOG_ERROR(
                                             "GetObject for path {} failed",
@@ -1412,10 +1411,10 @@ inline void requestRoutesChassisControls(App& app)
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, controlID, chassisID, processorPath,
                                  validChassisPath,
-                                 req](const boost::system::error_code& ec,
+                                 req](const boost::system::error_code& ec1,
                                       const dbus::utility::MapperGetObject&
                                           objType) {
-                                    if (ec || objType.empty())
+                                    if (ec1 || objType.empty())
                                     {
                                         BMCWEB_LOG_ERROR(
                                             "GetObject for path {} failed",
@@ -1739,10 +1738,10 @@ inline void requestRoutesChassisControlsReset(App& app)
                                 [asyncResp, controlId, processorPath,
                                  postChassisClockLimitControl,
                                  validChassisPath](
-                                    const boost::system::error_code& ec,
+                                    const boost::system::error_code& ec1,
                                     const dbus::utility::MapperGetObject&
                                         objType) {
-                                    if (ec || objType.empty())
+                                    if (ec1 || objType.empty())
                                     {
                                         BMCWEB_LOG_ERROR(
                                             "GetObject for path {} failed",

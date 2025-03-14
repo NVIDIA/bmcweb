@@ -1,6 +1,8 @@
 /*
  * SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
- * All rights reserved. SPDX-License-Identifier: Apache-2.0
+ * All rights reserved. SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA
+ * CORPORATION & AFFILIATES. All rights reserved. SPDX-License-Identifier:
+ * Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -573,14 +575,14 @@ inline bool handleTaskStatus(
 {
     // {task status, progress percent}
     const std::unordered_map<std::string, int> taskNotCompleted = {
-        {"Start", 0},              // Start update of a profile
-        {"StartBios", 0},          // Start update of a by Bios
+        {"Start", 0}, // Start update of a profile
+        {"StartBios", 0}, // Start update of a by Bios
         {"StartVerification", 20}, // Start Verification of profile by BMC
-        {"ProfileSaved", 30},      // Profile Saved by BMC
-        {"PendingBios", 40},       // Pending Bios to complete update of profile
-        {"BiosStarted", 50},       // Bios Started update of profile
-        {"BiosFinished", 60},      // Bios Finished update of profile
-        {"BmcStarted", 80}};       // Bmc start last stage of update of profile
+        {"ProfileSaved", 30}, // Profile Saved by BMC
+        {"PendingBios", 40}, // Pending Bios to complete update of profile
+        {"BiosStarted", 50}, // Bios Started update of profile
+        {"BiosFinished", 60}, // Bios Finished update of profile
+        {"BmcStarted", 80}}; // Bmc start last stage of update of profile
     const std::vector<std::string> taskCompleted = {"None", "Active"};
     std::string index = std::to_string(taskData->index);
 
@@ -695,13 +697,13 @@ inline void handleProfileUpdate(crow::App& app, const crow::Request& req,
         BMCWEB_LOG_DEBUG("Is bios: {}",
                          std::to_string(static_cast<int>(isBios)));
         crow::connections::systemBus->async_method_call(
-            [req, aResp, isBios](const boost::system::error_code& ec,
+            [req, aResp, isBios](const boost::system::error_code& ec1,
                                  const uint16_t& profileNumber) {
-                if (ec)
+                if (ec1)
                 {
                     messages::internalError(aResp->res);
                     BMCWEB_LOG_ERROR("Update profile Dbus error: {}",
-                                     ec.what());
+                                     ec1.what());
                     return;
                 }
                 if (profileNumber == UINT16_MAX)
@@ -727,9 +729,10 @@ inline void handleProfileUpdate(crow::App& app, const crow::Request& req,
                     profilePath + std::to_string(profileNumber) + "'";
                 std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
                     [profileNumber](
-                        boost::system::error_code ec, sdbusplus::message_t& msg,
+                        boost::system::error_code ec2,
+                        sdbusplus::message_t& msg,
                         const std::shared_ptr<task::TaskData>& taskData) {
-                        if (ec)
+                        if (ec2)
                         {
                             BMCWEB_LOG_ERROR("Profile dbus error ");
                             return finishProfileTask(

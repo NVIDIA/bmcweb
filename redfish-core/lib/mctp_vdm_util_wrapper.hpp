@@ -172,7 +172,7 @@ struct MctpVdmUtil
     std::string command;
 
   public:
-    explicit MctpVdmUtil(uint32_t endpointId) : endpointId(endpointId) {}
+    explicit MctpVdmUtil(uint32_t endpointIdIn) : endpointId(endpointIdIn) {}
 
     /**
      *@brief Execute mctp-vdm-util tool command for

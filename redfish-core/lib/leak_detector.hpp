@@ -186,9 +186,9 @@ inline void getLeakDetectorState(
                 *crow::connections::systemBus, service, subtreePaths.front(),
                 leakDetectorStateInterface,
                 [asyncResp](
-                    const boost::system::error_code& ec,
+                    const boost::system::error_code& ec1,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
-                    afterDetectorStatePropertyGet(asyncResp, ec,
+                    afterDetectorStatePropertyGet(asyncResp, ec1,
                                                   propertiesList);
                 });
 
@@ -196,9 +196,9 @@ inline void getLeakDetectorState(
                 *crow::connections::systemBus, service, subtreePaths.front(),
                 leakDetectorOpStatusInterface,
                 [asyncResp](
-                    const boost::system::error_code& ec,
+                    const boost::system::error_code& ec1,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
-                    afterDetectorStatusPropertyGet(asyncResp, ec,
+                    afterDetectorStatusPropertyGet(asyncResp, ec1,
                                                    propertiesList);
                 });
         });

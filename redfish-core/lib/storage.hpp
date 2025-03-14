@@ -376,8 +376,8 @@ inline void getDriveSmartWarning(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Nvme.Status", "SmartWarnings",
         [asyncResp, connectionName,
-         path](const boost::system::error_code& ec, const std::string& sw) {
-            if (ec)
+         path](const boost::system::error_code& ec4, const std::string& sw) {
+            if (ec4)
             {
                 BMCWEB_LOG_ERROR("fail to get drive smart");
                 return;
@@ -423,8 +423,8 @@ inline void getDriveOperation(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Nvme.Operation", "Operation",
         [asyncResp, connectionName,
-         path](const boost::system::error_code& ec, const std::string& op) {
-            if (ec)
+         path](const boost::system::error_code& ec5, const std::string& op) {
+            if (ec5)
             {
                 BMCWEB_LOG_ERROR("fail to get drive progress");
                 return;
@@ -458,13 +458,13 @@ inline void handleSystemsStorageCollectionGet(
         "/redfish/v1/Systems/{}/Storage", BMCWEB_REDFISH_SYSTEM_URI_NAME);
     asyncResp->res.jsonValue["Name"] = "Storage Collection";
 
-    constexpr std::array<std::string_view, 1> interface{
+    constexpr std::array<std::string_view, 1> storageInterfaces = {
         "xyz.openbmc_project.Inventory.Item.Storage"};
     collection_util::getCollectionMembers(
         asyncResp,
         boost::urls::format("/redfish/v1/Systems/{}/Storage",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME),
-        interface, "/xyz/openbmc_project/inventory");
+        storageInterfaces, "/xyz/openbmc_project/inventory");
 }
 
 inline void handleStorageCollectionGet(
@@ -479,11 +479,11 @@ inline void handleStorageCollectionGet(
         "#StorageCollection.StorageCollection";
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Storage";
     asyncResp->res.jsonValue["Name"] = "Storage Collection";
-    constexpr std::array<std::string_view, 1> interface{
+    constexpr std::array<std::string_view, 1> storageInterfaces = {
         "xyz.openbmc_project.Inventory.Item.Storage"};
     collection_util::getCollectionMembers(
-        asyncResp, boost::urls::format("/redfish/v1/Storage"), interface,
-        "/xyz/openbmc_project/inventory");
+        asyncResp, boost::urls::format("/redfish/v1/Storage"),
+        storageInterfaces, "/xyz/openbmc_project/inventory");
 }
 
 inline void requestRoutesStorageCollection(App& app)
@@ -549,10 +549,10 @@ inline void afterChassisDriveCollectionSubtree(
 inline void getDrives(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::shared_ptr<HealthPopulate>& health)
 {
-    const std::array<std::string_view, 1> interfaces = {
+    constexpr std::array<std::string_view, 1> localDriveInterface = {
         "xyz.openbmc_project.Inventory.Item.Drive"};
     dbus::utility::getSubTree(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
+        "/xyz/openbmc_project/inventory", 0, localDriveInterface,
         std::bind_front(afterChassisDriveCollectionSubtree, asyncResp, health));
 }
 
@@ -616,10 +616,10 @@ inline void handleSystemsStorageGet(
         return;
     }
 
-    constexpr std::array<std::string_view, 1> interfaces = {
+    constexpr std::array<std::string_view, 1> storageInterfaces = {
         "xyz.openbmc_project.Inventory.Item.Storage"};
     dbus::utility::getSubTree(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
+        "/xyz/openbmc_project/inventory", 0, storageInterfaces,
         std::bind_front(afterSystemsStorageGetSubtree, asyncResp, storageId));
 }
 
@@ -679,10 +679,10 @@ inline void
         return;
     }
 
-    constexpr std::array<std::string_view, 1> interfaces = {
+    constexpr std::array<std::string_view, 1> storageInterfaces = {
         "xyz.openbmc_project.Inventory.Item.Storage"};
     dbus::utility::getSubTree(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
+        "/xyz/openbmc_project/inventory", 0, storageInterfaces,
         std::bind_front(afterSubtree, asyncResp, storageId));
 }
 
@@ -1042,9 +1042,9 @@ inline void getDriveItemProperties(
 inline void addAllDriveInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& connectionName,
                             const std::string& path,
-                            const std::vector<std::string>& interfaces)
+                            const std::vector<std::string>& connInterfaces)
 {
-    for (const std::string& interface : interfaces)
+    for (const std::string& interface : connInterfaces)
     {
         if (interface == "xyz.openbmc_project.Inventory.Decorator.Asset")
         {
@@ -1261,14 +1261,14 @@ inline void handleDriveSanitizePost(
         sanitizeType = "CryptoErase";
     }
 
-    constexpr std::array<std::string_view, 1> interfaces = {
+    constexpr std::array<std::string_view, 1> localDriveInterface = {
         "xyz.openbmc_project.Inventory.Item.Drive"};
     dbus::utility::getSubTree(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
+        "/xyz/openbmc_project/inventory", 0, localDriveInterface,
         [req, asyncResp, driveId, sanitizeType,
-         owPass](const boost::system::error_code& ec,
+         owPass](const boost::system::error_code& ec4,
                  const dbus::utility::MapperGetSubTreeResponse& subtree) {
-            if (ec)
+            if (ec4)
             {
                 BMCWEB_LOG_ERROR("Drive mapper call error");
                 messages::internalError(asyncResp->res);
@@ -1293,9 +1293,9 @@ inline void handleDriveSanitizePost(
 
             std::string service;
             std::string interface;
-            for (const auto& [connectionName, interfaces] : connNames)
+            for (const auto& [connectionName, connInterfaces] : connNames)
             {
-                for (const std::string& iface : interfaces)
+                for (const std::string& iface : connInterfaces)
                 {
                     if (iface == "xyz.openbmc_project.Nvme.SecureErase")
                     {
@@ -1355,14 +1355,14 @@ inline void handleDriveSanitizetActionInfoGet(
     asyncResp->res.jsonValue["Name"] = "Sanitize Action Info";
     asyncResp->res.jsonValue["Id"] = "SanitizeActionInfo";
 
-    constexpr std::array<std::string_view, 1> interfaces = {
+    constexpr std::array<std::string_view, 1> localDriveInterface = {
         "xyz.openbmc_project.Inventory.Item.Drive"};
     dbus::utility::getSubTree(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
+        "/xyz/openbmc_project/inventory", 0, localDriveInterface,
         [asyncResp,
-         driveId](const boost::system::error_code& ec,
+         driveId](const boost::system::error_code& ec4,
                   const dbus::utility::MapperGetSubTreeResponse& subtree) {
-            if (ec)
+            if (ec4)
             {
                 BMCWEB_LOG_ERROR("Drive mapper call error");
                 messages::internalError(asyncResp->res);
@@ -1387,9 +1387,9 @@ inline void handleDriveSanitizetActionInfoGet(
 
             std::string service;
             std::string interface;
-            for (const auto& [connectionName, interfaces] : connNames)
+            for (const auto& [connectionName, connInterfaces] : connNames)
             {
-                for (const std::string& iface : interfaces)
+                for (const std::string& iface : connInterfaces)
                 {
                     if (iface == "xyz.openbmc_project.Nvme.SecureErase")
                     {
@@ -1528,9 +1528,9 @@ inline void afterGetSubtreeSystemsStorageDrive(
     // default it to Enabled
     asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
 
-    for (const auto& [connectionName, interfaces] : connectionNames)
+    for (const auto& [connectionName, connInterfaces] : connectionNames)
     {
-        addAllDriveInfo(asyncResp, connectionName, path, interfaces);
+        addAllDriveInfo(asyncResp, connectionName, path, connInterfaces);
     }
 }
 
@@ -1558,10 +1558,10 @@ inline void handleSystemsStorageDriveGet(
         return;
     }
 
-    constexpr std::array<std::string_view, 1> interfaces = {
+    constexpr std::array<std::string_view, 1> localDriveInterface = {
         "xyz.openbmc_project.Inventory.Item.Drive"};
     dbus::utility::getSubTree(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
+        "/xyz/openbmc_project/inventory", 0, localDriveInterface,
         std::bind_front(afterGetSubtreeSystemsStorageDrive, asyncResp,
                         driveId));
 }
@@ -1592,10 +1592,10 @@ inline void
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
         "/Storage/1/Drives/";
 
-    constexpr std::array<std::string_view, 1> interfaces = {
+    constexpr std::array<std::string_view, 1> localDriveInterface = {
         "xyz.openbmc_project.Inventory.Item.Drive"};
     dbus::utility::getSubTree(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
+        "/xyz/openbmc_project/inventory", 0, localDriveInterface,
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
@@ -1830,9 +1830,9 @@ inline void buildDrive(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             "/redfish/v1/Chassis/{}/Drives/{}/SanitizeActionInfo", chassisId,
             driveName);
 
-        for (const auto& [connectionName, interfaces] : connectionNames)
+        for (const auto& [connectionName, connInterfaces] : connectionNames)
         {
-            addAllDriveInfo(asyncResp, connectionName, path, interfaces);
+            addAllDriveInfo(asyncResp, connectionName, path, connInterfaces);
         }
     }
 }
@@ -1851,10 +1851,10 @@ inline void matchAndFillDrive(
             continue;
         }
         //  mapper call drive
-        constexpr std::array<std::string_view, 1> driveInterface = {
+        constexpr std::array<std::string_view, 1> localDriveInterface = {
             "xyz.openbmc_project.Inventory.Item.Drive"};
         dbus::utility::getSubTree(
-            "/xyz/openbmc_project/inventory", 0, driveInterface,
+            "/xyz/openbmc_project/inventory", 0, localDriveInterface,
             [asyncResp, chassisId, driveName](
                 const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreeResponse& subtree) {

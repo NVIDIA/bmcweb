@@ -179,12 +179,14 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                 if (completedTask != tasks.end())
                 {
                     auto& current = **currentTask;
-                    auto& completed = **completedTask;
+                    auto& completedTaskData = **completedTask;
 
-                    if (current.endTime.has_value() && completed.endTime.has_value())
+                    if (current.endTime.has_value() &&
+                        completedTaskData.endTime.has_value())
                     {
                         auto currentEndTime = current.endTime.value();
-                        auto completedEndTime = completed.endTime.value();
+                        auto completedEndTime =
+                            completedTaskData.endTime.value();
 
                         if (completedEndTime > currentEndTime)
                         {

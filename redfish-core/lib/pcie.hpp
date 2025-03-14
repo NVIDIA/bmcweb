@@ -1125,9 +1125,9 @@ inline void requestRoutesChassisPCIeDevice(App& app)
             }
             crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisId,
-                 device](const boost::system::error_code& ec,
+                 device](const boost::system::error_code& ecOuter,
                          const std::vector<std::string>& chassisPaths) {
-                    if (ec)
+                    if (ecOuter)
                     {
                         messages::internalError(asyncResp->res);
                         return;
@@ -1154,10 +1154,10 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                         // Get Inventory Service
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, device, chassisPCIePath, interface,
-                             chassisId, chassisPCIeDevicePath,
-                             chassisPath](const boost::system::error_code& ec,
-                                          const GetSubTreeType& subtree) {
-                                if (ec)
+                             chassisId, chassisPCIeDevicePath, chassisPath](
+                                const boost::system::error_code& ecInner,
+                                const GetSubTreeType& subtree) {
+                                if (ecInner)
                                 {
                                     BMCWEB_LOG_DEBUG("DBUS response error");
                                     messages::internalError(asyncResp->res);
@@ -1211,7 +1211,9 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                                     redfish::nvidia_chassis_utils::
                                         getHealthByAssociation(
                                             asyncResp,
-                                            std::string(chassisPCIePath).append("/").append(device),
+                                            std::string(chassisPCIePath)
+                                                .append("/")
+                                                .append(device),
                                             "chassis", device);
 
                                     // Get asset properties

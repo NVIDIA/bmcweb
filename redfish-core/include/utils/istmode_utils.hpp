@@ -71,9 +71,9 @@ inline void getIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
                         messages::internalError(aResp->res);
                         return;
                     }
-                    auto mode = dbus_utils::getRedfishIstMode(*modePtr);
+                    auto modeVal = dbus_utils::getRedfishIstMode(*modePtr);
 
-                    if (mode == "Enabled")
+                    if (modeVal == "Enabled")
                     {
                         istModeEnabled = true;
                     }
@@ -145,10 +145,10 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    auto mode = dbus_utils::getRedfishIstMode(*modePtr);
+                    auto modeVal = dbus_utils::getRedfishIstMode(*modePtr);
 
                     // validate request
-                    if ((mode == "Enabled") && reqIstModeEnabled)
+                    if ((modeVal == "Enabled") && reqIstModeEnabled)
                     {
                         BMCWEB_LOG_ERROR("ISTMode Already Enabled");
                         aResp->res.result(
@@ -156,7 +156,7 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         return;
                     }
                     // validate request
-                    if ((mode == "Disabled") && !reqIstModeEnabled)
+                    if ((modeVal == "Disabled") && !reqIstModeEnabled)
                     {
                         BMCWEB_LOG_ERROR("ISTMode Already Disabled");
                         aResp->res.result(
@@ -167,9 +167,9 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     // Async method call to get current Status
                     crow::connections::systemBus->async_method_call(
                         [aResp, reqIstModeEnabled,
-                         req](const boost::system::error_code& ec1,
+                         req](const boost::system::error_code& ec2,
                               const std::variant<std::string>& istStatus) {
-                            if (ec1)
+                            if (ec2)
                             {
                                 BMCWEB_LOG_DEBUG(
                                     "DBUS response error for "
@@ -209,8 +209,8 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             // Async method call setISTMode
                             crow::connections::systemBus->async_method_call(
                                 [aResp, req, reqIstModeEnabled](
-                                    boost::system::error_code& ec) {
-                                    if (ec)
+                                    boost::system::error_code& ec3) {
+                                    if (ec3)
                                     {
                                         BMCWEB_LOG_ERROR(
                                             "setISTMode failed with error");
@@ -224,12 +224,12 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                     // ISTMode status
                                     std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
                                         [reqIstModVal](
-                                            boost::system::error_code err,
+                                            boost::system::error_code ec4,
                                             sdbusplus::message::message&
                                                 taskMsg,
                                             const std::shared_ptr<
                                                 task::TaskData>& taskData) {
-                                            if (err)
+                                            if (ec4)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "task cancelled");
@@ -238,7 +238,7 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                                     messages::
                                                         resourceErrorsDetectedFormatError(
                                                             "SetIstMode task",
-                                                            err.message()));
+                                                            ec4.message()));
                                                 taskData->finishTask();
                                                 return task::completed;
                                             }

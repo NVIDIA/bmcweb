@@ -286,15 +286,15 @@ inline void requestAssemblyRoutes(App& app)
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, path, chassisId(std::string(chassisId)),
                              connectionName](
-                                const boost::system::error_code& ec,
+                                const boost::system::error_code& ec1,
                                 std::variant<std::vector<std::string>>& resp) {
                                 const std::array<const char*, 1> assemblyIntf = {
                                     "xyz.openbmc_project.Inventory.Item.Assembly"};
-                                if (ec)
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "Chassis and assembly are not connected through association. ec : {}",
-                                        ec);
+                                        ec1);
 
                                     crow::connections::systemBus
                                         ->async_method_call(
@@ -302,10 +302,10 @@ inline void requestAssemblyRoutes(App& app)
                                              chassisId(std::string(chassisId)),
                                              connectionName](
                                                 const boost::system::error_code&
-                                                    ec,
+                                                    ec2,
                                                 const std::vector<std::string>&
                                                     assemblyList) {
-                                                if (ec)
+                                                if (ec2)
                                                 {
                                                     BMCWEB_LOG_DEBUG(
                                                         "DBUS response error");
@@ -351,16 +351,15 @@ inline void requestAssemblyRoutes(App& app)
                                             [asyncResp, assembly,
                                              chassisId(std::string(chassisId))](
                                                 const boost::system::error_code&
-                                                    errorCode,
+                                                    ec2,
                                                 const std::vector<std::pair<
                                                     std::string,
                                                     std::vector<std::string>>>&
                                                     objInfo) mutable {
-                                                if (errorCode)
+                                                if (ec2)
                                                 {
                                                     BMCWEB_LOG_ERROR(
-                                                        "error_code = {}",
-                                                        errorCode);
+                                                        "error_code = {}", ec2);
 
                                                     messages::internalError(
                                                         asyncResp->res);
@@ -378,7 +377,6 @@ inline void requestAssemblyRoutes(App& app)
                                             "GetObject", assembly,
                                             assemblyIntf);
                                 }
-                               
                             },
                             "xyz.openbmc_project.ObjectMapper",
                             path + "/assembly",

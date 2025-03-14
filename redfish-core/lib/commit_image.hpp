@@ -240,9 +240,9 @@ inline void retrieveEidFromMctpServiceProperties(
 
             for (const auto& [objectPath, interfaces] : objects)
             {
-                for (const auto& [interfaceName, properties] : interfaces)
+                for (const auto& [interfaceNameStr, properties] : interfaces)
                 {
-                    if (interfaceName == mctpCommonUUIDIntf)
+                    if (interfaceNameStr == mctpCommonUUIDIntf)
                     {
                         for (const auto& propertyMap : properties)
                         {
@@ -257,7 +257,7 @@ inline void retrieveEidFromMctpServiceProperties(
                             }
                         }
                     }
-                    if (interfaceName == mctpMCTPEndpointIntf)
+                    if (interfaceNameStr == mctpMCTPEndpointIntf)
                     {
                         for (const auto& propertyMap : properties)
                         {
@@ -281,7 +281,7 @@ inline void retrieveEidFromMctpServiceProperties(
                             }
                         }
                     }
-                    if (interfaceName == mctpMCTPBindingIntf)
+                    if (interfaceNameStr == mctpMCTPBindingIntf)
                     {
                         for (const auto& propertyMap : properties)
                         {
@@ -334,16 +334,17 @@ inline void retrieveEidFromMctpServiceProperties(
                     return;
                 }
 
-                for (const auto& [uuid, eidTuple] : updatedUuidToEidMap)
+                for (const auto& [uuidKey, eidTuple] : updatedUuidToEidMap)
                 {
-                    EID eid = 0;
-                    Priority mediumPriority = 0;
-                    Priority bindingPriority = 0;
-                    std::tie(eid, mediumPriority, bindingPriority) = eidTuple;
-                    auto uriIter = uuidToUriMap.find(uuid);
+                    EID eidValue = 0;
+                    Priority mediumPriorityValue = 0;
+                    Priority bindingPriorityValue = 0;
+                    std::tie(eidValue, mediumPriorityValue,
+                             bindingPriorityValue) = eidTuple;
+                    auto uriIter = uuidToUriMap.find(uuidKey);
                     if (uriIter != uuidToUriMap.end())
                     {
-                        resultCallback(uuid, eid, uriIter->second);
+                        resultCallback(uuidKey, eidValue, uriIter->second);
                     }
                 }
             }

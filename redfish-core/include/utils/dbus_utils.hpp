@@ -441,8 +441,8 @@ inline auto deferTask(Callback&& callback)
         DeferTaskStruct(DeferTaskStruct&&) = delete;
         DeferTaskStruct& operator=(DeferTaskStruct&&) = delete;
 
-        explicit DeferTaskStruct(Callback&& callback) :
-            callback(std::move(callback))
+        explicit DeferTaskStruct(Callback&& callbackIn) :
+            callback(std::move(callbackIn))
         {}
 
         ~DeferTaskStruct()

@@ -372,11 +372,11 @@ inline void getProcessorPowerSmoothingData(
                               ["#NvidiaPowerSmoothing.ApplyAdminOverrides"]
                               ["target"] = adminOverrideURI;
 
-                for (const auto& [service, interfaces] : object)
+                for (const auto& [service, interfaceList] : object)
                 {
-                    if (std::find(interfaces.begin(), interfaces.end(),
+                    if (std::find(interfaceList.begin(), interfaceList.end(),
                                   "com.nvidia.PowerSmoothing.PowerSmoothing") ==
-                        interfaces.end())
+                        interfaceList.end())
                     {
                         // no interface = no failures
                         continue;
@@ -384,9 +384,9 @@ inline void getProcessorPowerSmoothingData(
                     getProcessorPowerSmoothingControlData(aResp, service, path,
                                                           presetProfileURI);
                     if (std::find(
-                            interfaces.begin(), interfaces.end(),
+                            interfaceList.begin(), interfaceList.end(),
                             "com.nvidia.PowerSmoothing.CurrentPowerProfile") ==
-                        interfaces.end())
+                        interfaceList.end())
                     {
                         continue;
                     }
@@ -520,9 +520,9 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
 
                 crow::connections::systemBus->async_method_call(
                     [aResp, processorId](
-                        const boost::system::error_code& ec2,
+                        const boost::system::error_code& ec1,
                         std::variant<std::vector<std::string>>& resp) {
-                        if (ec2)
+                        if (ec1)
                         {
                             return; // no processors = no failures
                         }
@@ -545,39 +545,41 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
                             }
                             crow::connections::systemBus->async_method_call(
                                 [processorId, profilePath, aResp{aResp}](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code ec2,
                                     const boost::container::flat_map<
                                         std::string,
                                         boost::container::flat_map<
                                             std::string,
                                             std::vector<std::string>>>&
-                                        subtree) {
-                                    if (ec)
+                                        subbTree) {
+                                    if (ec2)
                                     {
                                         BMCWEB_LOG_ERROR("DBUS response error");
                                         messages::internalError(aResp->res);
 
                                         return;
                                     }
-                                    for (const auto& [path, object] : subtree)
+                                    for (const auto& [pathInner, objectInner] :
+                                         subbTree)
                                     {
                                         BMCWEB_LOG_ERROR("DBUS path {}",
                                                          profilePath);
-                                        if (path != profilePath)
+                                        if (pathInner != profilePath)
                                         {
                                             continue;
                                         }
-                                        for (const auto& [service, interfaces] :
-                                             object)
+                                        for (const auto& [service,
+                                                          interfaceList] :
+                                             objectInner)
                                         {
                                             if (std::find(
-                                                    interfaces.begin(),
-                                                    interfaces.end(),
+                                                    interfaceList.begin(),
+                                                    interfaceList.end(),
                                                     "com.nvidia.PowerSmoothing.AdminPowerProfile") !=
-                                                interfaces.end())
+                                                interfaceList.end())
                                             {
                                                 getAdminProfileData(
-                                                    aResp, service, path);
+                                                    aResp, service, pathInner);
                                             }
                                         }
                                     }
@@ -713,9 +715,9 @@ inline void getProcessorPowerSmoothingPresetProfileData(
 
                 crow::connections::systemBus->async_method_call(
                     [aResp, profileId, processorId](
-                        const boost::system::error_code& ec2,
+                        const boost::system::error_code& ec1,
                         std::variant<std::vector<std::string>>& resp) {
-                        if (ec2)
+                        if (ec1)
                         {
                             return; // no processors = no failures
                         }
@@ -742,17 +744,19 @@ inline void getProcessorPowerSmoothingPresetProfileData(
                             crow::connections::systemBus->async_method_call(
                                 [processorId, objectPathToGetProfileData,
                                  aResp{aResp}](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code&
+                                        innerErrorCode,
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
-                                        object) {
-                                    if (ec)
+                                        objectData) {
+                                    if (innerErrorCode)
                                     {
                                         BMCWEB_LOG_ERROR("DBUS response error");
                                         messages::internalError(aResp->res);
                                         return;
                                     }
-                                    std::string service = object.front().first;
+                                    std::string service =
+                                        objectData.front().first;
                                     getProfileData(aResp, service,
                                                    objectPathToGetProfileData);
                                 },
@@ -830,9 +834,9 @@ inline void getProcessorPowerSmoothingPresetProfileCollectionData(
 
                 crow::connections::systemBus->async_method_call(
                     [aResp, profileCollectionURI, processorId](
-                        const boost::system::error_code& ec2,
+                        const boost::system::error_code& ec1,
                         std::variant<std::vector<std::string>>& resp) {
-                        if (ec2)
+                        if (ec1)
                         {
                             return; // no processors = no failures
                         }
@@ -897,11 +901,11 @@ inline void patchPowerSmoothingFeature(
                     continue;
                 }
                 const std::string* inventoryService = nullptr;
-                for (const auto& [service, interfaces] : object)
+                for (const auto& [service, interfaceList] : object)
                 {
-                    if (std::find(interfaces.begin(), interfaces.end(),
+                    if (std::find(interfaceList.begin(), interfaceList.end(),
                                   "com.nvidia.PowerSmoothing.PowerSmoothing") !=
-                        interfaces.end())
+                        interfaceList.end())
                     {
                         inventoryService = &service;
                         break;
@@ -918,11 +922,11 @@ inline void patchPowerSmoothingFeature(
                         nvidia_async_operation_utils::setAsyncInterfaceName},
                     [aResp, propValue, propName, processorId, path,
                      service = *inventoryService](
-                        const boost::system::error_code& ec,
-                        const dbus::utility::MapperGetObject& object) {
-                        if (!ec)
+                        const boost::system::error_code& ec1,
+                        const dbus::utility::MapperGetObject& obj) {
+                        if (!ec1)
                         {
-                            for (const auto& [serv, _] : object)
+                            for (const auto& [serv, _] : obj)
                             {
                                 if (serv != service)
                                 {
@@ -977,9 +981,9 @@ inline void patchAdminOverrideProfile(
 
                 crow::connections::systemBus->async_method_call(
                     [aResp, processorId, propName,
-                     propValue](const boost::system::error_code& ec2,
+                     propValue](const boost::system::error_code& ec1,
                                 std::variant<std::vector<std::string>>& resp) {
-                        if (ec2)
+                        if (ec1)
                         {
                             return; // no processors = no
                                     // failures
@@ -1007,19 +1011,19 @@ inline void patchAdminOverrideProfile(
                             crow::connections::systemBus->async_method_call(
                                 [processorId, propName, profilePath, propValue,
                                  aResp{aResp}](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code ec2,
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
-                                        object) {
-                                    if (ec)
+                                        obj) {
+                                    if (ec2)
                                     {
                                         BMCWEB_LOG_ERROR("DBUS response error");
                                         messages::internalError(aResp->res);
 
                                         return;
                                     }
-                                    for (const auto& [service, interfaces] :
-                                         object)
+                                    for (const auto& [service, interfaceList] :
+                                         obj)
                                     {
                                         BMCWEB_LOG_DEBUG(
                                             "Performing Patch using Set Async Method Call");
@@ -1072,7 +1076,6 @@ inline void patchPresetProfile(
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
                 messages::internalError(aResp->res);
-
                 return;
             }
             for (const auto& [path, object] : subtree)
@@ -1085,9 +1088,9 @@ inline void patchPresetProfile(
                 }
                 crow::connections::systemBus->async_method_call(
                     [aResp, profileId, propName, propValue, processorId](
-                        const boost::system::error_code& ec2,
+                        const boost::system::error_code& ec1,
                         std::variant<std::vector<std::string>>& resp) {
-                        if (ec2)
+                        if (ec1)
                         {
                             return; // no processors = no
                                     // failures
@@ -1115,18 +1118,19 @@ inline void patchPresetProfile(
                             crow::connections::systemBus->async_method_call(
                                 [processorId, profileId, propName, propValue,
                                  profilePath, aResp{aResp}](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code&
+                                        getObjectError,
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
-                                        object) {
-                                    if (ec)
+                                        objInner) {
+                                    if (getObjectError)
                                     {
                                         BMCWEB_LOG_ERROR("DBUS response error");
                                         messages::internalError(aResp->res);
                                         return;
                                     }
-                                    for (const auto& [service, interfaces] :
-                                         object)
+                                    for (const auto& [service, interfaceList] :
+                                         objInner)
                                     {
                                         BMCWEB_LOG_DEBUG(
                                             "Performing Patch using Set Async Method Call");
@@ -1246,12 +1250,12 @@ inline void postApplyAdminOverride(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     continue;
                 }
 
-                for (const auto& [service, interfaces] : object)
+                for (const auto& [service, interfaceList] : object)
                 {
                     if (std::find(
-                            interfaces.begin(), interfaces.end(),
+                            interfaceList.begin(), interfaceList.end(),
                             "com.nvidia.PowerSmoothing.ProfileActionAsync") ==
-                        interfaces.end())
+                        interfaceList.end())
                     {
                         // no interface = no failures
                         continue;
@@ -1348,12 +1352,12 @@ inline void postActivatePresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     continue;
                 }
 
-                for (const auto& [service, interfaces] : object)
+                for (const auto& [service, interfaceList] : object)
                 {
                     if (std::find(
-                            interfaces.begin(), interfaces.end(),
+                            interfaceList.begin(), interfaceList.end(),
                             "com.nvidia.PowerSmoothing.ProfileActionAsync") ==
-                        interfaces.end())
+                        interfaceList.end())
                     {
                         // no interface = no failures
                         continue;

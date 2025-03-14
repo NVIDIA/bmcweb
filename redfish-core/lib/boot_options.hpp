@@ -157,9 +157,9 @@ inline void handleCollectionPendingBootOptionMembers(
         getBootOption(
             bootOptionName,
             [asyncResp, bootOptionName, collectionPath, &members](
-                const boost::system::error_code& ec,
+                const boost::system::error_code& ec1,
                 const dbus::utility::DBusPropertiesMap& bootOptionProperties) {
-                if (ec)
+                if (ec1)
                 {
                     messages::resourceNotFound(asyncResp->res, "BootOption",
                                                bootOptionName);
@@ -448,14 +448,14 @@ inline void handleBootOptionPatch(
             properties.emplace_back("Enabled", newBootOptionEnabled);
             setBootOption(
                 bootOptionName, properties,
-                [aResp, bootOptionName](const boost::system::error_code& ec) {
-                    if (ec == boost::system::errc::no_such_device_or_address)
+                [aResp, bootOptionName](const boost::system::error_code& ec1) {
+                    if (ec1 == boost::system::errc::no_such_device_or_address)
                     {
                         messages::resourceNotFound(aResp->res, "BootOption",
                                                    bootOptionName);
                         return;
                     }
-                    if (ec)
+                    if (ec1)
                     {
                         messages::internalError(aResp->res);
                         return;

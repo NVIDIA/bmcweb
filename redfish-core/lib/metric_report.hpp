@@ -659,12 +659,12 @@ inline void getPlatforMetrics(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& metricId, const uint64_t& requestTimestamp = 0)
 {
-    using MapperServiceMap =
+    using MapperServiceMapType =
         std::vector<std::pair<std::string, std::vector<std::string>>>;
 
     // Map of object paths to MapperServiceMaps
     using MapperGetSubTreeResponse =
-        std::vector<std::pair<std::string, MapperServiceMap>>;
+        std::vector<std::pair<std::string, MapperServiceMapType>>;
     crow::connections::systemBus->async_method_call(
         [asyncResp, metricId,
          requestTimestamp](boost::system::error_code& ec,

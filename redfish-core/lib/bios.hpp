@@ -1276,8 +1276,8 @@ inline void setBiosCurrentOrPendingAttr(
                     {
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, baseBiosTable](
-                                const boost::system::error_code& ec) {
-                                if (ec)
+                                const boost::system::error_code& ec1) {
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_DEBUG(
                                         "Error occurred in setting BaseBIOSTable");
@@ -2476,9 +2476,9 @@ inline void handleBiosChangePasswordPost(
             const auto& [service, interfaces] = services[0];
 
             crow::connections::systemBus->async_method_call(
-                [asyncResp](boost::system::error_code& ec,
+                [asyncResp](boost::system::error_code& ec1,
                             sdbusplus::message_t& msg) {
-                    if (ec)
+                    if (ec1)
                     {
                         const auto* const error = msg.get_error();
                         if (sd_bus_error_has_name(

@@ -231,10 +231,10 @@ inline void
         if (secureBootCurrentBoot)
         {
             crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code& ec) {
-                    if (ec)
+                [aResp](const boost::system::error_code& ec1) {
+                    if (ec1)
                     {
-                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec1);
                         messages::internalError(aResp->res);
                         return;
                     }
@@ -249,10 +249,10 @@ inline void
         if (secureBootEnable)
         {
             crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code& ec) {
-                    if (ec)
+                [aResp](const boost::system::error_code& ec1) {
+                    if (ec1)
                     {
-                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec1);
                         messages::internalError(aResp->res);
                         return;
                     }
@@ -267,10 +267,10 @@ inline void
         if (secureBootMode)
         {
             crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code& ec) {
-                    if (ec)
+                [aResp](const boost::system::error_code& ec1) {
+                    if (ec1)
                     {
-                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec1);
                         messages::internalError(aResp->res);
                         return;
                     }

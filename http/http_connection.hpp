@@ -834,9 +834,9 @@ class Connection :
      * @param[in] req - The request object
      * @return std::string - The user name
      */
-    std::string getUser(crow::Request& req)
+    std::string getUser(crow::Request& reqIn)
     {
-        std::string_view authHeader = req.getHeaderValue("Authorization");
+        std::string_view authHeader = reqIn.getHeaderValue("Authorization");
         if (!authHeader.starts_with("Basic "))
         {
             return {};

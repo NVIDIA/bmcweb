@@ -86,17 +86,17 @@ inline void processSensorsValue(
                 sensorAreadProperties->second.find("PhysicalContext");
             if (sensorAreaValue != sensorAreadProperties->second.end())
             {
-                const dbus::utility::DbusVariantType& valueVariant =
+                const dbus::utility::DbusVariantType& areaValueVariant =
                     sensorAreaValue->second;
-                physicalContext = std::get_if<std::string>(&valueVariant);
+                physicalContext = std::get_if<std::string>(&areaValueVariant);
             }
         }
-        auto interfaceProperties =
+        auto sensorInterfaceProps =
             interfacesDict.find("xyz.openbmc_project.Sensor.Value");
-        if (interfaceProperties != interfacesDict.end())
+        if (sensorInterfaceProps != interfacesDict.end())
         {
-            auto thisValueIt = interfaceProperties->second.find("Value");
-            if (thisValueIt != interfaceProperties->second.end())
+            auto thisValueIt = sensorInterfaceProps->second.find("Value");
+            if (thisValueIt != sensorInterfaceProps->second.end())
             {
                 const dbus::utility::DbusVariantType& valueVariant =
                     thisValueIt->second;
@@ -134,10 +134,10 @@ inline void processSensorsValue(
                         if (sensorDeviceName !=
                             sensorDeviceNamedProperties->second.end())
                         {
-                            const dbus::utility::DbusVariantType& valueVariant =
-                                sensorDeviceName->second;
+                            const dbus::utility::DbusVariantType&
+                                valueVariant1 = sensorDeviceName->second;
                             deviceName =
-                                std::get_if<std::string>(&valueVariant);
+                                std::get_if<std::string>(&valueVariant1);
                             objectJson["DeviceName"] = *deviceName;
                         }
                     }
@@ -180,10 +180,10 @@ inline void processSensorsValue(
                             interfaceProperties->second.find("Elapsed");
                         if (thisElapsedIt != interfaceProperties->second.end())
                         {
-                            const dbus::utility::DbusVariantType& valueVariant =
-                                thisElapsedIt->second;
+                            const dbus::utility::DbusVariantType&
+                                timeValueVariant = thisElapsedIt->second;
                             const uint64_t* metricUpdatetimestamp =
-                                std::get_if<uint64_t>(&valueVariant);
+                                std::get_if<uint64_t>(&timeValueVariant);
 
                             if (metricUpdatetimestamp != nullptr)
                             {
@@ -277,15 +277,16 @@ inline void processChassisSensors(
                                          managedObjectsResp, sensingInterval,
                                          requestTimestamp, objectPath,
                                          metricsType](
-                                            const boost::system::error_code& ec,
+                                            const boost::system::error_code&
+                                                ec1,
                                             const std::variant<
                                                 std::vector<std::string>>&
                                                 variantEndpoints) {
-                if (ec)
+                if (ec1)
                 {
                     BMCWEB_LOG_DEBUG(
                         "getAllChassisSensors DBUS error on chassis path{}: {}",
-                        objectPath, ec);
+                        objectPath, ec1);
                     return;
                 }
                 const std::vector<std::string>* sensorPaths =

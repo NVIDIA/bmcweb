@@ -127,11 +127,10 @@ if (cxx.get_id() == 'gcc')
         '-Wnull-dereference',
         '-Wunused-parameter',
         '-Wdouble-promotion',
-        #'-Wshadow',
         '-Wno-psabi',
+        '-Wshadow',
         '-Wno-attributes',
         '-Wno-error=deprecated-declarations',
-        '-Wno-comment',
         language: 'cpp',
     )
 endif

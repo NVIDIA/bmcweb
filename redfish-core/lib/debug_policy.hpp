@@ -214,14 +214,14 @@ inline void
     handleDebugPolicyGet(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     auto getPropCallback =
-        [](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [](const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
            const std::string& svc, const std::string& path) {
             if (path.empty())
             {
                 /* There is no PLDM effecter when AC On with system off */
                 return;
             }
-            debugPropertiesGet(asyncResp, svc, path);
+            debugPropertiesGet(asyncRespIn, svc, path);
         };
     findDebugInterface(asyncResp, getPropCallback);
 }
@@ -355,26 +355,26 @@ inline void handleDebugPolicyPatchReq(
     }
     auto propSetCallback =
         [capsToEnable, capsToDisable,
-         timeout](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+         timeout](const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
                   const std::string& svc, const std::string& path) {
             if (path.empty())
             {
-                messages::internalError(asyncResp->res);
+                messages::internalError(asyncRespIn->res);
                 return;
             }
             if (!capsToEnable.empty())
             {
-                debugCapabilitiesProcess(asyncResp, svc, path, "Enable"s,
+                debugCapabilitiesProcess(asyncRespIn, svc, path, "Enable"s,
                                          capsToEnable);
             }
             if (!capsToDisable.empty())
             {
-                debugCapabilitiesProcess(asyncResp, svc, path, "Disable"s,
+                debugCapabilitiesProcess(asyncRespIn, svc, path, "Disable"s,
                                          capsToDisable);
             }
             if (timeout)
             {
-                debugPropertySet(asyncResp, svc, path, "Timeout", *timeout);
+                debugPropertySet(asyncRespIn, svc, path, "Timeout", *timeout);
             }
         };
 

@@ -92,7 +92,7 @@ inline void enableTLSAuth()
         }
         std::ofstream out(confPath.string());
         out << "[Socket]" << '\n';
-        out << "ListenStream=" << '\n';    // disable port 80
+        out << "ListenStream=" << '\n'; // disable port 80
         out << "ListenStream=443" << '\n'; // enable port 443
     }
     catch (const std::exception& e)
@@ -637,9 +637,9 @@ inline void getLinkManagerForSwitches(
                 std::string fabricId = path.filename();
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, fabric,
-                     fabricId](const boost::system::error_code& ec,
+                     fabricId](const boost::system::error_code& ec2,
                                const GetSubTreeType& subtree) {
-                        if (ec)
+                        if (ec2)
                         {
                             messages::internalError(asyncResp->res);
                         }
@@ -652,9 +652,9 @@ inline void getLinkManagerForSwitches(
                                      std::string, std::vector<std::string>>>>&
                                  object : subtree)
                         {
-                            const std::string& path = object.first;
-                            sdbusplus::message::object_path objPath(path);
-                            std::string switchId = objPath.filename();
+                            const std::string& pathStr = object.first;
+                            sdbusplus::message::object_path switchPath(pathStr);
+                            std::string switchId = switchPath.filename();
                             std::string managerUri = "/redfish/v1/Fabrics/";
                             managerUri += fabricId + "/Switches/";
                             managerUri += switchId;
@@ -699,15 +699,15 @@ inline void
                 // Get SMBPBI Fencing Privilege
                 crow::connections::systemBus->async_method_call(
                     [asyncResp](
-                        const boost::system::error_code& ec,
+                        const boost::system::error_code& getPropertyError,
                         const std::vector<std::pair<
                             std::string, std::variant<std::string, uint8_t>>>&
                             propertiesList) {
-                        if (ec)
+                        if (getPropertyError)
                         {
                             BMCWEB_LOG_ERROR(
                                 "DBUS response error: Unable to get the smbpbi fencing privilege {}",
-                                ec);
+                                getPropertyError);
                             messages::internalError(asyncResp->res);
                         }
 
@@ -1510,8 +1510,8 @@ inline void
     }
     if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
     {
-        redfish::conditions_utils::populateServiceConditions(
-            asyncResp, std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
+        redfish::conditions_utils::populateServiceConditions(asyncResp,
+                                                             managerId);
     }
 
     if constexpr (BMCWEB_HOST_IFACE)
@@ -1590,11 +1590,13 @@ inline void
                         *crow::connections::systemBus,
                         "xyz.openbmc_project.ObjectMapper", path + "/chassis",
                         "xyz.openbmc_project.Association", "endpoints",
-                        [asyncResp](const boost::system::error_code& ec,
-                                    const std::vector<std::string>& property) {
-                            if (ec)
+                        [asyncResp](
+                            const boost::system::error_code& getPropertyError,
+                            const std::vector<std::string>& property) {
+                            if (getPropertyError)
                             {
-                                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                                BMCWEB_LOG_ERROR("DBUS response error {}",
+                                                 getPropertyError);
                                 return; // no chassis = no failures
                             }
 

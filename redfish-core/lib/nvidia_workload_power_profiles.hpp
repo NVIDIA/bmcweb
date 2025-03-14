@@ -274,16 +274,15 @@ inline void validateProcessorWorkloadPowerProfile(
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/inventory", 0, processorifaces,
         [processorId, profileId, aResp{std::move(aResp)}](
-            const boost::system::error_code& ec,
+            const boost::system::error_code& ecOuter,
             const dbus::utility::MapperGetSubTreeResponse& subtree) {
-            if (ec)
+            if (ecOuter)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
                 messages::internalError(aResp->res);
-
                 return;
             }
-            for (const auto& [path, object] : subtree)
+            for (const auto& [path, subtreeData] : subtree)
             {
                 if (!path.ends_with(processorId))
                 {
@@ -303,12 +302,13 @@ inline void validateProcessorWorkloadPowerProfile(
 
                 crow::connections::systemBus->async_method_call(
                     [aResp, profileId, processorId](
-                        const boost::system::error_code& ec2,
+                        const boost::system::error_code& ecInner,
                         std::variant<std::vector<std::string>>& resp) {
-                        if (ec2)
+                        if (ecInner)
                         {
                             return; // no processors = no failures
                         }
+
                         std::vector<std::string>* data =
                             std::get_if<std::vector<std::string>>(&resp);
                         if (data == nullptr)
@@ -327,7 +327,7 @@ inline void validateProcessorWorkloadPowerProfile(
                                 continue;
                             }
                             profileExists = true;
-                            std::string objectPathToGetProfileData =
+                            const std::string& objectPathToGetProfileData =
                                 profilePath;
                             crow::connections::systemBus->async_method_call(
                                 [processorId, objectPathToGetProfileData,
@@ -335,14 +335,15 @@ inline void validateProcessorWorkloadPowerProfile(
                                     const boost::system::error_code ec,
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
-                                        object) {
+                                        objectData) {
                                     if (ec)
                                     {
                                         BMCWEB_LOG_ERROR("DBUS response error");
                                         messages::internalError(aResp->res);
                                         return;
                                     }
-                                    std::string service = object.front().first;
+                                    std::string service =
+                                        objectData.front().first;
                                     getWorkLoadProfileData(
                                         aResp, service,
                                         objectPathToGetProfileData,

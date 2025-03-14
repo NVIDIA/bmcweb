@@ -19,7 +19,7 @@
 
 #include <sys/mman.h> // for memfd_create
 #include <sys/stat.h> // for fstat
-#include <unistd.h>   // for write and lseek
+#include <unistd.h> // for write and lseek
 
 #include <cstdint>
 #include <cstring>
@@ -33,7 +33,7 @@ struct MemoryFD
 {
     int fd = -1;
 
-    explicit MemoryFD(int fd) : fd(fd) {}
+    explicit MemoryFD(int fileDescriptor) : fd(fileDescriptor) {}
     explicit MemoryFD() : fd(memfd_create("bmcweb_memory_fd", 0))
     {
         if (fd == -1)

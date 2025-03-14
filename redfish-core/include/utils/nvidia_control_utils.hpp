@@ -90,16 +90,16 @@ inline void getChassisClockLimit(
                     {
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, path, interface](
-                                const boost::system::error_code& errorno,
+                                const boost::system::error_code& erroCode,
                                 const std::vector<std::pair<
                                     std::string,
                                     std::variant<uint32_t, std::string>>>&
                                     propertiesList) {
-                                if (errorno)
+                                if (erroCode)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "ObjectMapper::GetObject call failed:{}",
-                                        errorno);
+                                        erroCode);
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
@@ -200,8 +200,6 @@ inline void getChassisClockLimit(
                                         const std::string* mode =
                                             std::get_if<std::string>(
                                                 &property.second);
-                                        std::map<std::string,
-                                                 std::string>::iterator itr;
                                         for (const auto& itr : clockLimitModes)
                                         {
                                             if (*mode == itr.first)
@@ -531,10 +529,10 @@ inline void postClockLimitControl(
             {
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, sensorpath](
-                        const boost::system::error_code& ec,
+                        const boost::system::error_code& ec1,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
-                        if (ec)
+                        if (ec1)
                         {
                             // the path does not implement clear clock limit
                             // interface interfaces
@@ -599,9 +597,9 @@ inline void
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp, getControlCpu, objPath, validChassisPath](
-                    const boost::system::error_code& ec,
+                    const boost::system::error_code& ec1,
                     const dbus::utility::MapperGetObject& objType) {
-                    if (ec || objType.empty())
+                    if (ec1 || objType.empty())
                     {
                         BMCWEB_LOG_ERROR("GetObject for path {}",
                                          (objPath).c_str());

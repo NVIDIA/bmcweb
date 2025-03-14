@@ -31,8 +31,8 @@ namespace mctp_utils
 {
 
 using GetSubTreeType = std::vector<
-std::pair<std::string,
-            std::vector<std::pair<std::string, std::vector<std::string>>>>>;
+    std::pair<std::string,
+              std::vector<std::pair<std::string, std::vector<std::string>>>>>;
 
 constexpr const std::string_view mctpBusPrefix = "xyz.openbmc_project.MCTP";
 constexpr const std::string_view mctpObjectPrefix =
@@ -56,14 +56,14 @@ class MctpEndpoint
         dbus::utility::findAssociations(
             spdmObject + "/transport_object",
             [this, spdmObject,
-             callback](const boost::system::error_code& ec,
+             callback](const boost::system::error_code& ec1,
                        std::variant<std::vector<std::string>>& association) {
                 BMCWEB_LOG_DEBUG("findAssociations callback for {}",
                                  spdmObject);
-                if (ec)
+                if (ec1)
                 {
-                    BMCWEB_LOG_ERROR("{} : {}", spdmObject, ec.message());
-                    callback(false, ec.message());
+                    BMCWEB_LOG_ERROR("{} : {}", spdmObject, ec1.message());
+                    callback(false, ec1.message());
                     return;
                 }
                 std::vector<std::string>* data =
@@ -145,11 +145,11 @@ class MctpEndpoint
                     }
                     crow::connections::systemBus->async_method_call(
                         [this, callback](
-                            const boost::system::error_code& ec,
+                            const boost::system::error_code& ec2,
                             const boost::container::flat_map<
                                 std::string, dbus::utility::DbusVariantType>&
                                 properties) {
-                            if (ec)
+                            if (ec2)
                             {
                                 callback(false,
                                          "Failed to get properties for " +
@@ -234,9 +234,9 @@ inline void enumerateMctpEndpoints(
     auto errCallback = std::move(errorCallback);
     crow::connections::systemBus->async_method_call_timed(
         [epCallback = std::move(epCallback),
-         errCallback = std::move(errCallback), spdmObjectFilter](
-            const boost::system::error_code ec,
-            const dbus::utility::GetSubTreeType& subtree) {
+         errCallback = std::move(errCallback),
+         spdmObjectFilter](const boost::system::error_code ec,
+                           const dbus::utility::GetSubTreeType& subtree) {
             const std::string desc = "SPDM / MCTP endpoint enumeration";
             BMCWEB_LOG_DEBUG("{}", desc);
             if (ec)

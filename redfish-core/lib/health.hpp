@@ -593,16 +593,15 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
      * be passed, in case of which every such situation will result in this
      * object stopping the crawling and moving to STOP_ERROR state.
      */
-    HealthRollup(const std::string& rootObject,
+    HealthRollup(const std::string& rootObjectIn,
                  std::function<void(const std::string& rootHealth,
                                     const std::string& healthRollup)>
-                     finishCallback,
-                 // 'critical' value used as an issue exposure
-                 const health_state::Type* assumedHealthWhenMissing =
+                     finishCallbackIn,
+                 const health_state::Type* assumedHealthWhenMissingIn =
                      &health_state::ok) :
         rootHealth(&health_state::ok), globalHealth(&health_state::ok),
-        assumedHealthWhenMissing(assumedHealthWhenMissing),
-        rootObject(rootObject), finishCallback(std::move(finishCallback))
+        assumedHealthWhenMissing(assumedHealthWhenMissingIn),
+        rootObject(rootObjectIn), finishCallback(std::move(finishCallbackIn))
     {}
 
     /**

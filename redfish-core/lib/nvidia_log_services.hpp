@@ -156,134 +156,123 @@ inline void requestRoutesChassisLogServiceCollection(App& app)
      */
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/LogServices/")
         .privileges(redfish::privileges::getLogServiceCollection)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& chassisId)
-
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& chassisId) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                const std::array<const char*, 2> interfaces = {
-                    "xyz.openbmc_project.Inventory.Item.Board",
-                    "xyz.openbmc_project.Inventory.Item.Chassis"};
+                return;
+            }
+            const std::array<const char*, 2> interfaces = {
+                "xyz.openbmc_project.Inventory.Item.Board",
+                "xyz.openbmc_project.Inventory.Item.Chassis"};
 
-                crow::connections::systemBus->async_method_call(
-                    [asyncResp, chassisId(std::string(chassisId))](
-                        const boost::system::error_code& ec,
-                        const dbus::utility::GetSubTreeType& subtree) {
-                        if (ec)
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, chassisId(std::string(chassisId))](
+                    const boost::system::error_code& ec,
+                    const dbus::utility::GetSubTreeType& subtree) {
+                    if (ec)
+                    {
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    // Iterate over all retrieved ObjectPaths.
+                    for (const std::pair<
+                             std::string,
+                             std::vector<std::pair<std::string,
+                                                   std::vector<std::string>>>>&
+                             object : subtree)
+                    {
+                        const std::string& path = object.first;
+                        sdbusplus::message::object_path objPath(path);
+                        if (objPath.filename() != chassisId)
                         {
-                            messages::internalError(asyncResp->res);
-                            return;
+                            continue;
                         }
-                        // Iterate over all retrieved ObjectPaths.
-                        for (const std::pair<
-                                 std::string,
-                                 std::vector<std::pair<
-                                     std::string, std::vector<std::string>>>>&
-                                 object : subtree)
+                        // Collections don't include the static data added
+                        // by SubRoute because it has a duplicate entry for
+                        // members
+                        asyncResp->res.jsonValue["@odata.type"] =
+                            "#LogServiceCollection.LogServiceCollection";
+                        asyncResp->res.jsonValue["@odata.id"] =
+                            "/redfish/v1/Chassis/" + chassisId + "/LogServices";
+                        asyncResp->res.jsonValue["Name"] =
+                            "System Log Services Collection";
+                        asyncResp->res.jsonValue["Description"] =
+                            "Collection of LogServices for this Computer System";
+                        nlohmann::json& logServiceArray =
+                            asyncResp->res.jsonValue["Members"];
+                        logServiceArray = nlohmann::json::array();
+
+                        if constexpr (BMCWEB_NVIDIA_OEM_LOGSERVICES)
                         {
-                            const std::string& path = object.first;
+                            const std::vector<std::pair<
+                                std::string, std::vector<std::string>>>&
+                                connectionNames = object.second;
+                            const std::string& connectionName =
+                                connectionNames[0].first;
 
-                            sdbusplus::message::object_path objPath(path);
-                            if (objPath.filename() != chassisId)
-                            {
-                                continue;
-                            }
-                            // Collections don't include the static data added
-                            // by SubRoute because it has a duplicate entry for
-                            // members
-                            asyncResp->res.jsonValue["@odata.type"] =
-                                "#LogServiceCollection.LogServiceCollection";
-                            asyncResp->res.jsonValue["@odata.id"] =
-                                "/redfish/v1/Chassis/" + chassisId +
-                                "/LogServices";
-                            asyncResp->res.jsonValue["Name"] =
-                                "System Log Services Collection";
-                            asyncResp->res.jsonValue["Description"] =
-                                "Collection of LogServices for this Computer System";
-                            nlohmann::json& logServiceArray =
-                                asyncResp->res.jsonValue["Members"];
-                            logServiceArray = nlohmann::json::array();
-
-                            if constexpr (BMCWEB_NVIDIA_OEM_LOGSERVICES)
-                            {
-                                const std::vector<std::pair<
-                                    std::string, std::vector<std::string>>>&
-                                    connectionNames = object.second;
-                                const std::string& connectionName =
-                                    connectionNames[0].first;
-
-                                BMCWEB_LOG_DEBUG(
-                                    "XID Looking for PrettyName on service {} path {}",
-                                    connectionName, path);
-                                sdbusplus::asio::getProperty<std::string>(
-                                    *crow::connections::systemBus,
-                                    connectionName, path,
-                                    "xyz.openbmc_project.Inventory.Item",
-                                    "PrettyName",
-                                    [asyncResp,
-                                     chassisId(std::string(chassisId))](
-                                        const boost::system::error_code& ec,
-                                        const std::string& chassisName) {
-                                        if (!ec)
-                                        {
-                                            BMCWEB_LOG_DEBUG(
-                                                "XID Looking for Namespace on {}_XID",
-                                                chassisName);
-                                            crow::connections::systemBus->async_method_call(
-                                                [asyncResp,
-                                                 chassisId(
-                                                     std::string(chassisId))](
-                                                    const boost::system::
-                                                        error_code ec,
-                                                    const std::tuple<
-                                                        uint32_t,
-                                                        uint64_t>& /*reqData*/) {
-                                                    if (!ec)
-                                                    {
-                                                        nlohmann::json&
-                                                            logServiceArray =
-                                                                asyncResp->res.jsonValue
-                                                                    ["Members"];
-                                                        logServiceArray.push_back(
-                                                            {{"@odata.id",
-                                                              "/redfish/v1/Chassis/" +
-                                                                  chassisId +
-                                                                  "/LogServices/XID"}});
+                            BMCWEB_LOG_DEBUG(
+                                "XID Looking for PrettyName on service {} path {}",
+                                connectionName, path);
+                            sdbusplus::asio::getProperty<std::string>(
+                                *crow::connections::systemBus, connectionName,
+                                path, "xyz.openbmc_project.Inventory.Item",
+                                "PrettyName",
+                                [asyncResp, chassisId(std::string(chassisId))](
+                                    const boost::system::error_code& ec2,
+                                    const std::string& chassisName) {
+                                    if (!ec2)
+                                    {
+                                        BMCWEB_LOG_DEBUG(
+                                            "XID Looking for Namespace on {}_XID",
+                                            chassisName);
+                                        crow::connections::systemBus->async_method_call(
+                                            [asyncResp,
+                                             chassisId(std::string(chassisId))](
+                                                const boost::system::error_code&
+                                                    ec3,
+                                                const std::tuple<
+                                                    uint32_t,
+                                                    uint64_t>& /*reqData*/) {
+                                                if (!ec3)
+                                                {
+                                                    nlohmann::json& logArray =
                                                         asyncResp->res.jsonValue
-                                                            ["Members@odata.count"] =
-                                                            logServiceArray
-                                                                .size();
-                                                    }
-                                                },
-                                                "xyz.openbmc_project.Logging",
-                                                "/xyz/openbmc_project/logging",
-                                                "xyz.openbmc_project.Logging.Namespace",
-                                                "GetStats",
-                                                chassisName + "_XID");
-                                        }
-                                    });
-                            } // BMCWEB_NVIDIA_OEM_LOGSERVICES
+                                                            ["Members"];
+                                                    logArray.push_back(
+                                                        {{"@odata.id",
+                                                          "/redfish/v1/Chassis/" +
+                                                              chassisId +
+                                                              "/LogServices/XID"}});
+                                                    asyncResp->res.jsonValue
+                                                        ["Members@odata.count"] =
+                                                        logArray.size();
+                                                }
+                                            },
+                                            "xyz.openbmc_project.Logging",
+                                            "/xyz/openbmc_project/logging",
+                                            "xyz.openbmc_project.Logging.Namespace",
+                                            "GetStats", chassisName + "_XID");
+                                    }
+                                });
+                        } // BMCWEB_NVIDIA_OEM_LOGSERVICES
 
-                            asyncResp->res.jsonValue["Members@odata.count"] =
-                                logServiceArray.size();
-                            return;
-                        }
-                        // Couldn't find an object with that name.  return an
-                        // error
-                        messages::resourceNotFound(asyncResp->res,
-                                                   "#Chassis.v1_17_0.Chassis",
-                                                   chassisId);
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                    "/xyz/openbmc_project/inventory", 0, interfaces);
-            });
+                        asyncResp->res.jsonValue["Members@odata.count"] =
+                            logServiceArray.size();
+                        return;
+                    }
+                    // Couldn't find an object with that name. Return an error
+                    messages::resourceNotFound(
+                        asyncResp->res, "#Chassis.v1_17_0.Chassis", chassisId);
+                },
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetSubTree",
+                "/xyz/openbmc_project/inventory", 0, interfaces);
+        });
 }
 
 inline void handleLogServicesDumpServiceComputerSystemPatch(
@@ -440,13 +429,13 @@ inline void extendSystemLogServicesGet(
     // Call Phosphor-logging GetStats method to get
     // LatestEntryTimestamp and LatestEntryID
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code& ec,
+        [asyncResp](const boost::system::error_code& outerEc,
                     const std::tuple<uint32_t, uint64_t>& reqData) {
-            if (ec)
+            if (outerEc)
             {
                 BMCWEB_LOG_ERROR(
                     "Failed to get Data from xyz.openbmc_project.Logging GetStats: {}",
-                    ec);
+                    outerEc);
                 messages::internalError(asyncResp->res);
                 return;
             }
@@ -473,13 +462,13 @@ inline void extendSystemLogServicesGet(
         }
 
         crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code& ec,
+            [asyncResp](const boost::system::error_code& innerEc,
                         std::variant<bool>& resp) {
-                if (ec)
+                if (innerEc)
                 {
                     BMCWEB_LOG_ERROR(
                         "Failed to get Data from xyz.openbmc_project.Logging: {}",
-                        ec);
+                        innerEc);
                     messages::internalError(asyncResp->res);
                     return;
                 }

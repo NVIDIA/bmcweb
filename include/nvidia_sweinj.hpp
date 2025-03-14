@@ -66,8 +66,8 @@ static bool createTaskCallback(boost::system::error_code ec,
     {
         BMCWEB_LOG_ERROR("{}", ec.message());
         taskData->state = "Exception";
-        auto msg = messages::taskAborted(ec.message());
-        taskData->messages.push_back(msg);
+        auto errorMsg = messages::taskAborted(ec.message());
+        taskData->messages.push_back(errorMsg);
         return task::completed;
     }
     std::string iface;

@@ -240,12 +240,12 @@ static inline void
             {
                 auto getPCIeLtssmCallback = [asyncResp{asyncResp}](
                                                 const boost::system::error_code&
-                                                    ec,
+                                                    ec1,
                                                 const std::vector<std::pair<
                                                     std::string,
                                                     std::variant<std::string>>>&
                                                     propertiesList) {
-                    if (ec)
+                    if (ec1)
                     {
                         BMCWEB_LOG_ERROR(
                             "DBUS response error on getting PCIeDevice LTSSM State");
@@ -731,14 +731,15 @@ inline void
                          const std::string& service)
 {
     auto getAerErrorStatusOemCallback = [asyncResp{asyncResp}](
-                                            const boost::system::error_code& ec,
+                                            const boost::system::error_code&
+                                                ec2,
                                             const std::vector<std::pair<
                                                 std::string,
                                                 std::variant<
                                                     std::string,
                                                     std::vector<uint32_t>>>>&
                                                 propertiesList) {
-        if (ec)
+        if (ec2)
         {
             BMCWEB_LOG_DEBUG(
                 "DBUS response error on getting AER Error Status reference OEM properties");
@@ -861,9 +862,9 @@ inline void postClearAerErrorStatus(
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, device, chassisPCIePath, chassisId,
                      chassisPCIeDevicePath,
-                     chassisPath](const boost::system::error_code& ec,
+                     chassisPath](const boost::system::error_code& ec1,
                                   const GetSubTreeType& subtree) {
-                        if (ec)
+                        if (ec1)
                         {
                             BMCWEB_LOG_DEBUG("DBUS response error");
                             messages::internalError(asyncResp->res);
@@ -948,9 +949,9 @@ inline void getFabricSwitchLink(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 
             crow::connections::systemBus->async_method_call(
                 [aResp,
-                 fabricId](const boost::system::error_code& ec,
+                 fabricId](const boost::system::error_code& ec1,
                            std::variant<std::vector<std::string>>& resp1) {
-                    if (ec)
+                    if (ec1)
                     {
                         return; // no switches = no failures
                     }
@@ -1052,9 +1053,9 @@ inline void requestRoutesChassisPCIeFunctionCollection(App& app)
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, device, chassisPCIePath, interface,
                              chassisId, chassisPCIeDevicePath](
-                                const boost::system::error_code& ec,
+                                const boost::system::error_code& ec1,
                                 const GetSubTreeType& subtree) {
-                                if (ec)
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_DEBUG("DBUS response error");
                                     messages::internalError(asyncResp->res);
@@ -1159,9 +1160,9 @@ inline void requestRoutesChassisPCIeFunction(App& app)
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, device, function, chassisPCIePath,
                              interface, chassisId, chassisPCIeDevicePath](
-                                const boost::system::error_code& ec,
+                                const boost::system::error_code& ec1,
                                 const GetSubTreeType& subtree) {
-                                if (ec)
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_DEBUG("DBUS response error");
                                     messages::internalError(asyncResp->res);

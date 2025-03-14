@@ -31,13 +31,15 @@ namespace redfish
 {
 namespace bluefield
 {
-static const char* const dbusPropertyInterface = "org.freedesktop.DBus.Properties";
+static const char* const dbusPropertyInterface =
+    "org.freedesktop.DBus.Properties";
 static const char* const systemdServiceBf = "org.freedesktop.systemd1";
 static const char* const systemdUnitIntfBf = "org.freedesktop.systemd1.Unit";
 
 static const char* const switchModeSystemdObj =
     "/org/freedesktop/systemd1/unit/torswitch_2dmode_2eservice";
-static const char* const ctlBMCSwitchModeService = "xyz.openbmc_project.Settings";
+static const char* const ctlBMCSwitchModeService =
+    "xyz.openbmc_project.Settings";
 static const char* const ctlBMCSwitchModeBMCObj =
     "/xyz/openbmc_project/control/torswitchportsmode";
 static const char* const ctlBMCSwitchModeIntf =
@@ -60,9 +62,12 @@ static const std::string socForceResetTraget =
     "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
     "/Oem/Nvidia/SOC.ForceReset";
 
-static const char* const oemFruService = "xyz.openbmc_project.DPU.Config_oem_fru";
+static const char* const oemFruService =
+    "xyz.openbmc_project.DPU.Config_oem_fru";
 static const char* const oemFruObj = "/xyz/openbmc_project/oem_fru";
 static const char* const oemFruIntf = "xyz.openbmc_project.OemFruDevice";
+static const char* const rshimSystemdObjBf =
+    "/org/freedesktop/systemd1/unit/rshim_2eservice";
 
 struct PropertyInfo
 {
@@ -84,8 +89,8 @@ class DpuCommonProperties
 {
   public:
     explicit DpuCommonProperties(
-        const std::unordered_map<std::string, ObjectInfo>& objects) :
-        objects(objects)
+        const std::unordered_map<std::string, ObjectInfo>& objectsIn) :
+        objects(objectsIn)
     {}
     // function assumes input is valid
     std::string toRedfish(const std::string& str, const std::string& name) const
@@ -286,10 +291,10 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
             auto value = item.value().get<std::string>();
             auto objectInfo = objects.find(name)->second;
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code& ec) {
-                    if (ec)
+                [asyncResp](const boost::system::error_code& errorCode) {
+                    if (errorCode)
                     {
-                        BMCWEB_LOG_ERROR("Set failed {}", ec);
+                        BMCWEB_LOG_ERROR("Set failed {}", errorCode);
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -567,10 +572,7 @@ inline DpuActionSetAndGetProp mode(
 inline void getIsOemNvidiaRshimEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    const char* systemdServiceBf = "org.freedesktop.systemd1";
-    const char* systemdUnitIntfBf = "org.freedesktop.systemd1.Unit";
-    const char* rshimSystemdObjBf =
-        "/org/freedesktop/systemd1/unit/rshim_2eservice";
+    // Use the global constants directly instead of redefining
     std::filesystem::path rshimDir = "/dev/rshim0";
 
     if (!std::filesystem::exists(rshimDir))
@@ -601,18 +603,15 @@ inline void
     requestOemNvidiaRshim(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const bool& bmcRshimEnabled)
 {
-    const char* systemdServiceBf = "org.freedesktop.systemd1";
-    const char* systemdUnitIntfBf = "org.freedesktop.systemd1.Unit";
-    const char* rshimSystemdObjBf =
-        "/org/freedesktop/systemd1/unit/rshim_2eservice";
+    // Use the global constants directly instead of redefining
     std::string method = bmcRshimEnabled ? "Start" : "Stop";
 
     BMCWEB_LOG_DEBUG("requestOemNvidiaRshim: {} rshim interface",
                      method.c_str());
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code& ec) {
-            if (ec)
+        [asyncResp](const boost::system::error_code& errorCode) {
+            if (errorCode)
             {
                 BMCWEB_LOG_ERROR(
                     "DBUS response error for rshim enable/disable");
@@ -642,7 +641,8 @@ inline void getOemNvidiaSwitchLinkStatus(
             messages::internalError(asyncResp->res);
             return;
         }
-        port::LinkStatus status = port::LinkStatus::Invalid; // Initialize with default value
+        port::LinkStatus status =
+            port::LinkStatus::Invalid; // Initialize with default value
         if (exitCode == static_cast<int>(port::LinkStatus::LinkUp))
         {
             status = port::LinkStatus::LinkUp;
@@ -796,8 +796,8 @@ inline void
             }
             // Reload switch service to make the new configuration take effect
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code& ec) {
-                    if (ec)
+                [asyncResp](const boost::system::error_code& errorCode) {
+                    if (errorCode)
                     {
                         BMCWEB_LOG_ERROR(
                             "DBUS response error for resetting switch mode service");
@@ -842,8 +842,8 @@ inline void resetTorSwitch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     std::variant<std::string> variantValue(
         "xyz.openbmc_project.Control.TorSwitchPortsMode.Modes.All");
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code& ec) {
-            if (ec)
+        [asyncResp](const boost::system::error_code& errorCode) {
+            if (errorCode)
             {
                 BMCWEB_LOG_ERROR(
                     "DBUS response error for setting DPU OOB enable/disable");
@@ -950,9 +950,9 @@ inline void handleTruststoreCertificatesCollectionPost(
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp, owner,
-                 certFile](const boost::system::error_code& ec,
+                 certFile](const boost::system::error_code& errorCode,
                            const std::string& objectPath) {
-                    if (ec)
+                    if (errorCode)
                     {
                         messages::internalError(asyncResp->res);
                         return;
@@ -970,8 +970,9 @@ inline void handleTruststoreCertificatesCollectionPost(
                     if (owner)
                     {
                         crow::connections::systemBus->async_method_call(
-                            [asyncResp](const boost::system::error_code& ec) {
-                                if (ec)
+                            [asyncResp](
+                                const boost::system::error_code& errorCode1) {
+                                if (errorCode1)
                                 {
                                     messages::internalError(asyncResp->res);
                                     return;
@@ -1096,9 +1097,10 @@ inline void handleTruststoreCertificatesDelete(
     }
 
     privilege_utils::isBiosPrivilege(
-        req, [req, asyncResp,
-              certId](const boost::system::error_code& ec, const bool isBios) {
-            if (ec)
+        req,
+        [req, asyncResp, certId](const boost::system::error_code& errorCode,
+                                 const bool isBios) {
+            if (errorCode)
             {
                 messages::internalError(asyncResp->res);
                 return;
@@ -1155,9 +1157,9 @@ inline void handleTruststoreCertificatesResetKeys(
 
     privilege_utils::isBiosPrivilege(req, [req, asyncResp](
                                               const boost::system::error_code&
-                                                  ec,
+                                                  errorCode,
                                               const bool isBios) {
-        if (ec)
+        if (errorCode)
         {
             messages::internalError(asyncResp->res);
             return;
@@ -1213,13 +1215,13 @@ inline void handleGetOemFru([[maybe_unused]] crow::App& app,
                 *crow::connections::systemBus, oemFruService, oemFruObj,
                 oemFruIntf,
                 [asyncResp{asyncResp}](
-                    const boost::system::error_code& ec,
+                    const boost::system::error_code& errorCode,
                     const dbus::utility::DBusPropertiesMap& propertyList) {
-                    if (ec)
+                    if (errorCode)
                     {
                         BMCWEB_LOG_ERROR(
                             "DBUS response error: Get All OEM FRU Property error{}",
-                            ec);
+                            errorCode);
                         return;
                     }
                     const std::string* productManufacturer = nullptr;
@@ -1313,12 +1315,12 @@ inline void
                 // Make an asynchronous DBUS call to sync the OEM FRU data
                 // The FRU DBUS object and config flash will be updated
                 crow::connections::systemBus->async_method_call(
-                    [asyncResp](const boost::system::error_code& ec) {
-                        if (ec)
+                    [asyncResp](const boost::system::error_code& errorCode) {
+                        if (errorCode)
                         {
                             BMCWEB_LOG_ERROR(
                                 "DBUS response error: Sync OEM FRU Data error{}",
-                                ec);
+                                errorCode);
                             messages::internalError(asyncResp->res);
                             return;
                         }
@@ -1358,13 +1360,13 @@ inline void handleSetOemFru([[maybe_unused]] crow::App& app,
                 *crow::connections::systemBus, "xyz.openbmc_project.Settings",
                 "/xyz/openbmc_project/control/oem_fru",
                 "xyz.openbmc_project.Object.Enable", "Enabled",
-                [req,
-                 asyncResp](const boost::system::error_code& ec, bool enabled) {
-                    if (ec)
+                [req, asyncResp](const boost::system::error_code& errorCode,
+                                 bool enabled) {
+                    if (errorCode)
                     {
                         BMCWEB_LOG_ERROR(
                             "DBUS response error: Checking OEM FRU Enabled error{}",
-                            ec);
+                            errorCode);
                         messages::internalError(asyncResp->res);
                         return;
                     }

@@ -414,11 +414,11 @@ inline void handleCertificateCollectionPost(
 
             crow::connections::systemBus->async_method_call(
                 [aResp, databaseId, owner,
-                 certFile](const boost::system::error_code& ec,
+                 certFile](const boost::system::error_code& ec1,
                            const std::string& objectPath) {
-                    if (ec)
+                    if (ec1)
                     {
-                        BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                        BMCWEB_LOG_ERROR("DBUS response error: {}", ec1);
                         messages::internalError(aResp->res);
                         return;
                     }
@@ -436,11 +436,11 @@ inline void handleCertificateCollectionPost(
                     if (owner)
                     {
                         crow::connections::systemBus->async_method_call(
-                            [aResp](const boost::system::error_code& ec) {
-                                if (ec)
+                            [aResp](const boost::system::error_code& ec2) {
+                                if (ec2)
                                 {
                                     BMCWEB_LOG_ERROR("DBUS response error: {}",
-                                                     ec);
+                                                     ec2);
                                     messages::internalError(aResp->res);
                                     return;
                                 }
@@ -584,8 +584,8 @@ inline void handleCertificateDelete(
             }
 
             crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code& ec) {
-                    if (ec)
+                [aResp](const boost::system::error_code& ec1) {
+                    if (ec1)
                     {
                         messages::internalError(aResp->res);
                         return;
@@ -705,11 +705,11 @@ inline void handleSignatureCollectionPost(
         }
 
         crow::connections::systemBus->async_method_call(
-            [aResp, databaseId, owner](const boost::system::error_code& ec,
+            [aResp, databaseId, owner](const boost::system::error_code& ec1,
                                        const std::string& objectPath) {
-                if (ec)
+                if (ec1)
                 {
-                    BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                    BMCWEB_LOG_ERROR("DBUS response error: {}", ec1);
                     messages::internalError(aResp->res);
                     return;
                 }
@@ -727,10 +727,11 @@ inline void handleSignatureCollectionPost(
                 if (owner)
                 {
                     crow::connections::systemBus->async_method_call(
-                        [aResp](const boost::system::error_code& ec) {
-                            if (ec)
+                        [aResp](const boost::system::error_code& ec2) {
+                            if (ec2)
                             {
-                                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                                BMCWEB_LOG_ERROR("DBUS response error: {}",
+                                                 ec2);
                                 messages::internalError(aResp->res);
                                 return;
                             }
@@ -855,8 +856,8 @@ inline void handleSignatureDelete(
             }
 
             crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code& ec) {
-                    if (ec)
+                [aResp](const boost::system::error_code& ec1) {
+                    if (ec1)
                     {
                         messages::internalError(aResp->res);
                         return;

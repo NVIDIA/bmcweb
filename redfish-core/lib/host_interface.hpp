@@ -40,8 +40,7 @@ inline void
             if (ec)
             {
                 BMCWEB_LOG_DEBUG(
-                    "DBUS response error for "
-                    "Get NICEnabled Status for the host interface.");
+                    "DBUS response error for Get NICEnabled Status for the host interface.");
                 messages::internalError(asyncResp->res);
                 return;
             }
@@ -61,11 +60,11 @@ inline void
             auto health = std::make_shared<HealthPopulate>(asyncResp);
 
             crow::connections::systemBus->async_method_call(
-                [health](const boost::system::error_code& ec,
+                [health](const boost::system::error_code& ec1,
                          const std::vector<std::string>& resp) {
-                    if (ec)
+                    if (ec1)
                     {
-                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec1);
                         return;
                     }
                     health->inventory = resp;
@@ -109,12 +108,12 @@ inline void
             const std::string& biosService = objType.begin()->first;
             crow::connections::systemBus->async_method_call(
                 [asyncResp](
-                    const boost::system::error_code& ec,
+                    const boost::system::error_code& ec1,
                     const std::vector<std::pair<
                         std::string,
                         std::variant<std::string, redfish::bios::BaseBIOSTable,
                                      bool>>>& propertiesList) {
-                    if (ec)
+                    if (ec1)
                     {
                         BMCWEB_LOG_ERROR("Can't get BIOSConfig Manager!");
                         messages::internalError(asyncResp->res);
@@ -191,10 +190,10 @@ inline void
             const std::string& biosService = objType.begin()->first;
 
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code& ec) {
-                    if (ec)
+                [asyncResp](const boost::system::error_code& ec1) {
+                    if (ec1)
                     {
-                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec1);
                         messages::internalError(asyncResp->res);
                         return;
                     }

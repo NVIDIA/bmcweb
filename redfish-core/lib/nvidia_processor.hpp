@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 #pragma once
+#include "utils/processor_utils.hpp"
+
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_processor_utils.hpp>
 #include <utils/port_utils.hpp>
-#include "utils/processor_utils.hpp"
 namespace redfish
 {
 namespace nvidia_processor
@@ -106,13 +107,13 @@ inline void getSystemPCIeInterfaceProperties(
     BMCWEB_LOG_DEBUG("Get processor system pcie interface properties");
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath](
-            const boost::system::error_code& errorCode,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) mutable {
-            if (errorCode)
+            if (ec)
             {
-                BMCWEB_LOG_ERROR("error_code = {}", errorCode);
-                BMCWEB_LOG_ERROR("error msg = {}", errorCode.message());
+                BMCWEB_LOG_ERROR("error_code = {}", ec);
+                BMCWEB_LOG_ERROR("error msg = {}", ec.message());
                 if (asyncResp)
                 {
                     messages::internalError(asyncResp->res);
@@ -132,12 +133,12 @@ inline void getSystemPCIeInterfaceProperties(
             sdbusplus::asio::getAllProperties(
                 *crow::connections::systemBus, objInfo[0].first, objPath, "",
                 [objPath, asyncResp](
-                    const boost::system::error_code& ec,
+                    const boost::system::error_code& ecInner,
                     const dbus::utility::DBusPropertiesMap& properties) {
-                    if (ec)
+                    if (ecInner)
                     {
-                        BMCWEB_LOG_ERROR("error_code = ", ec);
-                        BMCWEB_LOG_ERROR("error msg = ", ec.message());
+                        BMCWEB_LOG_ERROR("error_code = ", ecInner);
+                        BMCWEB_LOG_ERROR("error msg = ", ecInner.message());
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -348,9 +349,9 @@ inline void postResetType(
             dbus::utility::getDbusObject(
                 cpuObjectPath, std::array<std::string_view, 1>{resetAsyncIntf},
                 [resp, cpuObjectPath, conName,
-                 processorId](const boost::system::error_code& ec,
+                 processorId](const boost::system::error_code& getObjectError,
                               const dbus::utility::MapperGetObject& object) {
-                    if (!ec)
+                    if (getObjectError)
                     {
                         for (const auto& [serv, _] : object)
                         {
@@ -430,13 +431,13 @@ inline void getFPGAPCIeInterfaceProperties(
     BMCWEB_LOG_DEBUG("Get processor fpga pcie interface properties");
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath](
-            const boost::system::error_code& errorCode,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) mutable {
-            if (errorCode)
+            if (ec)
             {
-                BMCWEB_LOG_ERROR("error_code = ", errorCode);
-                BMCWEB_LOG_ERROR("error msg = ", errorCode.message());
+                BMCWEB_LOG_ERROR("error_code = ", ec);
+                BMCWEB_LOG_ERROR("error msg = ", ec.message());
                 if (asyncResp)
                 {
                     messages::internalError(asyncResp->res);
@@ -456,12 +457,12 @@ inline void getFPGAPCIeInterfaceProperties(
             sdbusplus::asio::getAllProperties(
                 *crow::connections::systemBus, objInfo[0].first, objPath, "",
                 [objPath, asyncResp](
-                    const boost::system::error_code& ec,
+                    const boost::system::error_code& ecInner,
                     const dbus::utility::DBusPropertiesMap& properties) {
-                    if (ec)
+                    if (ecInner)
                     {
-                        BMCWEB_LOG_ERROR("error_code = ", ec);
-                        BMCWEB_LOG_ERROR("error msg = ", ec.message());
+                        BMCWEB_LOG_ERROR("error_code = ", ecInner);
+                        BMCWEB_LOG_ERROR("error msg = ", ecInner.message());
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -615,22 +616,22 @@ inline void getPowerBreakThrottle(
 
             BMCWEB_LOG_DEBUG("Get processor module state sensors");
             crow::connections::systemBus->async_method_call(
-                [aResp, service, deviceType,
-                 chassisPath](const boost::system::error_code& e,
-                              std::variant<std::vector<std::string>>& resp) {
-                    if (e)
+                [aResp, service, deviceType, chassisPath](
+                    const boost::system::error_code& getEndpointsError,
+                    std::variant<std::vector<std::string>>& resp1) {
+                    if (getEndpointsError)
                     {
                         // no state sensors attached.
                         return;
                     }
-                    std::vector<std::string>* data =
-                        std::get_if<std::vector<std::string>>(&resp);
-                    if (data == nullptr)
+                    std::vector<std::string>* data1 =
+                        std::get_if<std::vector<std::string>>(&resp1);
+                    if (data1 == nullptr)
                     {
                         messages::internalError(aResp->res);
                         return;
                     }
-                    for (const std::string& sensorpath : *data)
+                    for (const std::string& sensorpath : *data1)
                     {
                         BMCWEB_LOG_DEBUG(
                             "proc module state sensor object path {}",
@@ -641,18 +642,19 @@ inline void getPowerBreakThrottle(
                         // process sensor reading
                         crow::connections::systemBus->async_method_call(
                             [aResp, sensorpath, deviceType](
-                                const boost::system::error_code& ec,
+                                const boost::system::error_code& getObjectError,
                                 const std::vector<std::pair<
                                     std::string, std::vector<std::string>>>&
                                     object) {
-                                if (ec)
+                                if (getObjectError)
                                 {
                                     // the path does not implement any state
                                     // interfaces.
                                     return;
                                 }
 
-                                for (const auto& [service, interfaces] : object)
+                                for (const auto& [service1, interfaces] :
+                                     object)
                                 {
                                     if (std::find(
                                             interfaces.begin(),
@@ -661,7 +663,7 @@ inline void getPowerBreakThrottle(
                                         interfaces.end())
                                     {
                                         getPowerBreakThrottleData(
-                                            aResp, service, sensorpath,
+                                            aResp, service1, sensorpath,
                                             deviceType);
                                     }
                                 }
@@ -841,8 +843,9 @@ inline void getParentChassisPCIeDeviceLink(
                 return;
             }
             const std::string& parentChassisPath = data->front();
-            sdbusplus::message::object_path objectPath(parentChassisPath);
-            std::string parentChassisName = objectPath.filename();
+            sdbusplus::message::object_path objectParentChassisPath(
+                parentChassisPath);
+            std::string parentChassisName = objectParentChassisPath.filename();
             if (parentChassisName.empty())
             {
                 messages::internalError(aResp->res);
@@ -857,10 +860,10 @@ inline void getParentChassisPCIeDeviceLink(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    for (const auto& [objectPath1, serviceMap] : subtree)
+                    for (const auto& [objectPath, serviceMap] : subtree)
                     {
                         // Process same device
-                        if (!objectPath1.ends_with(chassisName))
+                        if (!objectPath.ends_with(chassisName))
                         {
                             continue;
                         }
@@ -880,9 +883,8 @@ inline void getParentChassisPCIeDeviceLink(
                         const std::string& serviceName = serviceMap[0].first;
                         // Get PCIeFunctions Link
                         redfish::nvidia_processor::
-                            getProcessorPCIeFunctionsLinks(aResp, serviceName,
-                                                           objectPath1,
-                                                           pcieDeviceLink);
+                            getProcessorPCIeFunctionsLinks(
+                                aResp, serviceName, objectPath, pcieDeviceLink);
                     }
                 },
                 "xyz.openbmc_project.ObjectMapper",
@@ -938,25 +940,25 @@ inline void getProcessorChassisLink(
             // Get PCIeDevice on this chassis
             crow::connections::systemBus->async_method_call(
                 [aResp, chassisName, chassisPath,
-                 service](const boost::system::error_code& ec,
-                          std::variant<std::vector<std::string>>& resp) {
-                    if (ec)
+                 service](const boost::system::error_code& getEndpointsError,
+                          std::variant<std::vector<std::string>>& resp1) {
+                    if (getEndpointsError)
                     {
                         BMCWEB_LOG_ERROR(
                             "Chassis has no connected PCIe devices");
                         return; // no pciedevices = no failures
                     }
-                    std::vector<std::string>* data =
-                        std::get_if<std::vector<std::string>>(&resp);
-                    if (data == nullptr || data->size() > 1)
+                    std::vector<std::string>* data1 =
+                        std::get_if<std::vector<std::string>>(&resp1);
+                    if (data1 == nullptr || data1->size() > 1)
                     {
                         // Chassis must have single pciedevice
                         BMCWEB_LOG_ERROR("chassis must have single pciedevice");
                         return;
                     }
-                    const std::string& pcieDevicePath = data->front();
-                    sdbusplus::message::object_path objectPath(pcieDevicePath);
-                    std::string pcieDeviceName = objectPath.filename();
+                    const std::string& pcieDevicePath = data1->front();
+                    sdbusplus::message::object_path objectPath1(pcieDevicePath);
+                    std::string pcieDeviceName = objectPath1.filename();
                     if (pcieDeviceName.empty())
                     {
                         BMCWEB_LOG_ERROR("chassis pciedevice name empty");
@@ -1694,9 +1696,9 @@ inline void getRemoteDebugState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 {
     crow::connections::systemBus->async_method_call(
         [aResp, service,
-         objPath](const boost::system::error_code& e,
+         objPath](const boost::system::error_code& ec,
                   std::variant<std::vector<std::string>>& resp) {
-            if (e)
+            if (ec)
             {
                 // No state effecter attached.
                 return;
@@ -1717,23 +1719,23 @@ inline void getRemoteDebugState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 // Process sensor reading
                 crow::connections::systemBus->async_method_call(
                     [aResp, effecterPath](
-                        const boost::system::error_code& ec,
+                        const boost::system::error_code& getObjectError,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
-                        if (ec)
+                        if (getObjectError)
                         {
                             // The path does not implement any state interfaces.
                             return;
                         }
 
-                        for (const auto& [service, interfaces] : object)
+                        for (const auto& [serviceName, interfaces] : object)
                         {
                             if (std::find(
                                     interfaces.begin(), interfaces.end(),
                                     "xyz.openbmc_project.Control.Processor.RemoteDebug") !=
                                 interfaces.end())
                             {
-                                getProcessorRemoteDebugState(aResp, service,
+                                getProcessorRemoteDebugState(aResp, serviceName,
                                                              effecterPath);
                             }
                         }
@@ -2175,66 +2177,25 @@ inline void patchMigMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
             // Set the property, with handler to check error responses
             crow::connections::systemBus->async_method_call(
-                [resp, processorId](boost::system::error_code& ec,
-                                    sdbusplus::message::message& msg) {
-                    if (!ec)
+                [resp, processorId](boost::system::error_code& ec1,
+                                    const int retValue) {
+                    if (!ec1)
                     {
-                        BMCWEB_LOG_DEBUG("Set MIG Mode property succeeded");
+                        if (retValue != 0)
+                        {
+                            BMCWEB_LOG_ERROR("{}", retValue);
+                            messages::internalError(resp->res);
+                        }
+                        BMCWEB_LOG_DEBUG("CPU:{} Reset Succeded", processorId);
+                        messages::success(resp->res);
                         return;
                     }
-
-                    BMCWEB_LOG_DEBUG("CPU:{} set MIG Mode  property failed: {}",
-                                     processorId, ec);
-                    // Read and convert dbus error message to redfish error
-                    const sd_bus_error* dbusError = msg.get_error();
-                    if (dbusError == nullptr)
-                    {
-                        messages::internalError(resp->res);
-                        return;
-                    }
-
-                    if (strcmp(dbusError->name,
-                               "xyz.openbmc_project.Common."
-                               "Device.Error.WriteFailure") == 0)
-                    {
-                        // Service failed to change the config
-                        messages::operationFailed(resp->res);
-                    }
-                    else if (
-                        strcmp(
-                            dbusError->name,
-                            "xyz.openbmc_project.Common.Error.Unavailable") ==
-                        0)
-                    {
-                        std::string errBusy = "0x50A";
-                        std::string errBusyResolution =
-                            "SMBPBI Command failed with error busy, please try after 60 seconds";
-
-                        // busy error
-                        messages::asyncError(resp->res, errBusy,
-                                             errBusyResolution);
-                    }
-                    else if (strcmp(
-                                 dbusError->name,
-                                 "xyz.openbmc_project.Common.Error.Timeout") ==
-                             0)
-                    {
-                        std::string errTimeout = "0x600";
-                        std::string errTimeoutResolution =
-                            "Settings may/maynot have applied, please check get response before patching";
-
-                        // timeout error
-                        messages::asyncError(resp->res, errTimeout,
-                                             errTimeoutResolution);
-                    }
-                    else
-                    {
-                        messages::internalError(resp->res);
-                    }
+                    BMCWEB_LOG_DEBUG("{}", ec1);
+                    messages::internalError(resp->res);
+                    return;
                 },
-                service, cpuObjectPath, "org.freedesktop.DBus.Properties",
-                "Set", "com.nvidia.MigMode", "MIGModeEnabled",
-                std::variant<bool>(migMode));
+                service, cpuObjectPath,
+                "xyz.openbmc_project.Control.Processor.Reset", "Reset");
         });
 }
 
@@ -2307,9 +2268,9 @@ inline void patchRemoteDebug(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     // Find remote debug effecters from all effecters attached to "all_controls"
     crow::connections::systemBus->async_method_call(
         [aResp,
-         remoteDebugEnabled](const boost::system::error_code& e,
+         remoteDebugEnabled](const boost::system::error_code& ec,
                              std::variant<std::vector<std::string>>& resp) {
-            if (e)
+            if (ec)
             {
                 // No state effecter attached.
                 BMCWEB_LOG_DEBUG(" No state effecter attached. ");
@@ -2332,10 +2293,10 @@ inline void patchRemoteDebug(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 // Process sensor reading
                 crow::connections::systemBus->async_method_call(
                     [aResp, effecterPath, remoteDebugEnabled](
-                        const boost::system::error_code& ec,
+                        const boost::system::error_code& getObjectError,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
-                        if (ec)
+                        if (getObjectError)
                         {
                             // The path does not implement any state interfaces.
                             BMCWEB_LOG_DEBUG(
@@ -2344,7 +2305,7 @@ inline void patchRemoteDebug(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             return;
                         }
 
-                        for (const auto& [service, interfaces] : object)
+                        for (const auto& [serviceName, interfaces] : object)
                         {
                             if (std::find(
                                     interfaces.begin(), interfaces.end(),
@@ -2352,7 +2313,7 @@ inline void patchRemoteDebug(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                 interfaces.end())
                             {
                                 setProcessorRemoteDebugState(
-                                    aResp, service, effecterPath,
+                                    aResp, serviceName, effecterPath,
                                     remoteDebugEnabled);
                             }
                         }
@@ -2442,9 +2403,9 @@ inline void patchSpeedConfig(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
             crow::connections::systemBus->async_method_call(
                 [resp, processorId,
-                 reqSpeedConfig](boost::system::error_code& ec,
+                 reqSpeedConfig](boost::system::error_code& ec1,
                                  sdbusplus::message::message& msg) {
-                    if (!ec)
+                    if (!ec1)
                     {
                         BMCWEB_LOG_DEBUG("Set speed config property succeeded");
                         return;
@@ -2452,7 +2413,7 @@ inline void patchSpeedConfig(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
                     BMCWEB_LOG_DEBUG(
                         "CPU:{} set speed config property failed: {}",
-                        processorId, ec);
+                        processorId, ec1);
                     // Read and convert dbus error message to redfish error
                     const sd_bus_error* dbusError = msg.get_error();
                     if (dbusError == nullptr)
@@ -2810,9 +2771,9 @@ inline void getSensorMetric(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             const std::string& chassisId = chassisName;
             crow::connections::systemBus->async_method_call(
                 [aResp, service, objPath,
-                 chassisId](const boost::system::error_code& e,
+                 chassisId](const boost::system::error_code& getEndpointsError,
                             std::variant<std::vector<std::string>>& resp1) {
-                    if (e)
+                    if (getEndpointsError)
                     {
                         messages::internalError(aResp->res);
                         return;
@@ -2860,9 +2821,9 @@ inline void getNumericSensorMetric(
 {
     crow::connections::systemBus->async_method_call(
         [aResp, service, deviceType,
-         objPath](const boost::system::error_code& e,
+         objPath](const boost::system::error_code& ec,
                   std::variant<std::vector<std::string>>& resp) {
-            if (e)
+            if (ec)
             {
                 // No state sensors attached.
                 return;
@@ -2883,17 +2844,17 @@ inline void getNumericSensorMetric(
                 // Process sensor reading
                 crow::connections::systemBus->async_method_call(
                     [aResp, sensorPath, deviceType](
-                        const boost::system::error_code& ec,
+                        const boost::system::error_code& getObjectError,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
-                        if (ec)
+                        if (getObjectError)
                         {
                             // The path does not implement any numeric sensor
                             // interfaces.
                             return;
                         }
 
-                        for (const auto& [service, interfaces] : object)
+                        for (const auto& [serviceName, interfaces] : object)
                         {
                             if (std::find(
                                     interfaces.begin(), interfaces.end(),
@@ -2901,7 +2862,7 @@ inline void getNumericSensorMetric(
                                 interfaces.end())
                             {
                                 getMemoryPageRetirementCountData(
-                                    aResp, service, sensorPath, deviceType);
+                                    aResp, serviceName, sensorPath, deviceType);
                             }
                         }
                     },
@@ -2922,9 +2883,9 @@ inline void getStateSensorMetric(
 {
     crow::connections::systemBus->async_method_call(
         [aResp, service, objPath,
-         deviceType](const boost::system::error_code& e,
+         deviceType](const boost::system::error_code& ec,
                      std::variant<std::vector<std::string>>& resp) {
-            if (e)
+            if (ec)
             {
                 // No state sensors attached.
                 return;
@@ -2948,17 +2909,17 @@ inline void getStateSensorMetric(
                 // Process sensor reading
                 crow::connections::systemBus->async_method_call(
                     [aResp, sensorPath, deviceType](
-                        const boost::system::error_code& ec,
+                        const boost::system::error_code& getObjectError,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
-                        if (ec)
+                        if (getObjectError)
                         {
                             // The path does not implement any state
                             // interfaces.
                             return;
                         }
 
-                        for (const auto& [service, interfaces] : object)
+                        for (const auto& [serviceName, interfaces] : object)
                         {
                             if (std::find(
                                     interfaces.begin(), interfaces.end(),
@@ -2966,7 +2927,7 @@ inline void getStateSensorMetric(
                                 interfaces.end())
                             {
                                 getProcessorPerformanceData(
-                                    aResp, service, sensorPath, deviceType);
+                                    aResp, serviceName, sensorPath, deviceType);
                             }
                             if (std::find(
                                     interfaces.begin(), interfaces.end(),
@@ -2974,14 +2935,14 @@ inline void getStateSensorMetric(
                                 interfaces.end())
                             {
                                 getPowerSystemInputsData(
-                                    aResp, service, sensorPath, deviceType);
+                                    aResp, serviceName, sensorPath, deviceType);
                             }
                             if (std::find(interfaces.begin(), interfaces.end(),
                                           "com.nvidia.MemorySpareChannel") !=
                                 interfaces.end())
                             {
                                 getMemorySpareChannelPresenceData(
-                                    aResp, service, sensorPath, deviceType);
+                                    aResp, serviceName, sensorPath, deviceType);
                             }
                         }
                     },
@@ -3394,9 +3355,9 @@ inline void getProcessorMemoryMetricsData(
                     {
                         crow::connections::systemBus->async_method_call(
                             [aResp{aResp}](
-                                const boost::system::error_code& ec,
+                                const boost::system::error_code& ec1,
                                 const OperatingConfigProperties& properties) {
-                                if (ec)
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_DEBUG(
                                         "DBUS response error for processor memory metrics");
@@ -3626,18 +3587,17 @@ inline void patchEccMode(
             BMCWEB_LOG_DEBUG("Performing Patch using set-property Call");
             // Set the property, with handler to check error responses
             crow::connections::systemBus->async_method_call(
-                [resp, processorId](boost::system::error_code& ec,
+                [resp, processorId](boost::system::error_code& ec1,
                                     sdbusplus::message::message& msg) {
-                    if (!ec)
+                    if (!ec1)
                     {
                         BMCWEB_LOG_DEBUG("Set eccModeEnabled succeeded");
                         messages::success(resp->res);
                         return;
                     }
-
                     BMCWEB_LOG_DEBUG(
                         "CPU:{} set eccModeEnabled property failed: {}",
-                        processorId, ec);
+                        processorId, ec1);
                     // Read and convert dbus error message to redfish error
                     const sd_bus_error* dbusError = msg.get_error();
                     if (dbusError == nullptr)
