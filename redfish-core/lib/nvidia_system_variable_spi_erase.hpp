@@ -27,9 +27,54 @@ namespace redfish
 namespace nvidia_system_variable_spi_erase
 {
 
-inline bool onSpiEraseEvent(const boost::system::error_code& ec,
-                            sdbusplus::message_t& msg,
-                            const std::shared_ptr<task::TaskData>& taskData)
+inline void
+    afterSpiReadFdFound(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                        const boost::system::error_code& ec,
+                        const sdbusplus::message::unix_fd& fd)
+{
+    if (ec)
+    {
+        if (ec == boost::system::errc::host_unreachable)
+        {
+            BMCWEB_LOG_DEBUG("SPI backend wasn't reachable.  Removed?");
+            asyncResp->res.result(boost::beast::http::status::not_found);
+            return;
+        }
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    // Set response headers for binary file download
+    asyncResp->res.addHeader("Content-Type", "application/octet-stream");
+
+    // Send raw binary data
+    asyncResp->res.openFd(dup(fd));
+}
+
+inline void getSpiReadData(const std::string& serviceName,
+                           const sdbusplus::message::object_path& path,
+                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    BMCWEB_LOG_DEBUG("Getting SPI read data from {} for path {}", serviceName,
+                     path.str);
+    sdbusplus::asio::getProperty<sdbusplus::message::unix_fd>(
+        *crow::connections::systemBus, serviceName, path,
+        "com.nvidia.GraceSPIData", "SpiReadFd",
+        [asyncResp](const boost::system::error_code& ec,
+                    const sdbusplus::message::unix_fd& fd) {
+        afterSpiReadFdFound(asyncResp, ec, fd);
+    });
+}
+
+enum class SpiEventType
+{
+    SpiRead,
+    SpiErase,
+};
+
+inline bool onSpiEvent(const boost::system::error_code& ec,
+                       sdbusplus::message_t& msg,
+                       const std::shared_ptr<task::TaskData>& taskData)
 {
     if (ec)
     {
@@ -57,12 +102,14 @@ inline bool onSpiEraseEvent(const boost::system::error_code& ec,
             redfish::dbus_utils::UnpackErrorPrinter(), propertiesChanged,
             "Status", status, "Progress", progress))
     {
+        BMCWEB_LOG_ERROR("Failed to unpack properties.  Wrong type?");
         taskData->messages.emplace_back(messages::internalError());
         return !task::completed;
     }
 
     if (progress != nullptr)
     {
+        BMCWEB_LOG_DEBUG("Progress changed to {}", *progress);
         taskData->percentComplete = *progress;
     }
 
@@ -71,7 +118,23 @@ inline bool onSpiEraseEvent(const boost::system::error_code& ec,
         BMCWEB_LOG_DEBUG("Status changed to {}", *status);
         if (*status != "xyz.openbmc_project.Common.Progress.Status.InProgress")
         {
-            taskData->state = "Completed";
+            if (*status == "xyz.openbmc_project.Common.Progress.Status.Aborted")
+            {
+                std::string index = std::to_string(taskData->index);
+                taskData->messages.emplace_back(messages::taskAborted(index));
+                taskData->state = "Aborted";
+            }
+            if (*status == "xyz.openbmc_project.Common.Progress.Status.Failed")
+            {
+                taskData->messages.emplace_back(messages::internalError());
+                taskData->state = "Exception";
+            }
+            else
+            {
+                taskData->state = "Completed";
+            }
+
+            taskData->percentComplete = 100;
             return task::completed;
         }
     }
@@ -80,14 +143,15 @@ inline bool onSpiEraseEvent(const boost::system::error_code& ec,
 }
 
 inline void
-    afterSpiEraseStarted(task::Payload&& payload,
+    afterSpiEventStarted(SpiEventType spiEventType, task::Payload&& payload,
                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                         const std::string& serviceName,
                          const sdbusplus::message::object_path& eraseObjPath,
                          const boost::system::error_code& ec)
 {
     if (ec)
     {
-        BMCWEB_LOG_ERROR("Fail to start erase task: {}", ec.message());
+        BMCWEB_LOG_ERROR("Failed to start erase task: {}", ec.message());
         messages::internalError(asyncResp->res);
         return;
     }
@@ -95,7 +159,18 @@ inline void
         eraseObjPath.str, "xyz.openbmc_project.Common.Progress");
 
     std::shared_ptr<task::TaskData> task =
-        task::TaskData::createTask(onSpiEraseEvent, match);
+        task::TaskData::createTask(onSpiEvent, match);
+
+    if (spiEventType == SpiEventType::SpiRead)
+    {
+        task::TaskResponseCallback callback =
+            [eraseObjPath,
+             serviceName](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
+            getSpiReadData(serviceName, eraseObjPath, asyncResp);
+        };
+        task->taskResponse.emplace<task::TaskResponseCallback>(
+            std::move(callback));
+    }
 
     task->startTimer(std::chrono::seconds(300));
     task->populateResp(asyncResp->res);
@@ -103,7 +178,8 @@ inline void
 }
 
 inline void afterSpiInterfacesFound(
-    task::Payload& payload, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    SpiEventType spiEventType, task::Payload& payload,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const boost::system::error_code& ec,
     const dbus::utility::MapperGetSubTreeResponse& paths)
 {
@@ -132,18 +208,27 @@ inline void afterSpiInterfacesFound(
     const std::string& service = paths.front().second.front().first;
     const std::string& path = paths.front().first;
     BMCWEB_LOG_DEBUG("Calling spi on service {} path {}", service, path);
-
+    std::string method;
+    if (spiEventType == SpiEventType::SpiErase)
+    {
+        method = "EraseSpi";
+    }
+    else
+    {
+        method = "ReadSpi";
+    }
     crow::connections::systemBus->async_method_call(
-        [asyncResp, payload = std::move(payload),
-         chassisId](const boost::system::error_code& ec,
-                    const sdbusplus::message::object_path& path) mutable {
-        afterSpiEraseStarted(std::move(payload), asyncResp, path, ec);
+        [asyncResp, payload = std::move(payload), chassisId, spiEventType,
+         service](const boost::system::error_code& ec,
+                  const sdbusplus::message::object_path& path) mutable {
+        afterSpiEventStarted(spiEventType, std::move(payload), asyncResp,
+                             service, path, ec);
     },
-        service, path, "com.nvidia.SPI.SPI", "EraseSpi");
+        service, path, "com.nvidia.GraceSPI", method);
 }
 
-inline void handleSystemOemNvidiaVariableSpiErase(
-    crow::App& app, const crow::Request& req,
+inline void handleSystemOemNvidiaVariableSpi(
+    crow::App& app, SpiEventType spiEventType, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId)
 {
@@ -158,11 +243,11 @@ inline void handleSystemOemNvidiaVariableSpiErase(
     }
     task::Payload payload(req);
 
-    std::array<std::string_view, 1> interfaces{"com.nvidia.SPI.SPI"};
+    std::array<std::string_view, 1> interfaces{"com.nvidia.GraceSPI"};
     dbus::utility::getSubTree("/xyz/openbmc_project/inventory", 0, interfaces,
                               std::bind_front(&afterSpiInterfacesFound,
-                                              std::move(payload), asyncResp,
-                                              chassisId));
+                                              spiEventType, std::move(payload),
+                                              asyncResp, chassisId));
 }
 
 } // namespace nvidia_system_variable_spi_erase
@@ -172,14 +257,22 @@ inline void handleSystemOemNvidiaVariableSpiErase(
  */
 inline void requestRoutesSystemOemNvidiaProcessorVariableSpiActions(App& app)
 {
+    using enum nvidia_system_variable_spi_erase::SpiEventType;
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/<str>/Actions/Oem/NvidiaProcessor.VariableSpiErase/")
-        .privileges(redfish::privileges::postChassis)
-        .methods(boost::beast::http::verb::post)(
-            std::bind_front(nvidia_system_variable_spi_erase::
-                                handleSystemOemNvidiaVariableSpiErase,
-                            std::ref(app)));
+        .privileges(redfish::privileges::postComputerSystem)
+        .methods(boost::beast::http::verb::post)(std::bind_front(
+            nvidia_system_variable_spi_erase::handleSystemOemNvidiaVariableSpi,
+            std::ref(app), SpiErase));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/Actions/Oem/NvidiaProcessor.VariableSpiRead/")
+        .privileges(redfish::privileges::postComputerSystem)
+        .methods(boost::beast::http::verb::post)(std::bind_front(
+            nvidia_system_variable_spi_erase::handleSystemOemNvidiaVariableSpi,
+            std::ref(app), SpiRead));
 }
 
 } // namespace redfish

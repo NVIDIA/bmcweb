@@ -26,6 +26,10 @@ inline void afterSystemSpiInterfacesFound(
     oemActions["#NvidiaSystem.VariableSpiErase"]["target"] = boost::urls::format(
         "/redfish/v1/Systems/{}/Actions/Oem/NvidiaProcessor.VariableSpiErase",
         chassisId);
+
+    oemActions["#NvidiaSystem.VariableSpiRead"]["target"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Actions/Oem/NvidiaProcessor.VariableSpiRead",
+        chassisId);
 }
 
 inline void getSystemsOemNvidiaProperties(
