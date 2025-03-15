@@ -3859,7 +3859,8 @@ inline void computeDigest(const crow::Request& req,
                         jsonResponse["FirmwareDigest"] = hashDigestValue;
                         jsonResponse["FirmwareDigestHashingAlgorithm"] =
                             *hashAlgoValue;
-                        taskData->taskResponse.emplace(jsonResponse);
+                        taskData->taskResponse.emplace<nlohmann::json>(
+                            std::move(jsonResponse));
                         std::string location =
                             "Location: /redfish/v1/TaskService/Tasks/" +
                             std::to_string(taskData->index) + "/Monitor";

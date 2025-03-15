@@ -96,14 +96,14 @@ struct Payload
  * task monitor URI
  *
  */
-struct TaskResponse
-{
-    explicit TaskResponse(const nlohmann::json& jsonResp) :
-        jsonResponse(jsonResp)
-    {}
-    TaskResponse() = delete;
-    nlohmann::json jsonResponse;
-};
+using TaskResponseCallback =
+    std::function<void(const std::shared_ptr<bmcweb::AsyncResp>&)>;
+
+/*
+A task response might have json, or a callback to get the binary data.
+*/
+using TaskResponse =
+    std::variant<std::monostate, nlohmann::json, TaskResponseCallback>;
 
 static nlohmann::json getMessage(const std::string_view state, size_t index)
 {
@@ -454,7 +454,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
     std::unique_ptr<sdbusplus::bus::match_t> match;
     std::optional<time_t> endTime;
     std::optional<Payload> payload;
-    std::optional<TaskResponse> taskResponse;
+    TaskResponse taskResponse;
     bool taskComplete = false;
     bool gave204 = false;
     int percentComplete = 0;
@@ -496,12 +496,24 @@ inline void requestRoutesTaskMonitor(App& app)
         std::shared_ptr<task::TaskData>& ptr = *find;
         // If Task is completed and success, task monitor URI should
         // return result of the operation
-        if (ptr->getTaskStatus() == "OK" && ptr->state == "Completed" &&
-            ptr->taskResponse)
+        if (ptr->getTaskStatus() == "OK" && ptr->state == "Completed")
         {
-            const task::TaskResponse& taskResp = *(ptr->taskResponse);
-            asyncResp->res.jsonValue = taskResp.jsonResponse;
-            return;
+            nlohmann::json* resp =
+                std::get_if<nlohmann::json>(&ptr->taskResponse);
+            if (resp != nullptr)
+            {
+                asyncResp->res.jsonValue = *resp;
+                return;
+            }
+            std::function<void(const std::shared_ptr<bmcweb::AsyncResp>&)>*
+                getBodyCallback = std::get_if<std::function<void(
+                    const std::shared_ptr<bmcweb::AsyncResp>&)>>(
+                    &ptr->taskResponse);
+            if (getBodyCallback != nullptr)
+            {
+                (*getBodyCallback)(asyncResp);
+                return;
+            }
         }
         // monitor expires after 204
         if (ptr->gave204)
