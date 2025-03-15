@@ -3502,7 +3502,16 @@ inline void requestRoutesManager(App& app)
 
             // NvidiaManager
             nlohmann::json& oemNvidia = oem["Nvidia"];
-            oemNvidia["@odata.type"] = "#NvidiaManager.v1_4_0.NvidiaManager";
+            if constexpr (BMCWEB_NVIDIA_OEM_PMC)
+            {
+                oemNvidia["@odata.type"] =
+                    "#NvidiaManager.v1_6_0.NvidiaManager";
+            }
+            else
+            {
+                oemNvidia["@odata.type"] =
+                    "#NvidiaManager.v1_4_0.NvidiaManager";
+            }
             nlohmann::json& oemResetToDefaults =
                 asyncResp->res.jsonValue["Actions"]["Oem"]
                                         ["#NvidiaManager.ResetToDefaults"];
