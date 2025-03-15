@@ -3520,96 +3520,100 @@ inline void requestRoutesManager(App& app)
                 std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                 "/Actions/Oem/NvidiaManager.ResetToDefaults";
 
-            // build type
-            nlohmann::json& buildType = oemNvidia["FirmwareBuildType"];
-            std::ifstream buildDescriptionFile(buildDescriptionFilePath);
-            if (buildDescriptionFile.good())
-            {
-                std::string line;
-                const std::string prefix = "BUILD_DESC=";
-                std::string descriptionContent;
-                while (getline(buildDescriptionFile, line) &&
-                       descriptionContent.size() == 0)
-                {
-                    if (line.rfind(prefix, 0) == 0)
-                    {
-                        descriptionContent = line.substr(prefix.size());
-                        descriptionContent.erase(
-                            std::remove(descriptionContent.begin(),
-                                        descriptionContent.end(), '"'),
-                            descriptionContent.end());
-                    }
-                }
-                if (descriptionContent.rfind("debug-prov", 0) == 0)
-                {
-                    buildType = "ProvisioningDebug";
-                }
-                else if (descriptionContent.rfind("prod-prov", 0) == 0)
-                {
-                    buildType = "ProvisioningProduction";
-                }
-                else if (descriptionContent.rfind("dev-prov", 0) == 0)
-                {
-                    buildType = "ProvisioningDevelopment";
-                }
-                else if (descriptionContent.rfind("debug-platform", 0) == 0)
-                {
-                    buildType = "PlatformDebug";
-                }
-                else if (descriptionContent.rfind("prod-platform", 0) == 0)
-                {
-                    buildType = "PlatformProduction";
-                }
-                else if (descriptionContent.rfind("dev-platform", 0) == 0)
-                {
-                    buildType = "PlatformDevelopment";
-                }
-            }
-
-            // OTP provisioning status
-            nlohmann::json& otpProvisioned = oemNvidia["OTPProvisioned"];
-            std::ifstream otpStatusFile(otpProvisioningStatusFilePath);
-            if (otpStatusFile.good())
-            {
-                std::string statusLine;
-                if (getline(otpStatusFile, statusLine))
-                {
-                    if (statusLine != "0" && statusLine != "1")
-                    {
-                        BMCWEB_LOG_ERROR("Invalid OTP provisioning status - {}",
-                                         statusLine);
-                    }
-                    otpProvisioned = (statusLine == "1");
-                }
-                else
-                {
-                    BMCWEB_LOG_ERROR("Failed to read OTP provisioning status");
-                    otpProvisioned = false;
-                }
-            }
-            else
-            {
-                BMCWEB_LOG_ERROR("Failed to open OTP provisioning status file");
-                otpProvisioned = false;
-            }
-            getFencingPrivilege(asyncResp);
-
-#ifdef BMCWEB_ENABLE_TLS_AUTH_OPT_IN
-            oemNvidia["AuthenticationTLSRequired"] =
-                persistent_data::getConfig().isTLSAuthEnabled();
-#endif
-
-            populatePersistentStorageSettingStatus(asyncResp);
-
             if constexpr (BMCWEB_NVIDIA_OEM_PMC)
             {
                 nvidia_oem_managers_pmc::
                     processPowerComplianceManagerGetRequest(asyncResp);
             }
+            else
+            {
+                // build type
+                nlohmann::json& buildType = oemNvidia["FirmwareBuildType"];
+                std::ifstream buildDescriptionFile(buildDescriptionFilePath);
+                if (buildDescriptionFile.good())
+                {
+                    std::string line;
+                    const std::string prefix = "BUILD_DESC=";
+                    std::string descriptionContent;
+                    while (getline(buildDescriptionFile, line) &&
+                           descriptionContent.size() == 0)
+                    {
+                        if (line.rfind(prefix, 0) == 0)
+                        {
+                            descriptionContent = line.substr(prefix.size());
+                            descriptionContent.erase(
+                                std::remove(descriptionContent.begin(),
+                                            descriptionContent.end(), '"'),
+                                descriptionContent.end());
+                        }
+                    }
+                    if (descriptionContent.rfind("debug-prov", 0) == 0)
+                    {
+                        buildType = "ProvisioningDebug";
+                    }
+                    else if (descriptionContent.rfind("prod-prov", 0) == 0)
+                    {
+                        buildType = "ProvisioningProduction";
+                    }
+                    else if (descriptionContent.rfind("dev-prov", 0) == 0)
+                    {
+                        buildType = "ProvisioningDevelopment";
+                    }
+                    else if (descriptionContent.rfind("debug-platform", 0) == 0)
+                    {
+                        buildType = "PlatformDebug";
+                    }
+                    else if (descriptionContent.rfind("prod-platform", 0) == 0)
+                    {
+                        buildType = "PlatformProduction";
+                    }
+                    else if (descriptionContent.rfind("dev-platform", 0) == 0)
+                    {
+                        buildType = "PlatformDevelopment";
+                    }
+                }
+
+                // OTP provisioning status
+                nlohmann::json& otpProvisioned = oemNvidia["OTPProvisioned"];
+                std::ifstream otpStatusFile(otpProvisioningStatusFilePath);
+                if (otpStatusFile.good())
+                {
+                    std::string statusLine;
+                    if (getline(otpStatusFile, statusLine))
+                    {
+                        if (statusLine != "0" && statusLine != "1")
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "Invalid OTP provisioning status - {}",
+                                statusLine);
+                        }
+                        otpProvisioned = (statusLine == "1");
+                    }
+                    else
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Failed to read OTP provisioning status");
+                        otpProvisioned = false;
+                    }
+                }
+                else
+                {
+                    BMCWEB_LOG_ERROR(
+                        "Failed to open OTP provisioning status file");
+                    otpProvisioned = false;
+                }
+                getFencingPrivilege(asyncResp);
+
+#ifdef BMCWEB_ENABLE_TLS_AUTH_OPT_IN
+                oemNvidia["AuthenticationTLSRequired"] =
+                    persistent_data::getConfig().isTLSAuthEnabled();
+#endif
+
+                populatePersistentStorageSettingStatus(asyncResp);
+            }
         }
 
         // Manager.Reset (an action) can be many values, OpenBMC only
-        // supports BMC reboot.
         nlohmann::json& managerReset =
             asyncResp->res.jsonValue["Actions"]["#Manager.Reset"];
         managerReset["target"] =
