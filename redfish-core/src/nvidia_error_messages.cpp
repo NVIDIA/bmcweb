@@ -29,13 +29,13 @@ namespace redfish::messages
 {
 
 nlohmann::json resourceErrorsDetectedFormatError(const std::string& arg1,
-                                                const std::string& arg2)
+                                                 const std::string& arg2)
 {
     return nlohmann::json{
         {"@odata.type", "#Message.v1_1_1.Message"},
         {"MessageId", "ResourceEvent.1.0.3.ResourceErrorsDetected"},
         {"Message", "The resource property " + arg1 +
-                       " has detected errors of type '" + arg2 + "'."},
+                        " has detected errors of type '" + arg2 + "'."},
         {"MessageArgs", {arg1, arg2}},
         {"MessageSeverity", "Warning"},
         {"Resolution", "Resolution dependent upon error type."}};
@@ -56,7 +56,7 @@ void resourceErrorsDetectedFormatError(
 }
 
 nlohmann::json asyncCommandError(const std::string& errorCode,
-                                const std::string& resolution)
+                                 const std::string& resolution)
 {
     return nlohmann::json{
         {"@odata.type", "#Message.v1_1_1.Message"},
@@ -68,11 +68,11 @@ nlohmann::json asyncCommandError(const std::string& errorCode,
 }
 
 void asyncError(crow::Response& res, const std::string& errorCode,
-               const std::string& resolution)
+                const std::string& resolution)
 {
     res.result(boost::beast::http::status::internal_server_error);
     addMessageToErrorJson(res.jsonValue,
-                         asyncCommandError(errorCode, resolution));
+                          asyncCommandError(errorCode, resolution));
 }
 
 void updateInProgressMsg(crow::Response& res, const std::string& resolution)
@@ -95,8 +95,7 @@ void success(crow::Response& res, const std::string& resolution)
         {"MessageId", "Base.1.12.0.Success"},
         {"Message", "Successfully Completed Request"},
         {"MessageSeverity", "OK"},
-        {"Resolution", resolution.empty() ? "None" : resolution}
-    };
+        {"Resolution", resolution.empty() ? "None" : resolution}};
     addMessageToJsonRoot(res.jsonValue, responseMessage);
 }
 
@@ -117,27 +116,27 @@ nlohmann::json invalidUpload(std::string_view arg1, std::string_view arg2)
 }
 
 void invalidUpload(crow::Response& res, std::string_view arg1,
-                  std::string_view arg2)
+                   std::string_view arg2)
 {
     res.result(boost::beast::http::status::bad_request);
     addMessageToErrorJson(res.jsonValue, invalidUpload(arg1, arg2));
 }
 
 nlohmann::json resourceCannotBeDeleted(const std::string& arg1,
-                                      const std::string& arg2)
+                                       const std::string& arg2)
 {
     return nlohmann::json{
         {"@odata.type", "#Message.v1_1_1.Message"},
         {"MessageId", "Base.1.8.1.ResourceCannotBeDeleted"},
         {"Message", "The requested resource of type " + arg1 + " named " +
-                       arg2 + " cannot be deleted."},
+                        arg2 + " cannot be deleted."},
         {"MessageArgs", {arg1, arg2}},
         {"MessageSeverity", "Critical"},
         {"Resolution", "Do not attempt to delete a non-deletable resource."}};
 }
 
 void resourceCannotBeDeleted(crow::Response& res, const std::string& arg1,
-                            const std::string& arg2)
+                             const std::string& arg2)
 {
     res.result(boost::beast::http::status::forbidden);
     addMessageToErrorJson(res.jsonValue, resourceCannotBeDeleted(arg1, arg2));
@@ -162,4 +161,30 @@ void operationNotAllowed(crow::Response& res, std::string_view arg)
     addMessageToErrorJson(res.jsonValue, operationNotAllowed(arg));
 }
 
-} // namespace redfish::messages 
+/**
+ * @internal
+ * @brief Formats UnsupportedMediaType message into JSON
+ *
+ * See header file for more information
+ * @endinternal
+ */
+nlohmann::json unsupportedMediaType()
+{
+    return nlohmann::json{
+        {"@odata.type", "#Message.v1_1_1.Message"},
+        {"MessageId", "Base.1.15.0.UnsupportedMediaType"},
+        {"Message",
+         "The request specifies a Content-Type for the body that is not supported"},
+        {"MessageArgs", {}},
+        {"MessageSeverity", "Critical"},
+        {"Resolution",
+         "Please ensure that the Content-Type header in your request specifies a valid media type for the body content."}};
+}
+
+void unsupportedMediaType(crow::Response& res)
+{
+    res.result(boost::beast::http::status::unsupported_media_type);
+    addMessageToErrorJson(res.jsonValue, unsupportedMediaType());
+}
+
+} // namespace redfish::messages

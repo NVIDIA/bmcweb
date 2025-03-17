@@ -52,7 +52,7 @@
 #include "thermal_metrics.hpp"
 #include "thermal_subsystem.hpp"
 #include "trigger.hpp"
-// #include "update_service.hpp"
+#include "update_service.hpp"
 #include "virtual_media.hpp"
 namespace redfish
 {
@@ -116,7 +116,7 @@ RedfishService::RedfishService(App& app)
     }
     requestRoutesChassisDrive(app);
     requestRoutesChassisDriveName(app);
-    // requestRoutesUpdateService(app);
+    requestRoutesUpdateService(app);
     requestRoutesStorageCollection(app);
     requestRoutesStorage(app);
     requestRoutesStorageControllerCollection(app);

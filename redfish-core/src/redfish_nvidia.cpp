@@ -196,11 +196,6 @@ void requestRoutesNvidia(crow::App& app)
     requestRoutesUpdateServiceActionsSimpleUpdate(app);
 #endif
 
-    // requestRoutesSoftwareInventoryCollection(app);
-    // requestRoutesSoftwareInventory(app);
-    // requestRoutesInventorySoftwareCollection(app);
-    // requestRoutesInventorySoftware(app);
-
     if constexpr (BMCWEB_MANUFACTURING_TEST)
     {
         requestRoutesEventLogDiagnosticDataCollect(app);

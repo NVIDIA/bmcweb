@@ -102,5 +102,15 @@ void resourceCannotBeDeleted(crow::Response& res, const std::string& arg1,
 nlohmann::json operationNotAllowed(std::string_view arg);
 
 void operationNotAllowed(crow::Response& res, std::string_view arg);
+
+/**
+ * @brief Formats UnsupportedMediaType message into JSON
+ * Message body: "The request specifies a Content-Type for the body that is not
+ * supported"
+ * @returns Message UnsupportedMediaType formatted to JSON */
+nlohmann::json unsupportedMediaType();
+
+void unsupportedMediaType(crow::Response& res);
+
 } // namespace messages
 } // namespace redfish
