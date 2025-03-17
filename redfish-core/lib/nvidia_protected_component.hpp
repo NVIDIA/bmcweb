@@ -115,16 +115,36 @@ static inline bool stringToInt(const std::string& str, int& number)
     return true;
 }
 
-static inline std::string removeERoTFromStr(const std::string& input)
+static inline std::string removeRoTFromStr(const std::string& input)
 {
-    size_t first_underscore = input.find('_');
-    size_t second_underscore = input.find('_', first_underscore + 1);
-    if (second_underscore != std::string::npos &&
-        first_underscore != std::string::npos)
+    // Find the position of "RoT" in the string
+    size_t rot_pos = input.find("RoT");
+    if (rot_pos == std::string::npos)
     {
-        return input.substr(0, first_underscore + 1) +
-               input.substr(second_underscore + 1);
+        return input;
     }
+
+    // Find the underscore before "RoT", if it exists; otherwise, use start of
+    // string
+    size_t first_underscore = input.rfind('_', rot_pos);
+    size_t second_underscore = input.find('_', rot_pos + 3);
+
+    if (second_underscore != std::string::npos)
+    {
+        bool isRoTAtStart = (first_underscore == std::string::npos);
+
+        // If "RoT" is at the start, start from beginning (0)
+        // Otherwise, keep the part before first_underscore
+        size_t startPos = isRoTAtStart ? 0 : first_underscore;
+
+        // If "RoT" is at the start, skip the underscore after it
+        // Otherwise, include the underscore
+        size_t endPos = isRoTAtStart ? second_underscore + 1
+                                     : second_underscore;
+
+        return input.substr(0, startPos) + input.substr(endPos);
+    }
+    // If conditions are not met, return the original string
     return input;
 }
 
@@ -314,7 +334,7 @@ inline void handleNvidiaRoTImageSlot(
             messages::internalError(asyncResp->res);
             return;
         }
-        auto componentId = fwTypeStr != "Self" ? removeERoTFromStr(chassisId)
+        auto componentId = fwTypeStr != "Self" ? removeRoTFromStr(chassisId)
                                                : "Self";
         if (componentId.find(fwTypeStr) == std::string::npos)
         {
@@ -530,7 +550,7 @@ inline void handleNvidiaRoTProtectedComponentCollection(
                                 {{"@odata.id",
                                   "/redfish/v1/Chassis/" + chassisId +
                                       "/Oem/NvidiaRoT/RoTProtectedComponents/" +
-                                      removeERoTFromStr(chassisId)}});
+                                      removeRoTFromStr(chassisId)}});
                             asyncResp->res.jsonValue["Members@odata.count"] =
                                 asyncResp->res.jsonValue["Members"].size();
                         }
@@ -562,7 +582,7 @@ inline void handleNvidiaRoTImageSlotCollection(
             messages::internalError(asyncResp->res);
             return;
         }
-        auto componentId = fwTypeStr != "Self" ? removeERoTFromStr(chassisId)
+        auto componentId = fwTypeStr != "Self" ? removeRoTFromStr(chassisId)
                                                : "Self";
         if (componentId.find(fwTypeStr) == std::string::npos)
         {
@@ -976,7 +996,7 @@ inline void handleNvidiaRoTProtectedComponentSettings(
                 asyncResp->res, "NvidiaRoTProtectedComponent", fwTypeStr);
             return;
         }
-        auto componentId = fwTypeStr != "Self" ? removeERoTFromStr(chassisId)
+        auto componentId = fwTypeStr != "Self" ? removeRoTFromStr(chassisId)
                                                : "Self";
         if (componentId.find(fwTypeStr) == std::string::npos)
         {
@@ -1101,7 +1121,7 @@ inline void handleNvidiaRoTProtectedComponent(
                 asyncResp->res, "NvidiaRoTProtectedComponent", fwTypeStr);
             return;
         }
-        auto componentId = fwTypeStr != "Self" ? removeERoTFromStr(chassisId)
+        auto componentId = fwTypeStr != "Self" ? removeRoTFromStr(chassisId)
                                                : "Self";
         if (componentId.find(fwTypeStr) == std::string::npos)
         {
