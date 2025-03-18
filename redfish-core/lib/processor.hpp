@@ -2106,7 +2106,7 @@ inline void getProcessorPerformanceData(
                 (property.first == "PCIeRXBytes"))
             {
                 auto propName = property.first;
-                const uint32_t* val = std::get_if<uint32_t>(&property.second);
+                const uint64_t* val = std::get_if<uint64_t>(&property.second);
                 if (val == nullptr)
                 {
                     BMCWEB_LOG_DEBUG("Get  pcie bytes property failed");
