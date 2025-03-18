@@ -237,10 +237,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesTaskCollection(app);
     requestRoutesTask(app);
     requestRoutesEventService(app);
-    if constexpr (BMCWEB_ENABLE_SSE)
-    {
-        requestRoutesEventServiceSse(app);
-    }
+    requestRoutesEventServiceSse(app);
     requestRoutesEventDestinationCollection(app);
     requestRoutesEventDestination(app);
     requestRoutesFabricAdapters(app);

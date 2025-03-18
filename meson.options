@@ -876,13 +876,6 @@ option(
 
 # BMCWEB_INSECURE_ENABLE_REDFISH_QUERY
 option(
-    'force-insecure-event-notification',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Event notification is performed only by http insecure protol regardless the subscription either http or https',
-)
-
-option(
     'insecure-enable-redfish-query',
     type: 'feature',
     value: 'disabled',
@@ -1057,12 +1050,6 @@ option(
     type: 'feature',
     value: 'disabled',
     description: 'Enables fabric adapter schema.',
-)
-option(
-    'enable-sse',
-    type: 'feature',
-    value: 'enabled',
-    description: 'Enables Event SSE.',
 )
 option(
     'tls-cacert-path',
