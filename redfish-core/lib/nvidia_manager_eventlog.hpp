@@ -187,7 +187,7 @@ inline void fillManagerEventLogLogEntryFromPropertyMap(
             (entry.Timestamp == nullptr)
                 ? ""
                 : redfish::time_utils::getDateTimeStdtime(
-                      static_cast<time_t>(*entry.Timestamp)),
+                      redfish::time_utils::getTimestamp(*entry.Timestamp)),
             messageId, messageArgs,
             (entry.Resolution == nullptr) ? "" : *entry.Resolution,
             entry.Resolved, (entry.EventId == nullptr) ? "" : *entry.EventId,
