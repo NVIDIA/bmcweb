@@ -120,7 +120,8 @@ static const std::string platformChassisName(BMCWEB_PLATFORM_CHASSIS_NAME);
 static const std::string chassisName = platformDevicePrefix + "Chassis_";
 static const std::string fpgaChassiName = platformDevicePrefix + "FPGA_";
 static const std::string gpuName = platformDevicePrefix + gpuPrefix;
-static const std::string nvSwitch = "NVSwitch_";
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+static std::string nvSwitch = "NVSwitch_";
 static const std::string pcieRetimer = platformDevicePrefix + "PCIeRetimer_";
 static const std::string pcieSwtich = platformDevicePrefix + "PCIeSwitch_";
 static const std::string processorModule =
