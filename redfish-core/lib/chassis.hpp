@@ -798,6 +798,8 @@ inline void handleChassisGetSubTree(
             // Links association to underneath processors
             redfish::nvidia_chassis_utils::getChassisProcessorLinks(asyncResp,
                                                                     objPath);
+            redfish::nvidia_chassis_utils::getProtocolBridgeForDevices(
+                asyncResp, objPath);
             // Links association to connected fabric switches
             redfish::nvidia_chassis_utils::getChassisFabricSwitchesLinks(
                 asyncResp, objPath);

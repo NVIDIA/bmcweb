@@ -93,6 +93,161 @@ inline void
         "xyz.openbmc_project.Association", "endpoints");
 }
 
+/* * @brief Fill out links association to underneath chassis by
+ * requesting data from the given D-Bus association object.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       objPath     D-Bus object to query.
+ */
+inline void getChassisProcessorProtocolBridgeForDevices(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG("Get underneath chassis links");
+    crow::connections::systemBus->async_method_call(
+        [aResp](const boost::system::error_code ec2,
+                std::variant<std::vector<std::string>>& resp) {
+        if (ec2)
+        {
+            return; // no chassis = no failures
+        }
+        std::vector<std::string>* data =
+            std::get_if<std::vector<std::string>>(&resp);
+        if (data == nullptr)
+        {
+            return;
+        }
+        aResp->res.jsonValue["Links"]["Oem"]["Nvidia"]["@odata.type"] =
+            "#NvidiaChassis.v1_7_0.NvidiaSMAChassis";
+        nlohmann::json& protocalBridgeArray =
+            aResp->res.jsonValue["Links"]["Oem"]["Nvidia"]
+                                ["ProtocolBridgeForDevices"];
+        protocalBridgeArray = nlohmann::json::array();
+        boost::container::flat_set<std::string> chassisNames;
+        for (const std::string& chassisPath : *data)
+        {
+            sdbusplus::message::object_path objectPath(chassisPath);
+            std::string chassisName = objectPath.filename();
+            if (chassisName.empty())
+            {
+                BMCWEB_LOG_ERROR("Empty string on chassisName for objPath:{}",
+                                 chassisPath);
+                messages::internalError(aResp->res);
+                return;
+            }
+            chassisNames.emplace(std::move(chassisName));
+        }
+        for (const auto& chassisName : chassisNames)
+        {
+            protocalBridgeArray.push_back(
+                {{"@odata.id", "/redfish/v1/Systems/" +
+                                   std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                                   "/Processors/" + chassisName}});
+        }
+    },
+        "xyz.openbmc_project.ObjectMapper", objPath + "/bridging_processor",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
+}
+
+/* * @brief Fill out links association to underneath chassis by
+ * requesting data from the given D-Bus association object.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       objPath     D-Bus object to query.
+ */
+inline void getChassisNetworkAdapterProtocolBridgeForDevices(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG("Get underneath chassis links");
+    crow::connections::systemBus->async_method_call(
+        [aResp](const boost::system::error_code ec,
+                std::variant<std::vector<std::string>>& resp) {
+        if (ec)
+        {
+            return; // no chassis = no failures
+        }
+        std::vector<std::string>* data =
+            std::get_if<std::vector<std::string>>(&resp);
+        if (data == nullptr)
+        {
+            return;
+        }
+        aResp->res.jsonValue["Links"]["Oem"]["Nvidia"]["@odata.type"] =
+            "#NvidiaChassis.v1_7_0.NvidiaSMAChassis";
+        nlohmann::json& protocalBridgeArray =
+            aResp->res.jsonValue["Links"]["Oem"]["Nvidia"]
+                                ["ProtocolBridgeForDevices"];
+        protocalBridgeArray = nlohmann::json::array();
+        for (const std::string& chassisPath : *data)
+        {
+            crow::connections::systemBus->async_method_call(
+                [aResp, &protocalBridgeArray,
+                 chassisPath](const boost::system::error_code ec2,
+                              std::variant<std::vector<std::string>>& resp) {
+                if (ec2)
+                {
+                    return; // no chassis = no failures
+                }
+                std::vector<std::string>* data =
+                    std::get_if<std::vector<std::string>>(&resp);
+                if (data == nullptr)
+                {
+                    return;
+                }
+                for (const std::string& networkAdapterPath : *data)
+                {
+                    sdbusplus::message::object_path objectPath(
+                        networkAdapterPath);
+                    std::string networkAdapterId = objectPath.filename();
+                    if (networkAdapterId.empty())
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Empty String networkAdapterId for objPath:{}",
+                            networkAdapterPath);
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+
+                    sdbusplus::message::object_path objpath(chassisPath);
+                    std::string chassisId = objpath.filename();
+                    if (chassisId.empty())
+                    {
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    protocalBridgeArray.push_back(
+                        {{"@odata.id", "/redfish/v1/Chassis/" + chassisId +
+                                           "/NetworkAdapters/" +
+                                           networkAdapterId}});
+                }
+            },
+                "xyz.openbmc_project.ObjectMapper",
+                chassisPath + "/network_adapters",
+                "org.freedesktop.DBus.Properties", "Get",
+                "xyz.openbmc_project.Association", "endpoints");
+        }
+    },
+        "xyz.openbmc_project.ObjectMapper", objPath + "/bridging_chassis",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
+}
+
+/* * @brief Fill out links association to underneath chassis by
+ * requesting data from the given D-Bus association object.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       objPath     D-Bus object to query.
+ */
+inline void
+    getProtocolBridgeForDevices(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                                const std::string& objPath)
+{
+    // Links association to underneath chassis
+    getChassisNetworkAdapterProtocolBridgeForDevices(aResp, objPath);
+    // Links association to underneath processors
+    getChassisProcessorProtocolBridgeForDevices(aResp, objPath);
+}
+
 inline void
     getHealthByAssociation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& objPath,
