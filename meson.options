@@ -583,6 +583,12 @@ option(
     description: 'Enable OEM Nvidia BootEntryID for phosphor-logging based logs.',
 )
 option(
+    'nvidia-cbc-mfg-fix',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable/Disable support for nvidia cbc mfg fix',
+)
+option(
     'stalesensor-upper-limit-milisecond',
     type: 'integer',
     min: 1,

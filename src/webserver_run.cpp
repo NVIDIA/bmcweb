@@ -13,6 +13,7 @@
 #include "kvm_websocket.hpp"
 #include "logging.hpp"
 #include "login_routes.hpp"
+#include "nvidia/nvidia_mfg_saving.hpp"
 #include "obmc_console.hpp"
 #include "openbmc_dbus_rest.hpp"
 #include "redfish.hpp"
@@ -121,6 +122,10 @@ int run()
 #endif
 
     bmcweb::registerUserRemovedSignal();
+    if constexpr (BMCWEB_NVIDIA_CBC_MFG_FIX)
+    {
+        nvidia_mfg_saving::requestRoutes(app);
+    }
 
     app.run();
     io->run();
