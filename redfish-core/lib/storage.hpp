@@ -345,7 +345,7 @@ inline void getDriveAsset(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
 
-        if (partNumber != nullptr)
+        if (partNumber != nullptr && !partNumber->empty())
         {
             asyncResp->res.jsonValue["PartNumber"] = *partNumber;
         }
