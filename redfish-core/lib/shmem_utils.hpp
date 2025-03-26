@@ -26,6 +26,30 @@ namespace redfish
 namespace shmem
 {
 
+struct MetricsReplacement
+{
+    std::string searchPattern;   // The pattern to search for (e.g. chassisName)
+    std::string wildcardPattern; // The wildcard pattern (e.g. "{BSWild}")
+    std::string wildcardName;    // The name of the wildcard (e.g. "BSWild")
+    mutable bool isEnabled; // Make isEnabled mutable so it can be modified even
+                            // on const objects
+
+    // clang-format off
+    MetricsReplacement(std::string search, std::string pattern,
+                       std::string name, bool enabled = false) :
+        searchPattern(std::move(search)), wildcardPattern(std::move(pattern)),
+        wildcardName(std::move(name)), isEnabled(enabled)
+    {}
+    // clang-format on
+};
+
+inline void updateReplacementFlag(const MetricsReplacement& replacement,
+                                  const std::set<std::string>& allowedWildcards)
+{
+    replacement.isEnabled = (allowedWildcards.find(replacement.wildcardName) !=
+                             allowedWildcards.end());
+}
+
 inline void
     getShmemPlatformMetrics(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& metricId,
@@ -134,6 +158,44 @@ static std::string blueFieldSensor = "BF3_Slot_";
 static std::string storageBP = "StorageBackplane_";
 static std::string storageDevice = "SSD_";
 
+// Add inline to prevent multiple definition errors
+inline const MetricsReplacement
+    chassisPlatformEnvironmentMetrics(chassisName, "{BSWild}", "BSWild");
+inline const MetricsReplacement
+    processorPlatformEnvironmentMetrics(processorModule, "{PMWild}", "PMWild");
+inline const MetricsReplacement cpuPlatformEnvironmentMetrics(cpu, "{CWild}",
+                                                              "CWild");
+inline const MetricsReplacement
+    fpgaPlatformEnvironmentMetrics(fpgaChassiName, "{FWild}", "FWild");
+inline const MetricsReplacement
+    gpuPlatformEnvironmentMetrics(gpuName, "{GWild}", "GWild");
+inline const MetricsReplacement
+    nvSwitchPlatformEnvironmentMetrics(nvSwitch, "{NWild}", "NWild");
+inline const MetricsReplacement
+    pcieRetimerPlatformEnvironmentMetrics(pcieRetimer, "{PRWild}", "PRWild");
+inline const MetricsReplacement
+    pcieSwitchPlatformEnvironmentMetrics(pcieSwtich, "{PSWild}", "PSWild");
+inline const MetricsReplacement
+    nvLinkManagementNICPlatformEnvironmentMetrics(nvLinkManagementNIC,
+                                                  "{NicWild}", "NicWild");
+inline const MetricsReplacement
+    nvLinkManagementNICPortPlatformEnvironmentMetrics(nvLinkManagementNICPort,
+                                                      "{PortWild}", "PortWild");
+inline const MetricsReplacement
+    ioBoardPlatformEnvironmentMetrics(ioBoard, "{IWild}", "IWild");
+inline const MetricsReplacement pdbPlatformEnvironmentMetrics(pdb, "{PDBWild}",
+                                                              "PDBWild");
+inline const MetricsReplacement
+    blueFieldPlatformEnvironmentMetrics(blueField, "{BFWild}", "BFWild");
+inline const MetricsReplacement
+    blueFieldSensorsPlatformEnvironmentMetrics(blueFieldSensor, "{BFSWild}",
+                                               "BFSWild");
+inline const MetricsReplacement
+    storageBPSensorsPlatformEnvironmentMetrics(storageBP, "{SBWild}", "SBWild");
+inline const MetricsReplacement
+    storageBPDevicePlatformEnvironmentMetrics(storageDevice, "{SBDWild}",
+                                              "SBDWild");
+
 inline void replaceNumber(const std::string& input, const std::string& key,
                           const std::string& value,
                           std::set<std::string>& replacedName)
@@ -180,8 +242,28 @@ inline void replaceNumber(const std::string& input, const std::string& key,
 inline void metricsReplacementsNonPlatformMetrics(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     std::vector<std::string> inputMetricProperties,
-    const std::string& deviceType)
+    const std::string& deviceType, const std::set<std::string>& wildcardSet)
 {
+    // Precompute allowed flags based on the wildcards present in
+    // "MetricProperties"
+    bool allowNVSwitchId =
+        (wildcardSet.find("NVSwitchId") != wildcardSet.end());
+    bool allowNvlinkId = (wildcardSet.find("NvlinkId") != wildcardSet.end());
+    bool allowGpuId = (wildcardSet.find("GpuId") != wildcardSet.end());
+    bool allowCpuId = (wildcardSet.find("CpuId") != wildcardSet.end());
+    bool allowProcessorId =
+        (wildcardSet.find("ProcessorId") != wildcardSet.end());
+    bool allowCoreId = (wildcardSet.find("CoreId") != wildcardSet.end());
+    bool allowPCIeLinkId =
+        (wildcardSet.find("PCIeLinkId") != wildcardSet.end());
+    bool allowRetimerId = (wildcardSet.find("RetimerId") != wildcardSet.end());
+    bool allowPortType = (wildcardSet.find("PortType") != wildcardSet.end());
+    bool allowPortId = (wildcardSet.find("PortId") != wildcardSet.end());
+    bool allowInstanceId =
+        (wildcardSet.find("InstanceId") != wildcardSet.end());
+    bool allowNetworkAdapterNId =
+        (wildcardSet.find("NId") != wildcardSet.end());
+
     std::smatch match;
     std::set<int> nvSwitchId_Type_1;
     std::set<int> nvlinkId_Type_1;
@@ -202,35 +284,47 @@ inline void metricsReplacementsNonPlatformMetrics(
     {
         if (deviceType == "NVSwitchPortMetrics")
         {
-            std::regex switchPattern(nvSwitch + "(\\d+)");
-            if (std::regex_search(e, match, switchPattern))
+            if (allowNVSwitchId)
             {
-                int number = std::stoi(match[1].str());
-                nvSwitchId_Type_1.insert(number);
+                std::regex switchPattern(nvSwitch + "(\\d+)");
+                if (std::regex_search(e, match, switchPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    nvSwitchId_Type_1.insert(number);
+                }
             }
-            std::regex nvLinkPattern(nvLink + "(\\d+)");
-            if (std::regex_search(e, match, nvLinkPattern))
+            if (allowNvlinkId)
             {
-                int number = std::stoi(match[1].str());
-                nvlinkId_Type_1.insert(number);
+                std::regex nvLinkPattern(nvLink + "(\\d+)");
+                if (std::regex_search(e, match, nvLinkPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    nvlinkId_Type_1.insert(number);
+                }
             }
         }
         if (deviceType == "NVSwitchMetrics")
         {
-            std::regex switchPattern(nvSwitch + "(\\d+)");
-            if (std::regex_search(e, match, switchPattern))
+            if (allowNVSwitchId)
             {
-                int number = std::stoi(match[1].str());
-                nvSwitchId_Type_1.insert(number);
+                std::regex switchPattern(nvSwitch + "(\\d+)");
+                if (std::regex_search(e, match, switchPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    nvSwitchId_Type_1.insert(number);
+                }
             }
         }
         if (deviceType == "PCIeRetimerMetrics")
         {
-            std::regex retimerPattern(retimer + "(\\d+)");
-            if (std::regex_search(e, match, retimerPattern))
+            if (allowRetimerId)
             {
-                int number = std::stoi(match[1].str());
-                retimerId.insert(number);
+                std::regex retimerPattern(retimer + "(\\d+)");
+                if (std::regex_search(e, match, retimerPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    retimerId.insert(number);
+                }
             }
         }
         if (deviceType == "MemoryMetrics" || deviceType == "ProcessorMetrics" ||
@@ -239,227 +333,298 @@ inline void metricsReplacementsNonPlatformMetrics(
             deviceType == "ProcessorResetMetrics" ||
             deviceType == "ProcessorPortGPMMetrics")
         {
-            std::regex gpuPattern(gpuPrefix + "(\\d+)");
-            if (std::regex_search(e, match, gpuPattern))
+            if (allowGpuId)
             {
-                int number = std::stoi(match[1].str());
-                gpuId.insert(number);
+                std::regex gpuPattern(gpuPrefix + "(\\d+)");
+                if (std::regex_search(e, match, gpuPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    gpuId.insert(number);
+                }
             }
         }
         if (deviceType == "ProcessorGPMMetrics")
         {
-            std::regex gpmInstancePattern(gpmInstances + "(\\d+)");
-            if (std::regex_search(e, match, gpmInstancePattern))
+            if (allowInstanceId)
             {
-                int number = std::stoi(match[1].str());
-                gpmInstance.insert(number);
+                std::regex gpmInstancePattern(gpmInstances + "(\\d+)");
+                if (std::regex_search(e, match, gpmInstancePattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    gpmInstance.insert(number);
+                }
             }
         }
         if (deviceType == "ProcessorPortMetrics" ||
             deviceType == "ProcessorPortGPMMetrics")
         {
-            std::regex nvLinkPattern(nvLink + "(\\d+)");
-            if (std::regex_search(e, match, nvLinkPattern))
+            if (allowNvlinkId)
             {
-                int number = std::stoi(match[1].str());
-                nvlinkId_Type_1.insert(number);
+                std::regex nvLinkPattern(nvLink + "(\\d+)");
+                if (std::regex_search(e, match, nvLinkPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    nvlinkId_Type_1.insert(number);
+                }
             }
         }
         if (deviceType == "NetworkAdapterPortMetrics")
         {
-            std::regex networkAdapterPattern(networkAdapter + "(\\d+)");
-            if (std::regex_search(e, match, networkAdapterPattern))
+            if (allowNetworkAdapterNId)
             {
-                int number = std::stoi(match[1].str());
-                networkAdapterNId.insert(number);
+                std::regex networkAdapterPattern(networkAdapter + "(\\d+)");
+                if (std::regex_search(e, match, networkAdapterPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    networkAdapterNId.insert(number);
+                }
             }
-            std::regex nvLinkManagementPattern(networkAdapterLink + "(\\d+)");
-            if (std::regex_search(e, match, nvLinkManagementPattern))
+            if (allowNvlinkId)
             {
-                int number = std::stoi(match[1].str());
-                nvLinkManagementId.insert(number);
+                std::regex nvLinkManagementPattern(networkAdapterLink +
+                                                   "(\\d+)");
+                if (std::regex_search(e, match, nvLinkManagementPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    nvLinkManagementId.insert(number);
+                }
             }
         }
         if (deviceType == "PCIeRetimerPortMetrics")
         {
-            std::regex pcieRetimerPattern(retimer + "(\\d+)");
-            if (std::regex_search(e, match, pcieRetimerPattern))
+            if (allowRetimerId)
             {
-                int number = std::stoi(match[1].str());
-                retimerId.insert(number);
+                std::regex pcieRetimerPattern(retimer + "(\\d+)");
+                if (std::regex_search(e, match, pcieRetimerPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    retimerId.insert(number);
+                }
             }
-            std::regex retimerPortPattern("/Ports/(\\w+)_(\\d+)");
-            if (std::regex_search(e, match, retimerPortPattern) &&
-                match.size() > 2)
+            if (allowPortType && allowPortId)
             {
-                std::string portType = match[1].str();
-                int portId = std::stoi(match[2].str());
+                std::regex retimerPortPattern("/Ports/(\\w+)_(\\d+)");
+                if (std::regex_search(e, match, retimerPortPattern) &&
+                    match.size() > 2)
+                {
+                    std::string portType = match[1].str();
+                    int portId = std::stoi(match[2].str());
 
-                portTypes.insert(portType);
-                portIds.insert(portId);
+                    portTypes.insert(portType);
+                    portIds.insert(portId);
+                }
             }
         }
         if (deviceType == "CpuProcessorMetrics")
         {
-            std::regex cpuProcessorPattern(cpuProcessor + "(\\d+)");
-            if (std::regex_search(e, match, cpuProcessorPattern))
+            if (allowCpuId)
             {
-                int number = std::stoi(match[1].str());
-                cpuId.insert(number);
+                std::regex cpuProcessorPattern(cpuProcessor + "(\\d+)");
+                if (std::regex_search(e, match, cpuProcessorPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    cpuId.insert(number);
+                }
             }
-            std::regex processorPattern(processor + "(\\d+)");
-            if (std::regex_search(e, match, processorPattern))
+            if (allowProcessorId)
             {
-                int number = std::stoi(match[1].str());
-                processorId.insert(number);
+                std::regex processorPattern(processor + "(\\d+)");
+                if (std::regex_search(e, match, processorPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    processorId.insert(number);
+                }
             }
-            std::regex cpuCorePattern(cpuCore + "(\\d+)");
-            if (std::regex_search(e, match, cpuCorePattern))
+            if (allowCoreId)
             {
-                int number = std::stoi(match[1].str());
-                coreId.insert(number);
+                std::regex cpuCorePattern(cpuCore + "(\\d+)");
+                if (std::regex_search(e, match, cpuCorePattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    coreId.insert(number);
+                }
             }
-            std::regex nvLinkPattern(nvLink + "(\\d+)");
-            if (std::regex_search(e, match, nvLinkPattern))
+            if (allowNvlinkId)
             {
-                int number = std::stoi(match[1].str());
-                nvLinkId.insert(number);
+                std::regex nvLinkPattern(nvLink + "(\\d+)");
+                if (std::regex_search(e, match, nvLinkPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    nvLinkId.insert(number);
+                }
             }
-            std::regex pcieLinkPattern(pcieLink + "(\\d+)");
-            if (std::regex_search(e, match, pcieLinkPattern))
+            if (allowPCIeLinkId)
             {
-                int number = std::stoi(match[1].str());
-                pcieLinkId.insert(number);
+                std::regex pcieLinkPattern(pcieLink + "(\\d+)");
+                if (std::regex_search(e, match, pcieLinkPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    pcieLinkId.insert(number);
+                }
             }
         }
         if (deviceType == "HealthMetrics")
         {
-            std::regex cpuProcessorPattern(cpuProcessor + "(\\d+)");
-            if (std::regex_search(e, match, cpuProcessorPattern))
+            if (allowCpuId)
             {
-                int number = std::stoi(match[1].str());
-                cpuId.insert(number);
+                std::regex cpuProcessorPattern(cpuProcessor + "(\\d+)");
+                if (std::regex_search(e, match, cpuProcessorPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    cpuId.insert(number);
+                }
             }
-            std::regex gpuPattern(gpuPrefix + "(\\d+)");
-            if (std::regex_search(e, match, gpuPattern))
+            if (allowGpuId)
             {
-                int number = std::stoi(match[1].str());
-                gpuId.insert(number);
+                std::regex gpuPattern(gpuPrefix + "(\\d+)");
+                if (std::regex_search(e, match, gpuPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    gpuId.insert(number);
+                }
             }
-
-            std::regex pcieRetimerPattern(retimer + "(\\d+)");
-            if (std::regex_search(e, match, pcieRetimerPattern))
+            if (allowRetimerId)
             {
-                int number = std::stoi(match[1].str());
-                retimerId.insert(number);
+                std::regex pcieRetimerPattern(retimer + "(\\d+)");
+                if (std::regex_search(e, match, pcieRetimerPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    retimerId.insert(number);
+                }
             }
-
-            std::regex switchPattern(nvSwitch + "(\\d+)");
-            if (std::regex_search(e, match, switchPattern))
+            if (allowNVSwitchId)
             {
-                int number = std::stoi(match[1].str());
-                nvSwitchId_Type_1.insert(number);
+                std::regex switchPattern(nvSwitch + "(\\d+)");
+                if (std::regex_search(e, match, switchPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    nvSwitchId_Type_1.insert(number);
+                }
             }
         }
     }
     if (deviceType == "NVSwitchPortMetrics")
     {
-        nlohmann::json devCountSwitchType_1 = nlohmann::json::array();
-        for (const auto& e : nvSwitchId_Type_1)
+        if (allowNVSwitchId)
         {
-            devCountSwitchType_1.push_back(std::to_string(e));
+            nlohmann::json devCountSwitchType_1 = nlohmann::json::array();
+            for (const auto& e : nvSwitchId_Type_1)
+            {
+                devCountSwitchType_1.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "NVSwitchId"},
+                {"Values", devCountSwitchType_1},
+            });
         }
-        wildCards.push_back({
-            {"Name", "NVSwitchId"},
-            {"Values", devCountSwitchType_1},
-        });
-        nlohmann::json devCountNVlinkId_Type_1 = nlohmann::json::array();
-        for (const auto& e : nvlinkId_Type_1)
+        if (allowNvlinkId)
         {
-            devCountNVlinkId_Type_1.push_back(std::to_string(e));
+            nlohmann::json devCountNVlinkId_Type_1 = nlohmann::json::array();
+            for (const auto& e : nvlinkId_Type_1)
+            {
+                devCountNVlinkId_Type_1.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "NvlinkId"},
+                {"Values", devCountNVlinkId_Type_1},
+            });
         }
-        wildCards.push_back({
-            {"Name", "NvlinkId"},
-            {"Values", devCountNVlinkId_Type_1},
-        });
     }
     if (deviceType == "NetworkAdapterPortMetrics")
     {
-        nlohmann::json devCountNetworkAdapter = nlohmann::json::array();
-        for (const auto& e : networkAdapterNId)
+        if (allowNetworkAdapterNId)
         {
-            devCountNetworkAdapter.push_back(std::to_string(e));
+            nlohmann::json devCountNetworkAdapter = nlohmann::json::array();
+            for (const auto& e : networkAdapterNId)
+            {
+                devCountNetworkAdapter.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "NId"},
+                {"Values", devCountNetworkAdapter},
+            });
         }
-        wildCards.push_back({
-            {"Name", "NId"},
-            {"Values", devCountNetworkAdapter},
-        });
-
-        nlohmann::json devCountNVLinkManagementId = nlohmann::json::array();
-        for (const auto& e : nvLinkManagementId)
+        if (allowNvlinkId)
         {
-            devCountNVLinkManagementId.push_back(std::to_string(e));
+            nlohmann::json devCountNVLinkManagementId = nlohmann::json::array();
+            for (const auto& e : nvLinkManagementId)
+            {
+                devCountNVLinkManagementId.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "NvlinkId"},
+                {"Values", devCountNVLinkManagementId},
+            });
         }
-        wildCards.push_back({
-            {"Name", "NvlinkId"},
-            {"Values", devCountNVLinkManagementId},
-        });
     }
     if (deviceType == "PCIeRetimerPortMetrics")
     {
-        nlohmann::json devCountRetimerId = nlohmann::json::array();
-        for (const auto& e : retimerId)
+        if (allowRetimerId)
         {
-            devCountRetimerId.push_back(std::to_string(e));
+            nlohmann::json devCountRetimerId = nlohmann::json::array();
+            for (const auto& e : retimerId)
+            {
+                devCountRetimerId.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "RetimerId"},
+                {"Values", devCountRetimerId},
+            });
         }
-        wildCards.push_back({
-            {"Name", "RetimerId"},
-            {"Values", devCountRetimerId},
-        });
-
-        nlohmann::json devCountRetimerPortType = nlohmann::json::array();
-        for (const auto& e : portTypes)
+        if (allowPortType)
         {
-            devCountRetimerPortType.push_back(e);
+            nlohmann::json devCountRetimerPortType = nlohmann::json::array();
+            for (const auto& e : portTypes)
+            {
+                devCountRetimerPortType.push_back(e);
+            }
+            wildCards.push_back({
+                {"Name", "PortType"},
+                {"Values", devCountRetimerPortType},
+            });
         }
-        wildCards.push_back({
-            {"Name", "PortType"},
-            {"Values", devCountRetimerPortType},
-        });
-
-        nlohmann::json devCountRetimerPortId = nlohmann::json::array();
-        for (const auto& e : portIds)
+        if (allowPortId)
         {
-            devCountRetimerPortId.push_back(std::to_string(e));
+            nlohmann::json devCountRetimerPortId = nlohmann::json::array();
+            for (const auto& e : portIds)
+            {
+                devCountRetimerPortId.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "PortId"},
+                {"Values", devCountRetimerPortId},
+            });
         }
-        wildCards.push_back({
-            {"Name", "PortId"},
-            {"Values", devCountRetimerPortId},
-        });
     }
     if (deviceType == "PCIeRetimerMetrics" || deviceType == "HealthMetrics")
     {
-        nlohmann::json devCountRetimerId = nlohmann::json::array();
-        for (const auto& e : retimerId)
+        if (allowRetimerId)
         {
-            devCountRetimerId.push_back(std::to_string(e));
+            nlohmann::json devCountRetimerId = nlohmann::json::array();
+            for (const auto& e : retimerId)
+            {
+                devCountRetimerId.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "RetimerId"},
+                {"Values", devCountRetimerId},
+            });
         }
-        wildCards.push_back({
-            {"Name", "RetimerId"},
-            {"Values", devCountRetimerId},
-        });
     }
     if (deviceType == "NVSwitchMetrics" || deviceType == "HealthMetrics")
     {
-        nlohmann::json devCountNVSwitchId = nlohmann::json::array();
-        for (const auto& e : nvSwitchId_Type_1)
+        if (allowNVSwitchId)
         {
-            devCountNVSwitchId.push_back(std::to_string(e));
+            nlohmann::json devCountNVSwitchId = nlohmann::json::array();
+            for (const auto& e : nvSwitchId_Type_1)
+            {
+                devCountNVSwitchId.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "NVSwitchId"},
+                {"Values", devCountNVSwitchId},
+            });
         }
-        wildCards.push_back({
-            {"Name", "NVSwitchId"},
-            {"Values", devCountNVSwitchId},
-        });
     }
     if (deviceType == "MemoryMetrics" || deviceType == "ProcessorMetrics" ||
         deviceType == "ProcessorGPMMetrics" ||
@@ -467,105 +632,138 @@ inline void metricsReplacementsNonPlatformMetrics(
         deviceType == "ProcessorPortGPMMetrics" ||
         deviceType == "ProcessorResetMetrics" || deviceType == "HealthMetrics")
     {
-        nlohmann::json devCountGpuId = nlohmann::json::array();
-        for (const auto& e : gpuId)
+        if (allowGpuId)
         {
-            devCountGpuId.push_back(std::to_string(e));
+            nlohmann::json devCountGpuId = nlohmann::json::array();
+            for (const auto& e : gpuId)
+            {
+                devCountGpuId.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "GpuId"},
+                {"Values", devCountGpuId},
+            });
         }
-        wildCards.push_back({
-            {"Name", "GpuId"},
-            {"Values", devCountGpuId},
-        });
     }
     if (deviceType == "ProcessorGPMMetrics")
     {
-        nlohmann::json devCountInstanceId = nlohmann::json::array();
-        for (const auto& e : gpmInstance)
+        if (allowInstanceId)
         {
-            devCountInstanceId.push_back(std::to_string(e));
+            nlohmann::json devCountInstanceId = nlohmann::json::array();
+            for (const auto& e : gpmInstance)
+            {
+                devCountInstanceId.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "InstanceId"},
+                {"Values", devCountInstanceId},
+            });
         }
-        wildCards.push_back({
-            {"Name", "InstanceId"},
-            {"Values", devCountInstanceId},
-        });
     }
     if (deviceType == "ProcessorPortMetrics" ||
         deviceType == "ProcessorPortGPMMetrics")
     {
-        nlohmann::json devCountnvlinkId = nlohmann::json::array();
-        for (const auto& e : nvlinkId_Type_1)
+        if (allowNvlinkId)
         {
-            devCountnvlinkId.push_back(std::to_string(e));
+            nlohmann::json devCountnvlinkId = nlohmann::json::array();
+            for (const auto& e : nvlinkId_Type_1)
+            {
+                devCountnvlinkId.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "NvlinkId"},
+                {"Values", devCountnvlinkId},
+            });
         }
-        wildCards.push_back({
-            {"Name", "NvlinkId"},
-            {"Values", devCountnvlinkId},
-        });
     }
     if (deviceType == "CpuProcessorMetrics" || deviceType == "HealthMetrics")
     {
-        nlohmann::json devCountCpuId = nlohmann::json::array();
-        for (const auto& e : cpuId)
+        if (allowCpuId)
         {
-            devCountCpuId.push_back(std::to_string(e));
+            nlohmann::json devCountCpuId = nlohmann::json::array();
+            for (const auto& e : cpuId)
+            {
+                devCountCpuId.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "CpuId"},
+                {"Values", devCountCpuId},
+            });
         }
-        wildCards.push_back({
-            {"Name", "CpuId"},
-            {"Values", devCountCpuId},
-        });
     }
     if (deviceType == "CpuProcessorMetrics")
     {
-        nlohmann::json devCountProcessorId = nlohmann::json::array();
-        for (const auto& e : processorId)
+        if (allowProcessorId)
         {
-            devCountProcessorId.push_back(std::to_string(e));
+            nlohmann::json devCountProcessorId = nlohmann::json::array();
+            for (const auto& e : processorId)
+            {
+                devCountProcessorId.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "ProcessorId"},
+                {"Values", devCountProcessorId},
+            });
         }
-        wildCards.push_back({
-            {"Name", "ProcessorId"},
-            {"Values", devCountProcessorId},
-        });
-        nlohmann::json devCountCoreId = nlohmann::json::array();
-        for (const auto& e : coreId)
+        if (allowCoreId)
         {
-            devCountCoreId.push_back(std::to_string(e));
+            nlohmann::json devCountCoreId = nlohmann::json::array();
+            for (const auto& e : coreId)
+            {
+                devCountCoreId.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "CoreId"},
+                {"Values", devCountCoreId},
+            });
         }
-        wildCards.push_back({
-            {"Name", "CoreId"},
-            {"Values", devCountCoreId},
-        });
-        nlohmann::json devCountNvlinkId = nlohmann::json::array();
-        for (const auto& e : nvLinkId)
+        if (allowNvlinkId)
         {
-            devCountNvlinkId.push_back(std::to_string(e));
+            nlohmann::json devCountNvlinkId = nlohmann::json::array();
+            for (const auto& e : nvLinkId)
+            {
+                devCountNvlinkId.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "NvlinkId"},
+                {"Values", devCountNvlinkId},
+            });
         }
-        wildCards.push_back({
-            {"Name", "NvlinkId"},
-            {"Values", devCountNvlinkId},
-        });
-        nlohmann::json devCountPcieLinkId = nlohmann::json::array();
-        for (const auto& e : pcieLinkId)
+        if (allowPCIeLinkId)
         {
-            devCountPcieLinkId.push_back(std::to_string(e));
+            nlohmann::json devCountPcieLinkId = nlohmann::json::array();
+            for (const auto& e : pcieLinkId)
+            {
+                devCountPcieLinkId.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "PCIeLinkId"},
+                {"Values", devCountPcieLinkId},
+            });
         }
-        wildCards.push_back({
-            {"Name", "PCIeLinkId"},
-            {"Values", devCountPcieLinkId},
-        });
     }
 }
 
 inline void
-    metricsReplacements(std::vector<std::string> name,
+    metricsReplacements(const MetricsReplacement& replacement,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        std::vector<std::string> inputMetricProperties)
+                        const std::vector<std::string>& inputMetricProperties)
 {
+    // Only process if enabled
+    if (!replacement.isEnabled)
+    {
+        return;
+    }
+
     nlohmann::json& wildCards = asyncResp->res.jsonValue["Wildcards"];
     std::set<std::string> wildCardValues;
+
     for (const auto& e : inputMetricProperties)
     {
-        replaceNumber(e, name[0], name[1], wildCardValues);
+        replaceNumber(e, replacement.searchPattern, replacement.wildcardPattern,
+                      wildCardValues);
     }
+
     // insert set to json payload here
     nlohmann::json devCount = nlohmann::json::array();
     for (const auto& e : wildCardValues)
@@ -574,7 +772,7 @@ inline void
     }
 
     wildCards.push_back({
-        {"Name", name[2]},
+        {"Name", replacement.wildcardName},
         {"Values", devCount},
     });
     return;
@@ -585,52 +783,43 @@ inline void getShmemMetricsDefinitionWildCard(
     const std::string& metricId, const std::string& deviceType)
 {
     BMCWEB_LOG_DEBUG("getShmemMetricsDefinitionWildCards :{}", metricId);
+    //--------------------------------------------------------------------------
+    // Build the allowed wildcards set:
+    // Look at the "MetricProperties" JSON array; for each string, extract any
+    // token found inside curly braces (i.e. {token}). Every found token is
+    // considered allowed.
+    std::set<std::string> allowedWildcards;
+    if (asyncResp->res.jsonValue.contains("MetricProperties") &&
+        asyncResp->res.jsonValue["MetricProperties"].is_array())
+    {
+        for (const auto& property :
+             asyncResp->res.jsonValue["MetricProperties"])
+        {
+            if (!property.is_string())
+            {
+                continue;
+            }
+            std::string propertyStr = property.get<std::string>();
+            std::regex tokenRegex("\\{([^}]+)\\}");
+            std::smatch match;
+            std::string::const_iterator searchStart(propertyStr.cbegin());
+            while (std::regex_search(searchStart, propertyStr.cend(), match,
+                                     tokenRegex))
+            {
+                allowedWildcards.insert(match[1].str());
+                searchStart = match.suffix().first;
+            }
+        }
+    }
 
-    std::vector<std::string> chassisPlatformEnvironmentMetricsReplacements = {
-        {chassisName, "{BSWild}", "BSWild"}};
-    std::vector<std::string> processorPlatformEnvironmentMetricsReplacements = {
-        {processorModule, "{PMWild}", "PMWild"}};
-    std::vector<std::string> cpuPlatformEnvironmentMetricsReplacements = {
-        {cpu, "{CWild}", "CWild"}};
-    std::vector<std::string> fpgaPlatformEnvironmentMetricsReplacements = {
-        {fpgaChassiName, "{FWild}", "FWild"}};
-    std::vector<std::string> gpuPlatformEnvironmentMetricsReplacements = {
-        {gpuName, "{GWild}", "GWild"}};
-    std::vector<std::string> nvSwitchPlatformEnvironmentMetricsReplacements = {
-        {nvSwitch, "{NWild}", "NWild"}};
-    std::vector<std::string> pcieRetimerPlatformEnvironmentMetricsReplacements =
-        {{pcieRetimer, "{PRWild}", "PRWild"}};
-    std::vector<std::string> pcieSwitchPlatformEnvironmentMetricsReplacements =
-        {{pcieSwtich, "{PSWild}", "PSWild"}};
-    std::vector<std::string>
-        nvLinkManagementNICPlatformEnvironmentMetricsReplacements = {
-            {nvLinkManagementNIC, "{NicWild}", "NicWild"}};
-    std::vector<std::string>
-        nvLinkManagementNICPortPlatformEnvironmentMetricsReplacements = {
-            {nvLinkManagementNICPort, "{PortWild}", "PortWild"}};
-    std::vector<std::string> ioBoardPlatformEnvironmentMetricsReplacements = {
-        {ioBoard, "{IWild}", "IWild"}};
-    std::vector<std::string> pdbPlatformEnvironmentMetricsReplacements = {
-        {pdb, "{PDBWild}", "PDBWild"}};
-    std::vector<std::string> blueFieldPlatformEnvironmentMetricsReplacements = {
-        {blueField, "{BFWild}", "BFWild"}};
-    std::vector<std::string>
-        blueFieldSensorsPlatformEnvironmentMetricsReplacements = {
-            {blueFieldSensor, "{BFSWild}", "BFSWild"}};
-    std::vector<std::string>
-        storageBPSensorsPlatformEnvironmentMetricsReplacements = {
-            {storageBP, "{SBWild}", "SBWild"}};
-    std::vector<std::string>
-        storageBPDevicePlatformEnvironmentMetricsReplacements = {
-            {storageDevice, "{SBDWild}", "SBDWild"}};
+    std::vector<std::string> inputMetricProperties;
+    std::unordered_set<std::string> inputMetricPropertiesSet;
+    nlohmann::json wildCards = nlohmann::json::array();
+    asyncResp->res.jsonValue["Wildcards"] = wildCards;
 
     try
     {
         const auto& values = tal::TelemetryAggregator::getAllMrds(metricId);
-        std::vector<std::string> inputMetricProperties;
-        std::unordered_set<std::string> inputMetricPropertiesSet;
-        nlohmann::json wildCards = nlohmann::json::array();
-        asyncResp->res.jsonValue["Wildcards"] = wildCards;
         for (const auto& e : values)
         {
             if (deviceType == "NVSwitchPortMetrics" ||
@@ -674,52 +863,80 @@ inline void getShmemMetricsDefinitionWildCard(
 
         if (deviceType == "PlatformEnvironmentMetrics")
         {
+            updateReplacementFlag(chassisPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(processorPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(cpuPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(fpgaPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(gpuPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(nvSwitchPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(pcieRetimerPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(pcieSwitchPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(nvLinkManagementNICPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(
+                nvLinkManagementNICPortPlatformEnvironmentMetrics,
+                allowedWildcards);
+            updateReplacementFlag(ioBoardPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(pdbPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(blueFieldPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(blueFieldSensorsPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(storageBPSensorsPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(storageBPDevicePlatformEnvironmentMetrics,
+                                  allowedWildcards);
+
             nvSwitch = platformDevicePrefix + "NVSwitch_";
-            metricsReplacements(chassisPlatformEnvironmentMetricsReplacements,
+            metricsReplacements(chassisPlatformEnvironmentMetrics, asyncResp,
+                                inputMetricProperties);
+            metricsReplacements(processorPlatformEnvironmentMetrics, asyncResp,
+                                inputMetricProperties);
+            metricsReplacements(cpuPlatformEnvironmentMetrics, asyncResp,
+                                inputMetricProperties);
+            metricsReplacements(fpgaPlatformEnvironmentMetrics, asyncResp,
+                                inputMetricProperties);
+            metricsReplacements(gpuPlatformEnvironmentMetrics, asyncResp,
+                                inputMetricProperties);
+            metricsReplacements(nvSwitchPlatformEnvironmentMetrics, asyncResp,
+                                inputMetricProperties);
+            metricsReplacements(pcieRetimerPlatformEnvironmentMetrics,
                                 asyncResp, inputMetricProperties);
-            metricsReplacements(processorPlatformEnvironmentMetricsReplacements,
-                                asyncResp, inputMetricProperties);
-            metricsReplacements(cpuPlatformEnvironmentMetricsReplacements,
-                                asyncResp, inputMetricProperties);
-            metricsReplacements(fpgaPlatformEnvironmentMetricsReplacements,
-                                asyncResp, inputMetricProperties);
-            metricsReplacements(gpuPlatformEnvironmentMetricsReplacements,
-                                asyncResp, inputMetricProperties);
-            metricsReplacements(nvSwitchPlatformEnvironmentMetricsReplacements,
+            metricsReplacements(pcieSwitchPlatformEnvironmentMetrics, asyncResp,
+                                inputMetricProperties);
+            metricsReplacements(nvLinkManagementNICPlatformEnvironmentMetrics,
                                 asyncResp, inputMetricProperties);
             metricsReplacements(
-                pcieRetimerPlatformEnvironmentMetricsReplacements, asyncResp,
+                nvLinkManagementNICPortPlatformEnvironmentMetrics, asyncResp,
                 inputMetricProperties);
-            metricsReplacements(
-                pcieSwitchPlatformEnvironmentMetricsReplacements, asyncResp,
-                inputMetricProperties);
-            metricsReplacements(
-                nvLinkManagementNICPlatformEnvironmentMetricsReplacements,
-                asyncResp, inputMetricProperties);
-            metricsReplacements(
-                nvLinkManagementNICPortPlatformEnvironmentMetricsReplacements,
-                asyncResp, inputMetricProperties);
-            metricsReplacements(ioBoardPlatformEnvironmentMetricsReplacements,
+            metricsReplacements(ioBoardPlatformEnvironmentMetrics, asyncResp,
+                                inputMetricProperties);
+            metricsReplacements(pdbPlatformEnvironmentMetrics, asyncResp,
+                                inputMetricProperties);
+            metricsReplacements(blueFieldPlatformEnvironmentMetrics, asyncResp,
+                                inputMetricProperties);
+            metricsReplacements(blueFieldSensorsPlatformEnvironmentMetrics,
                                 asyncResp, inputMetricProperties);
-            metricsReplacements(pdbPlatformEnvironmentMetricsReplacements,
+            metricsReplacements(storageBPSensorsPlatformEnvironmentMetrics,
                                 asyncResp, inputMetricProperties);
-            metricsReplacements(blueFieldPlatformEnvironmentMetricsReplacements,
+            metricsReplacements(storageBPDevicePlatformEnvironmentMetrics,
                                 asyncResp, inputMetricProperties);
-            metricsReplacements(
-                blueFieldSensorsPlatformEnvironmentMetricsReplacements,
-                asyncResp, inputMetricProperties);
-            metricsReplacements(
-                storageBPSensorsPlatformEnvironmentMetricsReplacements,
-                asyncResp, inputMetricProperties);
-            metricsReplacements(
-                storageBPDevicePlatformEnvironmentMetricsReplacements,
-                asyncResp, inputMetricProperties);
         }
         else
         {
             nvSwitch = "NVSwitch_";
             metricsReplacementsNonPlatformMetrics(
-                asyncResp, inputMetricProperties, deviceType);
+                asyncResp, inputMetricProperties, deviceType, allowedWildcards);
         }
     }
     catch (const std::exception& e)
