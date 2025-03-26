@@ -21,8 +21,10 @@
 #include "debug_token/base.hpp"
 #include "debug_token/endpoint.hpp"
 #include "debug_token/nsm_async_aggregate.hpp"
+#include "debug_token/nsm_status_utils.hpp"
 #include "debug_token/request_utils.hpp"
-#include "debug_token/status_utils.hpp"
+#include "debug_token/vdm_status.hpp"
+#include "debug_token/vdm_status_utils.hpp"
 #include "nvidia_cpu_debug_token.hpp"
 #include "openbmc_dbus_rest.hpp"
 #include "utils/dbus_utils.hpp"
@@ -43,7 +45,6 @@
 
 namespace redfish::debug_token
 {
-
 // mctp-vdm-util's output size per endpoint
 constexpr const size_t statusQueryOutputSize = 256;
 constexpr const int statusQueryTimeoutSeconds = 60;
@@ -154,11 +155,11 @@ class StatusQueryHandler : public OperationHandler
                 [this, cpuPath](
                     const std::shared_ptr<
                         std::vector<mctp_utils::MctpEndpoint>>& mctpEndpoints) {
-                spdmEnumerationFinished = true;
                 const std::string desc = "SPDM endpoint enumeration";
                 BMCWEB_LOG_DEBUG("{}", desc);
                 if (!mctpEndpoints || mctpEndpoints->size() == 0)
                 {
+                    spdmPending = false;
                     BMCWEB_LOG_ERROR("{}: {}", desc, "no endpoints found");
                     finalize();
                     return;
@@ -190,12 +191,12 @@ class StatusQueryHandler : public OperationHandler
                     }
                 }
                 endpoints->shrink_to_fit();
-                getMctpVdmStatus();
+                getVdmStatus();
                 finalize();
             },
                 [this, errorCallback](bool, const std::string& desc,
                                       const std::string& error) {
-                spdmEnumerationFinished = true;
+                spdmPending = false;
                 errorCallback(false, desc, error);
                 finalize();
             },
@@ -208,7 +209,7 @@ class StatusQueryHandler : public OperationHandler
         }
         else
         {
-            nsmEnumerationFinished = true;
+            nsmPending = false;
         }
     }
 
@@ -247,12 +248,8 @@ class StatusQueryHandler : public OperationHandler
     }
 
   private:
-    std::unique_ptr<boost::process::child> subprocess;
-    std::unique_ptr<boost::asio::steady_timer> subprocessTimer;
-    std::vector<char> subprocessOutput;
-
-    bool nsmEnumerationFinished{false};
-    bool spdmEnumerationFinished{false};
+    bool nsmPending{true};
+    bool spdmPending{true};
 
     void getNsmStatus()
     {
@@ -294,92 +291,60 @@ class StatusQueryHandler : public OperationHandler
                 }
             }
             endpoints->shrink_to_fit();
-            nsmEnumerationFinished = true;
+            nsmPending = false;
             finalize();
         });
     }
 
-    void subprocessExitCallback(int exitCode, const std::error_code& ec)
+    void vdmStatusHandler(const std::vector<vdm_status::Result>& results)
     {
-        const std::string desc = "VDM token status query";
+        const std::string desc = "VDM token status acquisition";
         BMCWEB_LOG_DEBUG("{}", desc);
-        subprocessTimer.reset();
-        if (ec)
+        if (results.size() == 0)
         {
-            BMCWEB_LOG_ERROR("{}: {}", desc, ec.message());
-            errCallback(true, desc, ec.message());
+            errCallback(false, desc, "no results");
+            finalize();
             return;
         }
-        if (exitCode != 0)
+        for (const auto& endpoint : *endpoints)
         {
-            // If error is encountered mctp message will not have the proper
-            // response for debug token, TX/RX parsing below will handle the
-            // error messages
-            BMCWEB_LOG_ERROR("{}: {}", desc, exitCode);
-        }
-        std::map<int, VdmTokenStatus> outputMap =
-            parseVdmUtilWrapperOutput(subprocessOutput);
-        for (auto& [eid, vdmStatus] : outputMap)
-        {
-            // report errors if found
-            if (vdmStatus.responseStatus == VdmResponseStatus::INVALID_LENGTH ||
-                vdmStatus.responseStatus == VdmResponseStatus::PROCESSING_ERROR)
-            {
-                errCallback(false, desc,
-                            "Invalid status query data for EID " +
-                                std::to_string(eid));
-            }
-            else if (vdmStatus.responseStatus == VdmResponseStatus::ERROR)
-            {
-                errCallback(false, desc,
-                            "Error code received for EID " +
-                                std::to_string(eid) + ": " +
-                                std::to_string(*vdmStatus.errorCode));
-            }
-            else if (vdmStatus.tokenStatus ==
-                     VdmTokenInstallationStatus::INVALID)
-            {
-                errCallback(false, desc,
-                            "Invalid token status for EID " +
-                                std::to_string(eid));
-            }
-            auto ep = std::find_if(endpoints->begin(), endpoints->end(),
-                                   [eid](const auto& ep) {
-                return ep->getType() == EndpointType::SPDM &&
-                       ep->getMctpEid() == eid;
-            });
-            if (ep == endpoints->end())
+            if (endpoint->getType() != EndpointType::SPDM)
             {
                 continue;
             }
-            DebugTokenSpdmEndpoint* spdmEp =
-                static_cast<DebugTokenSpdmEndpoint*>(ep->get());
-            spdmEp->setStatus(std::make_unique<VdmTokenStatus>(vdmStatus));
+            auto spdmEp = static_cast<DebugTokenSpdmEndpoint*>(endpoint.get());
+            auto epEid = spdmEp->getMctpEid();
+            if (epEid == -1)
+            {
+                continue;
+            }
+            auto result = std::find_if(results.begin(), results.end(),
+                                       [epEid](const auto& result) {
+                return std::get<0>(result) == epEid;
+            });
+            if (result == results.end())
+            {
+                errCallback(false, desc, "no data for " + spdmEp->getObject());
+                spdmEp->setError();
+                continue;
+            }
+            const auto& [eid, state, output] = *result;
+            if (std::holds_alternative<VdmTokenStatus>(output))
+            {
+                spdmEp->setStatus(std::get<VdmTokenStatus>(output));
+            }
+            else
+            {
+                spdmEp->setStatus(state);
+            }
         }
+        spdmPending = false;
         finalize();
     }
 
-    void getMctpVdmStatus()
+    void getVdmStatus()
     {
-        const std::string desc = "VDM token status query";
-        BMCWEB_LOG_DEBUG("{}", desc);
-        subprocessTimer = std::make_unique<boost::asio::steady_timer>(
-            crow::connections::systemBus->get_io_context());
-        subprocessTimer->expires_after(
-            std::chrono::seconds(statusQueryTimeoutSeconds));
-        subprocessTimer->async_wait(
-            [this, desc](const boost::system::error_code ec) {
-            if (ec && ec != boost::asio::error::operation_aborted)
-            {
-                if (subprocess)
-                {
-                    subprocess.reset();
-                    errCallback(true, desc, "Timeout");
-                }
-            }
-        });
-
-        std::vector<std::string> args;
+        std::vector<vdm_status::Eid> eids;
         for (const auto& ep : *endpoints)
         {
             if (ep->getType() != EndpointType::SPDM)
@@ -389,39 +354,26 @@ class StatusQueryHandler : public OperationHandler
             auto mctpEid = ep->getMctpEid();
             if (mctpEid != -1)
             {
-                args.emplace_back(std::to_string(mctpEid));
+                eids.emplace_back(static_cast<vdm_status::Eid>(mctpEid));
             }
         }
-        if (args.size() == 0)
+        if (eids.size() == 0)
         {
-            errCallback(false, desc, "no valid endpoints");
+            errCallback(false, "VDM token status acquisition",
+                        "no valid endpoints");
+            spdmPending = false;
             finalize();
             return;
         }
-        try
-        {
-            subprocessOutput.resize(statusQueryOutputSize * args.size());
-            auto callback = [this](int exitCode, const std::error_code& ec) {
-                subprocessExitCallback(exitCode, ec);
-            };
-            subprocess = std::make_unique<boost::process::child>(
-                "/usr/bin/mctp-vdm-util-token-status-query-wrapper.sh", args,
-                boost::process::std_err > boost::process::null,
-                boost::process::std_out > boost::asio::buffer(subprocessOutput),
-                crow::connections::systemBus->get_io_context(),
-                boost::process::on_exit = std::move(callback));
-        }
-        catch (const std::runtime_error& e)
-        {
-            errCallback(false, desc, e.what());
-        }
+        vdm_status::Handler::startOperation(
+            eids, std::bind_front(&StatusQueryHandler::vdmStatusHandler, this));
     }
 
     void finalize()
     {
         const std::string desc = "Token status query processing";
         BMCWEB_LOG_DEBUG("{}", desc);
-        if (!nsmEnumerationFinished || !spdmEnumerationFinished)
+        if (nsmPending || spdmPending)
         {
             return;
         }

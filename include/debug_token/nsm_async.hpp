@@ -19,8 +19,8 @@
 #include "dbus_utility.hpp"
 #include "debug_token/base.hpp"
 #include "debug_token/endpoint.hpp"
+#include "debug_token/nsm_status_utils.hpp"
 #include "debug_token/request_utils.hpp"
-#include "debug_token/status_utils.hpp"
 #include "utils/dbus_utils.hpp"
 
 #include <boost/asio.hpp>
@@ -604,6 +604,9 @@ class Handler : public std::enable_shared_from_this<Handler>
     void generalErrorHandler()
     {
         result = std::make_tuple(EndpointState::Error, std::monostate());
+        boost::asio::post(
+            crow::connections::systemBus->get_io_context(),
+            std::bind_front(&Handler::destroyMatch, this, shared_from_this()));
     }
 
     /**

@@ -16,8 +16,9 @@
  */
 #pragma once
 
+#include "debug_token/nsm_status_utils.hpp"
 #include "debug_token/request_utils.hpp"
-#include "debug_token/status_utils.hpp"
+#include "debug_token/vdm_status_utils.hpp"
 #include "nlohmann/json.hpp"
 #include "utils/mctp_utils.hpp"
 
@@ -210,6 +211,11 @@ class DebugTokenSpdmEndpoint : public DebugTokenEndpoint
         }
     }
 
+    void setStatus(VdmTokenStatus s)
+    {
+        setStatus(std::make_unique<VdmTokenStatus>(std::move(s)));
+    }
+
     void setStatus(std::unique_ptr<VdmTokenStatus> s)
     {
         status = std::move(s);
@@ -236,6 +242,11 @@ class DebugTokenSpdmEndpoint : public DebugTokenEndpoint
             state = EndpointState::TokenInstalled;
             return;
         }
+    }
+
+    void setStatus(EndpointState s)
+    {
+        state = s;
     }
 
     EndpointType getType() const override
