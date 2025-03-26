@@ -372,6 +372,55 @@ inline void handlePowerPolicyPatchRequest(
     }
 }
 
+/**
+ * @brief Handles PATCH request for top-level PowerPolicy which writes into
+ * PowerPolicy DBus objects.
+ * @param app - crow application
+ * @param powerPolicyId - id of top-level PowerPolicy
+ * @param req - crow request
+ * @param asyncResp - response object
+ * @param managerId - id of Manager
+ * @return None
+ */
+inline void handlePowerPolicyTopLevelPatchRequest(
+    App& app, const std::string& powerPolicyId, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "#Manager",
+                                   BMCWEB_REDFISH_MANAGER_URI_NAME);
+        return;
+    }
+
+    // Dynamically construct the D-Bus paths based on the powerPolicyId
+    sdbusplus::message::object_path dbusPath(
+        "/com/nvidia/state/power_compliance/power_policy");
+    dbusPath /= powerPolicyId;
+
+    std::optional<std::vector<std::string>> newPolicyActions;
+
+    if (!json_util::readJsonPatch(req, asyncResp->res, "PolicyActions",
+                                  newPolicyActions))
+    {
+        return;
+    }
+
+    if (newPolicyActions)
+    {
+        setDbusProperty(asyncResp, "PolicyActions",
+                        "com.Nvidia.RackPowerCompliance", dbusPath,
+                        "com.Nvidia.State.PowerCompliance.PowerPolicy",
+                        "PolicyActions", *newPolicyActions);
+    }
+}
+
 inline void requestRoutesNvidiaPowerPolicy(App& app)
 {
     /**
@@ -410,6 +459,26 @@ inline void requestRoutesNvidiaPowerPolicy(App& app)
             std::bind_front(handlePowerPolicyTopLevelGetRequest, std::ref(app),
                             "PSUCompliancePolicy"));
 
+    /**
+     * Define the PATCH route for ACLossPolicy
+     */
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/ACLossPolicy/")
+        .privileges(redfish::privileges::patchManager)
+        .methods(boost::beast::http::verb::patch)(
+            std::bind_front(handlePowerPolicyTopLevelPatchRequest,
+                            std::ref(app), "ACLossPolicy"));
+    /**
+     * Define the PATCH route for PSUCompliancePolicy
+     */
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Managers/<str>/Oem/Nvidia/PowerCompliance/PSUCompliancePolicy/")
+        .privileges(redfish::privileges::patchManager)
+        .methods(boost::beast::http::verb::patch)(
+            std::bind_front(handlePowerPolicyTopLevelPatchRequest,
+                            std::ref(app), "PSUCompliancePolicy"));
     /**
      * Define the PATCH route for PowerPolicy
      */
