@@ -246,6 +246,11 @@ inline void afterGetPowerComplianceProperties(
         "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/PSUCompliancePolicy",
         BMCWEB_REDFISH_MANAGER_URI_NAME);
 
+    // Add PSURedundancy
+    jOut["PSURedundancy"]["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance/PSURedundancy",
+        BMCWEB_REDFISH_MANAGER_URI_NAME);
+
     // Add ManagerType last
     jOut["ManagerType"] =
         nvidia_power_compliance_manager::NvidiaManagerType::PowerManager;

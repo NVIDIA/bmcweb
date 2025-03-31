@@ -43,6 +43,7 @@
 #include "nvidia_oem_power_policy.hpp"
 #include "nvidia_oem_power_state_group.hpp"
 #include "nvidia_oem_psc_state.hpp"
+#include "nvidia_oem_psu_redundancy.hpp"
 #include "nvidia_oem_psu_state.hpp"
 #include "nvidia_policy.hpp"
 #include "nvidia_power_reset_metrics.hpp"
@@ -533,6 +534,7 @@ RedfishService::RedfishService(App& app)
         nvidia_oem_power_state_group::requestRoutesNvidiaPowerStateGroup(app);
         nvidia_oem_psc_state::requestRoutesNvidiaPscState(app);
         nvidia_oem_psu_state::requestRoutesNvidiaPsuState(app);
+        nvidia_oem_psu_redundancy::requestRoutesNvidiaPsuRedundancy(app);
         nvidia_oem_managed_entity_group::requestRoutesNvidiaManagedEntityGroup(
             app);
         nvidia_oem_managed_entity::requestRoutesNvidiaManagedEntity(app);
