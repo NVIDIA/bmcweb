@@ -33,7 +33,6 @@
 // and is inconsistent.  Include it for now
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include <utility>
-#include <vector>
 
 namespace redfish
 {

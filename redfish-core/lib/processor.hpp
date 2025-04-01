@@ -483,12 +483,12 @@ inline void getAcceleratorDataByService(
     if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
     {
         std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
-            objPath, [aResp](const std::string& rootHealth,
+            objPath, [asyncResp](const std::string& rootHealth,
                              const std::string& healthRollup) {
-                aResp->res.jsonValue["Status"]["Health"] = rootHealth;
+                asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
                 if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
                 {
-                    aResp->res.jsonValue["Status"]["HealthRollup"] =
+                    asyncResp->res.jsonValue["Status"]["HealthRollup"] =
                         healthRollup;
                 }
             });
@@ -497,7 +497,7 @@ inline void getAcceleratorDataByService(
 
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, service, objPath, "",
-        [acclrtrId, aResp{std::move(aResp)}](
+        [acclrtrId, asyncResp{std::move(asyncResp)}](
             const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)

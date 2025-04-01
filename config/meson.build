@@ -24,6 +24,7 @@ feature_options = [
     'enforce_sensor_name_format',
     'erot-reset',
     'experimental-http2',
+    'experimental-redfish-dbus-log-subscription',
     'experimental-redfish-multi-computer-system',
     'fencing-privilege',
     'google-api',

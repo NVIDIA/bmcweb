@@ -28,10 +28,10 @@ namespace watchdog
 class ServiceWD
 {
   public:
-    ServiceWD(const int expiryTimeInS, boost::asio::io_context& io) :
-        timer(io), expiryTimeInS(expiryTimeInS)
+    ServiceWD(const int expiryTimeInSIn, boost::asio::io_context& io) :
+        timer(io), expiryTimeInS(expiryTimeInSIn)
     {
-        timer.expires_after(std::chrono::seconds(expiryTimeInSec));
+        timer.expires_after(std::chrono::seconds(expiryTimeInSIn));
         handler = [this](const boost::system::error_code& error) {
             if (error)
             {

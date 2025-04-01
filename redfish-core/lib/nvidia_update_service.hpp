@@ -85,8 +85,8 @@ constexpr const size_t firmwareImageLimitBytes =
 class BMCStatusAsyncResp
 {
   public:
-    BMCStatusAsyncResp(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) :
-        asyncResp(asyncResp)
+    BMCStatusAsyncResp(const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn) :
+        asyncResp(asyncRespIn)
     {}
 
     ~BMCStatusAsyncResp()
@@ -543,13 +543,13 @@ inline static void getRelatedItemsOther(
 */
 inline static void getRelatedItemsOthers(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& swId,
-    std::string inventoryPath = "")
+    std::string inventoryPathIn = "")
 {
     BMCWEB_LOG_DEBUG("getRelatedItemsOthers enter");
 
-    if (inventoryPath.empty())
+    if (inventoryPathIn.empty())
     {
-        inventoryPath = "/xyz/openbmc_project/software/";
+        inventoryPathIn = "/xyz/openbmc_project/software/";
     }
 
     aResp->res.jsonValue["RelatedItem"] = nlohmann::json::array();
@@ -623,7 +623,7 @@ inline static void getRelatedItemsOthers(
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree", inventoryPath, 0,
+        "xyz.openbmc_project.ObjectMapper", "GetSubTree", inventoryPathIn, 0,
         std::array<const char*, 1>{"xyz.openbmc_project.Software.Version"});
 }
 
@@ -835,7 +835,7 @@ inline void updateOemActionComputeDigest(
                 std::string,
                 std::vector<std::pair<std::string, std::vector<std::string>>>>>&
                 subtree) {
-            if (error)
+            if (ec)
             {
                 // hash compute interface is not applicable, ignore for the
                 // device
@@ -976,7 +976,7 @@ inline void computeDigest(const crow::Request& req,
                             std::string hashDigestValue = *value;
                             crow::connections::systemBus->async_method_call(
                                 [taskData, hashDigestValue](
-                                    const boost::system::error_code& ec,
+                                    const boost::system::error_code& ec2,
                                     const std::variant<std::string>& property) {
                                     if (ec2)
                                     {
@@ -1053,15 +1053,15 @@ inline void computeDigest(const crow::Request& req,
             task->payload.emplace(req);
             computeDigestInProgress = true;
             crow::connections::systemBus->async_method_call(
-                [task](const boost::system::error_code& ec) {
-                    if (ec)
+                [task](const boost::system::error_code& ec3) {
+                    if (ec3)
                     {
-                        BMCWEB_LOG_ERROR("Failed to ComputeDigest: {}", error);
+                        BMCWEB_LOG_ERROR("Failed to ComputeDigest: {}", ec3);
                         task->state = "Aborted";
                         task->messages.emplace_back(
                             messages::resourceErrorsDetectedFormatError(
                                 "NvidiaSoftwareInventory.ComputeDigest",
-                                error.message()));
+                                ec3.message()));
                         task->finishTask();
                         computeDigestInProgress = false;
                         return;
@@ -1130,20 +1130,20 @@ inline void handlePostComputeDigest(
  * /usr/share/bmcweb/fw_mctp_mapping.json.
  * and returns the allowable value if exists in the collection
  *
- * @param[in] inventoryPath - firmware inventory path.
+ * @param[in] inventoryPathIn - firmware inventory path.
  * @returns Pair of boolean value if the allowable value exists
  * and the object of AllowableValue who contains inventory path
  * and assigned to its MCTP EID.
  */
 inline std::pair<bool, CommitImageValueEntry>
-    getAllowableValue(const std::string_view inventoryPath1)
+    getAllowableValue(const std::string_view inventoryPathIn)
 {
     std::pair<bool, CommitImageValueEntry> result;
 
     std::vector<CommitImageValueEntry> allowableValues = getAllowableValues();
     std::vector<CommitImageValueEntry>::iterator it =
         find(allowableValues.begin(), allowableValues.end(),
-             static_cast<std::string>(inventoryPath1));
+             static_cast<std::string>(inventoryPathIn));
 
     if (it != allowableValues.end())
     {
@@ -1164,7 +1164,7 @@ inline std::pair<bool, CommitImageValueEntry>
  * /usr/share/bmcweb/fw_mctp_mapping.json.
  * and check if the firmware inventory is in this collection
  *
- * @param[in] inventoryPath - firmware inventory path.
+ * @param[in] inventoryPathIn - firmware inventory path.
  * @returns boolean value indicates whether firmware inventory
  * is allowable.
  */
@@ -1428,14 +1428,14 @@ inline void requestRoutesUpdateServicePublicKeyExchange(App& app)
                     }
 
                     crow::connections::systemBus->async_method_call(
-                        [asyncResp](const boost::system::error_code& ec,
+                        [asyncResp](const boost::system::error_code& ec2,
                                     const std::string& selfPublicKeyStr) {
-                            if (innerEc || selfPublicKeyStr.empty())
+                            if (ec2 || selfPublicKeyStr.empty())
                             {
                                 messages::internalError(asyncResp->res);
                                 BMCWEB_LOG_ERROR(
-                                    "error_code = {} error msg = {}", innerEc,
-                                    innerEc.message());
+                                    "error_code = {} error msg = {}", ec2,
+                                    ec2.message());
                                 return;
                             }
 
@@ -1857,8 +1857,8 @@ inline void commitImageActionInfoResp(
         }
 
         auto cb = [asyncResp](nlohmann::json& item) mutable {
-            auto allowValueCb = [asyncResp](nlohmann::json& item) mutable {
-                auto* str = item.get_ptr<std::string*>();
+            auto allowValueCb = [asyncResp](nlohmann::json& itemInCb) mutable {
+                auto* str = itemInCb.get_ptr<std::string*>();
                 if (str == nullptr)
                 {
                     BMCWEB_LOG_CRITICAL("Item is not a string");

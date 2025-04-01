@@ -809,7 +809,7 @@ class EventServiceManager
             }
             std::string strMsg = nlohmann::json(msg).dump(
                 2, ' ', true, nlohmann::json::error_handler_t::replace);
-            entry->sendEventToSubscriber(std::move(strMsg));
+            entry->sendEventToSubscriber(eventId, std::move(strMsg));
         }
         eventId++; // increament the eventId
     }

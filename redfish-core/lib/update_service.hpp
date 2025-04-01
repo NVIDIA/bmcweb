@@ -1483,135 +1483,6 @@ inline bool validateUpdateFileFormData(
 }
 
 /**
- * @brief retry handler of the aggregation post request.
- *
- * @param[in] respCode HTTP response status code
- *
- * @return None
- */
-inline boost::system::error_code
-    aggregationPostRetryHandler(unsigned int respCode)
-{
-    // Allow all response codes because we want to surface any satellite
-    // issue to the client
-    BMCWEB_LOG_DEBUG(
-        "Received {} response of the firmware update from satellite", respCode);
-    return boost::system::errc::make_error_code(boost::system::errc::success);
-}
-
-inline crow::ConnectionPolicy getPostAggregationPolicy()
-{
-    return {.maxRetryAttempts = 0,
-            .requestByteLimit = firmwareImageLimitBytes,
-            .maxConnections = 20,
-            .retryPolicyAction = "TerminateAfterRetries",
-            .retryIntervalSecs = std::chrono::seconds(0),
-            .invalidResp = aggregationPostRetryHandler};
-}
-
-/**
- * @brief process the response from satellite BMC.
- *
- * @param[in] prefix the prefix of the url
- * @param[in] asyncResp Pointer to object holding response data
- * @param[in] resp Pointer to object holding response data from satellite
- * BMC
- *
- * @return None
- */
-inline void handleSatBMCResponse(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, crow::Response& resp)
-{
-    // 429 and 502 mean we didn't actually send the request so don't
-    // overwrite the response headers in that case
-    if ((resp.result() == boost::beast::http::status::too_many_requests) ||
-        (resp.result() == boost::beast::http::status::bad_gateway))
-    {
-        asyncResp->res.result(resp.result());
-        return;
-    }
-
-    if (resp.resultInt() !=
-        static_cast<unsigned>(boost::beast::http::status::accepted))
-    {
-        asyncResp->res.result(resp.result());
-        asyncResp->res.copyBody(resp);
-        return;
-    }
-
-    // The resp will not have a json component
-    // We need to create a json from resp's stringResponse
-    std::string_view contentType = resp.getHeaderValue("Content-Type");
-    if (bmcweb::asciiIEquals(contentType, "application/json") ||
-        bmcweb::asciiIEquals(contentType, "application/json; charset=utf-8"))
-    {
-        nlohmann::json jsonVal =
-            nlohmann::json::parse(*resp.body(), nullptr, false);
-        if (jsonVal.is_discarded())
-        {
-            BMCWEB_LOG_ERROR("Error parsing satellite response as JSON");
-
-            // Notify the user if doing so won't overwrite a valid response
-            if (asyncResp->res.resultInt() !=
-                static_cast<unsigned>(boost::beast::http::status::ok))
-            {
-                messages::operationFailed(asyncResp->res);
-            }
-            return;
-        }
-        BMCWEB_LOG_DEBUG("Successfully parsed satellite response");
-        auto* object = jsonVal.get_ptr<nlohmann::json::object_t*>();
-        if (object == nullptr)
-        {
-            BMCWEB_LOG_ERROR("Parsed JSON was not an object?");
-            return;
-        }
-
-        std::string rfaPrefix = std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX);
-        for (std::pair<const std::string, nlohmann::json>& prop : *object)
-        {
-            // only prefix fix-up on Task response.
-            std::string* strValue = prop.second.get_ptr<std::string*>();
-            if (strValue == nullptr)
-            {
-                BMCWEB_LOG_CRITICAL("Item is not a string");
-                continue;
-            }
-            if (prop.first == "@odata.id")
-            {
-                std::string file = std::filesystem::path(*strValue).filename();
-                std::string path =
-                    std::filesystem::path(*strValue).parent_path();
-
-                std::string tempFile = file; // Store original filename
-                file = rfaPrefix;
-                file += '_';
-                file += tempFile;
-
-                path += "/";
-                // add prefix on odata.id property.
-                prop.second = path;
-                prop.second += file;
-            }
-            if (prop.first == "Id")
-            {
-                std::string file = std::filesystem::path(*strValue).filename();
-                // add prefix on Id property.
-                prop.second = rfaPrefix;
-                prop.second += "_";
-                prop.second += file;
-            }
-            else
-            {
-                continue;
-            }
-        }
-        asyncResp->res.result(resp.result());
-        asyncResp->res.jsonValue = std::move(jsonVal);
-    }
-}
-
-/**
  * @brief Forward firmware image to the satellite BMC
  *
  * @param[in] req  HTTP request.
@@ -2198,17 +2069,17 @@ inline void handleUpdateServiceFirmwareInventoryCollectionGet(
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp,
-                 pathNames](const boost::system::error_code& ec,
+                 pathNames](const boost::system::error_code& ec2,
                             const dbus::utility::MapperGetSubTreeResponse&
-                                subtree) mutable {
-                    if (ec)
+                                subtree2) mutable {
+                    if (ec2)
                     {
                         BMCWEB_LOG_ERROR(
-                            "D-Bus response error on GetSubTree {}", ec);
+                            "D-Bus response error on GetSubTree {}", ec2);
                         return;
                     }
 
-                    for (const auto& [object, serviceMap] : subtree)
+                    for (const auto& [object, serviceMap] : subtree2)
                     {
                         sdbusplus::message::object_path path(object);
                         std::string leaf = path.filename();
