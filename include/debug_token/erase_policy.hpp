@@ -105,16 +105,16 @@ inline void setErasePolicy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
         messages::success(asyncResp->res);
     };
-    auto pathCallback = [asyncResp, value,
-                         setCallback](const std::string& service,
-                                      const std::string& path) {
-        std::string erasePolicy = value ? "Automatic" : "Manual";
-        std::string dbusValue =
-            std::string(erasePolicyEnumPrefix) + erasePolicy;
-        sdbusplus::asio::setProperty(*crow::connections::systemBus, service,
-                                     path, std::string(erasePolicyIntf),
-                                     "Policy", dbusValue, setCallback);
-    };
+    auto pathCallback =
+        [asyncResp, value,
+         setCallback](const std::string& service, const std::string& path) {
+            std::string erasePolicy = value ? "Automatic" : "Manual";
+            std::string dbusValue =
+                std::string(erasePolicyEnumPrefix) + erasePolicy;
+            sdbusplus::asio::setProperty(*crow::connections::systemBus, service,
+                                         path, std::string(erasePolicyIntf),
+                                         "Policy", dbusValue, setCallback);
+        };
     getErasePolicyObjectPath(pathCallback, asyncResp);
 }
 

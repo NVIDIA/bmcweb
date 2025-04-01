@@ -99,7 +99,7 @@ using MapperEndPoints = std::vector<std::string>;
 using GetSubTreeType = std::vector<
     std::pair<std::string,
               std::vector<std::pair<std::string, std::vector<std::string>>>>>;
-              
+
 inline void escapePathForDbus(std::string& path)
 {
     const static std::regex reg("[^A-Za-z0-9_/]");

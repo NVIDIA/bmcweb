@@ -93,7 +93,7 @@ inline void enableTLSAuth()
         }
         std::ofstream out(confPath.string());
         out << "[Socket]" << '\n';
-        out << "ListenStream=" << '\n'; // disable port 80
+        out << "ListenStream=" << '\n';    // disable port 80
         out << "ListenStream=443" << '\n'; // enable port 443
     }
     catch (const std::exception& e)

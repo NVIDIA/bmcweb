@@ -11,6 +11,7 @@
 #include "cable.hpp"
 #include "certificate_service.hpp"
 #include "chassis.hpp"
+#include "environment_metrics.hpp"
 #include "ethernet.hpp"
 #include "event_service.hpp"
 #include "eventservice_sse.hpp"
@@ -52,7 +53,6 @@
 #include "trigger.hpp"
 #include "update_service.hpp"
 #include "virtual_media.hpp"
-#include "environment_metrics.hpp"
 
 namespace redfish
 {

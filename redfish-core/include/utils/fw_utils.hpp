@@ -740,9 +740,9 @@ inline void populateSlotInfo(
  * @param objectPath    Dbus object path used to query slot information
  *
  */
-inline void
-    getFWSlotInformation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& objectPath)
+inline void getFWSlotInformation(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath)
 {
     sdbusplus::asio::getProperty<std::vector<std::string>>(
         *crow::connections::systemBus, serviceObjectMapper,

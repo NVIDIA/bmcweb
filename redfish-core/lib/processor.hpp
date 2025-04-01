@@ -484,7 +484,7 @@ inline void getAcceleratorDataByService(
     {
         std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
             objPath, [asyncResp](const std::string& rootHealth,
-                             const std::string& healthRollup) {
+                                 const std::string& healthRollup) {
                 asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
                 if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
                 {

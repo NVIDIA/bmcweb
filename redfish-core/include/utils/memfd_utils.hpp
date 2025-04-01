@@ -95,8 +95,7 @@ struct MemoryFD
             throw std::runtime_error(
                 "MemoryFD - lseek failed: " + std::string(strerror(errno)));
         }
-        struct stat fileStat
-        {};
+        struct stat fileStat{};
         if (fstat(fd, &fileStat) < 0)
         {
             throw std::runtime_error(

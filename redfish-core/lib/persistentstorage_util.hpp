@@ -48,24 +48,25 @@ enum EMMCServiceExitCodes
 };
 
 /* EMMC Service error mapping */
-static const std::unordered_map<ExitCode, ErrorMapping> emmcServiceErrorMapping = {
-    {emmcInitFail,
-     {"PersistentStorage Initialization Failure",
-      "Reset the baseboard and retry the operation."}},
-    {eudaProgramFail,
-     {"PersistentStorage Configuration Failure", "Retry the operation."}},
-    {eudaProgrammedNotActivated,
-     {"PersistentStorage Enabled but not activated",
-      "Reset the baseboard to activate the PersistentStorage."}},
-    {emmcPartitionFail,
-     {"PersistentStorage Internal Error: Partition Fail",
-      "Reset the baseboard and retry the operation."}},
-    {emmcFileSystemFormatFail,
-     {"PersistentStorage Internal Error: File System Format Failure",
-      "Reset the baseboard and retry the operation."}},
-    {emmcMountFail,
-     {"PersistentStorage Internal Error: Mount Failure",
-      "Reset the baseboard and retry the operation."}},
+static const std::unordered_map<ExitCode, ErrorMapping>
+    emmcServiceErrorMapping = {
+        {emmcInitFail,
+         {"PersistentStorage Initialization Failure",
+          "Reset the baseboard and retry the operation."}},
+        {eudaProgramFail,
+         {"PersistentStorage Configuration Failure", "Retry the operation."}},
+        {eudaProgrammedNotActivated,
+         {"PersistentStorage Enabled but not activated",
+          "Reset the baseboard to activate the PersistentStorage."}},
+        {emmcPartitionFail,
+         {"PersistentStorage Internal Error: Partition Fail",
+          "Reset the baseboard and retry the operation."}},
+        {emmcFileSystemFormatFail,
+         {"PersistentStorage Internal Error: File System Format Failure",
+          "Reset the baseboard and retry the operation."}},
+        {emmcMountFail,
+         {"PersistentStorage Internal Error: Mount Failure",
+          "Reset the baseboard and retry the operation."}},
 };
 
 /**

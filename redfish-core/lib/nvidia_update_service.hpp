@@ -1135,8 +1135,8 @@ inline void handlePostComputeDigest(
  * and the object of AllowableValue who contains inventory path
  * and assigned to its MCTP EID.
  */
-inline std::pair<bool, CommitImageValueEntry>
-    getAllowableValue(const std::string_view inventoryPathIn)
+inline std::pair<bool, CommitImageValueEntry> getAllowableValue(
+    const std::string_view inventoryPathIn)
 {
     std::pair<bool, CommitImageValueEntry> result;
 

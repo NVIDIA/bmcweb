@@ -134,8 +134,8 @@ static const std::string processor = "ProcessorModule_";
 static const std::string pcieLink = "PCIeLink_";
 static const std::string cpuCore = "CoreUtil_";
 static const std::string networkAdapter(BMCWEB_NVIDIA_NETWORK_ADAPTER_PREFIX);
-static const std::string
-    networkAdapterLink(BMCWEB_NVIDIA_NETWORK_ADAPTER_LINK_PREFIX);
+static const std::string networkAdapterLink(
+    BMCWEB_NVIDIA_NETWORK_ADAPTER_LINK_PREFIX);
 
 static const std::string gpmInstances = "UtilizationPercent/";
 static const std::string nvLinkManagementNIC = "NIC_";
@@ -548,10 +548,10 @@ inline void metricsReplacementsNonPlatformMetrics(
     }
 }
 
-inline void
-    metricsReplacements(std::vector<std::string> name,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::vector<std::string>& inputMetricProperties)
+inline void metricsReplacements(
+    std::vector<std::string> name,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::vector<std::string>& inputMetricProperties)
 {
     nlohmann::json& wildCards = asyncResp->res.jsonValue["Wildcards"];
     std::set<std::string> wildCardValues;

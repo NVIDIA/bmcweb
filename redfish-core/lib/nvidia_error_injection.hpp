@@ -246,9 +246,9 @@ inline void patchErrorInjectionData(
 }
 
 template <typename Handler>
-inline void
-    getErrorInjectionService(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                             const std::string& path, Handler&& handler)
+inline void getErrorInjectionService(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& path,
+    Handler&& handler)
 {
     const auto eiPath = path + "/ErrorInjection";
     crow::connections::systemBus->async_method_call(

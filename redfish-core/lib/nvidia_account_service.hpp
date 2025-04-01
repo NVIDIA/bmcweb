@@ -30,9 +30,9 @@
 namespace redfish
 {
 
-inline void
-    handleNvidiaResolution(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::optional<std::string>& password)
+inline void handleNvidiaResolution(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::optional<std::string>& password)
 {
     if (!password)
     {

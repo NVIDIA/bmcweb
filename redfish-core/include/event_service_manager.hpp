@@ -335,14 +335,13 @@ class EventServiceManager
             if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
             {
                 // Send an DsEvent for session creation
-                DsEvent event =
-                    redfish::EventUtil::createEventPropertyModified(
-                            "ServiceEnabled",
-                            std::to_string(static_cast<int>(serviceEnabled)),
-                            "EventService");
+                DsEvent event = redfish::EventUtil::createEventPropertyModified(
+                    "ServiceEnabled",
+                    std::to_string(static_cast<int>(serviceEnabled)),
+                    "EventService");
                 redfish::EventServiceManager::getInstance().sendEventWithOOC(
                     std::string(url), event);
-            }            
+            }
         }
 
         if (retryAttempts != cfg.retryAttempts)
@@ -353,10 +352,9 @@ class EventServiceManager
             if constexpr (BMCWEB_REDFISH_DBUS_LOG)
             {
                 // Send an DsEvent for property change
-                DsEvent event =
-                    redfish::EventUtil::createEventPropertyModified(
-                            "DeliveryRetryAttempts",
-                            std::to_string(retryAttempts), "EventService");
+                DsEvent event = redfish::EventUtil::createEventPropertyModified(
+                    "DeliveryRetryAttempts", std::to_string(retryAttempts),
+                    "EventService");
                 redfish::EventServiceManager::getInstance().sendEventWithOOC(
                     std::string(url), event);
             }
@@ -371,9 +369,8 @@ class EventServiceManager
             {
                 // Send an event for property change
                 DsEvent event = redfish::EventUtil::createEventPropertyModified(
-                                        "DeliveryRetryIntervalSeconds",
-                                        std::to_string(retryTimeoutInterval),
-                                        "EventService");
+                    "DeliveryRetryIntervalSeconds",
+                    std::to_string(retryTimeoutInterval), "EventService");
                 redfish::EventServiceManager::getInstance().sendEventWithOOC(
                     std::string(url), event);
             }

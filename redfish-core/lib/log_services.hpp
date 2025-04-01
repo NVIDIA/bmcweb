@@ -1642,7 +1642,8 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             messages::propertyMissing(asyncResp->res, "OemDiagnosticDataType");
             return;
         }
-        createDumpParamVec = parseOEMAdditionalData(oemDiagnosticDataType.value());
+        createDumpParamVec =
+            parseOEMAdditionalData(oemDiagnosticDataType.value());
 
         if (!oemDiagnosticDataType || !diagnosticDataType)
         {

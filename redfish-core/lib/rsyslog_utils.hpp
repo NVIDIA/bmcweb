@@ -226,7 +226,9 @@ inline void populateRsyslogClientSettings(
                 std::optional<std::string> state = getEnabledState(enabled);
                 if (state)
                 {
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["State"] = *state;
+                    asyncResp->res
+                        .jsonValue["Oem"]["Nvidia"]["Rsyslog"]["State"] =
+                        *state;
                 }
             }
             if (address)
@@ -245,7 +247,9 @@ inline void populateRsyslogClientSettings(
                 std::optional<std::string> tlsState = getEnabledState(tls);
                 if (tlsState)
                 {
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"]["TLS"] = *tlsState;
+                    asyncResp->res
+                        .jsonValue["Oem"]["Nvidia"]["Rsyslog"]["TLS"] =
+                        *tlsState;
                 }
             }
             if (facility)
@@ -312,7 +316,8 @@ inline void processRsyslogClientSettings(
         const std::optional<bool> enabled = isEnabled(state);
         if (!enabled)
         {
-            messages::propertyValueFormatError(asyncResp->res, state.value(), "State");
+            messages::propertyValueFormatError(asyncResp->res, state.value(),
+                                               "State");
             return;
         }
         setRsyslogProperty(asyncResp, service, path,
@@ -341,7 +346,8 @@ inline void processRsyslogClientSettings(
         const std::optional<bool> tlsEnabled = isEnabled(tls);
         if (!tlsEnabled)
         {
-            messages::propertyValueFormatError(asyncResp->res, tls.value(), "TLS");
+            messages::propertyValueFormatError(asyncResp->res, tls.value(),
+                                               "TLS");
             return;
         }
         setRsyslogProperty(asyncResp, service, path,
