@@ -7,10 +7,9 @@ if get_option('firmware-image-limit') > get_option('http-body-limit')
 endif
 
 feature_options = [
-    'array-bootprogress',
     'basic-auth',
     'bios',
-    'bmcweb-chunking',
+    'http-chunking',
     'command-shell',
     'command-smbpbi-oob',
     'cookie-auth',
@@ -22,14 +21,11 @@ feature_options = [
     'dot-support',
     'dpu-bios',
     'enable-fabric-adapter',
-    'enable-sse',
     'enforce_sensor_name_format',
     'erot-reset',
     'experimental-http2',
     'experimental-redfish-multi-computer-system',
     'fencing-privilege',
-    'force-insecure-event-notification',
-    'experimental-redfish-dbus-log-subscription',
     'google-api',
     'health-rollup-alternative',
     'host-auxpower-features',
@@ -60,7 +56,6 @@ feature_options = [
     'nvidia-bootentryid',
     'nvidia-oem-bf-properties',
     'nvidia-oem-bf3-properties',
-    'nvidia-oem-common-properties',
     'nvidia-oem-device-status-from-file',
     'nvidia-oem-fw-update-staging',
     'nvidia-oem-logservices',
@@ -92,6 +87,7 @@ feature_options = [
     'redfish-oem-manager-fan-data',
     'redfish-post-to-old-updateservice',
     'redfish-provisioning-feature',
+    'system-dump-base64-encode',
     'redfish-system-faultlog-dump-log',
     'redfish-updateservice-http-pull',
     'redfish-updateservice-use-dbus',
@@ -129,7 +125,6 @@ string_options = [
     'nvidia-network-adapter-link-prefix',
     'nvidia-network-adapter-prefix',
     'otp-provisioning-status-file-path',
-    'platform-bmc-id',
     'platform-chassis-name',
     'platform-device-prefix',
     'platform-gpu-name-prefix',
@@ -150,7 +145,7 @@ string_options = [
 
 int_options = [
     'firmware-image-limit',
-    'bmcweb-response-timeout',
+    'http-response-timeout',
     'gpu-index-start',
     'http-body-limit',
     'manufacturing-test-timeout',
@@ -180,7 +175,11 @@ foreach option_key : feature_options + string_options + int_options + array_opti
 
     opt = get_option(option_key)
     if string_options.contains(option_key)
-        string_options_string += 'constexpr std::string_view  ' + option_key_config + ' = "' + opt + '";\n'
+        if opt != ''
+            string_options_string += 'constexpr std::string_view  ' + option_key_config + ' = "' + opt + '";\n'
+        else
+            string_options_string += 'constexpr std::string_view  ' + option_key_config + ';\n'
+        endif
     elif int_options.contains(option_key)
         int_options_string += 'constexpr const int         ' + option_key_config + ' = ' + opt.to_string() + ';\n'
     elif array_options.contains(option_key)

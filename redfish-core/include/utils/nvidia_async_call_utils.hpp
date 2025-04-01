@@ -45,7 +45,7 @@ struct CallAsyncStatusHandlerInfo
     const std::string valueInterface;
     const std::string valueProperty;
     boost::asio::steady_timer timeoutTimer;
-    bool completed;
+    bool completed{};
     using Value = ValueType;
 };
 
@@ -117,8 +117,8 @@ class CallAsyncGetStatus
 {
   public:
     explicit CallAsyncGetStatus(
-        std::weak_ptr<CallAsyncStatusInfo> weakStatusInfo) :
-        weakStatusInfo(weakStatusInfo)
+        std::weak_ptr<CallAsyncStatusInfo> statusInfoPtr) :
+        weakStatusInfo(statusInfoPtr)
     {}
 
     void operator()(const boost::system::error_code ec,
@@ -165,8 +165,8 @@ class CallAsyncStatusChanged
 {
   public:
     explicit CallAsyncStatusChanged(
-        std::weak_ptr<CallAsyncStatusInfo> weakStatusInfo) :
-        weakStatusInfo(weakStatusInfo)
+        std::weak_ptr<CallAsyncStatusInfo> statusInfoPtr) :
+        weakStatusInfo(statusInfoPtr)
     {}
 
     void operator()(sdbusplus::message::message& msg)
@@ -235,8 +235,8 @@ class CallAsyncMethodCall
 {
   public:
     explicit CallAsyncMethodCall(
-        std::weak_ptr<CallAsyncStatusInfo> weakStatusInfo) :
-        weakStatusInfo(weakStatusInfo)
+        std::weak_ptr<CallAsyncStatusInfo> statusInfoPtr) :
+        weakStatusInfo(statusInfoPtr)
     {}
 
     void operator()(boost::system::error_code ec,

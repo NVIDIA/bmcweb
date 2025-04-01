@@ -1062,7 +1062,7 @@ void getInventoryItemsData(
  * Gets the D-Bus connections (services) that provide data for the inventory
  * items that are associated with sensors.
  *
- * Finds the connections asynchronously.  Invokes callback when information has
+ * Finds the connections asynchronously.  Invokes callback when connections have
  * been obtained.
  *
  * The callback must have the following signature:
@@ -2547,14 +2547,14 @@ inline void getRelatedItemData(
 
     // Check fabric switch link
     crow::connections::systemBus->async_method_call(
-        [asyncResp, objPath](const boost::system::error_code ec,
+        [asyncResp, objPath](const boost::system::error_code& ec,
                              std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
                 // Check processor link
                 crow::connections::systemBus->async_method_call(
                     [asyncResp,
-                     objPath](const boost::system::error_code ec1,
+                     objPath](const boost::system::error_code& ec1,
                               std::variant<std::vector<std::string>>& resp1) {
                         nlohmann::json& itemsArray1 =
                             asyncResp->res.jsonValue["RelatedItem"];
@@ -2602,7 +2602,7 @@ inline void getRelatedItemData(
                 const std::string fabricId = objectPath.filename();
                 crow::connections::systemBus->async_method_call(
                     [asyncResp,
-                     fabricId](const boost::system::error_code ec1,
+                     fabricId](const boost::system::error_code& ec1,
                                std::variant<std::vector<std::string>>& resp1) {
                         if (ec1)
                         {
@@ -2647,7 +2647,7 @@ inline void getChassisSensors(
     // Find the sensor on the chassis
     auto getAllChassisSensors =
         [asyncResp, sensorName, chassisId](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::variant<std::vector<std::string>>& variantEndpoints) {
             if (ec)
             {
@@ -2725,7 +2725,7 @@ inline void handleSensorGetWithChassisValidation(
         "xyz.openbmc_project.Inventory.Item.Chassis"};
 
     auto chassisHandler = [asyncResp, chassisId, sensorId](
-                              const boost::system::error_code ec,
+                              const boost::system::error_code& ec,
                               const std::vector<std::string>& chassisPaths) {
         if (ec)
         {
@@ -2778,7 +2778,7 @@ inline void setThresholdReadingProperty(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, serviceName, objectPath, interfaceName,
-         propertyName](const boost::system::error_code ec) {
+         propertyName](const boost::system::error_code& ec) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);
@@ -2901,48 +2901,48 @@ inline void requestRoutesSensorPatch(App& app)
                 }
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisId, sensorId,
-                     req](const boost::system::error_code ec,
+                     req](const boost::system::error_code& ec1,
                           const std::vector<std::string>& objects) {
-                        if (ec)
+                        if (ec1)
                         {
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        for (const std::string& object : objects)
+                        for (const std::string& obj : objects)
                         {
-                            if (!object.ends_with(chassisId))
+                            if (!obj.ends_with(chassisId))
                             {
                                 continue;
                             }
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, sensorId,
-                                 req](const boost::system::error_code ec,
+                                 req](const boost::system::error_code& ec2,
                                       const std::vector<std::pair<
                                           std::string,
                                           std::vector<std::pair<
                                               std::string,
                                               std::vector<std::string>>>>>&
                                           subtree) {
-                                    if (ec)
+                                    if (ec2)
                                     {
                                         messages::internalError(asyncResp->res);
                                         return;
                                     }
                                     std::string str;
                                     size_t found = 0;
-                                    for (const auto& object : subtree)
+                                    for (const auto& subtreeObj : subtree)
                                     {
-                                        str = object.first;
+                                        str = subtreeObj.first;
                                         found = str.find(sensorId);
                                         if (found != std::string::npos)
                                         {
                                             for (const auto& service :
-                                                 object.second)
+                                                 subtreeObj.second)
                                             {
                                                 processSensorThresholdValues(
                                                     req, asyncResp,
                                                     service.first,
-                                                    object.first);
+                                                    subtreeObj.first);
                                                 return;
                                             }
                                         }

@@ -125,7 +125,6 @@ inline void createPendingRequest(
     task->payload.emplace(req);
     task->state = "Pending";
     task->populateResp(aResp->res);
-    return;
 }
 
 inline void handleSecureBootDatabaseCollectionGet(
@@ -145,7 +144,7 @@ inline void handleSecureBootDatabaseCollectionGet(
     aResp->res.jsonValue["Name"] = "UEFI SecureBoot Database Collection";
 
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
             if (ec == boost::system::errc::io_error)
             {
@@ -248,7 +247,7 @@ inline void handleSecureBootDatabaseGet(
         // certificate
         crow::connections::systemBus->async_method_call(
             [aResp](
-                const boost::system::error_code ec,
+                const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
                 if (ec)
                 {
@@ -257,7 +256,7 @@ inline void handleSecureBootDatabaseGet(
                     return;
                 }
 
-                if (objects.size() > 0)
+                if (!objects.empty())
                 {
                     aResp->res
                         .jsonValue["Actions"]["#SecureBootDatabase.ResetKeys"]
@@ -302,14 +301,14 @@ inline void handleSecureBootDatabaseResetKeys(
     }
 
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, databaseId](const boost::system::error_code ec,
+        req, [req, aResp, databaseId](const boost::system::error_code& ec,
                                       const bool isBios) {
             if (ec)
             {
                 messages::internalError(aResp->res);
                 return;
             }
-            if (isBios == false)
+            if (!isBios)
             {
                 if (isDefaultDatabase(databaseId))
                 {
@@ -351,9 +350,8 @@ inline void handleCertificateCollectionGet(
         "xyz.openbmc_project.Certs.Certificate"};
     collection_util::getCollectionMembers(
         aResp, boost::urls::url(certURI), interfaces,
-        std::string(
-            "/xyz/openbmc_project/secureBootDatabase/" + databaseId + "/certs")
-            .c_str());
+        std::string("/xyz/openbmc_project/secureBootDatabase/" + databaseId +
+                    "/certs"));
 }
 
 inline void handleCertificateCollectionPost(
@@ -378,7 +376,7 @@ inline void handleCertificateCollectionPost(
         return;
     }
 
-    if (certString.size() == 0)
+    if (certString.empty())
     {
         messages::propertyValueIncorrect(aResp->res, "CertificateString",
                                          certString);
@@ -394,13 +392,13 @@ inline void handleCertificateCollectionPost(
 
     privilege_utils::isBiosPrivilege(
         req, [req, aResp, databaseId, certString,
-              owner](const boost::system::error_code ec, const bool isBios) {
+              owner](const boost::system::error_code& ec, const bool isBios) {
             if (ec)
             {
                 messages::internalError(aResp->res);
                 return;
             }
-            if (isBios == false)
+            if (!isBios)
             {
                 if (isDefaultDatabase(databaseId))
                 {
@@ -416,11 +414,11 @@ inline void handleCertificateCollectionPost(
 
             crow::connections::systemBus->async_method_call(
                 [aResp, databaseId, owner,
-                 certFile](const boost::system::error_code ec,
+                 certFile](const boost::system::error_code& ec1,
                            const std::string& objectPath) {
-                    if (ec)
+                    if (ec1)
                     {
-                        BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                        BMCWEB_LOG_ERROR("DBUS response error: {}", ec1);
                         messages::internalError(aResp->res);
                         return;
                     }
@@ -438,11 +436,11 @@ inline void handleCertificateCollectionPost(
                     if (owner)
                     {
                         crow::connections::systemBus->async_method_call(
-                            [aResp](const boost::system::error_code ec) {
-                                if (ec)
+                            [aResp](const boost::system::error_code& ec2) {
+                                if (ec2)
                                 {
                                     BMCWEB_LOG_ERROR("DBUS response error: {}",
-                                                     ec);
+                                                     ec2);
                                     messages::internalError(aResp->res);
                                     return;
                                 }
@@ -481,7 +479,7 @@ inline void handleCertificateGet(
         *crow::connections::systemBus, getServiceName(databaseId),
         getCertObjectPath(databaseId, certId), "",
         [aResp,
-         certId](const boost::system::error_code ec,
+         certId](const boost::system::error_code& ec,
                  const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
@@ -568,13 +566,13 @@ inline void handleCertificateDelete(
 
     privilege_utils::isBiosPrivilege(
         req, [req, aResp, databaseId,
-              certId](const boost::system::error_code ec, const bool isBios) {
+              certId](const boost::system::error_code& ec, const bool isBios) {
             if (ec)
             {
                 messages::internalError(aResp->res);
                 return;
             }
-            if (isBios == false)
+            if (!isBios)
             {
                 if (isDefaultDatabase(databaseId))
                 {
@@ -586,8 +584,8 @@ inline void handleCertificateDelete(
             }
 
             crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code ec) {
-                    if (ec)
+                [aResp](const boost::system::error_code& ec1) {
+                    if (ec1)
                     {
                         messages::internalError(aResp->res);
                         return;
@@ -631,8 +629,7 @@ inline void handleSignatureCollectionGet(
     collection_util::getCollectionMembers(
         aResp, boost::urls::url(signatureURL), interfaces,
         std::string("/xyz/openbmc_project/secureBootDatabase/" + databaseId +
-                    "/signature")
-            .c_str());
+                    "/signature"));
 }
 
 inline void handleSignatureCollectionPost(
@@ -665,7 +662,7 @@ inline void handleSignatureCollectionPost(
         return;
     }
 
-    if (sigString.size() == 0)
+    if (sigString.empty())
     {
         messages::propertyValueIncorrect(aResp->res, "SignatureString",
                                          sigString);
@@ -673,7 +670,7 @@ inline void handleSignatureCollectionPost(
     }
 
     auto sigTypeDbus = signatureFormatRfToDbus(sigType);
-    if (sigTypeDbus.size() == 0)
+    if (sigTypeDbus.empty())
     {
         messages::propertyValueNotInList(aResp->res, sigType, "SignatureType");
         return;
@@ -688,7 +685,7 @@ inline void handleSignatureCollectionPost(
 
     privilege_utils::isBiosPrivilege(req, [req, aResp, databaseId, sigString,
                                            sigTypeDbus, owner](
-                                              const boost::system::error_code
+                                              const boost::system::error_code&
                                                   ec,
                                               const bool isBios) {
         if (ec)
@@ -696,7 +693,7 @@ inline void handleSignatureCollectionPost(
             messages::internalError(aResp->res);
             return;
         }
-        if (isBios == false)
+        if (!isBios)
         {
             if (isDefaultDatabase(databaseId))
             {
@@ -708,11 +705,11 @@ inline void handleSignatureCollectionPost(
         }
 
         crow::connections::systemBus->async_method_call(
-            [aResp, databaseId, owner](const boost::system::error_code ec,
+            [aResp, databaseId, owner](const boost::system::error_code& ec1,
                                        const std::string& objectPath) {
-                if (ec)
+                if (ec1)
                 {
-                    BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                    BMCWEB_LOG_ERROR("DBUS response error: {}", ec1);
                     messages::internalError(aResp->res);
                     return;
                 }
@@ -730,10 +727,11 @@ inline void handleSignatureCollectionPost(
                 if (owner)
                 {
                     crow::connections::systemBus->async_method_call(
-                        [aResp](const boost::system::error_code ec) {
-                            if (ec)
+                        [aResp](const boost::system::error_code& ec2) {
+                            if (ec2)
                             {
-                                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                                BMCWEB_LOG_ERROR("DBUS response error: {}",
+                                                 ec2);
                                 messages::internalError(aResp->res);
                                 return;
                             }
@@ -777,7 +775,7 @@ inline void handleSignatureGet(crow::App& app, const crow::Request& req,
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, getServiceName(databaseId),
         getSigObjectPath(databaseId, sigId), "",
-        [aResp, sigId](const boost::system::error_code ec,
+        [aResp, sigId](const boost::system::error_code& ec,
                        const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
@@ -840,13 +838,13 @@ inline void handleSignatureDelete(
 
     privilege_utils::isBiosPrivilege(
         req, [req, aResp, databaseId,
-              sigId](const boost::system::error_code ec, const bool isBios) {
+              sigId](const boost::system::error_code& ec, const bool isBios) {
             if (ec)
             {
                 messages::internalError(aResp->res);
                 return;
             }
-            if (isBios == false)
+            if (!isBios)
             {
                 if (isDefaultDatabase(databaseId))
                 {
@@ -858,8 +856,8 @@ inline void handleSignatureDelete(
             }
 
             crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code ec) {
-                    if (ec)
+                [aResp](const boost::system::error_code& ec1) {
+                    if (ec1)
                     {
                         messages::internalError(aResp->res);
                         return;

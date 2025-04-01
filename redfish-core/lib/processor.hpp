@@ -479,9 +479,25 @@ inline void getAcceleratorDataByService(
     const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get available system Accelerator resources by service.");
-    dbus::utility::getAllProperties(
-        service, objPath, "",
-        [acclrtrId, asyncResp{std::move(asyncResp)}](
+
+    if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
+    {
+        std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
+            objPath, [aResp](const std::string& rootHealth,
+                             const std::string& healthRollup) {
+                aResp->res.jsonValue["Status"]["Health"] = rootHealth;
+                if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
+                {
+                    aResp->res.jsonValue["Status"]["HealthRollup"] =
+                        healthRollup;
+                }
+            });
+        health->start();
+    }
+
+    sdbusplus::asio::getAllProperties(
+        *crow::connections::systemBus, service, objPath, "",
+        [acclrtrId, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
@@ -511,7 +527,7 @@ inline void getAcceleratorDataByService(
             }
 
             std::string state = "Enabled";
-            std::string health = "";
+            std::string health;
             if constexpr (!BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
             {
                 health = "OK";
@@ -982,7 +998,8 @@ inline void getProcessorSystemGUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                                    const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get System-GUID");
-    redfish::nvidia_processor_utils::getSysGUID(asyncResp, service, objPath);
+    redfish::nvidia_processor_utils::getSysGUID(std::move(asyncResp), service,
+                                                objPath);
 }
 
 inline void getMNNVLinkTopologyInfo(
@@ -1363,7 +1380,7 @@ inline void requestRoutesOperatingConfigCollection(App& app)
             // constrain our search for related Config objects.
             crow::connections::systemBus->async_method_call(
                 [asyncResp,
-                 cpuName](const boost::system::error_code ec,
+                 cpuName](const boost::system::error_code& ec,
                           const dbus::utility::MapperGetSubTreePathsResponse&
                               objects) {
                     if (ec)
@@ -1443,7 +1460,7 @@ inline void requestRoutesOperatingConfig(App& app)
             // search for one with a matching name
             crow::connections::systemBus->async_method_call(
                 [asyncResp, cpuName, configName, reqUrl{req.url()}](
-                    boost::system::error_code ec,
+                    boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
                     if (ec)
                     {
@@ -1692,8 +1709,8 @@ inline void requestRoutesProcessor(App& app)
                 redfish::processor_utils::getProcessorObject(
                     asyncResp, processorId,
                     [settingMin, settingMax](
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& processorId,
+                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
+                        const std::string& processorId1,
                         const std::string& objectPath,
                         [[maybe_unused]] const MapperServiceMap& serviceMap,
                         [[maybe_unused]] const std::string& deviceType) {
@@ -1701,14 +1718,14 @@ inline void requestRoutesProcessor(App& app)
                         {
                             redfish::nvidia_processor_utils::
                                 patchOperatingSpeedRangeMHz(
-                                    asyncResp, processorId, *settingMax,
+                                    asyncResp1, processorId1, *settingMax,
                                     "SettingMax", objectPath);
                         }
                         else if (settingMin)
                         {
                             redfish::nvidia_processor_utils::
                                 patchOperatingSpeedRangeMHz(
-                                    asyncResp, processorId, *settingMin,
+                                    asyncResp1, processorId1, *settingMin,
                                     "SettingMin", objectPath);
                         }
                     });
@@ -1759,15 +1776,15 @@ inline void requestRoutesProcessor(App& app)
                                 asyncResp, processorId,
                                 [remoteDebugEnabled](
                                     const std::shared_ptr<bmcweb::AsyncResp>&
-                                        asyncResp,
-                                    const std::string& processorId,
+                                        asyncResp1,
+                                    const std::string& processorId1,
                                     const std::string& objectPath,
                                     [[maybe_unused]] const MapperServiceMap&
                                         serviceMap,
                                     [[maybe_unused]] const std::string&
                                         deviceType) {
                                     redfish::nvidia_processor::patchRemoteDebug(
-                                        asyncResp, processorId,
+                                        asyncResp1, processorId1,
                                         *remoteDebugEnabled, objectPath);
                                 });
                         }
@@ -1820,15 +1837,15 @@ inline void requestRoutesProcessorMetrics(App& app)
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncRespOuter,
                    [[maybe_unused]] const std::string& systemName,
-                   const std::string& processorId) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                   const std::string& processorIdOuter) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncRespOuter))
                 {
                     return;
                 }
-                redfish::nvidia_processor::getProcessorMetricsData(asyncResp,
-                                                                   processorId);
+                redfish::nvidia_processor::getProcessorMetricsData(
+                    asyncRespOuter, processorIdOuter);
             });
 }
 
@@ -1837,20 +1854,21 @@ inline void requestRoutesProcessorMemoryMetrics(App& app)
     /**
      * Functions triggers appropriate requests on DBus
      */
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
-                      "MemorySummary/MemoryMetrics")
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/Processors/<str>/MemorySummary/MemoryMetrics")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncRespOuter,
                    [[maybe_unused]] const std::string& systemName,
-                   const std::string& processorId) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                   const std::string& processorIdOuter) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncRespOuter))
                 {
                     return;
                 }
                 redfish::nvidia_processor::getProcessorMemoryMetricsData(
-                    asyncResp, processorId);
+                    asyncRespOuter, processorIdOuter);
             });
 }
 

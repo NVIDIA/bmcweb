@@ -172,7 +172,6 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
         }
         else if (propertyMap.first == "AdditionalData")
         {
-            std::string eventDir;
             std::string recordType;
             additionalDataVectorString =
                 std::get_if<std::vector<std::string>>(&propertyMap.second);
@@ -239,7 +238,7 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
                     }
                     else
                     {
-                        if (eventDir)
+                        if (eventDir != 0U)
                         {
                             entryCode = log_entry::LogEntryCode::Assert;
                         }
@@ -297,7 +296,7 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
     // generateMessageRegistry will not create the entry if
     // the messageId can't be found in message registries.
     // So check the entry 'Id' anyway to cover that case.
-    if (thisEntry["Id"].size() == 0)
+    if (thisEntry["Id"].empty())
     {
         thisEntry["@odata.type"] = "#LogEntry.v1_15_0.LogEntry";
         thisEntry["@odata.id"] =
@@ -400,7 +399,7 @@ inline void requestRoutesDBusSELLogEntryCollection(App& app)
             // Make call to Logging Service to find all log entry
             // objects
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code ec,
+                [asyncResp](const boost::system::error_code& ec,
                             GetManagedObjectsType& resp) {
                     if (ec)
                     {
@@ -473,7 +472,7 @@ inline void deleteDbusLogEntry(
     const std::string& entryId,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    auto respHandler = [asyncResp](const boost::system::error_code ec) {
+    auto respHandler = [asyncResp](const boost::system::error_code& ec) {
         if (ec)
         {
             asyncResp->res.result(
@@ -492,7 +491,7 @@ inline void deleteDbusSELEntry(
     std::string& entryID, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp, entryID](const boost::system::error_code ec,
+        [asyncResp, entryID](const boost::system::error_code& ec,
                              GetManagedPropertyType& resp) {
             if (ec.value() == EBADR)
             {
@@ -574,7 +573,7 @@ inline void requestRoutesDBusSELLogEntry(App& app)
                 // Make call to Logging Service to find all log entry
                 // objects
                 crow::connections::systemBus->async_method_call(
-                    [asyncResp, entryID](const boost::system::error_code ec,
+                    [asyncResp, entryID](const boost::system::error_code& ec,
                                          GetManagedPropertyType& resp) {
                         if (ec.value() == EBADR)
                         {
@@ -648,7 +647,7 @@ inline void requestRoutesDBusSELLogServiceActionsClear(App& app)
                 return;
             }
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code ec,
+                [asyncResp](const boost::system::error_code& ec,
                             GetManagedObjectsType& resp) {
                     if (ec)
                     {

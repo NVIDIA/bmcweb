@@ -245,7 +245,7 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     using PropertiesMap = boost::container::flat_map<std::string, PropertyType>;
     // Get interface properties
     crow::connections::systemBus->async_method_call(
-        [asyncResp{asyncResp}](const boost::system::error_code ec,
+        [asyncResp{asyncResp}](const boost::system::error_code& ec,
                                const PropertiesMap& properties) {
             if (ec)
             {
@@ -466,7 +466,7 @@ inline void getCpuPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     // Get interface properties
     crow::connections::systemBus->async_method_call(
-        [asyncResp{asyncResp}](const boost::system::error_code ec,
+        [asyncResp{asyncResp}](const boost::system::error_code& ec,
                                const PropertiesMap& properties) {
             if (ec)
             {

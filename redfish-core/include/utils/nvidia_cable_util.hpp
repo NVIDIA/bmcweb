@@ -27,8 +27,6 @@
 
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
-#include <dbus_utility.hpp>
-#include <query.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
@@ -76,7 +74,7 @@ inline void fetchCableInventoryProperties(
         *crow::connections::systemBus, service, cableObjectPath,
         "xyz.openbmc_project.Inventory.Decorator.Asset", "PartNumber",
         [asyncResp, cableObjectPath](const boost::system::error_code& ec2,
-                                     const std::string& PartNumber) {
+                                     const std::string& partNumber) {
             if (ec2)
             {
                 BMCWEB_LOG_DEBUG(
@@ -84,14 +82,14 @@ inline void fetchCableInventoryProperties(
                     cableObjectPath, ec2.what());
                 return;
             }
-            asyncResp->res.jsonValue["PartNumber"] = PartNumber;
+            asyncResp->res.jsonValue["PartNumber"] = partNumber;
         });
 
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, service, cableObjectPath,
         "xyz.openbmc_project.Inventory.Decorator.LocationCode", "LocationCode",
         [asyncResp, cableObjectPath](const boost::system::error_code& ec3,
-                                     const std::string& LocationCode) {
+                                     const std::string& locationCode) {
             if (ec3)
             {
                 BMCWEB_LOG_DEBUG(
@@ -101,7 +99,7 @@ inline void fetchCableInventoryProperties(
             }
             asyncResp->res
                 .jsonValue["Location"]["PartLocation"]["ServiceLabel"] =
-                LocationCode;
+                locationCode;
         });
 
     sdbusplus::asio::getProperty<std::string>(
@@ -109,7 +107,7 @@ inline void fetchCableInventoryProperties(
         "xyz.openbmc_project.Inventory.Decorator.LocationContext",
         "LocationContext",
         [asyncResp, cableObjectPath](const boost::system::error_code& ec4,
-                                     const std::string& LocationContext) {
+                                     const std::string& locationContext) {
             if (ec4)
             {
                 BMCWEB_LOG_DEBUG(
@@ -118,12 +116,12 @@ inline void fetchCableInventoryProperties(
                 return;
             }
             asyncResp->res.jsonValue["Location"]["PartLocationContext"] =
-                LocationContext;
+                locationContext;
         });
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, cableObjectPath{cableObjectPath}](
-            const boost::system::error_code ec1,
+            const boost::system::error_code& ec1,
             std::variant<std::vector<std::string>>& resp1) {
             if (ec1)
             {

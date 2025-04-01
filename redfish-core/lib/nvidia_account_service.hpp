@@ -30,30 +30,35 @@
 namespace redfish
 {
 
-inline void handle_nvidia_resolution(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::optional<std::string> password)
+inline void
+    handleNvidiaResolution(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::optional<std::string>& password)
 {
+    if (!password)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
     redfish::message_registries::updateResolution(asyncResp, *password,
                                                   "resolution");
 }
 
-inline void handle_nvidia_delete_error(
+inline void handleNvidiaDeleteError(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& username, sdbusplus::message::message& m)
 {
     const sd_bus_error* dbusError = m.get_error();
-    if (dbusError && dbusError->name)
+    if ((dbusError != nullptr) && (dbusError->name != nullptr))
     {
-        if (!strcmp(dbusError->name,
-                    "xyz.openbmc_project.Common.Error.NotAllowed"))
+        if (strcmp(dbusError->name,
+                   "xyz.openbmc_project.Common.Error.NotAllowed") == 0)
         {
             messages::resourceCannotBeDeleted(
                 asyncResp->res, "#ManagerAccount.v1_4_0.ManagerAccount",
                 username);
         }
-        else if (!strcmp(dbusError->name,
-                         "org.freedesktop.DBus.Error.UnknownObject"))
+        else if (strcmp(dbusError->name,
+                        "org.freedesktop.DBus.Error.UnknownObject") == 0)
         {
             messages::resourceNotFound(asyncResp->res,
                                        "#ManagerAccount.v1_4_0.ManagerAccount",

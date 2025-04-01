@@ -18,8 +18,8 @@
 #pragma once
 // Dbus service for EventService Listener
 constexpr const char* mode = "replace";
-constexpr const char* serviceName = "org.freedesktop.systemd1";
-constexpr const char* objectPath = "/org/freedesktop/systemd1";
+constexpr const char* systemdServiceName = "org.freedesktop.systemd1";
+constexpr const char* systemdObjectPath = "/org/freedesktop/systemd1";
 constexpr const char* interfaceName = "org.freedesktop.systemd1.Manager";
 constexpr const char* startService = "StartUnit";
 constexpr const char* stopService = "StopUnit";
@@ -29,17 +29,17 @@ constexpr unsigned int subscribeBodyLimit = 5 * 1024 * 1024; // 5MB
 
 namespace redfish
 {
-class subscribeSatBmc
+class SubscribeSatBmc
 {
   public:
-    subscribeSatBmc(const subscribeSatBmc&) = delete;
-    subscribeSatBmc& operator=(const subscribeSatBmc&) = delete;
-    subscribeSatBmc(subscribeSatBmc&&) = delete;
-    subscribeSatBmc& operator=(subscribeSatBmc&&) = delete;
-    ~subscribeSatBmc() = default;
-    static subscribeSatBmc& getInstance()
+    SubscribeSatBmc(const SubscribeSatBmc&) = delete;
+    SubscribeSatBmc& operator=(const SubscribeSatBmc&) = delete;
+    SubscribeSatBmc(SubscribeSatBmc&&) = delete;
+    SubscribeSatBmc& operator=(SubscribeSatBmc&&) = delete;
+    ~SubscribeSatBmc() = default;
+    static SubscribeSatBmc& getInstance()
     {
-        static subscribeSatBmc handler;
+        static SubscribeSatBmc handler;
         return handler;
     }
 
@@ -57,7 +57,7 @@ class subscribeSatBmc
 
   private:
     std::shared_ptr<boost::asio::steady_timer> subscribeTimer;
-    subscribeSatBmc() = default;
+    SubscribeSatBmc() = default;
 };
 
 // this is common function for http client retry
@@ -192,13 +192,13 @@ inline void invokeRedfishEventListener()
                 return;
             }
         },
-        serviceName, objectPath, interfaceName, startService,
+        systemdServiceName, systemdObjectPath, interfaceName, startService,
         listenerServiceName, mode);
 }
 
-inline void querySubscriptionList(std::shared_ptr<crow::HttpClient> client,
-                                  boost::urls::url url,
-                                  const boost::system::error_code& ec)
+inline void querySubscriptionList(
+    const std::shared_ptr<crow::HttpClient>& client, boost::urls::url url,
+    const boost::system::error_code& ec)
 {
     if (ec)
     {
@@ -216,7 +216,7 @@ inline void querySubscriptionList(std::shared_ptr<crow::HttpClient> client,
     client->sendDataWithCallback(std::move(data), url,
                                  ensuressl::VerifyCertificate::Verify,
                                  httpHeader, boost::beast::http::verb::get, cb);
-    auto subscribeTimer = subscribeSatBmc::getInstance().getTimer();
+    auto subscribeTimer = SubscribeSatBmc::getInstance().getTimer();
     // check HMC subscription periodically in case of HMC
     // reset-to-default
     subscribeTimer->expires_after(
@@ -252,7 +252,7 @@ inline void getSatBMCInfo(
 
     boost::urls::url url(sat->second);
 
-    auto subscribeTimer = subscribeSatBmc::getInstance().getTimer();
+    auto subscribeTimer = SubscribeSatBmc::getInstance().getTimer();
     subscribeTimer->expires_after(std::chrono::seconds(deferTime));
     subscribeTimer->async_wait(
         std::bind_front(querySubscriptionList, client, url));
@@ -315,7 +315,7 @@ inline void unSubscribe(
 
 inline int stopRedfishEventListener(boost::asio::io_context& ioc)
 {
-    auto subscribeTimer = subscribeSatBmc::getInstance().getTimer();
+    auto subscribeTimer = SubscribeSatBmc::getInstance().getTimer();
     // stop the timer.
     subscribeTimer->cancel();
 
@@ -331,7 +331,7 @@ inline int stopRedfishEventListener(boost::asio::io_context& ioc)
                 return;
             }
         },
-        serviceName, objectPath, interfaceName, stopService,
+        systemdServiceName, systemdObjectPath, interfaceName, stopService,
         listenerServiceName, mode);
     return 0;
 }

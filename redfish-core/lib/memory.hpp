@@ -485,7 +485,7 @@ inline void assembleDimmProperties(
             (*memorySizeInKB >> 10);
     }
 
-    if (partNumber && !partNumber->empty())
+    if ((partNumber != nullptr) && !partNumber->empty())
     {
         asyncResp->res.jsonValue[jsonPtr]["PartNumber"] = *partNumber;
     }

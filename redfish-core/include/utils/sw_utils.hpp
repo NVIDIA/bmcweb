@@ -391,7 +391,7 @@ inline void getSwStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     dbus::utility::getAllProperties(
         dbusSvc, "/xyz/openbmc_project/software/" + *swId,
         "xyz.openbmc_project.Software.Activation",
-        [asyncResp, swId](const boost::system::error_code ec,
+        [asyncResp, swId](const boost::system::error_code& ec,
                           const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {

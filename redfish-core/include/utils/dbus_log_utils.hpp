@@ -62,21 +62,22 @@ class AdditionalData
 
     // DBus Event Log additionalData format is like,
     // "key1=val1" "key2=val2"...
-    AdditionalData(const std::vector<std::string>& additionalData,
-                   const SameKeyOp& op = overwrite)
+    explicit AdditionalData(const std::vector<std::string>& additionalData,
+                            const SameKeyOp& op = overwrite)
     {
         convert(additionalData, data, op);
     }
 
-    void convert(const std::vector<std::string>& additionalData,
-                 std::map<std::string, std::string>& data, const SameKeyOp& op)
+    static void convert(const std::vector<std::string>& additionalData,
+                        std::map<std::string, std::string>& data,
+                        const SameKeyOp& op)
     {
-        for (auto& kv : additionalData)
+        for (const auto& kv : additionalData)
         {
             std::vector<std::string> fields;
             fields.reserve(2);
             bmcweb::split(fields, kv, '=');
-            if (data.count(fields[0]) <= 0)
+            if (!data.contains(fields[0]))
             {
                 data[fields[0]] = "";
             }

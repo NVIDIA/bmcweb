@@ -31,7 +31,6 @@
 #include <dbus_singleton.hpp>
 #include <sdbusplus/bus/match.hpp>
 #include <utils/dbus_log_utils.hpp>
-#include <utils/json_utils.hpp>
 #include <utils/log_services_util.hpp>
 #include <utils/origin_utils.hpp>
 #include <utils/registry_utils.hpp>
@@ -68,21 +67,21 @@ class DsEvent
     // required properties
     const std::string messageId;
     // optional properties
-    std::vector<std::string> actions = {};
+    std::vector<std::string> actions;
     int64_t eventGroupId = -1;
-    std::string eventId = "";
-    std::string eventTimestamp = "";
-    std::string logEntry = "";
-    std::string memberId = "";
-    std::vector<std::string> messageArgs = {};
-    std::string message = "";
-    std::string messageSeverity = "";
-    std::string originOfCondition = "";
+    std::string eventId;
+    std::string eventTimestamp;
+    std::string logEntry;
+    std::string memberId;
+    std::vector<std::string> messageArgs;
+    std::string message;
+    std::string messageSeverity;
+    std::string originOfCondition;
     nlohmann::json::object_t oem;
     nlohmann::json::object_t cper;
-    std::string eventResolution = "";
-    std::string logEntryId = "";
-    std::string satBMCLogEntryUrl = "";
+    std::string eventResolution;
+    std::string logEntryId;
+    std::string satBMCLogEntryUrl;
     redfish_bool specificEventExistsInGroup = redfishBoolNa;
 
     // derived properties
@@ -94,10 +93,10 @@ class DsEvent
     bool valid;
 
   public:
-    DsEvent(const std::string& messageId) : messageId(messageId)
+    explicit DsEvent(const std::string& messageIdIn) :
+        messageId(messageIdIn),
+        registryMsg(redfish::registries::getMessage(messageId))
     {
-        registryPrefix = message_registries::getPrefix(messageId);
-        registryMsg = redfish::registries::getMessage(messageId);
         if (registryMsg == nullptr)
         {
             BMCWEB_LOG_ERROR("{}", "Message not found in registry with ID: " +
@@ -105,6 +104,7 @@ class DsEvent
             valid = false;
             return;
         }
+        registryPrefix = message_registries::getPrefix(messageId);
         valid = true;
         messageSeverity = registryMsg->messageSeverity;
         if (registryMsg->resolution != nullptr)
@@ -113,12 +113,12 @@ class DsEvent
         }
     }
 
-    bool isValid()
+    bool isValid() const
     {
         return valid;
     }
 
-    int setRegistryMsg(const std::vector<std::string>& messageArgs =
+    int setRegistryMsg(const std::vector<std::string>& messageArgsIn =
                            std::vector<std::string>{})
     {
         if (!valid)
@@ -126,7 +126,7 @@ class DsEvent
             BMCWEB_LOG_ERROR("Invalid Event instance.");
             return redfishInvalidEvent;
         }
-        if (messageArgs.size() != registryMsg->numberOfArgs)
+        if (messageArgsIn.size() != registryMsg->numberOfArgs)
         {
             BMCWEB_LOG_ERROR("Message argument number mismatched.");
             return redfishInvalidArgs;
@@ -137,7 +137,7 @@ class DsEvent
 
         message = registryMsg->message;
         // Fill the MessageArgs into the Message
-        for (const std::string& messageArg : messageArgs)
+        for (const std::string& messageArg : messageArgsIn)
         {
             argStr = "%" + std::to_string(i++);
             size_t argPos = message.find(argStr);
@@ -146,15 +146,15 @@ class DsEvent
                 message.replace(argPos, argStr.length(), messageArg);
             }
         }
-        this->messageArgs = messageArgs;
+        this->messageArgs = messageArgsIn;
         return 0;
     }
 
-    int setCustomMsg(const std::string& message,
-                     const std::vector<std::string>& messageArgs =
+    int setCustomMsg(const std::string& messageIn,
+                     const std::vector<std::string>& messageArgsIn =
                          std::vector<std::string>{})
     {
-        std::string msg = message;
+        std::string msg = messageIn;
         int i = 1;
         std::string argStr;
 
@@ -164,7 +164,7 @@ class DsEvent
             return redfishInvalidEvent;
         }
         // Fill the MessageArgs into the Message
-        for (const std::string& messageArg : messageArgs)
+        for (const std::string& messageArg : messageArgsIn)
         {
             argStr = "%" + std::to_string(i++);
             size_t argPos = msg.find(argStr);
@@ -186,7 +186,7 @@ class DsEvent
         }
 
         this->message = std::move(msg);
-        this->messageArgs = messageArgs;
+        this->messageArgs = messageArgsIn;
         return 0;
     }
 
@@ -259,7 +259,7 @@ class DsEvent
         if (specificEventExistsInGroup != redfishBoolNa)
         {
             eventLogEntry["SpecificEventExistsInGroup"] =
-                specificEventExistsInGroup == redfishBoolFalse ? false : true;
+                specificEventExistsInGroup != redfishBoolFalse;
         }
         if (!eventResolution.empty())
         {
@@ -303,9 +303,9 @@ class EventUtil
         return handler;
     }
     // This function is used to form event message
-    DsEvent createEventPropertyModified(const std::string& arg1,
-                                        const std::string& arg2,
-                                        const std::string& resourceType)
+    static DsEvent createEventPropertyModified(const std::string& arg1,
+                                               const std::string& arg2,
+                                               const std::string& resourceType)
     {
         DsEvent event(propertyModified);
         std::vector<std::string> messageArgs;
@@ -319,7 +319,7 @@ class EventUtil
     }
 
     // This function is used to form event message
-    DsEvent createEventResourceCreated(const std::string& resourceType)
+    static DsEvent createEventResourceCreated(const std::string& resourceType)
     {
         DsEvent event(resorceCreated);
         formBaseEvent(event, resourceType);
@@ -327,7 +327,7 @@ class EventUtil
     }
 
     // This function is used to form event message
-    DsEvent createEventResourceRemoved(const std::string& resourceType)
+    static DsEvent createEventResourceRemoved(const std::string& resourceType)
     {
         DsEvent event(resourceDeleted);
         formBaseEvent(event, resourceType);
@@ -335,8 +335,8 @@ class EventUtil
     }
 
     // This function is used to form event message
-    DsEvent createEventRebootReason(const std::string& arg,
-                                    const std::string& resourceType)
+    static DsEvent createEventRebootReason(const std::string& arg,
+                                           const std::string& resourceType)
     {
         DsEvent event(rebootReason);
 
@@ -349,7 +349,7 @@ class EventUtil
     }
 
   private:
-    void formBaseEvent(DsEvent& event, const std::string& resourceType)
+    void static formBaseEvent(DsEvent& event, const std::string& resourceType)
     {
         // Set message severity
         event.messageSeverity = "Informational";

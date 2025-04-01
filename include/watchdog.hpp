@@ -31,7 +31,7 @@ class ServiceWD
     ServiceWD(const int expiryTimeInS, boost::asio::io_context& io) :
         timer(io), expiryTimeInS(expiryTimeInS)
     {
-        timer.expires_after(std::chrono::seconds(expiryTimeInS));
+        timer.expires_after(std::chrono::seconds(expiryTimeInSec));
         handler = [this](const boost::system::error_code& error) {
             if (error)
             {

@@ -2524,11 +2524,11 @@ inline void requestRoutesNvidiaManagerResetToDefaultsAction(App& app)
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, ifnameCompleteReset](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const std::vector<
                             std::pair<std::string, std::vector<std::string>>>&
                             interfaceNames) {
-                        if (ec || interfaceNames.size() <= 0)
+                        if (ec || interfaceNames.empty())
                         {
                             BMCWEB_LOG_ERROR("Can't find object");
                             messages::internalError(asyncResp->res);
@@ -2541,12 +2541,12 @@ inline void requestRoutesNvidiaManagerResetToDefaultsAction(App& app)
                         {
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp,
-                                 object](const boost::system::error_code ec) {
-                                    if (ec)
+                                 object](const boost::system::error_code& ec1) {
+                                    if (ec1)
                                     {
                                         BMCWEB_LOG_DEBUG(
                                             "Failed to ResetToDefaults: {}",
-                                            ec);
+                                            ec1);
                                         messages::internalError(asyncResp->res);
                                         return;
                                     }
@@ -2585,24 +2585,23 @@ inline void requestRoutesNvidiaManagerEmmcSecureErase(App& app)
                    [[maybe_unused]] const std::string& systemName) {
                 std::string setCommand =
                     "/sbin/fw_setenv emmc_secure_erase yes";
-                PersistentStorageUtil persistentStorageUtil;
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
                 }
                 BMCWEB_LOG_DEBUG("Post eMMC Secure Erase.");
                 auto resetEMMCSecureEraseCallback =
-                    []([[maybe_unused]] const crow::Request& req,
+                    []([[maybe_unused]] const crow::Request& req1,
                        [[maybe_unused]] const std::shared_ptr<
-                           bmcweb::AsyncResp>& asyncResp,
+                           bmcweb::AsyncResp>& response,
                        [[maybe_unused]] const std::string& stdOut,
                        [[maybe_unused]] const std::string& stdErr,
                        [[maybe_unused]] const boost::system::error_code& ec,
-                       [[maybe_unused]] int errorCode) -> void {
+                       [[maybe_unused]] int exitCode) -> void {
                     BMCWEB_LOG_INFO("Setting eMMC Secure Erase uboot env");
                     return;
                 };
-                persistentStorageUtil.executeEnvCommand(
+                redfish::PersistentStorageUtil::executeEnvCommand(
                     req, asyncResp, setCommand,
                     std::move(resetEMMCSecureEraseCallback));
                 doBMCGracefulRestart(asyncResp);

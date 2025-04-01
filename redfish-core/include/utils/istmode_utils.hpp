@@ -23,7 +23,7 @@ inline void getIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
     // Async method call to get mode settings dbus object and service
     crow::connections::systemBus->async_method_call(
         [aResp,
-         istIface](const boost::system::error_code ec,
+         istIface](const boost::system::error_code& ec,
                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -53,7 +53,7 @@ inline void getIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 
             // Async method call to get Active ISTmode
             crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code ec1,
+                [aResp](const boost::system::error_code& ec1,
                         const std::variant<std::string>& istMode) {
                     if (ec1)
                     {
@@ -64,16 +64,16 @@ inline void getIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
                     }
                     bool istModeEnabled = false;
                     nlohmann::json& json = aResp->res.jsonValue;
-                    auto modePtr = std::get_if<std::string>(&istMode);
+                    const auto* modePtr = std::get_if<std::string>(&istMode);
                     if (modePtr == nullptr)
                     {
                         BMCWEB_LOG_ERROR("ISTMode not received");
                         messages::internalError(aResp->res);
                         return;
                     }
-                    auto mode = dbus_utils::getRedfishIstMode(*modePtr);
+                    auto modeVal = dbus_utils::getRedfishIstMode(*modePtr);
 
-                    if (mode == "Enabled")
+                    if (modeVal == "Enabled")
                     {
                         istModeEnabled = true;
                     }
@@ -98,7 +98,7 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     // Async method call to get phosphor settings dbus object path and service
     crow::connections::systemBus->async_method_call(
         [aResp, req, reqIstModeEnabled,
-         istIface](const boost::system::error_code ec,
+         istIface](const boost::system::error_code& ec,
                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -129,7 +129,7 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             // Async method call to get Current ISTmode
             crow::connections::systemBus->async_method_call(
                 [aResp, req, reqIstModeEnabled, istIface, path,
-                 service](const boost::system::error_code ec1,
+                 service](const boost::system::error_code& ec1,
                           const std::variant<std::string>& istMode) {
                     if (ec1)
                     {
@@ -138,17 +138,17 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    auto modePtr = std::get_if<std::string>(&istMode);
+                    const auto* modePtr = std::get_if<std::string>(&istMode);
                     if (modePtr == nullptr)
                     {
                         BMCWEB_LOG_ERROR("ISTMode not received");
                         messages::internalError(aResp->res);
                         return;
                     }
-                    auto mode = dbus_utils::getRedfishIstMode(*modePtr);
+                    auto modeVal = dbus_utils::getRedfishIstMode(*modePtr);
 
                     // validate request
-                    if ((mode == "Enabled") && reqIstModeEnabled)
+                    if ((modeVal == "Enabled") && reqIstModeEnabled)
                     {
                         BMCWEB_LOG_ERROR("ISTMode Already Enabled");
                         aResp->res.result(
@@ -156,7 +156,7 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         return;
                     }
                     // validate request
-                    if ((mode == "Disabled") && !reqIstModeEnabled)
+                    if ((modeVal == "Disabled") && !reqIstModeEnabled)
                     {
                         BMCWEB_LOG_ERROR("ISTMode Already Disabled");
                         aResp->res.result(
@@ -167,9 +167,9 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     // Async method call to get current Status
                     crow::connections::systemBus->async_method_call(
                         [aResp, reqIstModeEnabled,
-                         req](const boost::system::error_code ec1,
+                         req](const boost::system::error_code& ec2,
                               const std::variant<std::string>& istStatus) {
-                            if (ec1)
+                            if (ec2)
                             {
                                 BMCWEB_LOG_DEBUG(
                                     "DBUS response error for "
@@ -179,7 +179,7 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             }
                             // If ISTMode Setting is already in progress,
                             // return error
-                            auto statusPtr =
+                            const auto* statusPtr =
                                 std::get_if<std::string>(&istStatus);
                             if (statusPtr == nullptr)
                             {
@@ -209,8 +209,8 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             // Async method call setISTMode
                             crow::connections::systemBus->async_method_call(
                                 [aResp, req, reqIstModeEnabled](
-                                    boost::system::error_code ec) {
-                                    if (ec)
+                                    boost::system::error_code& ec3) {
+                                    if (ec3)
                                     {
                                         BMCWEB_LOG_ERROR(
                                             "setISTMode failed with error");
@@ -224,12 +224,12 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                     // ISTMode status
                                     std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
                                         [reqIstModVal](
-                                            boost::system::error_code err,
+                                            boost::system::error_code ec4,
                                             sdbusplus::message::message&
                                                 taskMsg,
                                             const std::shared_ptr<
                                                 task::TaskData>& taskData) {
-                                            if (err)
+                                            if (ec4)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "task cancelled");
@@ -238,7 +238,7 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                                     messages::
                                                         resourceErrorsDetectedFormatError(
                                                             "SetIstMode task",
-                                                            err.message()));
+                                                            ec4.message()));
                                                 taskData->finishTask();
                                                 return task::completed;
                                             }
@@ -257,16 +257,15 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                                     "Did not receive an ISTMode Status value");
                                                 return !task::completed;
                                             }
-                                            auto value =
+                                            auto* value =
                                                 std::get_if<std::string>(
                                                     &(it->second));
-                                            if (!value)
+                                            if (value == nullptr)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "Received ISTMode Status is not a string");
                                                 return !task::completed;
                                             }
-                                            std::string propName = "ISTMode";
                                             auto mode =
                                                 dbus_utils::toIstmgrStatus(
                                                     *value);

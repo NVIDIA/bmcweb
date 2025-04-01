@@ -375,41 +375,6 @@ class Connection :
             handler->handleUpgrade(req, asyncResp, std::move(adaptor));
             return;
         }
-        std::string url(req->target());
-        std::size_t dumpPos = url.rfind("Dump");
-
-        if constexpr (BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG)
-        {
-            if (dumpPos == std::string::npos)
-            {
-                dumpPos = url.rfind("FaultLog");
-            }
-        }
-
-        std::size_t attachmentPos = url.rfind("attachment");
-        std::size_t satellitesPos = std::string::npos;
-
-        if constexpr (BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG)
-        {
-            if (dumpPos == std::string::npos)
-            {
-                dumpPos = url.rfind("FaultLog");
-            }
-        }
-
-        if constexpr (BMCWEB_REDFISH_AGGREGATION)
-        {
-            satellitesPos = url.rfind(BMCWEB_REDFISH_AGGREGATION_PREFIX);
-        }
-
-        if ((dumpPos != std::string::npos) &&
-            (attachmentPos != std::string::npos) &&
-            (satellitesPos == std::string::npos))
-        {
-            BMCWEB_LOG_DEBUG("upgrade stream connection");
-            handler->handleUpgrade(req, asyncResp, std::move(adaptor));
-            return;
-        }
 
         std::string_view expected =
             req->getHeaderValue(boost::beast::http::field::if_none_match);
@@ -787,13 +752,14 @@ class Connection :
         BMCWEB_LOG_DEBUG("{} doWrite", logPtr(this));
         ForceChunking chunked = ForceChunking::Disabled;
 
-        if constexpr (BMCWEB_BMCWEB_CHUNKING)
+        if constexpr (BMCWEB_HTTP_CHUNKING)
         {
             if (req && req->version() == 11)
             {
-                std::string_view accept_encodings = req->getHeaderValue(
-                    boost::beast::http::field::accept_encoding);
-                if (http_helpers::headerContains(accept_encodings, "chunked"))
+                std::string_view acceptEncodings = req->getHeaderValue(
+                    boost::beast::http::field::
+                        accept_encoding); // NOLINTNEXTLINE(readability-identifier-naming)
+                if (http_helpers::headerContains(acceptEncodings, "chunked"))
                 {
                     chunked = ForceChunking::Enabled;
                 }
@@ -857,16 +823,14 @@ class Connection :
 
     void startDeadline()
     {
-        cancelDeadlineTimer();
-
-        std::chrono::seconds timeout(BMCWEB_BMCWEB_RESPONSE_TIMEOUT);
-        // allow slow uploads for logged in users
-        bool loggedIn = userSession != nullptr;
-        if (loggedIn)
+        // Timer is already started so no further action is required.
+        if (timerStarted)
         {
-            timeout = std::chrono::seconds(BMCWEB_BMCWEB_RESPONSE_TIMEOUT);
             return;
         }
+
+        std::chrono::seconds timeout(BMCWEB_HTTP_RESPONSE_TIMEOUT);
+
         std::weak_ptr<Connection<Adaptor, Handler>> weakSelf = weak_from_this();
         timer.expires_after(timeout);
         timer.async_wait(std::bind_front(&self_type::afterTimerWait, this,
@@ -884,9 +848,9 @@ class Connection :
      * @param[in] req - The request object
      * @return std::string - The user name
      */
-    std::string getUser(crow::Request& req)
+    std::string getUser(crow::Request& reqIn)
     {
-        std::string_view authHeader = req.getHeaderValue("Authorization");
+        std::string_view authHeader = reqIn.getHeaderValue("Authorization");
         if (!authHeader.starts_with("Basic "))
         {
             return {};

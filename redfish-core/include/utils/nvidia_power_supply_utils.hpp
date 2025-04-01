@@ -127,7 +127,7 @@ inline void getNvidiaPowerSupplyMetrics(
                                 {
                                     const double* attributeValue =
                                         std::get_if<double>(&it->second);
-                                    if (attributeValue)
+                                    if (attributeValue != nullptr)
                                     {
                                         std::vector<std::string> split;
                                         boost::algorithm::split(

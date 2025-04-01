@@ -48,7 +48,7 @@ enum EMMCServiceExitCodes
 };
 
 /* EMMC Service error mapping */
-static std::unordered_map<ExitCode, ErrorMapping> emmcServiceErrorMapping = {
+static const std::unordered_map<ExitCode, ErrorMapping> emmcServiceErrorMapping = {
     {emmcInitFail,
      {"PersistentStorage Initialization Failure",
       "Reset the baseboard and retry the operation."}},
@@ -79,13 +79,12 @@ inline std::optional<ErrorMapping> getEMMCErrorMessageFromExitCode(
 {
     if (emmcServiceErrorMapping.find(exitCode) != emmcServiceErrorMapping.end())
     {
-        return emmcServiceErrorMapping[exitCode];
+        auto it = emmcServiceErrorMapping.find(exitCode);
+        return it->second;
     }
-    else
-    {
-        BMCWEB_LOG_ERROR("No mapping found for ExitCode: {}", exitCode);
-        return std::nullopt;
-    }
+
+    BMCWEB_LOG_ERROR("No mapping found for ExitCode: {}", exitCode);
+    return std::nullopt;
 }
 
 using AsyncResponseCallback = std::function<void(
@@ -105,10 +104,10 @@ struct PersistentStorageUtil
      * @param command
      * @param respCallback
      */
-    void executeEnvCommand(const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& command,
-                           AsyncResponseCallback responseCallback)
+    static void executeEnvCommand(
+        const crow::Request& req,
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        const std::string& command, AsyncResponseCallback responseCallback)
     {
         auto dataOut = std::make_shared<boost::process::ipstream>();
         auto dataErr = std::make_shared<boost::process::ipstream>();
@@ -118,7 +117,7 @@ struct PersistentStorageUtil
                                 int errorCode) mutable {
             std::string stdOut;
             std::string stdErr;
-            if (ec || errorCode)
+            if (ec || (errorCode != 0))
             {
                 BMCWEB_LOG_ERROR(
                     "Error while executing persistent storage command: {} Error Code: {}",
@@ -167,7 +166,7 @@ inline void populatePersistentStorageSettingStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const std::variant<int32_t>& property) {
             if (ec)
             {

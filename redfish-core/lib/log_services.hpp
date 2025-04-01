@@ -314,7 +314,7 @@ inline void parseDumpEntryFromDbusObject(
         {
             const std::string* type = nullptr;
             const std::string* additionalTypeName = nullptr;
-            for (auto& propertyMap : interfaceMap.second)
+            for (const auto& propertyMap : interfaceMap.second)
             {
                 if (propertyMap.first == "Type")
                 {
@@ -356,7 +356,7 @@ inline void parseDumpEntryFromDbusObject(
             const std::string* pcieSecondaryBusNumberPtr = nullptr;
             const std::string* pcieSlotNumberPtr = nullptr;
 
-            for (auto& propertyMap : interfaceMap.second)
+            for (const auto& propertyMap : interfaceMap.second)
             {
                 if (propertyMap.first == "FRU_ID")
                 {
@@ -1226,17 +1226,20 @@ inline void downloadEntryCallback(
     }
     if (downloadEntryType == "System")
     {
-        if (!asyncResp->res.openFd(fd, bmcweb::EncodingType::Base64))
+        if constexpr (BMCWEB_SYSTEM_DUMP_BASE64_ENCODE)
         {
-            messages::internalError(asyncResp->res);
-            close(fd);
+            if (!asyncResp->res.openFd(fd, bmcweb::EncodingType::Base64))
+            {
+                messages::internalError(asyncResp->res);
+                close(fd);
+                return;
+            }
+            asyncResp->res.addHeader(
+                boost::beast::http::field::content_transfer_encoding, "Base64");
             return;
         }
-        asyncResp->res.addHeader(
-            boost::beast::http::field::content_transfer_encoding, "Base64");
-        return;
     }
-    else if (downloadEntryType == "FDR")
+    if (downloadEntryType == "FDR")
     {
         if (!asyncResp->res.openFd(fd, bmcweb::EncodingType::Raw))
         {
@@ -1261,7 +1264,7 @@ inline void downloadDumpEntry(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& entryID, const std::string& dumpType)
 {
-    if (dumpType != "BMC")
+    if (dumpType != "BMC" && dumpType != "System")
     {
         BMCWEB_LOG_WARNING("Can't find Dump Entry {}", entryID);
         messages::resourceNotFound(asyncResp->res, dumpType + " dump", entryID);
@@ -1570,69 +1573,76 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     if (dumpType == "System")
     {
-        // Decode oemDiagnosticDataType string format
-        createDumpParamVec = parseOEMAdditionalData(*oemDiagnosticDataType);
-
-        if (!oemDiagnosticDataType || !diagnosticDataType)
+        if (oemDiagnosticDataType)
         {
-            BMCWEB_LOG_ERROR(
-                "CreateDump action parameter 'DiagnosticDataType'/'OEMDiagnosticDataType' value not found!");
-            messages::actionParameterMissing(
-                asyncResp->res, "CollectDiagnosticData",
-                "DiagnosticDataType & OEMDiagnosticDataType");
-            return;
-        }
+            // Decode oemDiagnosticDataType string format
+            createDumpParamVec = parseOEMAdditionalData(*oemDiagnosticDataType);
 
-        if (*diagnosticDataType != "OEM")
-        {
-            BMCWEB_LOG_ERROR("Wrong parameter values passed");
-            messages::actionParameterValueError(
-                asyncResp->res, "DiagnosticDataType",
-                "LogService.CollectDiagnosticData");
-            return;
-        }
-
-        if constexpr (BMCWEB_CHECK_OEM_DIAGNOSTIC_TYPE)
-        {
-            bool isValidParam = false;
-            for (const auto& dumpPara : createDumpParamVec)
+            if (!oemDiagnosticDataType || !diagnosticDataType)
             {
-                if (dumpPara.first == "DiagnosticType")
-                {
-                    const std::string* oemDiagType =
-                        std::get_if<std::string>(&dumpPara.second);
-                    if (oemDiagType == nullptr)
-                    {
-                        continue;
-                    }
-                    auto it = std::ranges::find(
-                        BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE, *oemDiagType);
-                    if (it !=
-                        std::ranges::end(BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE))
-                    {
-                        isValidParam = true;
-                        break;
-                    }
-                }
+                BMCWEB_LOG_ERROR(
+                    "CreateDump action parameter 'DiagnosticDataType'/'OEMDiagnosticDataType' value not found!");
+                messages::actionParameterMissing(
+                    asyncResp->res, "CollectDiagnosticData",
+                    "DiagnosticDataType & OEMDiagnosticDataType");
+                return;
             }
 
-            if (isValidParam == false)
+            if (*diagnosticDataType != "OEM")
             {
                 BMCWEB_LOG_ERROR("Wrong parameter values passed");
                 messages::actionParameterValueError(
-                    asyncResp->res, "OEMDiagnosticDataType",
+                    asyncResp->res, "DiagnosticDataType",
                     "LogService.CollectDiagnosticData");
                 return;
             }
-        }
 
+            if constexpr (BMCWEB_CHECK_OEM_DIAGNOSTIC_TYPE)
+            {
+                bool isValidParam = false;
+                for (const auto& dumpPara : createDumpParamVec)
+                {
+                    if (dumpPara.first == "DiagnosticType")
+                    {
+                        const std::string* oemDiagType =
+                            std::get_if<std::string>(&dumpPara.second);
+                        if (oemDiagType == nullptr)
+                        {
+                            continue;
+                        }
+                        const auto* it = std::ranges::find(
+                            BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE, *oemDiagType);
+                        if (it != std::ranges::end(
+                                      BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE))
+                        {
+                            isValidParam = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!isValidParam)
+                {
+                    BMCWEB_LOG_ERROR("Wrong parameter values passed");
+                    messages::actionParameterValueError(
+                        asyncResp->res, "OEMDiagnosticDataType",
+                        "LogService.CollectDiagnosticData");
+                    return;
+                }
+            }
+        }
         dumpPath = std::format("/redfish/v1/Systems/{}/LogServices/Dump/",
                                BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
     else if (dumpType == "FDR")
     {
         // Decode oemDiagnosticDataType string format
-        createDumpParamVec = parseOEMAdditionalData(*oemDiagnosticDataType);
+        if (!oemDiagnosticDataType)
+        {
+            messages::propertyMissing(asyncResp->res, "OemDiagnosticDataType");
+            return;
+        }
+        createDumpParamVec = parseOEMAdditionalData(oemDiagnosticDataType.value());
 
         if (!oemDiagnosticDataType || !diagnosticDataType)
         {
@@ -1670,7 +1680,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 }
             }
 
-            if (isValidParam == false)
+            if (!isValidParam)
             {
                 BMCWEB_LOG_ERROR("Wrong parameter values passed");
                 messages::actionParameterValueError(
@@ -1726,7 +1736,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     crow::connections::systemBus->async_method_call(
         [asyncResp, payload(task::Payload(req)), dumpPath,
          oemDiagnosticDataType](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const sdbusplus::message::message& msg,
             const sdbusplus::message::object_path& objPath) mutable {
             if (ec)
@@ -3074,6 +3084,24 @@ inline void handleLogServicesDumpEntryDownloadGet(
     downloadDumpEntry(asyncResp, dumpId, dumpType);
 }
 
+inline void handleLogServicesSystemDumpEntryDownloadGet(
+    crow::App& app, const std::string& dumpType, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemId, const std::string& dumpId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    if (systemId != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "System", systemId);
+        return;
+    }
+    downloadDumpEntry(asyncResp, dumpId, dumpType);
+}
+
 inline void handleDBusEventLogEntryDownloadGet(
     crow::App& app, const std::string& dumpType, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -3219,6 +3247,17 @@ inline void requestRoutesBMCDumpEntryDownload(App& app)
         .privileges(redfish::privileges::getLogEntry)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleLogServicesDumpEntryDownloadGet, std::ref(app), "BMC"));
+}
+
+inline void requestRoutesSystemDumpEntryDownload(App& app)
+{
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/<str>/attachment/")
+        .privileges(redfish::privileges::getLogEntry)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleLogServicesSystemDumpEntryDownloadGet,
+                            std::ref(app), "System"));
 }
 
 inline void requestRoutesBMCDumpCreate(App& app)

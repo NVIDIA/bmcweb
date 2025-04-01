@@ -229,7 +229,7 @@ inline void handleDiagModeGet(
             BMCWEB_LOG_DEBUG("Diag mode update done.");
             nlohmann::json& json = asyncResp->res.jsonValue;
             bool diagMode = std::get<bool>(resp);
-            if (diagMode == 0)
+            if (static_cast<int>(diagMode) == 0)
             {
                 json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]["DiagMode"] =
                     false;
@@ -256,7 +256,7 @@ inline bool initDiagStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     std::variant<std::uint8_t> variantData = diagStatus;
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec) {
+        [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec);
@@ -284,7 +284,7 @@ inline bool clearDiagResult(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     std::variant<std::string> variantData = jsonString;
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec) {
+        [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec);
@@ -325,6 +325,8 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     if (propStr == "Enable"s)
     {
         val = true;
+        // Suppress warning about system() call
+        // NOLINTNEXTLINE(cert-env33-c)
         auto r = system(startupDiagTimerString.c_str());
         if (r != 0)
         {
@@ -337,6 +339,8 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         val = false;
         clearDiagResult(aResp);
         initDiagStatus(aResp);
+        // Suppress warning about system() call
+        // NOLINTNEXTLINE(cert-env33-c)
         auto r = system(stopDiagTimerString.c_str());
         if (r != 0)
         {
@@ -351,7 +355,7 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     }
     bool value = val.value();
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec) {
+        [aResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec);
@@ -461,7 +465,7 @@ inline bool handleDiagSysConfigPostReq(
     std::variant<std::string> variantData = jsonString;
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec) {
+        [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec);
@@ -598,7 +602,7 @@ inline bool handleDiagTidConfigPostReq(
     std::variant<std::string> variantData = jsonString;
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec) {
+        [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec);

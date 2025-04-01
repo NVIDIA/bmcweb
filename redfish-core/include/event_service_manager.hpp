@@ -149,7 +149,7 @@ class EventServiceManager
         }
         if constexpr (BMCWEB_REDFISH_AGGREGATION)
         {
-            redfish::subscribeSatBmc::getInstance().createSubscribeTimer();
+            redfish::SubscribeSatBmc::getInstance().createSubscribeTimer();
 
             if (getNumberOfSubscriptions() > 0)
             {
@@ -332,6 +332,17 @@ class EventServiceManager
         {
             serviceEnabled = cfg.enabled;
             updateConfig = true;
+            if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
+            {
+                // Send an DsEvent for session creation
+                DsEvent event =
+                    redfish::EventUtil::createEventPropertyModified(
+                            "ServiceEnabled",
+                            std::to_string(static_cast<int>(serviceEnabled)),
+                            "EventService");
+                redfish::EventServiceManager::getInstance().sendEventWithOOC(
+                    std::string(url), event);
+            }            
         }
 
         if (retryAttempts != cfg.retryAttempts)
@@ -343,8 +354,7 @@ class EventServiceManager
             {
                 // Send an DsEvent for property change
                 DsEvent event =
-                    redfish::EventUtil::getInstance()
-                        .createEventPropertyModified(
+                    redfish::EventUtil::createEventPropertyModified(
                             "DeliveryRetryAttempts",
                             std::to_string(retryAttempts), "EventService");
                 redfish::EventServiceManager::getInstance().sendEventWithOOC(
@@ -360,8 +370,7 @@ class EventServiceManager
             if constexpr (BMCWEB_REDFISH_DBUS_LOG)
             {
                 // Send an event for property change
-                DsEvent event = redfish::EventUtil::getInstance()
-                                    .createEventPropertyModified(
+                DsEvent event = redfish::EventUtil::createEventPropertyModified(
                                         "DeliveryRetryIntervalSeconds",
                                         std::to_string(retryTimeoutInterval),
                                         "EventService");
@@ -798,11 +807,9 @@ class EventServiceManager
                 BMCWEB_LOG_DEBUG("Filter didn't match");
                 continue;
             }
-            std::string strMsg =
-                nlohmann::json(std::move(msg))
-                    .dump(2, ' ', true,
-                          nlohmann::json::error_handler_t::replace);
-            entry->sendEventToSubscriber(eventId, std::move(strMsg));
+            std::string strMsg = nlohmann::json(msg).dump(
+                2, ' ', true, nlohmann::json::error_handler_t::replace);
+            entry->sendEventToSubscriber(std::move(strMsg));
         }
         eventId++; // increament the eventId
     }

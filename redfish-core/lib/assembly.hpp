@@ -73,7 +73,7 @@ inline void updateAssemblies(
     // Get interface properties
     crow::connections::systemBus->async_method_call(
         [asyncResp{asyncResp}, chassisId, memberId, objPath](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<
                 std::pair<std::string, std::variant<std::string, uint64_t>>>&
                 propertiesList) {
@@ -243,8 +243,8 @@ inline void requestAssemblyRoutes(App& app)
             // Get chassis collection
             crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisId(std::string(chassisId))](
-                    const boost::system::error_code ec,
-                    const crow::openbmc_mapper::GetSubTreeType& subtree) {
+                    const boost::system::error_code& ec,
+                    const dbus::utility::GetSubTreeType& subtree) {
                     if (ec)
                     {
                         BMCWEB_LOG_DEBUG("DBUS response error");
@@ -267,7 +267,7 @@ inline void requestAssemblyRoutes(App& app)
                         {
                             continue;
                         }
-                        if (connectionNames.size() < 1)
+                        if (connectionNames.empty())
                         {
                             std::cerr << "Got 0 Connection names";
                             continue;
@@ -286,26 +286,26 @@ inline void requestAssemblyRoutes(App& app)
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, path, chassisId(std::string(chassisId)),
                              connectionName](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code& ec1,
                                 std::variant<std::vector<std::string>>& resp) {
                                 const std::array<const char*, 1> assemblyIntf = {
                                     "xyz.openbmc_project.Inventory.Item.Assembly"};
-                                if (ec)
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "Chassis and assembly are not connected through association. ec : {}",
-                                        ec);
+                                        ec1);
 
                                     crow::connections::systemBus
                                         ->async_method_call(
                                             [asyncResp,
                                              chassisId(std::string(chassisId)),
                                              connectionName](
-                                                const boost::system::error_code
-                                                    ec,
+                                                const boost::system::error_code&
+                                                    ec2,
                                                 const std::vector<std::string>&
                                                     assemblyList) {
-                                                if (ec)
+                                                if (ec2)
                                                 {
                                                     BMCWEB_LOG_DEBUG(
                                                         "DBUS response error");
@@ -335,54 +335,47 @@ inline void requestAssemblyRoutes(App& app)
                                     return;
                                 }
 
-                                else
-                                {
-                                    std::vector<std::string>* assemblyList =
-                                        std::get_if<std::vector<std::string>>(
-                                            &resp);
+                                std::vector<std::string>* assemblyList =
+                                    std::get_if<std::vector<std::string>>(
+                                        &resp);
 
-                                    for (const std::string& assembly :
-                                         *assemblyList)
-                                    {
-                                        BMCWEB_LOG_DEBUG(
-                                            "Found Assembly Path, {}",
-                                            assembly);
-                                        asyncResp->res.jsonValue["Assemblies"] =
-                                            nlohmann::json::array();
-                                        crow::connections::systemBus->async_method_call(
+                                for (const std::string& assembly :
+                                     *assemblyList)
+                                {
+                                    BMCWEB_LOG_DEBUG("Found Assembly Path, {}",
+                                                     assembly);
+                                    asyncResp->res.jsonValue["Assemblies"] =
+                                        nlohmann::json::array();
+                                    crow::connections::systemBus
+                                        ->async_method_call(
                                             [asyncResp, assembly,
                                              chassisId(std::string(chassisId))](
-                                                const boost::system::error_code
-                                                    errorCode,
+                                                const boost::system::error_code&
+                                                    ec2,
                                                 const std::vector<std::pair<
                                                     std::string,
                                                     std::vector<std::string>>>&
                                                     objInfo) mutable {
-                                                if (errorCode)
+                                                if (ec2)
                                                 {
                                                     BMCWEB_LOG_ERROR(
-                                                        "error_code = {}",
-                                                        errorCode);
+                                                        "error_code = {}", ec2);
 
                                                     messages::internalError(
                                                         asyncResp->res);
 
                                                     return;
                                                 }
-                                                else
-                                                {
-                                                    updateAssemblies(
-                                                        asyncResp,
-                                                        objInfo[0].first,
-                                                        assembly, chassisId);
-                                                }
+
+                                                updateAssemblies(
+                                                    asyncResp, objInfo[0].first,
+                                                    assembly, chassisId);
                                             },
                                             "xyz.openbmc_project.ObjectMapper",
                                             "/xyz/openbmc_project/object_mapper",
                                             "xyz.openbmc_project.ObjectMapper",
                                             "GetObject", assembly,
                                             assemblyIntf);
-                                    }
                                 }
                             },
                             "xyz.openbmc_project.ObjectMapper",

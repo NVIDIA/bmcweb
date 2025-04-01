@@ -92,9 +92,9 @@ inline void enableTLSAuth()
             std::filesystem::create_directory(dropinDir);
         }
         std::ofstream out(confPath.string());
-        out << "[Socket]" << std::endl;
-        out << "ListenStream=" << std::endl;    // disable port 80
-        out << "ListenStream=443" << std::endl; // enable port 443
+        out << "[Socket]" << '\n';
+        out << "ListenStream=" << '\n'; // disable port 80
+        out << "ListenStream=443" << '\n'; // enable port 443
     }
     catch (const std::exception& e)
     {
@@ -178,17 +178,17 @@ inline void doBMCGracefulShutdown(
 // convert sync command input request data to raw datain
 inline uint32_t formatSyncDataIn(std::vector<std::string>& data)
 {
-    size_t found;
+    size_t found = 0;
     std::string dataStr;
     uint32_t dataIn = 0;
-    for (auto it = data.rbegin(); it != data.rend(); ++it)
+    for (auto& it : std::ranges::reverse_view(data))
     {
-        found = (*it).find(hexPrefix);
+        found = it.find(hexPrefix);
         if (found != std::string::npos)
         {
-            (*it).erase(found, hexPrefix.length());
+            it.erase(found, hexPrefix.length());
         }
-        dataStr.append(*it);
+        dataStr.append(it);
     }
 
     try
@@ -218,12 +218,12 @@ inline uint32_t formatSyncDataIn(std::vector<std::string>& data)
 inline void executeRawSynCommand(
     const std::shared_ptr<bmcweb::AsyncResp>& resp,
     const std::string& serviceName, const std::string& objPath,
-    const std::string& Type, uint8_t id, uint8_t opCode, uint8_t arg1,
+    const std::string& type, uint8_t id, uint8_t opCode, uint8_t arg1,
     uint8_t arg2, uint32_t dataIn, uint32_t extDataIn)
 {
     BMCWEB_LOG_DEBUG("executeRawSynCommand fn");
     crow::connections::systemBus->async_method_call(
-        [resp, Type,
+        [resp, type,
          id](boost::system::error_code ec, sdbusplus::message::message& msg,
              const std::tuple<int, uint32_t, uint32_t, uint32_t>& res) {
             if (!ec)
@@ -271,21 +271,21 @@ inline void executeRawSynCommand(
             return;
         },
         serviceName, objPath, "com.nvidia.Protocol.SMBPBI.Raw", "SyncCommand",
-        Type, id, opCode, arg1, arg2, dataIn, extDataIn);
+        type, id, opCode, arg1, arg2, dataIn, extDataIn);
 }
 
 // function to convert dataInbyte array to dataIn uint32 vector
 inline std::vector<std::uint32_t> formatAsyncDataIn(
     std::vector<std::string>& asynDataInBytes)
 {
-    size_t j;
-    size_t found;
+    size_t j = 0;
+    size_t found = 0;
     std::string temp;
     std::vector<std::uint32_t> asyncDataIn;
     auto dataInSize = asynDataInBytes.size();
     try
     {
-        if (dataInSize)
+        if (dataInSize != 0U)
         {
             for (size_t i = 0; i < dataInSize; i++)
             {
@@ -336,12 +336,12 @@ inline std::vector<std::uint32_t> formatAsyncDataIn(
 inline void executeRawAsynCommand(
     const std::shared_ptr<bmcweb::AsyncResp>& resp,
     const std::string& serviceName, const std::string& objPath,
-    const std::string& Type, uint8_t id, uint8_t argRaw,
+    const std::string& type, uint8_t id, uint8_t argRaw,
     const std::vector<uint32_t>& asyncDataInRaw, uint32_t requestedDataOutBytes)
 {
     BMCWEB_LOG_DEBUG("executeRawAsynCommand fn");
     crow::connections::systemBus->async_method_call(
-        [resp, Type, requestedDataOutBytes,
+        [resp, type, requestedDataOutBytes,
          id](boost::system::error_code ec, sdbusplus::message::message& msg,
              const std::tuple<int, uint32_t, uint32_t, std::vector<uint32_t>>&
                  res) {
@@ -409,13 +409,13 @@ inline void executeRawAsynCommand(
             return;
         },
         serviceName, objPath, "com.nvidia.Protocol.SMBPBI.Raw", "AsyncCommand",
-        Type, id, argRaw, asyncDataInRaw, requestedDataOutBytes);
+        type, id, argRaw, asyncDataInRaw, requestedDataOutBytes);
 }
 
 inline void getDbusSelCapacity(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    auto respHandler = [asyncResp](const boost::system::error_code ec,
+    auto respHandler = [asyncResp](const boost::system::error_code& ec,
                                    const std::variant<size_t>& capacity) {
         if (ec.value() == EBADR)
         {
@@ -447,7 +447,7 @@ inline void getDbusSelCapacity(
 inline void setDbusSelCapacity(
     size_t capacity, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    auto respHandler = [asyncResp](const boost::system::error_code ec) {
+    auto respHandler = [asyncResp](const boost::system::error_code& ec) {
         if (ec.value() == EBADR)
         {
             messages::resourceNotFound(asyncResp->res,
@@ -483,7 +483,7 @@ inline void getManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     BMCWEB_LOG_DEBUG("Get manager service state.");
 
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const std::vector<std::pair<
                     std::string, std::variant<std::string>>>& propertiesList) {
             if (ec)
@@ -538,7 +538,7 @@ inline void getBMCAssetData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 {
     BMCWEB_LOG_DEBUG("Get BMC manager asset data.");
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const std::vector<std::pair<
                     std::string, std::variant<std::string>>>& propertiesList) {
             if (ec)
@@ -601,7 +601,7 @@ inline void getServiceIdentification(
         *crow::connections::systemBus, "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/Software/Settings/ServiceIdentification",
         "xyz.openbmc_project.Inventory.Decorator.AssetTag", "AssetTag",
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const std::string& sysId) {
             if (ec)
             {
@@ -618,7 +618,7 @@ inline void getLinkManagerForSwitches(
     const std::string& objPath)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -638,9 +638,9 @@ inline void getLinkManagerForSwitches(
                 std::string fabricId = path.filename();
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, fabric,
-                     fabricId](const boost::system::error_code ec,
+                     fabricId](const boost::system::error_code& ec2,
                                const GetSubTreeType& subtree) {
-                        if (ec)
+                        if (ec2)
                         {
                             messages::internalError(asyncResp->res);
                         }
@@ -653,9 +653,9 @@ inline void getLinkManagerForSwitches(
                                      std::string, std::vector<std::string>>>>&
                                  object : subtree)
                         {
-                            const std::string& path = object.first;
-                            sdbusplus::message::object_path objPath(path);
-                            std::string switchId = objPath.filename();
+                            const std::string& pathStr = object.first;
+                            sdbusplus::message::object_path switchPath(pathStr);
+                            std::string switchId = switchPath.filename();
                             std::string managerUri = "/redfish/v1/Fabrics/";
                             managerUri += fabricId + "/Switches/";
                             managerUri += switchId;
@@ -680,7 +680,7 @@ inline void getFencingPrivilege(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -689,7 +689,7 @@ inline void getFencingPrivilege(
             }
             for (const auto& [objectPath, serviceMap] : subtree)
             {
-                if (serviceMap.size() < 1)
+                if (serviceMap.empty())
                 {
                     BMCWEB_LOG_ERROR("Got 0 service "
                                      "names");
@@ -700,15 +700,15 @@ inline void getFencingPrivilege(
                 // Get SMBPBI Fencing Privilege
                 crow::connections::systemBus->async_method_call(
                     [asyncResp](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& getPropertyError,
                         const std::vector<std::pair<
                             std::string, std::variant<std::string, uint8_t>>>&
                             propertiesList) {
-                        if (ec)
+                        if (getPropertyError)
                         {
                             BMCWEB_LOG_ERROR(
                                 "DBUS response error: Unable to get the smbpbi fencing privilege {}",
-                                ec);
+                                getPropertyError);
                             messages::internalError(asyncResp->res);
                         }
 
@@ -768,7 +768,7 @@ inline void patchFencingPrivilege(
 
     // Set the property, with handler to check error responses
     crow::connections::systemBus->async_method_call(
-        [resp, privilegeType](boost::system::error_code ec,
+        [resp, privilegeType](boost::system::error_code& ec,
                               sdbusplus::message::message& msg) {
             if (!ec)
             {
@@ -827,7 +827,7 @@ inline void getIsCommandShellEnable(
         *crow::connections::systemBus, "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/ipmi/sol/eth0", "xyz.openbmc_project.Ipmi.SOL",
         "Enable",
-        [asyncResp](const boost::system::error_code ec, const bool& isEnable) {
+        [asyncResp](const boost::system::error_code& ec, const bool& isEnable) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG(
@@ -848,9 +848,8 @@ inline void sendRestartEvent(const crow::Request& req, std::string& resetType)
         if constexpr (BMCWEB_REDFISH_DBUS_LOG)
         {
             // Send an event for Manager Reset
-            DsEvent event =
-                redfish::EventUtil::getInstance().createEventRebootReason(
-                    "ManagerReset", "Managers");
+            DsEvent event = redfish::EventUtil::createEventRebootReason(
+                "ManagerReset", "Managers");
             redfish::EventServiceManager::getInstance().sendEventWithOOC(
                 std::string(req.target()), event);
         }
@@ -862,9 +861,8 @@ inline void sendFactoryResetEvent(const crow::Request& req)
     if constexpr (BMCWEB_REDFISH_DBUS_LOG)
     {
         // Send an event for reset to defaults
-        DsEvent event =
-            redfish::EventUtil::getInstance().createEventRebootReason(
-                "FactoryReset", "Managers");
+        DsEvent event = redfish::EventUtil::createEventRebootReason(
+            "FactoryReset", "Managers");
         redfish::EventServiceManager::getInstance().sendEventWithOOC(
             std::string(req.target()), event);
     }
@@ -1099,7 +1097,8 @@ inline void requestRouteSyncRawOobCommand(App& app)
                     return;
                 }
 
-                if ((dataIn) && ((*dataIn).size()))
+                if ((dataIn) &&
+                    (static_cast<unsigned int>(!(*dataIn).empty()) != 0U))
                 {
                     try
                     {
@@ -1114,7 +1113,8 @@ inline void requestRouteSyncRawOobCommand(App& app)
                     }
                 }
 
-                if ((extDataIn) && ((*extDataIn).size()))
+                if ((extDataIn) &&
+                    (static_cast<unsigned int>(!(*extDataIn).empty()) != 0U))
                 {
                     try
                     {
@@ -1149,7 +1149,7 @@ inline void requestRouteSyncRawOobCommand(App& app)
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, targetType, targetId, opCodeRaw, arg1Raw,
                      arg2Raw, dataInRaw,
-                     extDataInRaw](const boost::system::error_code ec,
+                     extDataInRaw](const boost::system::error_code& ec,
                                    const MapperGetSubTreeResponse& subtree) {
                         if (ec)
                         {
@@ -1160,7 +1160,7 @@ inline void requestRouteSyncRawOobCommand(App& app)
                         }
                         for (const auto& [objectPath, serviceMap] : subtree)
                         {
-                            if (serviceMap.size() < 1)
+                            if (serviceMap.empty())
                             {
                                 BMCWEB_LOG_ERROR("No service Present");
                                 messages::internalError(asyncResp->res);
@@ -1215,7 +1215,8 @@ inline void requestRouteAsyncRawOobCommand(App& app)
                     return;
                 }
 
-                if ((asynDataIn) && ((*asynDataIn).size()))
+                if ((asynDataIn) &&
+                    (static_cast<unsigned int>(!(*asynDataIn).empty()) != 0U))
                 {
                     try
                     {
@@ -1244,7 +1245,7 @@ inline void requestRouteAsyncRawOobCommand(App& app)
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, targetType, targetId, argRaw, asyncDataInRaw,
                      requestedDataOutBytes](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const MapperGetSubTreeResponse& subtree) {
                         if (ec)
                         {
@@ -1255,7 +1256,7 @@ inline void requestRouteAsyncRawOobCommand(App& app)
                         }
                         for (const auto& [objectPath, serviceMap] : subtree)
                         {
-                            if (serviceMap.size() < 1)
+                            if (serviceMap.empty())
                             {
                                 BMCWEB_LOG_ERROR("No service Present");
                                 messages::internalError(asyncResp->res);
@@ -1285,7 +1286,7 @@ inline void handleGenericManager(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, managerId](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string,
                 std::vector<std::pair<std::string, std::vector<std::string>>>>>&
@@ -1310,7 +1311,7 @@ inline void handleGenericManager(
                 {
                     continue;
                 }
-                if (connectionNames.size() < 1)
+                if (connectionNames.empty())
                 {
                     BMCWEB_LOG_ERROR("Got 0 Connection names");
                     continue;
@@ -1381,7 +1382,6 @@ inline void handleGenericManager(
         "/xyz/openbmc_project/inventory", int32_t(0),
         std::array<const char*, 1>{"xyz.openbmc_project.Inventory."
                                    "Item.ManagementService"});
-    return;
 }
 
 inline void extendManagerPatch(
@@ -1428,7 +1428,7 @@ inline void extendManagerPatchOEM(
             {
                 crow::connections::systemBus->async_method_call(
                     [asyncResp,
-                     privilege](const boost::system::error_code ec,
+                     privilege](const boost::system::error_code& ec,
                                 const MapperGetSubTreeResponse& subtree) {
                         if (ec)
                         {
@@ -1437,7 +1437,7 @@ inline void extendManagerPatchOEM(
                         }
                         for (const auto& [objectPath, serviceMap] : subtree)
                         {
-                            if (serviceMap.size() < 1)
+                            if (serviceMap.empty())
                             {
                                 BMCWEB_LOG_ERROR("Got 0 service "
                                                  "names");
@@ -1511,8 +1511,8 @@ inline void extendManagerGet(
     }
     if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
     {
-        redfish::conditions_utils::populateServiceConditions(
-            asyncResp, std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
+        redfish::conditions_utils::populateServiceConditions(asyncResp,
+                                                             managerId);
     }
 
     if constexpr (BMCWEB_HOST_IFACE)
@@ -1535,7 +1535,7 @@ inline void extendManagerGet(
     nlohmann::json::object_t manager;
     manager["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    managerForServers.push_back(std::move(manager));
+    managerForServers.emplace_back(std::move(manager));
 
     asyncResp->res.jsonValue["Links"]["ManagerForServers"] =
         std::move(managerForServers);
@@ -1553,7 +1553,7 @@ inline void extendManagerGet(
     // Get Managers Chassis ID
     crow::connections::systemBus->async_method_call(
         [asyncResp, managerId](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string,
                 std::vector<std::pair<std::string, std::vector<std::string>>>>>&
@@ -1591,11 +1591,13 @@ inline void extendManagerGet(
                         *crow::connections::systemBus,
                         "xyz.openbmc_project.ObjectMapper", path + "/chassis",
                         "xyz.openbmc_project.Association", "endpoints",
-                        [asyncResp](const boost::system::error_code ec,
-                                    const std::vector<std::string>& property) {
-                            if (ec)
+                        [asyncResp](
+                            const boost::system::error_code& getPropertyError,
+                            const std::vector<std::string>& property) {
+                            if (getPropertyError)
                             {
-                                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                                BMCWEB_LOG_ERROR("DBUS response error {}",
+                                                 getPropertyError);
                                 return; // no chassis = no failures
                             }
 
@@ -1666,7 +1668,7 @@ inline void extendManagerOEM(
                               std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                               "/Truststore/Certificates"}};
 
-        if constexpr (BMCWEB_NVIDIA_OEM_COMMON_PROPERTIES)
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
             oem["Nvidia"]["@odata.id"] =
                 "/redfish/v1/Managers/" +
@@ -1717,9 +1719,9 @@ inline void extendManagerOEM(
         const std::string prefix = "BUILD_DESC=";
         std::string descriptionContent;
         while (getline(buildDescriptionFile, line) &&
-               descriptionContent.size() == 0)
+               descriptionContent.empty())
         {
-            if (line.rfind(prefix, 0) == 0)
+            if (line.starts_with(prefix))
             {
                 descriptionContent = line.substr(prefix.size());
                 descriptionContent.erase(
@@ -1728,27 +1730,27 @@ inline void extendManagerOEM(
                     descriptionContent.end());
             }
         }
-        if (descriptionContent.rfind("debug-prov", 0) == 0)
+        if (descriptionContent.starts_with("debug-prov"))
         {
             buildType = "ProvisioningDebug";
         }
-        else if (descriptionContent.rfind("prod-prov", 0) == 0)
+        else if (descriptionContent.starts_with("prod-prov"))
         {
             buildType = "ProvisioningProduction";
         }
-        else if (descriptionContent.rfind("dev-prov", 0) == 0)
+        else if (descriptionContent.starts_with("dev-prov"))
         {
             buildType = "ProvisioningDevelopment";
         }
-        else if (descriptionContent.rfind("debug-platform", 0) == 0)
+        else if (descriptionContent.starts_with("debug-platform"))
         {
             buildType = "PlatformDebug";
         }
-        else if (descriptionContent.rfind("prod-platform", 0) == 0)
+        else if (descriptionContent.starts_with("prod-platform"))
         {
             buildType = "PlatformProduction";
         }
-        else if (descriptionContent.rfind("dev-platform", 0) == 0)
+        else if (descriptionContent.starts_with("dev-platform"))
         {
             buildType = "PlatformDevelopment";
         }

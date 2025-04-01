@@ -89,7 +89,7 @@ inline void addMetricReportMembers(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](boost::system::error_code ec,
+        [asyncResp](boost::system::error_code& ec,
                     const std::vector<std::string>& metricPaths) mutable {
             if (ec)
             {
@@ -230,7 +230,7 @@ inline void getSensorMap(
         *crow::connections::systemBus, serviceName, objectPath,
         "xyz.openbmc_project.Sensor.Aggregation", "SensorMetrics",
         [asyncResp, staleSensorUpperLimit,
-         requestTimestamp](const boost::system::error_code ec,
+         requestTimestamp](const boost::system::error_code& ec,
                            const sensorMap& sensorMetrics) {
             if (ec)
             {
@@ -321,7 +321,7 @@ inline void getPlatforMetricsFromSensorMap(
         "xyz.openbmc_project.Sensor.Aggregation",
         "BMCWEB_STALESENSOR_UPPER_LIMIT_MILISECOND",
         [asyncResp, objectPath, serviceName,
-         requestTimestamp](const boost::system::error_code ec,
+         requestTimestamp](const boost::system::error_code& ec,
                            const uint32_t& staleSensorUpperLimit) {
             if (ec)
             {
@@ -341,7 +341,7 @@ inline void getPlatformMetrics(
     const std::array<const char*, 1> interfaces = {
         "xyz.openbmc_project.Inventory.Item.Chassis"};
     auto respHandler = [asyncResp, requestTimestamp, chassisId](
-                           const boost::system::error_code ec,
+                           const boost::system::error_code& ec,
                            const std::vector<std::string>& chassisPaths) {
         if (ec)
         {
@@ -423,7 +423,7 @@ inline void getAggregatedDeviceMetrics(
             {
                 continue;
             }
-            std::string subDeviceName = "";
+            std::string subDeviceName;
             auto timeStampMap = timestampIterator->second;
             auto timestampPropertiesIterator = std::find_if(
                 timeStampMap.begin(), timeStampMap.end(),
@@ -599,7 +599,7 @@ inline void getManagedObjectForMetrics(
         metricDefinitionUri;
     crow::connections::systemBus->async_method_call(
         [asyncResp,
-         deviceType](const boost::system::error_code ec,
+         deviceType](const boost::system::error_code& ec,
                      const dbus::utility::ManagedObjectType& objects) {
             if (ec)
             {
@@ -676,15 +676,15 @@ inline void getPlatforMetrics(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& metricId, const uint64_t& requestTimestamp = 0)
 {
-    using MapperServiceMap =
+    using MapperServiceMapType =
         std::vector<std::pair<std::string, std::vector<std::string>>>;
 
     // Map of object paths to MapperServiceMaps
     using MapperGetSubTreeResponse =
-        std::vector<std::pair<std::string, MapperServiceMap>>;
+        std::vector<std::pair<std::string, MapperServiceMapType>>;
     crow::connections::systemBus->async_method_call(
         [asyncResp, metricId,
-         requestTimestamp](boost::system::error_code ec,
+         requestTimestamp](boost::system::error_code& ec,
                            const MapperGetSubTreeResponse& subtree) mutable {
             if (ec)
             {

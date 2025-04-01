@@ -73,9 +73,9 @@ inline void getStateSensorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             sdbusplus::asio::getProperty<std::string>(
                 *crow::connections::systemBus, service, path,
                 "com.nvidia.MemoryPerformance", "Value",
-                [aResp](const boost::system::error_code& ec,
+                [aResp](const boost::system::error_code& ec1,
                         const std::string& property) {
-                    populatePerformanceData(aResp, ec, property);
+                    populatePerformanceData(aResp, ec1, property);
                 });
         }
     }
@@ -101,9 +101,9 @@ inline void getStateSensorHandler(
         dbus::utility::getDbusObject(
             sensorPath,
             std::array<std::string_view, 1>{"com.nvidia.MemoryPerformance"},
-            [aResp, sensorPath](const boost::system::error_code& ec,
+            [aResp, sensorPath](const boost::system::error_code& ec1,
                                 const dbus::utility::MapperGetObject& object) {
-                getStateSensorData(aResp, sensorPath, ec, object);
+                getStateSensorData(aResp, sensorPath, ec1, object);
             });
     }
 }

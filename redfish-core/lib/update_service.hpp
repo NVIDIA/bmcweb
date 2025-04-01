@@ -55,6 +55,7 @@ static std::unique_ptr<sdbusplus::bus::match_t> fwUpdateMatcher;
 static std::unique_ptr<boost::asio::steady_timer> fwAvailableTimer;
 // match for logging
 constexpr auto fwObjectCreationDefaultTimeout = 40;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::unique_ptr<sdbusplus::bus::match::match> loggingMatch = nullptr;
 
 struct MemoryFileDescriptor
@@ -126,9 +127,9 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
     {
         if (interface.first == "xyz.openbmc_project.Logging.Entry")
         {
-            std::string rfMessage = "";
-            std::string resolution = "";
-            std::string messageNamespace = "";
+            std::string rfMessage;
+            std::string resolution;
+            std::string messageNamespace;
             std::vector<std::string> rfArgs;
             const std::vector<std::string>* vData = nullptr;
             for (auto& propertyMap : interface.second)
@@ -138,7 +139,7 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
                     vData = std::get_if<std::vector<std::string>>(
                         &propertyMap.second);
 
-                    for (auto& kv : *vData)
+                    for (const auto& kv : *vData)
                     {
                         std::vector<std::string> fields;
                         bmcweb::split(fields, kv, '=');
@@ -180,7 +181,7 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
                     redfish::messages::getUpdateMessage(rfMessage, rfArgs);
                 if (message.find("Message") != message.end())
                 {
-                    if (resolution != "")
+                    if (!resolution.empty())
                     {
                         message["Resolution"] = resolution;
                     }
@@ -204,7 +205,7 @@ inline void loggingMatchCallback(const std::shared_ptr<task::TaskData>& task,
     }
     handleLogMatchCallback(m, task->messages);
 }
-
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static nlohmann::json preTaskMessages = {};
 inline void preTaskLoggingHandler(sdbusplus::message_t& m)
 {
@@ -374,7 +375,7 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         [task](sdbusplus::message_t& msgLog) {
             loggingMatchCallback(task, msgLog);
         });
-    if (preTaskMessages.size() > 0)
+    if (!preTaskMessages.empty())
     {
         task->messages.insert(task->messages.end(), preTaskMessages.begin(),
                               preTaskMessages.end());
@@ -811,8 +812,7 @@ inline bool areTargetsInvalidOrUnupdatable(
             if (std::find(updateables.begin(), updateables.end(),
                           componentName) != updateables.end())
             {
-                validTargets.emplace_back(
-                    sdbusplus::message::object_path(softwarePath));
+                validTargets.emplace_back(softwarePath);
             }
             else
             {
@@ -845,13 +845,13 @@ inline void setOemUpdateOption(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, oemUpdateOption, callback](
-            const boost::system::error_code& errorCode,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) mutable {
-            if (errorCode)
+            if (ec)
             {
-                BMCWEB_LOG_ERROR("error_code = {}", errorCode);
-                BMCWEB_LOG_ERROR("error msg = {}", errorCode.message());
+                BMCWEB_LOG_ERROR("error_code = {}", ec);
+                BMCWEB_LOG_ERROR("error msg = {}", ec.message());
                 if (asyncResp)
                 {
                     messages::internalError(asyncResp->res);
@@ -889,11 +889,11 @@ inline void setOemUpdateOption(
                 "xyz.openbmc_project.Software.UpdatePolicy", "UpdateOption",
                 oemUpdateOptionNewVal,
                 [asyncResp, oemUpdateOption,
-                 callback](const boost::system::error_code& ec) {
-                    if (ec)
+                 callback](const boost::system::error_code& ec1) {
+                    if (ec1)
                     {
-                        BMCWEB_LOG_ERROR("error_code = {}", ec);
-                        BMCWEB_LOG_ERROR("error msg = {}", ec.message());
+                        BMCWEB_LOG_ERROR("error_code = {}", ec1);
+                        BMCWEB_LOG_ERROR("error msg = {}", ec1.message());
                         messages::internalError(asyncResp->res);
                     }
                     if (callback)
@@ -923,19 +923,18 @@ inline void setOemUpdateOption(
  * @return None
  */
 inline void validateUpdatePolicyCallback(
-    const boost::system::error_code& errorCode,
+    const boost::system::error_code& ec,
     const dbus::utility::MapperServiceMap& objInfo,
     const std::shared_ptr<const crow::Request>& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::vector<sdbusplus::message::object_path>& targets,
     const std::optional<std::string>& oemUpdateOption)
 {
-    if (errorCode)
+    if (ec)
     {
-        BMCWEB_LOG_ERROR("validateUpdatePolicyCallback:error_code = {}",
-                         errorCode);
+        BMCWEB_LOG_ERROR("validateUpdatePolicyCallback:error_code = {}", ec);
         BMCWEB_LOG_ERROR("validateUpdatePolicyCallback:error msg = {}",
-                         errorCode.message());
+                         ec.message());
         if (asyncResp)
         {
             messages::internalError(asyncResp->res);
@@ -957,10 +956,10 @@ inline void validateUpdatePolicyCallback(
 
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, objInfo,
-         oemUpdateOption](const boost::system::error_code& ec) mutable {
-            if (ec)
+         oemUpdateOption](const boost::system::error_code& ec1) mutable {
+            if (ec1)
             {
-                BMCWEB_LOG_ERROR("error_code = {}", ec);
+                BMCWEB_LOG_ERROR("error_code = {}", ec1);
                 messages::internalError(asyncResp->res);
             }
             setOemUpdateOption(
@@ -1022,7 +1021,7 @@ inline void areTargetsUpdateableCallback(
 
     std::vector<sdbusplus::message::object_path> targets = {};
     // validate TargetUris if entries are present
-    if (uriTargets.size() != 0)
+    if (!uriTargets.empty())
     {
         if (areTargetsInvalidOrUnupdatable(uriTargets, updateableFw, swInvPaths,
                                            targets))
@@ -1037,10 +1036,10 @@ inline void areTargetsUpdateableCallback(
 
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, targets, oemUpdateOption](
-            const boost::system::error_code& errorCode,
+            const boost::system::error_code& ec1,
             const dbus::utility::MapperServiceMap& objInfo) mutable {
-            validateUpdatePolicyCallback(errorCode, objInfo, req, asyncResp,
-                                         targets, oemUpdateOption);
+            validateUpdatePolicyCallback(ec1, objInfo, req, asyncResp, targets,
+                                         oemUpdateOption);
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -1083,9 +1082,9 @@ inline void areTargetsUpdateable(
                 "/xyz/openbmc_project/software/updateable",
                 "xyz.openbmc_project.Association", "endpoints",
                 [req, asyncResp, uriTargets, swInvPaths,
-                 oemUpdateOption](const boost::system::error_code& ec,
+                 oemUpdateOption](const boost::system::error_code& ec1,
                                   const std::vector<std::string>& objPaths) {
-                    areTargetsUpdateableCallback(ec, objPaths, req, asyncResp,
+                    areTargetsUpdateableCallback(ec1, objPaths, req, asyncResp,
                                                  uriTargets, swInvPaths,
                                                  oemUpdateOption);
                 });
@@ -1162,7 +1161,7 @@ inline void getSwInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       task::Payload payload, const MemoryFileDescriptor& memfd,
                       const std::string& applyTime, const std::string& target,
                       const boost::system::error_code& ec,
-                      const dbus::utility::MapperGetSubTreeResponse& subtree)
+                      const dbus::utility::MapperGetSubTreeResponse& subtree1)
 {
     using SwInfoMap = std::unordered_map<
         std::string, std::pair<sdbusplus::message::object_path, std::string>>;
@@ -1175,9 +1174,9 @@ inline void getSwInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         messages::internalError(asyncResp->res);
         return;
     }
-    BMCWEB_LOG_DEBUG("Found {} software version paths", subtree.size());
+    BMCWEB_LOG_DEBUG("Found {} software version paths", subtree1.size());
 
-    for (const auto& entry : subtree)
+    for (const auto& entry : subtree1)
     {
         sdbusplus::message::object_path path(entry.first);
         std::string swId = path.filename();
@@ -1270,9 +1269,9 @@ inline void processUpdateRequest(
             [asyncResp, payload = std::move(payload), memfd = std::move(memfd),
              applyTime, targets](const boost::system::error_code& ec,
                                  const dbus::utility::MapperGetSubTreeResponse&
-                                     subtree) mutable {
+                                     subtree1) mutable {
                 getSwInfo(asyncResp, std::move(payload), memfd, applyTime,
-                          targets[0], ec, subtree);
+                          targets[0], ec, subtree1);
             });
     }
 }
@@ -1484,6 +1483,135 @@ inline bool validateUpdateFileFormData(
 }
 
 /**
+ * @brief retry handler of the aggregation post request.
+ *
+ * @param[in] respCode HTTP response status code
+ *
+ * @return None
+ */
+inline boost::system::error_code
+    aggregationPostRetryHandler(unsigned int respCode)
+{
+    // Allow all response codes because we want to surface any satellite
+    // issue to the client
+    BMCWEB_LOG_DEBUG(
+        "Received {} response of the firmware update from satellite", respCode);
+    return boost::system::errc::make_error_code(boost::system::errc::success);
+}
+
+inline crow::ConnectionPolicy getPostAggregationPolicy()
+{
+    return {.maxRetryAttempts = 0,
+            .requestByteLimit = firmwareImageLimitBytes,
+            .maxConnections = 20,
+            .retryPolicyAction = "TerminateAfterRetries",
+            .retryIntervalSecs = std::chrono::seconds(0),
+            .invalidResp = aggregationPostRetryHandler};
+}
+
+/**
+ * @brief process the response from satellite BMC.
+ *
+ * @param[in] prefix the prefix of the url
+ * @param[in] asyncResp Pointer to object holding response data
+ * @param[in] resp Pointer to object holding response data from satellite
+ * BMC
+ *
+ * @return None
+ */
+inline void handleSatBMCResponse(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, crow::Response& resp)
+{
+    // 429 and 502 mean we didn't actually send the request so don't
+    // overwrite the response headers in that case
+    if ((resp.result() == boost::beast::http::status::too_many_requests) ||
+        (resp.result() == boost::beast::http::status::bad_gateway))
+    {
+        asyncResp->res.result(resp.result());
+        return;
+    }
+
+    if (resp.resultInt() !=
+        static_cast<unsigned>(boost::beast::http::status::accepted))
+    {
+        asyncResp->res.result(resp.result());
+        asyncResp->res.copyBody(resp);
+        return;
+    }
+
+    // The resp will not have a json component
+    // We need to create a json from resp's stringResponse
+    std::string_view contentType = resp.getHeaderValue("Content-Type");
+    if (bmcweb::asciiIEquals(contentType, "application/json") ||
+        bmcweb::asciiIEquals(contentType, "application/json; charset=utf-8"))
+    {
+        nlohmann::json jsonVal =
+            nlohmann::json::parse(*resp.body(), nullptr, false);
+        if (jsonVal.is_discarded())
+        {
+            BMCWEB_LOG_ERROR("Error parsing satellite response as JSON");
+
+            // Notify the user if doing so won't overwrite a valid response
+            if (asyncResp->res.resultInt() !=
+                static_cast<unsigned>(boost::beast::http::status::ok))
+            {
+                messages::operationFailed(asyncResp->res);
+            }
+            return;
+        }
+        BMCWEB_LOG_DEBUG("Successfully parsed satellite response");
+        auto* object = jsonVal.get_ptr<nlohmann::json::object_t*>();
+        if (object == nullptr)
+        {
+            BMCWEB_LOG_ERROR("Parsed JSON was not an object?");
+            return;
+        }
+
+        std::string rfaPrefix = std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX);
+        for (std::pair<const std::string, nlohmann::json>& prop : *object)
+        {
+            // only prefix fix-up on Task response.
+            std::string* strValue = prop.second.get_ptr<std::string*>();
+            if (strValue == nullptr)
+            {
+                BMCWEB_LOG_CRITICAL("Item is not a string");
+                continue;
+            }
+            if (prop.first == "@odata.id")
+            {
+                std::string file = std::filesystem::path(*strValue).filename();
+                std::string path =
+                    std::filesystem::path(*strValue).parent_path();
+
+                std::string tempFile = file; // Store original filename
+                file = rfaPrefix;
+                file += '_';
+                file += tempFile;
+
+                path += "/";
+                // add prefix on odata.id property.
+                prop.second = path;
+                prop.second += file;
+            }
+            if (prop.first == "Id")
+            {
+                std::string file = std::filesystem::path(*strValue).filename();
+                // add prefix on Id property.
+                prop.second = rfaPrefix;
+                prop.second += "_";
+                prop.second += file;
+            }
+            else
+            {
+                continue;
+            }
+        }
+        asyncResp->res.result(resp.result());
+        asyncResp->res.jsonValue = std::move(jsonVal);
+    }
+}
+
+/**
  * @brief Forward firmware image to the satellite BMC
  *
  * @param[in] req  HTTP request.
@@ -1553,7 +1681,7 @@ inline void forwardImage(
             if (param.second == "UpdateFile")
             {
                 data += "Content-Type: application/octet-stream\r\n\r\n";
-                data += std::move(formpart.content);
+                data += formpart.content;
                 data += "\r\n";
                 hasUpdateFile = true;
             }
@@ -1579,7 +1707,7 @@ inline void forwardImage(
                 const std::string urlPrefix =
                     std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX);
                 // individual components update
-                if (targets && updateAll == false)
+                if (targets && !updateAll)
                 {
                     paramJson["Targets"] = nlohmann::json::array();
 
@@ -1593,8 +1721,6 @@ inline void forwardImage(
                         {
                             // remove prefix before the update request is
                             // forwarded.
-                            std::string file =
-                                std::filesystem::path(uri).filename();
                             size_t pos = uri.find(urlPrefix + "_");
                             if (pos != std::string::npos)
                             {
@@ -1662,13 +1788,13 @@ inline void setForceUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, forceUpdate, objpath, callback](
-            const boost::system::error_code& errorCode,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) mutable {
-            if (errorCode)
+            if (ec)
             {
-                BMCWEB_LOG_ERROR("error_code = {}", errorCode);
-                BMCWEB_LOG_ERROR("error msg = {}", errorCode.message());
+                BMCWEB_LOG_ERROR("error_code = {}", ec);
+                BMCWEB_LOG_ERROR("error msg = {}", ec.message());
                 if (asyncResp)
                 {
                     messages::internalError(asyncResp->res);
@@ -1725,7 +1851,8 @@ inline void setForceUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  * @return None
  */
 inline void processMultipartFormData(
-    crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const MultipartParser& parser)
 {
     std::optional<std::string> applyTime;
@@ -1752,13 +1879,18 @@ inline void processMultipartFormData(
         return;
     }
 
-    std::vector<std::string> uriTargets{*targets};
+    if (!targets.has_value())
+    {
+        messages::propertyMissing(asyncResp->res, "Targets");
+        return;
+    }
+    std::vector<std::string> uriTargets{targets.value()};
     if constexpr (BMCWEB_REDFISH_AGGREGATION)
     {
         bool updateAll = false;
         uint8_t count = 0;
         std::string rfaPrefix = std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX);
-        if (uriTargets.size() > 0)
+        if (!uriTargets.empty())
         {
             for (const auto& uri : uriTargets)
             {
@@ -1812,7 +1944,7 @@ inline void processMultipartFormData(
             }
         }
         // the update request is for BMC so only allow one FW update at a time
-        if (fwUpdateInProgress != false)
+        if (fwUpdateInProgress)
         {
             if (asyncResp)
             {
@@ -1866,7 +1998,7 @@ inline bool preCheckMultipartUpdateServiceReq(
     }
 
     // Only allow one FW update at a time
-    if (enableFWInProgCheck && fwUpdateInProgress != false)
+    if (enableFWInProgCheck && fwUpdateInProgress)
     {
         if (asyncResp)
         {
@@ -1910,7 +2042,7 @@ inline bool preCheckMultipartUpdateServiceReq(
  * @return None
  */
 inline void handleMultipartUpdateServicePost(
-    App& app, crow::Request& req,
+    App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))

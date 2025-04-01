@@ -63,15 +63,15 @@ inline void handleDeviceServiceConditions(
             const std::string warningSev = prefix + "Warning";
             std::time_t timestamp{};
 
-            for (auto& objectPath : resp)
+            for (const auto& objectPath : resp)
             {
                 additionalDataRaw = nullptr;
-                for (auto& interfaceMap : objectPath.second)
+                for (const auto& interfaceMap : objectPath.second)
                 {
                     if (interfaceMap.first ==
                         "xyz.openbmc_project.Logging.Entry")
                     {
-                        for (auto& propertyMap : interfaceMap.second)
+                        for (const auto& propertyMap : interfaceMap.second)
                         {
                             if (propertyMap.first == "Id")
                             {
@@ -183,15 +183,15 @@ inline void handleServiceConditionsURI(
             const std::string criticalSev = prefix + "Critical";
             const std::string warningSev = prefix + "Warning";
             std::time_t timestamp{};
-            for (auto& objectPath : resp)
+            for (const auto& objectPath : resp)
             {
                 additionalDataRaw = nullptr;
-                for (auto& interfaceMap : objectPath.second)
+                for (const auto& interfaceMap : objectPath.second)
                 {
                     if (interfaceMap.first ==
                         "xyz.openbmc_project.Logging.Entry")
                     {
-                        for (auto& propertyMap : interfaceMap.second)
+                        for (const auto& propertyMap : interfaceMap.second)
                         {
                             if (propertyMap.first == "Id")
                             {
@@ -281,7 +281,7 @@ inline void handleServiceConditionsURI(
                     }
                 }
             }
-            if (asyncResp->res.jsonValue["Conditions"].size() == 0)
+            if (asyncResp->res.jsonValue["Conditions"].empty())
             {
                 asyncResp->res.jsonValue["HealthRollup"] = "OK";
             }
@@ -366,7 +366,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
             std::string originOfCondition =
                 origin_utils::getDeviceRedfishURI(ooc);
 
-            if (originOfCondition.length() == 0)
+            if (originOfCondition.empty())
             {
                 BMCWEB_LOG_WARNING("getDeviceRedfishURI of {} failed!", ooc);
             }
@@ -407,7 +407,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
         if (jResolution != j.end())
         {
             std::string resolution = *jResolution;
-            if (resolution.length() == 0)
+            if (resolution.empty())
             {
                 BMCWEB_LOG_WARNING("Get {} Resolution failed!", deviceId);
             }
@@ -422,7 +422,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
         if (jSeverity != j.end())
         {
             std::string severity = *jSeverity;
-            if (severity.length() == 0)
+            if (severity.empty())
             {
                 BMCWEB_LOG_WARNING("Get {} Severity failed!", deviceId);
             }
@@ -437,7 +437,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
         if (jTimestamp != j.end())
         {
             std::string timestamp = *jTimestamp;
-            if (timestamp.length() == 0)
+            if (timestamp.empty())
             {
                 BMCWEB_LOG_WARNING("Get {} Timestamp failed!", deviceId);
             }

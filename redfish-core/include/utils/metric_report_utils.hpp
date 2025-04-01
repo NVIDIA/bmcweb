@@ -651,7 +651,7 @@ inline void getMetricValue(
                 .count()) +
         t;
 
-    if (const std::vector<std::string>* readingArray =
+    if (const std::vector<std::string>* stringReadingArray =
             std::get_if<std::vector<std::string>>(&value))
     {
         // This is for the property whose value is of type list and each element
@@ -660,7 +660,7 @@ inline void getMetricValue(
         // Eg:- ThrottleReasosns: [Idle, AppClock]-> "Idle" maps to
         // ThrottleReasons/0
         int i = 0;
-        for (const std::string& reading : *readingArray)
+        for (const std::string& reading : *stringReadingArray)
         {
             std::string val = translateReading(ifaceName, metricName, reading);
             thisMetric["MetricValue"] = val;
@@ -676,14 +676,14 @@ inline void getMetricValue(
             i++;
         }
     }
-    else if (const std::vector<double>* readingArray =
+    else if (const std::vector<double>* doubleReadingArray =
                  std::get_if<std::vector<double>>(&value))
     {
         // This is for the property whose value is of type list and each element
         // in the list on the redfish is represented with
         // "PropertyName/<index_of_list_element>". and it always starts with 0
         int i = 0;
-        for (const double& reading : *readingArray)
+        for (const double& reading : *doubleReadingArray)
         {
             // double val = translateReading(ifaceName, metricName, reading);
             thisMetric["MetricValue"] = std::to_string(reading);
@@ -711,56 +711,57 @@ inline void getMetricValue(
         thisMetric["MetricProperty"] = metricURI;
         thisMetric["Timestamp"] =
             redfish::time_utils::getDateTimeUintMs(sensorUpdatetimeSystemClock);
-        if (const std::string* reading = std::get_if<std::string>(&value))
+        if (const std::string* strReading = std::get_if<std::string>(&value))
         {
-            std::string val = translateReading(ifaceName, metricName, *reading);
+            std::string val =
+                translateReading(ifaceName, metricName, *strReading);
             thisMetric["MetricValue"] = val;
         }
-        else if (const int* reading = std::get_if<int>(&value))
+        else if (const int* intReading = std::get_if<int>(&value))
         {
-            thisMetric["MetricValue"] = std::to_string(*reading);
+            thisMetric["MetricValue"] = std::to_string(*intReading);
         }
-        else if (const int16_t* reading = std::get_if<int16_t>(&value))
+        else if (const int16_t* int16Reading = std::get_if<int16_t>(&value))
         {
-            thisMetric["MetricValue"] = std::to_string(*reading);
+            thisMetric["MetricValue"] = std::to_string(*int16Reading);
         }
-        else if (const int64_t* reading = std::get_if<int64_t>(&value))
+        else if (const int64_t* int64Reading = std::get_if<int64_t>(&value))
         {
-            thisMetric["MetricValue"] = std::to_string(*reading);
+            thisMetric["MetricValue"] = std::to_string(*int64Reading);
         }
-        else if (const uint16_t* reading = std::get_if<uint16_t>(&value))
+        else if (const uint16_t* uint16Reading = std::get_if<uint16_t>(&value))
         {
-            thisMetric["MetricValue"] = std::to_string(*reading);
+            thisMetric["MetricValue"] = std::to_string(*uint16Reading);
         }
-        else if (const uint32_t* reading = std::get_if<uint32_t>(&value))
+        else if (const uint32_t* uint32Reading = std::get_if<uint32_t>(&value))
         {
-            thisMetric["MetricValue"] = std::to_string(*reading);
+            thisMetric["MetricValue"] = std::to_string(*uint32Reading);
         }
-        else if (const uint64_t* reading = std::get_if<uint64_t>(&value))
+        else if (const uint64_t* uint64Reading = std::get_if<uint64_t>(&value))
         {
             if ((ifaceName ==
                  "xyz.openbmc_project.State.ProcessorPerformance") &&
                 ((metricName == "AccumulatedSMUtilizationDuration") ||
                  (metricName == "AccumulatedGPUContextUtilizationDuration")))
             {
-                std::string val = translateAccumlatedDuration(*reading);
+                std::string val = translateAccumlatedDuration(*uint64Reading);
                 thisMetric["MetricValue"] = val;
             }
             else
             {
                 std::string val =
-                    translateThrottleDuration(metricName, *reading);
+                    translateThrottleDuration(metricName, *uint64Reading);
                 thisMetric["MetricValue"] = val;
             }
         }
-        else if (const double* reading = std::get_if<double>(&value))
+        else if (const double* doubleReading = std::get_if<double>(&value))
         {
-            thisMetric["MetricValue"] = std::to_string(*reading);
+            thisMetric["MetricValue"] = std::to_string(*doubleReading);
         }
-        else if (const bool* reading = std::get_if<bool>(&value))
+        else if (const bool* boolReading = std::get_if<bool>(&value))
         {
             thisMetric["MetricValue"] = "false";
-            if (*reading == true)
+            if (*boolReading)
             {
                 thisMetric["MetricValue"] = "true";
             }

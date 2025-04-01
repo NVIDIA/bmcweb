@@ -25,7 +25,7 @@ constexpr const char* bmcwebDeviceStatusFSPath = "/tmp/devices";
 namespace file_utils
 {
 
-constexpr int FLOCK_TIMEOUT = 100; // msec
+constexpr int flockTimeout = 100; // msec
 
 /**
  * @brief Read file content with timed lock protection
@@ -35,7 +35,7 @@ inline int readFile2Json(const std::string& filePath, nlohmann::json& j)
 {
     try
     {
-        if (false == std::filesystem::exists(filePath))
+        if (!std::filesystem::exists(filePath))
         {
             BMCWEB_LOG_WARNING("File '{}' does not exist", filePath);
             return -2;
@@ -43,7 +43,7 @@ inline int readFile2Json(const std::string& filePath, nlohmann::json& j)
 
         boost::interprocess::file_lock fileLock(filePath.c_str());
         auto start = std::chrono::steady_clock::now();
-        auto timeout = boost::posix_time::milliseconds(FLOCK_TIMEOUT);
+        auto timeout = boost::posix_time::milliseconds(flockTimeout);
 
         while (!fileLock.timed_lock(
             boost::posix_time::microsec_clock::universal_time() + timeout))
@@ -54,7 +54,7 @@ inline int readFile2Json(const std::string& filePath, nlohmann::json& j)
                     now - start)
                     .count();
 
-            if (elapsed >= FLOCK_TIMEOUT)
+            if (elapsed >= flockTimeout)
             {
                 BMCWEB_LOG_ERROR("Get flock of {} timeout!", filePath);
                 return -1;

@@ -40,7 +40,7 @@ constexpr const size_t trayTopologyByteLength = 8;
 constexpr const size_t trayTopologyTokenLength = 2;
 constexpr const uint8_t trayTopologyMinRevision = 2;
 #pragma pack(1)
-struct trayTopology
+struct TrayTopology
 {
     uint8_t revision;
     uint8_t reserved1;
@@ -64,7 +64,7 @@ inline void getChassisLinksContains(
 {
     BMCWEB_LOG_DEBUG("Get underneath chassis links");
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec2,
+        [aResp](const boost::system::error_code& ec2,
                 std::variant<std::vector<std::string>>& resp) {
             if (ec2)
             {
@@ -133,10 +133,10 @@ inline void getHealthByAssociation(
                 // Check Interface in Object or not
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, sensorPath](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec1,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
-                        if (ec)
+                        if (ec1)
                         {
                             // the path does not implement Decorator Health
                             // interfaces
@@ -147,10 +147,10 @@ inline void getHealthByAssociation(
                             std::string, std::variant<std::string, size_t>>;
                         // Get interface properties
                         crow::connections::systemBus->async_method_call(
-                            [asyncResp,
-                             sensorPath](const boost::system::error_code ec,
-                                         const PropertiesMap& properties) {
-                                if (ec)
+                            [asyncResp, sensorPath](
+                                const boost::system::error_code& innerError,
+                                const PropertiesMap& properties) {
+                                if (innerError)
                                 {
                                     messages::internalError(asyncResp->res);
                                     return;
@@ -272,7 +272,7 @@ inline void getChassisProcessorLinks(
 {
     BMCWEB_LOG_DEBUG("Get underneath processor links");
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec2,
+        [aResp](const boost::system::error_code& ec2,
                 std::variant<std::vector<std::string>>& resp) {
             if (ec2)
             {
@@ -320,9 +320,9 @@ inline void getChassisFabricSwitchesLinks(
 {
     BMCWEB_LOG_DEBUG("Get fabric switches links");
     crow::connections::systemBus->async_method_call(
-        [aResp, objPath](const boost::system::error_code ec2,
+        [aResp, objPath](const boost::system::error_code& ec,
                          std::variant<std::vector<std::string>>& resp) {
-            if (ec2)
+            if (ec)
             {
                 return; // no fabric = no failures
             }
@@ -344,7 +344,7 @@ inline void getChassisFabricSwitchesLinks(
             // Get the switches
             crow::connections::systemBus->async_method_call(
                 [aResp,
-                 fabricId](const boost::system::error_code ec1,
+                 fabricId](const boost::system::error_code& ec1,
                            std::variant<std::vector<std::string>>& resp1) {
                     if (ec1)
                     {
@@ -394,8 +394,9 @@ inline void getChassisFabricSwitchesLinks(
  * @param[in]       connectionName D-Bus service to query.
  * @param[in]       path           D-Bus object path to query.
  */
-inline void getOemCBCChassisAsset(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
-                                  std::string connectionName, std::string path)
+inline void getOemCBCChassisAsset(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& connectionName, const std::string& path)
 {
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
@@ -418,7 +419,7 @@ inline void getOemCBCChassisAsset(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                 return;
             }
 
-            std::array<uint8_t, trayTopologyByteLength> byteArray;
+            std::array<uint8_t, trayTopologyByteLength> byteArray{};
             for (size_t i = 0; i < trayTopologyByteLength; i++)
             {
                 byteArray[i] = static_cast<uint8_t>(
@@ -426,8 +427,10 @@ inline void getOemCBCChassisAsset(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                                               trayTopologyTokenLength),
                               nullptr, 16));
             }
-            trayTopology* trayTopologyPtr =
-                reinterpret_cast<trayTopology*>(byteArray.data());
+            // Safe conversion
+            TrayTopology trayTopology{};
+            std::memcpy(&trayTopology, byteArray.data(), sizeof(TrayTopology));
+            TrayTopology* trayTopologyPtr = &trayTopology;
 
             // make sure it can support trayTopologyMinRevision at least
             if (trayTopologyPtr->revision < trayTopologyMinRevision)
@@ -463,7 +466,7 @@ inline void getOemBaseboardChassisAssert(
     dbus::utility::findAssociations(
         objPath + "/associated_fru",
         [aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             std::variant<std::vector<std::string>>& assoc) {
             if (ec)
             {
@@ -478,12 +481,12 @@ inline void getOemBaseboardChassisAssert(
             }
             const std::string& fruPath = data->front();
             crow::connections::systemBus->async_method_call(
-                [aResp{std::move(aResp)},
-                 fruPath](const boost::system::error_code ec,
+                [aResp{aResp},
+                 fruPath](const boost::system::error_code ec2,
                           const std::vector<
                               std::pair<std::string, std::vector<std::string>>>&
                               objects) {
-                    if (ec || objects.size() <= 0)
+                    if (ec2 || objects.empty())
                     {
                         BMCWEB_LOG_DEBUG("Null value returned "
                                          "for serial number");
@@ -492,13 +495,13 @@ inline void getOemBaseboardChassisAssert(
                     }
                     const std::string& fruObject = objects[0].first;
                     crow::connections::systemBus->async_method_call(
-                        [aResp{std::move(aResp)}](
-                            const boost::system::error_code ec,
+                        [aResp{aResp}](
+                            const boost::system::error_code ec1,
                             const std::vector<std::pair<
                                 std::string,
                                 std::variant<std::string, bool, uint64_t>>>&
                                 propertiesList) {
-                            if (ec || propertiesList.size() <= 0)
+                            if (ec1 || propertiesList.empty())
                             {
                                 messages::internalError(aResp->res);
                                 return;
@@ -565,7 +568,7 @@ inline void setOemBaseboardChassisAssert(
     dbus::utility::findAssociations(
         objPath + "/associated_fru",
         [aResp{std::move(aResp)}, prop,
-         value](const boost::system::error_code ec,
+         value](const boost::system::error_code& ec,
                 std::variant<std::vector<std::string>>& assoc) {
             if (ec)
             {
@@ -580,11 +583,11 @@ inline void setOemBaseboardChassisAssert(
             }
             const std::string& fruPath = data->front();
             crow::connections::systemBus->async_method_call(
-                [aResp{std::move(aResp)}, fruPath, prop,
-                 value](const boost::system::error_code ec,
+                [aResp{aResp}, fruPath, prop,
+                 value](const boost::system::error_code ec1,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& objects) {
-                    if (ec || objects.size() <= 0)
+                    if (ec1 || objects.empty())
                     {
                         messages::internalError(aResp->res);
                         return;
@@ -593,12 +596,13 @@ inline void setOemBaseboardChassisAssert(
                     if (prop == "PartNumber")
                     {
                         crow::connections::systemBus->async_method_call(
-                            [aResp](const boost::system::error_code ec) {
-                                if (ec)
+                            [aResp](
+                                const boost::system::error_code& innerError) {
+                                if (innerError)
                                 {
                                     BMCWEB_LOG_DEBUG(
                                         "DBUS response error: Set CHASSIS_PART_NUMBER{}",
-                                        ec);
+                                        innerError);
                                     messages::internalError(aResp->res);
                                     return;
                                 }
@@ -615,12 +619,13 @@ inline void setOemBaseboardChassisAssert(
                     else if (prop == "SerialNumber")
                     {
                         crow::connections::systemBus->async_method_call(
-                            [aResp](const boost::system::error_code ec) {
-                                if (ec)
+                            [aResp](
+                                const boost::system::error_code& innerError) {
+                                if (innerError)
                                 {
                                     BMCWEB_LOG_DEBUG(
                                         "DBUS response error: Set CHASSIS_SERIAL_NUMBER{}",
-                                        ec);
+                                        innerError);
                                     messages::internalError(aResp->res);
                                     return;
                                 }
@@ -665,7 +670,7 @@ inline void getOemAssemblyAssert(std::shared_ptr<bmcweb::AsyncResp> aResp,
     dbus::utility::findAssociations(
         objPath + "/associated_fru",
         [aResp{std::move(aResp)},
-         assemblyId](const boost::system::error_code ec,
+         assemblyId](const boost::system::error_code& ec,
                      std::variant<std::vector<std::string>>& assoc) {
             if (ec)
             {
@@ -680,11 +685,11 @@ inline void getOemAssemblyAssert(std::shared_ptr<bmcweb::AsyncResp> aResp,
             }
             const std::string& fruPath = data->front();
             crow::connections::systemBus->async_method_call(
-                [aResp{std::move(aResp)}, fruPath, assemblyId](
-                    const boost::system::error_code ec,
+                [aResp{aResp}, fruPath, assemblyId](
+                    const boost::system::error_code ec1,
                     const std::vector<std::pair<
                         std::string, std::vector<std::string>>>& objects) {
-                    if (ec || objects.size() <= 0)
+                    if (ec1 || objects.empty())
                     {
                         BMCWEB_LOG_DEBUG("Cannpt get object");
                         messages::internalError(aResp->res);
@@ -692,13 +697,13 @@ inline void getOemAssemblyAssert(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     }
                     const std::string& fruObject = objects[0].first;
                     crow::connections::systemBus->async_method_call(
-                        [aResp{std::move(aResp)}, assemblyId](
-                            const boost::system::error_code ec,
+                        [aResp{aResp}, assemblyId](
+                            const boost::system::error_code innerError,
                             const std::vector<std::pair<
                                 std::string,
                                 std::variant<std::string, bool, uint64_t>>>&
                                 propertiesList) {
-                            if (ec || propertiesList.size() <= 0)
+                            if (innerError || propertiesList.empty())
                             {
                                 messages::internalError(aResp->res);
                                 return;
@@ -734,7 +739,7 @@ inline void getOemAssemblyAssert(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                                 return;
                                             }
                                             vendorDataArray.emplace_back(
-                                                std::move(*value));
+                                                *value);
                                         }
                                         else if (property.first.find(
                                                      "PRODUCT_INFO_AM") !=
@@ -755,7 +760,7 @@ inline void getOemAssemblyAssert(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                                 return;
                                             }
                                             vendorDataArray.emplace_back(
-                                                std::move(*value));
+                                                *value);
                                         }
                                         else if (property.first.find(
                                                      "CHASSIS_INFO_AM") !=
@@ -776,7 +781,7 @@ inline void getOemAssemblyAssert(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                                 return;
                                             }
                                             vendorDataArray.emplace_back(
-                                                std::move(*value));
+                                                *value);
                                         }
                                     }
                                 }
@@ -807,7 +812,7 @@ inline void getOemHdwWriteProtectInfo(std::shared_ptr<bmcweb::AsyncResp> aResp,
     BMCWEB_LOG_DEBUG("Get Baseboard Hardware write protect info");
     crow::connections::systemBus->async_method_call(
         [aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string, std::variant<std::string, bool, uint64_t>>>&
                 propertiesList) {
@@ -872,7 +877,7 @@ inline void getOemPCIeDeviceClockReferenceInfo(
     BMCWEB_LOG_DEBUG("Get Baseboard PCIeReference clock count");
     crow::connections::systemBus->async_method_call(
         [aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string, std::variant<std::string, bool, uint64_t>>>&
                 propertiesList) {
@@ -921,7 +926,7 @@ inline void getChassisPowerLimits(std::shared_ptr<bmcweb::AsyncResp> aResp,
     BMCWEB_LOG_DEBUG("Get chassis power limits");
     crow::connections::systemBus->async_method_call(
         [aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::variant<size_t>>>&
                 propertiesList) {
             if (ec)
@@ -961,7 +966,7 @@ inline void setStaticPowerHintByObjPath(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath, cpuClockFrequency, workloadFactor, temperature](
-            const boost::system::error_code errorno,
+            const boost::system::error_code& errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) {
             if (errorno)
@@ -974,16 +979,16 @@ inline void setStaticPowerHintByObjPath(
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, objPath, service{service}, cpuClockFrequency,
                      workloadFactor, temperature](
-                        const boost::system::error_code errorno,
+                        const boost::system::error_code& ec,
                         const std::vector<
                             std::pair<std::string,
                                       std::variant<double, std::string, bool>>>&
                             propertiesList) {
-                        if (errorno)
+                        if (ec)
                         {
                             BMCWEB_LOG_ERROR(
-                                "Properties::GetAll failed:{}objPath:{}",
-                                errorno, objPath);
+                                "Properties::GetAll failed:{}objPath:{}", ec,
+                                objPath);
                             messages::internalError(asyncResp->res);
                             return;
                         }
@@ -1059,12 +1064,12 @@ inline void setStaticPowerHintByObjPath(
 
                         crow::connections::systemBus->async_method_call(
                             [asyncResp,
-                             objPath](const boost::system::error_code errorno) {
-                                if (errorno)
+                             objPath](const boost::system::error_code& ec1) {
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "StaticPowerHint::Estimate failed:{}",
-                                        errorno);
+                                        ec1);
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
@@ -1091,7 +1096,7 @@ inline void setStaticPowerHintByChassis(
     // get endpoints of chassisId/all_controls
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisObjPath, cpuClockFrequency, workloadFactor,
-         temperature](const boost::system::error_code,
+         temperature](const boost::system::error_code&,
                       std::variant<std::vector<std::string>>& resp) {
             std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
@@ -1117,7 +1122,7 @@ inline void getStaticPowerHintByObjPath(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath](
-            const boost::system::error_code errorno,
+            const boost::system::error_code& errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) {
             if (errorno)
@@ -1129,16 +1134,16 @@ inline void getStaticPowerHintByObjPath(
             {
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, objPath](
-                        const boost::system::error_code errorno,
+                        const boost::system::error_code& ec,
                         const std::vector<
                             std::pair<std::string,
                                       std::variant<double, std::string, bool>>>&
                             propertiesList) {
-                        if (errorno)
+                        if (ec)
                         {
                             BMCWEB_LOG_ERROR(
-                                "Properties::GetAll failed:{}objPath:{}",
-                                errorno, objPath);
+                                "Properties::GetAll failed:{}objPath:{}", ec,
+                                objPath);
                             messages::internalError(asyncResp->res);
                             return;
                         }
@@ -1245,7 +1250,7 @@ inline void getStaticPowerHintByChassis(
     // get endpoints of chassisId/all_controls
     crow::connections::systemBus->async_method_call(
         [asyncResp,
-         chassisObjPath](const boost::system::error_code,
+         chassisObjPath](const boost::system::error_code&,
                          std::variant<std::vector<std::string>>& resp) {
             std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
@@ -1287,14 +1292,14 @@ inline void getNetworkAdapters(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisId(std::string(chassisId))](
-            const boost::system::error_code ec,
-            const crow::openbmc_mapper::GetSubTreeType& subtree) {
+            const boost::system::error_code& ec,
+            const dbus::utility::GetSubTreeType& subtree) {
             if (ec)
             {
                 return;
             }
 
-            if (subtree.size() == 0)
+            if (subtree.empty())
             {
                 return;
             }
@@ -1323,7 +1328,7 @@ inline void getChassisDimensions(std::shared_ptr<bmcweb::AsyncResp> aResp,
     BMCWEB_LOG_DEBUG("Get chassis dimensions");
     crow::connections::systemBus->async_method_call(
         [aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string, dbus::utility::DbusVariantType>>& propertiesList) {
             if (ec)
@@ -1381,10 +1386,10 @@ inline void getChassisDimensions(std::shared_ptr<bmcweb::AsyncResp> aResp,
 
 inline void getChassisWriteProtectProtectEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec1, const std::string& chassisId,
+    const boost::system::error_code& ec, const std::string& chassisId,
     const dbus::utility::MapperGetObject& object)
 {
-    if (ec1)
+    if (ec)
     {
         BMCWEB_LOG_INFO(
             "No ChassisWP Dbus Object, Skip 'HardwareWriteProtectEnable'");
@@ -1395,9 +1400,9 @@ inline void getChassisWriteProtectProtectEnable(
         sdbusplus::message::object_path("/xyz/openbmc_project/software") /=
         chassisId,
         object[0].second[0], "WriteProtected",
-        [asyncResp](const boost::system::error_code& ec2,
+        [asyncResp](const boost::system::error_code& ec1,
                     const bool& property) {
-            if (ec2.value() ==
+            if (ec1.value() ==
                 boost::system::linux_error::bad_request_descriptor)
             {
                 BMCWEB_LOG_ERROR("WriteProtected property is not found");
@@ -1405,7 +1410,7 @@ inline void getChassisWriteProtectProtectEnable(
                     asyncResp->res, "WriteProtected property is not found", "");
                 return;
             }
-            if (ec2)
+            if (ec1)
             {
                 BMCWEB_LOG_ERROR("getProperty WriteProtected error");
                 messages::internalError(asyncResp->res);
@@ -1419,19 +1424,19 @@ inline void getChassisWriteProtectProtectEnable(
 
 inline void setChassisWriteProtectProtectEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec1, const std::string& chassisId,
+    const boost::system::error_code& ec, const std::string& chassisId,
     const dbus::utility::MapperGetObject& object, const bool value)
 {
-    if (ec1 == boost::system::errc::io_error)
+    if (ec == boost::system::errc::io_error)
     {
         BMCWEB_LOG_ERROR("ChassisWP: {}, Interface is not found", chassisId);
         messages::resourceNotFound(asyncResp->res, chassisId,
                                    "Interface is not found");
         return;
     }
-    if (ec1)
+    if (ec)
     {
-        BMCWEB_LOG_ERROR("getDbusObject: {}, error: {}", chassisId, ec1);
+        BMCWEB_LOG_ERROR("getDbusObject: {}, error: {}", chassisId, ec);
         messages::internalError(asyncResp->res);
         return;
     }
@@ -1440,8 +1445,8 @@ inline void setChassisWriteProtectProtectEnable(
         sdbusplus::message::object_path("/xyz/openbmc_project/software") /=
         chassisId,
         object[0].second[0], "WriteProtected", value,
-        [asyncResp](const boost::system::error_code& ec2) {
-            if (ec2.value() ==
+        [asyncResp](const boost::system::error_code& ec1) {
+            if (ec1.value() ==
                 boost::system::linux_error::bad_request_descriptor)
             {
                 BMCWEB_LOG_ERROR("WriteProtected property is not found");
@@ -1449,7 +1454,7 @@ inline void setChassisWriteProtectProtectEnable(
                     asyncResp->res, "WriteProtected property is not found", "");
                 return;
             }
-            if (ec2)
+            if (ec1)
             {
                 BMCWEB_LOG_ERROR("setProperty WriteProtected error");
                 messages::internalError(asyncResp->res);
@@ -1800,7 +1805,7 @@ inline void handleChassisGetAllProperties(
     asyncResp->res.jsonValue["Links"]["ManagedBy"] = std::move(managedBy);
 }
 
-inline void OemChassisHardwareWriteProtectEnable(
+inline void oemChassisHardwareWriteProtectEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const bool value)
 {
@@ -1990,7 +1995,7 @@ inline void getPhysicalSecurityData(
 
 // Function to insert an element in sorted order based on "Id" field
 inline void insertSorted(nlohmann::json& arr, const nlohmann::json& element,
-                         const std::string sortField)
+                         const std::string& sortField)
 {
     auto it = std::lower_bound(
         arr.begin(), arr.end(), element,
@@ -2021,9 +2026,12 @@ inline void getChassisRelatedItem(
         objectPath.str.substr(0, chassisNamePos), 0, chassisInterface,
         [asyncResp, objectPath, chassisId,
          handler = std::forward<Handler>(handler)](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
-            if ((!ec) && (subtreePaths.size() != 0))
+            if ((!ec) && (!subtreePaths.empty()))
+            {
+                return;
+            }
             {
                 for (const auto& path : subtreePaths)
                 {

@@ -11,8 +11,6 @@
 #include "cable.hpp"
 #include "certificate_service.hpp"
 #include "chassis.hpp"
-#include "cper_utils.hpp"
-#include "environment_metrics.hpp"
 #include "ethernet.hpp"
 #include "event_service.hpp"
 #include "eventservice_sse.hpp"
@@ -30,6 +28,7 @@
 #include "metric_report_definition.hpp"
 #include "network_protocol.hpp"
 #include "nvidia_manager_eventlog.hpp"
+#include "nvidia_persistent_data.hpp"
 #include "odata.hpp"
 #include "pcie.hpp"
 #include "power.hpp"
@@ -37,7 +36,6 @@
 #include "power_supply.hpp"
 #include "processor.hpp"
 #include "redfish_nvidia.hpp"
-#include "redfish_sessions.hpp"
 #include "redfish_v1.hpp"
 #include "roles.hpp"
 #include "sensors.hpp"
@@ -54,6 +52,8 @@
 #include "trigger.hpp"
 #include "update_service.hpp"
 #include "virtual_media.hpp"
+#include "environment_metrics.hpp"
+
 namespace redfish
 {
 
@@ -141,8 +141,8 @@ RedfishService::RedfishService(App& app)
         requestRoutesBMCDumpService(app);
         requestRoutesBMCDumpEntryCollection(app);
         requestRoutesBMCDumpEntry(app);
-        // Need to migrate dump-offload feature to upstream work
-        // requestRoutesBMCDumpEntryDownload(app);
+        requestRoutesBMCDumpEntryDownload(app);
+        requestRoutesSystemDumpEntryDownload(app);
         requestRoutesBMCDumpCreate(app);
         requestRoutesBMCDumpClear(app);
     }
@@ -239,10 +239,7 @@ RedfishService::RedfishService(App& app)
     requestRoutesTaskCollection(app);
     requestRoutesTask(app);
     requestRoutesEventService(app);
-    if constexpr (BMCWEB_ENABLE_SSE)
-    {
-        requestRoutesEventServiceSse(app);
-    }
+    requestRoutesEventServiceSse(app);
     requestRoutesEventDestinationCollection(app);
     requestRoutesEventDestination(app);
     requestRoutesFabricAdapters(app);

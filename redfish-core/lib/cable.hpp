@@ -23,6 +23,7 @@
 #include <boost/url/format.hpp>
 #include <boost/url/url.hpp>
 #include <sdbusplus/message/native_types.hpp>
+#include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <utils/nvidia_cable_util.hpp>
 

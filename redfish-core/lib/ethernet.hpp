@@ -52,7 +52,10 @@
 #include <variant>
 #include <vector>
 
-#define MAC_STRING_SIZE 17
+enum
+{
+    MAC_STRING_SIZE = 17
+};
 
 namespace redfish
 {
@@ -192,10 +195,8 @@ inline std::string getDhcpEnabledEnumeration(bool isIPv4, bool isIPv6,
         {
             return "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.v4v6stateless";
         }
-        else
-        {
-            return "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.v4";
-        }
+
+        return "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.v4";
     }
     if (isIPv6)
     {

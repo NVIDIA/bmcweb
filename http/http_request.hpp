@@ -58,7 +58,6 @@ struct Request
 
     Request& operator=(const Request&) = default;
     Request& operator=(Request&&) = default;
-
     ~Request() = default;
 
     void addHeader(std::string_view key, std::string_view value)
@@ -143,7 +142,7 @@ struct Request
 
     void clearBody()
     {
-        return req.body().clear();
+        req.body().clear();
     }
 
     bool target(std::string_view target)

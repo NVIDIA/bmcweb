@@ -55,8 +55,7 @@ constexpr std::string_view setPointUnits()
         return "W";
     }
 }
-
-static std::map<std::string, std::string> modes = {
+static const std::map<std::string, std::string> modes = {
     {"xyz.openbmc_project.Control.Power.Mode.PowerMode.MaximumPerformance",
      "Automatic"},
     {"xyz.openbmc_project.Control.Power.Mode.PowerMode.OEM", "Override"},
@@ -74,7 +73,7 @@ inline void getPowercontrolObjects(
     members = nlohmann::json::array();
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisID,
-         &members](const boost::system::error_code,
+         &members](const boost::system::error_code&,
                    std::variant<std::vector<std::string>>& resp) {
             std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
@@ -102,7 +101,7 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, path](
-            const boost::system::error_code errorno,
+            const boost::system::error_code& errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) {
             if (errorno)
@@ -127,16 +126,16 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     {
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, path,
-                             interface](const boost::system::error_code errorno,
+                             interface](const boost::system::error_code& ec1,
                                         const std::vector<std::pair<
                                             std::string,
                                             std::variant<size_t, std::string>>>&
                                             propertiesList) {
-                                if (errorno)
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "ObjectMapper::GetObject call failed:{}",
-                                        errorno);
+                                        ec1);
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
@@ -163,7 +162,7 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                             *value;
                                         continue;
                                     }
-                                    else if (propertyName == "MinPowerCapValue")
+                                    if (propertyName == "MinPowerCapValue")
                                     {
                                         propertyName = "AllowableMin";
                                         const auto* value = std::get_if<size_t>(
@@ -180,7 +179,7 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                             *value;
                                         continue;
                                     }
-                                    else if (propertyName == setPointPropName())
+                                    if (propertyName == setPointPropName())
                                     {
                                         propertyName = "SetPoint";
                                         const auto* value = std::get_if<size_t>(
@@ -197,7 +196,7 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                             *value;
                                         continue;
                                     }
-                                    else if (propertyName == "DefaultPowerCap")
+                                    if (propertyName == "DefaultPowerCap")
                                     {
                                         propertyName = "DefaultSetPoint";
                                         const auto* value = std::get_if<size_t>(
@@ -214,7 +213,7 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                             *value;
                                         continue;
                                     }
-                                    else if (propertyName == "PhysicalContext")
+                                    if (propertyName == "PhysicalContext")
                                     {
                                         const auto* physicalcontext =
                                             std::get_if<std::string>(
@@ -225,15 +224,13 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                                     *physicalcontext);
                                         continue;
                                     }
-                                    else if (propertyName == "PowerMode")
+                                    if (propertyName == "PowerMode")
                                     {
                                         propertyName = "ControlMode";
                                         const std::string* mode =
                                             std::get_if<std::string>(
                                                 &property.second);
-                                        std::map<std::string,
-                                                 std::string>::iterator itr;
-                                        for (auto& itr : modes)
+                                        for (const auto& itr : modes)
                                         {
                                             if (*mode == itr.first)
                                             {
@@ -268,7 +265,7 @@ inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, sensorName, chassisID](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string,
                 std::vector<std::pair<std::string, std::vector<std::string>>>>>&
@@ -297,7 +294,7 @@ inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     continue;
                 }
 
-                if (connectionNames.size() < 1)
+                if (connectionNames.empty())
                 {
                     BMCWEB_LOG_ERROR("Got 0 Connection names");
                     continue;
@@ -307,11 +304,12 @@ inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 // Read Sensor value
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisID, sensorName, serviceName,
-                     path](const boost::system::error_code ec,
+                     path](const boost::system::error_code& ec1,
                            const std::variant<double>& totalPower) {
-                        if (ec)
+                        if (ec1)
                         {
-                            BMCWEB_LOG_ERROR("Get Sensor value failed: {}", ec);
+                            BMCWEB_LOG_ERROR("Get Sensor value failed: {}",
+                                             ec1);
                             messages::internalError(asyncResp->res);
                             return;
                         }
@@ -319,7 +317,8 @@ inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const auto* value = std::get_if<double>(&totalPower);
                         if (value == nullptr)
                         {
-                            BMCWEB_LOG_ERROR("Get Sensor value failed: {}", ec);
+                            BMCWEB_LOG_ERROR("Get Sensor value failed: {}",
+                                             ec1);
                             messages::internalError(asyncResp->res);
                             return;
                         }
@@ -334,7 +333,7 @@ inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 // Read related items
                 crow::connections::systemBus->async_method_call(
                     [asyncResp,
-                     chassisID](const boost::system::error_code errCode,
+                     chassisID](const boost::system::error_code& errCode,
                                 std::variant<std::vector<std::string>>& resp) {
                         if (errCode)
                         {
@@ -387,7 +386,7 @@ inline void getControlSettings(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, path](
-            const boost::system::error_code errorno,
+            const boost::system::error_code& errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) {
             if (errorno)
@@ -402,15 +401,14 @@ inline void getControlSettings(
             {
                 crow::connections::systemBus->async_method_call(
                     [asyncResp,
-                     path](const boost::system::error_code errorno,
+                     path](const boost::system::error_code& ec1,
                            const std::vector<std::pair<
                                std::string, dbus::utility::DbusVariantType>>&
                                propertiesList) {
-                        if (errorno)
+                        if (ec1)
                         {
                             BMCWEB_LOG_ERROR(
-                                "ObjectMapper::GetObject call failed:{}",
-                                errorno);
+                                "ObjectMapper::GetObject call failed:{}", ec1);
                             messages::internalError(asyncResp->res);
                             return;
                         }
@@ -457,11 +455,11 @@ inline void getControlSettings(
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp,
-                     path](const boost::system::error_code errorno,
+                     path](const boost::system::error_code& ec,
                            const std::vector<std::pair<
                                std::string, dbus::utility::DbusVariantType>>&
                                propertiesList) {
-                        if (errorno)
+                        if (ec)
                         {
                             return;
                         }
@@ -491,7 +489,7 @@ inline void getControlSettings(
 
                 // Read related items
                 crow::connections::systemBus->async_method_call(
-                    [asyncResp](const boost::system::error_code errCode,
+                    [asyncResp](const boost::system::error_code& errCode,
                                 std::variant<std::vector<std::string>>& resp) {
                         if (errCode)
                         {
@@ -545,7 +543,7 @@ inline void getPowerReading(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         chassisPath + "/all_sensors", "xyz.openbmc_project.Association",
         "endpoints",
         [asyncResp, chassisID,
-         chassisPath](const boost::system::error_code ec,
+         chassisPath](const boost::system::error_code& ec,
                       const std::vector<std::string>& resp) {
             if (ec)
             {
@@ -563,7 +561,7 @@ inline void getPowerReading(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisPath, sensorPath](
-                        const boost::system::error_code ec2,
+                        const boost::system::error_code& ec2,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& objInfo) {
                         if (ec2)
@@ -579,7 +577,7 @@ inline void getPowerReading(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         {
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, chassisPath, sensorPath](
-                                    const boost::system::error_code ec3,
+                                    const boost::system::error_code& ec3,
                                     const std::vector<std::pair<
                                         std::string,
                                         dbus::utility::DbusVariantType>>&
@@ -637,7 +635,7 @@ inline void changepowercap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, setpoint, path](
-            const boost::system::error_code errorno,
+            const boost::system::error_code& errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) {
             if (errorno)
@@ -691,7 +689,7 @@ inline void changepowercap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, path, setpoint,
-                             element](const boost::system::error_code ec2,
+                             element](const boost::system::error_code& ec2,
                                       sdbusplus::message::message& msg) {
                                 if (!ec2)
                                 {
@@ -780,7 +778,7 @@ inline void changePowerCapEnable(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, enabled, path](
-            const boost::system::error_code errorno,
+            const boost::system::error_code& errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) {
             if (errorno)
@@ -794,7 +792,7 @@ inline void changePowerCapEnable(
             {
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, path,
-                     element](const boost::system::error_code ec2,
+                     element](const boost::system::error_code& ec2,
                               sdbusplus::message::message& msg) {
                         if (!ec2)
                         {
@@ -985,7 +983,7 @@ inline void requestRoutesChassisControls(App& app)
                     controlID;
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisID, controlID, validChassisPath](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {
@@ -1056,7 +1054,7 @@ inline void requestRoutesChassisControls(App& app)
                     controlID;
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisID, controlID, validChassisPath](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {
@@ -1133,7 +1131,7 @@ inline void requestRoutesChassisControls(App& app)
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, controlID, chassisID, validChassisPath,
                      getControlSystem](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {
@@ -1154,15 +1152,15 @@ inline void requestRoutesChassisControls(App& app)
                             return;
                         }
 
-                        for (auto processorPath : *data)
+                        for (const auto& processorPath : *data)
                         {
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, controlID, chassisID, processorPath,
                                  validChassisPath](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code& ec1,
                                     const dbus::utility::MapperGetObject&
                                         objType) {
-                                    if (ec || objType.empty())
+                                    if (ec1 || objType.empty())
                                     {
                                         BMCWEB_LOG_ERROR(
                                             "GetObject for path {} failed",
@@ -1225,7 +1223,7 @@ inline void requestRoutesChassisControls(App& app)
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, getControlSystem, getControlCpu,
                      getChassisControl, validChassisPath](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const dbus::utility::MapperGetObject& objType) {
                         if (ec || objType.empty())
                         {
@@ -1287,7 +1285,7 @@ inline void requestRoutesChassisControls(App& app)
                 }
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisID, controlID,
-                     req](const boost::system::error_code ec,
+                     req](const boost::system::error_code& ec,
                           std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {
@@ -1387,7 +1385,7 @@ inline void requestRoutesChassisControls(App& app)
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, controlID, validChassisPath, patchControlSystem,
                      chassisID,
-                     req](const boost::system::error_code ec,
+                     req](const boost::system::error_code& ec,
                           std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {
@@ -1408,15 +1406,15 @@ inline void requestRoutesChassisControls(App& app)
                             return;
                         }
 
-                        for (auto processorPath : *data)
+                        for (const auto& processorPath : *data)
                         {
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, controlID, chassisID, processorPath,
                                  validChassisPath,
-                                 req](const boost::system::error_code ec,
+                                 req](const boost::system::error_code& ec1,
                                       const dbus::utility::MapperGetObject&
                                           objType) {
-                                    if (ec || objType.empty())
+                                    if (ec1 || objType.empty())
                                     {
                                         BMCWEB_LOG_ERROR(
                                             "GetObject for path {} failed",
@@ -1478,7 +1476,7 @@ inline void requestRoutesChassisControls(App& app)
                 }
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisID, controlID,
-                     req](const boost::system::error_code ec,
+                     req](const boost::system::error_code& ec,
                           std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {
@@ -1505,7 +1503,6 @@ inline void requestRoutesChassisControls(App& app)
                                 validendpoint = true;
                                 std::optional<std::string> mode;
                                 std::optional<uint32_t> setpoint;
-                                std::string controlMode;
                                 if (!json_util::readJsonPatch(
                                         req, asyncResp->res, "ControlMode",
                                         mode, "SetPoint", setpoint))
@@ -1581,7 +1578,7 @@ inline void requestRoutesChassisControls(App& app)
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, patchChassisControl, patchControlSystem,
                      patchControlCpu, validChassisPath](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const dbus::utility::MapperGetObject& objType) {
                         if (ec || objType.empty())
                         {
@@ -1652,7 +1649,7 @@ inline void requestRoutesChassisControlsReset(App& app)
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisId, controlId, validChassisPath,
                      processorName](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {
@@ -1716,7 +1713,7 @@ inline void requestRoutesChassisControlsReset(App& app)
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, controlId, validChassisPath,
                      postChassisClockLimitControl](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {
@@ -1735,16 +1732,16 @@ inline void requestRoutesChassisControlsReset(App& app)
                             return;
                         }
 
-                        for (auto processorPath : *data)
+                        for (const auto& processorPath : *data)
                         {
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, controlId, processorPath,
                                  postChassisClockLimitControl,
                                  validChassisPath](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code& ec1,
                                     const dbus::utility::MapperGetObject&
                                         objType) {
-                                    if (ec || objType.empty())
+                                    if (ec1 || objType.empty())
                                     {
                                         BMCWEB_LOG_ERROR(
                                             "GetObject for path {} failed",
@@ -1805,7 +1802,7 @@ inline void requestRoutesChassisControlsReset(App& app)
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, postChassisControl, validChassisPath](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const dbus::utility::MapperGetObject& objType) {
                         if (ec || objType.empty())
                         {

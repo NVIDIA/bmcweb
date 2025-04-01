@@ -40,7 +40,7 @@ inline void isRedfishHostInterfaceUser(const std::string& username,
 
     auto respHandler =
         [callback{std::forward<Callback>(callback)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::map<std::string, dbus::utility::DbusVariantType>&
                 userInfo) {
             BMCWEB_LOG_DEBUG("isRedfishHostInterfaceUser respHandler enter");
@@ -76,7 +76,7 @@ inline void isRedfishHostInterfaceUser(const std::string& username,
             auto found = std::find_if(
                 userGroupPtr->begin(), userGroupPtr->end(),
                 [](const auto& group) {
-                    return (group == "redfish-hostiface") ? true : false;
+                    return static_cast<bool>(group == "redfish-hostiface");
                 });
             if (found == userGroupPtr->end())
             {

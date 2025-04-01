@@ -114,31 +114,33 @@ constexpr const char* metricReportDefinitionUri =
 constexpr const char* metricReportUri =
     "/redfish/v1/TelemetryService/MetricReports";
 
-static std::string gpuPrefix(BMCWEB_PLATFORM_GPU_NAME_PREFIX);
-static std::string platformDevicePrefix(BMCWEB_PLATFORM_DEVICE_PREFIX);
-static std::string platformChassisName(BMCWEB_PLATFORM_CHASSIS_NAME);
-static std::string chassisName = platformDevicePrefix + "Chassis_";
-static std::string fpgaChassiName = platformDevicePrefix + "FPGA_";
-static std::string gpuName = platformDevicePrefix + gpuPrefix;
+static const std::string gpuPrefix(BMCWEB_PLATFORM_GPU_NAME_PREFIX);
+static const std::string platformDevicePrefix(BMCWEB_PLATFORM_DEVICE_PREFIX);
+static const std::string platformChassisName(BMCWEB_PLATFORM_CHASSIS_NAME);
+static const std::string chassisName = platformDevicePrefix + "Chassis_";
+static const std::string fpgaChassiName = platformDevicePrefix + "FPGA_";
+static const std::string gpuName = platformDevicePrefix + gpuPrefix;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::string nvSwitch = "NVSwitch_";
-static std::string pcieRetimer = platformDevicePrefix + "PCIeRetimer_";
-static std::string pcieSwtich = platformDevicePrefix + "PCIeSwitch_";
-static std::string processorModule = platformDevicePrefix + "ProcessorModule_";
-static std::string cpu = platformDevicePrefix + "CPU_";
-static std::string nvLink = "NVLink_";
+static const std::string pcieRetimer = platformDevicePrefix + "PCIeRetimer_";
+static const std::string pcieSwtich = platformDevicePrefix + "PCIeSwitch_";
+static const std::string processorModule =
+    platformDevicePrefix + "ProcessorModule_";
+static const std::string cpu = platformDevicePrefix + "CPU_";
+static const std::string nvLink = "NVLink_";
 
-static std::string cpuProcessor = "CPU_";
-static std::string processor = "ProcessorModule_";
-static std::string pcieLink = "PCIeLink_";
-static std::string cpuCore = "CoreUtil_";
-static std::string networkAdapter(BMCWEB_NVIDIA_NETWORK_ADAPTER_PREFIX);
-static std::string networkAdapterLink(
-    BMCWEB_NVIDIA_NETWORK_ADAPTER_LINK_PREFIX);
+static const std::string cpuProcessor = "CPU_";
+static const std::string processor = "ProcessorModule_";
+static const std::string pcieLink = "PCIeLink_";
+static const std::string cpuCore = "CoreUtil_";
+static const std::string networkAdapter(BMCWEB_NVIDIA_NETWORK_ADAPTER_PREFIX);
+static const std::string
+    networkAdapterLink(BMCWEB_NVIDIA_NETWORK_ADAPTER_LINK_PREFIX);
 
-static std::string gpmInstances = "UtilizationPercent/";
-static std::string nvLinkManagementNIC = "NIC_";
-static std::string nvLinkManagementNICPort = "Port_";
-static std::string retimer = "PCIeRetimer_";
+static const std::string gpmInstances = "UtilizationPercent/";
+static const std::string nvLinkManagementNIC = "NIC_";
+static const std::string nvLinkManagementNICPort = "Port_";
+static const std::string retimer = "PCIeRetimer_";
 
 inline void replaceNumber(const std::string& input, const std::string& key,
                           const std::string& value,
@@ -146,7 +148,7 @@ inline void replaceNumber(const std::string& input, const std::string& key,
 {
     std::regex pattern(key + "(\\d+)");
     std::smatch match;
-    std::string res = input;
+    const std::string& res = input;
     if (value == "{BSWild}")
     {
         if (std::regex_search(res, match, pattern))
@@ -166,17 +168,16 @@ inline void replaceNumber(const std::string& input, const std::string& key,
             replacedName.insert(number);
         }
     }
-    return;
 }
 
 inline void metricsReplacementsNonPlatformMetrics(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    std::vector<std::string> inputMetricProperties,
+    const std::vector<std::string>& inputMetricProperties,
     const std::string& deviceType)
 {
     std::smatch match;
-    std::set<int> nvSwitchId_Type_1;
-    std::set<int> nvlinkId_Type_1;
+    std::set<int> nvSwitchIdType1;
+    std::set<int> nvlinkIdType1;
     std::set<int> gpuId;
     std::set<int> gpmInstance;
     std::set<int> networkAdapterNId;
@@ -198,13 +199,13 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (std::regex_search(e, match, switchPattern))
             {
                 int number = std::stoi(match[1].str());
-                nvSwitchId_Type_1.insert(number);
+                nvSwitchIdType1.insert(number);
             }
             std::regex nvLinkPattern(nvLink + "(\\d+)");
             if (std::regex_search(e, match, nvLinkPattern))
             {
                 int number = std::stoi(match[1].str());
-                nvlinkId_Type_1.insert(number);
+                nvlinkIdType1.insert(number);
             }
         }
         if (deviceType == "NVSwitchMetrics")
@@ -213,7 +214,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (std::regex_search(e, match, switchPattern))
             {
                 int number = std::stoi(match[1].str());
-                nvSwitchId_Type_1.insert(number);
+                nvSwitchIdType1.insert(number);
             }
         }
         if (deviceType == "PCIeRetimerMetrics")
@@ -254,7 +255,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (std::regex_search(e, match, nvLinkPattern))
             {
                 int number = std::stoi(match[1].str());
-                nvlinkId_Type_1.insert(number);
+                nvlinkIdType1.insert(number);
             }
         }
         if (deviceType == "NetworkAdapterPortMetrics")
@@ -350,29 +351,29 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (std::regex_search(e, match, switchPattern))
             {
                 int number = std::stoi(match[1].str());
-                nvSwitchId_Type_1.insert(number);
+                nvSwitchIdType1.insert(number);
             }
         }
     }
     if (deviceType == "NVSwitchPortMetrics")
     {
-        nlohmann::json devCountSwitchType_1 = nlohmann::json::array();
-        for (const auto& e : nvSwitchId_Type_1)
+        nlohmann::json devCountSwitchType1 = nlohmann::json::array();
+        for (const auto& e : nvSwitchIdType1)
         {
-            devCountSwitchType_1.push_back(std::to_string(e));
+            devCountSwitchType1.push_back(std::to_string(e));
         }
         wildCards.push_back({
             {"Name", "NVSwitchId"},
-            {"Values", devCountSwitchType_1},
+            {"Values", devCountSwitchType1},
         });
-        nlohmann::json devCountNVlinkId_Type_1 = nlohmann::json::array();
-        for (const auto& e : nvlinkId_Type_1)
+        nlohmann::json devCountnvlinkIdType1 = nlohmann::json::array();
+        for (const auto& e : nvlinkIdType1)
         {
-            devCountNVlinkId_Type_1.push_back(std::to_string(e));
+            devCountnvlinkIdType1.push_back(std::to_string(e));
         }
         wildCards.push_back({
             {"Name", "NvlinkId"},
-            {"Values", devCountNVlinkId_Type_1},
+            {"Values", devCountnvlinkIdType1},
         });
     }
     if (deviceType == "NetworkAdapterPortMetrics")
@@ -444,7 +445,7 @@ inline void metricsReplacementsNonPlatformMetrics(
     if (deviceType == "NVSwitchMetrics" || deviceType == "HealthMetrics")
     {
         nlohmann::json devCountNVSwitchId = nlohmann::json::array();
-        for (const auto& e : nvSwitchId_Type_1)
+        for (const auto& e : nvSwitchIdType1)
         {
             devCountNVSwitchId.push_back(std::to_string(e));
         }
@@ -485,7 +486,7 @@ inline void metricsReplacementsNonPlatformMetrics(
         deviceType == "ProcessorPortGPMMetrics")
     {
         nlohmann::json devCountnvlinkId = nlohmann::json::array();
-        for (const auto& e : nvlinkId_Type_1)
+        for (const auto& e : nvlinkIdType1)
         {
             devCountnvlinkId.push_back(std::to_string(e));
         }
@@ -547,10 +548,10 @@ inline void metricsReplacementsNonPlatformMetrics(
     }
 }
 
-inline void metricsReplacements(
-    std::vector<std::string> name,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    std::vector<std::string> inputMetricProperties)
+inline void
+    metricsReplacements(std::vector<std::string> name,
+                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                        const std::vector<std::string>& inputMetricProperties)
 {
     nlohmann::json& wildCards = asyncResp->res.jsonValue["Wildcards"];
     std::set<std::string> wildCardValues;
@@ -569,7 +570,6 @@ inline void metricsReplacements(
         {"Name", name[2]},
         {"Values", devCount},
     });
-    return;
 }
 
 inline void getShmemMetricsDefinitionWildCard(

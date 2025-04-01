@@ -106,9 +106,9 @@ inline std::string LldpToolUtil::translateOperationToCommand(
 {
     std::string command;
     std::string cmdAction{" set-tlv "};
-    std::string setRequest{""};
-    std::string tlvRequest{""};
-    std::string neighbor{""};
+    std::string setRequest;
+    std::string tlvRequest;
+    std::string neighbor;
 
     switch (lldpCommandType)
     {
@@ -159,7 +159,6 @@ inline std::string LldpToolUtil::translateOperationToCommand(
             setRequest = " adminStatus=disabled";
             break;
         case LldpTlv::ALL:
-            break;
         default:
             break;
     }
@@ -203,7 +202,7 @@ inline void LldpToolUtil::run(
             stdErr += line + "\n";
         }
         dataErr->close();
-        if (ec || errorCode)
+        if (ec || (errorCode != 0))
         {
             BMCWEB_LOG_ERROR("Error while executing command: {} Error Code {}",
                              command, errorCode);

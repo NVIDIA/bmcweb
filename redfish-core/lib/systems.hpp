@@ -47,13 +47,9 @@
 #include <utils/nvidia_pcie_utils.hpp>
 #include <utils/nvidia_systems_util.hpp>
 #include <utils/privilege_utils.hpp>
-#include <utils/sw_utils.hpp>
 
 #include <array>
-#include <chrono>
 #include <cstddef>
-#include <cstdint>
-#include <functional>
 #include <memory>
 #include <optional>
 #include <ratio>
@@ -161,8 +157,7 @@ inline void modifyCpuPresenceState(
         }
         else
         {
-            asyncResp->res.jsonValue["ProcessorSummary"]["Count"] =
-                static_cast<int>(1);
+            asyncResp->res.jsonValue["ProcessorSummary"]["Count"] = 1;
         }
     }
 }
@@ -291,12 +286,14 @@ inline void processMemoryProperties(
         if (preValue == nullptr)
         {
             asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"] =
-                static_cast<int64_t>(*memorySizeInKB) / (1024 * 1024);
+                static_cast<int64_t>(*memorySizeInKB) /
+                (static_cast<int64_t>(1024 * 1024));
         }
         else
         {
             asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"] =
-                static_cast<int64_t>(*memorySizeInKB) / (1024 * 1024) +
+                static_cast<int64_t>(*memorySizeInKB) /
+                    (static_cast<int64_t>(1024 * 1024)) +
                 static_cast<int64_t>(*preValue);
         }
     }
@@ -521,10 +518,10 @@ inline void afterSystemGetSubTree(
                                 *crow::connections::systemBus, connection.first,
                                 path, "xyz.openbmc_project.Common.UUID",
                                 [asyncResp](
-                                    const boost::system::error_code& ec3,
+                                    const boost::system::error_code& ec1,
                                     const dbus::utility::DBusPropertiesMap&
                                         properties) {
-                                    afterGetUUID(asyncResp, ec3, properties);
+                                    afterGetUUID(asyncResp, ec1, properties);
                                 });
                         }
                     }
@@ -537,10 +534,10 @@ inline void afterSystemGetSubTree(
                                 *crow::connections::systemBus, connection.first,
                                 path, "xyz.openbmc_project.Common.UUID",
                                 [asyncResp](
-                                    const boost::system::error_code& ec3,
+                                    const boost::system::error_code& ec1,
                                     const dbus::utility::DBusPropertiesMap&
                                         properties) {
-                                    afterGetUUID(asyncResp, ec3, properties);
+                                    afterGetUUID(asyncResp, ec1, properties);
                                 });
                         }
                     }
@@ -551,10 +548,10 @@ inline void afterSystemGetSubTree(
                     dbus::utility::getAllProperties(
                         *crow::connections::systemBus, connection.first, path,
                         "xyz.openbmc_project.Inventory.Decorator.Asset",
-                        [asyncResp](const boost::system::error_code& ec3,
+                        [asyncResp](const boost::system::error_code& ec1,
                                     const dbus::utility::DBusPropertiesMap&
                                         properties) {
-                            afterGetInventory(asyncResp, ec3, properties);
+                            afterGetInventory(asyncResp, ec1, properties);
                         });
 
                     dbus::utility::getProperty<std::string>(
@@ -867,7 +864,7 @@ inline std::string dbusToRfBootProgress(
             *crow::connections::systemBus, "xyz.openbmc_project.State.Host",
             "/xyz/openbmc_project/state/host0",
             "xyz.openbmc_project.State.Boot.Progress", "BootProgressOem",
-            [aResp](const boost::system::error_code ec,
+            [aResp](const boost::system::error_code& ec,
                     const std::string& bootProgressoem) {
                 if (ec)
                 {
@@ -1336,7 +1333,7 @@ inline void getAutomaticRetry(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         *crow::connections::systemBus, "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/control/host0/auto_reboot",
         "xyz.openbmc_project.Control.Boot.RebootPolicy", "AutoReboot",
-        [aResp, isSettingsUrl](const boost::system::error_code ec,
+        [aResp, isSettingsUrl](const boost::system::error_code& ec,
                                bool autoRebootEnabled) {
             if (ec)
             {
@@ -1359,7 +1356,7 @@ inline void getAutomaticRetry(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         "/xyz/openbmc_project/state/host0",
                         "xyz.openbmc_project.Control.Boot.RebootAttempts",
                         "AttemptsLeft",
-                        [aResp](const boost::system::error_code ec2,
+                        [aResp](const boost::system::error_code& ec2,
                                 const uint32_t autoRebootAttemptsLeft) {
                             if (ec2)
                             {
@@ -1509,7 +1506,7 @@ inline void getAutomaticRetryPolicy(
                         "/xyz/openbmc_project/state/host0",
                         "xyz.openbmc_project.Control.Boot.RebootAttempts",
                         "AttemptsLeft",
-                        [asyncResp](const boost::system::error_code ec2,
+                        [asyncResp](const boost::system::error_code& ec2,
                                     const uint32_t autoRebootAttemptsLeft) {
                             if (ec2)
                             {
@@ -2044,7 +2041,7 @@ inline void populateFromEntityManger(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const std::vector<std::pair<
                     std::string, std::variant<std::string>>>& propertiesList) {
             if (ec)
@@ -2053,7 +2050,7 @@ inline void populateFromEntityManger(
                                  "Populate from entity manager ");
                 return;
             }
-            for (auto& property : propertiesList)
+            for (const auto& property : propertiesList)
             {
                 const std::string& propertyName = property.first;
                 if (propertyName == "SKU")
@@ -2097,7 +2094,7 @@ inline void populateFromEntityManger(
         entityMangerService, card1Path, "org.freedesktop.DBus.Properties",
         "GetAll", "xyz.openbmc_project.Inventory.Decorator.Asset");
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const std::variant<std::string>& uuid) {
             if (ec)
             {
@@ -2135,7 +2132,7 @@ inline void getUefiPropertySettingsHost(
 
     crow::connections::systemBus->async_method_call(
         [aResp, addSourcesList](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::variant<std::vector<std::string>>& sourcesListVariant) {
             if (ec)
             {
@@ -2178,17 +2175,17 @@ inline void getUefiPropertySettingsHost(
                 crow::connections::systemBus->async_method_call(
                     [aResp, isIncludeUefiTarget, isIncludeUefiBootNext,
                      isIncludeUefiHttp](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec1,
                         const std::vector<
                             std::pair<std::string, std::variant<std::string>>>&
                             propertiesList) {
-                        if (ec)
+                        if (ec1)
                         {
                             BMCWEB_LOG_DEBUG("DBUS response error for "
                                              "Populate from Settings service ");
                             return;
                         }
-                        for (auto& property : propertiesList)
+                        for (const auto& property : propertiesList)
                         {
                             const std::string& propertyName = property.first;
                             if (propertyName == "TargetURI" &&
@@ -2258,7 +2255,7 @@ void setDbusProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 {
     crow::connections::systemBus->async_method_call(
         [aResp, property, value, path, service,
-         interface](const boost::system::error_code ec) {
+         interface](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG(
@@ -3831,7 +3828,7 @@ inline void handleComputerSystemGet(
     {
         asyncResp->res.jsonValue["ProcessorSummary"]["Count"] = 0;
     }
-    asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"] = int(0);
+    asyncResp->res.jsonValue["MemorySummary"]["TotalSystemMemoryGiB"] = 0;
 
     if constexpr (BMCWEB_HIDE_HOST_OS_FEATURES_INIT_VALUE)
     {
@@ -3920,7 +3917,7 @@ inline void handleComputerSystemGet(
         asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
         redfish::conditions_utils::populateServiceConditions(
             asyncResp, std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
-        if constexpr (BMCWEB_NVIDIA_OEM_COMMON_PROPERTIES)
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.id"] =
                 "/redfish/v1/Systems/" +
@@ -3978,7 +3975,7 @@ inline void handleComputerSystemGet(
 
         crow::connections::systemBus->async_method_call(
             [asyncResp](
-                const boost::system::error_code ec,
+                const boost::system::error_code& ec,
                 const std::vector<std::pair<
                     std::string, std::vector<std::pair<
                                      std::string, std::vector<std::string>>>>>&
@@ -4018,12 +4015,12 @@ inline void handleComputerSystemGet(
                             path + "/chassis",
                             "xyz.openbmc_project.Association", "endpoints",
                             [asyncResp](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code& ec1,
                                 const std::vector<std::string>& property) {
-                                if (ec)
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_ERROR("DBUS response error: {}",
-                                                     ec);
+                                                     ec1);
                                     return; // no chassis = no failures
                                 }
 
@@ -4354,7 +4351,7 @@ inline void handleComputerSystemPatch(
             req,
             [asyncResp, sku, uuid, bootSourceOverrideTargetAllowableValues](
                 const boost::system::error_code ec, const bool isBios) {
-            if (ec || isBios == false)
+            if (ec || !isBios)
             {
                 messages::propertyNotWritable(asyncResp->res,
                                                 "AllowableValues");
@@ -4639,38 +4636,47 @@ inline void handleSystemProcessorDiagSysConfigActionGet(
     }
 
     asyncResp->res.jsonValue["@odata.id"] =
-        "/redfish/v1/Systems/" + systemName +
-        "/Oem/Nvidia/ProcessorDiagSysConfigActionInfo";
+        std::string("/redfish/v1/Systems/").append(systemName).append(
+            "/Oem/Nvidia/ProcessorDiagSysConfigActionInfo");
     asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
     asyncResp->res.jsonValue["Name"] = "DiagSysConfig Action Info";
     asyncResp->res.jsonValue["Id"] = "DiagSysConfigActionInfo";
 
     nlohmann::json::array_t parameters;
-    nlohmann::json::object_t parameter;
 
-    parameter["Name"] = "ConfigType";
-    parameter["Required"] = true;
-    parameter["DataType"] = "Number";
-    nlohmann::json::array_t allowableValues;
-    allowableValues.emplace_back(0);
-    allowableValues.emplace_back(1);
-    parameter["AllowableValues"] = std::move(allowableValues);
-    parameters.emplace_back(std::move(parameter));
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "ConfigType";
+        parameter["Required"] = true;
+        parameter["DataType"] = "Number";
+        nlohmann::json::array_t allowableValues;
+        allowableValues.emplace_back(0);
+        allowableValues.emplace_back(1);
+        parameter["AllowableValues"] = std::move(allowableValues);
+        parameters.emplace_back(std::move(parameter));
+    }
 
-    parameter["Name"] = "TestDuration";
-    parameter["Required"] = true;
-    parameter["DataType"] = "Number";
-    parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
-    parameters.emplace_back(std::move(parameter));
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "TestDuration";
+        parameter["Required"] = true;
+        parameter["DataType"] = "Number";
+        parameter["MinimumValue"] = 0;
+        parameter["MaximunValue"] = 255;
+        parameters.emplace_back(std::move(parameter));
+    }
 
-    parameter["Name"] = "DynamicData";
-    parameter["Required"] = true;
-    parameter["DataType"] = "NumberArray";
-    parameter["ArraySizeMaximum"] = 199;
-    parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
-    parameters.emplace_back(std::move(parameter));
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "DynamicData";
+        parameter["Required"] = true;
+        parameter["DataType"] = "NumberArray";
+        parameter["ArraySizeMaximum"] = 199;
+        parameter["MinimumValue"] = 0;
+        parameter["MaximunValue"] = 255;
+        parameters.emplace_back(std::move(parameter));
+    }
+
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
 }
 //TODO: move to new file
@@ -4692,56 +4698,75 @@ inline void handleSystemProcessorDiagTidConfigActionGet(
     }
 
     asyncResp->res.jsonValue["@odata.id"] =
-        "/redfish/v1/Systems/" + systemName +
-        "/Oem/Nvidia/ProcessorDiagTidConfigActionInfo";
+        std::string("/redfish/v1/Systems/").append(systemName).append(
+            "/Oem/Nvidia/ProcessorDiagTidConfigActionInfo");
     asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_1_2.ActionInfo";
     asyncResp->res.jsonValue["Name"] = "DiagTidConfig Action Info";
     asyncResp->res.jsonValue["Id"] = "DiagTidConfigActionInfo";
 
     nlohmann::json::array_t parameters;
-    nlohmann::json::object_t parameter;
 
-    parameter["Name"] = "Tid";
-    parameter["Required"] = true;
-    parameter["DataType"] = "Number";
-    parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
-    parameters.emplace_back(std::move(parameter));
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "Tid";
+        parameter["Required"] = true;
+        parameter["DataType"] = "Number";
+        parameter["MinimumValue"] = 0;
+        parameter["MaximunValue"] = 255;
+        parameters.emplace_back(std::move(parameter));
+    }
 
-    parameter["Name"] = "TestDuration";
-    parameter["Required"] = true;
-    parameter["DataType"] = "Number";
-    parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
-    parameters.emplace_back(std::move(parameter));
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "TestDuration";
+        parameter["Required"] = true;
+        parameter["DataType"] = "Number";
+        parameter["MinimumValue"] = 0;
+        parameter["MaximunValue"] = 255;
+        parameters.emplace_back(std::move(parameter));
+    }
 
-    parameter["Name"] = "Loops";
-    parameter["Required"] = true;
-    parameter["DataType"] = "Number";
-    parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 65535;
-    parameters.emplace_back(std::move(parameter));
-    parameter["Name"] = "LogLevel";
-    parameter["Required"] = true;
-    parameter["DataType"] = "Number";
-    parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
-    parameters.emplace_back(std::move(parameter));
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "Loops";
+        parameter["Required"] = true;
+        parameter["DataType"] = "Number";
+        parameter["MinimumValue"] = 0;
+        parameter["MaximunValue"] = 65535;
+        parameters.emplace_back(std::move(parameter));
+    }
 
-    parameter["Name"] = "DynamicDataSize";
-    parameter["Required"] = true;
-    parameter["DataType"] = "Number";
-    parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
-    parameters.emplace_back(std::move(parameter));
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "LogLevel";
+        parameter["Required"] = true;
+        parameter["DataType"] = "Number";
+        parameter["MinimumValue"] = 0;
+        parameter["MaximunValue"] = 255;
+        parameters.emplace_back(std::move(parameter));
+    }
 
-    parameter["Name"] = "DynamicData";
-    parameter["Required"] = true;
-    parameter["DataType"] = "NumberArray";
-    parameter["ArraySizeMaximum"] = 194;
-    parameter["MinimumValue"] = 0;
-    parameter["MaximunValue"] = 255;
-    parameters.emplace_back(std::move(parameter));
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "DynamicDataSize";
+        parameter["Required"] = true;
+        parameter["DataType"] = "Number";
+        parameter["MinimumValue"] = 0;
+        parameter["MaximunValue"] = 255;
+        parameters.emplace_back(std::move(parameter));
+    }
+
+    {
+        nlohmann::json::object_t parameter;
+        parameter["Name"] = "DynamicData";
+        parameter["Required"] = true;
+        parameter["DataType"] = "NumberArray";
+        parameter["ArraySizeMaximum"] = 194;
+        parameter["MinimumValue"] = 0;
+        parameter["MaximunValue"] = 255;
+        parameters.emplace_back(std::move(parameter));
+    }
+
     asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
 }
 

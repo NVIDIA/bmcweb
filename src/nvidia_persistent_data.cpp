@@ -20,6 +20,8 @@
 
 #include "persistent_data.hpp"
 
+#include <nlohmann/json.hpp>
+
 namespace persistent_data::nvidia
 {
 

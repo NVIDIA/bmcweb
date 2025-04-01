@@ -44,9 +44,9 @@ inline void updateBackgroundCopyEnabled(
     MctpVdmUtil mctpVdmUtilWrapper(endpointId);
 
     auto responseCallback =
-        [callback]([[maybe_unused]] const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] uint32_t endpointId,
+        [callback]([[maybe_unused]] const crow::Request& reqIn,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
+                   [[maybe_unused]] uint32_t endpointIdIn,
                    const std::string& stdOut,
                    [[maybe_unused]] const std::string& stdErr,
                    const boost::system::error_code& ec, int errorCode) -> void {
@@ -54,7 +54,7 @@ inline void updateBackgroundCopyEnabled(
         {
             return;
         }
-        nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+        nlohmann::json& oem = asyncRespIn->res.jsonValue["Oem"]["Nvidia"];
 
         std::string rxTemplate = "(.|\n)*RX:( \\d\\d){9} 01(.|\n)*";
         if (std::regex_match(stdOut, std::regex(rxTemplate)))
@@ -87,8 +87,6 @@ inline void updateBackgroundCopyEnabled(
                                std::monostate(), req, asyncResp,
                                responseCallback);
     }
-
-    return;
 }
 
 /**
@@ -113,9 +111,9 @@ inline void updateBackgroundCopyStatusPending(
 {
     MctpVdmUtil mctpVdmUtilWrapper(endpointId);
     auto bgCopyQueryResponseCallback =
-        [callback]([[maybe_unused]] const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] uint32_t endpointId,
+        [callback]([[maybe_unused]] const crow::Request& reqIn,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
+                   [[maybe_unused]] uint32_t endpointIdIn,
                    const std::string& stdOut,
                    [[maybe_unused]] const std::string& stdErr,
                    const boost::system::error_code& ec, int errorCode) -> void {
@@ -124,7 +122,7 @@ inline void updateBackgroundCopyStatusPending(
             return;
         }
         std::string rxTemplatePending = "(.|\n)*RX:( \\d\\d){9} 02(.|\n)*";
-        nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+        nlohmann::json& oem = asyncRespIn->res.jsonValue["Oem"]["Nvidia"];
         if (std::regex_match(stdOut, std::regex(rxTemplatePending)))
         {
             oem["BackgroundCopyStatus"] = "Pending";
@@ -155,8 +153,6 @@ inline void updateBackgroundCopyStatusPending(
                                std::monostate(), req, asyncResp,
                                std::move(bgCopyQueryResponseCallback));
     }
-
-    return;
 }
 
 /**
@@ -181,15 +177,15 @@ inline void updateBackgroundCopyStatus(
 {
     MctpVdmUtil mctpVdmUtilWrapper(endpointId);
     auto bgCopyQueryResponseCallback =
-        [callback, allowList, chassisId](
-            [[maybe_unused]] const crow::Request& req,
-            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-            [[maybe_unused]] uint32_t endpointId, const std::string& stdOut,
+        [callback, allowList, chassisId, req, asyncResp, endpointId](
+            [[maybe_unused]] const crow::Request& reqIn,
+            const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
+            [[maybe_unused]] uint32_t endpointIdIn, const std::string& stdOut,
             [[maybe_unused]] const std::string& stdErr,
             const boost::system::error_code& ec, int errorCode) -> void {
         if (ec || errorCode)
         {
-            redfish::messages::internalError(asyncResp->res);
+            redfish::messages::internalError(asyncRespIn->res);
             return;
         }
 
@@ -202,7 +198,7 @@ inline void updateBackgroundCopyStatus(
         }
         else if (std::regex_match(stdOut, std::regex(rxTemplateInProgress)))
         {
-            nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+            nlohmann::json& oem = asyncRespIn->res.jsonValue["Oem"]["Nvidia"];
             oem["BackgroundCopyStatus"] = "InProgress";
 
             if (callback)
@@ -233,7 +229,6 @@ inline void updateBackgroundCopyStatus(
             MctpVdmUtilCommand::BACKGROUNDCOPY_QUERY_PROGRESS, std::monostate(),
             req, asyncResp, bgCopyQueryResponseCallback);
     }
-    return;
 }
 
 /**
@@ -257,27 +252,26 @@ inline void enableBackgroundCopy(
 
     auto responseCallback =
         [enabled, chassisId](
-            [[maybe_unused]] const crow::Request& req,
-            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-            [[maybe_unused]] uint32_t endpointId,
+            [[maybe_unused]] const crow::Request& reqIn,
+            const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
+            [[maybe_unused]] uint32_t endpointIdIn,
             [[maybe_unused]] const std::string& stdOut,
             [[maybe_unused]] const std::string& stdErr,
             const boost::system::error_code& ec, int errorCode) -> void {
-        if (ec || errorCode)
+        if (ec || errorCode != 0)
         {
             const std::string errorMessage =
-                (enabled == true)
-                    ? "MCTP Command Failure: Background Copy Enable"
-                    : "MCTP Command Failure: Background Copy Disable";
+                (enabled) ? "MCTP Command Failure: Background Copy Enable"
+                          : "MCTP Command Failure: Background Copy Disable";
 
             redfish::messages::resourceErrorsDetectedFormatError(
-                asyncResp->res, "/redfish/v1/Chassis/" + chassisId,
+                asyncRespIn->res, "/redfish/v1/Chassis/" + chassisId,
                 errorMessage);
             return;
         }
-        if (asyncResp->res.jsonValue.empty())
+        if (asyncRespIn->res.jsonValue.empty())
         {
-            redfish::messages::success(asyncResp->res);
+            redfish::messages::success(asyncRespIn->res);
         }
     };
 
@@ -293,7 +287,6 @@ inline void enableBackgroundCopy(
                                std::monostate(), req, asyncResp,
                                responseCallback);
     }
-    return;
 }
 
 /**
@@ -315,34 +308,33 @@ inline void initBackgroundCopy(
     MctpVdmUtil mctpVdmUtilWrapper(endpointId);
     auto responseCallback =
         [inventoryURI](
-            [[maybe_unused]] const crow::Request& req,
-            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-            [[maybe_unused]] uint32_t endpointId,
+            [[maybe_unused]] const crow::Request& reqIn,
+            const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
+            [[maybe_unused]] uint32_t endpointIdIn,
             [[maybe_unused]] const std::string& stdOut,
             [[maybe_unused]] const std::string& stdErr,
             const boost::system::error_code& ec, int errorCode) -> void {
-        if (ec || errorCode)
+        if (ec || errorCode != 0)
         {
             redfish::messages::resourceErrorsDetectedFormatError(
-                asyncResp->res, inventoryURI,
+                asyncRespIn->res, inventoryURI,
                 "MCTP Command Failure: Background Copy Init");
             // remove ExtendedInfo messages which contains success message entry
             // in the response
-            if (asyncResp->res.jsonValue.contains("@Message.ExtendedInfo"))
+            if (asyncRespIn->res.jsonValue.contains("@Message.ExtendedInfo"))
             {
-                asyncResp->res.jsonValue.erase("@Message.ExtendedInfo");
+                asyncRespIn->res.jsonValue.erase("@Message.ExtendedInfo");
             }
             return;
         }
         // update success if message is response is not filled
-        if (asyncResp->res.jsonValue.empty())
+        if (asyncRespIn->res.jsonValue.empty())
         {
-            redfish::messages::success(asyncResp->res);
+            redfish::messages::success(asyncRespIn->res);
         }
     };
     BMCWEB_LOG_INFO("Initializing background init for inventoryURI:{}",
                     inventoryURI);
     mctpVdmUtilWrapper.run(MctpVdmUtilCommand::BACKGROUNDCOPY_INIT,
                            std::monostate(), req, asyncResp, responseCallback);
-    return;
 }

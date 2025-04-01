@@ -35,13 +35,12 @@ inline void getInterfaceStatus(
     const std::string& ifaceId)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const std::variant<bool>& nicStatus) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG(
-                    "DBUS response error for "
-                    "Get NICEnabled Status for the host interface.");
+                    "DBUS response error for Get NICEnabled Status for the host interface.");
                 messages::internalError(asyncResp->res);
                 return;
             }
@@ -61,11 +60,11 @@ inline void getInterfaceStatus(
             auto health = std::make_shared<HealthPopulate>(asyncResp);
 
             crow::connections::systemBus->async_method_call(
-                [health](const boost::system::error_code ec,
+                [health](const boost::system::error_code& ec1,
                          const std::vector<std::string>& resp) {
-                    if (ec)
+                    if (ec1)
                     {
-                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec1);
                         return;
                     }
                     health->inventory = resp;
@@ -96,7 +95,7 @@ inline void getCredentialsBootStrap(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const GetObjectType& objType) {
             if (ec || objType.empty())
             {
@@ -109,12 +108,12 @@ inline void getCredentialsBootStrap(
             const std::string& biosService = objType.begin()->first;
             crow::connections::systemBus->async_method_call(
                 [asyncResp](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec1,
                     const std::vector<std::pair<
                         std::string,
                         std::variant<std::string, redfish::bios::BaseBIOSTable,
                                      bool>>>& propertiesList) {
-                    if (ec)
+                    if (ec1)
                     {
                         BMCWEB_LOG_ERROR("Can't get BIOSConfig Manager!");
                         messages::internalError(asyncResp->res);
@@ -178,7 +177,7 @@ inline void setCredentialBootstrap(
     const std::string& property, const bool& flag)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp, property, flag](const boost::system::error_code ec,
+        [asyncResp, property, flag](const boost::system::error_code& ec,
                                     const GetObjectType& objType) {
             if (ec || objType.empty())
             {
@@ -191,10 +190,10 @@ inline void setCredentialBootstrap(
             const std::string& biosService = objType.begin()->first;
 
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code ec) {
-                    if (ec)
+                [asyncResp](const boost::system::error_code& ec1) {
+                    if (ec1)
                     {
-                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec1);
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -216,7 +215,7 @@ inline void setInterfaceEnabled(
     const std::string& ifaceId, const bool& interfaceEnabled)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec) {
+        [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
@@ -251,7 +250,7 @@ inline void requestHostInterfacesRoutes(App& app)
                 "Collection of HostInterfaces for this Manager";
 
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code errorCode,
+                [asyncResp](const boost::system::error_code& errorCode,
                             dbus::utility::ManagedObjectType& resp) {
                     boost::container::flat_set<std::string> ifaceList;
                     ifaceList.reserve(resp.size());

@@ -34,6 +34,8 @@
 #include <boost/url/format.hpp>
 #include <boost/url/url.hpp>
 #include <nlohmann/json.hpp>
+#include <erot_chassis.hpp>
+#include <openbmc_dbus_rest.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
@@ -214,9 +216,9 @@ inline void getChassisState(std::shared_ptr<bmcweb::AsyncResp> asyncResp)
  * @return None.
  */
 inline void getChassisStateWrapper(
-    std::shared_ptr<bmcweb::AsyncResp> asyncResp,
-    const dbus::utility::DBusPropertiesMap& propertiesList, std::string service,
-    std::string path)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const dbus::utility::DBusPropertiesMap& propertiesList,
+    const std::string& service, const std::string& path)
 {
     const std::string* state = nullptr;
     const std::string* currentPowerState = nullptr;
@@ -266,14 +268,14 @@ inline void handlePhysicalSecurityGetSubTree(
             dbus::utility::getProperty<std::string>(
                 service.first, object.first,
                 "xyz.openbmc_project.Chassis.Intrusion", "Status",
-                [asyncResp](const boost::system::error_code& ec1,
+                [asyncResp](const boost::system::error_code& ec2,
                             const std::string& value) {
-                    if (ec1)
+                    if (ec2)
                     {
                         // do not add err msg in redfish response, because this
                         // is not
                         //     mandatory property
-                        BMCWEB_LOG_ERROR("DBUS response error {}", ec1);
+                        BMCWEB_LOG_ERROR("DBUS response error {}", ec2);
                         return;
                     }
                     asyncResp->res.jsonValue["PhysicalSecurity"]
@@ -350,14 +352,14 @@ inline void getChassisContainedBy(
 
 inline void getChassisContains(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const boost::system::error_code& ec,
+    const std::string& chassisId, const boost::system::error_code& errorCode1,
     const dbus::utility::MapperGetSubTreePathsResponse& downstreamChassisPaths)
 {
-    if (ec)
+    if (errorCode1)
     {
-        if (ec.value() != EBADR)
+        if (errorCode1.value() != EBADR)
         {
-            BMCWEB_LOG_ERROR("DBUS response error {}", ec);
+            BMCWEB_LOG_ERROR("DBUS response error {}", errorCode1);
             messages::internalError(asyncResp->res);
         }
         return;
@@ -715,9 +717,9 @@ inline void handleChassisGetSubTree(
 
         dbus::utility::getAssociationEndPoints(
             path + "/drive",
-            [asyncResp, chassisId](const boost::system::error_code& ec3,
+            [asyncResp, chassisId](const boost::system::error_code& ec2,
                                    const dbus::utility::MapperEndPoints& resp) {
-                if (ec3 || resp.empty())
+                if (ec2 || resp.empty())
                 {
                     return; // no drives = no failures
                 }
@@ -749,13 +751,13 @@ inline void handleChassisGetSubTree(
                     dbus::utility::getProperty<std::string>(
                         connectionName, path, assetTagInterface, "AssetTag",
                         [asyncResp,
-                         chassisId](const boost::system::error_code& ec2,
+                         chassisId](const boost::system::error_code& ec3,
                                     const std::string& property) {
-                            if (ec2)
+                            if (ec3)
                             {
                                 BMCWEB_LOG_ERROR(
                                     "DBus response error for AssetTag: {}",
-                                    ec2);
+                                    ec3);
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
@@ -771,13 +773,13 @@ inline void handleChassisGetSubTree(
                         connectionName, path, replaceableInterface,
                         "HotPluggable",
                         [asyncResp,
-                         chassisId](const boost::system::error_code& ec2,
+                         chassisId](const boost::system::error_code& ec3,
                                     const bool property) {
-                            if (ec2)
+                            if (ec3)
                             {
                                 BMCWEB_LOG_ERROR(
                                     "DBus response error for HotPluggable: {}",
-                                    ec2);
+                                    ec3);
                                 // not abort the resource display
                             }
                             else
@@ -792,12 +794,12 @@ inline void handleChassisGetSubTree(
                     dbus::utility::getProperty<std::string>(
                         connectionName, path, revisionInterface, "Version",
                         [asyncResp,
-                         chassisId](const boost::system::error_code& ec2,
+                         chassisId](const boost::system::error_code& ec3,
                                     const std::string& property) {
-                            if (ec2)
+                            if (ec3)
                             {
                                 BMCWEB_LOG_ERROR(
-                                    "DBus response error for Version: {}", ec2);
+                                    "DBus response error for Version: {}", ec3);
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
@@ -847,10 +849,9 @@ inline void handleChassisGetSubTree(
             }
 
             sdbusplus::asio::getAllProperties(
-                *crow::connections::systemBus, connectionName, path,
-                "xyz.openbmc_project.Inventory.Item.Chassis",
-                [asyncResp](
-                    const boost::system::error_code&,
+                *crow::connections::systemBus, connectionName, path, "",
+                [asyncResp, chassisId, connectionName, path, interfaces2](
+                    [[maybe_unused]] const boost::system::error_code& ec3,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
                     handleChassisProperties(asyncResp, propertiesList);
                 });
@@ -927,7 +928,7 @@ inline void handleChassisGetSubTree(
         // service
     }
 
-    if (isFoundChassisObject == false)
+    if (!isFoundChassisObject)
     {
         // Couldn't find an object with that name.  return an error
         messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
@@ -1166,7 +1167,7 @@ inline void handleChassisPatch(
                     if (hardwareWriteProtectEnable)
                     {
                         redfish::nvidia_chassis_utils::
-                            OemChassisHardwareWriteProtectEnable(
+                            oemChassisHardwareWriteProtectEnable(
                                 asyncResp, chassisId,
                                 *hardwareWriteProtectEnable);
                     }
@@ -1306,7 +1307,7 @@ inline void doChassisPowerCycle(
 inline void powerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const std::vector<std::string>& hostList) {
             if (ec)
             {
@@ -1320,12 +1321,12 @@ inline void powerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
             }
             crow::connections::systemBus->async_method_call(
                 [asyncResp,
-                 objectPath](const boost::system::error_code ec,
+                 objectPath](const boost::system::error_code& ec2,
                              const std::variant<std::string>& state) {
-                    if (ec)
+                    if (ec2)
                     {
                         BMCWEB_LOG_DEBUG("[mapper] Bad D-Bus request error: ",
-                                         ec);
+                                         ec2);
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -1336,12 +1337,12 @@ inline void powerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                     {
                         crow::connections::systemBus->async_method_call(
                             [asyncResp,
-                             objectPath](const boost::system::error_code ec) {
+                             objectPath](const boost::system::error_code& ec3) {
                                 // Use "Set" method to set the property value.
-                                if (ec)
+                                if (ec3)
                                 {
                                     BMCWEB_LOG_DEBUG(
-                                        "[Set] Bad D-Bus request error: ", ec);
+                                        "[Set] Bad D-Bus request error: ", ec3);
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
@@ -1470,10 +1471,10 @@ inline void handleOemChassisResetActionInfoPost(
                 if (hostState == "xyz.openbmc_project.State.Host.HostState.Off")
                 {
                     crow::connections::systemBus->async_method_call(
-                        [asyncResp](const boost::system::error_code& ec) {
-                            if (ec)
+                        [asyncResp](const boost::system::error_code& ec2) {
+                            if (ec2)
                             {
-                                BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                                BMCWEB_LOG_DEBUG("DBUS response error {}", ec2);
                                 messages::internalError(asyncResp->res);
                                 return;
                             }

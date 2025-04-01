@@ -43,9 +43,9 @@ inline void updateInBandEnabled(
 {
     MctpVdmUtil mctpVdmUtilWrapper(endpointId);
     auto responseCallback =
-        [callback]([[maybe_unused]] const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] uint32_t endpointId,
+        [callback]([[maybe_unused]] const crow::Request& reqIn,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
+                   [[maybe_unused]] uint32_t endpointIdIn,
                    const std::string& stdOut,
                    [[maybe_unused]] const std::string& stdErr,
                    const boost::system::error_code& ec, int errorCode) -> void {
@@ -53,7 +53,7 @@ inline void updateInBandEnabled(
         {
             return;
         }
-        nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+        nlohmann::json& oem = asyncRespIn->res.jsonValue["Oem"]["Nvidia"];
 
         std::string rxTemplate = "(.|\n)*RX:( \\d\\d){9} 01(.|\n)*";
         if (std::regex_match(stdOut, std::regex(rxTemplate)))
@@ -87,8 +87,6 @@ inline void updateInBandEnabled(
                                std::monostate(), req, asyncResp,
                                responseCallback);
     }
-
-    return;
 }
 
 /**
@@ -111,26 +109,26 @@ inline void enableInBand(const crow::Request& req,
     MctpVdmUtil mctpVdmUtilWrapper(endpointId);
     auto responseCallback =
         [enabled, chassisId](
-            [[maybe_unused]] const crow::Request& req,
-            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-            [[maybe_unused]] uint32_t endpointId,
+            [[maybe_unused]] const crow::Request& reqIn,
+            const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
+            [[maybe_unused]] uint32_t endpointIdIn,
             [[maybe_unused]] const std::string& stdOut,
             [[maybe_unused]] const std::string& stdErr,
             const boost::system::error_code& ec, int errorCode) -> void {
-        if (ec || errorCode)
+        if (ec || errorCode != 0)
         {
             const std::string errorMessage =
-                (enabled == true) ? "MCTP Command Failure: In-Band Enable"
-                                  : "MCTP Command Failure: In-Band Disable";
+                enabled ? "MCTP Command Failure: In-Band Enable"
+                        : "MCTP Command Failure: In-Band Disable";
 
             redfish::messages::resourceErrorsDetectedFormatError(
-                asyncResp->res, "/redfish/v1/Chassis/" + chassisId,
+                asyncRespIn->res, "/redfish/v1/Chassis/" + chassisId,
                 errorMessage);
             return;
         }
-        if (asyncResp->res.jsonValue.empty())
+        if (asyncRespIn->res.jsonValue.empty())
         {
-            redfish::messages::success(asyncResp->res);
+            redfish::messages::success(asyncRespIn->res);
         }
     };
     if (enabled)

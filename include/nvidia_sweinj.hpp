@@ -66,8 +66,8 @@ static bool createTaskCallback(boost::system::error_code ec,
     {
         BMCWEB_LOG_ERROR("{}", ec.message());
         taskData->state = "Exception";
-        auto msg = messages::taskAborted(ec.message());
-        taskData->messages.push_back(msg);
+        auto errorMsg = messages::taskAborted(ec.message());
+        taskData->messages.push_back(errorMsg);
         return task::completed;
     }
     std::string iface;
@@ -79,7 +79,7 @@ static bool createTaskCallback(boost::system::error_code ec,
         dbus_utils::UnpackErrorPrinter(), propertiesMap, "State", state,
         "ErrorMessage", errorMmsg);
     bool completed = false;
-    if (false == success)
+    if (!success)
     {
         BMCWEB_LOG_ERROR("Failed to read property from Dbus service");
         completed = true;
@@ -89,7 +89,7 @@ static bool createTaskCallback(boost::system::error_code ec,
     }
     else
     {
-        if (errorMmsg != nullptr && false == errorMmsg->empty())
+        if (errorMmsg != nullptr && !errorMmsg->empty())
         {
             auto json = messages::taskAborted(*errorMmsg);
             json["Message"] = "Task finished with error";
@@ -231,9 +231,9 @@ static void createRequest(App& app, const crow::Request& req,
     // fullSWEinjInjection indicates the all events present for Eventing/AML
     // in that platform will be inject by SW EINJ itself, on Vulcan it is
     // supposed  to last more than 24 hours
-    bool fullSWEinjInjection = requestType == "Injection" &&
-                               (false == optionalErrorId.has_value() ||
-                                true == (*optionalErrorId).empty());
+    bool fullSWEinjInjection =
+        requestType == "Injection" &&
+        (!optionalErrorId.has_value() || (*optionalErrorId).empty());
 
     task::Payload payload(req);
     auto createRequestHandler =

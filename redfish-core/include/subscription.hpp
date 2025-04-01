@@ -43,6 +43,7 @@ static constexpr const uint8_t maxNoOfSSESubscriptions = 10;
 struct TestEvent
 {
     std::optional<int64_t> eventGroupId;
+    std::optional<std::string> eventId;
     std::optional<std::string> eventTimestamp;
     std::optional<std::string> message;
     std::optional<std::vector<std::string>> messageArgs;
@@ -50,6 +51,36 @@ struct TestEvent
     std::optional<std::string> originOfCondition;
     std::optional<std::string> resolution;
     std::optional<std::string> severity;
+    // default constructor
+    TestEvent() = default;
+    // default assignment operator
+    TestEvent& operator=(const TestEvent&) = default;
+    // default copy constructor
+    TestEvent(const TestEvent&) = default;
+    // default move constructor
+    TestEvent(TestEvent&&) = default;
+    // default move assignment operator
+    TestEvent& operator=(TestEvent&&) = default;
+    // destructor
+    ~TestEvent() = default;
+    // constructor with all the aruments
+    TestEvent(std::optional<int64_t> eventGroupIdIn,
+              std::optional<std::string> eventIdIn,
+              std::optional<std::string> eventTimestampIn,
+              std::optional<std::string> messageIn,
+              std::optional<std::vector<std::string>> messageArgsIn,
+              std::optional<std::string> messageIdIn,
+              std::optional<std::string> originOfConditionIn,
+              std::optional<std::string> resolutionIn,
+              std::optional<std::string> severityIn) :
+
+        eventGroupId(eventGroupIdIn), eventId(std::move(eventIdIn)),
+        eventTimestamp(std::move(eventTimestampIn)),
+        message(std::move(messageIn)), messageArgs(std::move(messageArgsIn)),
+        messageId(std::move(messageIdIn)),
+        originOfCondition(std::move(originOfConditionIn)),
+        resolution(std::move(resolutionIn)), severity(std::move(severityIn))
+    {}
 };
 
 class Subscription : public std::enable_shared_from_this<Subscription>

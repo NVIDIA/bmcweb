@@ -36,9 +36,10 @@ constexpr const char* biosConfigIface =
 /**
  * BiosAttributeRegistry DB for DPU bios managment
  */
-static nlohmann::json BiosRegistryJson;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+static nlohmann::json biosRegistryJson;
 
-const std::string BiosRegistryJsonFileName =
+const std::string biosRegistryJsonFileName =
     "/var/lib/bmcweb/BiosRegistryJson.json";
 
 /**
@@ -280,7 +281,7 @@ static std::string getBiosDefaultSettingsMode(const std::string& biosMode)
     BMCWEB_LOG_DEBUG("Set Reset Bios Settings to Defaults Pending Status");
     crow::connections::systemBus->async_method_call(
         [asyncResp, resetBiosToDefaultsPending](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
             {
@@ -303,7 +304,7 @@ static std::string getBiosDefaultSettingsMode(const std::string& biosMode)
             }
 
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code ec2) {
+                [asyncResp](const boost::system::error_code& ec2) {
                     if (ec2)
                     {
                         BMCWEB_LOG_DEBUG(
@@ -337,7 +338,7 @@ inline void getResetBiosSettings(
 {
     BMCWEB_LOG_DEBUG("Get Reset Bios Settings to Defaults Pending Status");
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
             {
@@ -349,7 +350,7 @@ inline void getResetBiosSettings(
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp](
-                    const boost::system::error_code ec2,
+                    const boost::system::error_code& ec2,
                     const std::variant<std::string>& resetBiosSettingsMode) {
                     if (ec2)
                     {
@@ -410,7 +411,7 @@ inline void getBiosAttributes(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
             {
@@ -421,7 +422,7 @@ inline void getBiosAttributes(
             const std::string& biosService = objType.begin()->first;
             crow::connections::systemBus->async_method_call(
                 [asyncResp](
-                    const boost::system::error_code ec2,
+                    const boost::system::error_code& ec2,
                     const std::variant<BaseBIOSTable>& baseBiosTableResp) {
                     if (ec2)
                     {
@@ -481,7 +482,7 @@ inline void getBiosAttributes(
                             {
                                 if (attrType == "Boolean")
                                 {
-                                    if (*attrCurrValue)
+                                    if (*attrCurrValue != 0)
                                     {
                                         attributesJson.emplace(attr, true);
                                     }
@@ -600,7 +601,7 @@ static bool isValidAttrJson(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             propertyValueTypeValid = true;
         }
 
-        if (propertyValueTypeValid == false)
+        if (!propertyValueTypeValid)
         {
             messages::propertyValueTypeError(asyncResp->res,
                                              attrJson[key].dump(), key);
@@ -845,7 +846,7 @@ inline void fillBiosTable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     }
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp, baseBiosTable](const boost::system::error_code ec) {
+        [asyncResp, baseBiosTable](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Error occurred in setting BaseBIOSTable");
@@ -874,7 +875,7 @@ inline void getBiosSettingsAttr(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
             {
@@ -885,7 +886,7 @@ inline void getBiosSettingsAttr(
             const std::string& biosService = objType.begin()->first;
             crow::connections::systemBus->async_method_call(
                 [asyncResp](
-                    const boost::system::error_code ec2,
+                    const boost::system::error_code& ec2,
                     const std::variant<PendingAttrType>& pendingAttrsResp) {
                     if (ec2)
                     {
@@ -946,7 +947,7 @@ inline void getBiosSettingsAttr(
                             {
                                 if (attrType == "Boolean")
                                 {
-                                    if (*attrCurrValue)
+                                    if (*attrCurrValue != 0)
                                     {
                                         attributesJson.emplace(attr, true);
                                     }
@@ -1010,7 +1011,7 @@ inline void setBiosCurrentOrPendingAttr(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, pendingAttrJson,
-         biosFlag](const boost::system::error_code ec,
+         biosFlag](const boost::system::error_code& ec,
                    const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
             {
@@ -1021,7 +1022,7 @@ inline void setBiosCurrentOrPendingAttr(
             const std::string& biosService = objType.begin()->first;
             crow::connections::systemBus->async_method_call(
                 [asyncResp, pendingAttrJson, biosService, biosFlag](
-                    const boost::system::error_code ec2,
+                    const boost::system::error_code& ec2,
                     const std::variant<BaseBIOSTable>& baseBiosTableResp) {
                     if (ec2)
                     {
@@ -1284,8 +1285,8 @@ inline void setBiosCurrentOrPendingAttr(
                     {
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, baseBiosTable](
-                                const boost::system::error_code ec) {
-                                if (ec)
+                                const boost::system::error_code& ec1) {
+                                if (ec1)
                                 {
                                     BMCWEB_LOG_DEBUG(
                                         "Error occurred in setting BaseBIOSTable");
@@ -1303,7 +1304,7 @@ inline void setBiosCurrentOrPendingAttr(
                             std::variant<BaseBIOSTable>(*baseBiosTable));
                     }
                     crow::connections::systemBus->async_method_call(
-                        [asyncResp](const boost::system::error_code ec3) {
+                        [asyncResp](const boost::system::error_code& ec3) {
                             if (ec3)
                             {
                                 BMCWEB_LOG_ERROR(
@@ -1372,7 +1373,7 @@ inline void setBiosServicCurrentAttr(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
             {
@@ -1383,7 +1384,7 @@ inline void setBiosServicCurrentAttr(
             const std::string& biosService = objType.begin()->first;
             crow::connections::systemBus->async_method_call(
                 [asyncResp](
-                    const boost::system::error_code ec2,
+                    const boost::system::error_code& ec2,
                     const std::variant<BaseBIOSTable>& baseBiosTableResp) {
                     if (ec2)
                     {
@@ -1485,7 +1486,7 @@ inline void setBiosServicCurrentAttr(
                             {
                                 if (attrType == "Boolean")
                                 {
-                                    if (*attrCurrValue)
+                                    if (*attrCurrValue != 0)
                                     {
                                         attributeIt["CurrentValue"] = true;
                                     }
@@ -1515,7 +1516,7 @@ inline void setBiosServicCurrentAttr(
                             {
                                 if (attrType == "Boolean")
                                 {
-                                    if (*attrDefaultValue)
+                                    if (*attrDefaultValue != 0)
                                     {
                                         attributeIt["DefaultValue"] = true;
                                     }
@@ -1595,7 +1596,7 @@ inline void setBiosServicCurrentAttr(
                                                 boundValueIt));
                                     if (currBoundVal != nullptr)
                                     {
-                                        if (*currBoundVal)
+                                        if (*currBoundVal != 0)
                                         {
                                             boundValJson["ValueName"] = true;
                                         }
@@ -1749,7 +1750,7 @@ static void updateBiosAttrRegistry(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
             {
@@ -1760,7 +1761,7 @@ static void updateBiosAttrRegistry(
             const std::string& biosService = objType.begin()->first;
             crow::connections::systemBus->async_method_call(
                 [asyncResp](
-                    const boost::system::error_code ec2,
+                    const boost::system::error_code& ec2,
                     const std::variant<BaseBIOSTable>& baseBiosTableResp) {
                     if (ec2)
                     {
@@ -1781,14 +1782,14 @@ static void updateBiosAttrRegistry(
                     }
 
                     auto& attributes =
-                        redfish::bios::BiosRegistryJson["RegistryEntries"]
+                        redfish::bios::biosRegistryJson["RegistryEntries"]
                                                        ["Attributes"];
 
-                    bool BiosTableLoopEntered = false;
+                    bool biosTableLoopEntered = false;
 
                     for (const BaseBIOSTableItem& attrIt : *baseBiosTable)
                     {
-                        BiosTableLoopEntered = true;
+                        biosTableLoopEntered = true;
                         std::string attrType = getBiosAttrType(std::string(
                             std::get<BaseBiosTableIndex::baseBiosAttrType>(
                                 attrIt.second)));
@@ -1825,7 +1826,7 @@ static void updateBiosAttrRegistry(
                             {
                                 if (attrType == "Boolean")
                                 {
-                                    if (*attrCurrValue)
+                                    if (*attrCurrValue != 0)
                                     {
                                         (*it)["CurrentValue"] =
                                             nlohmann::json(true);
@@ -1848,11 +1849,11 @@ static void updateBiosAttrRegistry(
                             BMCWEB_LOG_ERROR("Attribute type not supported");
                         }
                     }
-                    if (!BiosTableLoopEntered)
+                    if (!biosTableLoopEntered)
                     {
-                        redfish::bios::BiosRegistryJson = nlohmann::json();
+                        redfish::bios::biosRegistryJson = nlohmann::json();
                     }
-                    asyncResp->res.jsonValue = redfish::bios::BiosRegistryJson;
+                    asyncResp->res.jsonValue = redfish::bios::biosRegistryJson;
                 },
                 biosService, biosConfigObj, "org.freedesktop.DBus.Properties",
                 "Get", biosConfigIface, "BaseBIOSTable");
@@ -1879,7 +1880,7 @@ inline void handleBiosServicePut(
     }
     crow::connections::systemBus->async_method_call(
         [req,
-         asyncResp](const boost::system::error_code ec,
+         asyncResp](const boost::system::error_code& ec,
                     const std::map<std::string, dbus::utility::DbusVariantType>&
                         userInfo) {
             if (ec)
@@ -1908,7 +1909,7 @@ inline void handleBiosServicePut(
             auto found = std::find_if(
                 userGroupPtr->begin(), userGroupPtr->end(),
                 [](const auto& group) {
-                    return (group == "redfish-hostiface") ? true : false;
+                    return static_cast<bool>(group == "redfish-hostiface");
                 });
 
             // Only Host Iface (redfish-hostiface) group user should
@@ -1998,7 +1999,7 @@ inline void handleBiosServicePatch(
     }
     crow::connections::systemBus->async_method_call(
         [req,
-         asyncResp](const boost::system::error_code ec,
+         asyncResp](const boost::system::error_code& ec,
                     const std::map<std::string, dbus::utility::DbusVariantType>&
                         userInfo) {
             if (ec)
@@ -2027,7 +2028,7 @@ inline void handleBiosServicePatch(
             auto found = std::find_if(
                 userGroupPtr->begin(), userGroupPtr->end(),
                 [](const auto& group) {
-                    return (group == "redfish-hostiface") ? true : false;
+                    return static_cast<bool>(group == "redfish-hostiface");
                 });
 
             // Only Host Iface (redfish-hostiface) group user should
@@ -2194,12 +2195,12 @@ enum class SecureSelector
 /**
  * Set ClearNonVolatileVariables.Clear to requested value
  */
-inline void setClearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-                              const std::string service, const std::string path,
-                              const bool requestToClear)
+inline void setClearVariables(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
+    const std::string& path, const bool requestToClear)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp, path, service](const boost::system::error_code ec,
+        [aResp, path, service](const boost::system::error_code& ec,
                                sdbusplus::message::message& msg) {
             if (!ec)
             {
@@ -2236,8 +2237,8 @@ inline void setClearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 inline void handleClearSecureStateSubtree(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const SecureSelector secure, const bool requestToClear,
-    const dbus::utility::MapperGetSubTreeResponse clearSubtree,
-    const dbus::utility::MapperGetSubTreeResponse secureSubtree)
+    const dbus::utility::MapperGetSubTreeResponse& clearSubtree,
+    const dbus::utility::MapperGetSubTreeResponse& secureSubtree)
 {
     for (const auto& [clearPath, clearServices] : clearSubtree)
     {
@@ -2275,7 +2276,7 @@ inline void handleClearSecureStateSubtree(
 
             crow::connections::systemBus->async_method_call(
                 [aResp, secure, requestToClear, clearService,
-                 clearPath](const boost::system::error_code ec,
+                 clearPath](const boost::system::error_code& ec,
                             const std::variant<bool>& resp) {
                     if (ec)
                     {
@@ -2284,16 +2285,14 @@ inline void handleClearSecureStateSubtree(
                     }
 
                     const bool* secureState = std::get_if<bool>(&resp);
-                    if (!secureState)
+                    if (secureState == nullptr)
                     {
                         messages::internalError(aResp->res);
                         return;
                     }
 
-                    if ((*secureState == true &&
-                         secure == SecureSelector::secure) ||
-                        (*secureState == false &&
-                         secure == SecureSelector::nonSecure))
+                    if ((*secureState && secure == SecureSelector::secure) ||
+                        (!*secureState && secure == SecureSelector::nonSecure))
                     {
                         setClearVariables(aResp, clearService, clearPath,
                                           requestToClear);
@@ -2309,7 +2308,7 @@ inline void handleClearSecureStateSubtree(
 inline void handleClearNonVolatileVariablesSubtree(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const SecureSelector secure, const bool requestToClear,
-    const dbus::utility::MapperGetSubTreeResponse clearSubtree)
+    const dbus::utility::MapperGetSubTreeResponse& clearSubtree)
 {
     if (secure == SecureSelector::both)
     {
@@ -2321,7 +2320,7 @@ inline void handleClearNonVolatileVariablesSubtree(
 
     crow::connections::systemBus->async_method_call(
         [aResp, secure, requestToClear,
-         clearSubtree](boost::system::error_code ec,
+         clearSubtree](boost::system::error_code& ec,
                        const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -2347,7 +2346,7 @@ inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 {
     crow::connections::systemBus->async_method_call(
         [aResp, secure, requestToClear](
-            boost::system::error_code ec,
+            boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -2367,7 +2366,7 @@ inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             "xyz.openbmc_project.Control.Boot.ClearNonVolatileVariables"});
 
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec) {
+        [aResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
@@ -2383,7 +2382,7 @@ inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         dbus::utility::DbusVariantType(true));
 
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec) {
+        [aResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
@@ -2467,7 +2466,7 @@ inline void handleBiosChangePasswordPost(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, passwordName, oldPassword,
-         newPassword](boost::system::error_code ec,
+         newPassword](boost::system::error_code& ec,
                       const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec || subtree.size() != 1)
             {
@@ -2486,14 +2485,15 @@ inline void handleBiosChangePasswordPost(
             const auto& [service, interfaces] = services[0];
 
             crow::connections::systemBus->async_method_call(
-                [asyncResp](boost::system::error_code ec,
+                [asyncResp](boost::system::error_code& ec1,
                             sdbusplus::message_t& msg) {
-                    if (ec)
+                    if (ec1)
                     {
-                        const auto error = msg.get_error();
+                        const auto* const error = msg.get_error();
                         if (sd_bus_error_has_name(
                                 error,
-                                "xyz.openbmc_project.BIOSConfig.Common.Error.InvalidCurrentPassword"))
+                                "xyz.openbmc_project.BIOSConfig.Common.Error.InvalidCurrentPassword") !=
+                            0)
                         {
                             BMCWEB_LOG_ERROR(
                                 "Failed to change password message: {}",
@@ -2543,21 +2543,21 @@ inline void handleBiosAttrRegistryGet(
     }
     if constexpr (BMCWEB_DPU_BIOS)
     {
-        std::ifstream inputFile(redfish::bios::BiosRegistryJsonFileName);
+        std::ifstream inputFile(redfish::bios::biosRegistryJsonFileName);
         if (!inputFile.is_open())
         {
             BMCWEB_LOG_DEBUG("Can't opening file for reading: {}",
-                             redfish::bios::BiosRegistryJsonFileName);
+                             redfish::bios::biosRegistryJsonFileName);
 
             // Return empty json object if file not found
-            redfish::bios::BiosRegistryJson = nlohmann::json();
+            redfish::bios::biosRegistryJson = nlohmann::json();
         }
         else
         {
             std::string contents{std::istreambuf_iterator<char>{inputFile},
                                  std::istreambuf_iterator<char>{}};
             inputFile.close();
-            redfish::bios::BiosRegistryJson = nlohmann::json::parse(contents);
+            redfish::bios::biosRegistryJson = nlohmann::json::parse(contents);
             bios::updateBiosAttrRegistry(asyncResp);
         }
     }
@@ -2595,7 +2595,7 @@ inline void handleBiosAttrRegistryPut(
     }
     crow::connections::systemBus->async_method_call(
         [req,
-         asyncResp](const boost::system::error_code ec,
+         asyncResp](const boost::system::error_code& ec,
                     const std::map<std::string, dbus::utility::DbusVariantType>&
                         userInfo) {
             if (ec)
@@ -2623,7 +2623,7 @@ inline void handleBiosAttrRegistryPut(
             auto found = std::find_if(
                 userGroupPtr->begin(), userGroupPtr->end(),
                 [](const auto& group) {
-                    return (group == "redfish-hostiface") ? true : false;
+                    return static_cast<bool>(group == "redfish-hostiface");
                 });
 
             // Only Host Iface (redfish-hostiface) group user should
@@ -2636,26 +2636,26 @@ inline void handleBiosAttrRegistryPut(
             }
 
             if (!json_util::processJsonFromRequest(
-                    asyncResp->res, req, redfish::bios::BiosRegistryJson))
+                    asyncResp->res, req, redfish::bios::biosRegistryJson))
             {
                 BMCWEB_LOG_ERROR("Json value not readable");
                 return;
             }
 
             // Save BiosRegistryJson into file
-            std::ofstream outputFile(redfish::bios::BiosRegistryJsonFileName,
+            std::ofstream outputFile(redfish::bios::biosRegistryJsonFileName,
                                      std::ios::trunc);
             if (!outputFile.is_open())
             {
                 BMCWEB_LOG_ERROR("Error opening file for writing: {}",
-                                 redfish::bios::BiosRegistryJsonFileName);
+                                 redfish::bios::biosRegistryJsonFileName);
                 return;
             }
-            redfish::bios::BiosRegistryJson["Id"] = "BiosAttributeRegistry";
-            outputFile << redfish::bios::BiosRegistryJson.dump();
+            redfish::bios::biosRegistryJson["Id"] = "BiosAttributeRegistry";
+            outputFile << redfish::bios::biosRegistryJson.dump();
             outputFile.close();
 
-            auto attributes = redfish::bios::BiosRegistryJson["RegistryEntries"]
+            auto attributes = redfish::bios::biosRegistryJson["RegistryEntries"]
                                                              ["Attributes"];
 
             // Loop over the "Attributes" array

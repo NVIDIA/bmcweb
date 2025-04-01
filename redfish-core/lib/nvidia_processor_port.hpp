@@ -81,14 +81,16 @@ inline void requestRoutesProcessorPortCollection(App& app)
                     return;
                 }
                 BMCWEB_LOG_DEBUG("Get available system processor resource");
-                crow::connections::systemBus->async_method_call(
+
+                std::array<std::string_view, 2> interfaces = {
+                    "xyz.openbmc_project.Inventory.Item.Cpu",
+                    "xyz.openbmc_project.Inventory.Item.Accelerator"};
+
+                dbus::utility::getSubTree(
+                    "/xyz/openbmc_project/inventory", 0, interfaces,
                     [processorId,
-                     asyncResp](const boost::system::error_code ec,
-                                const boost::container::flat_map<
-                                    std::string,
-                                    boost::container::flat_map<
-                                        std::string, std::vector<std::string>>>&
-                                    subtree) {
+                     asyncResp](const boost::system::error_code& ec,
+                                const GetSubTreeType& subtree) {
                         if (ec)
                         {
                             BMCWEB_LOG_DEBUG("DBUS response error");
@@ -125,14 +127,7 @@ inline void requestRoutesProcessorPortCollection(App& app)
                         messages::resourceNotFound(
                             asyncResp->res, "#Processor.v1_20_0.Processor",
                             processorId);
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                    "/xyz/openbmc_project/inventory", 0,
-                    std::array<const char*, 2>{
-                        "xyz.openbmc_project.Inventory.Item.Cpu",
-                        "xyz.openbmc_project.Inventory.Item.Accelerator"});
+                    });
             });
 }
 
@@ -144,7 +139,7 @@ inline void getConnectedSwitchPorts(
     BMCWEB_LOG_DEBUG("Get connected switch ports on {}", switchName);
     crow::connections::systemBus->async_method_call(
         [asyncResp, portPath, fabricId,
-         switchName](const boost::system::error_code ec,
+         switchName](const boost::system::error_code& ec,
                      std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -191,7 +186,7 @@ inline void getConnectedSwitches(
     BMCWEB_LOG_DEBUG("Get connected switch on{}", switchName);
     crow::connections::systemBus->async_method_call(
         [asyncResp, switchPath, portPath,
-         switchName](const boost::system::error_code ec,
+         switchName](const boost::system::error_code& ec,
                      std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -239,7 +234,7 @@ inline void getConnectedProcessorPorts(
     // This is for when the ports are connected to another processor
     crow::connections::systemBus->async_method_call(
         [asyncResp, portPath,
-         portNames](const boost::system::error_code ec,
+         portNames](const boost::system::error_code& ec,
                     std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -315,7 +310,7 @@ inline void getProcessorPortLinks(
     // This is for when the ports are connected to a switch
     crow::connections::systemBus->async_method_call(
         [asyncResp, portPath, processorId,
-         port](const boost::system::error_code ec,
+         port](const boost::system::error_code& ec,
                std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -354,7 +349,7 @@ inline void getProcessorPortLinks(
     // This is for when the ports are connected to another processor
     crow::connections::systemBus->async_method_call(
         [asyncResp, portPath, processorId,
-         port](const boost::system::error_code ec,
+         port](const boost::system::error_code& ec,
                std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -424,7 +419,7 @@ inline void getProcessorPortData(
                                  sensorpath);
                 crow::connections::systemBus->async_method_call(
                     [aResp, sensorpath, processorId, portId](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
                         if (ec)
@@ -436,8 +431,8 @@ inline void getProcessorPortData(
                             return;
                         }
 
-                        sdbusplus::message::object_path path(sensorpath);
-                        if (path.filename() != portId || object.size() != 1)
+                        sdbusplus::message::object_path pathObj(sensorpath);
+                        if (pathObj.filename() != portId || object.size() != 1)
                         {
                             return;
                         }
@@ -481,7 +476,7 @@ inline void getProcessorAcceleratorPortData(
     BMCWEB_LOG_DEBUG("Get processor port data");
     crow::connections::systemBus->async_method_call(
         [aResp, objPath, processorId,
-         portId](const boost::system::error_code e,
+         portId](const boost::system::error_code& e,
                  std::variant<std::vector<std::string>>& resp) {
             if (e)
             {
@@ -505,20 +500,20 @@ inline void getProcessorAcceleratorPortData(
                 // Check Interface in Object or not
                 BMCWEB_LOG_DEBUG("processor state sensor object path {}",
                                  sensorpath);
-                sdbusplus::message::object_path path(sensorpath);
-                if (path.filename() != portId)
+                sdbusplus::message::object_path pathObj(sensorpath);
+                if (pathObj.filename() != portId)
                 {
                     continue;
                 }
 
-                crow::connections::systemBus->async_method_call(
+                std::array<std::string_view, 1> interfacesList = {
+                    "xyz.openbmc_project.Inventory.Item.Port"};
+
+                dbus::utility::getSubTree(
+                    objPath, 0, interfacesList,
                     [aResp, sensorpath, processorId,
-                     portId](const boost::system::error_code ec,
-                             const boost::container::flat_map<
-                                 std::string,
-                                 boost::container::flat_map<
-                                     std::string, std::vector<std::string>>>&
-                                 subtree1) {
+                     portId](const boost::system::error_code& ec,
+                             const GetSubTreeType& subtree1) {
                         if (ec)
                         {
                             // the path does not implement port interfaces
@@ -565,7 +560,8 @@ inline void getProcessorAcceleratorPortData(
                                 aResp->res.jsonValue["Status"]["Conditions"] =
                                     nlohmann::json::array();
                             }
-                            for (const auto& [service, interfaces] : object1)
+                            for (const auto& [service, interfacesInner] :
+                                 object1)
                             {
                                 redfish::port_utils::getPortData(aResp, service,
                                                                  sensorpath);
@@ -574,13 +570,7 @@ inline void getProcessorAcceleratorPortData(
                             }
                             return;
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetSubTree", objPath,
-                    0,
-                    std::array<const char*, 1>{
-                        "xyz.openbmc_project.Inventory.Item.Port"});
+                    });
             }
         },
         "xyz.openbmc_project.ObjectMapper", objPath + "/all_states",
@@ -609,12 +599,9 @@ inline void requestRoutesProcessorPort(App& app)
             }
             BMCWEB_LOG_DEBUG("Get available system processor resource");
             crow::connections::systemBus->async_method_call(
-                [processorId, port, asyncResp](
-                    const boost::system::error_code ec,
-                    const boost::container::flat_map<
-                        std::string,
-                        boost::container::flat_map<
-                            std::string, std::vector<std::string>>>& subtree) {
+                [processorId, port,
+                 asyncResp](const boost::system::error_code& ec,
+                            const GetSubTreeType& subtree) {
                     if (ec)
                     {
                         BMCWEB_LOG_DEBUG("DBUS response error");
@@ -673,7 +660,7 @@ inline void getProcessorPortMetricsData(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, service,
-         path](const boost::system::error_code ec,
+         path](const boost::system::error_code& ec,
                // const boost::container::flat_map<std::string,
                // std::variant<size_t,uint16_t,uint32_t,uint64_t>>&
                const boost::container::flat_map<
@@ -1231,13 +1218,14 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                 return;
             }
             BMCWEB_LOG_DEBUG("Get available system processor resource");
-            crow::connections::systemBus->async_method_call(
-                [processorId, portId, asyncResp](
-                    const boost::system::error_code ec,
-                    const boost::container::flat_map<
-                        std::string,
-                        boost::container::flat_map<
-                            std::string, std::vector<std::string>>>& subtree) {
+            std::array<std::string_view, 1> interfacesList = {
+                "xyz.openbmc_project.Inventory.Item.Port"};
+
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project/inventory", 0, interfacesList,
+                [processorId, portId,
+                 asyncResp](const boost::system::error_code& ec,
+                            const GetSubTreeType& subtree) {
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR("DBUS response error");
@@ -1280,12 +1268,13 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                                     crow::connections::systemBus->async_method_call(
                                         [asyncResp, sensorpath, processorId,
                                          portId](
-                                            const boost::system::error_code ec,
+                                            const boost::system::error_code&
+                                                innerEc,
                                             const std::vector<std::pair<
                                                 std::string,
                                                 std::vector<std::string>>>&
-                                                object) {
-                                            if (ec)
+                                                objectData) {
+                                            if (innerEc)
                                             {
                                                 // the path does not implement
                                                 // port interfaces
@@ -1296,8 +1285,8 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                                             }
 
                                             sdbusplus::message::object_path
-                                                path(sensorpath);
-                                            if (path.filename() != portId)
+                                                pathObj(sensorpath);
+                                            if (pathObj.filename() != portId)
                                             {
                                                 return;
                                             }
@@ -1323,8 +1312,8 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                                                 "Metrics";
 
                                             for (const auto& [service,
-                                                              interfaces] :
-                                                 object)
+                                                              interfacesInner] :
+                                                 objectData)
                                             {
                                                 getProcessorPortMetricsData(
                                                     asyncResp, service,
@@ -1333,10 +1322,12 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                                                     BMCWEB_NVIDIA_OEM_PROPERTIES)
                                                 {
                                                     if (std::find(
-                                                            interfaces.begin(),
-                                                            interfaces.end(),
+                                                            interfacesInner
+                                                                .begin(),
+                                                            interfacesInner
+                                                                .end(),
                                                             "xyz.openbmc_project.PCIe.ClearPCIeCounters") !=
-                                                        interfaces.end())
+                                                        interfacesInner.end())
                                                     {
                                                         asyncResp->res.jsonValue
                                                             ["Actions"]["Oem"]
@@ -1372,14 +1363,7 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                     messages::resourceNotFound(asyncResp->res,
                                                "#Processor.v1_20_0.Processor",
                                                processorId);
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                "/xyz/openbmc_project/inventory", 0,
-                std::array<const char*, 2>{
-                    "xyz.openbmc_project.Inventory.Item.Cpu",
-                    "xyz.openbmc_project.Inventory.Item.Accelerator"});
+                });
         });
 }
 

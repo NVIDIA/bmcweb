@@ -56,6 +56,7 @@ constexpr size_t maxTaskCount = 100; // arbitrary limit
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 using TaskQueue = std::deque<std::shared_ptr<struct TaskData>>;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static TaskQueue tasks;
 
 constexpr bool completed = true;
@@ -138,7 +139,6 @@ static nlohmann::json getMessage(const std::string_view state, size_t index)
 struct TaskData : std::enable_shared_from_this<TaskData>
 {
   private:
-  private:
     TaskData(
         std::function<bool(boost::system::error_code, sdbusplus::message_t&,
                            const std::shared_ptr<TaskData>&)>&& handler,
@@ -150,7 +150,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
             std::chrono::system_clock::now())),
         status("OK"), state("Running"), messages(nlohmann::json::array()),
         timer(crow::connections::systemBus->get_io_context()),
-        getMsgCallback(getMsgHandler)
+        getMsgCallback(std::move(getMsgHandler))
 
     {}
 
@@ -175,7 +175,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
             {
                 // Running task is the first running task initially. When there
                 // are multiple running tasks, oldest running task will be
-                // choosen for removal
+                // chosen for removal
                 if (runningTask == tasks.end() ||
                     (*runningTask)->startTime > (*currentTask)->startTime)
                 {
@@ -186,10 +186,26 @@ struct TaskData : std::enable_shared_from_this<TaskData>
             {
                 // Completed task is the first completed task initially. When
                 // there are multiple completed tasks, oldest completed task
-                // will be choosen for removal based on end time.
-                if (completedTask == tasks.end() ||
-                    ((*currentTask)->endTime && ((*(*completedTask)->endTime) >
-                                                 (*(*currentTask)->endTime))))
+                // will be chosen for removal based on end time.
+                if (completedTask != tasks.end())
+                {
+                    auto& current = **currentTask;
+                    auto& completedTaskData = **completedTask;
+
+                    if (current.endTime.has_value() &&
+                        completedTaskData.endTime.has_value())
+                    {
+                        auto currentEndTime = current.endTime.value();
+                        auto completedEndTime =
+                            completedTaskData.endTime.value();
+
+                        if (completedEndTime > currentEndTime)
+                        {
+                            completedTask = currentTask;
+                        }
+                    }
+                }
+                else
                 {
                     completedTask = currentTask;
                 }
@@ -234,7 +250,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         }
 
         return tasks.emplace_back(std::make_shared<MakeSharedHelper>(
-            std::move(handler), match, lastTask++, getMsgHandler));
+            std::move(handler), match, lastTask++, std::move(getMsgHandler)));
     }
 
     /**
@@ -242,7 +258,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
      *
      * @return const std::string&
      */
-    const std::string& getTaskStatus()
+    const std::string& getTaskStatus() const
     {
         return status;
     }
@@ -532,7 +548,7 @@ inline void requestRoutesTaskUpdate(App& app)
                                                       const boost::system::
                                                           error_code ec,
                                                       const bool isBios) {
-                if (ec || isBios == false)
+                if (ec || !isBios)
                 {
                     asyncResp->res.addHeader(boost::beast::http::field::allow,
                                              "");

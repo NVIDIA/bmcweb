@@ -69,9 +69,12 @@ inline std::string debugStateToString(const std::string& dbusStr)
 inline void debugPropertiesFill(crow::Response& resp,
                                 const dbus::utility::DBusPropertiesMap& prop)
 {
-    std::optional<std::string> jtagDebug, deviceDebug,
-        securePrivilegeInvasiveDebug, securePrivilegeNonInvasiveDebug,
-        nonInvasiveDebug, invasiveDebug;
+    std::optional<std::string> jtagDebug;
+    std::optional<std::string> deviceDebug;
+    std::optional<std::string> securePrivilegeInvasiveDebug;
+    std::optional<std::string> securePrivilegeNonInvasiveDebug;
+    std::optional<std::string> nonInvasiveDebug;
+    std::optional<std::string> invasiveDebug;
     std::optional<unsigned> timeout;
 
     const bool success = sdbusplus::unpackPropertiesNoThrow(
@@ -135,7 +138,7 @@ inline void debugPropertiesGet(
     const std::string& path)
 {
     auto propCallback =
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::DBusPropertiesMap& prop) {
             if (ec)
             {
@@ -169,7 +172,7 @@ inline void findDebugInterface(
 {
     auto respHandler =
         [asyncResp,
-         dbgCallback](const boost::system::error_code ec,
+         dbgCallback](const boost::system::error_code& ec,
                       const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec.value() == EBADR)
             {
@@ -211,14 +214,14 @@ inline void handleDebugPolicyGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     auto getPropCallback =
-        [](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [](const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
            const std::string& svc, const std::string& path) {
             if (path.empty())
             {
                 /* There is no PLDM effecter when AC On with system off */
                 return;
             }
-            debugPropertiesGet(asyncResp, svc, path);
+            debugPropertiesGet(asyncRespIn, svc, path);
         };
     findDebugInterface(asyncResp, getPropCallback);
 }
@@ -229,7 +232,7 @@ inline void debugCapabilitiesProcess(
     const std::vector<std::string>& caps)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp, method, caps](const boost::system::error_code ec) {
+        [asyncResp, method, caps](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: Set {} {}", method, ec);
@@ -248,7 +251,7 @@ inline void debugPropertySet(
     const std::string& path, const std::string& prop, unsigned value)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp, prop](const boost::system::error_code ec) {
+        [asyncResp, prop](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: Set {} {}", prop, ec);
@@ -289,7 +292,7 @@ inline bool fetchDebugPropertyFromJson(
 inline bool fetchDebugTimeoutPropertyFromJson(nlohmann::json& json,
                                               std::optional<unsigned>& val)
 {
-    const auto key = "Timeout";
+    const auto* const key = "Timeout";
     auto it = json.find(key);
     if (it == json.end())
     {
@@ -352,26 +355,26 @@ inline void handleDebugPolicyPatchReq(
     }
     auto propSetCallback =
         [capsToEnable, capsToDisable,
-         timeout](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+         timeout](const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
                   const std::string& svc, const std::string& path) {
             if (path.empty())
             {
-                messages::internalError(asyncResp->res);
+                messages::internalError(asyncRespIn->res);
                 return;
             }
             if (!capsToEnable.empty())
             {
-                debugCapabilitiesProcess(asyncResp, svc, path, "Enable"s,
+                debugCapabilitiesProcess(asyncRespIn, svc, path, "Enable"s,
                                          capsToEnable);
             }
             if (!capsToDisable.empty())
             {
-                debugCapabilitiesProcess(asyncResp, svc, path, "Disable"s,
+                debugCapabilitiesProcess(asyncRespIn, svc, path, "Disable"s,
                                          capsToDisable);
             }
             if (timeout)
             {
-                debugPropertySet(asyncResp, svc, path, "Timeout", *timeout);
+                debugPropertySet(asyncRespIn, svc, path, "Timeout", *timeout);
             }
         };
 

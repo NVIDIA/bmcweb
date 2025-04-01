@@ -59,7 +59,7 @@ void getValidNetworkAdapterPath(
         auto respHandler =
             [callback{std::forward<Callback>(callback)}, asyncResp,
              networkAdapterId](
-                const boost::system::error_code ec,
+                const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreePathsResponse&
                     networkAdapterPaths) mutable {
                 if (ec)
@@ -104,9 +104,9 @@ void getValidNetworkAdapterPath(
     {
         crow::connections::systemBus->async_method_call(
             [callback{std::forward<Callback>(callback)}, asyncResp,
-             chassisObjPath,
-             networkAdapterId](const boost::system::error_code ec,
-                               std::variant<std::vector<std::string>>& resp) {
+             chassisObjPath, networkAdapterId](
+                const boost::system::error_code& ec,
+                std::variant<std::vector<std::string>>& response) {
                 if (ec)
                 {
                     BMCWEB_LOG_ERROR(
@@ -115,9 +115,9 @@ void getValidNetworkAdapterPath(
                     messages::internalError(asyncResp->res);
                     return;
                 }
-                std::vector<std::string>* data =
-                    std::get_if<std::vector<std::string>>(&resp);
-                if (data == nullptr)
+                std::vector<std::string>* dataPtr =
+                    std::get_if<std::vector<std::string>>(&response);
+                if (dataPtr == nullptr)
                 {
                     BMCWEB_LOG_ERROR("no network_adapter found {}",
                                      chassisObjPath);
@@ -126,7 +126,7 @@ void getValidNetworkAdapterPath(
                 }
 
                 std::optional<std::string> validNetworkAdapterPath;
-                for (const std::string& networkAdapterPath : *data)
+                for (const std::string& networkAdapterPath : *dataPtr)
                 {
                     sdbusplus::message::object_path networkAdapterObjPath(
                         networkAdapterPath);
@@ -172,7 +172,7 @@ inline void doNetworkAdaptersGenericCollection(
 
     const std::string networkInterface =
         "xyz.openbmc_project.Inventory.Item.NetworkInterface";
-    std::string path = *validChassisPath;
+    const std::string& path = *validChassisPath;
 
     if (std::find(chassisIntfList.begin(), chassisIntfList.end(),
                   networkInterface) != chassisIntfList.end())
@@ -180,7 +180,7 @@ inline void doNetworkAdaptersGenericCollection(
         // networkInterface at the same chassis objPath
         crow::connections::systemBus->async_method_call(
             [chassisId, asyncResp](
-                const boost::system::error_code ec,
+                const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
                 if (ec == boost::system::errc::io_error)
                 {
@@ -201,16 +201,16 @@ inline void doNetworkAdaptersGenericCollection(
                 members = nlohmann::json::array();
                 for (const auto& object : objects)
                 {
-                    sdbusplus::message::object_path path(object);
-                    std::string parentPath = path.parent_path();
+                    sdbusplus::message::object_path objectPath(object);
+                    std::string parentPath = objectPath.parent_path();
 
                     if (parentPath.find(chassisId) != std::string::npos ||
-                        path.filename() == chassisId)
+                        objectPath.filename() == chassisId)
                     {
                         nlohmann::json::object_t member;
                         member["@odata.id"] = boost::urls::format(
                             "/redfish/v1/Chassis/{}/NetworkAdapters/{}",
-                            chassisId, path.filename());
+                            chassisId, objectPath.filename());
                         members.push_back(std::move(member));
                     }
                 }
@@ -229,8 +229,9 @@ inline void doNetworkAdaptersGenericCollection(
 
     // get network adapter on chassis by association
     crow::connections::systemBus->async_method_call(
-        [asyncResp, chassisId](const boost::system::error_code ec,
-                               std::variant<std::vector<std::string>>& resp) {
+        [asyncResp,
+         chassisId](const boost::system::error_code& ec,
+                    std::variant<std::vector<std::string>>& response) {
             if (ec == boost::system::errc::io_error)
             {
                 asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
@@ -242,9 +243,9 @@ inline void doNetworkAdaptersGenericCollection(
             {
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+            std::vector<std::string>* dataPtr =
+                std::get_if<std::vector<std::string>>(&response);
+            if (dataPtr == nullptr)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
                 messages::internalError(asyncResp->res);
@@ -253,7 +254,7 @@ inline void doNetworkAdaptersGenericCollection(
 
             nlohmann::json& members = asyncResp->res.jsonValue["Members"];
             members = nlohmann::json::array();
-            for (const std::string& networkAdapterPath : *data)
+            for (const std::string& networkAdapterPath : *dataPtr)
             {
                 sdbusplus::message::object_path networkAdapterObjPath(
                     networkAdapterPath);
@@ -308,7 +309,7 @@ inline void getHealthData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     // Get interface properties
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const PropertiesMap& properties) {
             if (ec)
             {
@@ -346,12 +347,12 @@ inline void getHealthByAssociation(
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath,
          networkAdapterId](const boost::system::error_code& ec,
-                           std::variant<std::vector<std::string>>& response) {
+                           std::variant<std::vector<std::string>>& resp) {
             std::string objectPathOfChassis = objPath;
             if (!ec)
             {
                 std::vector<std::string>* pathData =
-                    std::get_if<std::vector<std::string>>(&response);
+                    std::get_if<std::vector<std::string>>(&resp);
                 if (pathData != nullptr)
                 {
                     for (const std::string& parentChassisPath : *pathData)
@@ -362,18 +363,18 @@ inline void getHealthByAssociation(
             }
             crow::connections::systemBus->async_method_call(
                 [asyncResp, networkAdapterId](
-                    const boost::system::error_code& ec,
-                    std::variant<std::vector<std::string>>& resp) {
-                    if (ec)
+                    const boost::system::error_code& ec2,
+                    std::variant<std::vector<std::string>>& resp2) {
+                    if (ec2)
                     {
                         // no state sensors attached.
                         BMCWEB_LOG_DEBUG("DBUS response error");
                         return;
                     }
 
-                    std::vector<std::string>* data =
-                        std::get_if<std::vector<std::string>>(&resp);
-                    if (data == nullptr)
+                    std::vector<std::string>* dataPtr =
+                        std::get_if<std::vector<std::string>>(&resp2);
+                    if (dataPtr == nullptr)
                     {
                         BMCWEB_LOG_ERROR(
                             "DBUS response error while getting all_states");
@@ -381,7 +382,7 @@ inline void getHealthByAssociation(
                         return;
                     }
 
-                    for (const std::string& sensorPath : *data)
+                    for (const std::string& sensorPath : *dataPtr)
                     {
                         if (!sensorPath.ends_with(networkAdapterId))
                         {
@@ -390,11 +391,11 @@ inline void getHealthByAssociation(
                         // Check Interface in Object or not
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, sensorPath, networkAdapterId](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code& ec3,
                                 const std::vector<std::pair<
                                     std::string, std::vector<std::string>>>&
                                     object) {
-                                if (ec)
+                                if (ec3)
                                 {
                                     // the path does not implement Decorator
                                     // Health interfaces
@@ -432,7 +433,7 @@ inline void getAssetData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath, networkAdapterId](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 object) {
             if (ec)
@@ -446,9 +447,9 @@ inline void getAssetData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
             // Get interface properties
             crow::connections::systemBus->async_method_call(
-                [asyncResp, service](const boost::system::error_code ec,
+                [asyncResp, service](const boost::system::error_code& ec2,
                                      const PropertiesMap& properties) {
-                    if (ec)
+                    if (ec2)
                     {
                         messages::internalError(asyncResp->res);
                         return;
@@ -510,11 +511,11 @@ inline void getAssetData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 inline void getPCIeInterfaceData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& deviceId, const std::string& path,
-    std::shared_ptr<nlohmann::json> controllerObject)
+    const std::shared_ptr<nlohmann::json>& controllerObject)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, deviceId, path, controllerObject](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 object) {
             if (ec)
@@ -528,11 +529,11 @@ inline void getPCIeInterfaceData(
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp, deviceId, controllerObject](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec2,
                     const std::vector<std::pair<
                         std::string, std::variant<std::string, size_t>>>&
                         propertiesList) {
-                    if (ec)
+                    if (ec2)
                     {
                         BMCWEB_LOG_ERROR(
                             "Error no getting data from interface on {}",
@@ -633,47 +634,47 @@ inline void getPCIeData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& devicePath,
                         const std::string& chassisId,
                         const std::string& networkAdapterId,
-                        std::shared_ptr<nlohmann::json> controllerObject)
+                        const std::shared_ptr<nlohmann::json>& controllerObject)
 {
     BMCWEB_LOG_DEBUG("Get PCIe interface data and PCIe device on {}",
                      networkAdapterId);
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisId, networkAdapterId,
-         controllerObject](const boost::system::error_code ec,
+         controllerObject](const boost::system::error_code& ec,
                            std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Get chassis failed on{}", networkAdapterId);
                 return;
             }
-            std::vector<std::string>* data =
+            std::vector<std::string>* dataPtr =
                 std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+            if (dataPtr == nullptr)
             {
                 return;
             }
-            for (const std::string& chassisPath : *data)
+            for (const std::string& chassisPath : *dataPtr)
             {
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisId, networkAdapterId, controllerObject](
-                        const boost::system::error_code ec,
-                        std::variant<std::vector<std::string>>& resp) {
-                        if (ec)
+                        const boost::system::error_code& ec2,
+                        std::variant<std::vector<std::string>>& resp2) {
+                        if (ec2)
                         {
                             BMCWEB_LOG_DEBUG(
                                 "Get PCIe interface data and PCIe device failed on {}",
                                 networkAdapterId);
                             return;
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
+                        std::vector<std::string>* dataPtr2 =
+                            std::get_if<std::vector<std::string>>(&resp2);
+                        if (dataPtr2 == nullptr)
                         {
                             return;
                         }
                         std::string pcieDeviceId;
                         std::string pcieDevicePath;
-                        for (const std::string& path : *data)
+                        for (const std::string& path : *dataPtr2)
                         {
                             sdbusplus::message::object_path objectPath(path);
                             std::string deviceId = objectPath.filename();
@@ -725,21 +726,21 @@ inline void getControllersData(
     BMCWEB_LOG_DEBUG("Get ports available on {}", networkAdapterId);
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisId, devicePath, networkAdapterId,
-         controllerObject](const boost::system::error_code ec,
-                           std::variant<std::vector<std::string>>& resp) {
+         controllerObject](const boost::system::error_code& ec,
+                           std::variant<std::vector<std::string>>& response) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Get ports failed on{}", networkAdapterId);
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+            std::vector<std::string>* dataPtr =
+                std::get_if<std::vector<std::string>>(&response);
+            if (dataPtr == nullptr)
             {
                 return;
             }
 
-            for (const std::string& portPath : *data)
+            for (const std::string& portPath : *dataPtr)
             {
                 sdbusplus::message::object_path objectPath(portPath);
                 std::string portId = objectPath.filename();
@@ -842,7 +843,7 @@ inline void doPortCollection(
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters/{}/Ports",
                             chassisId, networkAdapterId);
-    std::string path = *validNetworkAdapterPath;
+    const std::string& path = *validNetworkAdapterPath;
 
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Chassis/" + chassisId + "/NetworkAdapters/" +
@@ -966,7 +967,7 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                    std::variant<std::string, size_t, double>>;
     // Get interface properties
     crow::connections::systemBus->async_method_call(
-        [asyncResp, networkAdapterId](const boost::system::error_code ec,
+        [asyncResp, networkAdapterId](const boost::system::error_code& ec,
                                       const PropertiesMap& properties) {
             if (ec)
             {
@@ -1147,17 +1148,17 @@ inline void getSwitchPorts(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     BMCWEB_LOG_DEBUG("Get connected switch ports on {}", switchName);
     crow::connections::systemBus->async_method_call(
         [asyncResp, portPath, fabricId,
-         switchName](const boost::system::error_code ec,
-                     std::variant<std::vector<std::string>>& resp) {
+         switchName](const boost::system::error_code& ec,
+                     std::variant<std::vector<std::string>>& response) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Get connected switch failed on{}",
                                  switchName);
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+            std::vector<std::string>* dataPtr =
+                std::get_if<std::vector<std::string>>(&response);
+            if (dataPtr == nullptr)
             {
                 BMCWEB_LOG_DEBUG(
                     "No response data on {} switch_port association", portPath);
@@ -1165,7 +1166,7 @@ inline void getSwitchPorts(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             nlohmann::json& switchlinksArray =
                 asyncResp->res.jsonValue["Links"]["ConnectedSwitchPorts"];
-            for (const std::string& portPath1 : *data)
+            for (const std::string& portPath1 : *dataPtr)
             {
                 sdbusplus::message::object_path objectPath(portPath1);
                 std::string portId = objectPath.filename();
@@ -1196,22 +1197,22 @@ inline void getConnectedSwitch(
     BMCWEB_LOG_DEBUG("Get connected switch on{}", switchName);
     crow::connections::systemBus->async_method_call(
         [asyncResp, switchPath, portPath,
-         switchName](const boost::system::error_code ec,
-                     std::variant<std::vector<std::string>>& resp) {
+         switchName](const boost::system::error_code& ec,
+                     std::variant<std::vector<std::string>>& response) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Dbus response error");
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+            std::vector<std::string>* dataPtr =
+                std::get_if<std::vector<std::string>>(&response);
+            if (dataPtr == nullptr)
             {
                 BMCWEB_LOG_DEBUG("Get connected switch failed on: {}",
                                  switchName);
                 return;
             }
-            for (const std::string& fabricPath : *data)
+            for (const std::string& fabricPath : *dataPtr)
             {
                 sdbusplus::message::object_path objectPath(fabricPath);
                 std::string fabricId = objectPath.filename();
@@ -1246,17 +1247,17 @@ inline void updatePortLink(
     BMCWEB_LOG_DEBUG("Get associated Port Links");
     crow::connections::systemBus->async_method_call(
         [aResp, objPath, chassisId, networkAdapterId,
-         portId](const boost::system::error_code ec,
-                 std::variant<std::vector<std::string>>& resp) {
+         portId](const boost::system::error_code& ec,
+                 std::variant<std::vector<std::string>>& response) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Get associated switch failed on: {}",
                                  objPath);
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+            std::vector<std::string>* dataPtr =
+                std::get_if<std::vector<std::string>>(&response);
+            if (dataPtr == nullptr)
             {
                 BMCWEB_LOG_DEBUG(
                     "No data when getting associated switch on: {}", objPath);
@@ -1268,7 +1269,7 @@ inline void updatePortLink(
             nlohmann::json& portlinksArray =
                 aResp->res.jsonValue["Links"]["ConnectedSwitchPorts"];
             portlinksArray = nlohmann::json::array();
-            for (const std::string& switchPath : *data)
+            for (const std::string& switchPath : *dataPtr)
             {
                 sdbusplus::message::object_path objectPath(switchPath);
                 std::string switchName = objectPath.filename();
@@ -1303,16 +1304,16 @@ inline void getPortDataByAssociation(
                 return;
             }
 
-            std::vector<std::string>* data =
+            std::vector<std::string>* dataPtr =
                 std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+            if (dataPtr == nullptr)
             {
                 BMCWEB_LOG_ERROR("DBUS response error while getting ports");
                 messages::internalError(asyncResp->res);
                 return;
             }
 
-            for (const std::string& sensorPath : *data)
+            for (const std::string& sensorPath : *dataPtr)
             {
                 sdbusplus::message::object_path pPath(sensorPath);
                 if (pPath.filename() != portId)
@@ -1323,14 +1324,13 @@ inline void getPortDataByAssociation(
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisId, networkAdapterId, portId,
                      sensorPath](
-                        const boost::system::error_code& ec,
-                        std::variant<std::vector<std::string>>& response) {
+                        const boost::system::error_code& ec2,
+                        std::variant<std::vector<std::string>>& resp2) {
                         std::string objectPathToGetPortData = sensorPath;
-                        if (!ec)
+                        if (!ec2)
                         {
                             std::vector<std::string>* pathData =
-                                std::get_if<std::vector<std::string>>(
-                                    &response);
+                                std::get_if<std::vector<std::string>>(&resp2);
                             if (pathData != nullptr)
                             {
                                 for (const std::string& associatedPortPath :
@@ -1345,11 +1345,11 @@ inline void getPortDataByAssociation(
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, objectPathToGetPortData, chassisId,
                              networkAdapterId, portId](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code& ec3,
                                 const std::vector<std::pair<
                                     std::string, std::vector<std::string>>>&
                                     object) {
-                                if (ec)
+                                if (ec3)
                                 {
                                     // the path does not implement item port
                                     // interfaces
@@ -1464,7 +1464,7 @@ inline void getPortMetricsData(
         boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
     // Get interface properties
     crow::connections::systemBus->async_method_call(
-        [asyncResp{asyncResp}](const boost::system::error_code ec,
+        [asyncResp{asyncResp}](const boost::system::error_code& ec,
                                const PropertiesMap& properties) {
             if (ec)
             {
@@ -1744,25 +1744,25 @@ inline void getPortMetricsDataByAssociation(
                 return;
             }
 
-            std::vector<std::string>* data =
+            std::vector<std::string>* dataPtr =
                 std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+            if (dataPtr == nullptr)
             {
                 BMCWEB_LOG_ERROR("No response data while getting ports");
                 messages::internalError(asyncResp->res);
                 return;
             }
 
-            for (const std::string& sensorPath : *data)
+            for (const std::string& sensorPath : *dataPtr)
             {
                 // Check Interface in Object or not
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, sensorPath, chassisId, networkAdapterId,
                      portId](
-                        const boost::system::error_code ec,
+                        const boost::system::error_code& ec2,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
-                        if (ec)
+                        if (ec2)
                         {
                             // the path does not implement item port metric
                             // interfaces
@@ -1915,7 +1915,7 @@ inline void networkAdapterPostResetType(
         *crow::connections::systemBus, conName, objectPath,
         "xyz.openbmc_project.Control.Reset", "ResetType",
         [resp, resetType, networkAdapterId, conName, objectPath](
-            const boost::system::error_code ec, const std::string& property) {
+            const boost::system::error_code& ec, const std::string& property) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBus response, error for ResetType ");
@@ -1970,7 +1970,7 @@ inline void doNetworkAdapterResetGeneric(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, networkAdapterId, resetType, validNetworkAdapterPath](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 obj) {
             if (ec)

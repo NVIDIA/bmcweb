@@ -56,7 +56,7 @@ inline void handleSecureBootGet(crow::App& app, const crow::Request& req,
         *crow::connections::systemBus, "xyz.openbmc_project.BIOSConfigManager",
         "/xyz/openbmc_project/bios_config/manager",
         "xyz.openbmc_project.BIOSConfig.SecureBoot",
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -69,7 +69,7 @@ inline void handleSecureBootGet(crow::App& app, const crow::Request& req,
             std::string secureBootCurrentBoot;
             bool secureBootEnable = false;
             std::string secureBootMode;
-            for (auto& [propertyName, propertyVariant] : properties)
+            for (const auto& [propertyName, propertyVariant] : properties)
             {
                 if (propertyName == "CurrentBoot" &&
                     std::holds_alternative<std::string>(propertyVariant))
@@ -148,13 +148,13 @@ inline void handleSecureBootPatch(
     }
 
     privilege_utils::isBiosPrivilege(req, [req, aResp](
-                                              const boost::system::error_code
+                                              const boost::system::error_code&
                                                   ec,
                                               const bool isBios) {
         std::optional<std::string> secureBootCurrentBoot;
         std::optional<bool> secureBootEnable;
         std::optional<std::string> secureBootMode;
-        if (ec || isBios == false)
+        if (ec || !isBios)
         {
             // Request is not from BIOS
             if (!json_util::readJsonPatch(req, aResp->res, "SecureBootEnable",
@@ -231,10 +231,10 @@ inline void handleSecureBootPatch(
         if (secureBootCurrentBoot)
         {
             crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code ec) {
-                    if (ec)
+                [aResp](const boost::system::error_code& ec1) {
+                    if (ec1)
                     {
-                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec1);
                         messages::internalError(aResp->res);
                         return;
                     }
@@ -249,10 +249,10 @@ inline void handleSecureBootPatch(
         if (secureBootEnable)
         {
             crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code ec) {
-                    if (ec)
+                [aResp](const boost::system::error_code& ec1) {
+                    if (ec1)
                     {
-                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec1);
                         messages::internalError(aResp->res);
                         return;
                     }
@@ -267,10 +267,10 @@ inline void handleSecureBootPatch(
         if (secureBootMode)
         {
             crow::connections::systemBus->async_method_call(
-                [aResp](const boost::system::error_code ec) {
-                    if (ec)
+                [aResp](const boost::system::error_code& ec1) {
+                    if (ec1)
                     {
-                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                        BMCWEB_LOG_DEBUG("DBUS response error {}", ec1);
                         messages::internalError(aResp->res);
                         return;
                     }

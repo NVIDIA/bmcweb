@@ -35,7 +35,7 @@ class WebSocketRule : public BaseRule
 
     void validate() override {}
 
-    void handle(Request& /*req*/,
+    void handle(const Request& /*req*/,
                 const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const std::vector<std::string>& /*params*/) override
     {
@@ -58,6 +58,7 @@ class WebSocketRule : public BaseRule
                 messageHandler, messageExHandler, closeHandler, errorHandler);
         myConnection->start(req);
     }
+
     void handleUpgrade(const Request& req,
                        const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/,
                        boost::asio::ssl::stream<boost::asio::ip::tcp::socket>&&

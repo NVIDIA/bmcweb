@@ -43,7 +43,7 @@ enum class DotMctpVdmUtilCommand
     DOTDisable,
     DOTTokenInstall,
 };
-
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::map<const DotMctpVdmUtilCommand, const std::string> commandsMap{
     {DotMctpVdmUtilCommand::CAKInstall, "cak_install"},
     {DotMctpVdmUtilCommand::CAKLock, "cak_lock"},
@@ -64,13 +64,14 @@ class DotCommandHandler
                       const std::vector<uint8_t>& data,
                       ResultCallback&& resultCallback,
                       ErrorCallback&& errorCallback, int timeoutSec = 3) :
-        resCallback(resultCallback), errCallback(errorCallback)
+        resCallback(std::move(resultCallback)),
+        errCallback(std::move(errorCallback))
     {
         mctp_utils::enumerateMctpEndpoints(
             [this, command, data, timeoutSec](
                 const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
                     endpoints) {
-                if (endpoints && endpoints->size() != 0)
+                if (endpoints && !endpoints->empty())
                 {
                     runCommand(endpoints->begin()->getMctpEid(), command, data,
                                timeoutSec);
@@ -110,16 +111,18 @@ class DotCommandHandler
         {
             boost::interprocess::bufferstream outputStream(
                 subprocessOutput.data(), subprocessOutput.size());
-            std::string line, rxLine, txLine;
+            std::string line;
+            std::string rxLine;
+            std::string txLine;
             std::string output;
             while (std::getline(outputStream, line) && output.empty())
             {
-                if (line.rfind("RX: ", 0) == 0)
+                if (line.starts_with("RX: "))
                 {
                     rxLine = line.substr(4);
                     BMCWEB_LOG_DEBUG(" RX: {}", rxLine);
                 }
-                if (line.rfind("TX: ", 0) == 0)
+                if (line.starts_with("TX: "))
                 {
                     txLine = line.substr(4);
                     BMCWEB_LOG_DEBUG(" TX: {}", txLine);
@@ -153,7 +156,7 @@ class DotCommandHandler
             crow::connections::systemBus->get_io_context());
         subprocessTimer->expires_after(std::chrono::seconds(timeout));
         subprocessTimer->async_wait(
-            [this, desc](const boost::system::error_code ec) {
+            [this, desc](const boost::system::error_code& ec) {
                 if (ec && ec != boost::asio::error::operation_aborted)
                 {
                     if (subprocess)

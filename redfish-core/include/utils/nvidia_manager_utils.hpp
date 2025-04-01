@@ -53,13 +53,13 @@ inline void processFeatureReadyPropertiesList(
             stateValue = std::get_if<std::string>(&property.second);
         }
 
-        if (featureType && stateValue)
+        if ((featureType != nullptr) && (stateValue != nullptr))
         {
             break; // Exit early if both values are found
         }
     }
 
-    if (!featureType ||
+    if ((featureType == nullptr) ||
         *featureType !=
             "xyz.openbmc_project.State.FeatureReady.FeatureTypes.Manager")
     {
@@ -68,7 +68,7 @@ inline void processFeatureReadyPropertiesList(
         return;
     }
 
-    if (!stateValue)
+    if (stateValue == nullptr)
     {
         BMCWEB_LOG_DEBUG("Null value returned for manager service state");
         messages::internalError(aResp->res);
@@ -106,7 +106,7 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     uint64_t timeout =
         std::chrono::duration_cast<std::chrono::microseconds>(1s).count();
     crow::connections::systemBus->async_method_call_timed(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const std::vector<std::pair<
                     std::string, std::variant<std::string>>>& propertiesList) {
             processFeatureReadyPropertiesList(ec, propertiesList, aResp);
@@ -121,7 +121,7 @@ inline void getOemReadyState(
     // call to get telemtery Ready status
     crow::connections::systemBus->async_method_call(
         [asyncResp](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string,
                 std::vector<std::pair<std::string, std::vector<std::string>>>>>&
@@ -321,7 +321,7 @@ inline void getFabricManagerInformation(
 
     crow::connections::systemBus->async_method_call(
         [aResp](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<
                 std::pair<std::string, std::variant<std::string, uint64_t>>>&
                 propertiesList) {
@@ -458,8 +458,10 @@ inline void requestRouteNSMRawCommand(App& app)
                     return;
                 }
 
-                uint8_t deviceIdentificationId = 0, deviceInstanceId = 0,
-                        messageType = 0, commandCode = 0;
+                uint8_t deviceIdentificationId = 0;
+                uint8_t deviceInstanceId = 0;
+                uint8_t messageType = 0;
+                uint8_t commandCode = 0;
                 uint16_t dataSizeInBytes = 0;
                 bool isLongRunning = false;
                 std::vector<uint8_t> data;

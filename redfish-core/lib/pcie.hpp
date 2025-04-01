@@ -164,7 +164,7 @@ static inline void getPCIeDeviceState(
     std::string escapedPath = std::string(path) + "/" + device;
     dbus::utility::escapePathForDbus(escapedPath);
     auto getPCIeDeviceStateCallback = [escapedPath, asyncResp{asyncResp}](
-                                          const boost::system::error_code ec,
+                                          const boost::system::error_code& ec,
                                           const std::variant<std::string>&
                                               deviceState) {
         if (ec)
@@ -949,7 +949,7 @@ inline void requestRoutesChassisPCIeDeviceCollection(App& app)
             }
             crow::connections::systemBus->async_method_call(
                 [asyncResp,
-                 chassisId](const boost::system::error_code ec,
+                 chassisId](const boost::system::error_code& ec,
                             const std::vector<std::string>& chassisPaths) {
                     if (ec)
                     {
@@ -1135,9 +1135,9 @@ inline void requestRoutesChassisPCIeDevice(App& app)
             }
             crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisId,
-                 device](const boost::system::error_code ec,
+                 device](const boost::system::error_code& ecOuter,
                          const std::vector<std::string>& chassisPaths) {
-                    if (ec)
+                    if (ecOuter)
                     {
                         messages::internalError(asyncResp->res);
                         return;
@@ -1164,10 +1164,10 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                         // Get Inventory Service
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, device, chassisPCIePath, interface,
-                             chassisId, chassisPCIeDevicePath,
-                             chassisPath](const boost::system::error_code ec,
-                                          const GetSubTreeType& subtree) {
-                                if (ec)
+                             chassisId, chassisPCIeDevicePath, chassisPath](
+                                const boost::system::error_code& ecInner,
+                                const GetSubTreeType& subtree) {
+                                if (ecInner)
                                 {
                                     BMCWEB_LOG_DEBUG("DBUS response error");
                                     messages::internalError(asyncResp->res);
@@ -1188,7 +1188,7 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         connectionNames = object.second;
-                                    if (connectionNames.size() < 1)
+                                    if (connectionNames.empty())
                                     {
                                         BMCWEB_LOG_ERROR(
                                             "Got 0 Connection names");
@@ -1221,7 +1221,9 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                                     redfish::nvidia_chassis_utils::
                                         getHealthByAssociation(
                                             asyncResp,
-                                            chassisPCIePath + "/" + device,
+                                            std::string(chassisPCIePath)
+                                                .append("/")
+                                                .append(device),
                                             "chassis", device);
 
                                     // Get asset properties

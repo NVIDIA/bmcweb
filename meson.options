@@ -282,14 +282,14 @@ option(
 
 # BMCWEB_BASIC_AUTH
 option(
-    'bmcweb-chunking',
+    'http-chunking',
     type: 'feature',
     value: 'disabled',
     description: 'Enable bmcweb chunking.',
 )
 
 option(
-    'bmcweb-response-timeout',
+    'http-response-timeout',
     type: 'integer',
     value: 60,
     description: 'The bmcweb response timeout in seconds.',
@@ -333,13 +333,6 @@ option(
     description: 'Enable cookie authentication',
 )
 
-# BMCWEB_MUTUAL_TLS_AUTH
-option(
-    'array-bootprogress',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable array of bootprogress to take the post events as 9-byte number',
-)
 option(
     'bmcweb-logging-log-level',
     type: 'integer',
@@ -650,12 +643,6 @@ option(
     description: 'Enable OEM GB200Nvl properties',
 )
 option(
-    'nvidia-oem-common-properties',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable OEM Nvidia common properties.',
-)
-option(
     'nvidia-retimer-debugmode',
     type: 'feature',
     value: 'disabled',
@@ -724,12 +711,6 @@ option(
     type: 'string',
     value: 'Computer System',
     description: 'Platform specific computer system description',
-)
-option(
-    'platform-bmc-id',
-    type: 'string',
-    value: 'bmc',
-    description: 'Platform specific managers bmc id',
 )
 option(
     'platform-network-adapter',
@@ -932,13 +913,6 @@ option(
 
 # BMCWEB_INSECURE_ENABLE_REDFISH_QUERY
 option(
-    'force-insecure-event-notification',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Event notification is performed only by http insecure protol regardless the subscription either http or https',
-)
-
-option(
     'insecure-enable-redfish-query',
     type: 'feature',
     value: 'disabled',
@@ -962,13 +936,6 @@ option(
     type: 'string',
     value: '/tmp/images/',
     description: 'Update service image location',
-)
-
-option(
-    'redfish-new-powersubsystem',
-    type: 'feature',
-    value: 'enabled',
-    description: 'Enable/disable the new Power sub system.',
 )
 
 option(
@@ -1122,12 +1089,6 @@ option(
     description: 'Enables fabric adapter schema.',
 )
 option(
-    'enable-sse',
-    type: 'feature',
-    value: 'enabled',
-    description: 'Enables Event SSE.',
-)
-option(
     'tls-cacert-path',
     type: 'string',
     value: '/etc/ssl/certs/authority/',
@@ -1233,4 +1194,12 @@ option(
     type: 'feature',
     value: 'disabled',
     description: 'Enable/Disable ist mode support',
+)
+
+option(
+    'system-dump-base64-encode',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable base64 encoding for system dump downloads. When disabled,
+                    system dumps are served as raw binary data.''',
 )

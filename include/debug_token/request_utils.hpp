@@ -41,24 +41,24 @@ struct NsmDebugTokenRequest
 {
     uint16_t tokenRequestVersion;
     uint16_t tokenRequestSize;
-    uint8_t reserved1[20];
-    uint8_t deviceUuid[8];
+    std::array<uint8_t, 20> reserved1;
+    std::array<uint8_t, 8> deviceUuid;
     uint16_t deviceType;
-    uint8_t reserved2[2];
+    std::array<uint8_t, 2> reserved2;
     uint8_t tokenOpcode;
     uint8_t status;
     uint16_t deviceIndex:12;
     uint8_t reserved3:4;
-    uint8_t keypairUuid[16];
-    uint8_t baseMac[8];
-    uint8_t psid[16];
-    uint8_t reserved4[3];
-    uint8_t fwVersion[5];
-    uint8_t sourceAddress[16];
+    std::array<uint8_t, 16> keypairUuid;
+    std::array<uint8_t, 8> baseMac;
+    std::array<uint8_t, 16> psid;
+    std::array<uint8_t, 3> reserved4;
+    std::array<uint8_t, 5> fwVersion;
+    std::array<uint8_t, 16> sourceAddress;
     uint16_t sessionId;
     uint8_t reserved5;
     uint8_t challengeVersion;
-    uint8_t challenge[32];
+    std::array<uint8_t, 32> challenge;
 };
 #pragma pack()
 
@@ -67,12 +67,12 @@ inline std::vector<uint8_t> convertNsmTokenRequestToSpdmTranscript(
 {
     constexpr const size_t wrapperOverhead = 86;
     constexpr const size_t measurementRecordOverhead = 4;
-    constexpr const size_t DMTFSpecOverhead = 3;
+    constexpr const size_t dmtfSpecOverhead = 3;
 
     std::vector<uint8_t> wrappedRequest;
     std::uniform_int_distribution<uint8_t> dist(0);
     bmcweb::OpenSSLGenerator gen;
-    size_t measurementLen = request.size() + DMTFSpecOverhead;
+    size_t measurementLen = request.size() + dmtfSpecOverhead;
     size_t recordLen = measurementLen + measurementRecordOverhead;
     // request
     wrappedRequest.reserve(request.size() + wrapperOverhead);
@@ -174,7 +174,7 @@ inline std::vector<uint8_t> generateTokenRequestFile(
     const std::vector<std::vector<uint8_t>>& tokenRequests)
 {
     std::vector<uint8_t> output;
-    if (tokenRequests.size() == 0)
+    if (tokenRequests.empty())
     {
         return output;
     }
@@ -231,7 +231,11 @@ inline bool readNsmTokenRequestFd(int fd, std::vector<uint8_t>& buffer)
         BMCWEB_LOG_ERROR("ftell error or size is zero: {}", filesize);
         return false;
     }
-    rewind(file.get());
+    if (fseek(file.get(), 0, SEEK_SET) != 0)
+    {
+        BMCWEB_LOG_ERROR("fseek error when rewinding file");
+        return false;
+    }
     size_t size = static_cast<size_t>(filesize);
     buffer.resize(size);
     auto len = fread(buffer.data(), 1, size, file.get());

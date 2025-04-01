@@ -1,6 +1,8 @@
 /*
  * SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES.
- * All rights reserved. SPDX-License-Identifier: Apache-2.0
+ * All rights reserved. SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA
+ * CORPORATION & AFFILIATES. All rights reserved. SPDX-License-Identifier:
+ * Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +21,6 @@
 #include "nlohmann/json.hpp"
 #include "task.hpp"
 
-#include <app.hpp>
 #include <dbus_utility.hpp>
 #include <query.hpp>
 #include <registries/privilege_registry.hpp>
@@ -29,6 +30,7 @@
 #include <cstdint> //max uint
 #include <fstream>
 #include <iostream>
+#include <utility>
 
 namespace redfish
 {
@@ -77,7 +79,7 @@ inline void setProfileProperty(
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, profileService,
         profilePath + profileNumber, interface, property, value,
-        [aResp, property, value](const boost::system::error_code ec) {
+        [aResp, property, value](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -107,7 +109,7 @@ inline void handleGetProfilesList(
     BMCWEB_LOG_DEBUG("Start get profile list");
 
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
             if (ec)
             {
@@ -123,8 +125,8 @@ inline void handleGetProfilesList(
             for (const auto& object : objects)
             {
                 sdbusplus::message::object_path path(object);
-                std::string profile_number = path.filename();
-                if (profile_number.empty())
+                std::string profileNumber = path.filename();
+                if (profileNumber.empty())
                 {
                     continue;
                 }
@@ -132,11 +134,11 @@ inline void handleGetProfilesList(
                     "/redfish/v1/Systems/" +
                     std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                     "/Oem/Nvidia/SystemConfigurationProfile/List/";
-                newPath += profile_number;
+                newPath += profileNumber;
                 nlohmann::json::object_t member;
                 member["@odata.id"] = std::move(newPath);
                 members.push_back(std::move(member));
-                BMCWEB_LOG_DEBUG("Profile: {}", profile_number);
+                BMCWEB_LOG_DEBUG("Profile: {}", profileNumber);
             }
             aResp->res.jsonValue["Members@odata.count"] = members.size();
         },
@@ -222,7 +224,7 @@ inline void handlePatchProfile(crow::App& app, const crow::Request& req,
     {
         privilege_utils::isBiosPrivilege(
             req, [req, aResp, activateStatus, deleteStatus, profileNumber](
-                     const boost::system::error_code ec, const bool isBios) {
+                     const boost::system::error_code& ec, const bool isBios) {
                 std::vector<std::string> allowedUefiValues = {"BiosStarted",
                                                               "BiosFinished"};
                 std::vector<std::string> allowedUserValues = {"Failed"};
@@ -282,7 +284,7 @@ inline void handleGetProfileInfo(
         *crow::connections::systemBus, profileService,
         profilePath + profileNumber, statusIntrf,
         [aResp,
-         profileNumber](const boost::system::error_code ec,
+         profileNumber](const boost::system::error_code& ec,
                         const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -315,7 +317,7 @@ inline void handleGetProfileInfo(
         *crow::connections::systemBus, profileService,
         profilePath + profileNumber, configurationIntrf,
         [aResp,
-         profileNumber](const boost::system::error_code ec,
+         profileNumber](const boost::system::error_code& ec,
                         const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -422,7 +424,7 @@ inline void handleGetProfilesStatus(
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, profileService, profilePath + "manager",
         pendingListIntrf,
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -466,7 +468,7 @@ inline void handleGetProfilesStatus(
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, profileService, profilePath + "manager",
         managerIntrf,
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -494,7 +496,7 @@ inline void handleGetProfilesStatus(
             auto assignedIfValid = [aResp](int profileNumber, std::string str) {
                 if (profileNumber != invalidProfileNumber)
                 {
-                    aResp->res.jsonValue[str] = profileNumber;
+                    aResp->res.jsonValue[std::move(str)] = profileNumber;
                 }
             };
             assignedIfValid(*activeProfileNumber, "ActiveProfileNumber");
@@ -545,9 +547,9 @@ inline void handleProfilesUrls(crow::App& app, const crow::Request& req,
  * @param messagesStr - messages string
  * @return bool -always true - task is completed
  */
-inline bool finishProfileTask(const std::shared_ptr<task::TaskData>& taskData,
-                              std::string_view state, nlohmann::json messages,
-                              std::string_view messagesStr)
+inline bool finishProfileTask(
+    const std::shared_ptr<task::TaskData>& taskData, std::string_view state,
+    const nlohmann::json& messages, std::string_view messagesStr)
 {
     taskData->timer.cancel();
     taskData->finishTask();
@@ -567,9 +569,9 @@ inline bool finishProfileTask(const std::shared_ptr<task::TaskData>& taskData,
  * @param  profileNumber - profile number
  * @return bool - is task completed or not
  */
-inline bool handleTaskStatus(const std::shared_ptr<task::TaskData>& taskData,
-                             std::string action, std::string fullStatus,
-                             uint16_t profileNumber)
+inline bool handleTaskStatus(
+    const std::shared_ptr<task::TaskData>& taskData, const std::string& action,
+    const std::string& fullStatus, uint16_t profileNumber)
 {
     // {task status, progress percent}
     const std::unordered_map<std::string, int> taskNotCompleted = {
@@ -607,8 +609,8 @@ inline bool handleTaskStatus(const std::shared_ptr<task::TaskData>& taskData,
             index, static_cast<size_t>(statusNotCompleted->second)));
         return !task::completed;
     }
-    else if (std::find(taskCompleted.begin(), taskCompleted.end(), status) !=
-             taskCompleted.end())
+    if (std::find(taskCompleted.begin(), taskCompleted.end(), status) !=
+        taskCompleted.end())
     {
         taskData->percentComplete = 100;
         return finishProfileTask(taskData, "Completed",
@@ -616,7 +618,7 @@ inline bool handleTaskStatus(const std::shared_ptr<task::TaskData>& taskData,
                                  "Profile " + std::to_string(profileNumber) +
                                      " " + action + " completed");
     }
-    else if (status == "Failed")
+    if (status == "Failed")
     {
         return finishProfileTask(taskData, "Failed",
                                  messages::taskAborted(status),
@@ -684,7 +686,7 @@ inline void handleProfileUpdate(crow::App& app, const crow::Request& req,
     }
 
     privilege_utils::isBiosPrivilege(req, [req, aResp](
-                                              const boost::system::error_code
+                                              const boost::system::error_code&
                                                   ec,
                                               const bool isBios) {
         if (ec)
@@ -692,15 +694,16 @@ inline void handleProfileUpdate(crow::App& app, const crow::Request& req,
             messages::internalError(aResp->res);
             return;
         }
-        BMCWEB_LOG_DEBUG("Is bios: {}", std::to_string(isBios));
+        BMCWEB_LOG_DEBUG("Is bios: {}",
+                         std::to_string(static_cast<int>(isBios)));
         crow::connections::systemBus->async_method_call(
-            [req, aResp, isBios](const boost::system::error_code ec,
+            [req, aResp, isBios](const boost::system::error_code& ec1,
                                  const uint16_t& profileNumber) {
-                if (ec)
+                if (ec1)
                 {
                     messages::internalError(aResp->res);
                     BMCWEB_LOG_ERROR("Update profile Dbus error: {}",
-                                     ec.what());
+                                     ec1.what());
                     return;
                 }
                 if (profileNumber == UINT16_MAX)
@@ -726,9 +729,10 @@ inline void handleProfileUpdate(crow::App& app, const crow::Request& req,
                     profilePath + std::to_string(profileNumber) + "'";
                 std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
                     [profileNumber](
-                        boost::system::error_code ec, sdbusplus::message_t& msg,
+                        boost::system::error_code ec2,
+                        sdbusplus::message_t& msg,
                         const std::shared_ptr<task::TaskData>& taskData) {
-                        if (ec)
+                        if (ec2)
                         {
                             BMCWEB_LOG_ERROR("Profile dbus error ");
                             return finishProfileTask(

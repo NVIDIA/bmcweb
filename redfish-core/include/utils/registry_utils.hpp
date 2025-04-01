@@ -55,7 +55,7 @@ inline void updateResolution(
 {
     std::string extendInfo = property + "@Message.ExtendedInfo";
     auto& extendedInfoArr = asyncResp->res.jsonValue[extendInfo];
-    if (extendedInfoArr.size() > 0)
+    if (!extendedInfoArr.empty())
     {
         std::string oldResolution = extendedInfoArr[0]["Resolution"];
         resolution = oldResolution + resolution;
@@ -69,7 +69,7 @@ inline void updateMessageSeverity(
 {
     std::string extendInfo = property + "@Message.ExtendedInfo";
     auto& extendedInfoArr = asyncResp->res.jsonValue[extendInfo];
-    if (extendedInfoArr.size() > 0)
+    if (!extendedInfoArr.empty())
     {
         extendedInfoArr[0]["MessageSeverity"] = messageSeverity;
     }
@@ -88,7 +88,7 @@ inline std::string composeMessage(const std::string& messageId,
 
     std::string message = msg->message;
     int i = 0;
-    for (auto& arg : messageArgs)
+    for (const auto& arg : messageArgs)
     {
         // Substituion
         std::string argStr = "%" + std::to_string(++i);

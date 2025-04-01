@@ -28,8 +28,8 @@ namespace nvidia_async_operation_utils
 class PatchGenericCallback
 {
   public:
-    explicit PatchGenericCallback(std::shared_ptr<bmcweb::AsyncResp> resp) :
-        resp(std::move(resp))
+    explicit PatchGenericCallback(std::shared_ptr<bmcweb::AsyncResp> response) :
+        resp(std::move(response))
     {}
 
     void operator()(const std::string& status) const
@@ -87,9 +87,9 @@ using PatchEgmModeCallback = PatchGenericCallback;
 class PatchSpeedConfigCallback
 {
   public:
-    explicit PatchSpeedConfigCallback(std::shared_ptr<bmcweb::AsyncResp> resp,
-                                      uint32_t speedLimit) :
-        resp(std::move(resp)), speedLimit(speedLimit)
+    explicit PatchSpeedConfigCallback(
+        std::shared_ptr<bmcweb::AsyncResp> response, uint32_t limit) :
+        resp(std::move(response)), speedLimit(limit)
     {}
 
     void operator()(const std::string& status) const
@@ -146,9 +146,9 @@ class PatchSpeedConfigCallback
 class PatchPowerCapCallback
 {
   public:
-    explicit PatchPowerCapCallback(std::shared_ptr<bmcweb::AsyncResp> resp,
-                                   int64_t setpoint) :
-        resp(std::move(resp)), setpoint(setpoint)
+    explicit PatchPowerCapCallback(std::shared_ptr<bmcweb::AsyncResp> response,
+                                   int64_t point) :
+        resp(std::move(response)), setpoint(point)
     {}
 
     void operator()(const std::string& status) const
@@ -206,7 +206,7 @@ class PatchClockLimitControlCallback
 {
   public:
     explicit PatchClockLimitControlCallback(
-        std::shared_ptr<bmcweb::AsyncResp> resp) : resp(std::move(resp))
+        std::shared_ptr<bmcweb::AsyncResp> response) : resp(std::move(response))
     {}
 
     void operator()(const std::string& status) const
@@ -279,9 +279,9 @@ inline void patch(std::shared_ptr<bmcweb::AsyncResp> aResp,
     dbus::utility::getDbusObject(
         path, std::array<std::string_view, 1>{setAsyncInterfaceName},
         [aResp, path, service, property, interface, value,
-         showError](const boost::system::error_code& ec,
+         showError](const boost::system::error_code& ec1,
                     const dbus::utility::MapperGetObject& object) {
-            if (!ec)
+            if (!ec1)
             {
                 for (const auto& [serv, _] : object)
                 {
@@ -312,9 +312,9 @@ inline void patch(std::shared_ptr<bmcweb::AsyncResp> aResp,
             // Set the property, with handler to check error responses
             crow::connections::systemBus->async_method_call(
                 [aResp, property, interface,
-                 service](boost::system::error_code ec,
+                 service](boost::system::error_code ec2,
                           sdbusplus::message::message& msg) {
-                    if (!ec)
+                    if (!ec2)
                     {
                         BMCWEB_LOG_DEBUG("Set {} property for {} succeeded",
                                          property, interface);
@@ -322,7 +322,7 @@ inline void patch(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     }
                     BMCWEB_LOG_WARNING(
                         "Set {} property for {} failed: {}. Serv: {}", property,
-                        interface, ec, service);
+                        interface, ec2, service);
 
                     // Read and convert dbus error message to redfish error
                     const sd_bus_error* dbusError = msg.get_error();

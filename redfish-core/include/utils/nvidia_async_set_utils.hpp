@@ -28,28 +28,28 @@ namespace redfish
 {
 namespace nvidia_async_operation_utils
 {
-static constexpr std::string_view setAsyncInterfaceName =
-    "com.nvidia.Async.Set";
-static constexpr auto setAsyncMethodName = "Set";
-static constexpr auto asyncStatusInterfaceName = "com.nvidia.Async.Status";
-static constexpr auto asyncStatusPropertyName = "Status";
-static constexpr auto asyncStatusValueInProgress =
+static const std::string setAsyncInterfaceName = "com.nvidia.Async.Set";
+static const std::string setAsyncMethodName = "Set";
+static const std::string asyncStatusInterfaceName = "com.nvidia.Async.Status";
+static const std::string asyncStatusPropertyName = "Status";
+
+static constexpr std::string_view asyncStatusValueInProgress =
     "com.nvidia.Async.Status.AsyncOperationStatus.InProgress";
-static constexpr auto asyncStatusValueSuccess =
+static constexpr std::string_view asyncStatusValueSuccess =
     "com.nvidia.Async.Status.AsyncOperationStatus.Success";
-static constexpr auto asyncStatusValueTimeout =
+static constexpr std::string_view asyncStatusValueTimeout =
     "com.nvidia.Async.Status.AsyncOperationStatus.Timeout";
-static constexpr auto asyncStatusValueInternalFailure =
+static constexpr std::string_view asyncStatusValueInternalFailure =
     "com.nvidia.Async.Status.AsyncOperationStatus.InternalFailure";
-static constexpr auto asyncStatusValueResourceNotFound =
+static constexpr std::string_view asyncStatusValueResourceNotFound =
     "com.nvidia.Async.Status.AsyncOperationStatus.ResourceNotFound";
-static constexpr auto asyncStatusValueUnavailable =
+static constexpr std::string_view asyncStatusValueUnavailable =
     "com.nvidia.Async.Status.AsyncOperationStatus.Unavailable";
-static constexpr auto asyncStatusValueUnsupportedRequest =
+static constexpr std::string_view asyncStatusValueUnsupportedRequest =
     "com.nvidia.Async.Status.AsyncOperationStatus.UnsupportedRequest";
-static constexpr auto asyncStatusValueWriteFailure =
+static constexpr std::string_view asyncStatusValueWriteFailure =
     "com.nvidia.Async.Status.AsyncOperationStatus.WriteFailure";
-static constexpr auto asyncStatusValueInvalidArgument =
+static constexpr std::string_view asyncStatusValueInvalidArgument =
     "com.nvidia.Async.Status.AsyncOperationStatus.InvalidArgument";
 
 template <typename Callback>
@@ -63,7 +63,7 @@ struct SetAsyncStatusHandlerInfo
     const std::string interface;
     const std::string property;
     boost::asio::steady_timer timeoutTimer;
-    bool completed;
+    bool completed{};
 };
 
 template <typename SetAsyncStatusInfo>
@@ -79,8 +79,8 @@ class SetAsyncGetStatus
 {
   public:
     explicit SetAsyncGetStatus(
-        std::weak_ptr<SetAsyncStatusInfo> weakStatusInfo) :
-        weakStatusInfo(weakStatusInfo)
+        std::weak_ptr<SetAsyncStatusInfo> inWeakStatusInfo) :
+        weakStatusInfo(std::move(inWeakStatusInfo))
     {}
 
     void operator()(const boost::system::error_code ec,
@@ -132,8 +132,8 @@ class SetAsyncStatusChanged
 {
   public:
     explicit SetAsyncStatusChanged(
-        std::weak_ptr<SetAsyncStatusInfo> weakStatusInfo) :
-        weakStatusInfo(weakStatusInfo)
+        std::weak_ptr<SetAsyncStatusInfo> inWeakStatusInfo) :
+        weakStatusInfo(std::move(inWeakStatusInfo))
     {}
 
     void operator()(sdbusplus::message::message& msg)
@@ -207,8 +207,8 @@ class SetAsyncMethodCall
 {
   public:
     explicit SetAsyncMethodCall(
-        std::weak_ptr<SetAsyncStatusInfo> weakStatusInfo) :
-        weakStatusInfo(weakStatusInfo)
+        std::weak_ptr<SetAsyncStatusInfo> inWeakStatusInfo) :
+        weakStatusInfo(std::move(inWeakStatusInfo))
     {}
 
     void operator()(boost::system::error_code ec,

@@ -122,7 +122,7 @@ class OperationHandler
                             std::get_if<std::string>(&(it->second));
                     }
                 }
-                if (!progressStatus)
+                if (progressStatus == nullptr)
                 {
                     return;
                 }
@@ -163,7 +163,7 @@ class OperationHandler
                         spdmStatus = std::get_if<std::string>(&(it->second));
                     }
                 }
-                if (!spdmStatus)
+                if (spdmStatus == nullptr)
                 {
                     return;
                 }
@@ -183,14 +183,15 @@ class OperationHandler
 class StatusQueryHandler : public OperationHandler
 {
   public:
-    StatusQueryHandler(ResultCallback&& resultCallback,
-                       ErrorCallback&& errorCallback, bool useNsm = true)
+    StatusQueryHandler(const ResultCallback&& resultCallback,
+                       const ErrorCallback&& errorCallback, bool useNsm = true)
     {
         BMCWEB_LOG_DEBUG("StatusQueryHandler constructor");
         resCallback = resultCallback;
         errCallback = errorCallback;
-        getCpuObjectPath([this, errorCallback](const boost::system::error_code&,
-                                               const std::string cpuPath) {
+        getCpuObjectPath([this,
+                          &errorCallback](const boost::system::error_code&,
+                                          const std::string& cpuPath) {
             mctp_utils::enumerateMctpEndpoints(
                 [this, cpuPath](
                     const std::shared_ptr<
@@ -198,7 +199,7 @@ class StatusQueryHandler : public OperationHandler
                     spdmEnumerationFinished = true;
                     const std::string desc = "SPDM endpoint enumeration";
                     BMCWEB_LOG_DEBUG("{}", desc);
-                    if (!mctpEndpoints || mctpEndpoints->size() == 0)
+                    if (!mctpEndpoints || mctpEndpoints->empty())
                     {
                         BMCWEB_LOG_ERROR("{}: {}", desc, "no endpoints found");
                         finalize();
@@ -234,14 +235,14 @@ class StatusQueryHandler : public OperationHandler
                     getMctpVdmStatus();
                     finalize();
                 },
-                [this, errorCallback](bool, const std::string& desc,
-                                      const std::string& error) {
+                [this, &errorCallback](bool, const std::string& desc,
+                                       const std::string& error) {
                     spdmEnumerationFinished = true;
                     errorCallback(false, desc, error);
                     finalize();
                 },
                 "",
-                static_cast<uint64_t>(statusQueryTimeoutSeconds) * 1000000u);
+                static_cast<uint64_t>(statusQueryTimeoutSeconds) * 1000000U);
         });
 
         if (!useNsm)
@@ -263,7 +264,7 @@ class StatusQueryHandler : public OperationHandler
                     finalize();
                     return;
                 }
-                if (paths.size() == 0)
+                if (paths.empty())
                 {
                     BMCWEB_LOG_ERROR("{}: {}", desc, "no endpoints found");
                     finalize();
@@ -332,9 +333,9 @@ class StatusQueryHandler : public OperationHandler
     {
         createNsmMatch([this](const std::string& object,
                               const std::string& status) {
-            const std::string desc =
+            const std::string descStr =
                 "NSM token status acquisition for " + std::string(object);
-            BMCWEB_LOG_DEBUG("{}", desc);
+            BMCWEB_LOG_DEBUG("{}", descStr);
             auto endpoint = std::find_if(
                 endpoints->begin(), endpoints->end(), [object](const auto& ep) {
                     return ep->getType() == EndpointType::NSM &&
@@ -342,7 +343,7 @@ class StatusQueryHandler : public OperationHandler
                 });
             if (endpoint == endpoints->end())
             {
-                errCallback(false, desc, "unknown object");
+                errCallback(false, descStr, "unknown object");
                 return;
             }
             auto& ep = *endpoint;
@@ -351,33 +352,34 @@ class StatusQueryHandler : public OperationHandler
                 state == EndpointState::StatusAcquired ||
                 state == EndpointState::TokenInstalled)
             {
-                errCallback(false, desc, "received unexpected update");
+                errCallback(false, descStr, "received unexpected update");
                 return;
             }
             if (status == "Failed")
             {
-                errCallback(false, desc, "operation rejected");
+                errCallback(false, descStr, "operation rejected");
                 ep->setError();
                 finalize();
                 return;
             }
             DebugTokenNsmEndpoint* nsmEp =
-                static_cast<DebugTokenNsmEndpoint*>(ep.get());
+                dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
             if (status == "Aborted")
             {
                 sdbusplus::asio::getProperty<std::tuple<uint16_t, std::string>>(
                     *crow::connections::systemBus, "xyz.openbmc_project.NSM",
                     object, std::string(debugTokenIntf), "ErrorCode",
-                    [this, desc, nsmEp, object](
-                        const boost::system::error_code ec,
+                    [this, descStr, object, nsmEp](
+                        const boost::system::error_code& ec,
                         const std::tuple<uint16_t, std::string>& errorCode) {
-                        const std::string desc =
+                        const std::string innerDescStr =
                             object.substr(object.find_last_of('/') + 1);
-                        BMCWEB_LOG_DEBUG("{}", desc);
+                        BMCWEB_LOG_DEBUG("{}", innerDescStr);
                         if (ec)
                         {
-                            BMCWEB_LOG_ERROR("{}: {}", desc, ec.message());
-                            errCallback(false, desc, ec.message());
+                            BMCWEB_LOG_ERROR("{}: {}", innerDescStr,
+                                             ec.message());
+                            errCallback(false, descStr, ec.message());
                             nsmEp->setError();
                             finalize();
                             return;
@@ -390,7 +392,7 @@ class StatusQueryHandler : public OperationHandler
                             finalize();
                             return;
                         }
-                        errCallback(false, desc, "operation failure");
+                        errCallback(false, descStr, "operation failure");
                         nsmEp->setError();
                         finalize();
                         return;
@@ -400,16 +402,16 @@ class StatusQueryHandler : public OperationHandler
             sdbusplus::asio::getProperty<NsmDbusTokenStatus>(
                 *crow::connections::systemBus, "xyz.openbmc_project.NSM",
                 object, std::string(debugTokenIntf), "TokenStatus",
-                [this, desc, nsmEp,
-                 object](const boost::system::error_code ec,
+                [this, descStr, nsmEp,
+                 object](const boost::system::error_code& ec,
                          const NsmDbusTokenStatus& dbusStatus) {
-                    const std::string desc =
+                    const std::string outerDescStr =
                         "NSM get call for " + std::string(object);
-                    BMCWEB_LOG_DEBUG("{}", desc);
+                    BMCWEB_LOG_DEBUG("{}", outerDescStr);
                     if (ec)
                     {
-                        BMCWEB_LOG_ERROR("{}: {}", desc, ec.message());
-                        errCallback(false, desc, ec.message());
+                        BMCWEB_LOG_ERROR("{}: {}", outerDescStr, ec.message());
+                        errCallback(false, descStr, ec.message());
                         nsmEp->setError();
                         finalize();
                         return;
@@ -435,17 +437,17 @@ class StatusQueryHandler : public OperationHandler
                 continue;
             }
             DebugTokenNsmEndpoint* nsmEp =
-                static_cast<DebugTokenNsmEndpoint*>(ep.get());
+                dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
             auto objectPath = ep->getObject();
             crow::connections::systemBus->async_method_call(
                 [this, nsmEp, objectPath](const boost::system::error_code& ec) {
-                    const std::string desc =
+                    const std::string descStr =
                         "NSM GetStatus call for " + objectPath;
-                    BMCWEB_LOG_DEBUG("{}", desc);
+                    BMCWEB_LOG_DEBUG("{}", descStr);
                     if (ec)
                     {
-                        BMCWEB_LOG_ERROR("{}: {}", desc, ec.message());
-                        errCallback(false, desc, ec.message());
+                        BMCWEB_LOG_ERROR("{}: {}", descStr, ec.message());
+                        errCallback(false, descStr, ec.message());
                         nsmEp->setError();
                         finalize();
                     }
@@ -506,17 +508,18 @@ class StatusQueryHandler : public OperationHandler
                             "Invalid token status for EID " +
                                 std::to_string(eid));
             }
-            auto ep = std::find_if(
-                endpoints->begin(), endpoints->end(), [eid](const auto& ep) {
-                    return ep->getType() == EndpointType::SPDM &&
-                           ep->getMctpEid() == eid;
-                });
+            auto ep = std::find_if(endpoints->begin(), endpoints->end(),
+                                   [eid](const auto& endpoint) {
+                                       return endpoint->getType() ==
+                                                  EndpointType::SPDM &&
+                                              endpoint->getMctpEid() == eid;
+                                   });
             if (ep == endpoints->end())
             {
                 continue;
             }
             DebugTokenSpdmEndpoint* spdmEp =
-                static_cast<DebugTokenSpdmEndpoint*>(ep->get());
+                dynamic_cast<DebugTokenSpdmEndpoint*>(ep->get());
             spdmEp->setStatus(std::make_unique<VdmTokenStatus>(vdmStatus));
         }
         finalize();
@@ -531,7 +534,7 @@ class StatusQueryHandler : public OperationHandler
         subprocessTimer->expires_after(
             std::chrono::seconds(statusQueryTimeoutSeconds));
         subprocessTimer->async_wait(
-            [this, desc](const boost::system::error_code ec) {
+            [this, desc](const boost::system::error_code& ec) {
                 if (ec && ec != boost::asio::error::operation_aborted)
                 {
                     if (subprocess)
@@ -555,7 +558,7 @@ class StatusQueryHandler : public OperationHandler
                 args.emplace_back(std::to_string(mctpEid));
             }
         }
-        if (args.size() == 0)
+        if (args.empty())
         {
             errCallback(false, desc, "no valid endpoints");
             finalize();
@@ -588,7 +591,7 @@ class StatusQueryHandler : public OperationHandler
         {
             return;
         }
-        if (!endpoints || endpoints->size() == 0)
+        if (!endpoints || endpoints->empty())
         {
             errCallback(true, desc, "No valid debug token status responses");
             return;
@@ -617,33 +620,35 @@ class StatusQueryHandler : public OperationHandler
 class RequestHandler : public OperationHandler
 {
   public:
-    RequestHandler(ResultCallback&& resultCallback,
-                   ErrorCallback&& errorCallback, RequestType type) : type(type)
+    RequestHandler(const ResultCallback&& resultCallback,
+                   const ErrorCallback&& errorCallback, RequestType typeIn) :
+        type(typeIn)
     {
         BMCWEB_LOG_DEBUG("RequestHandler constructor");
         resCallback = resultCallback;
         errCallback = errorCallback;
         statusHandler = std::make_unique<StatusQueryHandler>(
-            [this, type](const std::shared_ptr<std::vector<
-                             std::unique_ptr<DebugTokenEndpoint>>>& endpoints) {
-                if (!endpoints || endpoints->size() == 0)
+            [this](const std::shared_ptr<std::vector<
+                       std::unique_ptr<DebugTokenEndpoint>>>& statusEndpoints) {
+                if (!statusEndpoints || statusEndpoints->empty())
                 {
                     errCallback(true, "Debug token status check",
                                 "No valid endpoints");
                     return;
                 }
-                this->endpoints = endpoints;
+                this->endpoints = statusEndpoints;
 
                 bool nsmRequestStarted =
-                    type == RequestType::DebugTokenRequest && getNsmRequest();
+                    this->type == RequestType::DebugTokenRequest &&
+                    getNsmRequest();
                 bool spdmRequestStarted = getSpdmRequest();
                 if (!nsmRequestStarted && !spdmRequestStarted)
                 {
-                    resCallback(endpoints);
+                    resCallback(statusEndpoints);
                 }
             },
-            [errorCallback](bool critical, const std::string& desc,
-                            const std::string& error) {
+            [&errorCallback](bool critical, const std::string& desc,
+                             const std::string& error) {
                 errorCallback(critical, desc, error);
             },
             type == RequestType::DebugTokenRequest);
@@ -668,7 +673,7 @@ class RequestHandler : public OperationHandler
         {
             if (ep->getState() == EndpointState::RequestAcquired)
             {
-                requests.emplace_back(std::move(ep->getRequest()));
+                requests.emplace_back(ep->getRequest());
             }
         }
         auto file = generateTokenRequestFile(requests);
@@ -680,7 +685,7 @@ class RequestHandler : public OperationHandler
 
     RequestType type;
 
-    uint8_t typeToMeasurementIndex(RequestType type)
+    static uint8_t typeToMeasurementIndex(RequestType type)
     {
         static const std::map<RequestType, uint8_t> indexMap{
             {RequestType::DebugTokenRequest, 50},
@@ -702,25 +707,25 @@ class RequestHandler : public OperationHandler
         bool getRequestIssued = false;
         for (auto& ep : *endpoints)
         {
-            auto type = ep->getType();
+            auto epType = ep->getType();
             auto state = ep->getState();
-            if (type != EndpointType::NSM ||
+            if (epType != EndpointType::NSM ||
                 state != EndpointState::StatusAcquired)
             {
                 continue;
             }
             DebugTokenNsmEndpoint* nsmEp =
-                static_cast<DebugTokenNsmEndpoint*>(ep.get());
+                dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
             auto objectPath = ep->getObject();
             crow::connections::systemBus->async_method_call(
                 [this, nsmEp, objectPath](const boost::system::error_code& ec) {
-                    const std::string desc =
+                    const std::string descStr =
                         "NSM GetStatus call for " + objectPath;
-                    BMCWEB_LOG_DEBUG("{}", desc);
+                    BMCWEB_LOG_DEBUG("{}", descStr);
                     if (ec)
                     {
-                        BMCWEB_LOG_ERROR("{}: {}", desc, ec.message());
-                        errCallback(false, desc, ec.message());
+                        BMCWEB_LOG_ERROR("{}: {}", descStr, ec.message());
+                        errCallback(false, descStr, ec.message());
                         nsmEp->setError();
                         finalize();
                     }
@@ -749,24 +754,26 @@ class RequestHandler : public OperationHandler
         bool refreshIssued = false;
         for (auto& ep : *endpoints)
         {
-            auto type = ep->getType();
+            auto epType = ep->getType();
             auto state = ep->getState();
-            if (type != EndpointType::SPDM ||
+            if (epType != EndpointType::SPDM ||
                 state != EndpointState::StatusAcquired)
             {
                 continue;
             }
             DebugTokenSpdmEndpoint* spdmEp =
-                static_cast<DebugTokenSpdmEndpoint*>(ep.get());
+                dynamic_cast<DebugTokenSpdmEndpoint*>(ep.get());
             auto objectPath = ep->getObject();
-            const std::string desc = "SPDM refresh call for " + objectPath;
-            BMCWEB_LOG_DEBUG("{}", desc);
+            const std::string statusDescStr =
+                "SPDM refresh call for " + objectPath;
+            BMCWEB_LOG_DEBUG("{}", statusDescStr);
             crow::connections::systemBus->async_method_call(
-                [this, desc, spdmEp](const boost::system::error_code ec) {
+                [this, statusDescStr,
+                 spdmEp](const boost::system::error_code& ec) {
                     if (ec)
                     {
-                        BMCWEB_LOG_ERROR("{}: {}", desc, ec.message());
-                        errCallback(false, desc, ec.message());
+                        BMCWEB_LOG_ERROR("{}: {}", statusDescStr, ec.message());
+                        errCallback(false, statusDescStr, ec.message());
                         spdmEp->setError();
                         finalize();
                     }
@@ -786,9 +793,9 @@ class RequestHandler : public OperationHandler
 
     void nsmUpdate(const std::string& object, const std::string& status)
     {
-        const std::string desc =
+        const std::string descStr =
             "Token request acquisition for " + std::string(object);
-        BMCWEB_LOG_DEBUG("{}", desc);
+        BMCWEB_LOG_DEBUG("{}", descStr);
         auto endpoint = std::find_if(
             endpoints->begin(), endpoints->end(), [object](const auto& ep) {
                 return ep->getType() == EndpointType::NSM &&
@@ -796,7 +803,7 @@ class RequestHandler : public OperationHandler
             });
         if (endpoint == endpoints->end())
         {
-            errCallback(false, desc, "unknown object");
+            errCallback(false, descStr, "unknown object");
             return;
         }
         auto& ep = *endpoint;
@@ -805,33 +812,33 @@ class RequestHandler : public OperationHandler
             state == EndpointState::TokenInstalled ||
             state == EndpointState::RequestAcquired)
         {
-            errCallback(false, desc, "received unexpected update");
+            errCallback(false, descStr, "received unexpected update");
             return;
         }
         if (status == "Failed")
         {
-            errCallback(false, desc, "operation rejected");
+            errCallback(false, descStr, "operation rejected");
             ep->setError();
             finalize();
             return;
         }
         DebugTokenNsmEndpoint* nsmEp =
-            static_cast<DebugTokenNsmEndpoint*>(ep.get());
+            dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
         if (status == "Aborted")
         {
             sdbusplus::asio::getProperty<std::tuple<uint16_t, std::string>>(
                 *crow::connections::systemBus, "xyz.openbmc_project.NSM",
                 object, std::string(debugTokenIntf), "ErrorCode",
-                [this, desc, object,
-                 nsmEp](const boost::system::error_code ec,
+                [this, descStr, object,
+                 nsmEp](const boost::system::error_code& ec,
                         const std::tuple<uint16_t, std::string>& errorCode) {
-                    const std::string desc =
+                    const std::string innerDescStr =
                         object.substr(object.find_last_of('/') + 1);
-                    BMCWEB_LOG_DEBUG("{}", desc);
+                    BMCWEB_LOG_DEBUG("{}", innerDescStr);
                     if (ec)
                     {
-                        BMCWEB_LOG_ERROR("{}: {}", desc, ec.message());
-                        errCallback(false, desc, ec.message());
+                        BMCWEB_LOG_ERROR("{}: {}", innerDescStr, ec.message());
+                        errCallback(false, descStr, ec.message());
                         nsmEp->setError();
                         finalize();
                         return;
@@ -843,7 +850,7 @@ class RequestHandler : public OperationHandler
                         finalize();
                         return;
                     }
-                    errCallback(false, desc, "operation failure");
+                    errCallback(false, descStr, "operation failure");
                     nsmEp->setError();
                     finalize();
                     return;
@@ -853,15 +860,16 @@ class RequestHandler : public OperationHandler
         sdbusplus::asio::getProperty<sdbusplus::message::unix_fd>(
             *crow::connections::systemBus, "xyz.openbmc_project.NSM", object,
             std::string(debugTokenIntf), "RequestFd",
-            [this, object, nsmEp](const boost::system::error_code ec,
-                                  const sdbusplus::message::unix_fd& unixfd) {
-                const std::string desc =
+            [this, object, nsmEp,
+             descStr](const boost::system::error_code& ec,
+                      const sdbusplus::message::unix_fd& unixfd) {
+                const std::string outerDescStr =
                     "NSM get call for " + std::string(object);
-                BMCWEB_LOG_DEBUG("{}", desc);
+                BMCWEB_LOG_DEBUG("{}", outerDescStr);
                 if (ec)
                 {
-                    BMCWEB_LOG_ERROR("{}: {}", desc, ec.message());
-                    errCallback(false, desc, ec.message());
+                    BMCWEB_LOG_ERROR("{}: {}", outerDescStr, ec.message());
+                    errCallback(false, descStr, ec.message());
                     nsmEp->setError();
                     finalize();
                     return;
@@ -874,7 +882,8 @@ class RequestHandler : public OperationHandler
                 }
                 else
                 {
-                    errCallback(false, desc, "request file operation failure");
+                    errCallback(false, descStr,
+                                "request file operation failure");
                     nsmEp->setError();
                 }
                 finalize();
@@ -883,9 +892,9 @@ class RequestHandler : public OperationHandler
 
     void spdmUpdate(const std::string& object, const std::string& status)
     {
-        const std::string desc =
+        const std::string statusDescStr =
             "Update of " + object + " object with status " + status;
-        BMCWEB_LOG_DEBUG("{}", desc);
+        BMCWEB_LOG_DEBUG("{}", statusDescStr);
         auto endpoint = std::find_if(
             endpoints->begin(), endpoints->end(), [object](const auto& ep) {
                 return ep->getType() == EndpointType::SPDM &&
@@ -893,7 +902,7 @@ class RequestHandler : public OperationHandler
             });
         if (endpoint == endpoints->end())
         {
-            errCallback(false, desc, "unknown object");
+            errCallback(false, statusDescStr, "unknown object");
             return;
         }
         auto& ep = *endpoint;
@@ -902,25 +911,25 @@ class RequestHandler : public OperationHandler
             state == EndpointState::TokenInstalled ||
             state == EndpointState::RequestAcquired)
         {
-            errCallback(false, desc, "received unexpected update");
+            errCallback(false, statusDescStr, "received unexpected update");
         }
         else if (status == "Success")
         {
             DebugTokenSpdmEndpoint* spdmEp =
-                static_cast<DebugTokenSpdmEndpoint*>(ep.get());
+                dynamic_cast<DebugTokenSpdmEndpoint*>(ep.get());
             crow::connections::systemBus->async_method_call(
                 [this, spdmEp](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const boost::container::flat_map<
                         std::string, dbus::utility::DbusVariantType>& props) {
                     auto objectPath = spdmEp->getObject();
-                    const std::string desc =
+                    const std::string descStr =
                         "Reading properties of " + objectPath + " object";
-                    BMCWEB_LOG_DEBUG("{}", desc);
+                    BMCWEB_LOG_DEBUG("{}", descStr);
                     if (ec)
                     {
-                        BMCWEB_LOG_ERROR("{}: {}", desc, ec.message());
-                        errCallback(false, desc, ec.message());
+                        BMCWEB_LOG_ERROR("{}: {}", descStr, ec.message());
+                        errCallback(false, descStr, ec.message());
                         spdmEp->setError();
                         finalize();
                         return;
@@ -928,18 +937,18 @@ class RequestHandler : public OperationHandler
                     auto itSign = props.find("SignedMeasurements");
                     if (itSign == props.end())
                     {
-                        errCallback(false, desc,
+                        errCallback(false, descStr,
                                     "cannot find SignedMeasurements property");
                         spdmEp->setError();
                         finalize();
                         return;
                     }
-                    auto sign =
+                    const auto* sign =
                         std::get_if<std::vector<uint8_t>>(&itSign->second);
-                    if (!sign)
+                    if (sign == nullptr)
                     {
                         errCallback(
-                            false, desc,
+                            false, descStr,
                             "cannot decode SignedMeasurements property");
                         spdmEp->setError();
                         finalize();
@@ -948,39 +957,39 @@ class RequestHandler : public OperationHandler
                     auto itCaps = props.find("Capabilities");
                     if (itCaps == props.end())
                     {
-                        errCallback(false, desc,
+                        errCallback(false, descStr,
                                     "cannot find Capabilities property");
                         spdmEp->setError();
                         finalize();
                         return;
                     }
-                    auto caps = std::get_if<uint32_t>(&itCaps->second);
-                    if (!caps)
+                    const auto* caps = std::get_if<uint32_t>(&itCaps->second);
+                    if (caps == nullptr)
                     {
-                        errCallback(false, desc,
+                        errCallback(false, descStr,
                                     "cannot decode Capabilities property");
                         spdmEp->setError();
                         finalize();
                         return;
                     }
                     std::string pem;
-                    if (*caps & spdmCertCapability)
+                    if ((*caps & spdmCertCapability) != 0U)
                     {
                         auto itCert = props.find("Certificate");
                         if (itCert == props.end())
                         {
-                            errCallback(false, desc,
+                            errCallback(false, descStr,
                                         "cannot find Certificate property");
                             spdmEp->setError();
                             finalize();
                             return;
                         }
-                        auto cert = std::get_if<
+                        const auto* cert = std::get_if<
                             std::vector<std::tuple<uint8_t, std::string>>>(
                             &itCert->second);
-                        if (!cert)
+                        if (cert == nullptr)
                         {
-                            errCallback(false, desc,
+                            errCallback(false, descStr,
                                         "cannot decode Certificate property");
                             spdmEp->setError();
                             finalize();
@@ -991,7 +1000,7 @@ class RequestHandler : public OperationHandler
                             [](const auto& e) { return std::get<0>(e) == 0; });
                         if (certSlot == cert->end())
                         {
-                            errCallback(false, desc,
+                            errCallback(false, descStr,
                                         "cannot find certificate for slot 0");
                             spdmEp->setError();
                             finalize();
@@ -1012,7 +1021,7 @@ class RequestHandler : public OperationHandler
         }
         else if (startsWithPrefix(status, "Error_"))
         {
-            errCallback(false, desc, status);
+            errCallback(false, statusDescStr, status);
             ep->setError();
         }
         finalize();

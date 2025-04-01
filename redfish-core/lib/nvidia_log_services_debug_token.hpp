@@ -23,6 +23,7 @@ namespace redfish
 {
 // vector containing debug token-related functionalities'
 // (GetDebugTokenRequest, GetDebugTokenStatus) output data
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::vector<std::tuple<std::string, std::string>> debugTokenData;
 static constexpr const uint32_t debugTokenTaskTimeoutSec{300};
 
@@ -362,10 +363,9 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
                         }
                     }
                 }
-                if (result.size() != 0)
+                if (!result.empty())
                 {
-                    debugTokenData.emplace_back(
-                        make_tuple(oemDiagnosticDataType, result));
+                    debugTokenData.emplace_back(oemDiagnosticDataType, result);
                     std::string path =
                         "/redfish/v1/Systems/" +
                         std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +

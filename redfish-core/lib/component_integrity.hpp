@@ -50,8 +50,8 @@ struct SPDMMeasurementData
 {
     uint8_t slot{};
     SPDMCertificates certs;
-    std::string hashAlgo{};
-    std::string signAlgo{};
+    std::string hashAlgo;
+    std::string signAlgo;
     uint8_t version{};
     std::string measurement;
 };
@@ -61,7 +61,7 @@ struct SPDMMeasurementData
 // In a worst case scenario measurements for 254 indices will take
 // 286 seconds - rounded up to 300 seconds.
 static const int spdmMeasurementTimeout = 300;
-
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::map<std::string, SPDMMeasurementData> spdmMeasurementData;
 
 inline std::string getVersionStr(const uint8_t version)
@@ -90,7 +90,7 @@ inline std::string stripPrefix(const std::string& str,
 }
 inline bool startsWithPrefix(const std::string& str, const std::string& prefix)
 {
-    return str.rfind(prefix, 0) == 0;
+    return str.starts_with(prefix);
 }
 
 inline SPDMMeasurementData parseSPDMInterfaceProperties(
@@ -311,8 +311,8 @@ inline void handleSPDMGETSignedMeasurement(
                 BMCWEB_LOG_DEBUG("Did not receive an SPDM Status value");
                 return !task::completed;
             }
-            auto value = std::get_if<std::string>(&(it->second));
-            if (!value)
+            auto* value = std::get_if<std::string>(&(it->second));
+            if (value == nullptr)
             {
                 BMCWEB_LOG_ERROR("Received SPDM Status is not a string");
                 return !task::completed;
@@ -380,7 +380,7 @@ inline void handleSPDMGETSignedMeasurement(
         },
         spdmBusName, objPath, spdmResponderIntf, "Refresh", *slotID, nonceVec,
         *indices, static_cast<uint32_t>(0));
-} // namespace redfish
+}
 
 inline void requestRoutesComponentIntegrity(App& app)
 {
@@ -404,9 +404,8 @@ inline void requestRoutesComponentIntegrity(App& app)
                 "xyz.openbmc_project.SPDM.Responder"};
 
             crow::connections::systemBus->async_method_call(
-                [asyncResp](
-                    const boost::system::error_code ec,
-                    const crow::openbmc_mapper::GetSubTreeType& subtree) {
+                [asyncResp](const boost::system::error_code ec,
+                            const dbus::utility::GetSubTreeType& subtree) {
                     if (ec)
                     {
                         messages::internalError(asyncResp->res);
@@ -428,13 +427,13 @@ inline void requestRoutesComponentIntegrity(App& app)
                             object.second[0].first, objPathString,
                             "xyz.openbmc_project.Object.Enable", "Enabled",
                             [asyncResp, objPathString,
-                             &memberArray](const boost::system::error_code ec,
+                             &memberArray](const boost::system::error_code& ec2,
                                            const bool& enabled) {
-                                if (ec)
+                                if (ec2)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "DBUS response error for enabled property, error={}",
-                                        ec.what());
+                                        ec2.what());
                                     return;
                                 }
 
@@ -518,9 +517,9 @@ inline void requestRoutesComponentIntegrity(App& app)
 
                 chassis_utils::getAssociationEndpoint(
                     objectPath + "/inventory_object",
-                    [asyncResp](const bool& status,
+                    [asyncResp](const bool& statusOuter,
                                 const std::string& endpoint) {
-                        if (!status)
+                        if (!statusOuter)
                         {
                             BMCWEB_LOG_DEBUG(
                                 "Unable to get the association endpoint");
@@ -545,9 +544,9 @@ inline void requestRoutesComponentIntegrity(App& app)
                         std::string objPath = endpoint + "/inventory";
                         chassis_utils::getAssociationEndpoint(
                             objPath,
-                            [objPath, asyncResp](const bool& status,
-                                                 const std::string& ep) {
-                                if (!status)
+                            [objPath, asyncResp](const bool& statusInner,
+                                                 const std::string& url) {
+                                if (!statusInner)
                                 {
                                     BMCWEB_LOG_DEBUG(
                                         "Unable to get the association endpoint for ",
@@ -562,36 +561,33 @@ inline void requestRoutesComponentIntegrity(App& app)
                                     return;
                                 }
 
-                                chassis_utils::getRedfishURL(ep, [ep,
-                                                                  asyncResp](
-                                                                     const bool&
-                                                                         status,
-                                                                     const std::
-                                                                         string&
-                                                                             url) {
-                                    nlohmann::json& componentsProtectedArray =
-                                        asyncResp->res
-                                            .jsonValue["Links"]
-                                                      ["ComponentsProtected"];
-                                    componentsProtectedArray =
-                                        nlohmann::json::array();
+                                chassis_utils::getRedfishURL(
+                                    url, [asyncResp,
+                                          url](const bool& status,
+                                               const std::string& urlResult) {
+                                        nlohmann::json&
+                                            componentsProtectedArray =
+                                                asyncResp->res.jsonValue
+                                                    ["Links"]
+                                                    ["ComponentsProtected"];
+                                        componentsProtectedArray =
+                                            nlohmann::json::array();
+                                        // if (!status || url.empty()) In curent
+                                        // implementation of getRedfishURL
+                                        // function never returns empty URL with
+                                        // status = true
+                                        if (!status)
+                                        {
+                                            BMCWEB_LOG_DEBUG(
+                                                "Unable to get the Redfish URL for {}",
+                                                url);
+                                            return;
+                                        }
 
-                                    // if (!status || url.empty()) In curent
-                                    // implementation of getRedfishURL
-                                    // function never returns empty URL with
-                                    // status = true
-                                    if (!status)
-                                    {
-                                        BMCWEB_LOG_DEBUG(
-                                            "Unable to get the Redfish URL for {}",
-                                            ep);
-                                        return;
-                                    }
-
-                                    componentsProtectedArray.push_back(
-                                        {nlohmann::json::array(
-                                            {"@odata.id", url})});
-                                });
+                                        componentsProtectedArray.push_back(
+                                            {nlohmann::json::array(
+                                                {"@odata.id", urlResult})});
+                                    });
                             });
                     });
             });
@@ -671,7 +667,7 @@ inline void requestRoutesComponentIntegrity(App& app)
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    if (resp.size() == 0)
+                    if (resp.empty())
                     {
                         BMCWEB_LOG_ERROR(
                             "No objects with SPDM interface found for {}",

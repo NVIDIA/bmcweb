@@ -18,6 +18,8 @@
 
 #include <boost/interprocess/streams/bufferstream.hpp>
 
+#include <array>
+#include <cstring>
 #include <iterator>
 #include <map>
 #include <optional>
@@ -25,7 +27,6 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
-
 namespace redfish::debug_token
 {
 
@@ -123,7 +124,7 @@ struct VdmTokenStatus
     struct VdmStatusV1
     {
         uint8_t tokenInstallationStatus;
-        uint8_t deviceId[vdmStatusDeviceIdLength];
+        std::array<uint8_t, vdmStatusDeviceIdLength> deviceId;
         uint8_t fuseType;
     };
 #pragma pack()
@@ -131,13 +132,13 @@ struct VdmTokenStatus
     struct VdmStatusV2
     {
         uint8_t tokenInstallationStatus;
-        uint8_t deviceId[vdmStatusDeviceIdLength];
+        std::array<uint8_t, vdmStatusDeviceIdLength> deviceId;
         uint8_t fuseType;
         uint32_t tokenType;
         uint16_t validityCounter;
         uint16_t tokenConfig;
         uint16_t processingStatus;
-        uint8_t reserved[8];
+        std::array<uint8_t, 8> reserved;
     };
 #pragma pack()
 
@@ -200,7 +201,9 @@ struct VdmTokenStatus
                 responseStatus = VdmResponseStatus::INVALID_LENGTH;
                 return;
             }
+
             VdmStatusV1* status =
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
                 reinterpret_cast<VdmStatusV1*>(statusData.data());
             if (status->tokenInstallationStatus ==
                 static_cast<uint8_t>(VdmTokenInstallationStatus::NOT_INSTALLED))
@@ -234,7 +237,7 @@ struct VdmTokenStatus
             }
 
             deviceId = std::vector<uint8_t>(vdmStatusDeviceIdLength);
-            std::memcpy(deviceId.data(), status->deviceId,
+            std::memcpy(deviceId.data(), status->deviceId.data(),
                         vdmStatusDeviceIdLength);
 
             responseStatus = VdmResponseStatus::STATUS;
@@ -247,8 +250,11 @@ struct VdmTokenStatus
                 responseStatus = VdmResponseStatus::INVALID_LENGTH;
                 return;
             }
+
             VdmStatusV2* status =
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
                 reinterpret_cast<VdmStatusV2*>(statusData.data());
+
             if (status->tokenInstallationStatus ==
                 static_cast<uint8_t>(VdmTokenInstallationStatus::NOT_INSTALLED))
             {
@@ -281,14 +287,14 @@ struct VdmTokenStatus
             }
 
             deviceId = std::vector<uint8_t>(vdmStatusDeviceIdLength);
-            std::memcpy(deviceId.data(), status->deviceId,
+            std::memcpy(deviceId.data(), status->deviceId.data(),
                         vdmStatusDeviceIdLength);
 
             tokenType = status->tokenType;
-
             validityCounter = status->validityCounter;
-            if (status->tokenConfig &
-                static_cast<uint16_t>(VdmTokenLifecycle::TEMPORAL))
+
+            if ((status->tokenConfig &
+                 static_cast<uint16_t>(VdmTokenLifecycle::TEMPORAL)) != 0)
             {
                 tokenLifecycle = VdmTokenLifecycle::TEMPORAL;
             }
@@ -297,8 +303,8 @@ struct VdmTokenStatus
                 tokenLifecycle = VdmTokenLifecycle::PERSISTENT;
             }
 
-            if (status->tokenConfig &
-                static_cast<uint16_t>(VdmTokenActivation::MANUAL))
+            if ((status->tokenConfig &
+                 static_cast<uint16_t>(VdmTokenActivation::MANUAL)) != 0)
             {
                 tokenActivation = VdmTokenActivation::MANUAL;
             }
@@ -307,8 +313,8 @@ struct VdmTokenStatus
                 tokenActivation = VdmTokenActivation::ON_BOOT;
             }
 
-            if (status->tokenConfig &
-                static_cast<uint16_t>(VdmTokenRevocation::AUTOMATIC))
+            if ((status->tokenConfig &
+                 static_cast<uint16_t>(VdmTokenRevocation::AUTOMATIC)) != 0)
             {
                 tokenRevocation = VdmTokenRevocation::AUTOMATIC;
             }
@@ -317,8 +323,8 @@ struct VdmTokenStatus
                 tokenRevocation = VdmTokenRevocation::MANUAL;
             }
 
-            if (status->tokenConfig &
-                static_cast<uint16_t>(VdmTokenDevIdStatus::ENABLED))
+            if ((status->tokenConfig &
+                 static_cast<uint16_t>(VdmTokenDevIdStatus::ENABLED)) != 0)
             {
                 tokenDevIdStatus = VdmTokenDevIdStatus::ENABLED;
             }
@@ -327,8 +333,8 @@ struct VdmTokenStatus
                 tokenDevIdStatus = VdmTokenDevIdStatus::DISABLED;
             }
 
-            if (status->tokenConfig &
-                static_cast<uint16_t>(VdmTokenAntiReplay::NONCE_ENABLED))
+            if ((status->tokenConfig &
+                 static_cast<uint16_t>(VdmTokenAntiReplay::NONCE_ENABLED)) != 0)
             {
                 tokenAntiReplay = VdmTokenAntiReplay::NONCE_ENABLED;
             }
@@ -337,8 +343,9 @@ struct VdmTokenStatus
                 tokenAntiReplay = VdmTokenAntiReplay::NONCE_DISABLED;
             }
 
-            if (status->tokenConfig &
-                static_cast<uint16_t>(VdmTokenResetPostInstall::MANDATED))
+            if ((status->tokenConfig &
+                 static_cast<uint16_t>(VdmTokenResetPostInstall::MANDATED)) !=
+                0)
             {
                 tokenResetPostInstall = VdmTokenResetPostInstall::MANDATED;
             }
@@ -425,7 +432,8 @@ inline std::map<int, VdmTokenStatus> parseVdmUtilWrapperOutput(
             BMCWEB_LOG_ERROR("Invalid data: ", line);
             continue;
         }
-        int eid, version;
+        int eid = 0;
+        int version = 0;
         try
         {
             eid = std::stoi(lineElements[vdmUtilWrapperOutputEidIndex]);
@@ -461,7 +469,7 @@ inline std::map<int, VdmTokenStatus> parseVdmUtilWrapperOutput(
     return outputMap;
 }
 
-inline std::string setOrAppend(std::string str, std::string in)
+inline std::string setOrAppend(const std::string& str, std::string in)
 {
     if (str.empty())
     {
@@ -511,28 +519,28 @@ inline void vdmTokenStatusToJson(const VdmTokenStatus& status,
         else
         {
             std::string tokenType;
-            if (*status.tokenType &
-                static_cast<uint32_t>(VdmTokenType::DEBUG_FW))
+            if ((*status.tokenType &
+                 static_cast<uint32_t>(VdmTokenType::DEBUG_FW)) != 0U)
             {
                 tokenType = setOrAppend(tokenType, "DebugFw");
             }
-            if (*status.tokenType &
-                static_cast<uint32_t>(VdmTokenType::JTAG_UNLOCK))
+            if ((*status.tokenType &
+                 static_cast<uint32_t>(VdmTokenType::JTAG_UNLOCK)) != 0U)
             {
                 tokenType = setOrAppend(tokenType, "JtagUnlock");
             }
-            if (*status.tokenType &
-                static_cast<uint32_t>(VdmTokenType::HW_UNLOCK))
+            if ((*status.tokenType &
+                 static_cast<uint32_t>(VdmTokenType::HW_UNLOCK)) != 0U)
             {
                 tokenType = setOrAppend(tokenType, "HwUnlock");
             }
-            if (*status.tokenType &
-                static_cast<uint32_t>(VdmTokenType::RUNTIME_DEBUG))
+            if ((*status.tokenType &
+                 static_cast<uint32_t>(VdmTokenType::RUNTIME_DEBUG)) != 0U)
             {
                 tokenType = setOrAppend(tokenType, "RuntimeDebug");
             }
-            if (*status.tokenType &
-                static_cast<uint32_t>(VdmTokenType::FEATURE_UNLOCK))
+            if ((*status.tokenType &
+                 static_cast<uint32_t>(VdmTokenType::FEATURE_UNLOCK)) != 0U)
             {
                 tokenType = setOrAppend(tokenType, "FeatureUnlock");
             }
@@ -643,7 +651,7 @@ using NsmDbusTokenStatus =
 
 struct NsmTokenStatus
 {
-    NsmTokenStatus(const NsmDbusTokenStatus& dbusStatus)
+    explicit NsmTokenStatus(const NsmDbusTokenStatus& dbusStatus)
     {
         auto dbusTokenType = std::get<0>(dbusStatus);
         auto dbusTokenStatus = std::get<1>(dbusStatus);

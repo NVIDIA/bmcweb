@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 #pragma once
+#include "dbus_utility.hpp"
 
 #include <utils/nvidia_utils.hpp>
 
@@ -29,10 +30,6 @@ using OperatingConfigProperties =
 // Map of service name to list of interfaces
 using MapperServiceMap =
     std::vector<std::pair<std::string, std::vector<std::string>>>;
-
-// Map of object paths to MapperServiceMaps
-using MapperGetSubTreeResponse =
-    std::vector<std::pair<std::string, MapperServiceMap>>;
 
 // Interfaces which imply a D-Bus object represents a Processor
 constexpr std::array<const char*, 3> processorInterfaces = {
@@ -57,10 +54,24 @@ inline void getProcessorObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
     BMCWEB_LOG_DEBUG("Get available system processor resources.");
 
     // GetSubTree on all interfaces which provide info about a Processor
-    crow::connections::systemBus->async_method_call(
+    constexpr std::array<std::string_view, 10> interfaces = {
+        "xyz.openbmc_project.Common.UUID",
+        "xyz.openbmc_project.Inventory.Decorator.Asset",
+        "xyz.openbmc_project.Inventory.Decorator.Revision",
+        "xyz.openbmc_project.Inventory.Item.Cpu",
+        "xyz.openbmc_project.Inventory.Decorator.LocationCode",
+        "xyz.openbmc_project.Inventory.Item.Accelerator",
+        "xyz.openbmc_project.Control.Processor.CurrentOperatingConfig",
+        "xyz.openbmc_project.Inventory.Decorator.UniqueIdentifier",
+        "xyz.openbmc_project.Control.Power.Throttle",
+        "com.nvidia.GPMMetrics"};
+
+    // GetSubTree on all interfaces which provide info about a Processor
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
         [resp, processorId, handler = std::forward<Handler>(handler)](
-            boost::system::error_code ec,
-            const MapperGetSubTreeResponse& subtree) mutable {
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreeResponse& subtree) mutable {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error: {}", ec);
@@ -78,7 +89,7 @@ inline void getProcessorObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                 }
 
                 bool found = false;
-                std::string deviceType = "";
+                std::string deviceType;
                 // Filter out objects that don't have the CPU-specific
                 // interfaces to make sure we can return 404 on non-CPUs
                 // (e.g. /redfish/../Processors/dimm0)
@@ -107,7 +118,9 @@ inline void getProcessorObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                     }
 
                     if (found)
+                    {
                         break;
+                    }
                 }
 
                 if (!found)
@@ -126,26 +139,11 @@ inline void getProcessorObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                 // need to check all objpath because a few configs are set by
                 // another service
             }
-            if (isFoundProcessorObject == false)
+            if (!isFoundProcessorObject)
             {
                 messages::resourceNotFound(resp->res, "Processor", processorId);
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0,
-        std::array<const char*, 10>{
-            "xyz.openbmc_project.Common.UUID",
-            "xyz.openbmc_project.Inventory.Decorator.Asset",
-            "xyz.openbmc_project.Inventory.Decorator.Revision",
-            "xyz.openbmc_project.Inventory.Item.Cpu",
-            "xyz.openbmc_project.Inventory.Decorator.LocationCode",
-            "xyz.openbmc_project.Inventory.Item.Accelerator",
-            "xyz.openbmc_project.Software.Version",
-            "xyz.openbmc_project.Control.Processor.CurrentOperatingConfig",
-            "xyz.openbmc_project.Inventory.Decorator.UniqueIdentifier",
-            "com.nvidia.GPMMetrics"});
+        });
 }
 
 inline void getPCIeErrorData(std::shared_ptr<bmcweb::AsyncResp> aResp,
@@ -153,7 +151,7 @@ inline void getPCIeErrorData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                              const std::string& objPath)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code ec,
+        [aResp{std::move(aResp)}](const boost::system::error_code& ec,
                                   const OperatingConfigProperties& properties) {
             if (ec)
             {

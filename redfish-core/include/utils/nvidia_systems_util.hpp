@@ -28,7 +28,7 @@ inline void getChassisNMIStatus(
             }
 
             bool enabledNmi = std::get<bool>(resp);
-            if (enabledNmi == true)
+            if (enabledNmi)
             {
                 asyncResp->res.jsonValue["Parameters"][0]["AllowableValues"]
                     .emplace_back("Nmi");
@@ -51,7 +51,7 @@ inline void populateFromEntityManger(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const std::vector<std::pair<
                     std::string, std::variant<std::string>>>& propertiesList) {
             if (ec)
@@ -60,7 +60,7 @@ inline void populateFromEntityManger(
                                  "Populate from entity manager ");
                 return;
             }
-            for (auto& property : propertiesList)
+            for (const auto& property : propertiesList)
             {
                 const std::string& propertyName = property.first;
                 if (propertyName == "SKU")
@@ -104,7 +104,7 @@ inline void populateFromEntityManger(
         entityMangerService, card1Path, "org.freedesktop.DBus.Properties",
         "GetAll", "xyz.openbmc_project.Inventory.Decorator.Asset");
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const std::variant<std::string>& uuid) {
             if (ec)
             {
@@ -137,14 +137,14 @@ inline void setBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     BMCWEB_LOG_DEBUG("Set boot order.");
 
     auto setBootOrderFunc = [aResp, bootOrder, isSettingsResource]() {
-        if (isSettingsResource == false)
+        if (!isSettingsResource)
         {
             sdbusplus::asio::setProperty(
                 *crow::connections::systemBus,
                 "xyz.openbmc_project.BIOSConfigManager",
                 "/xyz/openbmc_project/bios_config/manager",
                 "xyz.openbmc_project.BIOSConfig.BootOrder", "BootOrder",
-                bootOrder, [aResp](const boost::system::error_code ec) {
+                bootOrder, [aResp](const boost::system::error_code& ec) {
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR(
@@ -163,7 +163,7 @@ inline void setBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 "/xyz/openbmc_project/bios_config/manager",
                 "xyz.openbmc_project.BIOSConfig.BootOrder", "BootOrder",
                 [aResp,
-                 bootOrder](const boost::system::error_code ec,
+                 bootOrder](const boost::system::error_code& ec,
                             const std::vector<std::string>& activeBootOrder) {
                     if (ec)
                     {
@@ -204,7 +204,7 @@ inline void setBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         "/xyz/openbmc_project/bios_config/manager",
                         "xyz.openbmc_project.BIOSConfig.BootOrder",
                         "PendingBootOrder", bootOrder,
-                        [aResp](const boost::system::error_code ec2) {
+                        [aResp](const boost::system::error_code& ec2) {
                             if (ec2)
                             {
                                 BMCWEB_LOG_ERROR(
@@ -218,13 +218,13 @@ inline void setBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         }
     };
 
-    if (isSettingsResource == false)
+    if (!isSettingsResource)
     {
         // Only BIOS is allowed to patch active BootOrder
         privilege_utils::isBiosPrivilege(
-            req, [aResp, setBootOrderFunc](const boost::system::error_code ec,
+            req, [aResp, setBootOrderFunc](const boost::system::error_code& ec,
                                            const bool isBios) {
-                if (ec || isBios == false)
+                if (ec || !isBios)
                 {
                     messages::propertyNotWritable(aResp->res, "BootOrder");
                     return;
@@ -255,7 +255,7 @@ inline void getBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         "/xyz/openbmc_project/bios_config/manager",
         "xyz.openbmc_project.BIOSConfig.BootOrder",
         [aResp, isSettingsResource](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
@@ -267,7 +267,7 @@ inline void getBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 
             std::vector<std::string> bootOrder;
             std::vector<std::string> pendingBootOrder;
-            for (auto& [propertyName, propertyVariant] : properties)
+            for (const auto& [propertyName, propertyVariant] : properties)
             {
                 if (propertyName == "BootOrder" &&
                     std::holds_alternative<std::vector<std::string>>(
@@ -284,7 +284,7 @@ inline void getBootOrder(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         std::get<std::vector<std::string>>(propertyVariant);
                 }
             }
-            if (isSettingsResource == false)
+            if (!isSettingsResource)
             {
                 aResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] =
                     "#Settings.v1_3_5.Settings";
@@ -320,7 +320,7 @@ inline void getSecureBoot(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
     BMCWEB_LOG_DEBUG("Get SecureBoot parameters");
 
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code ec,
+        [aResp](const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {

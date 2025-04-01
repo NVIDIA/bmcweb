@@ -23,6 +23,7 @@
 #include "debug_token/status_utils.hpp"
 
 #include <memory>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -58,7 +59,7 @@ class TargetedOperationHandler
     TargetedOperationHandler(const std::string& chassisId, TargetedOperation op,
                              TargetedOperationResultCallback&& cb,
                              TargetedOperationArgument arg = std::monostate()) :
-        operation(op), argument(arg), callback(cb)
+        operation(op), argument(std::move(arg)), callback(std::move(cb))
     {
         constexpr std::array<std::string_view, 1> interfaces = {debugTokenIntf};
         dbus::utility::getSubTree(
@@ -72,7 +73,7 @@ class TargetedOperationHandler
                     tokenUnsupportedHandler();
                     return;
                 }
-                if (resp.size() == 0)
+                if (resp.empty())
                 {
                     BMCWEB_LOG_ERROR(
                         "No objects with DebugToken interface found");
@@ -106,17 +107,17 @@ class TargetedOperationHandler
                 tokenOperationTimer->expires_after(
                     std::chrono::seconds(targetedOpTimeoutSeconds));
                 tokenOperationTimer->async_wait(
-                    [this](const boost::system::error_code& ec) {
+                    [this](const boost::system::error_code& ec2) {
                         match.reset(nullptr);
-                        if (!ec)
+                        if (!ec2)
                         {
                             BMCWEB_LOG_ERROR("Debug token operation timeout");
                             generalErrorHandler();
                             return;
                         }
-                        if (ec != boost::asio::error::operation_aborted)
+                        if (ec2 != boost::asio::error::operation_aborted)
                         {
-                            BMCWEB_LOG_ERROR("async_wait error {}", ec);
+                            BMCWEB_LOG_ERROR("async_wait error {}", ec2);
                             generalErrorHandler();
                         }
                     });
@@ -140,9 +141,9 @@ class TargetedOperationHandler
                             auto it = props.find("Status");
                             if (it != props.end())
                             {
-                                auto status =
+                                auto* status =
                                     std::get_if<std::string>(&(it->second));
-                                if (status)
+                                if (status != nullptr)
                                 {
                                     opStatus = status->substr(
                                         status->find_last_of('.') + 1);
@@ -180,10 +181,11 @@ class TargetedOperationHandler
                         generalErrorHandler();
                     });
                 auto dbusErrorHandler =
-                    [this](const boost::system::error_code& ec) {
-                        if (ec)
+                    [this](const boost::system::error_code& lambdaEc) {
+                        if (lambdaEc)
                         {
-                            BMCWEB_LOG_ERROR("DBus error: {}", ec.message());
+                            BMCWEB_LOG_ERROR("DBus error: {}",
+                                             lambdaEc.message());
                             generalErrorHandler();
                         }
                     };
@@ -201,18 +203,18 @@ class TargetedOperationHandler
                     {
                         std::string* tokenOpcode =
                             std::get_if<std::string>(&argument);
-                        if (!tokenOpcode)
+                        if (tokenOpcode == nullptr)
                         {
                             BMCWEB_LOG_ERROR("Invalid argument");
                             generalErrorHandler();
                             return;
                         }
-                        std::string arg =
+                        std::string dbusArg =
                             std::string(debugTokenOpcodesEnumPrefix) +
                             *tokenOpcode;
                         crow::connections::systemBus->async_method_call(
                             dbusErrorHandler, service, objectPath,
-                            std::string(debugTokenIntf), "GetRequest", arg);
+                            std::string(debugTokenIntf), "GetRequest", dbusArg);
                         break;
                     }
 
@@ -220,17 +222,17 @@ class TargetedOperationHandler
                     {
                         std::string* tokenType =
                             std::get_if<std::string>(&argument);
-                        if (!tokenType)
+                        if (tokenType == nullptr)
                         {
                             BMCWEB_LOG_ERROR("Invalid argument");
                             generalErrorHandler();
                             return;
                         }
-                        std::string arg =
+                        std::string dbusArg =
                             std::string(debugTokenTypesEnumPrefix) + *tokenType;
                         crow::connections::systemBus->async_method_call(
                             dbusErrorHandler, service, objectPath,
-                            std::string(debugTokenIntf), "GetStatus", arg);
+                            std::string(debugTokenIntf), "GetStatus", dbusArg);
                         break;
                     }
 
@@ -238,7 +240,7 @@ class TargetedOperationHandler
                     {
                         std::vector<uint8_t>* token =
                             std::get_if<std::vector<uint8_t>>(&argument);
-                        if (!token)
+                        if (token == nullptr)
                         {
                             BMCWEB_LOG_ERROR("Invalid argument");
                             generalErrorHandler();
@@ -285,7 +287,7 @@ class TargetedOperationHandler
         sdbusplus::asio::getProperty<sdbusplus::message::unix_fd>(
             *crow::connections::systemBus, service, objectPath,
             std::string(debugTokenIntf), "RequestFd",
-            [this](const boost::system::error_code ec,
+            [this](const boost::system::error_code& ec,
                    const sdbusplus::message::unix_fd& unixfd) {
                 if (ec)
                 {
@@ -300,8 +302,9 @@ class TargetedOperationHandler
                     generalErrorHandler();
                     return;
                 }
-                NsmDebugTokenRequest* nsmReq =
-                    reinterpret_cast<NsmDebugTokenRequest*>(request.data());
+                using nsmptr = NsmDebugTokenRequest*;
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+                nsmptr nsmReq = reinterpret_cast<nsmptr>(request.data());
                 switch (nsmReq->status)
                 {
                     case NsmDebugTokenChallengeQueryStatus::OK:
@@ -331,7 +334,7 @@ class TargetedOperationHandler
         sdbusplus::asio::getProperty<NsmDbusTokenStatus>(
             *crow::connections::systemBus, service, objectPath,
             std::string(debugTokenIntf), "TokenStatus",
-            [this](const boost::system::error_code ec,
+            [this](const boost::system::error_code& ec,
                    const NsmDbusTokenStatus& dbusStatus) {
                 if (ec)
                 {
@@ -357,7 +360,7 @@ class TargetedOperationHandler
         sdbusplus::asio::getProperty<std::tuple<uint16_t, std::string>>(
             *crow::connections::systemBus, service, objectPath,
             std::string(debugTokenIntf), "ErrorCode",
-            [this](const boost::system::error_code ec,
+            [this](const boost::system::error_code& ec,
                    const std::tuple<uint16_t, std::string>& errorCode) {
                 if (ec)
                 {

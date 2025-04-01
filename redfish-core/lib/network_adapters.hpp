@@ -37,7 +37,7 @@ inline void getNetworkAdapterCollectionMembers(
     BMCWEB_LOG_DEBUG("Get collection members for: {}", collectionPath);
     crow::connections::systemBus->async_method_call(
         [collectionPath, isNDF, aResp{std::move(aResp)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& objects) {
             // currently host name is hard coded. We will add support for
             // multiple hosts through
@@ -60,7 +60,7 @@ inline void getNetworkAdapterCollectionMembers(
             std::vector<std::string> pathNames;
             for (const auto& object : objects)
             {
-                std::string p = object;
+                const std::string& p = object;
                 if (p.find(dpuString) == std::string::npos)
                 {
                     continue;
@@ -118,7 +118,7 @@ inline void doNetworkAdaptersCollection(
 
     crow::connections::systemBus->async_method_call(
         [chassisId, asyncResp](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& objects) {
             if (ec == boost::system::errc::io_error)
             {
@@ -139,7 +139,7 @@ inline void doNetworkAdaptersCollection(
             std::vector<std::string> pathNames;
             for (const auto& object : objects)
             {
-                std::string p = object;
+                const std::string& p = object;
                 if (p.find(dpuString) == std::string::npos)
                 {
                     continue;
@@ -151,7 +151,7 @@ inline void doNetworkAdaptersCollection(
             members = nlohmann::json::array();
             asyncResp->res.jsonValue["Members@odata.count"] =
                 networkAdaptersCount;
-            if (networkAdaptersCount)
+            if (networkAdaptersCount != 0)
             {
                 nlohmann::json::object_t member;
                 member["@odata.id"] = boost::urls::format(
@@ -316,12 +316,12 @@ inline void doPort(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/NetworkAdapters/{}/Ports/{}", chassisId,
         BMCWEB_PLATFORM_NETWORK_ADAPTER, portId);
-    using GetManagedPropertyType = boost::container::flat_map<
+    using GetManagedPropertyTypeAlias = boost::container::flat_map<
         std::string,
         std::variant<std::string, bool, double, uint64_t, uint32_t>>;
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
-                    const GetManagedPropertyType& properties) {
+        [asyncResp](const boost::system::error_code& ec,
+                    const GetManagedPropertyTypeAlias& properties) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
@@ -373,8 +373,10 @@ inline void doPort(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         return;
                     }
                     if (value->find("InfiniBand") != std::string::npos)
+                    {
                         asyncResp->res.jsonValue["LinkNetworkTechnology"] =
                             "InfiniBand";
+                    }
                 }
             }
         },
@@ -403,12 +405,12 @@ inline void doNDF(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         std::string(BMCWEB_PLATFORM_NETWORK_ADAPTER) +
         "/NetworkDeviceFunctions/" + ndfId;
     asyncResp->res.jsonValue["Id"] = ndfId;
-    using GetManagedPropertyType = boost::container::flat_map<
+    using GetManagedPropertyTypeAlias = boost::container::flat_map<
         std::string,
         std::variant<std::string, bool, double, uint64_t, uint32_t>>;
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
-                    const GetManagedPropertyType& properties) {
+        [asyncResp](const boost::system::error_code& ec,
+                    const GetManagedPropertyTypeAlias& properties) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
@@ -477,10 +479,14 @@ inline void doNDF(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         return;
                     }
                     if (value->find("InfiniBand") != std::string::npos)
+                    {
                         asyncResp->res.jsonValue["NetDevFuncType"] =
                             "InfiniBand";
+                    }
                     else
+                    {
                         asyncResp->res.jsonValue["NetDevFuncType"] = "Ethernet";
+                    }
                 }
             }
         },
@@ -501,8 +507,8 @@ inline void handleGet(App& app, const crow::Request& req,
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisId, id,
-         isNDF](const boost::system::error_code ec,
-                const crow::openbmc_mapper::GetSubTreeType& subtree) {
+         isNDF](const boost::system::error_code& ec,
+                const dbus::utility::GetSubTreeType& subtree) {
             std::string dpuString = "host0";
             if (ec)
             {

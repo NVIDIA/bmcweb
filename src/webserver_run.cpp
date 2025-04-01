@@ -7,6 +7,7 @@
 #include "app.hpp"
 #include "dbus_monitor.hpp"
 #include "dbus_singleton.hpp"
+#include "dump_aggregation.hpp"
 #include "event_service_manager.hpp"
 #include "google/google_service_root.hpp"
 #include "hostname_monitor.hpp"
@@ -16,6 +17,7 @@
 #include "kvm_websocket.hpp"
 #include "logging.hpp"
 #include "login_routes.hpp"
+#include "nvidia_persistent_data.hpp"
 #include "obmc_console.hpp"
 #include "openbmc_dbus_rest.hpp"
 #include "redfish.hpp"
@@ -25,7 +27,6 @@
 #include "webassets.hpp"
 
 #include <boost/asio/io_context.hpp>
-#include <dump_offload.hpp>
 #include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/asio/object_server.hpp>
 #include <watchdog.hpp>
@@ -132,11 +133,6 @@ int run()
         }
     }
 
-    if constexpr (BMCWEB_REDFISH_DUMP_LOG)
-    {
-        crow::obmc_dump::requestRoutes(app);
-    }
-
     if constexpr (BMCWEB_SHMEM_PLATFORM_METRICS)
     {
 #ifndef NVIDIA_HAVE_TAL
@@ -156,6 +152,11 @@ int run()
     io.run();
 
     crow::connections::systemBus = nullptr;
+
+    if constexpr (BMCWEB_REDFISH_AGGREGATION)
+    {
+        redfish::dump_aggregation::requestRoutes(app);
+    }
 
     return 0;
 }

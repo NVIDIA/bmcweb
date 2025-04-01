@@ -33,7 +33,7 @@ struct MemoryFD
 {
     int fd = -1;
 
-    explicit MemoryFD(int fd) : fd(fd) {}
+    explicit MemoryFD(int fileDescriptor) : fd(fileDescriptor) {}
     explicit MemoryFD() : fd(memfd_create("bmcweb_memory_fd", 0))
     {
         if (fd == -1)
@@ -82,7 +82,7 @@ struct MemoryFD
             throw std::runtime_error(
                 "MemoryFD - write failed: " + std::string(strerror(errno)));
         }
-        else if (static_cast<size_t>(bytesWritten) != data.size())
+        if (static_cast<size_t>(bytesWritten) != data.size())
         {
             throw std::runtime_error(
                 "MemoryFD - Fewer bytes written than expected");
@@ -95,7 +95,8 @@ struct MemoryFD
             throw std::runtime_error(
                 "MemoryFD - lseek failed: " + std::string(strerror(errno)));
         }
-        struct stat fileStat;
+        struct stat fileStat
+        {};
         if (fstat(fd, &fileStat) < 0)
         {
             throw std::runtime_error(
@@ -112,7 +113,7 @@ struct MemoryFD
             throw std::runtime_error(
                 "MemoryFD - read failed: " + std::string(strerror(errno)));
         }
-        else if (static_cast<size_t>(bytesRead) != data.size())
+        if (static_cast<size_t>(bytesRead) != data.size())
         {
             throw std::runtime_error(
                 "MemoryFD - Fewer bytes read than expected");

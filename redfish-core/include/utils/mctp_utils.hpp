@@ -30,6 +30,10 @@ namespace redfish
 namespace mctp_utils
 {
 
+using GetSubTreeType = std::vector<
+    std::pair<std::string,
+              std::vector<std::pair<std::string, std::vector<std::string>>>>>;
+
 constexpr const std::string_view mctpBusPrefix = "xyz.openbmc_project.MCTP";
 constexpr const std::string_view mctpObjectPrefix =
     "/xyz/openbmc_project/mctp/";
@@ -52,14 +56,14 @@ class MctpEndpoint
         dbus::utility::findAssociations(
             spdmObject + "/transport_object",
             [this, spdmObject,
-             callback](const boost::system::error_code ec,
+             callback](const boost::system::error_code& ec1,
                        std::variant<std::vector<std::string>>& association) {
                 BMCWEB_LOG_DEBUG("findAssociations callback for {}",
                                  spdmObject);
-                if (ec)
+                if (ec1)
                 {
-                    BMCWEB_LOG_ERROR("{} : {}", spdmObject, ec.message());
-                    callback(false, ec.message());
+                    BMCWEB_LOG_ERROR("{} : {}", spdmObject, ec1.message());
+                    callback(false, ec1.message());
                     return;
                 }
                 std::vector<std::string>* data =
@@ -71,11 +75,11 @@ class MctpEndpoint
                     return;
                 }
                 mctpObj = data->front();
-                if (mctpObj.rfind(mctpObjectPrefix, 0) == 0)
+                if (mctpObj.starts_with(mctpObjectPrefix))
                 {
                     std::vector<std::string> v;
                     bmcweb::split(v, mctpObj, '/');
-                    if (v.size() == 0)
+                    if (v.empty())
                     {
                         callback(false, "invalid MCTP object path: " + mctpObj);
                         return;
@@ -125,7 +129,7 @@ class MctpEndpoint
     void getDbusMctpProperties(const AssociationCallback& callback)
     {
         crow::connections::systemBus->async_method_call(
-            [this, callback](const boost::system::error_code ec,
+            [this, callback](const boost::system::error_code& ec,
                              const GetObjectType& response) {
                 if (ec || response.empty())
                 {
@@ -135,17 +139,17 @@ class MctpEndpoint
                 for (const auto& elem : response)
                 {
                     const std::string& service = elem.first;
-                    if (service.rfind(mctpBusPrefix, 0) != 0)
+                    if (!service.starts_with(mctpBusPrefix))
                     {
                         continue;
                     }
                     crow::connections::systemBus->async_method_call(
                         [this, callback](
-                            const boost::system::error_code ec,
+                            const boost::system::error_code& ec2,
                             const boost::container::flat_map<
                                 std::string, dbus::utility::DbusVariantType>&
                                 properties) {
-                            if (ec)
+                            if (ec2)
                             {
                                 callback(false,
                                          "Failed to get properties for " +
@@ -226,23 +230,24 @@ inline void enumerateMctpEndpoints(
     EndpointCallback&& endpointCallback, ErrorCallback&& errorCallback,
     const std::string& spdmObjectFilter = "", uint64_t timeoutUs = 0)
 {
+    auto epCallback = std::move(endpointCallback);
+    auto errCallback = std::move(errorCallback);
     crow::connections::systemBus->async_method_call_timed(
-        [endpointCallback{std::forward<EndpointCallback>(endpointCallback)},
-         errorCallback{std::forward<ErrorCallback>(errorCallback)},
-         spdmObjectFilter](
-            const boost::system::error_code ec,
-            const crow::openbmc_mapper::GetSubTreeType& subtree) {
+        [epCallback = std::move(epCallback),
+         errCallback = std::move(errCallback),
+         spdmObjectFilter](const boost::system::error_code ec,
+                           const dbus::utility::GetSubTreeType& subtree) {
             const std::string desc = "SPDM / MCTP endpoint enumeration";
             BMCWEB_LOG_DEBUG("{}", desc);
             if (ec)
             {
                 BMCWEB_LOG_ERROR("{}: {}", desc, ec.message());
-                errorCallback(true, desc, ec.message());
+                errCallback(true, desc, ec.message());
                 return;
             }
-            if (subtree.size() == 0)
+            if (subtree.empty())
             {
-                errorCallback(true, desc, "no SPDM objects found");
+                errCallback(true, desc, "no SPDM objects found");
                 return;
             }
             if (!spdmObjectFilter.empty())
@@ -253,7 +258,7 @@ inline void enumerateMctpEndpoints(
                         const auto& name =
                             sdbusplus::message::object_path(object.first)
                                 .filename();
-                        return spdmObjectFilter.compare(name) == 0;
+                        return spdmObjectFilter == name;
                     });
                 if (obj != subtree.end())
                 {
@@ -261,22 +266,22 @@ inline void enumerateMctpEndpoints(
                     endpoints->reserve(1);
                     endpoints->emplace_back(
                         obj->first,
-                        [desc, endpoints, endpointCallback,
-                         errorCallback](bool success, const std::string& msg) {
+                        [desc, endpoints, epCallback,
+                         errCallback](bool success, const std::string& msg) {
                             if (!success)
                             {
-                                errorCallback(true, desc, msg);
+                                errCallback(true, desc, msg);
                             }
                             else
                             {
-                                endpointCallback(endpoints);
+                                epCallback(endpoints);
                             }
                         });
                     return;
                 }
-                errorCallback(true, desc,
-                              "no SPDM objects matching " + spdmObjectFilter +
-                                  " found");
+                errCallback(true, desc,
+                            "no SPDM objects matching " + spdmObjectFilter +
+                                " found");
                 return;
             }
 
@@ -288,11 +293,11 @@ inline void enumerateMctpEndpoints(
             {
                 endpoints->emplace_back(
                     object.first,
-                    [desc, endpoints, enumeratedEndpoints, endpointCallback,
-                     errorCallback](bool success, const std::string& msg) {
+                    [desc, endpoints, enumeratedEndpoints, epCallback,
+                     errCallback](bool success, const std::string& msg) {
                         if (!success)
                         {
-                            errorCallback(false, desc, msg);
+                            errCallback(false, desc, msg);
                         }
                         *enumeratedEndpoints += 1;
                         if (*enumeratedEndpoints == endpoints->capacity())
@@ -303,7 +308,7 @@ inline void enumerateMctpEndpoints(
                                           return a.getMctpEid() <
                                                  b.getMctpEid();
                                       });
-                            endpointCallback(endpoints);
+                            epCallback(endpoints);
                         }
                     });
             }

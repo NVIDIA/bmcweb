@@ -1150,7 +1150,7 @@ inline void afterVerifyUserExists(
                 redfish::message_registries::updateResolution(
                     asyncResp, "Password", resolution);
                 BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
-                handle_nvidia_resolution(asyncResp, params.password);
+                handleNvidiaResolution(asyncResp, params.password);
             }
             else
             {
@@ -2241,7 +2241,7 @@ inline void handleAccountDelete(
                               sdbusplus::message::message& m) {
             if (ec)
             {
-                handle_nvidia_delete_error(asyncResp, username, m);
+                handleNvidiaDeleteError(asyncResp, username, m);
                 return;
             }
 

@@ -105,8 +105,10 @@ inline int checkAsn1Object(const unsigned char* buf, size_t length, bool* pbes,
 inline int hasPbesPbkdf(const unsigned char** pp, size_t length, int offset,
                         bool* pbes, bool* pbkdf)
 {
-    const unsigned char *p = nullptr, *ep = nullptr, *tot = nullptr,
-                        *op = nullptr;
+    const unsigned char* p = nullptr;
+    const unsigned char* ep = nullptr;
+    const unsigned char* tot = nullptr;
+    const unsigned char* op = nullptr;
     long len = 0;
     size_t hl = 0;
     int r = 0;
@@ -136,7 +138,7 @@ inline int hasPbesPbkdf(const unsigned char** pp, size_t length, int offset,
         asn1ObjectType =
             ASN1_get_object(&p, &len, &asn1ObjectTag, &asn1ObjectClass,
                             static_cast<long>(length));
-        if (asn1ObjectType & 0x80)
+        if ((asn1ObjectType & 0x80) != 0)
         {
             ret = -1;
             break;
@@ -145,7 +147,7 @@ inline int hasPbesPbkdf(const unsigned char** pp, size_t length, int offset,
         hl = static_cast<size_t>(p - op);
         length -= hl;
 
-        if (asn1ObjectType & V_ASN1_CONSTRUCTED)
+        if ((asn1ObjectType & V_ASN1_CONSTRUCTED) != 0)
         {
             const unsigned char* sp = p;
             // ep = p + len;
@@ -236,30 +238,35 @@ inline int hasPbesPbkdf(const unsigned char** pp, size_t length, int offset,
 
 inline int pemPkeyIsEncrypted(const std::string& filename, bool* encrypted)
 {
-    BIO *in = nullptr, *inB64 = nullptr;
+    BIO* in = nullptr;
+    BIO* inB64 = nullptr;
     BUF_MEM* buf = nullptr;
     const unsigned char* str = nullptr;
-    bool pbes = false, pbkdf = false;
+    bool pbes = false;
+    bool pbkdf = false;
     int i = 0;
     size_t len = 0;
     int ret = 0;
 
     BMCWEB_LOG_INFO("Checking if {} is encrypted.", filename);
 
-    if ((in = BIO_new_file(filename.c_str(), "r")) == nullptr)
+    in = BIO_new_file(filename.c_str(), "r");
+    if (in == nullptr)
     {
         BMCWEB_LOG_ERROR("Error opening PEM file BIO.");
         return -1;
     }
 
-    if ((buf = BUF_MEM_new()) == nullptr)
+    buf = BUF_MEM_new();
+    if (buf == nullptr)
     {
         BMCWEB_LOG_ERROR("Error allocating PEM file buffer.");
         BIO_free(in);
         return -2;
     }
 
-    if ((inB64 = BIO_new(BIO_f_base64())) == nullptr)
+    inB64 = BIO_new(BIO_f_base64());
+    if (inB64 == nullptr)
     {
         BMCWEB_LOG_ERROR("Error creating base64 BIO.");
         BUF_MEM_free(buf);
@@ -272,7 +279,7 @@ inline int pemPkeyIsEncrypted(const std::string& filename, bool* encrypted)
     for (;;)
     {
         size_t templen = len + BUFSIZ;
-        if (!BUF_MEM_grow(buf, templen))
+        if (BUF_MEM_grow(buf, templen) == 0U)
         {
             BMCWEB_LOG_ERROR("Error expanding BIO buffer.");
             BIO_free(inB64);
@@ -291,8 +298,10 @@ inline int pemPkeyIsEncrypted(const std::string& filename, bool* encrypted)
         len += static_cast<size_t>(i);
     }
 
-    str = static_cast<const unsigned char*>(static_cast<void*>(buf->data));
-    if ((ret = asn1::hasPbesPbkdf(&str, len, 0, &pbes, &pbkdf)) < 0)
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    str = reinterpret_cast<const unsigned char*>(buf->data);
+    ret = asn1::hasPbesPbkdf(&str, len, 0, &pbes, &pbkdf);
+    if (ret < 0)
     {
         BMCWEB_LOG_ERROR(
             "Error while processing ASN.1 structures at {} return value: {}",

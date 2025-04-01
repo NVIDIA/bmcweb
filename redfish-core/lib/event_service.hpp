@@ -881,8 +881,7 @@ inline void requestRoutesEventDestination(App& app)
                     {
                         // Send an event for property change
                         DsEvent event =
-                            redfish::EventUtil::getInstance()
-                                .createEventPropertyModified(
+                            redfish::EventUtil::createEventPropertyModified(
                                     "Context", *context, "EventService");
                         redfish::EventServiceManager::getInstance()
                             .sendEventWithOOC(std::string(req.target()), event);
@@ -918,8 +917,7 @@ inline void requestRoutesEventDestination(App& app)
                     {
                         // Send an event for property change
                         DsEvent event =
-                            redfish::EventUtil::getInstance()
-                                .createEventPropertyModified(
+                            redfish::EventUtil::createEventPropertyModified(
                                     "Headers", keyValues, "EventService");
                         redfish::EventServiceManager::getInstance()
                             .sendEventWithOOC(std::string(req.target()), event);
@@ -941,8 +939,7 @@ inline void requestRoutesEventDestination(App& app)
                     if constexpr (BMCWEB_REDFISH_DBUS_LOG)
                     {
                         // Send an event for property change
-                        DsEvent event = redfish::EventUtil::getInstance()
-                                            .createEventPropertyModified(
+                        DsEvent event = redfish::EventUtil::createEventPropertyModified(
                                                 "RetryPolicy", *retryPolicy,
                                                 "EventService");
                         redfish::EventServiceManager::getInstance()

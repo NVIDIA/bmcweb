@@ -7,6 +7,7 @@
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
+#include "privileges.hpp"
 #include "routing/baserule.hpp"
 #include "routing/dynamicrule.hpp"
 #include "routing/taggedrule.hpp"
@@ -592,7 +593,7 @@ class Router
 
         if (req->session == nullptr)
         {
-            rule.handleUpgrade(*req, asyncResp, std::move(adaptor));
+            rule.handleUpgrade(*req, asyncResp, std::forward<Adaptor>(adaptor));
             return;
         }
         // TODO(ed) This should be able to use std::bind_front, but it doesn't

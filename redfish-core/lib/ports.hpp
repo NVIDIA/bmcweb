@@ -55,13 +55,13 @@ inline void getLldpStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     LldpToolUtil::run(
         ifaceId, LldpTlv::ADMIN_STATUS, LldpCommandType::GET_LLDP, false,
         asyncResp,
-        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& lambdaAsyncResp,
                   const std::string& stdOut, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
-            if (ec || errorCode)
+            if (ec || (errorCode != 0))
             {
                 messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res,
+                    lambdaAsyncResp->res,
                     "/redfish/v1/Managers/" +
                         std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                         "/DedicatedNetworkPorts/" + ifaceId,
@@ -79,11 +79,13 @@ inline void getLldpStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             {
                 if (stdOut.find("disabled") != std::string::npos)
                 {
-                    asyncResp->res.jsonValue["Ethernet"]["LLDPEnabled"] = false;
+                    lambdaAsyncResp->res.jsonValue["Ethernet"]["LLDPEnabled"] =
+                        false;
                 }
                 else
                 {
-                    asyncResp->res.jsonValue["Ethernet"]["LLDPEnabled"] = true;
+                    lambdaAsyncResp->res.jsonValue["Ethernet"]["LLDPEnabled"] =
+                        true;
                 }
             }
             BMCWEB_LOG_DEBUG("get Lldp Status: {}", stdOut);
@@ -95,13 +97,13 @@ inline void setLldpStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     LldpToolUtil::run(
         ifaceId, commandType, LldpCommandType::SET_LLDP, false, asyncResp,
-        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& lambdaAsyncResp,
                   const std::string&, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
-            if (ec || errorCode)
+            if (ec || (errorCode != 0))
             {
                 messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res,
+                    lambdaAsyncResp->res,
                     "/redfish/v1/Managers/" +
                         std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                         "/DedicatedNetworkPorts/" + ifaceId,
@@ -207,13 +209,13 @@ inline void getEnableLldpTlvs(
     LldpToolUtil::run(
         ifaceId, LldpTlv::SYSTEM_CAPABILITIES, LldpCommandType::ENABLE_TLV,
         false, asyncResp,
-        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& lambdaAsyncResp,
                   const std::string& stdOut, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
-            if (ec || errorCode)
+            if (ec || (errorCode != 0))
             {
                 messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res,
+                    lambdaAsyncResp->res,
                     "/redfish/v1/Managers/" +
                         std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                         "/DedicatedNetworkPorts/" + ifaceId,
@@ -234,13 +236,13 @@ inline void getEnableLldpTlvs(
     LldpToolUtil::run(
         ifaceId, LldpTlv::SYSTEM_DESCRIPTION, LldpCommandType::ENABLE_TLV,
         false, asyncResp,
-        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& lambdaAsyncResp,
                   const std::string& stdOut, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
-            if (ec || errorCode)
+            if (ec || (errorCode != 0))
             {
                 messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res,
+                    lambdaAsyncResp->res,
                     "/redfish/v1/Managers/" +
                         std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                         "/DedicatedNetworkPorts/" + ifaceId,
@@ -260,13 +262,13 @@ inline void getEnableLldpTlvs(
     LldpToolUtil::run(
         ifaceId, LldpTlv::SYSTEM_NAME, LldpCommandType::ENABLE_TLV, false,
         asyncResp,
-        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& lambdaAsyncResp,
                   const std::string& stdOut, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
-            if (ec || errorCode)
+            if (ec || (errorCode != 0))
             {
                 messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res,
+                    lambdaAsyncResp->res,
                     "/redfish/v1/Managers/" +
                         std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                         "/DedicatedNetworkPorts/" + ifaceId,
@@ -307,7 +309,7 @@ inline std::string getTlvString(const std::string& commandOutput,
                 result.erase(result.begin(),
                              std::find_if(result.begin(), result.end(),
                                           [](unsigned char ch) {
-                                              return !std::isspace(ch);
+                                              return std::isspace(ch) == 0;
                                           }));
             }
         }
@@ -333,7 +335,7 @@ inline std::string findLineContaining(const std::string& commandOutput,
             result.erase(result.begin(),
                          std::find_if(result.begin(), result.end(),
                                       [](unsigned char ch) {
-                                          return !std::isspace(ch);
+                                          return std::isspace(ch) == 0;
                                       }));
         }
     }
@@ -360,13 +362,13 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     LldpToolUtil::run(
         ifaceId, LldpTlv::ALL, LldpCommandType::GET, isReceived, asyncResp,
         [ifaceId,
-         isReceived](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+         isReceived](const std::shared_ptr<bmcweb::AsyncResp>& lambdaAsyncResp,
                      const std::string& stdOut, const std::string&,
                      const boost::system::error_code& ec, int errorCode) {
-            if (ec || errorCode)
+            if (ec || (errorCode != 0))
             {
                 messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res,
+                    lambdaAsyncResp->res,
                     "/redfish/v1/Managers/" +
                         std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                         "/DedicatedNetworkPorts/" + ifaceId,
@@ -383,7 +385,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             std::string idStr;
             std::string lldpType = isReceived ? lldpReceive : lldpTransmit;
             nlohmann::json& jsonSchema =
-                asyncResp->res.jsonValue["Ethernet"][lldpType];
+                lambdaAsyncResp->res.jsonValue["Ethernet"][lldpType];
             idStr = getTlvString(stdOut, "Chassis ID TLV");
             if (!idStr.empty())
             {

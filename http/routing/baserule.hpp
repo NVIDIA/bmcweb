@@ -42,7 +42,7 @@ class BaseRule
         return {};
     }
 
-    virtual void handle(Request& /*req*/,
+    virtual void handle(const Request& /*req*/,
                         const std::shared_ptr<bmcweb::AsyncResp>&,
                         const std::vector<std::string>&) = 0;
     virtual void handleUpgrade(
@@ -52,6 +52,7 @@ class BaseRule
     {
         asyncResp->res.result(boost::beast::http::status::not_found);
     }
+
     virtual void handleUpgrade(
         const Request& /*req*/,
         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
