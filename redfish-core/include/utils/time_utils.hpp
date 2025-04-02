@@ -114,6 +114,6 @@ std::optional<std::string> getDateTimeIso8601(std::string_view datetime);
  */
 void productionDateReport(crow::Response& res, const std::string& buildDate);
 
-std::optional<std::string> toDurationStringFromNano(const uint64_t timeNs);
+std::optional<std::string> toDurationStringFromNano(uint64_t timeNs);
 } // namespace time_utils
 } // namespace redfish

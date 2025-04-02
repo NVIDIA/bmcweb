@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cstddef>  // For std::size_t
 #include <ranges>
 #include <span>
 #include <string_view>

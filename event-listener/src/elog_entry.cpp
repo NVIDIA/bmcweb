@@ -1,4 +1,5 @@
-#include <elog_entry.hpp>
+// NOLINTNEXTLINE(clang-diagnostic-error)
+#include "elog_entry.hpp"
 
 namespace phosphor
 {

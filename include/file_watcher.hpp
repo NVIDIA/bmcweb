@@ -27,14 +27,18 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/posix/stream_descriptor.hpp>
 
+#include <array>
 #include <csignal>
+#include <cstddef>   // For offsetof
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <functional>
-#include <iostream>
 #include <map>
 #include <memory>
+#include <string>
+#include <utility>    // For std::move
 #include <vector>
 
 struct FileWatcherEvent
@@ -43,7 +47,7 @@ struct FileWatcherEvent
     std::string name;
     uint32_t mask{0};
 
-    FileWatcherEvent(std::string pathIn, std::string nameIn, uint32_t maskIn) :
+    explicit FileWatcherEvent(std::string pathIn, std::string nameIn, uint32_t maskIn) :
         path(std::move(pathIn)), name(std::move(nameIn)), mask(maskIn)
     {}
 };
@@ -51,8 +55,8 @@ struct FileWatcherEvent
 class InotifyFileWatcher
 {
   public:
-    InotifyFileWatcher(boost::asio::io_context& ioService) :
-        io(ioService), sd(nullptr), buf(), watchedDirs()
+    explicit InotifyFileWatcher(boost::asio::io_context& ioService) :
+        io(ioService), sd(nullptr), buf()
     {}
 
     ~InotifyFileWatcher()
@@ -124,7 +128,7 @@ class InotifyFileWatcher
     {
         if (ec)
         {
-            BMCWEB_LOG_ERROR("InotifyFileWatcher error code: {}", ec);
+            BMCWEB_LOG_ERROR("InotifyFileWatcher error code: {}", ec.message());
             return;
         }
 

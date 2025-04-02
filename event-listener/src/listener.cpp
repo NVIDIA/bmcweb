@@ -1,26 +1,31 @@
-#include <boost/beast/core.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/beast/core.hpp>           // For string_view, error_code
+#include <boost/beast/http.hpp>           // For http::field, status, verb, error
+#include <boost/beast/core/tcp_stream.hpp>
 #include <boost/beast/http/message.hpp>
-#include <boost/beast/http/message_generator.hpp>
-#include <boost/beast/http/parser.hpp>
-#include <boost/beast/http/read.hpp>
-#include <boost/beast/http/string_body.hpp>
 #include <boost/beast/http/write.hpp>
+#include <boost/beast/http/error.hpp>
 #include <boost/beast/version.hpp>
-#include <boost/config.hpp>
-#include <elog_entry.hpp>
-#include <nlohmann/json.hpp>
-#include <phosphor-logging/lg2.hpp>
-#include <sdbusplus/asio/connection.hpp>
-#include <sdbusplus/bus.hpp>
-#include <sdbusplus/server/manager.hpp>
+#include <boost/utility/string_view.hpp>
+// NOLINTNEXTLINE(clang-diagnostic-error)
+#include "elog_entry.hpp"
+
+#include "nlohmann/json.hpp"
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include "phosphor-logging/lg2.hpp"
+#include "sdbusplus/asio/connection.hpp"
+#include "sdbusplus/bus.hpp"
+#include "sdbusplus/server/manager.hpp"
 
 #include <algorithm>
+#include <cstdint>   // For uint32_t and int64_t
 #include <cstdlib>
-#include <functional>
 #include <iostream>
 #include <memory>
 #include <string>
-#include <vector>
+#include <string_view>
+#include <chrono>
+
 
 namespace beast = boost::beast;   // from <boost/beast.hpp>
 namespace http = beast::http;     // from <boost/beast/http.hpp>
@@ -36,23 +41,23 @@ const std::string entryName{
 constexpr uint8_t maxEventQueueLen = 4;
 constexpr uint8_t maxSessionNum = 4;
 
-class redfishEventMgr
+class RedfishEventMgr
 {
   public:
-    static uint8_t session_num;
+    static uint8_t sessionNum;
     static void incSessNum()
     {
-        session_num++;
+        sessionNum++;
     }
 
     static void decSessNum()
     {
-        session_num--;
+        sessionNum--;
     }
 
     static uint8_t getSessNum()
     {
-        return session_num;
+        return sessionNum;
     }
 
     static void createLogEntry(
@@ -149,23 +154,22 @@ class redfishEventMgr
                              static_cast<sdbusplus::bus::bus&>(*conn), path, id,
                              timestamp, severity, std::move(msg),
                              std::move(resolution), std::move(additionalData)));
-        return;
     }
 };
 
-uint8_t redfishEventMgr::session_num = 0;
+uint8_t RedfishEventMgr::sessionNum = 0;
 
 // This function produces an HTTP response for the given
 // request. The type of the response object depends on the
 // contents of the request, so the interface requires the
 // caller to pass a generic lambda for receiving the response.
 template <class Body, class Allocator, class Send>
-void handle_request(std::shared_ptr<sdbusplus::asio::connection>& bus,
+void handleRequest(std::shared_ptr<sdbusplus::asio::connection>& bus,
                     http::request<Body, http::basic_fields<Allocator>>&& req,
                     Send&& send)
 {
     // Returns a bad request response
-    const auto bad_request = [&req](beast::string_view why) {
+    const auto badRequest = [req = std::move(req)](beast::string_view why) {
         http::response<http::string_body> res{http::status::bad_request,
                                               req.version()};
         res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
@@ -178,11 +182,11 @@ void handle_request(std::shared_ptr<sdbusplus::asio::connection>& bus,
 
     // Make sure we can handle the method
     if (req.method() != http::verb::post)
-        return send(bad_request("Unknown HTTP-method"));
+        return send(badRequest("Unknown HTTP-method"));
     // Request path must be absolute and not contain "..".
     if (req.target().empty() || req.target()[0] != '/' ||
         req.target().find("..") != beast::string_view::npos)
-        return send(bad_request("Illegal request-target"));
+        return send(badRequest("Illegal request-target"));
 
     std::string body = req.body();
 
@@ -190,12 +194,9 @@ void handle_request(std::shared_ptr<sdbusplus::asio::connection>& bus,
     if (data.is_discarded())
     {
         lg2::error("Json parse error: {BODY}", "BODY", body);
-        return send(bad_request("bad Json format"));
+        return send(badRequest("bad Json format"));
     }
-    else
-    {
-        redfishEventMgr::createLogEntry(bus, entryName, data);
-    }
+    RedfishEventMgr::createLogEntry(bus, entryName, data);
 
     http::response<http::string_body> res{http::status::ok, req.version()};
     res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
@@ -217,15 +218,16 @@ void fail(beast::error_code ec, const char* what, bool excp = true)
 }
 
 // Handles an HTTP server connection
-class session : public std::enable_shared_from_this<session>
+class Session : public std::enable_shared_from_this<Session>
 {
     // This is the C++11 equivalent of a generic lambda.
     // The function object is used to send an HTTP message.
-    struct send_lambda
+    struct SendLambda
     {
-        session& self_;
+        Session& self_;
 
-        explicit send_lambda(session& self) : self_(self) {}
+        explicit SendLambda(Session& self) : self_(self)
+        {}
 
         template <bool isRequest, class Body, class Fields>
         void operator()(http::message<isRequest, Body, Fields>&& msg) const
@@ -243,7 +245,7 @@ class session : public std::enable_shared_from_this<session>
             // Write the response
             boost::beast::http::async_write(
                 self_.stream_, *sp,
-                beast::bind_front_handler(&session::on_write,
+                beast::bind_front_handler(&Session::onWrite,
                                           self_.shared_from_this(),
                                           sp->need_eof()));
         }
@@ -252,37 +254,42 @@ class session : public std::enable_shared_from_this<session>
     beast::tcp_stream stream_;
     beast::flat_buffer buffer_;
     std::shared_ptr<sdbusplus::asio::connection> bus_;
-    http::request<http::string_body> req_;
+    http::request<http::string_body> req_{};
     std::shared_ptr<void> res_;
-    send_lambda lambda_;
+    SendLambda lambda_;
 
   public:
     // Take ownership of the stream
-    session(tcp::socket&& socket,
+    Session(tcp::socket&& socket,
             std::shared_ptr<sdbusplus::asio::connection> bus) :
-        stream_(std::move(socket)), bus_(bus), lambda_(*this)
+        stream_(std::move(socket)),
+        buffer_,
+        bus_(std::move(bus)),
+        req_(),
+        res_,
+        lambda_(*this)
     {
-        redfishEventMgr::incSessNum();
+        RedfishEventMgr::incSessNum();
     }
 
-    ~session()
+    ~Session()
     {
-        redfishEventMgr::decSessNum();
+        RedfishEventMgr::decSessNum();
     }
 
     // Start the asynchronous operation
     void run()
     {
         // We need to be executing within a strand to perform async
-        // operations on the I/O objects in this session. Although not
+        // operations on the I/O objects in this Session. Although not
         // strictly necessary for single-threaded contexts, this example
         // code is written to be thread-safe by default.
         net::dispatch(
             stream_.get_executor(),
-            beast::bind_front_handler(&session::do_read, shared_from_this()));
+            beast::bind_front_handler(&Session::doRead, shared_from_this()));
     }
 
-    void do_read()
+    void doRead()
     {
         // Make the request empty before reading,
         // otherwise the operation behavior is undefined.
@@ -294,47 +301,57 @@ class session : public std::enable_shared_from_this<session>
         // Read a request
         http::async_read(
             stream_, buffer_, req_,
-            beast::bind_front_handler(&session::on_read, shared_from_this()));
+            beast::bind_front_handler(&Session::onRead, shared_from_this()));
     }
 
-    void on_read(beast::error_code ec, std::size_t bytes_transferred)
+    static void onRead(beast::error_code ec, std::size_t bytesTransferred)
     {
-        boost::ignore_unused(bytes_transferred);
+        boost::ignore_unused(bytesTransferred);
 
         // This means they closed the connection
         if (ec == http::error::end_of_stream)
-            return do_close();
+        {
+            doClose();
+            return;
+        }
 
         if (ec)
-            return fail(ec, "read", false);
+        {
+            fail(ec, "read", false);
+            return;
+        }
 
         // Send the response
-        handle_request(bus_, std::move(req_), lambda_);
+        handleRequest(bus_, std::move(req_), lambda_);
     }
 
-    void on_write(bool close, beast::error_code ec,
-                  std::size_t bytes_transferred)
+    void onWrite(bool close, beast::error_code ec,
+                  std::size_t bytesTransferred)
     {
-        boost::ignore_unused(bytes_transferred);
+        boost::ignore_unused(bytesTransferred);
 
         if (ec)
-            return fail(ec, "write", false);
+        {
+            fail(ec, "write", false);
+            return;
+        }
 
         if (close)
         {
             // This means we should close the connection, usually because
             // the response indicated the "Connection: close" semantic.
-            return do_close();
+            doClose();
+            return;
         }
 
         // We're done with the response so delete it
         res_ = nullptr;
 
         // Read another request
-        do_read();
+        doRead();
     }
 
-    void do_close()
+    static void doClose()
     {
         // Send a TCP shutdown
         beast::error_code ec;
@@ -345,7 +362,7 @@ class session : public std::enable_shared_from_this<session>
 };
 
 // Accepts incoming connections and launches the sessions
-class listener : public std::enable_shared_from_this<listener>
+class Listener : public std::enable_shared_from_this<Listener>
 {
     net::io_context& ioc_;
     std::shared_ptr<sdbusplus::asio::connection> conn_;
@@ -353,13 +370,13 @@ class listener : public std::enable_shared_from_this<listener>
     tcp::endpoint& endpoint_;
 
   public:
-    listener(net::io_context& ioc,
+    Listener(net::io_context& ioc,
              std::shared_ptr<sdbusplus::asio::connection>&& conn,
              tcp::endpoint& endpoint) :
         ioc_(ioc), conn_(conn), acceptor_(ioc), endpoint_(endpoint)
     {}
 
-    void init()
+    static void init()
     {
         beast::error_code ec;
 
@@ -402,22 +419,22 @@ class listener : public std::enable_shared_from_this<listener>
     // Start accepting incoming connections
     void run(std::string_view host)
     {
-        do_accept();
-        lg2::debug("Redfish event listener is ready at {HOST}", "HOST", host);
+        doAccept();
+        lg2::debug("Redfish event Listener is ready at {HOST}", "HOST", host);
     }
 
   private:
-    void do_accept()
+    static void doAccept()
     {
         lg2::debug("the current number of sessions: {NUM}", "NUM",
-                   redfishEventMgr::getSessNum());
+                   RedfishEventMgr::getSessNum());
         // The new connection gets its own strand
         acceptor_.async_accept(ioc_,
-                               beast::bind_front_handler(&listener::on_accept,
+                               beast::bind_front_handler(&Listener::onAccept,
                                                          shared_from_this()));
     }
 
-    void on_accept(beast::error_code ec, tcp::socket socket)
+    void onAccept(beast::error_code ec, tcp::socket socket)
     {
         if (ec)
         {
@@ -425,68 +442,69 @@ class listener : public std::enable_shared_from_this<listener>
             fail(ec, "accept");
             return; // To avoid infinite loop
         }
+        // Create the Session and run it
+        if (RedfishEventMgr::getSessNum() <= maxSessionNum)
+        {
+            std::make_shared<Session>(std::move(socket), conn_)->run();
+        }
         else
         {
-            // Create the session and run it
-            if (redfishEventMgr::getSessNum() <= maxSessionNum)
-            {
-                std::make_shared<session>(std::move(socket), conn_)->run();
-            }
-            else
-            {
-                // close the peer's connection since there is no free session.
-                beast::tcp_stream stream(std::move(socket));
-                beast::error_code ec;
-                stream.socket().shutdown(tcp::socket::shutdown_send, ec);
-                lg2::error("Reach maximum sessions!");
-            }
+            // close the peer's connection since there is no free Session.
+            beast::tcp_stream stream(std::move(socket));
+            beast::error_code ec;
+            stream.socket().shutdown(tcp::socket::shutdown_send, ec);
+            lg2::error("Reach maximum sessions!");
         }
-
         // Accept another connection
-        do_accept();
+        doAccept();
     }
 };
 
 int main(int argc, char* argv[])
 {
-    // Check command line arguments.
-    if (argc != 3)
-    {
-        std::cerr << "Usage: http-server-async <address> <port>\n"
-                  << "Example:\n"
-                  << "    http-server-async 0.0.0.0 8080 \n";
-        return EXIT_FAILURE;
-    }
-    const auto address = net::ip::make_address(argv[1]);
-    const auto port = static_cast<unsigned short>(std::atoi(argv[2]));
-    std::string host(argv[1]);
-    host += std::string(":");
-    host += std::string(argv[2]);
-
-    // The io_context is required for all I/O
-    net::io_context ioc{1};
-    auto conn = std::make_shared<sdbusplus::asio::connection>(ioc);
-
-    // create redfish logging service
-    sdbusplus::server::manager::manager objManager(
-        static_cast<sdbusplus::bus::bus&>(*conn), entryName.c_str());
-    conn->request_name("xyz.openbmc_project.logging.rfevtlistener");
-
-    tcp::endpoint ep{address, port};
-
     try
     {
-        // Create and launch a listening port
-        auto rf_listener = std::make_shared<listener>(ioc, std::move(conn), ep);
-        rf_listener->init();
-        rf_listener->run(host);
-    }
-    catch (std::exception& ex)
-    {
-        lg2::error("{MSG}", "MSG", ex.what());
-        return EXIT_FAILURE;
-    }
+        if (argc != 3)
+        {
+            std::cerr << "Usage: listener <address> <port>\n";
+            return 1;
+        }
 
+        // Use safer string to integer conversion
+        char* end = nullptr;
+        std::string portStr(argv[2]);
+        const auto port = static_cast<unsigned short>(std::strtol(portStr.c_str(), &end, 10));
+        if (*end != '\0')
+        {
+            std::cerr << "Invalid port number\n";
+            return 1;
+        }
+
+        std::string host(argv[1]);
+        host += ':';
+        host += portStr;
+
+        // The io_context is required for all I/O
+        net::io_context ioc{1};
+        auto conn = std::make_shared<sdbusplus::asio::connection>(ioc);
+
+        // create redfish logging service
+        sdbusplus::server::manager::manager objManager(
+            static_cast<sdbusplus::bus::bus&>(*conn), entryName.c_str());
+        conn->request_name("xyz.openbmc_project.logging.rfevtlistener");
+
+        tcp::endpoint ep{net::ip::make_address(argv[1]), port};
+
+        // Create and launch a listening port
+        auto rfListener = std::make_shared<Listener>(ioc, std::move(conn), ep);
+        rfListener->init();
+        rfListener->run(host);
+    }
+    catch (const std::exception& ex)
+    {
+        std::cerr << "Error: " << ex.what() << std::endl;
+        return 1;
+    }
     ioc.run();
-    return EXIT_SUCCESS;
+    return 0;
 }

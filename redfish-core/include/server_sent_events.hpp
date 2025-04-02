@@ -1,4 +1,3 @@
-
 /*
 // Copyright (c) 2020 Intel Corporation
 //
@@ -16,15 +15,17 @@
 */
 #pragma once
 
+#include "logging.hpp"
+#include <boost/asio/ip/tcp.hpp>     // For boost::asio::ip::tcp::socket
 #include <boost/beast/http/buffer_body.hpp>
 #include <boost/beast/http/message.hpp>
 
+#include <cstdint>   // For uint8_t
 #include <cstdlib>
-#include <functional>
-#include <iostream>
-#include <memory>
+#include <memory>    // For enable_shared_from_this and shared_ptr
 #include <queue>
 #include <string>
+#include <utility>   // For std::pair
 
 namespace crow
 {

@@ -16,15 +16,25 @@
 #pragma once
 #include "app.hpp"
 #include "dbus_utility.hpp"
-#include "privileges.hpp"
+#include "dbus_singleton.hpp"
+#include "logging.hpp"      // For crow::logPtr
 #include "websocket.hpp"
 
+#include <boost/asio/buffer_copy.hpp> // For boost::asio::buffer_copy
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/asio/write.hpp>
-#include <boost/beast/core/buffers_to_string.hpp>
+#include <boost/beast/core/flat_static_buffer.hpp>  // For flat_static_buffer
 #include <boost/container/flat_map.hpp>
 
+#include <cstddef>    // For size_t
+#include <functional> // For std::function
+#include <memory>     // For std::shared_ptr, std::make_shared, std::enable_shared_from_this
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include <sdbusplus/message/types.hpp>  // For sdbusplus::message::object_path
 #include <string_view>
+#include <variant>    // For std::get_if
+#include <string>
+#include <utility>    // For std::move
 
 namespace crow
 {
@@ -37,7 +47,7 @@ using boost::asio::local::stream_protocol;
 static constexpr size_t nbdBufferSize = 131088;
 constexpr const char* requiredPrivilegeString = "ConfigureManager";
 
-struct NbdProxyServer : std::enable_shared_from_this<NbdProxyServer>
+struct NbdProxyServer : public std::enable_shared_from_this<NbdProxyServer>
 {
     NbdProxyServer(crow::websocket::Connection& connIn,
                    const std::string& socketIdIn,

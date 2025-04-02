@@ -1,7 +1,17 @@
 #pragma once
 
 #include "xyz/openbmc_project/Logging/Entry/server.hpp"
-
+#include <string>
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include <vector>
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include <cstddef>
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include <memory>
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include <sdbusplus/bus.hpp>
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include <sdbusplus/message/unix_fd.hpp>
 namespace phosphor
 {
 namespace logging
@@ -15,9 +25,9 @@ using EntryIfaces = sdbusplus::server::object::object<
  *  xyz.openbmc_project.Logging.Entry and
  *  xyz.openbmc_project.Associations.Definitions DBus APIs.
  */
-class evtEntry :
+class EvtEntry :
     public EntryIfaces,
-    public std::enable_shared_from_this<evtEntry>
+    public std::enable_shared_from_this<EvtEntry>
 {
   public:
     /** @brief Constructor to put object onto bus at a dbus path.
@@ -31,17 +41,17 @@ class evtEntry :
      *  @param[in] msgErr - The message of the error.
      *  @param[in] additionalDataErr - The error metadata.
      */
-    evtEntry(sdbusplus::bus::bus& bus, const std::string& path, uint32_t id,
+    EvtEntry(sdbusplus::bus::bus& bus, const std::string& path, uint32_t id,
              uint64_t timestamp, Level severity, std::string&& msg,
              std::string&& resolution,
              std::vector<std::string>&& additionalData);
-    ~evtEntry();
+    ~EvtEntry() override;
 
     /**
      * @brief Returns the file descriptor to the Entry file.
      * @return unix_fd - File descriptor to the Entry file.
      */
-    sdbusplus::message::unix_fd getEntry()
+    sdbusplus::message::unix_fd getEntry() override
     {
         return 0;
     };

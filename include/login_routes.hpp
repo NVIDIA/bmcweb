@@ -148,7 +148,7 @@ inline void handleLogin(const crow::Request& req,
             }
             else if (it->value() == "form-data; name=\"password\"")
             {
-                redfish::handleAccountLocked(username, asyncResp, req);
+                password = formpart.content;
             }
             else
             {

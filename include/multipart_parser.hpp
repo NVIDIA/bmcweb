@@ -10,7 +10,6 @@
 #include <array>
 #include <cstddef>
 #include <ranges>
-#include <regex>
 #include <string>
 #include <string_view>
 #include <vector>

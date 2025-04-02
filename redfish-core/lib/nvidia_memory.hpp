@@ -15,13 +15,15 @@
  * limitations under the License.
  */
 #pragma once
-#include "dbus_utility.hpp"
-#include "utils/dbus_utils.hpp"
-#include "utils/json_utils.hpp"
-#include "utils/pcie_util.hpp"
-#include "utils/sw_utils.hpp"
-#include "utils/time_utils.hpp"
 
+#include "error_messages.hpp"
+
+#include <array>
+#include <string>
+#include <variant>
+#include <vector>
+#include <boost/container/flat_map.hpp>
+#include <utility>
 namespace redfish
 {
 using DimmProperties =

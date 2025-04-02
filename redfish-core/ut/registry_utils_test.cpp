@@ -22,6 +22,7 @@
 /* -------------------------------- Includes -------------------------------- */
 #include <utils/registry_utils.hpp>
 
+// NOLINTNEXTLINE(misc-include-cleaner)
 #include <gmock/gmock.h>
 
 namespace redfish
@@ -58,11 +59,7 @@ bool cmpMsg(const Message* msg1, const Message* msg2)
             return false;
         }
     }
-    if (strcmp(msg1->resolution, msg2->resolution) != 0)
-    {
-        return false;
-    }
-    return true;
+    return static_cast<bool>(strcmp(msg1->resolution, msg2->resolution) == 0)
 }
 
 bool cmpRegistry(const std::span<const MessageEntry>& registry1,

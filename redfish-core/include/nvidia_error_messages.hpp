@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <source_location>
+#include <string>
 #include <string_view>
 // NOLINTEND(misc-include-cleaner)
 
@@ -52,9 +53,9 @@ void resourceErrorsDetectedFormatError(
  *
  * @returns Message actionParameterValueError formatted to JSON */
 
-nlohmann::json asyncCommandError(const std::string& errCode,
+nlohmann::json asyncCommandError(const std::string& errorCode,
                                  const std::string& resolution);
-void asyncError(crow::Response& res, const std::string& errCode,
+void asyncError(crow::Response& res, const std::string& errorCode,
                 const std::string& resolution);
 
 /**

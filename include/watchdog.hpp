@@ -15,9 +15,16 @@
  * limitations under the License.
  */
 #pragma once
+
+#include "logging.hpp"  // For BMCWEB_LOG_ERROR
+
 #include <systemd/sd-daemon.h>
 
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/steady_timer.hpp>
+
+#include <chrono>
+#include <functional>  // For std::function
 
 namespace crow
 {

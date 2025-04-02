@@ -18,10 +18,16 @@
 
 #include <openssl/asn1.h>
 #include <openssl/bio.h>
+#include <openssl/buffer.h>   // For BUF_MEM operations
+#include <openssl/evp.h>      // For base64 functions
+#include <openssl/objects.h>  // For ASN1 object identifiers
 #include <openssl/ssl.h>
 
 #include <logging.hpp>
 
+#include <algorithm>  // For std::equal
+#include <array>
+#include <cstdio>     // For BUFSIZ
 #include <cstring>
 #include <span>
 #include <string>
@@ -281,7 +287,7 @@ inline int pemPkeyIsEncrypted(const std::string& filename, bool* encrypted)
         size_t templen = len + BUFSIZ;
         if (BUF_MEM_grow(buf, templen) == 0U)
         {
-            BMCWEB_LOG_ERROR("Error expanding BIO buffer.");
+            BMCWEB_LOG_ERROR("Error expanding BIO buffer.");    
             BIO_free(inB64);
             BUF_MEM_free(buf);
             BIO_free(in);

@@ -19,16 +19,23 @@
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/beast/core.hpp>      // For lowest_layer_type
+
+#include <openssl/pem.h>  // For PEM_read_PrivateKey
+
+#include <sys/inotify.h>  // For IN_CLOSE_WRITE
 
 #include <chrono>
 #include <csignal>
 #include <cstddef>
+#include <cstdio>     // For FILE
 #include <ctime>
 #include <functional>
 #include <memory>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace crow
 {

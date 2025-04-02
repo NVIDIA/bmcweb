@@ -7,8 +7,9 @@
 #include "ossl_random.hpp"
 #include "sessions.hpp"
 // NOLINTNEXTLINE(misc-include-cleaner)
-#include "nvidia_persistent_data.hpp"
 #include "utility.hpp"
+// NOLINTNEXTLINE(misc-include-cleaner)
+#include "nvidia_persistent_data.hpp"
 
 #include <boost/beast/core/file_base.hpp>
 #include <boost/beast/core/file_posix.hpp>
@@ -16,6 +17,7 @@
 #include <nlohmann/json.hpp>
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>

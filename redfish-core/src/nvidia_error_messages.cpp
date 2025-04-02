@@ -12,18 +12,15 @@
 
 #include "error_message_utils.hpp"
 #include "http_response.hpp"
-#include "logging.hpp"
-#include "registries.hpp"
 #include "registries/base_message_registry.hpp"
 #include "update_messages.hpp"
 
-#include <boost/beast/http/field.hpp>
-#include <boost/beast/http/status.hpp>
 #include <nlohmann/json.hpp>
 
-#include <array>
 #include <string>
 #include <string_view>
+#include <vector>
+#include <utility>
 
 namespace redfish::messages
 {
