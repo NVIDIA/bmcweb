@@ -84,8 +84,9 @@ inline void afterGetPsuRedundancyProperties(
     asyncResp->res.jsonValue["Name"] = name;
     asyncResp->res.jsonValue["Description"] = description;
     asyncResp->res.jsonValue["RedundancySetting"] = redundancySetting;
-    asyncResp->res.jsonValue["MaxNumSupported"] = maxNumSupported;
-    asyncResp->res.jsonValue["MinNumNeeded"] = minNumNeeded;
+    asyncResp->res.jsonValue["MaxNumSupported"] =
+        std::to_string(maxNumSupported);
+    asyncResp->res.jsonValue["MinNumNeeded"] = std::to_string(minNumNeeded);
 }
 
 inline void handlePSURedundancyGetRequest(

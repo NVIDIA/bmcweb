@@ -211,7 +211,7 @@ inline void afterGetPowerComplianceProperties(
         "/redfish/v1/Managers/{}/Oem/Nvidia/PowerCompliance",
         BMCWEB_REDFISH_MANAGER_URI_NAME);
     jOut["@odata.type"] =
-        "#NvidiaPowerComplianceManager.v1_1_0.NvidiaPowerComplianceManager";
+        "#NvidiaPowerComplianceManager.v1_0_0.NvidiaPowerComplianceManager";
     jOut["Id"] = "PowerCompliance";
     jOut["Name"] = "Rack Power Compliance";
 
