@@ -248,6 +248,50 @@ inline void
     getChassisProcessorProtocolBridgeForDevices(aResp, objPath);
 }
 
+/* * @brief Fill out links association to underneath chassis by
+ * requesting data from the given D-Bus object.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       objPath     D-Bus object to query.
+ */
+inline void populateErrorInjectionChassis(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath,
+    const std::string& chassisId)
+{
+    crow::connections::systemBus->async_method_call(
+        [aResp, chassisId, objPath](
+            const boost::system::error_code ec,
+            const std::vector<std::pair<std::string, std::vector<std::string>>>&
+                serviceMap) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("ErrorInjection object not found in {}", objPath);
+            return;
+        }
+
+        for (const auto& [_, interfaces] : serviceMap)
+        {
+            if (std::find(interfaces.begin(), interfaces.end(),
+                          "com.nvidia.ErrorInjection.ErrorInjection") ==
+                interfaces.end())
+            {
+                continue;
+            }
+            aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaChassis.v1_0_0.NvidiaSMAChassis";
+            aResp->res
+                .jsonValue["Oem"]["Nvidia"]["ErrorInjection"]["@odata.id"] =
+                "/redfish/v1/Chassis/" + chassisId +
+                "/Oem/Nvidia/ErrorInjection";
+            return;
+        }
+    },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetObject",
+        objPath + "/ErrorInjection", std::array<const char*, 0>());
+}
+
 inline void
     getHealthByAssociation(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& objPath,

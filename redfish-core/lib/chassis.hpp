@@ -791,6 +791,8 @@ inline void handleChassisGetSubTree(
                 redfish::nvidia_chassis_utils::getOemBaseboardChassisAssert(
                     asyncResp, objPath);
             }
+            redfish::nvidia_chassis_utils::populateErrorInjectionChassis(
+                asyncResp, objPath, chassisId);
 
             // Links association to underneath chassis
             redfish::nvidia_chassis_utils::getChassisLinksContains(asyncResp,
