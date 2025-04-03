@@ -1640,6 +1640,21 @@ inline void
                         .jsonValue["Oem"]["Nvidia"]["LinkDownedCount"] = *value;
                     addNvidiaType = true;
                 }
+                else if (property.first == "SymbolErrors")
+                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         " for symbol errors");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["SymbolErrors"] =
+                        *value;
+                    addNvidiaType = true;
+                }
             }
             for (const auto& [pdiPropertyName, fixedPropertyName] :
                  pcieErrorsProperties)
