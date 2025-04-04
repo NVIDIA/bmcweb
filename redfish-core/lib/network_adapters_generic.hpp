@@ -1411,6 +1411,266 @@ inline void
                         networkAdapterId, portId));
 }
 
+inline void
+    populateEthPortMetrics(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& propertyName,
+                           const dbus::utility::DbusVariantType& propertyValue)
+{
+    using PropertiesNameMap =
+        boost::container::flat_map<std::string, std::string>;
+    static const PropertiesNameMap ethernetMetricsProperties{
+        {"RXBroadcastPkts", "RXBroadcastFrames"},
+        {"TXBroadcastPkts", "TXBroadcastFrames"},
+        {"RXFCSErrors", "RXFCSErrors"},
+        {"RXAlignmentErrors", "RXFrameAlignmentErrors"},
+        {"RXFalseCarrierDetections", "RXFalseCarrierErrors"},
+        {"RXRuntPkts", "RXUndersizeFrames"},
+        {"RXJabberPkts", "RXOversizeFrames"},
+        {"RXXONFrames", "RXPauseXONFrames"},
+        {"RXXOFFFrames", "RXPauseXOFFFrames"},
+        {"TXXONFrames", "TXPauseXONFrames"},
+        {"TXXOFFFrames", "TXPauseXOFFFrames"},
+        {"TXSingleCollisionFrames", "TXSingleCollisions"},
+        {"TXMultipleCollisionFrames", "TXMultipleCollisions"},
+        {"TXLateCollisionFrames", "TXLateCollisions"},
+        {"TXExcessCollisionFrames", "TXExcessiveCollisions"}};
+
+    auto it = ethernetMetricsProperties.find(propertyName);
+    if (it != ethernetMetricsProperties.end())
+    {
+        const auto* value = std::get_if<uint64_t>(&propertyValue);
+        if (value == nullptr)
+        {
+            BMCWEB_LOG_ERROR("Null value returned for Port Metric {}",
+                             it->second);
+            return;
+        }
+        asyncResp->res.jsonValue["Networking"][it->second] = *value;
+    }
+}
+
+inline void
+    populateIBPortMetrics(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const std::string& propertyName,
+                          const dbus::utility::DbusVariantType& propertyValue,
+                          bool& addNvidiaType)
+{
+    if (propertyName == "RXErrors")
+    {
+        const auto* value = std::get_if<uint64_t>(&propertyValue);
+        if (value == nullptr)
+        {
+            BMCWEB_LOG_ERROR("Null value returned "
+                             "for receive error");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["RXErrors"] = *value;
+    }
+    else if (propertyName == "RXPkts")
+    {
+        const auto* value = std::get_if<uint64_t>(&propertyValue);
+        if (value == nullptr)
+        {
+            BMCWEB_LOG_ERROR("Null value returned "
+                             "for receive packets");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["Networking"]["RXFrames"] = *value;
+    }
+    else if (propertyName == "TXPkts")
+    {
+        const auto* value = std::get_if<uint64_t>(&propertyValue);
+        if (value == nullptr)
+        {
+            BMCWEB_LOG_ERROR("Null value returned "
+                             "for transmit packets");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["Networking"]["TXFrames"] = *value;
+    }
+    else if (propertyName == "TXDiscardPkts")
+    {
+        const auto* value = std::get_if<uint64_t>(&propertyValue);
+        if (value == nullptr)
+        {
+            BMCWEB_LOG_ERROR("Null value returned "
+                             "for transmit discard packets");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["Networking"]["TXDiscards"] = *value;
+    }
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        if (propertyName == "VL15DroppedPkts")
+        {
+            const auto* value = std::get_if<uint64_t>(&propertyValue);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Null value returned "
+                                 "for VL15 dropped packets");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["VL15Dropped"] = *value;
+            addNvidiaType = true;
+        }
+        else if (propertyName == "LinkErrorRecoveryCounter")
+        {
+            const auto* value = std::get_if<uint64_t>(&propertyValue);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Null value returned "
+                                 "for link error recovery count");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res
+                .jsonValue["Oem"]["Nvidia"]["LinkErrorRecoveryCount"] = *value;
+            addNvidiaType = true;
+        }
+        else if (propertyName == "RXRemotePhysicalErrorPkts")
+        {
+            const auto* value = std::get_if<uint64_t>(&propertyValue);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Null value returned "
+                                 "for receive remote physical error");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res
+                .jsonValue["Oem"]["Nvidia"]["RXRemotePhysicalErrors"] = *value;
+            addNvidiaType = true;
+        }
+        else if (propertyName == "RXSwitchRelayErrorPkts")
+        {
+            const auto* value = std::get_if<uint64_t>(&propertyValue);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Null value returned "
+                                 "for receive switch replay error");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["RXSwitchRelayErrors"] =
+                *value;
+            addNvidiaType = true;
+        }
+        else if (propertyName == "LinkDownCount")
+        {
+            const auto* value = std::get_if<uint64_t>(&propertyValue);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Null value returned "
+                                 "for link down count");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["LinkDownedCount"] =
+                *value;
+            addNvidiaType = true;
+        }
+        else if (propertyName == "SymbolErrors")
+        {
+            const auto* value = std::get_if<uint64_t>(&propertyValue);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Null value returned "
+                                 " for symbol errors");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["SymbolErrors"] = *value;
+            addNvidiaType = true;
+        }
+        else if (propertyName == "EffectiveError")
+        {
+            const auto* value = std::get_if<uint64_t>(&propertyValue);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Null value returned "
+                                 " for effective error");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["EffectiveError"] =
+                *value;
+            addNvidiaType = true;
+        }
+        else if (propertyName == "EffectiveBER")
+        {
+            const auto* value = std::get_if<double>(&propertyValue);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Null value returned "
+                                 " for effective BER");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["EffectiveBER"] = *value;
+            addNvidiaType = true;
+        }
+        else if (propertyName == "TotalRawBER")
+        {
+            const auto* value = std::get_if<double>(&propertyValue);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Null value returned "
+                                 " for total raw BER");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["TotalRawBER"] = *value;
+            addNvidiaType = true;
+        }
+        else if (propertyName == "TotalRawError")
+        {
+            const auto* value = std::get_if<uint64_t>(&propertyValue);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Null value returned "
+                                 " for total raw error");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["TotalRawError"] = *value;
+            addNvidiaType = true;
+        }
+        else if (propertyName == "IntentionalLinkDownCount")
+        {
+            const auto* value = std::get_if<uint64_t>(&propertyValue);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Null value returned "
+                                 " for intentional link down count");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                    ["IntentionalLinkDownCount"] = *value;
+            addNvidiaType = true;
+        }
+        else if (propertyName == "UnintentionalLinkDownCount")
+        {
+            const auto* value = std::get_if<uint64_t>(&propertyValue);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Null value returned "
+                                 " for unintentional link down count");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                    ["UnintentionalLinkDownCount"] = *value;
+            addNvidiaType = true;
+        }
+    }
+}
+
 /**
  * @brief Get all port metric info by requesting data
  * from the given D-Bus object.
@@ -1438,6 +1698,13 @@ inline void
         }
 
         auto addNvidiaType = BMCWEB_NVIDIA_OEM_PROPERTIES;
+        auto linkTypePtr = properties.find("LinkType");
+        std::string linkType;
+        if (linkTypePtr != properties.end())
+        {
+            linkType = std::get<std::string>(linkTypePtr->second);
+            linkType = port_utils::getLinkType(linkType);
+        }
 
         static const std::map<std::string, std::optional<std::string>>
             pcieErrorsProperties{
@@ -1465,45 +1732,9 @@ inline void
                 }
                 asyncResp->res.jsonValue[property.first] = *value;
             }
-            else if (property.first == "RXErrors")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for receive error");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["RXErrors"] = *value;
-            }
-            else if (property.first == "RXPkts")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for receive packets");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Networking"]["RXFrames"] = *value;
-            }
-            else if (property.first == "TXPkts")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for transmit packets");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Networking"]["TXFrames"] = *value;
-            }
             else if (property.first == "RXMulticastPkts")
             {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
+                const auto* value = std::get_if<uint64_t>(&property.second);
                 if (value == nullptr)
                 {
                     BMCWEB_LOG_ERROR("Null value returned "
@@ -1516,7 +1747,7 @@ inline void
             }
             else if (property.first == "TXMulticastPkts")
             {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
+                const auto* value = std::get_if<uint64_t>(&property.second);
                 if (value == nullptr)
                 {
                     BMCWEB_LOG_ERROR("Null value returned "
@@ -1529,7 +1760,7 @@ inline void
             }
             else if (property.first == "RXUnicastPkts")
             {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
+                const auto* value = std::get_if<uint64_t>(&property.second);
                 if (value == nullptr)
                 {
                     BMCWEB_LOG_ERROR("Null value returned "
@@ -1542,7 +1773,7 @@ inline void
             }
             else if (property.first == "TXUnicastPkts")
             {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
+                const auto* value = std::get_if<uint64_t>(&property.second);
                 if (value == nullptr)
                 {
                     BMCWEB_LOG_ERROR("Null value returned "
@@ -1553,201 +1784,18 @@ inline void
                 asyncResp->res.jsonValue["Networking"]["TXUnicastFrames"] =
                     *value;
             }
-            else if (property.first == "TXDiscardPkts")
+
+            if (linkType == "Ethernet")
             {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for transmit discard packets");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["Networking"]["TXDiscards"] = *value;
+                populateEthPortMetrics(asyncResp, property.first,
+                                       property.second);
             }
-            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+            else
             {
-                if (property.first == "VL15DroppedPkts")
-                {
-                    const uint64_t* value =
-                        std::get_if<uint64_t>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Null value returned "
-                                         "for VL15 dropped packets");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["VL15Dropped"] =
-                        *value;
-                    addNvidiaType = true;
-                }
-                else if (property.first == "LinkErrorRecoveryCounter")
-                {
-                    const uint64_t* value =
-                        std::get_if<uint64_t>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Null value returned "
-                                         "for link error recovery count");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                            ["LinkErrorRecoveryCount"] = *value;
-                    addNvidiaType = true;
-                }
-                else if (property.first == "RXRemotePhysicalErrorPkts")
-                {
-                    const uint64_t* value =
-                        std::get_if<uint64_t>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Null value returned "
-                                         "for receive remote physical error");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                            ["RXRemotePhysicalErrors"] = *value;
-                    addNvidiaType = true;
-                }
-                else if (property.first == "RXSwitchRelayErrorPkts")
-                {
-                    const uint64_t* value =
-                        std::get_if<uint64_t>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Null value returned "
-                                         "for receive switch replay error");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                            ["RXSwitchRelayErrors"] = *value;
-                    addNvidiaType = true;
-                }
-                else if (property.first == "LinkDownCount")
-                {
-                    const uint64_t* value =
-                        std::get_if<uint64_t>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Null value returned "
-                                         "for link down count");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    asyncResp->res
-                        .jsonValue["Oem"]["Nvidia"]["LinkDownedCount"] = *value;
-                    addNvidiaType = true;
-                }
-                else if (property.first == "SymbolErrors")
-                {
-                    const uint64_t* value =
-                        std::get_if<uint64_t>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Null value returned "
-                                         " for symbol errors");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["SymbolErrors"] =
-                        *value;
-                    addNvidiaType = true;
-                }
-                else if (property.first == "EffectiveError")
-                {
-                    const uint64_t* value =
-                        std::get_if<uint64_t>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Null value returned "
-                                         " for effective error");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    asyncResp->res
-                        .jsonValue["Oem"]["Nvidia"]["EffectiveError"] = *value;
-                    addNvidiaType = true;
-                }
-                else if (property.first == "EffectiveBER")
-                {
-                    const double* value = std::get_if<double>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Null value returned "
-                                         " for effective BER");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["EffectiveBER"] =
-                        *value;
-                    addNvidiaType = true;
-                }
-                else if (property.first == "TotalRawBER")
-                {
-                    const double* value = std::get_if<double>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Null value returned "
-                                         " for total raw BER");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["TotalRawBER"] =
-                        *value;
-                    addNvidiaType = true;
-                }
-                else if (property.first == "TotalRawError")
-                {
-                    const uint64_t* value =
-                        std::get_if<uint64_t>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Null value returned "
-                                         " for total raw error");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["TotalRawError"] =
-                        *value;
-                    addNvidiaType = true;
-                }
-                else if (property.first == "IntentionalLinkDownCount")
-                {
-                    const uint64_t* value =
-                        std::get_if<uint64_t>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Null value returned "
-                                         " for intentional link down count");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                            ["IntentionalLinkDownCount"] =
-                        *value;
-                    addNvidiaType = true;
-                }
-                else if (property.first == "UnintentionalLinkDownCount")
-                {
-                    const uint64_t* value =
-                        std::get_if<uint64_t>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Null value returned "
-                                         " for unintentional link down count");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    asyncResp->res.jsonValue["Oem"]["Nvidia"]
-                                            ["UnintentionalLinkDownCount"] =
-                        *value;
-                    addNvidiaType = true;
-                }
+                populateIBPortMetrics(asyncResp, property.first,
+                                      property.second, addNvidiaType);
             }
+
             for (const auto& [pdiPropertyName, fixedPropertyName] :
                  pcieErrorsProperties)
             {
@@ -1774,7 +1822,7 @@ inline void
             if (addNvidiaType)
             {
                 asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaPortMetrics.v1_6_0.NvidiaNVLinkPortMetrics";
+                    "#NvidiaPortMetrics.v1_7_0.NvidiaNetworkPortMetrics";
             }
         }
     },
@@ -1830,7 +1878,7 @@ inline void getPortMetricsDataByAssociation(
                     return;
                 }
                 asyncResp->res.jsonValue["@odata.type"] =
-                    "#PortMetrics.v1_6_1.PortMetrics";
+                    "#PortMetrics.v1_7_0.PortMetrics";
                 asyncResp->res.jsonValue["Id"] = portId;
                 asyncResp->res.jsonValue["Name"] = portId + " Port Metrics";
                 asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
