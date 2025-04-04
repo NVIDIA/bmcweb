@@ -241,9 +241,8 @@ class OemRouter
             auto uriParams = std::make_shared<std::vector<std::string>>(params);
 
             asyncResp->res.setCompleteRequestHandler(std::bind_front(
-                query_param::MultiAsyncResp::startMultiFragmentHandle,
-                std::make_shared<crow::Request>(req.copy()), multiResp,
-                uriFragments, uriParams));
+                query_param::MultiAsyncResp::startMultiFragmentHandle, req,
+                multiResp, uriFragments, uriParams));
         }
         else
         {
