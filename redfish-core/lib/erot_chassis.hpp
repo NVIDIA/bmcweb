@@ -19,7 +19,6 @@
 #define OPENSSL_SUPPRESS_DEPRECATED 1
 
 #include "background_copy.hpp"
-#include "dot.hpp"
 #include "in_band.hpp"
 #include "lsp.hpp"
 #include "manual_boot.hpp"
@@ -49,9 +48,129 @@ constexpr const char* spdmObjectPath = "/xyz/openbmc_project/SPDM";
 constexpr const char* spdmResponderIntf = "xyz.openbmc_project.SPDM.Responder";
 constexpr const char* spdmServiceName = "xyz.openbmc_project.SPDM";
 using SPDMCertificates = std::vector<std::tuple<uint8_t, std::string>>;
-
 } // namespace erot
 
+namespace dot
+{
+constexpr const char* rotObjectPath = "/xyz/openbmc_project/NvidiaRootOfTrust";
+constexpr const char* rotIntf = "com.Nvidia.NvidiaRootOfTrust";
+constexpr const char* rotServiceName = "com.Nvidia.NvidiaRootOfTrust";
+constexpr const char* rotExecMethodName = "executeDotCommand";
+// defined in libmctp project in vdm/nvidia/libmctp-vdm-cmds.h
+constexpr const size_t dotKeySize = 96;
+// related to mctp_vendor_cmd_cak_install structure size in libmctp
+constexpr const size_t dotCakInstallDataSize = dotKeySize + 98;
+constexpr const size_t dotTokenSize = 256;
+using DotResult = std::vector<std::pair<int, std::vector<std::string>>>;
+} // namespace dot
+
+enum DotMctpVdmUtilCommand
+{
+    CAKInstall,
+    CAKLock,
+    CAKTest,
+    DOTDisable,
+    DOTTokenInstall,
+};
+
+enum DotRedfishCompletionCode
+{
+    success,
+    resourceErrorsDetectedFormatError,
+    dotActionResponseError,
+    dotMctpStatusError,
+};
+
+
+#ifdef BMCWEB_ENABLE_DOT
+/**
+ * @brief Converts a DOT completion code and error messages into appropriate
+ * Redfish response
+ * @param asyncResp Shared pointer to async response object
+ * @param completionCode Integer completion code from DOT operation
+ * @param errorMessages Vector of error message strings
+ *
+ * This function takes a completion code and error messages from a DOT operation
+ * and converts them into the appropriate Redfish response format. It handles
+ * different completion code cases
+ */
+static void getResponseFromCompletionCode(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const int completionCode, const std::vector<std::string>& errorMessages)
+{
+    if (errorMessages.empty() || completionCode < 0)
+    {
+        BMCWEB_LOG_ERROR("Invalid arguments to getResponseFromCompletionCode");
+        return;
+    }
+    if (completionCode ==
+        DotRedfishCompletionCode::resourceErrorsDetectedFormatError)
+    {
+        BMCWEB_LOG_DEBUG("resourceErrorsDetectedFormatError");
+        if (errorMessages.size() == 2)
+        {
+            messages::resourceErrorsDetectedFormatError(
+                asyncResp->res, errorMessages[0], errorMessages[1]);
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR(
+                "resourceErrorsDetectedFormatError expects 2 error messages, got: {1}",
+                "1", errorMessages.size());
+            messages::resourceErrorsDetectedFormatError(
+                asyncResp->res, errorMessages[0],
+                std::string("Internal server error"));
+        }
+    }
+    else if (completionCode == DotRedfishCompletionCode::success)
+    {
+        BMCWEB_LOG_DEBUG("success");
+        messages::success(asyncResp->res);
+    }
+    else if (completionCode == DotRedfishCompletionCode::dotActionResponseError)
+    {
+        BMCWEB_LOG_DEBUG("dotActionResponseError");
+        messages::dotActionResponseError(asyncResp->res, errorMessages[0]);
+    }
+    else if (completionCode == DotRedfishCompletionCode::dotMctpStatusError)
+    {
+        BMCWEB_LOG_DEBUG("dotMctpStatusError");
+        messages::dotMctpStatusError(asyncResp->res, errorMessages[0]);
+    }
+    else
+    {
+        messages::internalError(asyncResp->res);
+    }
+}
+/**
+ * @brief Handles the result from a DOT operation and generates appropriate
+ * Redfish response
+ * @param asyncResp Shared pointer to async response object
+ * @param result Result object containing completion code and error messages
+ * from DOT operation
+ *
+ * This function processes the result from a DOT operation and generates the
+ * appropriate Redfish response.
+ */
+static void handleDotResult(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const dot::DotResult& result)
+{
+    // Define 2 error messages by default
+    std::vector<std::string> messages = {"NVIDIA ROT Utility",
+                                         "internal server error"};
+    for (const auto& err_instance : result)
+    {
+        uint8_t i = 0;
+        for (const std::string& respMessage : err_instance.second)
+        {
+            messages[i] = respMessage;
+            i++;
+        }
+        getResponseFromCompletionCode(asyncResp, err_instance.first, messages);
+        break;
+    }
+}
+#endif // BMCWEB_ENABLE_DOT
 /**
  * @brief Retrieve the certificate and append to the response
  * message
@@ -692,6 +811,75 @@ inline void
 }
 
 #ifdef BMCWEB_ENABLE_DOT
+
+inline bool getBinaryKeyFromPem(const std::string& pem,
+                                std::vector<uint8_t>& key)
+{
+    using namespace dot;
+    std::unique_ptr<BIO, decltype(&::BIO_free)> bio{BIO_new(BIO_s_mem()),
+                                                    &::BIO_free};
+    if (!bio)
+    {
+        BMCWEB_LOG_ERROR("openssl BIO allocation failed");
+        return false;
+    }
+
+    size_t written = 0;
+    int ret = BIO_write_ex(bio.get(), pem.data(), pem.size(), &written);
+    if (ret != 1 || written != pem.size())
+    {
+        BMCWEB_LOG_ERROR("BIO_write_ex failed");
+        return false;
+    }
+
+    std::unique_ptr<EVP_PKEY, decltype(&::EVP_PKEY_free)> pubKey{
+        PEM_read_bio_PUBKEY(bio.get(), nullptr, lsp::emptyPasswordCallback,
+                            nullptr),
+        &::EVP_PKEY_free};
+    if (!pubKey)
+    {
+        BMCWEB_LOG_ERROR("PEM_read_bio_PUBKEY failed");
+        return false;
+    }
+
+    std::unique_ptr<EC_KEY, decltype(&::EC_KEY_free)> ecKey{
+        EVP_PKEY_get1_EC_KEY(pubKey.get()), &::EC_KEY_free};
+    if (!ecKey)
+    {
+        BMCWEB_LOG_ERROR("EVP_PKEY_get1_EC_KEY failed");
+        return false;
+    }
+
+    const EC_GROUP* group = EC_KEY_get0_group(ecKey.get());
+    if (!group)
+    {
+        BMCWEB_LOG_ERROR("EC_KEY_get0_group failed");
+        return false;
+    }
+    const EC_POINT* point = EC_KEY_get0_public_key(ecKey.get());
+    if (!point)
+    {
+        BMCWEB_LOG_ERROR("EC_KEY_get0_group failed");
+        return false;
+    }
+
+    // the first byte contains information about whether the key
+    // is compressed as per https://www.rfc-editor.org/rfc/rfc5480#section-2.2
+    key.resize(dotKeySize + 1);
+    size_t resultSize = EC_POINT_point2oct(
+        group, point, EC_GROUP_get_point_conversion_form(group), key.data(),
+        key.size(), nullptr);
+    if (resultSize == 0)
+    {
+        BMCWEB_LOG_ERROR("EC_POINT_point2oct failed");
+        return false;
+    }
+
+    // remove the compression byte
+    key.erase(key.begin());
+    return true;
+}
+
 inline void requestRoutesEROTChassisDOT(App& app)
 {
     using namespace dot;
@@ -703,6 +891,7 @@ inline void requestRoutesEROTChassisDOT(App& app)
                    const std::string& chassisID) -> void {
         if (!redfish::setUpRedfishRoute(app, req, asyncResp))
         {
+            BMCWEB_LOG_ERROR("setUpRedfishRoute failed");
             return;
         }
         std::string cakKey;
@@ -758,8 +947,21 @@ inline void requestRoutesEROTChassisDOT(App& app)
             data.insert(data.end(), binarySignature.begin(),
                         binarySignature.end());
         }
-        executeDotCommand(asyncResp, chassisID,
-                          DotMctpVdmUtilCommand::CAKInstall, data);
+        BMCWEB_LOG_DEBUG("Calling NVIDIA ROT CAKInstall");
+
+        crow::connections::systemBus->async_method_call(
+            [asyncResp](const boost::system::error_code ec,
+                        const DotResult& result) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error: {}", ec.message());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            handleDotResult(asyncResp, result);
+        },
+            rotServiceName, rotObjectPath, rotIntf, rotExecMethodName,
+            chassisID, "cak_install", data);
     });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Actions/Oem/CAKLock/")
@@ -791,8 +993,20 @@ inline void requestRoutesEROTChassisDOT(App& app)
                 asyncResp->res, std::to_string(binaryKey.size()), "Key size");
             return;
         }
-        executeDotCommand(asyncResp, chassisID, DotMctpVdmUtilCommand::CAKLock,
-                          binaryKey);
+        BMCWEB_LOG_DEBUG("Calling NVIDIA ROT CAKLock");
+        crow::connections::systemBus->async_method_call(
+            [asyncResp](const boost::system::error_code ec,
+                        const DotResult& result) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            handleDotResult(asyncResp, result);
+        },
+            rotServiceName, rotObjectPath, rotIntf, rotExecMethodName,
+            chassisID, "cak_lock", binaryKey);
     });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Actions/Oem/CAKTest/")
@@ -806,8 +1020,20 @@ inline void requestRoutesEROTChassisDOT(App& app)
             return;
         }
         std::vector<uint8_t> data;
-        executeDotCommand(asyncResp, chassisID, DotMctpVdmUtilCommand::CAKTest,
-                          data);
+        BMCWEB_LOG_DEBUG("Calling NVIDIA ROT CAKTest");
+        crow::connections::systemBus->async_method_call(
+            [asyncResp](const boost::system::error_code ec,
+                        const DotResult& result) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            handleDotResult(asyncResp, result);
+        },
+            rotServiceName, rotObjectPath, rotIntf, rotExecMethodName,
+            chassisID, "cak_test", data);
     });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Actions/Oem/DOTDisable/")
@@ -839,8 +1065,20 @@ inline void requestRoutesEROTChassisDOT(App& app)
                 asyncResp->res, std::to_string(binaryKey.size()), "Key size");
             return;
         }
-        executeDotCommand(asyncResp, chassisID,
-                          DotMctpVdmUtilCommand::DOTDisable, binaryKey);
+        BMCWEB_LOG_DEBUG("Calling NVIDIA ROT DOTDisable");
+        crow::connections::systemBus->async_method_call(
+            [asyncResp](const boost::system::error_code ec,
+                        const DotResult& result) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            handleDotResult(asyncResp, result);
+        },
+            rotServiceName, rotObjectPath, rotIntf, rotExecMethodName,
+            chassisID, "dot_disable", binaryKey);
     });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/Actions/Oem/DOTTokenInstall/")
@@ -862,8 +1100,20 @@ inline void requestRoutesEROTChassisDOT(App& app)
             return;
         }
         std::vector<uint8_t> data(req.body().begin(), req.body().end());
-        executeDotCommand(asyncResp, chassisID,
-                          DotMctpVdmUtilCommand::DOTTokenInstall, data);
+        BMCWEB_LOG_DEBUG("Calling NVIDIA ROT DOTTokenInstall");
+        crow::connections::systemBus->async_method_call(
+            [asyncResp](const boost::system::error_code ec,
+                        const DotResult& result) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            handleDotResult(asyncResp, result);
+        },
+            rotServiceName, rotObjectPath, rotIntf, rotExecMethodName,
+            chassisID, "dot_token_install", data);
     });
 }
 #endif // BMCWEB_ENABLE_DOT
