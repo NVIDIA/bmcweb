@@ -230,33 +230,26 @@ inline void isLoaded(const std::string_view& unit, Callback&& callbackIn)
 inline void getOemNvidiaOpenOCD(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    isLoaded(
-        "openocdon_2eservice",
-        [asyncResp](boost::system::error_code& ec,
-                    std::variant<std::string>& property) {
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            std::string* serviceStatus = std::get_if<std::string>(&property);
-            if (*serviceStatus == "active")
-            {
-                asyncResp->res
-                    .jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Status"]["State"] =
-                    "Enabled";
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Enable"] =
-                    true;
-            }
-            else
-            {
-                asyncResp->res
-                    .jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Status"]["State"] =
-                    "Disabled";
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Enable"] =
-                    false;
-            }
-        });
+    isLoaded("openocdon_2eservice", [asyncResp](
+                                        boost::system::error_code& ec,
+                                        std::variant<std::string>& property) {
+        if (ec)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        std::string* serviceStatus = std::get_if<std::string>(&property);
+        if (*serviceStatus == "active")
+        {
+            asyncResp->res.jsonValue["OpenOCD"]["Status"]["State"] = "Enabled";
+            asyncResp->res.jsonValue["OpenOCD"]["Enable"] = true;
+        }
+        else
+        {
+            asyncResp->res.jsonValue["OpenOCD"]["Status"]["State"] = "Disabled";
+            asyncResp->res.jsonValue["OpenOCD"]["Enable"] = false;
+        }
+    });
 }
 
 inline void setOemNvidiaOpenOCD(const bool value)
@@ -374,8 +367,7 @@ inline void getFabricManagerInformation(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res
-                        .jsonValue["Oem"]["Nvidia"]["FabricManagerState"] =
+                    aResp->res.jsonValue["FabricManagerState"] =
                         getFMState(*value);
                     addOemNvidiaOdataType = true;
                 }
@@ -390,7 +382,7 @@ inline void getFabricManagerInformation(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["Oem"]["Nvidia"]["ReportStatus"] =
+                    aResp->res.jsonValue["ReportStatus"] =
                         getFMReportStatus(*value);
                     addOemNvidiaOdataType = true;
                 }
@@ -405,8 +397,7 @@ inline void getFabricManagerInformation(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["Oem"]["Nvidia"]
-                                        ["DurationSinceLastRestartSeconds"] =
+                    aResp->res.jsonValue["DurationSinceLastRestartSeconds"] =
                         *value;
                     addOemNvidiaOdataType = true;
                 }
@@ -427,7 +418,7 @@ inline void getFabricManagerInformation(
             }
             if (addOemNvidiaOdataType)
             {
-                aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                aResp->res.jsonValue["@odata.type"] =
                     "#NvidiaManager.v1_4_0.NvidiaFabricManager";
             }
         },

@@ -268,6 +268,8 @@ RedfishService::RedfishService(App& app)
     requestRoutesRedfish(app);
 
     requestRoutesOpenBmcManager(*this);
+    // Nvidia OEM routes
+    requestRoutesNvidiaManager(*this);
 
     validate();
 }

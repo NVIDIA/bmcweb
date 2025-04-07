@@ -894,11 +894,7 @@ inline void requestRoutesManager(App& app)
                 });
 
             extendManagerGet(req, asyncResp, managerId);
-
-            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-            {
-                extendManagerOEM(req, asyncResp, managerId);
-            }
+            extendManagerOEMActions(req, asyncResp, managerId);
             RedfishService::getInstance(app).handleSubRoute(req, asyncResp);
         });
 
@@ -927,6 +923,7 @@ inline void requestRoutesManager(App& app)
                 std::optional<nlohmann::json::object_t> fanZones;
                 std::optional<nlohmann::json::object_t> stepwiseControllers;
                 std::optional<std::string> profile;
+                std::optional<std::string> serviceIdentification;
 
                 if (!json_util::readJsonPatch(                            //
                         req, asyncResp->res,                              //
@@ -938,7 +935,9 @@ inline void requestRoutesManager(App& app)
                         "Oem/OpenBmc/Fan/PidControllers", pidControllers, //
                         "Oem/OpenBmc/Fan/Profile", profile,               //
                         "Oem/OpenBmc/Fan/StepwiseControllers",
-                        stepwiseControllers                               //
+                        stepwiseControllers //
+                        "ServiceIdentification",
+                        serviceIdentification //                        
                         ))
                 {
                     return;
@@ -996,7 +995,10 @@ inline void requestRoutesManager(App& app)
                     setDateTime(asyncResp, *datetime);
                 }
 
-                extendManagerPatch(req, asyncResp, managerId);
+                if (serviceIdentification)
+                {
+                    setServiceIdentification(asyncResp, std::move(*serviceIdentification));
+                }                
                 if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                 {
                     extendManagerPatchOEM(req, asyncResp, managerId);

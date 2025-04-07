@@ -30,8 +30,10 @@
 #include "nvidia_event_service_manager.hpp"
 #include "persistentstorage_util.hpp"
 #include "query.hpp"
+#include "redfish.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
+#include "sub_request.hpp"
 #include "utils/conditions_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
@@ -730,12 +732,9 @@ inline void getFencingPrivilege(
                                 }
 
                                 nlohmann::json& json = asyncResp->res.jsonValue;
-                                json["Oem"]["Nvidia"]["@odata.type"] =
-                                    "#NvidiaManager.v1_2_0.NvidiaManager";
-                                json["Oem"]["Nvidia"]
-                                    ["SMBPBIFencingPrivilege"] = redfish::
-                                        dbus_utils::toSMPBIPrivilegeString(
-                                            *fencingPrivilege);
+                                json["SMBPBIFencingPrivilege"] =
+                                    redfish::dbus_utils::toSMPBIPrivilegeString(
+                                        *fencingPrivilege);
                             }
                         }
                     },
@@ -1384,39 +1383,22 @@ inline void handleGenericManager(
                                    "Item.ManagementService"});
 }
 
-inline void extendManagerPatch(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& /*managerId*/)
-{
-    std::optional<std::string> serviceIdentification;
-
-    if (!json_util::readJsonPatch(req, asyncResp->res, "ServiceIdentification",
-                                  serviceIdentification))
-    {
-        return;
-    }
-    if (serviceIdentification)
-    {
-        setServiceIdentification(asyncResp, std::move(*serviceIdentification));
-    }
-}
-
 inline void extendManagerPatchOEM(
-    const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const SubRequest& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& /*managerId*/)
 {
+    nlohmann::json::object_t payload = req.payload();
+
     std::optional<std::string> serviceIdentification;
     std::optional<std::string> privilege;
     std::optional<bool> tlsAuth;
 
     std::optional<bool> openocdValue;
 
-    if (!json_util::readJsonPatch(
-            req, asyncResp->res, "Oem/Nvidia/SMBPBIFencingPrivilege", privilege,
-            "Oem/Nvidia/AuthenticationTLSRequired", tlsAuth,
-            "Oem/Nvidia/OpenOCD/Enable", openocdValue))
+    if (!json_util::readJsonObject(
+            payload, asyncResp->res, "SMBPBIFencingPrivilege",
+            privilege, "AuthenticationTLSRequired", tlsAuth,
+            "OpenOCD/Enable", openocdValue))
     {
         return;
     }
@@ -1647,30 +1629,20 @@ inline void extendManagerGet(
     getServiceIdentification(asyncResp);
 }
 
-inline void extendManagerOEM(
-    const crow::Request& /*req*/,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& /*managerId*/)
+inline void
+    extendManagerOEM(const SubRequest& /*req*/,
+                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                     const std::string& /*managerId*/)
 {
     // default oem data
-    nlohmann::json& oem = asyncResp->res.jsonValue["Oem"];
+    nlohmann::json& oemNvidia = asyncResp->res.jsonValue;
+    oemNvidia["@odata.type"] = "#NvidiaManager.v1_4_0.NvidiaManager";
+
     if constexpr (BMCWEB_HOST_OS_FEATURES)
     {
-        nlohmann::json& oemOpenbmc = oem["OpenBmc"];
-
-        oemOpenbmc["@odata.type"] = "#OpenBMCManager.OpenBmc";
-        oemOpenbmc["@odata.id"] =
-            "/redfish/v1/Managers/" +
-            std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) + "#/Oem/OpenBmc";
-
-        oemOpenbmc["Certificates"] = {
-            {"@odata.id", "/redfish/v1/Managers/" +
-                              std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                              "/Truststore/Certificates"}};
-
         if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
-            oem["Nvidia"]["@odata.id"] =
+            oemNvidia["@odata.id"] =
                 "/redfish/v1/Managers/" +
                 std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) + "/Oem/Nvidia";
         }
@@ -1678,7 +1650,7 @@ inline void extendManagerOEM(
 
     if constexpr (BMCWEB_NVIDIA_OEM_GB200NVL_PROPERTIES)
     {
-        oem["Nvidia"]["UptimeSeconds"] = [asyncResp]() -> double {
+        oemNvidia["UptimeSeconds"] = [asyncResp]() -> double {
             double uptime = 0;
             auto ifs = std::ifstream("/proc/uptime", std::ifstream::in);
             if (ifs.good())
@@ -1698,16 +1670,6 @@ inline void extendManagerOEM(
     {
         nvidia_manager_util::getOemNvidiaOpenOCD(asyncResp);
     }
-
-    // NvidiaManager
-    nlohmann::json& oemNvidia = oem["Nvidia"];
-    oemNvidia["@odata.type"] = "#NvidiaManager.v1_4_0.NvidiaManager";
-    nlohmann::json& oemResetToDefaults =
-        asyncResp->res
-            .jsonValue["Actions"]["Oem"]["#NvidiaManager.ResetToDefaults"];
-    oemResetToDefaults["target"] =
-        "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-        "/Actions/Oem/NvidiaManager.ResetToDefaults";
 
     // build type
     nlohmann::json& buildType = oemNvidia["FirmwareBuildType"];
@@ -1792,6 +1754,19 @@ inline void extendManagerOEM(
     }
 
     populatePersistentStorageSettingStatus(asyncResp);
+}
+
+inline void
+    extendManagerOEMActions(const crow::Request& /*req*/,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& /*managerId*/)
+{
+    nlohmann::json& oemResetToDefaults =
+        asyncResp->res
+            .jsonValue["Actions"]["Oem"]["#NvidiaManager.ResetToDefaults"];
+    oemResetToDefaults["target"] =
+        "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+        "/Actions/Oem/NvidiaManager.ResetToDefaults";
 
     nlohmann::json& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
 
@@ -1845,6 +1820,35 @@ inline void extendManagerOEM(
             "/redfish/v1/Managers/{}/Oem/Nvidia/SWErrorInjectionActionInfo",
             BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
+}
+
+inline void handleGetManagerNvidia(
+    const SubRequest& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
+{
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        extendManagerOEM(req, asyncResp, managerId);
+    }
+}
+
+inline void handlePatchManagerOpenBmc(
+    const SubRequest& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
+{
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        extendManagerPatchOEM(req, asyncResp, managerId);
+    }
+}
+
+inline void requestRoutesNvidiaManager(RedfishService& service)
+{
+    REDFISH_SUB_ROUTE<"/redfish/v1/Managers/<str>/#/Oem/Nvidia">(
+        service, HttpVerb::Get)(handleGetManagerNvidia);
+
+    REDFISH_SUB_ROUTE<"/redfish/v1/Managers/<str>/#/Oem/Nvidia">(
+        service, HttpVerb::Patch)(handlePatchManagerOpenBmc);
 }
 
 } // namespace redfish

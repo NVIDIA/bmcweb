@@ -207,6 +207,7 @@ class OemRouter
         {
             perMethod.trie.validate();
         }
+        debugPrint();
     }
 
     void debugPrint()
