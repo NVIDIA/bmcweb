@@ -175,7 +175,7 @@ string_options = [
 
 int_options = ['http-body-limit']
 
-array_options = ['oem-diagnostic-allowable-type']
+array_options = []
 
 feature_options_string = '\n//Feature options\n'
 string_options_string = '\n// String options\n'
