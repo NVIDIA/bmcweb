@@ -1042,13 +1042,6 @@ option(
 )
 
 option(
-    'oem-diagnostic-allowable-type',
-    type: 'array',
-    value: ['EROT', 'ROT', 'FirmwareAttributes'],
-    description: 'OEM diagnostic data allowable type',
-)
-
-option(
     'check-oem-diagnostic-type',
     type: 'feature',
     value: 'enabled',

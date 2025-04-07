@@ -22,10 +22,22 @@
 #pragma once
 #include "bmcweb_config.h"
 
+#include "com/nvidia/Dump/AllowableValues/server.hpp"
+#include "dbus_singleton.hpp"
+
+#include <boost/system/error_code.hpp>
+#include <sdbusplus/asio/connection.hpp>
+
 #include <string>
+#include <variant>
+#include <vector>
 
 namespace redfish
 {
+
+using AllowableValuesIface = sdbusplus::server::object::object<
+    sdbusplus::com::nvidia::Dump::server::AllowableValues>;
+using DumpType = AllowableValuesIface::DumpType;
 
 inline static std::string getLogEntryDataId(const std::string& id)
 {
@@ -66,6 +78,45 @@ inline void populateBootEntryId(crow::Response& resp)
     BMCWEB_LOG_ERROR("BootEntryID is {}.\n", bootEntryId);
 
     resp.jsonValue["Oem"]["Nvidia"]["BootEntryID"] = bootEntryId;
+}
+
+template <typename Callback>
+inline void getOEMDiagnosticAllowableValues(const std::string& dumpType,
+                                            Callback&& callback)
+{
+    sdbusplus::asio::getProperty<std::map<DumpType, std::vector<std::string>>>(
+        *crow::connections::systemBus, "xyz.openbmc_project.Dump.Manager",
+        "/xyz/openbmc_project/dump/oem_allowable_values",
+        "com.nvidia.Dump.AllowableValues", "OEMDataTypeAllowableValues",
+        [dumpType, callback](const boost::system::error_code& ec,
+                             const std::map<DumpType, std::vector<std::string>>&
+                                 oemAllowableValuesMap) {
+        if (ec)
+        {
+            callback(std::vector<std::string>());
+            return;
+        }
+
+        for (const auto& [type, oemAllowableValues] : oemAllowableValuesMap)
+        {
+            std::string typeStr =
+                AllowableValuesIface::convertDumpTypeToString(type);
+            std::string typeName = typeStr;
+            std::size_t pos = typeStr.rfind('.');
+            if (pos != std::string::npos)
+            {
+                typeName = typeStr.substr(pos + 1);
+            }
+
+            if (typeName == dumpType && !oemAllowableValues.empty())
+            {
+                callback(oemAllowableValues);
+                return;
+            }
+        }
+
+        callback(std::vector<std::string>());
+    });
 }
 
 } // namespace redfish
