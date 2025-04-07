@@ -1795,13 +1795,6 @@ inline void
                             "/Oem/Nvidia/AsyncOOBRawCommandActionInfo";
     }
 
-    oemActions["#eMMC.SecureErase"]["target"] =
-        "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-        "/Actions/Oem/eMMC.SecureErase";
-    oemActions["#eMMC.SecureErase"]["@Redfish.ActionInfo"] =
-        "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-        "/Oem/EmmcSecureEraseActionInfo";
-
     if constexpr (BMCWEB_NSM_RAW_COMMAND_ENABLE)
     {
         nvidia_manager_util::getNSMRawCommandActions(asyncResp);
@@ -1842,10 +1835,27 @@ inline void handlePatchManagerOpenBmc(
     }
 }
 
+inline void handleGetManagerSecureErase(
+    const SubRequest& /*req*/, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& /*managerId*/)
+
+{
+    nlohmann::json& oemActions = asyncResp->res.jsonValue;
+    oemActions["target"] =
+        "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+        "/Actions/Oem/eMMC.SecureErase";
+    oemActions["@Redfish.ActionInfo"] =
+        "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+        "/Oem/EmmcSecureEraseActionInfo";    
+}
+
 inline void requestRoutesNvidiaManager(RedfishService& service)
 {
     REDFISH_SUB_ROUTE<"/redfish/v1/Managers/<str>/#/Oem/Nvidia">(
         service, HttpVerb::Get)(handleGetManagerNvidia);
+
+    REDFISH_SUB_ROUTE<"/redfish/v1/Managers/<str>/#/Actions/Oem/#eMMC.SecureErase">(
+        service, HttpVerb::Get)(handleGetManagerSecureErase);
 
     REDFISH_SUB_ROUTE<"/redfish/v1/Managers/<str>/#/Oem/Nvidia">(
         service, HttpVerb::Patch)(handlePatchManagerOpenBmc);
