@@ -1,3 +1,7 @@
+#include "cper_utils.hpp"
+#include "utils/dbus_log_utils.hpp"
+#include "utils/json_utils.hpp"
+
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/version.hpp>
@@ -10,11 +14,13 @@
 #include <sdbusplus/server/manager.hpp>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdlib>
 #include <functional>
 #include <iostream>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace beast = boost::beast;   // from <boost/beast.hpp>
@@ -30,6 +36,22 @@ const std::string entryName{
 
 constexpr uint8_t maxEventQueueLen = 4;
 constexpr uint8_t maxSessionNum = 4;
+
+inline void extractField(const nlohmann::json& evt, const std::string& field,
+                         const std::string& prefix,
+                         std::vector<std::string>& additionalData)
+{
+    if (auto it = evt.find(field); it != evt.end())
+    {
+        const auto* msg = it->get_ptr<const std::string*>();
+        if (msg == nullptr)
+        {
+            lg2::error("Failed to get string value from CPER data");
+            return;
+        }
+        additionalData.push_back(prefix + *msg);
+    }
+};
 
 class redfishEventMgr
 {
@@ -52,7 +74,7 @@ class redfishEventMgr
 
     static void
         createLogEntry(std::shared_ptr<sdbusplus::asio::connection>& conn,
-                       const std::string& entryName, const nlohmann::json& data)
+                       const std::string& entryName, nlohmann::json& data)
     {
         static uint8_t evtIndex = 0;
         static std::map<std::string,
@@ -82,44 +104,50 @@ class redfishEventMgr
         // parse redfish event
         for (auto& evt : data["Events"])
         {
-            if (evt.contains("MessageId"))
+            extractField(evt, "MessageId",
+                         "REDFISH_MESSAGE_ID=", additionalData);
+
+            if (auto oocIt = evt.find("OriginOfCondition"); oocIt != evt.end())
             {
-                msg = evt["MessageId"];
-                additionalData.push_back("REDFISH_MESSAGE_ID=" + msg);
-            }
-            std::string ooc;
-            if (evt.contains("OriginOfCondition"))
-            {
-                ooc = evt["OriginOfCondition"]["@odata.id"];
-                aData = "REDFISH_ORIGIN_OF_CONDITION=" + ooc;
+                const auto& ooc = *oocIt;
+                if (auto idIt = ooc.find("@odata.id"); idIt != ooc.end())
+                {
+                    msg = idIt->get<std::string>();
+                }
+                else if (ooc.is_string())
+                {
+                    msg = ooc.get<std::string>();
+                }
+                aData = "REDFISH_ORIGIN_OF_CONDITION=" + msg;
                 additionalData.push_back(aData);
             }
-            if (evt.contains("MessageArgs"))
+
+            if (auto argsIt = evt.find("MessageArgs"); argsIt != evt.end())
             {
                 std::string argStr = "REDFISH_MESSAGE_ARGS=";
-                uint16_t counter = 0;
-                for (auto arg : evt["MessageArgs"])
+                bool first = true;
+                for (const auto& arg : *argsIt)
                 {
-                    if (counter != 0)
+                    if (!first)
                     {
                         argStr += ",";
                     }
-                    argStr += arg;
-                    counter++;
+                    argStr += arg.get<std::string>();
+                    first = false;
                 }
                 additionalData.push_back(argStr);
             }
 
-            if (evt.contains("LogEntry"))
+            if (auto logIt = evt.find("LogEntry"); logIt != evt.end())
             {
-                std::string logStr = "REDFISH_LOGENTRY=";
-                logStr += evt["LogEntry"]["@odata.id"];
-                additionalData.push_back(logStr);
+                additionalData.push_back(
+                    "REDFISH_LOGENTRY=" +
+                    (*logIt)["@odata.id"].get<std::string>());
             }
 
-            if (evt.contains("MessageSeverity"))
+            if (auto sevIt = evt.find("MessageSeverity"); sevIt != evt.end())
             {
-                std::string level = evt["MessageSeverity"];
+                const auto& level = sevIt->get<std::string>();
                 if (level == "Warning")
                 {
                     severity = Level::Warning;
@@ -128,6 +156,14 @@ class redfishEventMgr
                 {
                     severity = Level::Critical;
                 }
+            }
+
+            if (redfish::parseCperData(evt, additionalData))
+            {
+                extractField(evt, "DiagnosticData",
+                             "diagnosticData=", additionalData);
+                extractField(evt, "DiagnosticDataType",
+                             "diagnosticDataType=", additionalData);
             }
         }
         timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
