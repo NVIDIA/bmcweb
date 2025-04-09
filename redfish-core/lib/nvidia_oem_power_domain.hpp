@@ -169,8 +169,10 @@ inline void handlePowerDomainPatchRequest(
     dbusPath /= powerDomainId;
 
     std::optional<uint64_t> newValue;
+    std::optional<std::string> newType;
 
-    if (!json_util::readJsonPatch(req, asyncResp->res, "Value", newValue))
+    if (!json_util::readJsonPatch(req, asyncResp->res, "Value", newValue,
+                                  "Type", newType))
     {
         return;
     }
@@ -180,6 +182,13 @@ inline void handlePowerDomainPatchRequest(
         setDbusProperty(
             asyncResp, "Value", "com.Nvidia.RackPowerCompliance", dbusPath,
             "com.Nvidia.State.PowerCompliance.PowerDomain", "Value", *newValue);
+    }
+
+    if (newType)
+    {
+        setDbusProperty(
+            asyncResp, "Type", "com.Nvidia.RackPowerCompliance", dbusPath,
+            "com.Nvidia.State.PowerCompliance.PowerDomain", "Type", *newType);
     }
 }
 
