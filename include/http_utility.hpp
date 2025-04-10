@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
-#include <cstddef>  // For std::size_t
+#include <cstddef> // For std::size_t
 #include <ranges>
 #include <span>
 #include <string_view>
@@ -105,7 +105,9 @@ inline ContentType getPreferredContentType(
     auto mimeType = no_case[knownMimeType] |
                     omit[+typeCharset >> lit('/') >> +typeCharset];
     auto parser = +(mimeType >> omit[parameters >> -char_(',') >> *space]);
-    if (!parse(acceptsHeader.begin(), acceptsHeader.end(), parser, ct))
+    const auto* begin = acceptsHeader.begin();
+    const auto* end = acceptsHeader.end();
+    if (!parse(begin, end, parser, ct))
     {
         return ContentType::NoMatch;
     }

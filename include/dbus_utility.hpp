@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <regex>
 #include <span>
 #include <string>
@@ -25,7 +26,6 @@
 #include <utility>
 #include <variant>
 #include <vector>
-#include <map>
 
 namespace dbus
 {

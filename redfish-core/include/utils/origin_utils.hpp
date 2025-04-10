@@ -21,12 +21,24 @@
 
 #pragma once
 
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
+#include "logging.hpp"
 #include "registries.hpp"
 #include "str_utility.hpp"
 
+#include <nlohmann/json.hpp>
+
 #include <algorithm>
 #include <chrono>
+#include <map>
+#include <memory>
+#include <span>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace redfish
 {

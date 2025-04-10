@@ -39,6 +39,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 namespace redfish
@@ -402,7 +403,7 @@ inline void requestRoutesSwitchHistogramBucket(App& app)
                     for (const std::string& fabricObject : objects)
                     {
                         // Get the fabricId object
-                        if (!boost::ends_with(fabricObject, fabricId))
+                        if (!fabricObject.ends_with(fabricId))
                         {
                             continue;
                         }
@@ -556,7 +557,7 @@ inline void requestRoutesSwitchHistogramBucketCollection(App& app)
                     for (const std::string& fabricObject : objects)
                     {
                         // Get the fabricId object
-                        if (!boost::ends_with(fabricObject, fabricId))
+                        if (!fabricObject.ends_with(fabricId))
                         {
                             continue;
                         }
@@ -740,7 +741,7 @@ inline void requestRoutesSwitchHistogram(App& app)
                     for (const std::string& fabricObject : objects)
                     {
                         // Get the fabricId object
-                        if (!boost::ends_with(fabricObject, fabricId))
+                        if (!fabricObject.ends_with(fabricId))
                         {
                             continue;
                         }
@@ -842,7 +843,7 @@ inline void requestRoutesSwitchHistogramCollection(App& app)
                     for (const std::string& fabricObject : objects)
                     {
                         // Get the fabricId object
-                        if (!boost::ends_with(fabricObject, fabricId))
+                        if (!fabricObject.ends_with(fabricId))
                         {
                             continue;
                         }

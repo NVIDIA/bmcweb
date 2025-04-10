@@ -17,7 +17,12 @@
 
 #pragma once
 
+#include "logging.hpp"
+#include "utils/nvidia_async_call_utils.hpp"
+
+#include <boost/system/error_code.hpp>
 #include <nlohmann/json.hpp>
+#include <sdbusplus/message.hpp>
 
 #include <filesystem>
 #include <fstream>
@@ -217,12 +222,13 @@ inline void retrieveEidFromMctpServiceProperties(
     const std::vector<std::string> remainingServices(serviceNames.begin() + 1,
                                                      serviceNames.end());
     sdbusplus::message::object_path path(mctpObjectPath);
+    sdbusplus::bus::bus bus = sdbusplus::bus::new_default();
     dbus::utility::getManagedObjects(
         currentServiceName, path,
         [remainingServices, uuidToUriMap, resultCallback, errorCallback,
          uuidToEidMap](const boost::system::error_code& ec,
                        const dbus::utility::ManagedObjectType& objects) {
-            if (ec)
+            if (ec || objects.empty())
             {
                 const std::string errorDesc =
                     "failed to retrieveEidFromMctpServiceProperties";

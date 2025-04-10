@@ -21,12 +21,14 @@
 #include "debug_token/endpoint.hpp"
 #include "debug_token/request_utils.hpp"
 #include "debug_token/status_utils.hpp"
+#include "http/logging.hpp"
+
+#include <sdbusplus/bus/match.hpp>
 
 #include <memory>
 #include <utility>
 #include <variant>
 #include <vector>
-
 namespace redfish::debug_token
 {
 

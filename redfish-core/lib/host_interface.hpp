@@ -16,15 +16,19 @@
  */
 #pragma once
 
+#include "health.hpp"
+#include "query.hpp"
+
 #include <app.hpp>
+#include <bios.hpp>
 #include <dbus_utility.hpp>
 #include <error_messages.hpp>
 #include <registries/privilege_registry.hpp>
 #include <utils/json_utils.hpp>
 
+#include <fstream>
 #include <optional>
 #include <regex>
-
 namespace redfish
 {
 using GetObjectType =

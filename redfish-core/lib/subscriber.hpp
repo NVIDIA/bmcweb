@@ -16,6 +16,22 @@
  */
 
 #pragma once
+#include "bmcweb_config.h"
+
+#include <boost/asio/steady_timer.hpp>
+#include <boost/beast/http/status.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/url/url.hpp>
+#include <http_client.hpp>
+#include <logging.hpp>
+#include <nlohmann/json.hpp>
+
+#include <chrono>
+#include <functional>
+#include <memory>
+#include <string>
+#include <string_view>
+
 // Dbus service for EventService Listener
 constexpr const char* mode = "replace";
 constexpr const char* systemdServiceName = "org.freedesktop.systemd1";
@@ -97,90 +113,92 @@ inline void handleSubscribeResponse(crow::Response& resp)
     BMCWEB_LOG_ERROR("Response error code: {}", resp.resultInt());
 }
 
-// This is the response handler of get redfish subscription
-template <typename Callback>
-void handleGetSubscriptionResp(crow::Response& resp, Callback&& handler)
-{
-    if (resp.resultInt() !=
-        static_cast<unsigned>(boost::beast::http::status::ok))
-    {
-        BMCWEB_LOG_ERROR(" GetSubscriptionResp err code: {}", resp.resultInt());
-        return;
-    }
+// // This is the response handler of get redfish subscription
+// template <typename Callback>
+// void handleGetSubscriptionResp(crow::Response& resp, Callback&& handler)
+// {
+//     if (resp.resultInt() !=
+//         static_cast<unsigned>(boost::beast::http::status::ok))
+//     {
+//         BMCWEB_LOG_ERROR(" GetSubscriptionResp err code: {}",
+//         resp.resultInt()); return;
+//     }
 
-    std::string_view contentType = resp.getHeaderValue("Content-Type");
-    if (boost::iequals(contentType, "application/json") ||
-        boost::iequals(contentType, "application/json; charset=utf-8"))
-    {
-        nlohmann::json jsonVal =
-            nlohmann::json::parse(*resp.body(), nullptr, false);
-        if (jsonVal.is_discarded())
-        {
-            BMCWEB_LOG_ERROR("Error parsing satellite response as JSON");
-            return;
-        }
-        // handle JSON objects
-        handler(jsonVal);
-    }
-}
+//     std::string_view contentType = resp.getHeaderValue("Content-Type");
+//     if (boost::iequals(contentType, "application/json") ||
+//         boost::iequals(contentType, "application/json; charset=utf-8"))
+//     {
+//         nlohmann::json jsonVal =
+//             nlohmann::json::parse(*resp.body(), nullptr, false);
+//         if (jsonVal.is_discarded())
+//         {
+//             BMCWEB_LOG_ERROR("Error parsing satellite response as JSON");
+//             return;
+//         }
+//         // handle JSON objects
+//         handler(jsonVal);
+//     }
+// }
 
-inline void doSubscribe(std::shared_ptr<crow::HttpClient> client,
-                        boost::urls::url url, crow::Response& resp)
-{
-    // subscribe EventService if there is no subscription in satellite BMC
-    auto subscribe = [&client, &url](nlohmann::json& jsonVal) {
-        if (jsonVal.contains("Members@odata.count"))
-        {
-            if (jsonVal["Members@odata.count"] == 0)
-            {
-                BMCWEB_LOG_DEBUG("No subscription. Subscribe directly!");
+// inline void doSubscribe(std::shared_ptr<crow::HttpClient> client,
+//                         boost::urls::url url, crow::Response& resp)
+// {
+//     // subscribe EventService if there is no subscription in satellite BMC
+//     auto subscribe = [&client, &url](nlohmann::json& jsonVal) {
+//         if (jsonVal.contains("Members@odata.count"))
+//         {
+//             if (jsonVal["Members@odata.count"] == 0)
+//             {
+//                 BMCWEB_LOG_DEBUG("No subscription. Subscribe directly!");
 
-                boost::beast::http::fields httpHeader;
-                std::function<void(crow::Response&)> cb =
-                    std::bind_front(handleSubscribeResponse);
+//                 boost::beast::http::fields httpHeader;
+//                 std::function<void(crow::Response&)> cb =
+//                     std::bind_front(handleSubscribeResponse);
 
-                std::string path("/redfish/v1/EventService/Subscriptions");
-                std::string dest(BMCWEB_RFA_BMC_HOST_URL);
+//                 std::string path("/redfish/v1/EventService/Subscriptions");
+//                 std::string dest(BMCWEB_RFA_BMC_HOST_URL);
 
-                nlohmann::json postJson = {{"Destination", dest},
-                                           {"Protocol", "Redfish"}};
+//                 nlohmann::json postJson = {{"Destination", dest},
+//                                            {"Protocol", "Redfish"}};
 
-                auto data = postJson.dump();
-                url.set_path(path);
-                client->sendDataWithCallback(
-                    std::move(data), url, ensuressl::VerifyCertificate::Verify,
-                    httpHeader, boost::beast::http::verb::post, cb);
-            }
-        }
-    };
-    handleGetSubscriptionResp(resp, std::move(subscribe));
-}
+//                 auto data = postJson.dump();
+//                 url.set_path(path);
+//                 client->sendDataWithCallback(
+//                     std::move(data), url,
+//                     ensuressl::VerifyCertificate::Verify, httpHeader,
+//                     boost::beast::http::verb::post, cb);
+//             }
+//         }
+//     };
+//     handleGetSubscriptionResp(resp, std::move(subscribe));
+// }
 
-inline void doUnsubscribe(std::shared_ptr<crow::HttpClient> client,
-                          boost::urls::url url, crow::Response& resp)
-{
-    // unsubscribe EventService if there is subscriptions in satellite BMC
-    auto unSubscribe = [&client, &url](nlohmann::json& jsonVal) {
-        if (jsonVal.contains("Members"))
-        {
-            auto& satMembers = jsonVal["Members"];
-            for (auto& satMem : satMembers)
-            {
-                BMCWEB_LOG_DEBUG("unSubscribe: {}", satMem["@odata.id"]);
-                std::function<void(crow::Response&)> cb =
-                    std::bind_front(handleSubscribeResponse);
+// inline void doUnsubscribe(std::shared_ptr<crow::HttpClient> client,
+//                           boost::urls::url url, crow::Response& resp)
+// {
+//     // unsubscribe EventService if there is subscriptions in satellite BMC
+//     auto unSubscribe = [&client, &url](nlohmann::json& jsonVal) {
+//         if (jsonVal.contains("Members"))
+//         {
+//             auto& satMembers = jsonVal["Members"];
+//             for (auto& satMem : satMembers)
+//             {
+//                 BMCWEB_LOG_DEBUG("unSubscribe: {}", satMem["@odata.id"]);
+//                 std::function<void(crow::Response&)> cb =
+//                     std::bind_front(handleSubscribeResponse);
 
-                std::string data;
-                boost::beast::http::fields httpHeader;
-                url.set_path(satMem["@odata.id"]);
-                client->sendDataWithCallback(
-                    std::move(data), url, ensuressl::VerifyCertificate::Verify,
-                    httpHeader, boost::beast::http::verb::delete_, cb);
-            }
-        }
-    };
-    handleGetSubscriptionResp(resp, std::move(unSubscribe));
-}
+//                 std::string data;
+//                 boost::beast::http::fields httpHeader;
+//                 url.set_path(satMem["@odata.id"]);
+//                 client->sendDataWithCallback(
+//                     std::move(data), url,
+//                     ensuressl::VerifyCertificate::Verify, httpHeader,
+//                     boost::beast::http::verb::delete_, cb);
+//             }
+//         }
+//     };
+//     handleGetSubscriptionResp(resp, std::move(unSubscribe));
+// }
 
 inline void invokeRedfishEventListener()
 {
@@ -205,17 +223,18 @@ inline void querySubscriptionList(
         BMCWEB_LOG_ERROR("timer code:{}", ec);
         return;
     }
-    std::string data;
+    // std::string data;
     boost::beast::http::fields httpHeader;
 
-    std::function<void(crow::Response&)> cb =
-        std::bind_front(doSubscribe, client, url);
+    // std::function<void(crow::Response&)> cb =
+    //     std::bind_front(doSubscribe, client, url);
 
     std::string path("/redfish/v1/EventService/Subscriptions");
     url.set_path(path);
-    client->sendDataWithCallback(std::move(data), url,
-                                 ensuressl::VerifyCertificate::Verify,
-                                 httpHeader, boost::beast::http::verb::get, cb);
+    // client->sendDataWithCallback(std::move(data), url,
+    //                              ensuressl::VerifyCertificate::Verify,
+    //                              httpHeader, boost::beast::http::verb::get,
+    //                              cb);
     auto subscribeTimer = SubscribeSatBmc::getInstance().getTimer();
     // check HMC subscription periodically in case of HMC
     // reset-to-default
@@ -258,25 +277,25 @@ inline void getSatBMCInfo(
         std::bind_front(querySubscriptionList, client, url));
 }
 
-inline int initRedfishEventListener(boost::asio::io_context& ioc)
-{
-    const uint8_t deferTime = BMCWEB_RFA_DELAY_SUBSCRIBE_TIME;
-    RedfishAggregator::getSatelliteConfigs(
-        std::bind_front(getSatBMCInfo, std::ref(ioc), deferTime));
+// inline int initRedfishEventListener(boost::asio::io_context& ioc)
+// {
+//     const uint8_t deferTime = BMCWEB_RFA_DELAY_SUBSCRIBE_TIME;
+//     RedfishAggregator::getSatelliteConfigs(
+//         std::bind_front(getSatBMCInfo, std::ref(ioc), deferTime));
 
-    return 0;
-}
+//     return 0;
+// }
 
-inline int startRedfishEventListener(
-    __attribute__((unused)) boost::asio::io_context& ioc)
-{
-    const uint8_t immediateTime = 1;
+// inline int startRedfishEventListener(
+//     __attribute__((unused)) boost::asio::io_context& ioc)
+// {
+//     const uint8_t immediateTime = 1;
 
-    RedfishAggregator::getSatelliteConfigs(
-        std::bind_front(getSatBMCInfo, std::ref(ioc), immediateTime));
+//     RedfishAggregator::getSatelliteConfigs(
+//         std::bind_front(getSatBMCInfo, std::ref(ioc), immediateTime));
 
-    return 0;
-}
+//     return 0;
+// }
 
 inline void unSubscribe(
     boost::asio::io_context& ioc, const boost::system::error_code& ec,
@@ -303,37 +322,38 @@ inline void unSubscribe(
     std::string path("/redfish/v1/EventService/Subscriptions");
     url.set_path(path);
 
-    std::string data;
+    // std::string data;
     boost::beast::http::fields httpHeader;
 
-    std::function<void(crow::Response&)> cb =
-        std::bind_front(doUnsubscribe, client, url);
-    client->sendDataWithCallback(std::move(data), url,
-                                 ensuressl::VerifyCertificate::Verify,
-                                 httpHeader, boost::beast::http::verb::get, cb);
+    // std::function<void(crow::Response&)> cb =
+    //     std::bind_front(doUnsubscribe, client, url);
+    // client->sendDataWithCallback(std::move(data), url,
+    //                              ensuressl::VerifyCertificate::Verify,
+    //                              httpHeader, boost::beast::http::verb::get,
+    //                              cb);
 }
 
-inline int stopRedfishEventListener(boost::asio::io_context& ioc)
-{
-    auto subscribeTimer = SubscribeSatBmc::getInstance().getTimer();
-    // stop the timer.
-    subscribeTimer->cancel();
+// inline int stopRedfishEventListener(boost::asio::io_context& ioc)
+// {
+//     auto subscribeTimer = SubscribeSatBmc::getInstance().getTimer();
+//     // stop the timer.
+//     subscribeTimer->cancel();
 
-    RedfishAggregator::getSatelliteConfigs(
-        std::bind_front(unSubscribe, std::ref(ioc)));
+//     RedfishAggregator::getSatelliteConfigs(
+//         std::bind_front(unSubscribe, std::ref(ioc)));
 
-    // stop redfish event listener
-    crow::connections::systemBus->async_method_call(
-        [](const boost::system::error_code& ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
-                return;
-            }
-        },
-        systemdServiceName, systemdObjectPath, interfaceName, stopService,
-        listenerServiceName, mode);
-    return 0;
-}
+//     // stop redfish event listener
+//     crow::connections::systemBus->async_method_call(
+//         [](const boost::system::error_code& ec) {
+//             if (ec)
+//             {
+//                 BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+//                 return;
+//             }
+//         },
+//         systemdServiceName, systemdObjectPath, interfaceName, stopService,
+//         listenerServiceName, mode);
+//     return 0;
+// }
 
 } // namespace redfish

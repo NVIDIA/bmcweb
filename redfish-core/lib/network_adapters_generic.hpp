@@ -17,8 +17,10 @@
 #pragma once
 
 #include "app.hpp"
+#include "health.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/conditions_utils.hpp"
 #include "utils/pcie_util.hpp"
 
 #include <utils/chassis_utils.hpp>

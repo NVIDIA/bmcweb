@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 #pragma once
-
+#include "logging.hpp"
 #include "ossl_random.hpp"
 
 #include <boost/interprocess/streams/bufferstream.hpp>
 
+#include <cstdio>
+#include <cstring>
+#include <memory>
 #include <optional>
 #include <sstream>
 #include <vector>

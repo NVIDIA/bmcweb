@@ -1,5 +1,24 @@
 #pragma once
 
+#include "app.hpp"
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
+#include "dbus_utility.hpp"
+#include "error_messages.hpp"
+#include "logging.hpp"
+#include "query.hpp"
+#include "utils/dbus_utils.hpp"
+#include "utils/nvidia_async_call_utils.hpp"
+#include "utils/nvidia_async_set_utils.hpp"
+#include "utils/pcie_util.hpp"
+
+#include <boost/container/flat_map.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/url/format.hpp>
+#include <nlohmann/json.hpp>
+
+#include <string>
+#include <variant>
 namespace redfish
 {
 
@@ -310,8 +329,7 @@ static inline void getPCIeDevice(
                 BMCWEB_LOG_DEBUG(
                     "failed to get PCIe Device properties ec: {}: {}",
                     ec.value(), ec.message());
-                if (ec.value() ==
-                    boost::system::linux_error::bad_request_descriptor)
+                if (ec.value() == boost::system::errc::bad_file_descriptor)
                 {
                     messages::resourceNotFound(asyncResp->res, "PCIeDevice",
                                                device);
@@ -433,14 +451,13 @@ static inline void getPCIeDeviceFunctionsList(
             const boost::system::error_code& ec,
             boost::container::flat_map<std::string, std::variant<std::string>>&
                 pcieDevProperties) {
-            if (ec)
+            if (ec || pcieDevProperties.empty())
             {
                 BMCWEB_LOG_DEBUG(
                     "failed to get PCIe Device properties ec: {}: {} ",
                     ec.value(), ec.message());
 
-                if (ec.value() ==
-                    boost::system::linux_error::bad_request_descriptor)
+                if (ec.value() == boost::system::errc::bad_file_descriptor)
                 {
                     messages::resourceNotFound(asyncResp->res, "PCIeDevice",
                                                device);
@@ -518,8 +535,7 @@ static inline void getPCIeDeviceFunction(
         {
             BMCWEB_LOG_DEBUG("failed to get PCIe Device properties ec: {} : {}",
                              ec.value(), ec.message());
-            if (ec.value() ==
-                boost::system::linux_error::bad_request_descriptor)
+            if (ec.value() == boost::system::errc::bad_file_descriptor)
             {
                 messages::resourceNotFound(asyncResp->res, "PCIeDevice",
                                            device);
@@ -861,9 +877,9 @@ inline void postClearAerErrorStatus(
                 // Get Inventory Service
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, device, chassisPCIePath, chassisId,
-                     chassisPCIeDevicePath,
-                     chassisPath](const boost::system::error_code& ec1,
-                                  const GetSubTreeType& subtree) {
+                     chassisPCIeDevicePath, chassisPath](
+                        const boost::system::error_code& ec1,
+                        const dbus::utility::GetSubTreeType& subtree) {
                         if (ec1)
                         {
                             BMCWEB_LOG_DEBUG("DBUS response error");
@@ -1054,7 +1070,7 @@ inline void requestRoutesChassisPCIeFunctionCollection(App& app)
                             [asyncResp, device, chassisPCIePath, interface,
                              chassisId, chassisPCIeDevicePath](
                                 const boost::system::error_code& ec1,
-                                const GetSubTreeType& subtree) {
+                                const dbus::utility::GetSubTreeType& subtree) {
                                 if (ec1)
                                 {
                                     BMCWEB_LOG_DEBUG("DBUS response error");
@@ -1161,7 +1177,7 @@ inline void requestRoutesChassisPCIeFunction(App& app)
                             [asyncResp, device, function, chassisPCIePath,
                              interface, chassisId, chassisPCIeDevicePath](
                                 const boost::system::error_code& ec1,
-                                const GetSubTreeType& subtree) {
+                                const dbus::utility::GetSubTreeType& subtree) {
                                 if (ec1)
                                 {
                                     BMCWEB_LOG_DEBUG("DBUS response error");

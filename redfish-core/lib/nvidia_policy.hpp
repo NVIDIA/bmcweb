@@ -19,6 +19,24 @@
 #include "app.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "query.hpp"
+#include "registries/privilege_registry.hpp"
+#include "utils/dbus_utils.hpp"
+#include "utils/json_utils.hpp"
+#include "utils/nvidia_async_call_utils.hpp"
+#include "utils/nvidia_async_set_utils.hpp"
+#include "utils/nvidia_chassis_util.hpp"
+#include "utils/nvidia_processor_utils.hpp"
+
+#include <boost/system/error_code.hpp>
+#include <nlohmann/json.hpp>
+
+#include <array>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
 
 namespace redfish
 {

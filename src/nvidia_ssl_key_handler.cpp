@@ -49,6 +49,7 @@ void encryptCredentials(const std::string& filename)
     if (pkey == nullptr)
     {
         BMCWEB_LOG_ERROR("Could not read private key from file: {}", filename);
+        fclose(fp);
         return;
     }
     fseek(fp, 0, SEEK_SET);

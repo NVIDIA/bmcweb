@@ -16,11 +16,12 @@
  */
 
 #pragma once
-
+#include "logging.hpp"
+#include "utils/dbus_utils.hpp"
+#include "utils/json_utils.hpp"
+#include "utils/nvidia_async_call_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
-
-#include <utils/nvidia_async_set_utils.hpp>
-
+#include "utils/nvidia_async_set_utils.hpp"
 namespace redfish
 {
 namespace nvidia_control_utils
@@ -571,7 +572,7 @@ inline void getControlSettingRelatedItems(
 
 inline void getControlCpuObjects(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const auto getControlCpu,
+    const auto& getControlCpu,
     const std::optional<std::string>& validChassisPath)
 {
     // Get the Processors Associations to cover all processors' cases,

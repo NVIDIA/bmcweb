@@ -16,14 +16,22 @@
  */
 #pragma once
 
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
+#include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "logging.hpp"
+
+#include <boost/container/flat_map.hpp>
+#include <sdbusplus/message.hpp>
+#include <sdbusplus/message/native_types.hpp>
+#include <sdbusplus/message/types.hpp>
 
 #include <array>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
-#include <boost/container/flat_map.hpp>
-#include <utility>
 namespace redfish
 {
 using DimmProperties =
@@ -171,7 +179,7 @@ inline void getMemoryECCData(std::shared_ptr<bmcweb::AsyncResp> aResp,
     BMCWEB_LOG_DEBUG("Get memory ecc data.");
     crow::connections::systemBus->async_method_call(
         [aResp{std::move(aResp)}](const boost::system::error_code& ec,
-                                  const DimmProperties& properties) {
+                                  const redfish::DimmProperties& properties) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");

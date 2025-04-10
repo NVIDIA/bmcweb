@@ -607,7 +607,7 @@ inline void requestRoutesTaskUpdate(App& app)
                             ptr->percentComplete = 100;
                         }
                     }
-                    ptr->sendTaskEvent(ptr->state, ptr->index);
+                    task::TaskData::sendTaskEvent(ptr->state, ptr->index);
                 }
 
                 asyncResp->res.result(boost::beast::http::status::no_content);

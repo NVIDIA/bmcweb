@@ -16,11 +16,25 @@
  */
 #pragma once
 
+#include "async_resp.hpp"
+#include "dbus_utility.hpp"
+#include "error_messages.hpp"
+#include "http_body.hpp"
+#include "logging.hpp"
+#include "utils/nvidia_async_call_utils.hpp"
+#include "utils/nvidia_async_set_callbacks.hpp"
+#include "utils/nvidia_async_set_utils.hpp"
+
+#include <boost/container/flat_map.hpp>
+#include <boost/system/error_code.hpp>
+#include <nlohmann/json.hpp>
+
 #include <atomic>
 #include <cstdint>
+#include <memory>
 #include <string>
+#include <variant>
 #include <vector>
-
 namespace redfish
 {
 
@@ -56,8 +70,8 @@ inline void patchL1PowerModeBool(
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(interfaceList.begin(), interfaceList.end(),
-                      "com.nvidia.PowerMode") != interfaceList.end())
+        if (std::ranges::find(interfaceList.begin(), interfaceList.end(),
+                              "com.nvidia.PowerMode") != interfaceList.end())
         {
             inventoryService = &serviceName;
             break;
@@ -128,8 +142,8 @@ inline void patchL1PowerModeInt(
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::find(interfaceList.begin(), interfaceList.end(),
-                      "com.nvidia.PowerMode") != interfaceList.end())
+        if (std::ranges::find(interfaceList.begin(), interfaceList.end(),
+                              "com.nvidia.PowerMode") != interfaceList.end())
         {
             inventoryService = &serviceName;
             break;
@@ -368,8 +382,9 @@ inline void updateSwitchPowerModeData(
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath](const boost::system::error_code& ec,
                              const PropertiesMap& properties) {
-            if (ec)
+            if (ec || properties.empty())
             {
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec.message());
                 messages::internalError(asyncResp->res);
                 return;
             }
@@ -578,9 +593,9 @@ inline void getSwitchIsolationMode(
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const PropertiesMap& properties) {
-            if (ec)
+            if (ec || properties.empty())
             {
-                BMCWEB_LOG_DEBUG("DBUS response error");
+                BMCWEB_LOG_ERROR("DBUS response error {}", ec.message());
                 messages::internalError(asyncResp->res);
                 return;
             }

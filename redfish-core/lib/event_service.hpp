@@ -752,7 +752,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 if (EventServiceManager::getInstance()
                         .getNumberOfSubscriptions() == 1)
                 {
-                    startRedfishEventListener(*req.ioService);
+                    // startRedfishEventListener(*req.ioService);
                 }
             }
             messages::created(asyncResp->res);
@@ -1014,7 +1014,7 @@ inline void requestRoutesEventDestination(App& app)
                     if (EventServiceManager::getInstance()
                             .getNumberOfSubscriptions() == 1)
                     {
-                        stopRedfishEventListener(*req.ioService);
+                        // stopRedfishEventListener(*req.ioService);
                     }
                 }
             });

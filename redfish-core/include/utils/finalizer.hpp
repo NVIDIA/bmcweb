@@ -25,7 +25,7 @@ class Finalizer
 {
   public:
     Finalizer() = delete;
-    Finalizer(std::function<void()> finalizerArg) :
+    explicit Finalizer(std::function<void()> finalizerArg) :
         finalizer(std::move(finalizerArg))
     {}
     Finalizer(const Finalizer&) = delete;

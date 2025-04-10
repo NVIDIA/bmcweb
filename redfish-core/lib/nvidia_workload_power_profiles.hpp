@@ -26,6 +26,8 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_async_call_utils.hpp"
+#include "utils/nvidia_async_set_utils.hpp"
 
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
@@ -37,6 +39,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 #include <string_view>
 namespace redfish
 {
@@ -535,7 +538,7 @@ inline void postEnableWorkLoadPowerProfile(
             }
             for (const auto& [path, object] : subtree)
             {
-                if (!boost::ends_with(path, processorId))
+                if (!path.ends_with(processorId))
                 {
                     continue;
                 }
@@ -634,7 +637,7 @@ inline void postDisableWorkLoadPowerProfile(
             }
             for (const auto& [path, object] : subtree)
             {
-                if (!boost::ends_with(path, processorId))
+                if (!path.ends_with(processorId))
                 {
                     continue;
                 }

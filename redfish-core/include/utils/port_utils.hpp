@@ -16,6 +16,20 @@
  */
 #pragma once
 
+#include "dbus_singleton.hpp"
+#include "error_messages.hpp"
+#include "logging.hpp"
+#include "utils/json_utils.hpp"
+#include "utils/nvidia_chassis_util.hpp"
+
+#include <boost/container/flat_map.hpp>
+#include <boost/system/error_code.hpp>
+
+#include <memory>
+#include <string> // For std::string
+#include <variant>
+#include <vector>
+
 namespace redfish
 {
 namespace port_utils

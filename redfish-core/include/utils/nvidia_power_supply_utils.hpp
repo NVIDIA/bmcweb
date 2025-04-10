@@ -15,7 +15,22 @@
  * limitations under the License.
  */
 #pragma once
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
+#include "dbus_utility.hpp"
+#include "dbus_utils.hpp"
+#include "error_messages.hpp"
+#include "logging.hpp"
+#include "str_utility.hpp"
 
+#include <boost/container/flat_map.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/url/format.hpp>
+#include <sdbusplus/asio/property.hpp>
+
+#include <cerrno>
+#include <string>
+#include <variant>
 namespace redfish
 {
 namespace nvidia_power_supply_utils
@@ -130,9 +145,8 @@ inline void getNvidiaPowerSupplyMetrics(
                                     if (attributeValue != nullptr)
                                     {
                                         std::vector<std::string> split;
-                                        boost::algorithm::split(
-                                            split, sensorPath,
-                                            boost::is_any_of("/"));
+                                        split.reserve(6);
+                                        bmcweb::split(split, sensorPath, '/');
                                         if (split.size() >= 6)
                                         {
                                             const std::string& sensorType =

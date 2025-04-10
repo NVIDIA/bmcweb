@@ -19,7 +19,11 @@
 #include "app.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
-
+#include "query.hpp"
+#include "registries/privilege_registry.hpp"
+#include "utils/chassis_utils.hpp"
+#include "utils/collection.hpp"
+#include "utils/dbus_utils.hpp"
 namespace redfish
 {
 static constexpr auto leakDetectorStateInterface =

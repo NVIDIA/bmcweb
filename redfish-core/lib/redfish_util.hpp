@@ -10,7 +10,7 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "logging.hpp"
-
+#include "persistent_data.hpp"
 #ifdef HAVE_PWQUALITY
 #include <pwquality.h>
 #endif
@@ -107,6 +107,7 @@ void getMainChassisId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 }
 
 template <typename CallbackFunc>
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 void getPortStatusAndPath(
     std::span<const std::pair<std::string_view, std::string_view>>
         protocolToDBus,

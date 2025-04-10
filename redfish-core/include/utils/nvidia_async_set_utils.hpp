@@ -24,6 +24,8 @@
 #include <boost/asio/steady_timer.hpp>
 #include <sdbusplus/bus/match.hpp>
 
+#include <utility>
+
 namespace redfish
 {
 namespace nvidia_async_operation_utils
@@ -67,7 +69,7 @@ struct SetAsyncStatusHandlerInfo
 };
 
 template <typename SetAsyncStatusInfo>
-void reportErrorAndCancel(std::shared_ptr<SetAsyncStatusInfo> statusInfo)
+void reportErrorAndCancel(const std::shared_ptr<SetAsyncStatusInfo>& statusInfo)
 {
     statusInfo->completed = true;
     messages::internalError(statusInfo->aresp->res);
@@ -265,6 +267,7 @@ class SetAsyncMethodCall
 };
 
 template <typename Callback, typename Value>
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 void doSetAsyncAndGatherResult(
     std::shared_ptr<bmcweb::AsyncResp> resp,
     const std::chrono::milliseconds timeout, const std::string& service,
@@ -305,6 +308,7 @@ void doSetAsyncAndGatherResult(
 }
 
 template <typename Callback, typename Value>
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 void doGenericSetAsyncAndGatherResult(
     std::shared_ptr<bmcweb::AsyncResp> resp,
     const std::chrono::milliseconds timeout, const std::string& service,
@@ -312,7 +316,7 @@ void doGenericSetAsyncAndGatherResult(
     const std::string& property, Value&& value, Callback&& callback)
 {
     doSetAsyncAndGatherResult(
-        resp, timeout, service, object, interface, property,
+        std::move(resp), timeout, service, object, interface, property,
         std::string{setAsyncInterfaceName}, setAsyncMethodName,
         asyncStatusInterfaceName, asyncStatusPropertyName,
         std::forward<Value>(value), std::forward<Callback>(callback));

@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "query.hpp"
+
 #include <app.hpp>
 #include <utils/dbus_utils.hpp>
 #include <utils/json_utils.hpp>

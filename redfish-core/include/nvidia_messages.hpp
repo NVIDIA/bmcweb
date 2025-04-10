@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include "error_message_utils.hpp"
 #include "error_messages.hpp"
 #include "registries/oem/nvidia_message_registry.hpp"
 

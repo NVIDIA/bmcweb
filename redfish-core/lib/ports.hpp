@@ -15,8 +15,10 @@
  * limitations under the License.
  */
 #pragma once
+#include "dbus_singleton.hpp"
 #include "ethernet.hpp"
 #include "lldptool_util.hpp"
+#include "nvidia_error_messages.hpp"
 
 #include <app.hpp>
 
@@ -52,9 +54,11 @@ const std::string lldpReceive = "LLDPReceive";
 inline void getLldpStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& ifaceId)
 {
+    // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
     LldpToolUtil::run(
         ifaceId, LldpTlv::ADMIN_STATUS, LldpCommandType::GET_LLDP, false,
         asyncResp,
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& lambdaAsyncResp,
                   const std::string& stdOut, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
@@ -95,6 +99,7 @@ inline void getLldpStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 inline void setLldpStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& ifaceId, LldpTlv commandType)
 {
+    // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
     LldpToolUtil::run(
         ifaceId, commandType, LldpCommandType::SET_LLDP, false, asyncResp,
         [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& lambdaAsyncResp,
@@ -206,9 +211,11 @@ inline void getEnableLldpTlvs(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ifaceId)
 {
+    // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
     LldpToolUtil::run(
         ifaceId, LldpTlv::SYSTEM_CAPABILITIES, LldpCommandType::ENABLE_TLV,
         false, asyncResp,
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& lambdaAsyncResp,
                   const std::string& stdOut, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
@@ -232,10 +239,11 @@ inline void getEnableLldpTlvs(
             BMCWEB_LOG_DEBUG("getEnableLldpTlvs capability enable response: {}",
                              stdOut);
         });
-
+    // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
     LldpToolUtil::run(
         ifaceId, LldpTlv::SYSTEM_DESCRIPTION, LldpCommandType::ENABLE_TLV,
         false, asyncResp,
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& lambdaAsyncResp,
                   const std::string& stdOut, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
@@ -258,10 +266,11 @@ inline void getEnableLldpTlvs(
             }
             BMCWEB_LOG_DEBUG("getEnableLldpTlv  enable response: {}", stdOut);
         });
-
+    // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
     LldpToolUtil::run(
         ifaceId, LldpTlv::SYSTEM_NAME, LldpCommandType::ENABLE_TLV, false,
         asyncResp,
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& lambdaAsyncResp,
                   const std::string& stdOut, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
@@ -359,8 +368,10 @@ inline void setLldpTlvProperty(
 inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& ifaceId, bool isReceived)
 {
+    // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
     LldpToolUtil::run(
         ifaceId, LldpTlv::ALL, LldpCommandType::GET, isReceived, asyncResp,
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         [ifaceId,
          isReceived](const std::shared_ptr<bmcweb::AsyncResp>& lambdaAsyncResp,
                      const std::string& stdOut, const std::string&,

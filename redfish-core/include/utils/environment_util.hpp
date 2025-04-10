@@ -15,8 +15,19 @@
  * limitations under the License.
  */
 #pragma once
+#include "chassis_utils.hpp"
 #include "dbus_utility.hpp"
+#include "str_utility.hpp"
+#include "utils/nvidia_async_call_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
+
+#include <boost/container/flat_map.hpp>
+#include <boost/url/format.hpp>
+
+#include <string>
+#include <string_view>
+#include <vector>
+
 namespace redfish
 {
 namespace nvidia_env_utils
@@ -190,7 +201,7 @@ inline void getPowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                   const std::vector<
                       std::pair<std::string, std::variant<std::string>>>&
                       propertiesList) {
-            if (ec)
+            if (ec || propertiesList.empty())
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for "
                                  "Chassis properties");
@@ -788,7 +799,7 @@ inline void getEDPpData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         [asyncResp, connectionName,
          objPath](const boost::system::error_code& ec,
                   const SetPointProperties& properties) {
-            if (ec)
+            if (ec || properties.empty())
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for "
                                  "procesor EDPp scaling properties");
@@ -852,7 +863,7 @@ inline void getPowerLimitPersistency(
         [asyncResp, connectionName,
          objPath](const boost::system::error_code& ec,
                   const SetPointProperties& properties) {
-            if (ec)
+            if (ec || properties.empty())
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for "
                                  "procesor EDPp scaling properties");
@@ -1303,7 +1314,7 @@ inline void getSensorDataByService(
         [aResp, chassisId, resourceType, objPath,
          isSupportPowerLimit](const boost::system::error_code& ec,
                               const PropertiesMap& properties) {
-            if (ec)
+            if (ec || properties.empty())
             {
                 BMCWEB_LOG_DEBUG("Can't get sensor reading for {}", objPath);
                 // Not reporting Internal Failure for services that dont host
@@ -1332,8 +1343,7 @@ inline void getSensorDataByService(
                     // Reserve space for
                     // /xyz/openbmc_project/sensors/<name>/<subname>
                     split.reserve(6);
-                    boost::algorithm::split(split, objPath,
-                                            boost::is_any_of("/"));
+                    bmcweb::split(split, objPath, '/');
                     if (split.size() < 6)
                     {
                         BMCWEB_LOG_ERROR("Got path that isn't long enough {}",
@@ -1662,7 +1672,7 @@ inline void getProcessorEnvironmentMetricsData(
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
                 subtree) {
-            if (ec)
+            if (ec || subtree.empty())
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
                 messages::internalError(aResp->res);
@@ -1802,7 +1812,7 @@ inline void getMemoryEnvironmentMetricsData(
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
                 subtree) {
-            if (ec)
+            if (ec || subtree.empty())
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
                 messages::internalError(aResp->res);

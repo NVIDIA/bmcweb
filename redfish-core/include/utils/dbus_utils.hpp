@@ -447,7 +447,7 @@ inline auto deferTask(Callback&& callback)
         explicit DeferTaskStruct(Callback&& callbackIn) :
             callback(std::move(callbackIn))
         {}
-
+        // NOLINTNEXTLINE(modernize-use-equals-default)
         ~DeferTaskStruct()
         {
             callback(ec);

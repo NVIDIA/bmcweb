@@ -154,7 +154,7 @@ class EventServiceManager
             if (getNumberOfSubscriptions() > 0)
             {
                 // start RF event listener and subscribe HMC eventService.
-                initRedfishEventListener(getIoContext());
+                // initRedfishEventListener(getIoContext());
             }
         }
     }

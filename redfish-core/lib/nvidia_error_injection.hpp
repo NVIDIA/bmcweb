@@ -38,6 +38,7 @@
 #include <utils/conditions_utils.hpp>
 
 #include <array>
+#include <string>
 #include <string_view>
 namespace redfish
 {
@@ -281,7 +282,7 @@ inline void getErrorInjectionService(
 }
 
 template <typename Handler>
-inline void getProcessor(std::shared_ptr<bmcweb::AsyncResp> aResp,
+inline void getProcessor(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                          const std::string& processorId, Handler&& handler)
 {
     crow::connections::systemBus->async_method_call(
@@ -364,9 +365,10 @@ inline void patchProcessorErrorInjectionData(
 }
 
 template <typename Handler>
-inline void getNetworkAdapter(
-    std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& chassisId,
-    const std::string& networkAdapterId, Handler&& handler)
+inline void getNetworkAdapter(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                              const std::string& chassisId,
+                              const std::string& networkAdapterId,
+                              Handler&& handler)
 {
     crow::connections::systemBus->async_method_call(
         [chassisId, networkAdapterId, aResp,
@@ -451,7 +453,7 @@ inline void patchNetworkAdapterErrorInjectionData(
 }
 
 template <typename Handler>
-inline void getSwitch(std::shared_ptr<bmcweb::AsyncResp> aResp,
+inline void getSwitch(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                       const std::string& fabricId, const std::string& switchId,
                       Handler&& handler)
 {

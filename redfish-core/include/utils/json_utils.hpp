@@ -493,7 +493,7 @@ struct PerUnpack
 
 inline bool readJsonHelper(nlohmann::json& jsonRequest, crow::Response& res,
                            std::span<PerUnpack> toUnpack);
-
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
                                  crow::Response& res,
                                  std::span<PerUnpack> toUnpack)
@@ -610,6 +610,7 @@ inline bool readJsonHelper(nlohmann::json& jsonRequest, crow::Response& res,
 inline void packVariant(std::span<PerUnpack> /*toPack*/) {}
 
 template <typename FirstType, typename... UnpackTypes>
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 void packVariant(std::span<PerUnpack> toPack, std::string_view key,
                  FirstType&& first, UnpackTypes&&... in)
 {
@@ -876,7 +877,8 @@ inline int objectKeyCmp(std::string_view key, const nlohmann::json& a,
         segmentsAIt++;
         segmentsBIt++;
     }
-    return 0;
+    // NOLINTNEXTLINE(clang-diagnostic-unreachable-code-return)
+    // return 0;
 };
 
 // kept for backward compatibility

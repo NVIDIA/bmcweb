@@ -18,6 +18,7 @@
 
 #include "error_messages.hpp"
 #include "health.hpp"
+#include "query.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 
 #include <app.hpp>

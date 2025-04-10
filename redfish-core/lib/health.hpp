@@ -28,9 +28,9 @@
 
 #include <array>
 #include <ranges>
+#include <string>
 #include <string_view>
 #include <variant>
-
 namespace redfish
 {
 struct HealthPopulate : std::enable_shared_from_this<HealthPopulate>
@@ -790,9 +790,9 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
                       const std::variant<Association>& result) mutable {
                 if (ec)
                 {
-                    self->getPropertyFailFeedback(serviceManager, objPath,
-                                                  dbusIntfDefinitions,
-                                                  dbusPropAssociations, ec);
+                    redfish::HealthRollup::getPropertyFailFeedback(
+                        serviceManager, objPath, dbusIntfDefinitions,
+                        dbusPropAssociations, ec);
                     // TODO: move to ASSOC_Q_HEALTH_SERVICE state (assume
                     // that error in getting associations is no associations)
                     self->stopRollup(STOP_ERROR);
@@ -803,7 +803,7 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
                         get_if<Association>(&result);
                     if (associations == nullptr)
                     {
-                        self->invalidPropertyTypeFeedback(
+                        redfish::HealthRollup::invalidPropertyTypeFeedback(
                             serviceManager, objPath, dbusIntfDefinitions,
                             dbusPropAssociations, "a(sss)");
                         self->stopRollup(STOP_ERROR);
@@ -1072,8 +1072,8 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
                 const boost::system::error_code& ec,
                 const std::map<std::string, std::vector<std::string>>& result) {
                 ServiceQueryingResult nextMove =
-                    self->determineQueryingServiceNextMove(ec, result, objPath,
-                                                           interface);
+                    redfish::HealthRollup::determineQueryingServiceNextMove(
+                        ec, result, objPath, interface);
                 if (nextMove == SERVICE_OK_CONTINUE)
                 {
                     auto manager = result.cbegin()->first;

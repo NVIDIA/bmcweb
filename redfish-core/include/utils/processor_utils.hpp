@@ -15,10 +15,13 @@
  * limitations under the License.
  */
 #pragma once
+#include "async_resp.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
 
 #include <utils/nvidia_utils.hpp>
 
+#include <string>
 namespace redfish
 {
 

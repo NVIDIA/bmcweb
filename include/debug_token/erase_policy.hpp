@@ -16,9 +16,15 @@
  */
 #pragma once
 
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
+#include "logging.hpp"
+#include "nvidia_error_messages.hpp"
 
 #include <sdbusplus/asio/property.hpp>
+#include <sdbusplus/message.hpp>
 
 #include <string_view>
 

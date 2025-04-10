@@ -16,6 +16,8 @@
  */
 
 #pragma once
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
 #include "error_messages.hpp"
 
 #include <boost/process.hpp>
@@ -26,8 +28,6 @@
 
 namespace redfish
 {
-
-namespace bp = boost::process;
 
 using ExitCode = int32_t;
 using ErrorMessage = std::string;
@@ -150,9 +150,11 @@ struct PersistentStorageUtil
             respCallback(req, asyncResp, stdOut, stdErr, ec, errorCode);
             return;
         };
-        bp::async_system(crow::connections::systemBus->get_io_context(),
-                         exitCallback, command, bp::std_in.close(),
-                         bp::std_out > *dataOut, bp::std_err > *dataErr);
+        boost::process::async_system(
+            crow::connections::systemBus->get_io_context(), exitCallback,
+            command, boost::process::std_in.close(),
+            boost::process::std_out > *dataOut,
+            boost::process::std_err > *dataErr);
     }
 };
 

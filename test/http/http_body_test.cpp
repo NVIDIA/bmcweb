@@ -119,10 +119,10 @@ TEST(HttpFileBodyValueType, SetFd)
     TemporaryFileHandle temporaryFile("teststring");
     boost::system::error_code ec;
     FILE* r = fopen(temporaryFile.stringPath.c_str(), "r");
+    // NOLINTNEXTLINE(clang-analyzer-unix.Stream)
     ASSERT_NE(r, nullptr);
     value.setFd(fileno(r), ec);
     ASSERT_FALSE(ec);
-
     std::array<char, 4096> buffer{};
 
     size_t out = value.file().read(buffer.data(), buffer.size(), ec);
@@ -131,6 +131,7 @@ TEST(HttpFileBodyValueType, SetFd)
     EXPECT_THAT(std::span(buffer.data(), out),
                 ElementsAre('t', 'e', 's', 't', 's', 't', 'r', 'i', 'n', 'g'));
     EXPECT_EQ(value.payloadSize(), 16);
+    fclose(r);
 }
 
 } // namespace

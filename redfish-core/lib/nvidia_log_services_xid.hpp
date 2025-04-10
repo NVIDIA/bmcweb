@@ -16,7 +16,10 @@
  */
 
 #include "app.hpp"
-
+#include "nvidia_log_services_sel.hpp"
+#include "registries/privilege_registry.hpp"
+#include "utils/dbus_utils.hpp"
+#include "utils/time_utils.hpp"
 namespace redfish
 {
 
@@ -36,7 +39,7 @@ inline void requestRoutesChassisXIDLogService(App& app)
                 [asyncResp, chassisId(std::string(chassisId))](
                     const boost::system::error_code& ec,
                     const dbus::utility::GetSubTreeType& subtree) {
-                    if (ec)
+                    if (ec || subtree.empty())
                     {
                         messages::internalError(asyncResp->res);
                         return;

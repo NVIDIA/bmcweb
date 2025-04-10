@@ -13,14 +13,17 @@
 #include "generated/enums/drive.hpp"
 #include "generated/enums/protocol.hpp"
 #include "generated/enums/resource.hpp"
+#include "health.hpp"
 #include "http_request.hpp"
 #include "human_sort.hpp"
 #include "logging.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
+#include "task.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/json_utils.hpp"
 
 #include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>

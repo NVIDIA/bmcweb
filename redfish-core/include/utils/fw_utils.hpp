@@ -15,14 +15,19 @@
  * limitations under the License.
  */
 #pragma once
+#include "dbus_singleton.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 
 #include <async_resp.hpp>
+#include <boost/container/flat_map.hpp>
+#include <boost/system/error_code.hpp>
 #include <dbus_utility.hpp>
+#include <nlohmann/json.hpp>
 #include <sdbusplus/asio/property.hpp>
 
 #include <algorithm>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace redfish
@@ -185,7 +190,7 @@ inline void populateFirmwareInformation(
                                     std::string,
                                     dbus::utility::DbusVariantType>&
                                     propertiesList) {
-                                if (ec3)
+                                if (ec3 || propertiesList.empty())
                                 {
                                     BMCWEB_LOG_ERROR("error_code = {}", ec3);
                                     BMCWEB_LOG_ERROR("error msg = {}",
@@ -390,7 +395,7 @@ inline void getFwRecoveryStatus(
             const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, dbus::utility::DbusVariantType>& propertiesList) {
-            if (ec)
+            if (ec || propertiesList.empty())
             {
                 // OK since not all fwtypes support recovery
                 return;
@@ -426,7 +431,7 @@ inline void getFwRecoveryStatus(
             const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, dbus::utility::DbusVariantType>& propertiesList) {
-            if (ec)
+            if (ec || propertiesList.empty())
             {
                 // OK since not all fwtypes support recovery
                 return;
@@ -481,7 +486,7 @@ inline void getFwStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, dbus::utility::DbusVariantType>& propertiesList) {
-            if (ec)
+            if (ec || propertiesList.empty())
             {
                 // not all fwtypes are updateable, this is ok
                 asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
@@ -540,7 +545,7 @@ inline void getFwWriteProtectedStatus(
             const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, dbus::utility::DbusVariantType>& propertiesList) {
-            if (ec)
+            if (ec || propertiesList.empty())
             {
                 return;
             }
@@ -826,7 +831,7 @@ inline void patchFwWriteProtectedStatus(
  */
 inline void getFwUpdateableStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::shared_ptr<std::string>& fwId, std::string inventoryPath = "")
+    const std::shared_ptr<std::string>& fwId, std::string& inventoryPath)
 {
     if (inventoryPath.empty())
     {

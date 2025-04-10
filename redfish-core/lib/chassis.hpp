@@ -33,7 +33,6 @@
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
 #include <boost/url/url.hpp>
-#include <erot_chassis.hpp>
 #include <nlohmann/json.hpp>
 #include <openbmc_dbus_rest.hpp>
 #include <sdbusplus/asio/property.hpp>

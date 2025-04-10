@@ -22,6 +22,10 @@
 #pragma once
 #include "bmcweb_config.h"
 
+#include "http_response.hpp"
+#include "logging.hpp"
+
+#include <fstream>
 #include <string>
 
 namespace redfish

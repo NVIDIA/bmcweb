@@ -289,6 +289,7 @@ inline void parseAdditionalDataForCPER(
     }
 
     // Iterate over Sections:
+    // NOLINTNEXTLINE(clang-diagnostic-unreachable-code-loop-increment)
     for (const auto& section : *sections)
     {
         jsonIterate(jOut["CPER"]["Oem"]["Nvidia"], section, capitalizeProp);

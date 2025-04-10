@@ -94,8 +94,13 @@ def write_enum_list(redfish_defs_file, enum_list, snake_case_namespace):
             values.insert(0, "Invalid")
 
         for value in values:
+            # If the value is numeric, prefix it with the enum name
+            if value.isdigit():
+                enum_value = f"{element.name}{value}"
+            else:
+                enum_value = re.sub(r"[^0-9_a-zA-Z]", "", value)
             redfish_defs_file.write(
-                "    {},\n".format(re.sub(r"[^0-9_a-zA-Z]", "", value))
+                "    {},\n".format(enum_value)
             )
 
         redfish_defs_file.write("};\n\n")
@@ -112,9 +117,14 @@ def write_enum_list(redfish_defs_file, enum_list, snake_case_namespace):
             "NLOHMANN_JSON_SERIALIZE_ENUM({}, {{\n".format(element.name)
         )
         for value in values:
+            # If the value is numeric, prefix it with the enum name
+            if value.isdigit():
+                enum_value = f"{element.name}{value}"
+            else:
+                enum_value = re.sub(r"[^0-9_a-zA-Z]", "", value)
             redfish_defs_file.write(
                 '    {{{}::{}, "{}"}},\n'.format(
-                    element.name, re.sub(r"[^0-9_a-zA-Z]", "", value), value
+                    element.name, enum_value, value
                 )
             )
 

@@ -1346,17 +1346,14 @@ inline CertificateMappingAttribute getCertificateMapping(
         {
             return CertificateMappingAttribute::CommonName;
         }
-        break;
         case MTLSCommonNameParseMode::Whole:
         {
             return CertificateMappingAttribute::Whole;
         }
-        break;
         case MTLSCommonNameParseMode::UserPrincipalName:
         {
             return CertificateMappingAttribute::UserPrincipalName;
         }
-        break;
 
         case MTLSCommonNameParseMode::Meta:
         {
@@ -1370,7 +1367,6 @@ inline CertificateMappingAttribute getCertificateMapping(
         {
             return CertificateMappingAttribute::Invalid;
         }
-        break;
     }
 }
 

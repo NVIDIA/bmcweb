@@ -23,6 +23,7 @@
 #include <dbus_utility.hpp>
 #include <query.hpp>
 #include <registries/privilege_registry.hpp>
+#include <utils/json_utils.hpp>
 #include <utils/privilege_utils.hpp>
 
 #include <fstream>

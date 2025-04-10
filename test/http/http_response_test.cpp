@@ -107,6 +107,7 @@ TEST(HttpResponse, Base64HttpBodyWithFd)
     addHeaders(res);
     TemporaryFileHandle temporaryFile("sample text");
     FILE* fd = fopen(temporaryFile.stringPath.c_str(), "r");
+    // NOLINTNEXTLINE(clang-analyzer-unix.Stream)
     ASSERT_NE(fd, nullptr);
     res.openFd(fileno(fd), bmcweb::EncodingType::Base64);
     verifyHeaders(res);
@@ -152,6 +153,7 @@ TEST(HttpResponse, Base64HttpBodyWriter)
     FILE* f = fopen(temporaryFile.stringPath.c_str(), "r+");
     res.openFd(fileno(f), bmcweb::EncodingType::Base64);
     EXPECT_EQ(getData(res.response), "c2FtcGxlIHRleHQ=");
+    fclose(f);
 }
 
 TEST(HttpResponse, Base64HttpBodyWriterLarge)

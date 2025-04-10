@@ -16,7 +16,10 @@
  */
 #pragma once
 
+#include "http/logging.hpp"
+
 #include <boost/interprocess/streams/bufferstream.hpp>
+#include <nlohmann/json.hpp>
 
 #include <array>
 #include <cstring>
@@ -429,7 +432,7 @@ inline std::map<int, VdmTokenStatus> parseVdmUtilWrapperOutput(
         }
         if (lineElements.size() < vdmUtilWrapperOutputRxIndex)
         {
-            BMCWEB_LOG_ERROR("Invalid data: ", line);
+            BMCWEB_LOG_ERROR("Invalid data: {}", line);
             continue;
         }
         int eid = 0;
@@ -441,7 +444,7 @@ inline std::map<int, VdmTokenStatus> parseVdmUtilWrapperOutput(
         }
         catch (const std::exception&)
         {
-            BMCWEB_LOG_ERROR("Invalid data: ", line);
+            BMCWEB_LOG_ERROR("Invalid data: {}", line);
             continue;
         }
         auto& txLine = lineElements[vdmUtilWrapperOutputTxIndex];
@@ -479,27 +482,27 @@ inline std::string setOrAppend(const std::string& str, std::string in)
 }
 
 inline void vdmTokenStatusToJson(const VdmTokenStatus& status,
-                                 nlohmann::json& json)
+                                 nlohmann::json& j)
 {
     if (status.tokenStatus == VdmTokenInstallationStatus::INSTALLED)
     {
-        json["TokenInstalled"] = true;
+        j["TokenInstalled"] = true;
     }
     else
     {
-        json["TokenInstalled"] = false;
+        j["TokenInstalled"] = false;
     }
     if (status.fuseType == VdmTokenFuseType::PRODUCTION)
     {
-        json["FirmwareFuseType"] = "Production";
+        j["FirmwareFuseType"] = "Production";
     }
     else if (status.fuseType == VdmTokenFuseType::DEBUG)
     {
-        json["FirmwareFuseType"] = "Debug";
+        j["FirmwareFuseType"] = "Debug";
     }
     else
     {
-        json["FirmwareFuseType"] = "Invalid";
+        j["FirmwareFuseType"] = "Invalid";
     }
     std::ostringstream oss;
     oss << "0x";
@@ -509,12 +512,12 @@ inline void vdmTokenStatusToJson(const VdmTokenStatus& status,
     {
         oss << std::setw(2) << static_cast<int>(*itr++);
     }
-    json["DeviceID"] = oss.str();
+    j["DeviceID"] = oss.str();
     if (status.tokenType)
     {
         if (*status.tokenType == static_cast<uint32_t>(VdmTokenType::UNDEFINED))
         {
-            json["TokenType"] = "Undefined";
+            j["TokenType"] = "Undefined";
         }
         else
         {
@@ -544,77 +547,77 @@ inline void vdmTokenStatusToJson(const VdmTokenStatus& status,
             {
                 tokenType = setOrAppend(tokenType, "FeatureUnlock");
             }
-            json["TokenType"] = tokenType;
+            j["TokenType"] = tokenType;
         }
     }
     if (status.validityCounter)
     {
-        json["ValidityCounter"] = *status.validityCounter;
+        j["ValidityCounter"] = *status.validityCounter;
     }
     if (status.tokenLifecycle)
     {
         if (*status.tokenLifecycle == VdmTokenLifecycle::PERSISTENT)
         {
-            json["Lifecycle"] = "Persistent";
+            j["Lifecycle"] = "Persistent";
         }
         else
         {
-            json["Lifecycle"] = "Temporal";
+            j["Lifecycle"] = "Temporal";
         }
     }
     if (status.tokenActivation)
     {
         if (*status.tokenActivation == VdmTokenActivation::ON_BOOT)
         {
-            json["Activation"] = "OnBoot";
+            j["Activation"] = "OnBoot";
         }
         else
         {
-            json["Activation"] = "Manual";
+            j["Activation"] = "Manual";
         }
     }
     if (status.tokenRevocation)
     {
         if (*status.tokenRevocation == VdmTokenRevocation::MANUAL)
         {
-            json["Revocation"] = "Manual";
+            j["Revocation"] = "Manual";
         }
         else
         {
-            json["Revocation"] = "Automatic";
+            j["Revocation"] = "Automatic";
         }
     }
     if (status.tokenDevIdStatus)
     {
         if (*status.tokenDevIdStatus == VdmTokenDevIdStatus::DISABLED)
         {
-            json["DevIdStatus"] = "Disabled";
+            j["DevIdStatus"] = "Disabled";
         }
         else
         {
-            json["Activation"] = "Enabled";
+            j["Activation"] = "Enabled";
         }
     }
     if (status.tokenAntiReplay)
     {
         if (*status.tokenAntiReplay == VdmTokenAntiReplay::NONCE_DISABLED)
         {
-            json["AntiReplay"] = "NonceDisabled";
+            j["AntiReplay"] = "NonceDisabled";
         }
         else
         {
-            json["AntiReplay"] = "NonceEnabled";
+            j["AntiReplay"] = "NonceEnabled";
         }
     }
     if (status.tokenResetPostInstall)
     {
         if (*status.tokenResetPostInstall == VdmTokenResetPostInstall::MANDATED)
         {
-            json["ResetPostInstall"] = "Mandated";
+            j["ResetPostInstall"] = "Mandated";
         }
         else
         {
-            json["ResetPostInstall"] = "NotMandated";
+            j["ResetPostInstall"] = "NotMandated";
         }
     }
     if (status.tokenProcessingStatus)
@@ -622,26 +625,26 @@ inline void vdmTokenStatusToJson(const VdmTokenStatus& status,
         if (*status.tokenProcessingStatus ==
             VdmTokenProcessingStatus::NOT_PROCESSED)
         {
-            json["ProcessingStatus"] = "NotProcessed";
+            j["ProcessingStatus"] = "NotProcessed";
         }
         else if (*status.tokenProcessingStatus ==
                  VdmTokenProcessingStatus::PROCESSED)
         {
-            json["ProcessingStatus"] = "Processed";
+            j["ProcessingStatus"] = "Processed";
         }
         else if (*status.tokenProcessingStatus ==
                  VdmTokenProcessingStatus::VERIFICATION_FAILURE)
         {
-            json["ProcessingStatus"] = "VerificationFailure";
+            j["ProcessingStatus"] = "VerificationFailure";
         }
         else if (*status.tokenProcessingStatus ==
                  VdmTokenProcessingStatus::RUNTIME_ERROR)
         {
-            json["ProcessingStatus"] = "RuntimeError";
+            j["ProcessingStatus"] = "RuntimeError";
         }
         else
         {
-            json["ProcessingStatus"] = "Invalid";
+            j["ProcessingStatus"] = "Invalid";
         }
     }
 }
@@ -667,8 +670,9 @@ struct NsmTokenStatus
         }
         catch (const std::exception& e)
         {
-            BMCWEB_LOG_ERROR("Invalid token status: {} {} {}", dbusTokenType,
-                             dbusTokenStatus, dbusAdditionalInfo);
+            BMCWEB_LOG_ERROR(
+                "Invalid token status dbusTokenType: {} : dbusTokenStatus: {} : dbusAdditionalInfo: {}",
+                dbusTokenType, dbusTokenStatus, dbusAdditionalInfo);
             throw e;
         }
         timeLeft = std::get<3>(dbusStatus);

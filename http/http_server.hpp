@@ -12,6 +12,9 @@
 #include "nvidia_ssl_key_handler.hpp"
 #include "ssl_key_handler.hpp"
 
+#include <openssl/pem.h> // For PEM_read_PrivateKey
+#include <sys/inotify.h> // For IN_CLOSE_WRITE
+
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -19,16 +22,12 @@
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/beast/core.hpp>      // For lowest_layer_type
-
-#include <openssl/pem.h>  // For PEM_read_PrivateKey
-
-#include <sys/inotify.h>  // For IN_CLOSE_WRITE
+#include <boost/beast/core.hpp> // For lowest_layer_type
 
 #include <chrono>
 #include <csignal>
 #include <cstddef>
-#include <cstdio>     // For FILE
+#include <cstdio> // For FILE
 #include <ctime>
 #include <functional>
 #include <memory>

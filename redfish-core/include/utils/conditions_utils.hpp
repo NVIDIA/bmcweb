@@ -20,12 +20,16 @@
  */
 
 #pragma once
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
+#include "logging.hpp"
+#include "utils/dbus_log_utils.hpp"
+#include "utils/file_utils.hpp"
+#include "utils/origin_utils.hpp"
+#include "utils/registry_utils.hpp"
+#include "utils/time_utils.hpp"
 
-#include <utils/dbus_log_utils.hpp>
-#include <utils/file_utils.hpp>
-#include <utils/origin_utils.hpp>
-#include <utils/registry_utils.hpp>
-#include <utils/time_utils.hpp>
+#include <sdbusplus/message.hpp>
 
 namespace redfish
 {
@@ -472,8 +476,8 @@ inline void populateServiceConditions(
     const std::string& chassisId)
 {
     BMCWEB_LOG_DEBUG("Populating service conditions for device {}", chassisId);
-    BMCWEB_LOG_DEBUG("ON REDFISH URI {}",
-                     asyncResp->res.jsonValue["@odata.id"]);
+    std::string redfishUri = asyncResp->res.jsonValue["@odata.id"];
+    BMCWEB_LOG_DEBUG("ON REDFISH URI {}", redfishUri);
     BMCWEB_LOG_DEBUG("PLATFORM DEVICE PREFIX IS {}",
                      BMCWEB_PLATFORM_DEVICE_PREFIX);
 

@@ -13,6 +13,7 @@
 #include "generated/enums/pcie_device.hpp"
 #include "generated/enums/pcie_slots.hpp"
 #include "generated/enums/resource.hpp"
+#include "health.hpp"
 #include "http_request.hpp"
 #include "logging.hpp"
 #include "query.hpp"
@@ -27,6 +28,7 @@
 #include <boost/url/format.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <utils/conditions_utils.hpp>
+#include <utils/nvidia_chassis_util.hpp>
 #include <utils/nvidia_pcie_utils.hpp>
 
 #include <array>

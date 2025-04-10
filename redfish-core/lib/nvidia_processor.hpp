@@ -16,11 +16,16 @@
  */
 #pragma once
 #include "nvidia_error_messages.hpp"
+#include "utils/nvidia_pcie_utils.hpp"
 #include "utils/processor_utils.hpp"
 
+#include <boost/algorithm/string.hpp>
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_processor_utils.hpp>
 #include <utils/port_utils.hpp>
+#include <utils/time_utils.hpp>
+
+#include <string>
 namespace redfish
 {
 namespace nvidia_processor
@@ -72,7 +77,7 @@ inline std::string getProcessorFpgaType(const std::string& processorFpgaType)
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-inline void getFpgaTypeData(std::shared_ptr<bmcweb::AsyncResp> aResp,
+inline void getFpgaTypeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             const std::string& service,
                             const std::string& objPath)
 {
@@ -80,8 +85,8 @@ inline void getFpgaTypeData(std::shared_ptr<bmcweb::AsyncResp> aResp,
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, service, objPath,
         "xyz.openbmc_project.Inventory.Decorator.FpgaType", "FpgaType",
-        [objPath, aResp{std::move(aResp)}](const boost::system::error_code& ec,
-                                           const std::string& property) {
+        [objPath, aResp{aResp}](const boost::system::error_code& ec,
+                                const std::string& property) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -146,8 +151,8 @@ inline void getSystemPCIeInterfaceProperties(
 
                     const double* currentSpeed = nullptr;
                     const size_t* activeWidth = nullptr;
-
-                    const bool success = sdbusplus::unpackPropertiesNoThrow(
+                    bool success = false;
+                    success = sdbusplus::unpackPropertiesNoThrow(
                         dbus_utils::UnpackErrorPrinter(), properties,
                         "CurrentSpeed", currentSpeed, "ActiveWidth",
                         activeWidth);
@@ -170,17 +175,9 @@ inline void getSystemPCIeInterfaceProperties(
                     }
                     if (activeWidth != nullptr)
                     {
-                        if (*activeWidth == INT_MAX)
-                        {
-                            asyncResp->res.jsonValue["SystemInterface"]["PCIe"]
-                                                    ["LanesInUse"] = 0;
-                        }
-                        else
-                        {
-                            asyncResp->res.jsonValue["SystemInterface"]["PCIe"]
-                                                    ["LanesInUse"] =
-                                *activeWidth;
-                        }
+                        asyncResp->res.jsonValue["SystemInterface"]["PCIe"]
+                                                ["LanesInUse"] =
+                            (*activeWidth == INT_MAX) ? 0 : *activeWidth;
                     }
                 });
         },
@@ -298,10 +295,11 @@ inline void getProcessorResetTypeData(
         "xyz.openbmc_project.Control.Processor.Reset");
 }
 
-inline void postResetType(
-    const std::shared_ptr<bmcweb::AsyncResp>& resp,
-    const std::string& processorId, const std::string& cpuObjectPath,
-    const std::string& resetType, const MapperServiceMap& serviceMap)
+inline void postResetType(const std::shared_ptr<bmcweb::AsyncResp>& resp,
+                          const std::string& processorId,
+                          const std::string& cpuObjectPath,
+                          const std::string& resetType,
+                          const processor_utils::MapperServiceMap& serviceMap)
 {
     // Check that the property even exists by checking for the interface
     const std::string* inventoryService = nullptr;
@@ -853,9 +851,9 @@ inline void getParentChassisPCIeDeviceLink(
                 return;
             }
             crow::connections::systemBus->async_method_call(
-                [aResp, chassisName,
-                 parentChassisName](const boost::system::error_code& ec1,
-                                    const MapperGetSubTreeResponse& subtree) {
+                [aResp, chassisName, parentChassisName](
+                    const boost::system::error_code& ec1,
+                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
                     if (ec1)
                     {
                         messages::internalError(aResp->res);
@@ -995,13 +993,13 @@ inline void getProcessorChassisLink(
  * @param[in]       objPath     D-Bus object to query.
  */
 inline void getProcessorFirmwareVersion(
-    std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& service,
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Processor firmware version");
     crow::connections::systemBus->async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code& ec,
-                                  const std::variant<std::string>& property) {
+        [aResp{aResp}](const boost::system::error_code& ec,
+                       const std::variant<std::string>& property) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for "
@@ -1031,7 +1029,7 @@ inline void getProcessorFirmwareVersion(
  * @param[in]       objPath     D-Bus object to query.
  */
 inline void getProcessorLocationContext(
-    std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& service,
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Processor LocationContext Data");
@@ -1039,8 +1037,8 @@ inline void getProcessorLocationContext(
         *crow::connections::systemBus, service, objPath,
         "xyz.openbmc_project.Inventory.Decorator.LocationContext",
         "LocationContext",
-        [objPath, aResp{std::move(aResp)}](const boost::system::error_code& ec,
-                                           const std::string& property) {
+        [objPath, aResp{aResp}](const boost::system::error_code& ec,
+                                const std::string& property) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -1060,7 +1058,7 @@ inline void getProcessorLocationContext(
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-inline void getCpuLocationType(std::shared_ptr<bmcweb::AsyncResp> aResp,
+inline void getCpuLocationType(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                const std::string& service,
                                const std::string& objPath)
 {
@@ -1068,8 +1066,8 @@ inline void getCpuLocationType(std::shared_ptr<bmcweb::AsyncResp> aResp,
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, service, objPath,
         "xyz.openbmc_project.Inventory.Decorator.Location", "LocationType",
-        [objPath, aResp{std::move(aResp)}](const boost::system::error_code& ec,
-                                           const std::string& property) {
+        [objPath, aResp{aResp}](const boost::system::error_code& ec,
+                                const std::string& property) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -1263,16 +1261,12 @@ inline void getProcessorPerformanceData(
             }
 
             nlohmann::json& json = aResp->res.jsonValue;
-            if (deviceType == "xyz.openbmc_project.Inventory.Item.Accelerator")
-            {
-                json["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics";
-            }
-            else
-            {
-                json["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaProcessorMetrics.v1_2_0.NvidiaProcessorMetrics";
-            }
+            const std::string_view metricType =
+                (deviceType == "xyz.openbmc_project.Inventory.Item.Accelerator")
+                    ? "#NvidiaProcessorMetrics.v1_4_0.NvidiaGPUProcessorMetrics"
+                    : "#NvidiaProcessorMetrics.v1_2_0.NvidiaProcessorMetrics";
+
+            json["Oem"]["Nvidia"]["@odata.type"] = metricType;
 
             for (const auto& property : properties)
             {
@@ -2122,7 +2116,7 @@ inline void handleAppliedConfigResponse(
 inline void patchMigMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                          const std::string& processorId, const bool migMode,
                          const std::string& cpuObjectPath,
-                         const MapperServiceMap& serviceMap)
+                         const processor_utils::MapperServiceMap& serviceMap)
 {
     // Check that the property even exists by checking for the interface
     const std::string* inventoryService = nullptr;
@@ -2340,11 +2334,12 @@ inline void patchRemoteDebug(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
  * @param[in]       cpuObjectPath   Path of CPU object to modify.
  * @param[in]       serviceMap      Service map for CPU object.
  */
-inline void patchSpeedConfig(const std::shared_ptr<bmcweb::AsyncResp>& resp,
-                             const std::string& processorId,
-                             const std::tuple<bool, uint32_t>& reqSpeedConfig,
-                             const std::string& cpuObjectPath,
-                             const MapperServiceMap& serviceMap)
+inline void patchSpeedConfig(
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const std::string& processorId,
+    const std::tuple<bool, uint32_t>& reqSpeedConfig,
+    const std::string& cpuObjectPath,
+    const processor_utils::MapperServiceMap& serviceMap)
 {
     BMCWEB_LOG_DEBUG("Setting SpeedConfig");
     // Check that the property even exists by checking for the interface
@@ -2492,7 +2487,8 @@ inline void patchSpeedConfig(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 inline void patchSpeedLocked(
     const std::shared_ptr<bmcweb::AsyncResp>& resp,
     const std::string& processorId, const bool speedLocked,
-    const std::string& cpuObjectPath, const MapperServiceMap& serviceMap)
+    const std::string& cpuObjectPath,
+    const processor_utils::MapperServiceMap& serviceMap)
 {
     // Check that the property even exists by checking for the interface
     const std::string* inventoryService = nullptr;
@@ -2543,10 +2539,11 @@ inline void patchSpeedLocked(
  * @param[in]       cpuObjectPath   Path of CPU object to modify.
  * @param[in]       serviceMap      Service map for CPU object.
  */
-inline void patchSpeedLimit(
-    const std::shared_ptr<bmcweb::AsyncResp>& resp,
-    const std::string& processorId, const int speedLimit,
-    const std::string& cpuObjectPath, const MapperServiceMap& serviceMap)
+inline void patchSpeedLimit(const std::shared_ptr<bmcweb::AsyncResp>& resp,
+                            const std::string& processorId,
+                            const int speedLimit,
+                            const std::string& cpuObjectPath,
+                            const processor_utils::MapperServiceMap& serviceMap)
 {
     // Check that the property even exists by checking for the interface
     const std::string* inventoryService = nullptr;
@@ -2590,14 +2587,14 @@ inline void patchSpeedLimit(
         });
 }
 
-inline void getProcessorDataByService(std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                      const std::string& service,
-                                      const std::string& objPath)
+inline void getProcessorDataByService(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
+    const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get processor metrics data.");
     crow::connections::systemBus->async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code& ec,
-                                  const OperatingConfigProperties& properties) {
+        [aResp{aResp}](const boost::system::error_code& ec,
+                       const OperatingConfigProperties& properties) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -2634,14 +2631,14 @@ inline void getProcessorDataByService(std::shared_ptr<bmcweb::AsyncResp> aResp,
         "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig");
 }
 
-inline void getProcessorMemoryECCData(std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                      const std::string& service,
-                                      const std::string& objPath)
+inline void getProcessorMemoryECCData(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
+    const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get processor memory ecc data.");
     crow::connections::systemBus->async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code& ec,
-                                  const OperatingConfigProperties& properties) {
+        [aResp{aResp}](const boost::system::error_code& ec,
+                       const OperatingConfigProperties& properties) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -2960,12 +2957,13 @@ inline void getStateSensorMetric(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-inline void getProcessorMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                    const std::string& processorId)
+inline void getProcessorMetricsData(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& processorId)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
-        [processorId, aResp{std::move(aResp)}](
+        [processorId, aResp{aResp}](
             const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
@@ -3104,8 +3102,9 @@ inline void getProcessorMemoryDataByService(
 {
     BMCWEB_LOG_DEBUG("Get processor memory data");
     crow::connections::systemBus->async_method_call(
-        [aResp, memoryPath, processorCECount, processorUECount](
-            const boost::system::error_code& ec, GetSubTreeType& subtree) {
+        [aResp, memoryPath, processorCECount,
+         processorUECount](const boost::system::error_code& ec,
+                           dbus::utility::GetSubTreeType& subtree) {
             if (ec)
             {
                 messages::internalError(aResp->res);
@@ -3426,8 +3425,9 @@ inline void getProcessorSettingsData(
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
-        [aResp, processorId](boost::system::error_code& ec,
-                             const MapperGetSubTreeResponse& subtree) mutable {
+        [aResp, processorId](
+            boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreeResponse& subtree) mutable {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error: {}", ec);
@@ -3528,10 +3528,11 @@ inline void getProcessorSettingsData(
             "com.nvidia.GPMMetrics"});
 }
 
-inline void patchEccMode(
-    const std::shared_ptr<bmcweb::AsyncResp>& resp,
-    const std::string& processorId, const bool eccModeEnabled,
-    const std::string& cpuObjectPath, const MapperServiceMap& serviceMap)
+inline void patchEccMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
+                         const std::string& processorId,
+                         const bool eccModeEnabled,
+                         const std::string& cpuObjectPath,
+                         const processor_utils::MapperServiceMap& serviceMap)
 {
     // Check that the property even exists by checking for the interface
     const std::string* inventoryService = nullptr;

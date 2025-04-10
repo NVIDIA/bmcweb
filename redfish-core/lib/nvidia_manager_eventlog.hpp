@@ -19,9 +19,13 @@
 #include "app.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/log_entry.hpp"
+#include "log_services.hpp"
+#include "nvidia_log_services.hpp"
+#include "query.hpp"
 #include "registries/base_message_registry.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/dbus_event_log_entry.hpp"
+#include "utils/dbus_log_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <boost/beast/http/verb.hpp>

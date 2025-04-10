@@ -402,7 +402,7 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
                 }
                 task->timer.cancel();
                 task->finishTask();
-                task->sendTaskEvent(task->state, task->index);
+                task::TaskData::sendTaskEvent(task->state, task->index);
                 boost::asio::post(
                     crow::connections::systemBus->get_io_context(),
                     [task] { op.reset(); });
@@ -418,7 +418,7 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
                         messages::taskAborted(std::to_string(task->index)));
                     task->timer.cancel();
                     task->finishTask();
-                    task->sendTaskEvent(task->state, task->index);
+                    task::TaskData::sendTaskEvent(task->state, task->index);
                     boost::asio::post(
                         crow::connections::systemBus->get_io_context(),
                         [] { op.reset(); });

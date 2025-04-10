@@ -69,7 +69,4 @@ inline std::string_view httpVerbToString(HttpVerb verb)
         default:
             return "";
     }
-
-    // Should never reach here
-    return "";
 }

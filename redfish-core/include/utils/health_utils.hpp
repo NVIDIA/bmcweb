@@ -5,6 +5,9 @@
 
 #pragma once
 
+#include "async_resp.hpp"
+#include "error_messages.hpp"
+#include "logging.hpp"
 #include "utils/file_utils.hpp"
 
 #include <nlohmann/json.hpp>
@@ -32,6 +35,7 @@ inline void getDeviceHealthInfo(crow::Response& resp,
     std::string deviceId = chassisId;
     if (!BMCWEB_PLATFORM_DEVICE_PREFIX.empty())
     {
+        // NOLINTNEXTLINE(clang-diagnostic-unreachable-code)
         if (chassisId.starts_with(BMCWEB_PLATFORM_DEVICE_PREFIX))
         {
             deviceId = chassisId.substr(BMCWEB_PLATFORM_DEVICE_PREFIX.size());

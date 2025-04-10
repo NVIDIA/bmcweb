@@ -2928,27 +2928,28 @@ inline void requestRoutesSensorPatch(App& app)
                                         messages::internalError(asyncResp->res);
                                         return;
                                     }
-                                    std::string str;
-                                    size_t found = 0;
-                                    for (const auto& subtreeObj : subtree)
+                                    auto sensorIt = std::find_if(
+                                        subtree.begin(), subtree.end(),
+                                        [&sensorId](const auto& subtreeObj) {
+                                            return subtreeObj.first.find(
+                                                       sensorId) !=
+                                                   std::string::npos;
+                                        });
+
+                                    if (sensorIt != subtree.end() &&
+                                        !sensorIt->second.empty())
                                     {
-                                        str = subtreeObj.first;
-                                        found = str.find(sensorId);
-                                        if (found != std::string::npos)
-                                        {
-                                            for (const auto& service :
-                                                 subtreeObj.second)
-                                            {
-                                                processSensorThresholdValues(
-                                                    req, asyncResp,
-                                                    service.first,
-                                                    subtreeObj.first);
-                                                return;
-                                            }
-                                        }
+                                        const auto& service =
+                                            sensorIt->second[0];
+                                        processSensorThresholdValues(
+                                            req, asyncResp, service.first,
+                                            sensorIt->first);
                                     }
-                                    messages::resourceNotFound(
-                                        asyncResp->res, "Sensor", sensorId);
+                                    else
+                                    {
+                                        messages::resourceNotFound(
+                                            asyncResp->res, "Sensor", sensorId);
+                                    }
                                 },
                                 "xyz.openbmc_project.ObjectMapper",
                                 "/xyz/openbmc_project/object_mapper",

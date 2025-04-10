@@ -8,6 +8,7 @@
 #include "http_request.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "str_utility.hpp"
 #include "utils/chassis_utils.hpp"
 
 #include <boost/beast/http/field.hpp>
@@ -76,8 +77,7 @@ inline void getfanSpeedsPercent(
                 // Reserve space for
                 // /xyz/openbmc_project/sensors/<name>/<subname>
                 split.reserve(6);
-                boost::algorithm::split(split, validPath,
-                                        boost::is_any_of("/"));
+                bmcweb::split(split, validPath, '/');
                 if (split.size() < 6)
                 {
                     BMCWEB_LOG_ERROR("Got path that isn't long enough {}",

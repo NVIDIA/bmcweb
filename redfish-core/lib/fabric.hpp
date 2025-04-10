@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "managers.hpp"
 #include "redfish_util.hpp"
@@ -33,6 +34,7 @@
 #include <utils/processor_utils.hpp>
 
 #include <cstdint>
+#include <string>
 #include <variant>
 
 namespace redfish

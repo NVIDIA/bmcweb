@@ -16,41 +16,46 @@
  */
 #pragma once
 
+#include "bmcweb_config.h" // For BMCWEB_DISABLE_CONDITIONS_ARRAY
+
 #include "app.hpp"
-#include "async_resp.hpp"               // For bmcweb::AsyncResp
-#include "bmcweb_config.h"             // For BMCWEB_DISABLE_CONDITIONS_ARRAY
+#include "async_resp.hpp" // For bmcweb::AsyncResp
 #include "dbus_singleton.hpp"
 #include "error_messages.hpp"
-#include "generated/enums/processor.hpp"    // For processor enums
-#include "http_request.hpp"            // For crow::Request
-#include "http_response.hpp"           // For crow::Response
-#include "logging.hpp"                      // For BMCWEB_LOG_DEBUG/ERROR
-#include "nvidia_error_messages.hpp"        // For NVIDIA-specific error messages
-#include "privileges.hpp"              // For redfish::Privileges
-#include "redfish_util.hpp"           // For redfish::setUpRedfishRoute
+#include "generated/enums/processor.hpp" // For processor enums
+#include "http_request.hpp"              // For crow::Request
+#include "http_response.hpp"             // For crow::Response
+#include "logging.hpp"                   // For BMCWEB_LOG_DEBUG/ERROR
+#include "nvidia_error_messages.hpp"     // For NVIDIA-specific error messages
+#include "privileges.hpp"                // For redfish::Privileges
+#include "query.hpp"
+#include "redfish_util.hpp"              // For redfish::setUpRedfishRoute
 #include "registries/privilege_registry.hpp"
-#include "utils/port_utils.hpp"       // For redfish::port_utils
+#include "utils/collection.hpp"
+#include "utils/json_utils.hpp"
 #include "utils/nvidia_processor_utils.hpp"
+#include "utils/port_utils.hpp" // For redfish::port_utils
+
 #include <boost/asio/error.hpp>
-#include <boost/beast/http/verb.hpp>   // For boost::beast::http::verb
+#include <boost/beast/http/verb.hpp> // For boost::beast::http::verb
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
 
-#include <algorithm>                   // For std::find
+#include <algorithm> // For std::find
 #include <array>
-#include <memory>                      // For std::shared_ptr
-#include <optional>                    // For std::optional
+#include <memory>    // For std::shared_ptr
+#include <optional>  // For std::optional
 #include <string>
 #include <string_view>
-#include <utility>                     // For std::pair, std::move
-#include <variant>                     // For std::variant, std::get_if
-#include <vector>                      // For std::vector
+#include <utility> // For std::pair, std::move
+#include <variant> // For std::variant, std::get_if
+#include <vector>  // For std::vector
 
 namespace redfish
 {
 using GetSubTreeType = std::vector<
     std::pair<std::string,
-             std::vector<std::pair<std::string, std::vector<std::string>>>>>;
+              std::vector<std::pair<std::string, std::vector<std::string>>>>>;
 using GetManagedPropertyType =
     boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
 // Map of service name to list of interfaces

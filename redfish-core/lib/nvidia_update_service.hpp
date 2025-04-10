@@ -25,7 +25,6 @@
 #include "dbus_utility.hpp"
 #include "debug_token/erase_policy.hpp"
 #include "multipart_parser.hpp"
-#include "nvidia_update_service.hpp"
 #include "ossl_random.hpp"
 #include "persistentstorage_util.hpp"
 #include "query.hpp"
@@ -80,12 +79,14 @@ static bool fwUpdateInProgress = false;
 
 // allowed firmware image size
 constexpr const size_t firmwareImageLimitBytes =
+    // NOLINTNEXTLINE(bugprone-implicit-widening-of-multiplication-result)
     BMCWEB_FIRMWARE_IMAGE_LIMIT * 1024 * 1024;
 
 class BMCStatusAsyncResp
 {
   public:
-    BMCStatusAsyncResp(const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn) :
+    explicit BMCStatusAsyncResp(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn) :
         asyncResp(asyncRespIn)
     {}
 
@@ -215,7 +216,7 @@ inline static void getRelatedItemsStorageController(
                      path](const boost::system::error_code& errCodeController,
                            const dbus::utility::MapperGetSubTreeResponse&
                                subtree) {
-                        if (errCodeController || !subtree.size())
+                        if (errCodeController || subtree.empty())
                         {
                             return;
                         }
@@ -579,7 +580,7 @@ inline static void getRelatedItemsOthers(
                     continue;
                 }
 
-                if (obj.second.size() < 1)
+                if (obj.second.empty())
                 {
                     continue;
                 }
@@ -728,7 +729,7 @@ inline void extendUpdateServiceGet(
                     {
                         if (propertyMap.first == "Targets")
                         {
-                            auto targets = std::get_if<
+                            auto* targets = std::get_if<
                                 std::vector<sdbusplus::message::object_path>>(
                                 &propertyMap.second);
                             if (targets)
@@ -770,14 +771,7 @@ inline void extendUpdateServiceGet(
         [getUpdateStatus](
             boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) mutable {
-            if (ec || !subtree.size())
-            {
-                getUpdateStatus->mctp_serviceStatus = false;
-            }
-            else
-            {
-                getUpdateStatus->mctp_serviceStatus = true;
-            }
+            getUpdateStatus->mctp_serviceStatus = !(ec || subtree.empty());
             return;
         },
         "xyz.openbmc_project.ObjectMapper",
@@ -1624,8 +1618,11 @@ inline void handleSatBMCResponse(
                 std::string file = std::filesystem::path(*strValue).filename();
                 std::string path =
                     std::filesystem::path(*strValue).parent_path();
+                std::string temp = file;
 
-                file = rfaPrefix + "_" + file;
+                file = rfaPrefix;
+                file += "_";
+                file += temp;
                 path += "/";
                 // add prefix on odata.id property.
                 prop.second = path + file;
@@ -1634,7 +1631,9 @@ inline void handleSatBMCResponse(
             {
                 std::string file = std::filesystem::path(*strValue).filename();
                 // add prefix on Id property.
-                prop.second = rfaPrefix + "_" + file;
+                prop.second = rfaPrefix;
+                prop.second += "_";
+                prop.second += file;
             }
             else
             {
@@ -1730,7 +1729,7 @@ inline bool handleSatBMCCommitImagePost(
 
     bool hasTargets = false;
 
-    if (targets && targets.value().empty() == false)
+    if (targets && !targets.value().empty())
     {
         hasTargets = true;
     }
@@ -1742,7 +1741,8 @@ inline bool handleSatBMCCommitImagePost(
         std::string rfaPrefix(BMCWEB_REDFISH_AGGREGATION_PREFIX);
         rfaPrefix += "_";
 
-        bool prefix = false, noPrefix = false;
+        bool prefix = false;
+        bool noPrefix = false;
         for (auto& target : targetsCollection)
         {
             std::string file = std::filesystem::path(target).filename();
@@ -1765,7 +1765,7 @@ inline bool handleSatBMCCommitImagePost(
             // don't pass the request to the local
             return false;
         }
-        else if (prefix && noPrefix)
+        if (prefix && noPrefix)
         {
             // drop the request with mixed targets.
             boost::urls::url_view targetURL("Target");
@@ -2007,7 +2007,7 @@ inline void requestRoutesUpdateServiceCommitImage(App& app)
                 }
             }
 
-            if (fwUpdateInProgress == true)
+            if (fwUpdateInProgress)
             {
                 redfish::messages::updateInProgressMsg(
                     asyncResp->res,
@@ -2143,7 +2143,7 @@ inline void handleUpdateServiceSoftwareInventoryGet(
                     continue;
                 }
 
-                if (obj.second.size() < 1)
+                if (obj.second.empty())
                 {
                     continue;
                 }
@@ -2218,8 +2218,9 @@ inline void handleUpdateServiceSoftwareInventoryGet(
                             }
                         }
                         // getRelatedItemsOthers(asyncResp, *swId, searchPath);
+                        std::string mutablePath = searchPath;
                         fw_util::getFwUpdateableStatus(asyncResp, swId,
-                                                       searchPath);
+                                                       mutablePath);
                     },
                     obj.second[0].first, obj.first,
                     "org.freedesktop.DBus.Properties", "GetAll", "");
@@ -2289,7 +2290,7 @@ inline void handleUpdateServiceFirmwareInventoryPatch(
                         continue;
                     }
 
-                    if (obj.second.size() < 1)
+                    if (obj.second.empty())
                     {
                         continue;
                     }
@@ -2349,7 +2350,7 @@ inline void handleUpdateServiceSoftwareInventoryCollectionGet(
             asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
             asyncResp->res.jsonValue["Members@odata.count"] = 0;
 
-            for (auto& obj : subtree)
+            for (const auto& obj : subtree)
             {
                 sdbusplus::message::object_path path(obj.first);
                 std::string swId = path.filename();
@@ -2422,7 +2423,7 @@ inline void handleUpdateServicePatch(
                 std::vector<sdbusplus::message::object_path>
                     httpPushUriTargets = {};
                 // validate TargetUris if entries are present
-                if (uriTargets.size() != 0)
+                if (!uriTargets.empty())
                 {
                     std::vector<std::string> invalidTargets;
                     for (const std::string& target : uriTargets)
@@ -2464,7 +2465,7 @@ inline void handleUpdateServicePatch(
                     }
                     // return HTTP200 - Success with errors
                     // when there is partial valid targets
-                    if (invalidTargets.size() > 0)
+                    if (!invalidTargets.empty())
                     {
                         for (const std::string& invalidTarget : invalidTargets)
                         {

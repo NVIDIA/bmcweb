@@ -232,10 +232,11 @@ class ConnectionImpl : public Connection
         return uri;
     }
 
-    void acceptDone(const std::shared_ptr<Connection>& /*self*/,
-                    const std::unique_ptr<
-                        boost::beast::http::request<bmcweb::HttpBody>>& /*req*/,
-                    const boost::system::error_code& ec)
+    void acceptDone(
+        const std::shared_ptr<Connection>& /*self*/,
+        const std::unique_ptr<
+            boost::beast::http::request<bmcweb::HttpBody> /*unused*/>& /*req*/,
+        const boost::system::error_code& ec)
     {
         if (ec)
         {

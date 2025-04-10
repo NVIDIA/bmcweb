@@ -18,16 +18,16 @@
 
 #include <openssl/asn1.h>
 #include <openssl/bio.h>
-#include <openssl/buffer.h>   // For BUF_MEM operations
-#include <openssl/evp.h>      // For base64 functions
-#include <openssl/objects.h>  // For ASN1 object identifiers
+#include <openssl/buffer.h>  // For BUF_MEM operations
+#include <openssl/evp.h>     // For base64 functions
+#include <openssl/objects.h> // For ASN1 object identifiers
 #include <openssl/ssl.h>
 
 #include <logging.hpp>
 
-#include <algorithm>  // For std::equal
+#include <algorithm> // For std::equal
 #include <array>
-#include <cstdio>     // For BUFSIZ
+#include <cstdio>    // For BUFSIZ
 #include <cstring>
 #include <span>
 #include <string>
@@ -45,6 +45,7 @@ namespace asn1
  *  destination pointer value
  */
 template <typename T>
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline const T* safePtrArithmeticConst(std::span<const T> safeBuf,
                                        size_t offset)
 {
@@ -53,6 +54,7 @@ inline const T* safePtrArithmeticConst(std::span<const T> safeBuf,
 }
 
 template <typename T>
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline T* safePtrArithmetic(std::span<T> safeBuf, size_t offset)
 {
     T* ret = static_cast<T*>(&safeBuf[offset]);
@@ -60,6 +62,7 @@ inline T* safePtrArithmetic(std::span<T> safeBuf, size_t offset)
 }
 
 /* Internal auxiliary function used for PBES and PBKDF searching purposes */
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline int checkAsn1Object(const unsigned char* buf, size_t length, bool* pbes,
                            bool* pbkdf)
 {
@@ -108,6 +111,7 @@ inline int checkAsn1Object(const unsigned char* buf, size_t length, bool* pbes,
  *
  * @return Return value greater or equal 0 means success, lesser than 0 failure.
  */
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline int hasPbesPbkdf(const unsigned char** pp, size_t length, int offset,
                         bool* pbes, bool* pbkdf)
 {
@@ -242,6 +246,7 @@ inline int hasPbesPbkdf(const unsigned char** pp, size_t length, int offset,
     return ret;
 }
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline int pemPkeyIsEncrypted(const std::string& filename, bool* encrypted)
 {
     BIO* in = nullptr;
@@ -287,7 +292,7 @@ inline int pemPkeyIsEncrypted(const std::string& filename, bool* encrypted)
         size_t templen = len + BUFSIZ;
         if (BUF_MEM_grow(buf, templen) == 0U)
         {
-            BMCWEB_LOG_ERROR("Error expanding BIO buffer.");    
+            BMCWEB_LOG_ERROR("Error expanding BIO buffer.");
             BIO_free(inB64);
             BUF_MEM_free(buf);
             BIO_free(in);

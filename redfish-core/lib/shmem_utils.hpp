@@ -20,8 +20,14 @@
 #include "tal.hpp"
 #endif
 
+#include "async_resp.hpp"
+#include "error_messages.hpp"
+#include "logging.hpp"
+
 #include <nlohmann/json.hpp>
 
+#include <regex>
+#include <set>
 #include <unordered_set>
 
 namespace redfish

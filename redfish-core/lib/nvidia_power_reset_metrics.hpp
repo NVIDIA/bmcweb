@@ -38,6 +38,7 @@
 #include <utils/systemd_utils.hpp>
 
 #include <array>
+#include <string>
 #include <string_view>
 
 namespace redfish
@@ -220,7 +221,7 @@ inline void getProcessorResetMetricsData(
             }
             for (const auto& [path, object] : subtree)
             {
-                if (!boost::ends_with(path, processorId))
+                if (!path.ends_with(processorId))
                 {
                     continue;
                 }

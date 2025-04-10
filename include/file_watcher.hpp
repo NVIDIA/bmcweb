@@ -29,7 +29,7 @@
 
 #include <array>
 #include <csignal>
-#include <cstddef>   // For offsetof
+#include <cstddef> // For offsetof
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -38,7 +38,7 @@
 #include <map>
 #include <memory>
 #include <string>
-#include <utility>    // For std::move
+#include <utility> // For std::move
 #include <vector>
 
 struct FileWatcherEvent
@@ -47,7 +47,8 @@ struct FileWatcherEvent
     std::string name;
     uint32_t mask{0};
 
-    explicit FileWatcherEvent(std::string pathIn, std::string nameIn, uint32_t maskIn) :
+    explicit FileWatcherEvent(std::string pathIn, std::string nameIn,
+                              uint32_t maskIn) :
         path(std::move(pathIn)), name(std::move(nameIn)), mask(maskIn)
     {}
 };

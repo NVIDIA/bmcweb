@@ -21,6 +21,9 @@
 
 #pragma once
 
+#include "async_resp.hpp"
+#include "logging.hpp"
+
 #include <registries.hpp>
 
 #include <array>

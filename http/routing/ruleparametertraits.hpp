@@ -81,8 +81,8 @@ struct RuleParameterTraits
         return *self;
     }
 
-    self_t& privileges(
-        const std::initializer_list<std::initializer_list<const char*>>& p)
+    self_t& privileges(const std::initializer_list<
+                       std::initializer_list<const char*> /*unused*/>& p)
     {
         self_t* self = static_cast<self_t*>(this);
         for (const std::initializer_list<const char*>& privilege : p)

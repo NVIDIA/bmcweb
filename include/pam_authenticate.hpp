@@ -26,7 +26,6 @@ struct PasswordData
     };
 
     std::vector<Response> responseData;
-
     int addPrompt(std::string_view prompt, std::string_view value)
     {
         if (value.size() + 1 > PAM_MAX_MSG_SIZE)
@@ -59,7 +58,6 @@ struct PasswordData
                 response.resp = strdup(iter->value.c_str());
                 return PAM_SUCCESS;
             }
-            break;
             case PAM_ERROR_MSG:
             {
                 BMCWEB_LOG_ERROR("Pam error {}", msg.msg);

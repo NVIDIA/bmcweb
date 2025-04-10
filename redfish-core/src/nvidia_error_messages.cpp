@@ -19,8 +19,8 @@
 
 #include <string>
 #include <string_view>
-#include <vector>
 #include <utility>
+#include <vector>
 
 namespace redfish::messages
 {

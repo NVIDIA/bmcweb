@@ -1,8 +1,22 @@
 #pragma once
 
+#include "dbus_singleton.hpp"
+#include "utils/dbus_utils.hpp"
+#include "utils/json_utils.hpp"
+#include "utils/nvidia_async_call_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
 #include "utils/processor_utils.hpp"
 
+#include <boost/container/flat_map.hpp>
+#include <boost/system/error_code.hpp>
+#include <sdbusplus/unpack_properties.hpp>
+
+#include <map>
+#include <memory>
+#include <optional>
+#include <string>
+#include <variant>
+#include <vector>
 namespace redfish
 {
 namespace nvidia_processor_utils
@@ -149,7 +163,7 @@ inline void patchInbandReconfigPermissions(
         [patchRequests](const std::shared_ptr<bmcweb::AsyncResp>& aRespLambda,
                         [[maybe_unused]] const std::string& processorIdLambda,
                         const std::string& objectPath,
-                        const MapperServiceMap& serviceMap,
+                        const processor_utils::MapperServiceMap& serviceMap,
                         [[maybe_unused]] const std::string& deviceType) {
             for (const auto& [service, _] : serviceMap)
             {
@@ -184,7 +198,7 @@ inline void patchDOEReconfigPermissions(
         [patchRequests](const std::shared_ptr<bmcweb::AsyncResp>& aRespLambda,
                         [[maybe_unused]] const std::string& processorIdLambda,
                         const std::string& objectPath,
-                        const MapperServiceMap& serviceMap,
+                        const processor_utils::MapperServiceMap& serviceMap,
                         [[maybe_unused]] const std::string& deviceType) {
             for (const auto& [service, _] : serviceMap)
             {
@@ -214,7 +228,7 @@ inline void patchDOEReconfigPermissions(
 inline void patchCCMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                         const std::string& processorId, const bool ccMode,
                         const std::string& cpuObjectPath,
-                        const MapperServiceMap& serviceMap)
+                        const processor_utils::MapperServiceMap& serviceMap)
 {
     // Check that the property even exists by checking for the interface
     const std::string* inventoryService = nullptr;
@@ -321,7 +335,7 @@ inline void patchCCMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 inline void patchCCDevMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                            const std::string& processorId, const bool ccDevMode,
                            const std::string& cpuObjectPath,
-                           const MapperServiceMap& serviceMap)
+                           const processor_utils::MapperServiceMap& serviceMap)
 {
     // Check that the property even exists by checking for the interface
     const std::string* inventoryService = nullptr;
@@ -528,7 +542,7 @@ static void egmGetDbusObjectHandler(
 inline void patchEgmMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                          const std::string& processorId, const bool egmMode,
                          const std::string& cpuObjectPath,
-                         const MapperServiceMap& serviceMap)
+                         const processor_utils::MapperServiceMap& serviceMap)
 {
     // Check that the property even exists by checking for the interface
     const std::string* inventoryService = nullptr;
@@ -570,15 +584,15 @@ inline void patchEgmMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-inline void getSysGUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
+inline void getSysGUID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get System-GUID");
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, service, objPath,
         "com.nvidia.SysGUID.SysGUID", "SysGUID",
-        [objPath, asyncResp{std::move(asyncResp)}](
-            const boost::system::error_code& ec, const std::string& property) {
+        [objPath, asyncResp{asyncResp}](const boost::system::error_code& ec,
+                                        const std::string& property) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -780,12 +794,14 @@ inline void populateErrorInjectionData(
         aResp, cpuId,
         [](const std::shared_ptr<bmcweb::AsyncResp>& aRespLambda,
            const std::string& processorIdLambda, const std::string& path,
-           [[maybe_unused]] const MapperServiceMap& serviceMapLambda,
+           [[maybe_unused]] const processor_utils::MapperServiceMap&
+               serviceMapLambda,
            [[maybe_unused]] const std::string& deviceType) {
             crow::connections::systemBus->async_method_call(
                 [aRespLambda, processorIdLambda,
                  path](const boost::system::error_code& ecLambda1,
-                       const MapperServiceMap& serviceMapLambdaParam) {
+                       const processor_utils::MapperServiceMap&
+                           serviceMapLambdaParam) {
                     if (ecLambda1)
                     {
                         return;
@@ -890,14 +906,14 @@ inline void getCCModePendingData(
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-inline void getSMUtilizationData(std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                 const std::string& service,
-                                 const std::string& objPath)
+inline void getSMUtilizationData(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
+    const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get processor metrics SMUtilizationPercent data.");
     crow::connections::systemBus->async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code& ec,
-                                  const OperatingConfigProperties& properties) {
+        [aResp{aResp}](const boost::system::error_code& ec,
+                       const OperatingConfigProperties& properties) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -1844,7 +1860,7 @@ inline void postPCIeClearCounter(
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
                 subtree) {
-            if (ec)
+            if (ec || subtree.empty())
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
                 messages::internalError(asyncResp->res);

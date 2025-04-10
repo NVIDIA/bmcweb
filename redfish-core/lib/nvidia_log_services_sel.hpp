@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include "app.hpp"
 #include "generated/enums/log_entry.hpp"
@@ -162,7 +163,6 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
             if (resolveptr == nullptr)
             {
                 throw std::runtime_error("Invalid SEL Entry");
-                return;
             }
             resolved = *resolveptr;
         }
@@ -272,7 +272,6 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
     if (id == nullptr || message == nullptr || severity == nullptr)
     {
         throw std::runtime_error("Invalid SEL Entry");
-        return;
     }
     if (!isSelEntry(message, additionalDataVectorString))
     {

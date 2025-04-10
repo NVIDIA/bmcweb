@@ -2,6 +2,7 @@
 
 #include "error_messages.hpp"
 #include "mctp_vdm_util_wrapper.hpp"
+#include "nvidia_error_messages.hpp"
 #include "utils/mctp_utils.hpp"
 
 namespace redfish

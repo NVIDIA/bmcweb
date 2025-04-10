@@ -89,9 +89,12 @@ class MctpEndpoint
                         mctpEid = std::stoi(v.back());
                         getDbusMctpProperties(callback);
                     }
-                    catch (const std::invalid_argument&)
+                    catch (const std::invalid_argument& e)
                     {
-                        callback(false, "invalid MCTP object path: " + mctpObj);
+                        BMCWEB_LOG_ERROR(
+                            "Invalid MCTP object path: {} and error: {}",
+                            mctpObj, e.what());
+                        callback(false, "Invalid MCTP object path: " + mctpObj);
                     }
                     return;
                 }

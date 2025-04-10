@@ -170,6 +170,7 @@ inline void findDebugInterface(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const findDebugInterfaceCallback& dbgCallback)
 {
+    // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
     auto respHandler =
         [asyncResp,
          dbgCallback](const boost::system::error_code& ec,

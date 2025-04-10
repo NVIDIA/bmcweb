@@ -17,9 +17,24 @@
 #pragma once
 
 #include "app.hpp"
+#include "async_resp.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "logging.hpp"
+#include "query.hpp"
+#include "registries/privilege_registry.hpp"
+#include "utils/chassis_utils.hpp"
+#include "utils/nvidia_chassis_util.hpp"
 
+#include <boost/system/error_code.hpp>
+#include <boost/url/format.hpp>
+#include <nlohmann/json.hpp>
+
+#include <memory>
+#include <optional>
+#include <string>
+#include <variant>
+#include <vector>
 namespace redfish
 {
 inline void doLeakDetection(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

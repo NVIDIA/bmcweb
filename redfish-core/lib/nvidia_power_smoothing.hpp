@@ -26,7 +26,11 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_async_call_utils.hpp"
+#include "utils/nvidia_async_set_callbacks.hpp"
+#include "utils/nvidia_async_set_utils.hpp"
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
@@ -36,6 +40,7 @@
 #include <utils/conditions_utils.hpp>
 
 #include <array>
+#include <string>
 #include <string_view>
 namespace redfish
 {
@@ -1072,7 +1077,7 @@ inline void patchPresetProfile(
         [processorId, profileId, propName, propValue, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) {
-            if (ec)
+            if (ec || subtree.empty())
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
                 messages::internalError(aResp->res);
@@ -1080,9 +1085,9 @@ inline void patchPresetProfile(
             }
             for (const auto& [path, object] : subtree)
             {
-                BMCWEB_LOG_ERROR("path : {}",
-                                 boost::ends_with(path, processorId));
-                if (!boost::ends_with(path, processorId))
+                BMCWEB_LOG_ERROR("path : {}", boost::algorithm::ends_with(
+                                                  path, processorId));
+                if (!path.ends_with(processorId))
                 {
                     continue;
                 }

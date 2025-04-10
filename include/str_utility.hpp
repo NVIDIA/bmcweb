@@ -14,6 +14,7 @@ namespace bmcweb
 // This is a naive replacement for boost::split until
 // https://github.com/llvm/llvm-project/issues/40486
 // is resolved
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void split(std::vector<std::string>& strings, std::string_view str,
                   char delim)
 {
@@ -26,7 +27,7 @@ inline void split(std::vector<std::string>& strings, std::string_view str,
         start = end + 1;
     }
 }
-
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline char asciiToLower(char c)
 {
     // Converts a character to lower case without relying on std::locale
@@ -36,7 +37,7 @@ inline char asciiToLower(char c)
     }
     return c;
 }
-
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline bool asciiIEquals(std::string_view left, std::string_view right)
 {
     return std::ranges::equal(left, right, [](char lChar, char rChar) {

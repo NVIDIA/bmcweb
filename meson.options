@@ -757,7 +757,7 @@ option(
 option(
     'platform-device-prefix',
     type: 'string',
-    value: '',
+    value: 'device-prefix',
     description: 'Platform specific device name prefix',
 )
 option(

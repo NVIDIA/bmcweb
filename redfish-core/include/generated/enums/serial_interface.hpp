@@ -15,15 +15,15 @@ enum class SignalType{
 
 enum class BitRate{
     Invalid,
-    1200,
-    2400,
-    4800,
-    9600,
-    19200,
-    38400,
-    57600,
-    115200,
-    230400,
+    BitRate1200,
+    BitRate2400,
+    BitRate4800,
+    BitRate9600,
+    BitRate19200,
+    BitRate38400,
+    BitRate57600,
+    BitRate115200,
+    BitRate230400,
 };
 
 enum class Parity{
@@ -37,16 +37,16 @@ enum class Parity{
 
 enum class DataBits{
     Invalid,
-    5,
-    6,
-    7,
-    8,
+    DataBits5,
+    DataBits6,
+    DataBits7,
+    DataBits8,
 };
 
 enum class StopBits{
     Invalid,
-    1,
-    2,
+    StopBits1,
+    StopBits2,
 };
 
 enum class FlowControl{
@@ -84,15 +84,15 @@ NLOHMANN_JSON_SERIALIZE_ENUM(SignalType, {
 
 NLOHMANN_JSON_SERIALIZE_ENUM(BitRate, {
     {BitRate::Invalid, "Invalid"},
-    {BitRate::1200, "1200"},
-    {BitRate::2400, "2400"},
-    {BitRate::4800, "4800"},
-    {BitRate::9600, "9600"},
-    {BitRate::19200, "19200"},
-    {BitRate::38400, "38400"},
-    {BitRate::57600, "57600"},
-    {BitRate::115200, "115200"},
-    {BitRate::230400, "230400"},
+    {BitRate::BitRate1200, "1200"},
+    {BitRate::BitRate2400, "2400"},
+    {BitRate::BitRate4800, "4800"},
+    {BitRate::BitRate9600, "9600"},
+    {BitRate::BitRate19200, "19200"},
+    {BitRate::BitRate38400, "38400"},
+    {BitRate::BitRate57600, "57600"},
+    {BitRate::BitRate115200, "115200"},
+    {BitRate::BitRate230400, "230400"},
 });
 
 NLOHMANN_JSON_SERIALIZE_ENUM(Parity, {
@@ -106,16 +106,16 @@ NLOHMANN_JSON_SERIALIZE_ENUM(Parity, {
 
 NLOHMANN_JSON_SERIALIZE_ENUM(DataBits, {
     {DataBits::Invalid, "Invalid"},
-    {DataBits::5, "5"},
-    {DataBits::6, "6"},
-    {DataBits::7, "7"},
-    {DataBits::8, "8"},
+    {DataBits::DataBits5, "5"},
+    {DataBits::DataBits6, "6"},
+    {DataBits::DataBits7, "7"},
+    {DataBits::DataBits8, "8"},
 });
 
 NLOHMANN_JSON_SERIALIZE_ENUM(StopBits, {
     {StopBits::Invalid, "Invalid"},
-    {StopBits::1, "1"},
-    {StopBits::2, "2"},
+    {StopBits::StopBits1, "1"},
+    {StopBits::StopBits2, "2"},
 });
 
 NLOHMANN_JSON_SERIALIZE_ENUM(FlowControl, {

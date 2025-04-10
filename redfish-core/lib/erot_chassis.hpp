@@ -824,21 +824,23 @@ inline bool getBinaryKeyFromPem(const std::string& pem,
         BMCWEB_LOG_ERROR("PEM_read_bio_PUBKEY failed");
         return false;
     }
-
+    // NOLINTNEXTLINE(clang-diagnostic-deprecated-declarations)
     std::unique_ptr<EC_KEY, decltype(&::EC_KEY_free)> ecKey{
+        // NOLINTNEXTLINE(clang-diagnostic-deprecated-declarations)
         EVP_PKEY_get1_EC_KEY(pubKey.get()), &::EC_KEY_free};
     if (!ecKey)
     {
         BMCWEB_LOG_ERROR("EVP_PKEY_get1_EC_KEY failed");
         return false;
     }
-
+    // NOLINTNEXTLINE(clang-diagnostic-deprecated-declarations)
     const EC_GROUP* group = EC_KEY_get0_group(ecKey.get());
     if (group == nullptr)
     {
         BMCWEB_LOG_ERROR("EC_KEY_get0_group failed");
         return false;
     }
+    // NOLINTNEXTLINE(clang-diagnostic-deprecated-declarations)
     const EC_POINT* point = EC_KEY_get0_public_key(ecKey.get());
     if (point == nullptr)
     {

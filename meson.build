@@ -216,7 +216,7 @@ if not openssl.found() or get_option('b_sanitize') != 'none'
     openssl_proj = subproject(
         'openssl',
         required: true,
-        default_options: ['warning_level=0', 'werror=false'],
+        default_options: ['warning_level=0', 'werror=false', 'b_sanitize=none'],
     )
     openssl = openssl_proj.get_variable('openssl_dep')
     openssl = openssl.as_system('system')

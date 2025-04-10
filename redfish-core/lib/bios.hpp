@@ -12,11 +12,13 @@
 #include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/json_utils.hpp"
 #include "utils/sw_utils.hpp"
 
 #include <boost/beast/http/verb.hpp>
 
 #include <format>
+#include <fstream>
 #include <functional>
 #include <memory>
 #include <string>

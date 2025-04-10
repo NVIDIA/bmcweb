@@ -14,12 +14,25 @@
 // limitations under the License.
 */
 #pragma once
+#include "app.hpp"
+#include "async_resp.hpp"
+#include "error_messages.hpp"
+#include "logging.hpp"
 #include "nsm_cmd_support.hpp"
+#include "query.hpp"
+#include "registries/privilege_registry.hpp"
+#include "utils/chassis_utils.hpp"
 #include "utils/time_utils.hpp"
 
-#include <async_resp.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/url/format.hpp>
 #include <sdbusplus/asio/connection.hpp>
-#include <utils/chassis_utils.hpp>
+
+#include <memory>
+#include <string>
+#include <variant>
+#include <vector>
+
 namespace redfish
 {
 
@@ -422,7 +435,7 @@ inline void getFabricManagerInformation(
 }
 
 inline void getNSMRawCommandActions(
-    std::shared_ptr<bmcweb::AsyncResp> asyncResp)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     auto& oemNsmRawCommand =
         asyncResp->res
@@ -442,9 +455,9 @@ inline void requestRouteNSMRawCommand(App& app)
         "/redfish/v1/Managers/<str>/Actions/Oem/NvidiaManager.NSMRawCommand/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& bmcId) {
+            [&](const crow::Request& req,
+                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                const std::string& bmcId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     BMCWEB_LOG_ERROR("Failed to set up Redfish route.");

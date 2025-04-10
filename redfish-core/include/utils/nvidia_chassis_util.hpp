@@ -18,6 +18,7 @@
 
 #include "async_resp.hpp"
 #include "openbmc_dbus_rest.hpp"
+#include "utils/chassis_utils.hpp"
 
 #include <boost/container/flat_set.hpp>
 #include <boost/system/error_code.hpp>
@@ -458,6 +459,7 @@ inline void getOemCBCChassisAsset(
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void getOemBaseboardChassisAssert(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& objPath)
 
@@ -560,6 +562,7 @@ inline void getOemBaseboardChassisAssert(
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void setOemBaseboardChassisAssert(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& objPath,
     const std::string& prop, const std::string& value)
@@ -656,6 +659,7 @@ inline void setOemBaseboardChassisAssert(
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void getOemAssemblyAssert(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                  const std::string& assemblyId,
                                  const std::string& objPath)
@@ -805,6 +809,7 @@ inline void getOemAssemblyAssert(std::shared_ptr<bmcweb::AsyncResp> aResp,
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void getOemHdwWriteProtectInfo(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                       const std::string& service,
                                       const std::string& objPath)
@@ -870,6 +875,7 @@ inline void getOemHdwWriteProtectInfo(std::shared_ptr<bmcweb::AsyncResp> aResp,
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void getOemPCIeDeviceClockReferenceInfo(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& service,
     const std::string& objPath)
@@ -919,6 +925,7 @@ inline void getOemPCIeDeviceClockReferenceInfo(
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void getChassisPowerLimits(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                   const std::string& service,
                                   const std::string& objPath)
@@ -959,6 +966,7 @@ inline void getChassisPowerLimits(std::shared_ptr<bmcweb::AsyncResp> aResp,
         "xyz.openbmc_project.Inventory.Decorator.PowerLimit");
 }
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void setStaticPowerHintByObjPath(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objPath, double cpuClockFrequency, double workloadFactor,
@@ -1087,7 +1095,7 @@ inline void setStaticPowerHintByObjPath(
         "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
         std::array<const char*, 1>{"com.nvidia.StaticPowerHint"});
 }
-
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void setStaticPowerHintByChassis(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisObjPath, double cpuClockFrequency,
@@ -1822,6 +1830,7 @@ inline void oemChassisHardwareWriteProtectEnable(
         });
 }
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void getChassisAssetData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                                 const std::string& service,
                                 const std::string& objPath)

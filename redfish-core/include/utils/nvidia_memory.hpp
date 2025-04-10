@@ -16,6 +16,17 @@
  */
 #pragma once
 
+#include "async_resp.hpp"
+#include "dbus_utility.hpp"
+#include "error_messages.hpp"
+#include "logging.hpp"
+
+#include <boost/system/error_code.hpp>
+
+#include <memory>
+#include <string>
+#include <variant>
+#include <vector>
 inline std::string toMemoryPerformanceStateType(const std::string& state)
 {
     if (state == "com.nvidia.MemoryPerformance.PerformanceStates.Normal")
@@ -84,7 +95,7 @@ inline void getStateSensorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 inline void getStateSensorHandler(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const boost::system::error_code& ec,
-    const std::variant<std::vector<std::string>>& assoc)
+    const std::variant<std::vector<std::string> /*unused*/>& assoc)
 {
     if (ec)
     {

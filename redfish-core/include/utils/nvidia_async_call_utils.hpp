@@ -50,6 +50,7 @@ struct CallAsyncStatusHandlerInfo
 };
 
 template <typename CallAsyncStatusInfo>
+// NOLINTNEXTLINE(performance-unnecessary-value-param,cppcoreguidelines-avoid-non-const-global-variables)
 void callAsyncGetValue(std::shared_ptr<CallAsyncStatusInfo> statusInfo,
                        const std::string& status)
 {
@@ -118,6 +119,7 @@ class CallAsyncGetStatus
   public:
     explicit CallAsyncGetStatus(
         std::weak_ptr<CallAsyncStatusInfo> statusInfoPtr) :
+        // NOLINTNEXTLINE(performance-unnecessary-value-param)
         weakStatusInfo(statusInfoPtr)
     {}
 
@@ -166,6 +168,7 @@ class CallAsyncStatusChanged
   public:
     explicit CallAsyncStatusChanged(
         std::weak_ptr<CallAsyncStatusInfo> statusInfoPtr) :
+        // NOLINTNEXTLINE(performance-unnecessary-value-param)
         weakStatusInfo(statusInfoPtr)
     {}
 
@@ -236,6 +239,7 @@ class CallAsyncMethodCall
   public:
     explicit CallAsyncMethodCall(
         std::weak_ptr<CallAsyncStatusInfo> statusInfoPtr) :
+        // NOLINTNEXTLINE(performance-unnecessary-value-param)
         weakStatusInfo(statusInfoPtr)
     {}
 
@@ -293,6 +297,7 @@ class CallAsyncMethodCall
 };
 
 template <typename Value, typename Callback, typename... Params>
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 void doCallAsyncAndGatherResult(
     std::shared_ptr<bmcweb::AsyncResp> resp,
     const std::chrono::milliseconds timeout, const std::string& service,
@@ -335,6 +340,7 @@ void doCallAsyncAndGatherResult(
 }
 
 template <typename Value, typename Callback, typename... Params>
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 void doGenericCallAsyncAndGatherResult(
     std::shared_ptr<bmcweb::AsyncResp> resp,
     const std::chrono::milliseconds timeout, const std::string& service,
@@ -342,7 +348,7 @@ void doGenericCallAsyncAndGatherResult(
     const std::string& method, Callback&& callback, Params&&... params)
 {
     doCallAsyncAndGatherResult<Value>(
-        resp, timeout, service, object, interface, method,
+        std::move(resp), timeout, service, object, interface, method,
         asyncStatusInterfaceName, asyncStatusPropertyName,
         callAsyncValueInterfaceName, callAsyncValuePropertyName,
         std::forward<Callback>(callback), std::forward<Params>(params)...);

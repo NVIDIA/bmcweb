@@ -148,33 +148,28 @@ inline void resetPowerLimit(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         [asyncResp, path,
          connection](const boost::system::error_code& ec,
                      const dbus::utility::MapperGetObject& object) {
-            if (!ec)
+            if (!ec && !object.empty())
             {
-                for (const auto& [serv, _] : object)
-                {
-                    BMCWEB_LOG_DEBUG("Performing Post using Async Method Call");
+                const auto& [serv, _] = object[0];
+                BMCWEB_LOG_DEBUG("Performing Post using Async Method Call");
 
-                    nvidia_async_operation_utils::
-                        doGenericCallAsyncAndGatherResult<int>(
-                            asyncResp, std::chrono::seconds(60), serv, path,
-                            clearPowerCapAsyncIntf, "ClearPowerCap",
-                            [asyncResp](const std::string& status,
-                                        [[maybe_unused]] const int* retValue) {
-                                if (status == nvidia_async_operation_utils::
-                                                  asyncStatusValueSuccess)
-                                {
-                                    BMCWEB_LOG_DEBUG(
-                                        "PowerLimit Reset Succeeded");
-                                    messages::success(asyncResp->res);
-                                    return;
-                                }
-                                BMCWEB_LOG_ERROR("resetPowerLimit error {}",
-                                                 status);
-                                messages::internalError(asyncResp->res);
-                            });
-
-                    return;
-                }
+                nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
+                    int>(asyncResp, std::chrono::seconds(60), serv, path,
+                         clearPowerCapAsyncIntf, "ClearPowerCap",
+                         [asyncResp](const std::string& status,
+                                     [[maybe_unused]] const int* retValue) {
+                             if (status == nvidia_async_operation_utils::
+                                               asyncStatusValueSuccess)
+                             {
+                                 BMCWEB_LOG_DEBUG("PowerLimit Reset Succeeded");
+                                 messages::success(asyncResp->res);
+                                 return;
+                             }
+                             BMCWEB_LOG_ERROR("resetPowerLimit error {}",
+                                              status);
+                             messages::internalError(asyncResp->res);
+                         });
+                return;
             }
 
             BMCWEB_LOG_DEBUG("Performing Post using Sync Method Call");
@@ -390,7 +385,7 @@ void getValidChassisPathAndInterfaces(
             const dbus::utility::MapperGetSubTreeResponse& subtree) mutable {
             BMCWEB_LOG_DEBUG(
                 "getValidChassisPathAndInterfaces respHandler enter");
-            if (ec)
+            if (ec || subtree.empty())
             {
                 BMCWEB_LOG_ERROR(
                     "getValidChassisPathAndInterfaces respHandler DBUS error: {}",
@@ -923,7 +918,7 @@ inline void handleMctpInBandActions(
  */
 inline void getOemBootStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string chassisObjPath)
+    const std::string& chassisObjPath)
 {
     static constexpr std::array<std::string_view, 1> interfaces = {
         bootStatusIntf};

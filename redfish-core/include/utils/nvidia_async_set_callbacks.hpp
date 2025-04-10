@@ -269,7 +269,7 @@ class PatchClockLimitControlCallback
  * DBus path
  */
 template <typename Callback = PatchGenericCallback, typename Value>
-inline void patch(std::shared_ptr<bmcweb::AsyncResp> aResp,
+inline void patch(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                   const std::string& service, const std::string& path,
                   const std::string& interface, const std::string& property,
                   const Value& value, bool showError = true)
