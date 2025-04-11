@@ -383,9 +383,9 @@ inline void getDrivePresent(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
 
-        if (!isPresent)
+        if (isPresent)
         {
-            asyncResp->res.jsonValue["Status"]["State"] = "Absent";
+            asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
         }
     });
 }
@@ -1505,8 +1505,8 @@ inline void afterGetSubtreeSystemsStorageDrive(
 
     getChassisID(asyncResp, driveId, path);
 
-    // default it to Enabled
-    asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+    // default it to Absent
+    asyncResp->res.jsonValue["Status"]["State"] = "Absent";
 
     for (const auto& [connectionName, interfaces] : connectionNames)
     {
