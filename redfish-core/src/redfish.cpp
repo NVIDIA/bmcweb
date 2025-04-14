@@ -339,6 +339,7 @@ RedfishService::RedfishService(App& app)
             nvidia_manager_util::requestRouteNSMRawCommand(app);
             nvidia_manager_util::requestRouteNSMRawCommandActionInfo(app);
         }
+        nvidia_manager_util::requestRoutesDebugTokenManagement(app);
     }
 
     requestRoutesProcessorPortCollection(app);
