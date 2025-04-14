@@ -14,6 +14,7 @@
 // limitations under the License.
 */
 #pragma once
+#include "debug_token/erase_policy.hpp"
 #include "nsm_cmd_support.hpp"
 #include "utils/time_utils.hpp"
 
@@ -483,6 +484,90 @@ inline void requestRouteNSMRawCommandActionInfo(App& app)
 
         nsm_command_support::actionInfoResponse(asyncResp, bmcId);
     });
+}
+
+/**
+ * @brief Manager Oem/Nvidia/DebugTokenManagement GET handler
+ */
+inline void debugTokenManagementGetHandler(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "#Manager.v1_11_0.Manager",
+                                   managerId);
+        return;
+    }
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#NvidiaDebugTokenManagement.v1_0_0.NvidiaDebugTokenManagement";
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Managers/{}/Oem/Nvidia/DebugTokenManagement", managerId);
+    asyncResp->res.jsonValue["Id"] = "DebugTokenManagement";
+    asyncResp->res.jsonValue["Name"] = managerId +
+                                       " Oem Nvidia DebugTokenManagement";
+    debug_token::getErasePolicy([asyncResp](std::optional<bool> erasePolicy) {
+        if (!erasePolicy)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["AutomaticTokenErased"] = *erasePolicy;
+    });
+}
+
+/**
+ * @brief Manager Oem/Nvidia/DebugTokenManagement PATCH handler
+ */
+inline void debugTokenManagementPatchHandler(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "#Manager.v1_11_0.Manager",
+                                   managerId);
+        return;
+    }
+    std::optional<bool> automaticTokenErased;
+    if (!json_util::readJsonPatch(req, asyncResp->res, "AutomaticTokenErased",
+                                  automaticTokenErased))
+    {
+        return;
+    }
+    if (!automaticTokenErased)
+    {
+        messages::propertyMissing(asyncResp->res, "AutomaticTokenErased");
+        return;
+    }
+    debug_token::setErasePolicy(asyncResp, *automaticTokenErased);
+}
+
+/**
+ * @brief Manager Oem/Nvidia/DebugTokenManagement route handler
+ */
+inline void requestRoutesDebugTokenManagement(App& app)
+{
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Managers/<str>/Oem/Nvidia/DebugTokenManagement/")
+        .privileges(redfish::privileges::getManager)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(debugTokenManagementGetHandler, std::ref(app)));
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Managers/<str>/Oem/Nvidia/DebugTokenManagement/")
+        .privileges(redfish::privileges::patchManager)
+        .methods(boost::beast::http::verb::patch)(
+            std::bind_front(debugTokenManagementPatchHandler, std::ref(app)));
 }
 
 } // namespace nvidia_manager_util

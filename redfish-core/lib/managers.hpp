@@ -893,7 +893,7 @@ inline void executeRawSynCommand(const std::shared_ptr<bmcweb::AsyncResp>& resp,
             }
 
             resp->res.jsonValue["@odata.type"] =
-                "#NvidiaManager.v1_2_0.NvidiaManager";
+                "#NvidiaManager.v1_6_0.NvidiaManager";
             resp->res.jsonValue["StatusRegister"] =
                 intToHexByteArray(get<1>(res));
             resp->res.jsonValue["DataOut"] = intToHexByteArray(get<2>(res));
@@ -1128,7 +1128,7 @@ inline void executeRawAsynCommand(
                 return;
             }
             resp->res.jsonValue["@odata.type"] =
-                "#NvidiaManager.v1_2_0.NvidiaManager";
+                "#NvidiaManager.v1_6_0.NvidiaManager";
 
             resp->res.jsonValue["StatusRegister"] =
                 intToHexByteArray(get<1>(res));
@@ -3143,7 +3143,7 @@ inline void
 
                         nlohmann::json& json = asyncResp->res.jsonValue;
                         json["Oem"]["Nvidia"]["@odata.type"] =
-                            "#NvidiaManager.v1_2_0.NvidiaManager";
+                            "#NvidiaManager.v1_6_0.NvidiaManager";
                         json["Oem"]["Nvidia"]["SMBPBIFencingPrivilege"] =
                             redfish::dbus_utils::toSMPBIPrivilegeString(
                                 *fencingPrivilege);
@@ -3500,7 +3500,12 @@ inline void requestRoutesManager(App& app)
 
             // NvidiaManager
             nlohmann::json& oemNvidia = oem["Nvidia"];
-            oemNvidia["@odata.type"] = "#NvidiaManager.v1_4_0.NvidiaManager";
+            oemNvidia["@odata.type"] = "#NvidiaManager.v1_6_0.NvidiaManager";
+            oemNvidia["DebugTokenManagement"]["@odata.id"] =
+                boost::urls::format(
+                    "/redfish/v1/Managers/{}/Oem/Nvidia/DebugTokenManagement",
+                    managerId);
+
             nlohmann::json& oemResetToDefaults =
                 asyncResp->res.jsonValue["Actions"]["Oem"]
                                         ["#NvidiaManager.ResetToDefaults"];

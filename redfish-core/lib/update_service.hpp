@@ -2606,7 +2606,19 @@ inline void requestRoutesUpdateService(App& app)
 #endif
                 }
             };
-            debug_token::getErasePolicy(asyncResp);
+            debug_token::getErasePolicy(
+                [asyncResp](const std::optional<bool>& erasePolicy) {
+                if (erasePolicy)
+                {
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                            ["AutomaticDebugTokenErased"] =
+                        *erasePolicy;
+                }
+                else
+                {
+                    messages::internalError(asyncResp->res);
+                }
+            });
         }
 
 #if defined(BMCWEB_INSECURE_ENABLE_REDFISH_FW_TFTP_UPDATE) ||                  \
