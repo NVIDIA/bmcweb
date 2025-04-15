@@ -462,7 +462,8 @@ inline void
     task->payload.emplace(std::move(payload));
 }
 
-inline void setProfileProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+inline void setProfileProperty(task::Payload&& payload,
+                               const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                const std::string& profileNumber,
                                const std::string& interface,
                                const std::string& property,
@@ -471,7 +472,8 @@ inline void setProfileProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, profileService,
         profilePath + profileNumber, interface, property, value,
-        [aResp, property, value](const boost::system::error_code& ec) {
+        [aResp, property, value, payload = std::move(payload),
+         profileNumber](const boost::system::error_code& ec) mutable {
         if (ec)
         {
             BMCWEB_LOG_ERROR(
@@ -479,6 +481,10 @@ inline void setProfileProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 property, value, ec);
             messages::internalError(aResp->res);
             return;
+        }
+        if (value == "xyz.openbmc_project.Profiles.Statuses.Status.Start")
+        {
+            startProfileUpdateTask(aResp, profileNumber, std::move(payload));
         }
     });
 }
@@ -559,18 +565,19 @@ inline void
  * @param status - status value
  * @return None
  */
-inline void handlePatchSetProfileStatus(
-    bool isBiosUser, const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const std::string& profileNumber, const std::string& property,
-    const std::string& status)
+inline void
+    handlePatchSetProfileStatus(task::Payload&& payload, bool isBiosUser,
+                                const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                                const std::string& profileNumber,
+                                const std::string& property,
+                                const std::string& status)
 {
     const std::array<nvidia_system_profile::ActionStatus, 3> allowedUefiValues =
         {nvidia_system_profile::ActionStatus::BiosStarted,
          nvidia_system_profile::ActionStatus::BiosFinished,
          nvidia_system_profile::ActionStatus::Failed};
     const std::array<nvidia_system_profile::ActionStatus, 2> allowedUserValues =
-        {nvidia_system_profile::ActionStatus::Failed,
-         nvidia_system_profile::ActionStatus::Start};
+        {nvidia_system_profile::ActionStatus::Failed};
     std::string user = isBiosUser ? "Bios" : "User";
 
     nvidia_system_profile::ActionStatus statusEnum = toActionStatus(status);
@@ -598,12 +605,12 @@ inline void handlePatchSetProfileStatus(
             return;
         }
     }
-
-    setProfileProperty(aResp, profileNumber, statusIntrf, property,
-                       statusPrefix + status);
+    setProfileProperty(std::move(payload), aResp, profileNumber, statusIntrf,
+                       property, statusPrefix + status);
 }
 
-void populateProfileStatues(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+void populateProfileStatues(task::Payload&& payload,
+                            const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             const boost::system::error_code& ec,
                             const std::string& profileNumber,
                             std::optional<std::string> activateStatus,
@@ -624,13 +631,15 @@ void populateProfileStatues(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                                "DeleteProfile");
             return;
         }
-        handlePatchSetProfileStatus(isBiosUser, aResp, profileNumber,
-                                    "ActivateProfile", *activateStatus);
+        handlePatchSetProfileStatus(std::move(payload), isBiosUser, aResp,
+                                    profileNumber, "ActivateProfile",
+                                    *activateStatus);
     }
     if (deleteStatus)
     {
-        handlePatchSetProfileStatus(isBiosUser, aResp, profileNumber,
-                                    "DeleteProfile", *deleteStatus);
+        handlePatchSetProfileStatus(std::move(payload), isBiosUser, aResp,
+                                    profileNumber, "DeleteProfile",
+                                    *deleteStatus);
     }
     if (addStatus)
     {
@@ -645,16 +654,16 @@ void populateProfileStatues(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             messages::actionParameterUnknown(aResp->res, "AddProfile", "Start");
             return;
         }
-        handlePatchSetProfileStatus(isBiosUser, aResp, profileNumber,
-                                    "AddProfile", *addStatus);
+        handlePatchSetProfileStatus(std::move(payload), isBiosUser, aResp,
+                                    profileNumber, "AddProfile", *addStatus);
     }
 }
 
 /**
- * @brief Handles PATCH request for Profile status
- * Can be patched for
- * ActivateProfile and DeleteProfile - use can only path failed and Bios can
- * only patch BiosStarted and BiosFinished.
+ * @brief Handles PATCH requests for Profile status updates.
+ * Supported updates include: ActivateProfile and DeleteProfile.
+ * - Users are restricted to patching the "failed" status.
+ * - BIOS is limited to patching "BiosStarted" and "BiosFinished" statuses.
  * @param app - crow application
  * @param req - crow request
  * @param aResp - response object
@@ -691,10 +700,12 @@ inline void handlePatchProfile(crow::App& app, const crow::Request& req,
 
     privilege_utils::isBiosPrivilege(
         req.session->username,
-        [aResp, activateStatus, deleteStatus, addStatus, profileNumber](
-            const boost::system::error_code& ec, const bool isBiosUser) {
-        populateProfileStatues(aResp, ec, profileNumber, activateStatus,
-                               deleteStatus, addStatus, isBiosUser);
+        req, [aResp, activateStatus, deleteStatus, addStatus, profileNumber](
+              req](const boost::system::error_code& ec, const bool isBiosUser) {
+        task::Payload payload(req);
+        populateProfileStatues(std::move(payload), aResp, ec, profileNumber,
+                               activateStatus, deleteStatus, addStatus,
+                               isBiosUser);
     });
 }
 
@@ -775,16 +786,6 @@ inline void
         messages::internalError(aResp->res);
         return;
     }
-    aResp->res.jsonValue["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Systems/{}/Oem/Nvidia/SystemConfigProfile/Profiles/{}",
-        BMCWEB_REDFISH_SYSTEM_URI_NAME, profileNumber);
-    aResp->res.jsonValue["@odata.type"] =
-        "#NvidiaSystemProfile.v1_0_0.NvidiaSystemProfile";
-    aResp->res.jsonValue["ProfileFile"]["@odata.id"] = boost::urls::format(
-        "/redfish/v1/Systems/{}/Oem/Nvidia/SystemConfigProfile/Profiles/{}/ProfileFile",
-        BMCWEB_REDFISH_SYSTEM_URI_NAME, profileNumber);
-    aResp->res.jsonValue["Name"] = "ProfileFile";
-    aResp->res.jsonValue["Id"] = profileNumber;
     if (description != nullptr)
     {
         aResp->res.jsonValue["Description"] = *description;
@@ -849,7 +850,20 @@ inline void
         messages::resourceNotFound(aResp->res, "ComputerSystem", systemName);
         return;
     }
-
+    aResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Oem/Nvidia/SystemConfigProfile/Profiles/{}",
+        BMCWEB_REDFISH_SYSTEM_URI_NAME, profileNumber);
+    aResp->res.jsonValue["ProfileFile"]["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Oem/Nvidia/SystemConfigProfile/Profiles/{}/ProfileFile",
+        BMCWEB_REDFISH_SYSTEM_URI_NAME, profileNumber);
+    aResp->res.jsonValue["Actions"]["#NvidiaSystemProfile.Activate"]
+                        ["target"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Oem/Nvidia/SystemConfigProfile/Profiles/{}/Actions/SystemProfile.Activate",
+        BMCWEB_REDFISH_SYSTEM_URI_NAME, profileNumber);
+    aResp->res.jsonValue["@odata.type"] =
+        "#NvidiaSystemProfile.v1_0_0.NvidiaSystemProfile";
+    aResp->res.jsonValue["Name"] = "SystemProfile";
+    aResp->res.jsonValue["Id"] = profileNumber;
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, profileService,
         profilePath + profileNumber, statusIntrf,
@@ -1113,6 +1127,10 @@ inline void handleProfilesUrls(crow::App& app, const crow::Request& req,
                         ["target"] = boost::urls::format(
         "/redfish/v1/Systems/{}/Oem/Nvidia/SystemConfigProfile/Actions/SystemConfigProfile.Update",
         BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    aResp->res.jsonValue["Actions"]["#NvidiaSystemConfigProfile.FactoryReset"]
+                        ["target"] = boost::urls::format(
+        "/redfish/v1/Systems/{}/Oem/Nvidia/SystemConfigProfile/Actions/SystemConfigProfile.FactoryReset",
+        BMCWEB_REDFISH_SYSTEM_URI_NAME);
     aResp->res.jsonValue["Status"]["@odata.id"] = boost::urls::format(
         "/redfish/v1/Systems/{}/Oem/Nvidia/SystemConfigProfile/Status",
         BMCWEB_REDFISH_SYSTEM_URI_NAME);
@@ -1332,9 +1350,9 @@ inline void setProfileFactoryResetStatus(
 inline void callbackPatchFactoryReset(
     task::Payload&& payload, const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const boost::system::error_code& ec, const std::string& requestedStatus,
-    const std::string& currentStatus, const bool isBiosUser)
+    const bool isBiosUser)
 {
-    BMCWEB_LOG_DEBUG("currentStatus: {}, requested status {}", currentStatus,
+    BMCWEB_LOG_DEBUG("callbackPatchFactoryReset: requested status {}",
                      requestedStatus);
     if (ec)
     {
@@ -1342,40 +1360,16 @@ inline void callbackPatchFactoryReset(
         messages::internalError(aResp->res);
         return;
     }
-    nvidia_system_profile::ActionStatus factoryResetActionStatus =
-        toActionStatus(requestedStatus);
-    if (factoryResetActionStatus ==
-        nvidia_system_profile::ActionStatus::Invalid)
+    if (!isBiosUser)
     {
-        messages::internalError(aResp->res);
-        return;
-    }
-    nvidia_system_profile::ActionStatus currentActionStatus =
-        getStatusActionFromDbusStatus(currentStatus);
-    if (currentActionStatus == nvidia_system_profile::ActionStatus::Invalid)
-    {
-        messages::internalError(aResp->res);
-        return;
-    }
-    if (isBiosUser == false)
-    {
-        if (currentActionStatus != nvidia_system_profile::ActionStatus::None &&
-            currentActionStatus != nvidia_system_profile::ActionStatus::Failed)
-        {
-            messages::actionNotSupported(aResp->res,
-                                         "Root user invalid status request");
-            return;
-        }
-        else if (factoryResetActionStatus ==
-                 nvidia_system_profile::ActionStatus::Start)
-        {
-            setProfileFactoryResetStatus(std::move(payload), aResp,
-                                         statusPrefix + requestedStatus,
-                                         isBiosUser);
-        }
+        messages::actionNotSupported(aResp->res,
+                                     "None Bios User not allow to "
+                                     "to patch the factory reset status");
     }
     else // Bios is true
     {
+        nvidia_system_profile::ActionStatus factoryResetActionStatus =
+            toActionStatus(requestedStatus);
         if ((factoryResetActionStatus ==
              nvidia_system_profile::ActionStatus::BiosStarted) ||
             (factoryResetActionStatus ==
@@ -1392,29 +1386,8 @@ inline void callbackPatchFactoryReset(
     }
 }
 
-inline void callbackGetFactoryResetStatusBeforePatch(
-    const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const std::string& requestedStatus, const boost::system::error_code& ec,
-    const std::string& currentStatus)
-{
-    if (ec)
-    {
-        BMCWEB_LOG_DEBUG("DBUS response error for chassis name");
-        messages::internalError(aResp->res);
-        return;
-    }
-    task::Payload payload(req);
-    privilege_utils::isBiosPrivilege(
-        req.session->username,
-        [payload, aResp, requestedStatus, currentStatus](
-            const boost::system::error_code& ec, bool isBiosUser) mutable {
-        callbackPatchFactoryReset(std::move(payload), aResp, ec,
-                                  requestedStatus, currentStatus, isBiosUser);
-    });
-}
-
 /**
- * @brief Handles PATCH request for profiles status
+ * @brief Handles PATCH request for factory reset status
  * @param app - crow application
  * @param req - crow request
  * @param aResp - response object
@@ -1450,12 +1423,42 @@ inline void
         return;
     }
     std::string requestedStatus = *factoryResetStatus;
+    privilege_utils::isBiosPrivilege(
+        req, [req, aResp, requestedStatus](const boost::system::error_code& ec,
+                                           bool isBiosUser) {
+        task::Payload payload(req);
+        callbackPatchFactoryReset(std::move(payload), aResp, ec,
+                                  requestedStatus, isBiosUser);
+    });
+}
 
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, profileService, profileManagerPath.str,
-        managerIntrf, "FactoryResetStatus",
-        std::bind_front(callbackGetFactoryResetStatusBeforePatch, req, aResp,
-                        requestedStatus));
+/**
+ * @brief Handles factory reset request
+ * @param app - crow application
+ * @param req - crow request
+ * @param aResp - response object
+ * @param systemName - system name
+ * @return None
+ */
+inline void handleFactoryReset(crow::App& app, const crow::Request& req,
+                               const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                               const std::string& systemName)
+{
+    if (!redfish::setUpRedfishRoute(app, req, aResp))
+    {
+        return;
+    }
+    if (systemName != std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME))
+    {
+        messages::resourceNotFound(aResp->res,
+                                   std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME),
+                                   systemName);
+        return;
+    }
+
+    task::Payload payload(req);
+    setProfileFactoryResetStatus(std::move(payload), aResp,
+                                 statusPrefix + "Start", false);
 }
 
 inline std::string getConfigFlashType(std::string truststoreName)
@@ -1819,6 +1822,35 @@ inline void handleProfileCaCertificatePost(
                         certHttpBody));
 }
 
+/**
+ * @brief Handles activate or delete profile request
+ * @param app - crow application
+ * @param req - crow request
+ * @param aResp - response object
+ * @param systemName - system name
+ * @param profileNumber - profile number
+ * @return None
+ */
+inline void handleProfileActionRequest(
+    crow::App& app, std::string action, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& systemName, const std::string& profileNumber)
+{
+    if (!redfish::setUpRedfishRoute(app, req, aResp))
+    {
+        return;
+    }
+    if (systemName != std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME))
+    {
+        messages::resourceNotFound(aResp->res,
+                                   std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME),
+                                   systemName);
+        return;
+    }
+    task::Payload payload(req);
+    setProfileProperty(std::move(payload), aResp, profileNumber, statusIntrf,
+                       action, statusPrefix + "Start");
+}
 } // namespace profiles
 
 inline void requestRoutesProfiles(App& app)
@@ -1864,6 +1896,22 @@ inline void requestRoutesProfiles(App& app)
 
     BMCWEB_ROUTE(
         app,
+        "/redfish/v1/Systems/<str>/Oem/Nvidia/SystemConfigProfile/Profiles/<str>/")
+        .privileges(redfish::privileges::deleteComputerSystem)
+        .methods(boost::beast::http::verb::delete_)(
+            std::bind_front(profiles::handleProfileActionRequest, std::ref(app),
+                            "DeleteProfile"));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/Oem/Nvidia/SystemConfigProfile/Profiles/<str>/Actions/SystemProfile.Activate/")
+        .privileges(redfish::privileges::postComputerSystem)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(profiles::handleProfileActionRequest, std::ref(app),
+                            "ActivateProfile"));
+
+    BMCWEB_ROUTE(
+        app,
         "/redfish/v1/Systems/<str>/Oem/Nvidia/SystemConfigProfile/Profiles/<str>/ProfileFile/")
         .privileges(redfish::privileges::getComputerSystem)
         .methods(boost::beast::http::verb::get)(
@@ -1875,6 +1923,13 @@ inline void requestRoutesProfiles(App& app)
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(profiles::handleProfileUpdate, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/Oem/Nvidia/SystemConfigProfile/Actions/SystemConfigProfile.FactoryReset/")
+        .privileges(redfish::privileges::postComputerSystem)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(profiles::handleFactoryReset, std::ref(app)));
 
     BMCWEB_ROUTE(
         app,
