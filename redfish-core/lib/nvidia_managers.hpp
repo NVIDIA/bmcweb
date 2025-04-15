@@ -1393,7 +1393,7 @@ inline void extendManagerPatchOEM(
     std::optional<bool> tlsAuth;
     std::optional<bool> openocdValue;
 
-    if (!json_util::readJsonObject(
+    if (!json_util::readJsonSubObject(
             payload, asyncResp->res, "Nvidia/SMBPBIFencingPrivilege",
             privilege, "Nvidia/AuthenticationTLSRequired", tlsAuth,
             "Nvidia/OpenOCD/Enable", openocdValue))

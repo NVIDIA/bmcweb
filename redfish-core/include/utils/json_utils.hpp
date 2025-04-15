@@ -492,11 +492,13 @@ struct PerUnpack
 };
 
 inline bool readJsonHelper(nlohmann::json& jsonRequest, crow::Response& res,
-                           std::span<PerUnpack> toUnpack);
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+                           std::span<PerUnpack> toUnpack,
+                           bool allowUnknownKeys);
+
 inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
                                  crow::Response& res,
-                                 std::span<PerUnpack> toUnpack)
+                                 std::span<PerUnpack> toUnpack,
+                                 bool allowUnknownKeys = false)
 {
     bool result = true;
     for (auto& item : obj)
@@ -545,7 +547,7 @@ inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
                     p.complete = true;
                 }
 
-                result = readJsonHelper(j, res, nextLevel) && result;
+                result = readJsonHelper(j, res, nextLevel, allowUnknownKeys) && result;
                 break;
             }
 
@@ -564,7 +566,7 @@ inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
             break;
         }
 
-        if (unpackIndex == toUnpack.size())
+        if (unpackIndex == toUnpack.size() && !allowUnknownKeys)
         {
             messages::propertyUnknown(res, item.first);
             result = false;
@@ -594,7 +596,8 @@ inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
 }
 
 inline bool readJsonHelper(nlohmann::json& jsonRequest, crow::Response& res,
-                           std::span<PerUnpack> toUnpack)
+                           std::span<PerUnpack> toUnpack,
+                           bool allowUnknownKeys = false)
 {
     nlohmann::json::object_t* obj =
         jsonRequest.get_ptr<nlohmann::json::object_t*>();
@@ -604,7 +607,7 @@ inline bool readJsonHelper(nlohmann::json& jsonRequest, crow::Response& res,
         messages::unrecognizedRequestBody(res);
         return false;
     }
-    return readJsonHelperObject(*obj, res, toUnpack);
+    return readJsonHelperObject(*obj, res, toUnpack, allowUnknownKeys);
 }
 
 inline void packVariant(std::span<PerUnpack> /*toPack*/) {}
@@ -945,6 +948,35 @@ inline void sortJsonArrayByOData(nlohmann::json::array_t& array)
 //  4. bytes: len(bytes) characters
 //  5. null: 4 characters (null)
 uint64_t getEstimatedJsonSize(const nlohmann::json& root);
+
+template <typename FirstType, typename... UnpackTypes>
+bool readJsonSubObject(nlohmann::json::object_t& jsonRequest, crow::Response& res,
+                      std::string_view key, FirstType&& first,
+                      UnpackTypes&&... in)
+{
+    const std::size_t n = sizeof...(UnpackTypes) + 2;
+    std::array<PerUnpack, n / 2> toUnpack2;
+    packVariant(toUnpack2, key, std::forward<FirstType>(first),
+                std::forward<UnpackTypes&&>(in)...);
+    // Only validate the keys we care about, ignore extra keys
+    return readJsonHelperObject(jsonRequest, res, toUnpack2, true);
+}
+
+template <typename FirstType, typename... UnpackTypes>
+bool readJsonSub(nlohmann::json& jsonRequest, crow::Response& res,
+                 std::string_view key, FirstType&& first, UnpackTypes&&... in)
+{
+    nlohmann::json::object_t* obj =
+        jsonRequest.get_ptr<nlohmann::json::object_t*>();
+    if (obj == nullptr)
+    {
+        BMCWEB_LOG_DEBUG("Json value is not an object");
+        messages::unrecognizedRequestBody(res);
+        return false;
+    }
+    return readJsonSubObject(*obj, res, key, std::forward<FirstType>(first),
+                            std::forward<UnpackTypes&&>(in)...);
+}
 
 } // namespace json_util
 } // namespace redfish
