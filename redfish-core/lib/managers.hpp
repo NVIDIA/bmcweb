@@ -924,6 +924,10 @@ inline void requestRoutesManager(App& app)
                 std::optional<nlohmann::json::object_t> stepwiseControllers;
                 std::optional<std::string> profile;
                 std::optional<std::string> serviceIdentification;
+                std::optional<std::string> privilege;
+                std::optional<bool> tlsAuth;
+                std::optional<bool> openocdValue;
+        
 
                 if (!json_util::readJsonPatch(                            //
                         req, asyncResp->res,                              //
@@ -935,9 +939,11 @@ inline void requestRoutesManager(App& app)
                         "Oem/OpenBmc/Fan/PidControllers", pidControllers, //
                         "Oem/OpenBmc/Fan/Profile", profile,               //
                         "Oem/OpenBmc/Fan/StepwiseControllers",
-                        stepwiseControllers //
-                        "ServiceIdentification",
-                        serviceIdentification //                        
+                        stepwiseControllers, //
+                        "ServiceIdentification", serviceIdentification, //         
+                        "Oem/Nvidia/SMBPBIFencingPrivilege", privilege, //
+                        "Oem/Nvidia/AuthenticationTLSRequired", tlsAuth, //
+                        "Oem/Nvidia/OpenOCD/Enable", openocdValue //                                      
                         ))
                 {
                     return;

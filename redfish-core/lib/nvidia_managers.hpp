@@ -1389,16 +1389,14 @@ inline void extendManagerPatchOEM(
 {
     nlohmann::json::object_t payload = req.payload();
 
-    std::optional<std::string> serviceIdentification;
     std::optional<std::string> privilege;
     std::optional<bool> tlsAuth;
-
     std::optional<bool> openocdValue;
 
     if (!json_util::readJsonObject(
-            payload, asyncResp->res, "SMBPBIFencingPrivilege",
-            privilege, "AuthenticationTLSRequired", tlsAuth,
-            "OpenOCD/Enable", openocdValue))
+            payload, asyncResp->res, "Nvidia/SMBPBIFencingPrivilege",
+            privilege, "Nvidia/AuthenticationTLSRequired", tlsAuth,
+            "Nvidia/OpenOCD/Enable", openocdValue))
     {
         return;
     }
@@ -1825,7 +1823,7 @@ inline void handleGetManagerNvidia(
     }
 }
 
-inline void handlePatchManagerOpenBmc(
+inline void handlePatchManagerNvidia(
     const SubRequest& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& managerId)
 {
@@ -1858,7 +1856,7 @@ inline void requestRoutesNvidiaManager(RedfishService& service)
         service, HttpVerb::Get)(handleGetManagerSecureErase);
 
     REDFISH_SUB_ROUTE<"/redfish/v1/Managers/<str>/#/Oem/Nvidia">(
-        service, HttpVerb::Patch)(handlePatchManagerOpenBmc);
+        service, HttpVerb::Patch)(handlePatchManagerNvidia);
 }
 
 } // namespace redfish

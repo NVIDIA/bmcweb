@@ -6,7 +6,6 @@
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
-#include "io_context_singleton.hpp"
 #include "logging.hpp"
 #include "redfish.hpp"
 #include "sub_request.hpp"
