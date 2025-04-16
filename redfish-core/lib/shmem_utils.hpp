@@ -157,6 +157,13 @@ static std::string blueField = "Riser_Slot";
 static std::string blueFieldSensor = "BF3_Slot_";
 static std::string storageBP = "StorageBackplane_";
 static std::string storageDevice = "SSD_";
+static std::string networkAdapterConnectX = "ConnectX_";
+static std::string inlet = "Chassis_0_Inlet_";
+static std::string pcb = "Chassis_0_PCB_";
+static std::string hsc = "Chassis_0_HSC_";
+static std::string sxm = "GPU_SXM_";
+static std::string sxmSma = "SXM_SMA_";
+static std::string cxSma = "ConnectX_SMA_";
 
 // Add inline to prevent multiple definition errors
 inline const MetricsReplacement
@@ -195,6 +202,21 @@ inline const MetricsReplacement
 inline const MetricsReplacement
     storageBPDevicePlatformEnvironmentMetrics(storageDevice, "{SBDWild}",
                                               "SBDWild");
+inline const MetricsReplacement
+    inletPlatformEnvironmentMetrics(inlet, "{ILWild}", "ILWild");
+inline const MetricsReplacement pcbPlatformEnvironmentMetrics(pcb, "{PCBWild}",
+                                                              "PCBWild");
+inline const MetricsReplacement hscPlatformEnvironmentMetrics(hsc, "{HWild}",
+                                                              "HWild");
+inline const MetricsReplacement sxmPlatformEnvironmentMetrics(sxm, "{SXMWild}",
+                                                              "SXMWild");
+inline const MetricsReplacement
+    connectXPlatformEnvironmentMetrics(networkAdapterConnectX, "{CXWild}",
+                                       "CXWild");
+inline const MetricsReplacement
+    sxmSmaPlatformEnvironmentMetrics(sxmSma, "{SSMAWild}", "SSMAWild");
+inline const MetricsReplacement
+    cxSmaPlatformEnvironmentMetrics(cxSma, "{CSMAWild}", "CSMAWild");
 
 inline void replaceNumber(const std::string& input, const std::string& key,
                           const std::string& value,
@@ -263,6 +285,8 @@ inline void metricsReplacementsNonPlatformMetrics(
         (wildcardSet.find("InstanceId") != wildcardSet.end());
     bool allowNetworkAdapterNId =
         (wildcardSet.find("NId") != wildcardSet.end());
+    bool allowNetworkAdapterCXId =
+        (wildcardSet.find("CXId") != wildcardSet.end());
 
     std::smatch match;
     std::set<int> nvSwitchId_Type_1;
@@ -279,6 +303,7 @@ inline void metricsReplacementsNonPlatformMetrics(
     std::set<int> coreId;
     std::set<int> nvLinkId;
     std::set<int> pcieLinkId;
+    std::set<int> networkAdapterCXId;
     nlohmann::json& wildCards = asyncResp->res.jsonValue["Wildcards"];
     for (const auto& e : inputMetricProperties)
     {
@@ -387,6 +412,16 @@ inline void metricsReplacementsNonPlatformMetrics(
                 {
                     int number = std::stoi(match[1].str());
                     nvLinkManagementId.insert(number);
+                }
+            }
+            if (allowNetworkAdapterCXId)
+            {
+                std::regex networkAdapterPattern(networkAdapterConnectX +
+                                                 "(\\d+)");
+                if (std::regex_search(e, match, networkAdapterPattern))
+                {
+                    int number = std::stoi(match[1].str());
+                    networkAdapterCXId.insert(number);
                 }
             }
         }
@@ -554,6 +589,18 @@ inline void metricsReplacementsNonPlatformMetrics(
             wildCards.push_back({
                 {"Name", "NvlinkId"},
                 {"Values", devCountNVLinkManagementId},
+            });
+        }
+        if (allowNetworkAdapterCXId)
+        {
+            nlohmann::json devCountNetworkAdapterCX = nlohmann::json::array();
+            for (const auto& e : networkAdapterCXId)
+            {
+                devCountNetworkAdapterCX.push_back(std::to_string(e));
+            }
+            wildCards.push_back({
+                {"Name", "CXId"},
+                {"Values", devCountNetworkAdapterCX},
             });
         }
     }
@@ -896,6 +943,20 @@ inline void getShmemMetricsDefinitionWildCard(
                                   allowedWildcards);
             updateReplacementFlag(storageBPDevicePlatformEnvironmentMetrics,
                                   allowedWildcards);
+            updateReplacementFlag(inletPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(pcbPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(hscPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(sxmPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(connectXPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(sxmSmaPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(cxSmaPlatformEnvironmentMetrics,
+                                  allowedWildcards);
 
             nvSwitch = platformDevicePrefix + "NVSwitch_";
             metricsReplacements(chassisPlatformEnvironmentMetrics, asyncResp,
@@ -931,6 +992,20 @@ inline void getShmemMetricsDefinitionWildCard(
                                 asyncResp, inputMetricProperties);
             metricsReplacements(storageBPDevicePlatformEnvironmentMetrics,
                                 asyncResp, inputMetricProperties);
+            metricsReplacements(inletPlatformEnvironmentMetrics, asyncResp,
+                                inputMetricProperties);
+            metricsReplacements(pcbPlatformEnvironmentMetrics, asyncResp,
+                                inputMetricProperties);
+            metricsReplacements(hscPlatformEnvironmentMetrics, asyncResp,
+                                inputMetricProperties);
+            metricsReplacements(sxmPlatformEnvironmentMetrics, asyncResp,
+                                inputMetricProperties);
+            metricsReplacements(connectXPlatformEnvironmentMetrics, asyncResp,
+                                inputMetricProperties);
+            metricsReplacements(sxmSmaPlatformEnvironmentMetrics, asyncResp,
+                                inputMetricProperties);
+            metricsReplacements(cxSmaPlatformEnvironmentMetrics, asyncResp,
+                                inputMetricProperties);
         }
         else
         {
