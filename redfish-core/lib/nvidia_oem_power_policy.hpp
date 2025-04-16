@@ -90,7 +90,7 @@ inline void afterGetPowerPolicyProperties(
     uint64_t maxThreshold = 0;
     uint64_t minThreshold = 0;
     std::string name;
-    std::vector<std::string> policyActions;
+    std::string policyActions;
     std::string type;
     std::string unit;
 
@@ -307,7 +307,7 @@ inline void handlePowerPolicyPatchRequest(
     std::optional<uint64_t> newMin;
     std::optional<uint64_t> newMax;
     std::optional<std::string> newType;
-    std::optional<std::vector<std::string>> newPolicyActions;
+    std::optional<std::string> newPolicyActions;
 
     if (!json_util::readJsonPatch(
             req, asyncResp->res, "AutoDeassertPowerBrake",
@@ -404,7 +404,7 @@ inline void handlePowerPolicyTopLevelPatchRequest(
         "/com/nvidia/state/power_compliance/power_policy");
     dbusPath /= powerPolicyId;
 
-    std::optional<std::vector<std::string>> newPolicyActions;
+    std::optional<std::string> newPolicyActions;
 
     if (!json_util::readJsonPatch(req, asyncResp->res, "PolicyActions",
                                   newPolicyActions))
