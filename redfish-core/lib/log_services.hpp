@@ -376,7 +376,7 @@ inline void
                 boost::beast::http::status::internal_server_error);
             return;
         }
-        asyncResp->res.result(boost::beast::http::status::no_content);
+        messages::success(asyncResp->res);
     };
     crow::connections::systemBus->async_method_call(
         respHandler, "xyz.openbmc_project.Logging",
@@ -2052,6 +2052,7 @@ inline void clearDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             messages::internalError(asyncResp->res);
             return;
         }
+        messages::success(asyncResp->res);
     },
         "xyz.openbmc_project.Dump.Manager", getDumpPath(dumpType),
         "xyz.openbmc_project.Collection.DeleteAll", "DeleteAll");
@@ -3902,6 +3903,7 @@ inline void requestRoutesDBusSELLogServiceActionsClear(App& app)
                     }
                 }
             }
+            messages::success(asyncResp->res);
         },
             "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
             "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
@@ -6099,7 +6101,7 @@ inline void requestRoutesDBusLogServiceActionsClear(App& app)
                 return;
             }
 
-            asyncResp->res.result(boost::beast::http::status::no_content);
+            messages::success(asyncResp->res);
         };
 
         // Make call to Logging service to request Clear Log
