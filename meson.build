@@ -233,7 +233,6 @@ if (cxx.get_id() == 'clang')
         '-Wno-switch-enum',
         '-Wno-unused-macros',
         '-Wno-covered-switch-default',
-        '-Wno-error=deprecated-declarations',
         '-Wno-attributes',
         '-Wno-comment',
         '-Wno-disabled-macro-expansion',
@@ -262,7 +261,6 @@ if (cxx.get_id() == 'gcc')
         #'-Wshadow',
         #'-Wno-psabi',
         '-Wno-attributes',
-        '-Wno-error=deprecated-declarations',
         '-Wno-comment',
         language: 'cpp',
     )

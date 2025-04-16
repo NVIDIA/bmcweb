@@ -16,7 +16,6 @@
  */
 
 #pragma once
-#define OPENSSL_SUPPRESS_DEPRECATED 1
 
 #include "background_copy.hpp"
 #include "dot.hpp"

@@ -18,6 +18,11 @@
 
 #include "utils/mctp_utils.hpp"
 
+#include <openssl/bio.h>
+#include <openssl/core_names.h>
+#include <openssl/evp.h>
+#include <openssl/params.h>
+
 #include <boost/algorithm/string/join.hpp>
 #include <boost/asio.hpp>
 #include <boost/interprocess/streams/bufferstream.hpp>
@@ -360,41 +365,22 @@ inline bool getBinaryKeyFromPem(const std::string& pem,
         BMCWEB_LOG_ERROR("PEM_read_bio_PUBKEY failed");
         return false;
     }
-
-    std::unique_ptr<EC_KEY, decltype(&::EC_KEY_free)> ecKey{
-        EVP_PKEY_get1_EC_KEY(pubKey.get()), &::EC_KEY_free};
-    if (!ecKey)
+    size_t keySize = 0;
+    if (EVP_PKEY_get_octet_string_param(pubKey.get(), OSSL_PKEY_PARAM_PUB_KEY,
+                                        nullptr, 0, &keySize) != 1)
     {
-        BMCWEB_LOG_ERROR("EVP_PKEY_get1_EC_KEY failed");
+        BMCWEB_LOG_ERROR("Failed to get public key size");
         return false;
     }
-
-    const EC_GROUP* group = EC_KEY_get0_group(ecKey.get());
-    if (!group)
+    key.resize(keySize);
+    if (EVP_PKEY_get_octet_string_param(pubKey.get(), OSSL_PKEY_PARAM_PUB_KEY,
+                                        key.data(), key.size(), &keySize) != 1)
     {
-        BMCWEB_LOG_ERROR("EC_KEY_get0_group failed");
+        BMCWEB_LOG_ERROR("Failed to get public key data");
         return false;
     }
-    const EC_POINT* point = EC_KEY_get0_public_key(ecKey.get());
-    if (!point)
-    {
-        BMCWEB_LOG_ERROR("EC_KEY_get0_group failed");
-        return false;
-    }
-
     // the first byte contains information about whether the key
     // is compressed as per https://www.rfc-editor.org/rfc/rfc5480#section-2.2
-    key.resize(dotKeySize + 1);
-    size_t resultSize = EC_POINT_point2oct(
-        group, point, EC_GROUP_get_point_conversion_form(group), key.data(),
-        key.size(), nullptr);
-    if (resultSize == 0)
-    {
-        BMCWEB_LOG_ERROR("EC_POINT_point2oct failed");
-        return false;
-    }
-
-    // remove the compression byte
     key.erase(key.begin());
     return true;
 }
