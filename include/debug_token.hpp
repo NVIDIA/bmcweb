@@ -429,6 +429,10 @@ class RequestHandler : public OperationHandler
             {
                 getNsmRequest();
             }
+            else
+            {
+                nsmPending = false;
+            }
             getSpdmRequest();
         },
             [errorCallback](bool critical, const std::string& desc,
@@ -469,7 +473,7 @@ class RequestHandler : public OperationHandler
 
     RequestType type;
 
-    bool nsmFinished{false};
+    bool nsmPending{true};
 
     uint8_t typeToMeasurementIndex(RequestType type)
     {
@@ -528,13 +532,13 @@ class RequestHandler : public OperationHandler
                     nsmEp->setStatus(state);
                 }
             }
-            nsmFinished = true;
+            nsmPending = false;
             endpoints->shrink_to_fit();
             finalize();
         });
     }
 
-    bool getSpdmRequest()
+    void getSpdmRequest()
     {
         createSpdmMatch(
             [this](const std::string& object, const std::string& status) {
@@ -573,9 +577,8 @@ class RequestHandler : public OperationHandler
         if (!refreshIssued)
         {
             spdmMatch.reset();
+            finalize();
         }
-
-        return refreshIssued;
     }
 
     void spdmUpdate(const std::string& object, const std::string& status)
@@ -717,7 +720,7 @@ class RequestHandler : public OperationHandler
         const std::string desc = "Debug token request acquisition";
         BMCWEB_LOG_DEBUG("{}", desc);
         int completedRequestsCount = 0;
-        if (!nsmFinished)
+        if (nsmPending)
         {
             return;
         }
