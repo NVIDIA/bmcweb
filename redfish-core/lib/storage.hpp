@@ -2034,7 +2034,13 @@ inline void getStorageControllerHandler(
         const std::string& connectionName = interfaceDict.front().first;
         populateStorageController(asyncResp, controllerId, connectionName,
                                   path);
+        return;
     }
+
+    // No controllerId matched
+    messages::resourceNotFound(asyncResp->res,
+                               "#StorageController.v1_6_0.StorageController",
+                               controllerId);
 }
 
 inline void populateStorageControllerCollection(
