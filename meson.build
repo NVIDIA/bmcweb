@@ -327,6 +327,7 @@ else
         'beast',
         'circular_buffer',
         'callable_traits',
+        'interprocess',
         'headers',
         'process',
         'type_index',
