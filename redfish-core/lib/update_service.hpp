@@ -4065,7 +4065,7 @@ inline void computeDigest(const crow::Request& req,
             {
                 if (ec != boost::asio::error::operation_aborted)
                 {
-                    taskData->state = "Aborted";
+                    taskData->state = "Exception";
                     taskData->messages.emplace_back(
                         messages::resourceErrorsDetectedFormatError(
                             "NvidiaSoftwareInventory.ComputeDigest",
@@ -4108,8 +4108,9 @@ inline void computeDigest(const crow::Request& req,
                                 "DBUS response error for Algorithm");
                             taskData->state = "Exception";
                             taskData->messages.emplace_back(
-                                messages::taskAborted(
-                                    std::to_string(taskData->index)));
+                                messages::resourceErrorsDetectedFormatError(
+                                    "NvidiaSoftwareInventory.ComputeDigest",
+                                    ec.message()));
                             return;
                         }
                         const std::string* hashAlgoValue =
@@ -4120,8 +4121,9 @@ inline void computeDigest(const crow::Request& req,
                                 "Null value returned for Algorithm");
                             taskData->state = "Exception";
                             taskData->messages.emplace_back(
-                                messages::taskAborted(
-                                    std::to_string(taskData->index)));
+                                messages::resourceErrorsDetectedFormatError(
+                                    "NvidiaSoftwareInventory.ComputeDigest",
+                                    "Null value returned for Algorithm"));
                             return;
                         }
 
@@ -4178,7 +4180,7 @@ inline void computeDigest(const crow::Request& req,
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Failed to ComputeDigest: {}", ec);
-                task->state = "Aborted";
+                task->state = "Exception";
                 task->messages.emplace_back(
                     messages::resourceErrorsDetectedFormatError(
                         "NvidiaSoftwareInventory.ComputeDigest", ec.message()));
