@@ -71,6 +71,7 @@ struct PropertyInfo
     const std::string prop;
     const std::unordered_map<std::string, std::string> dbusToRedfish = {};
     const std::unordered_map<std::string, std::string> redfishToDbus = {};
+    bool isPropBool = false;
 };
 
 struct ObjectInfo
@@ -282,6 +283,21 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
             auto name = item.key();
             auto value = item.value().get<std::string>();
             auto objectInfo = objects.find(name)->second;
+            // Convert the value based on property type
+            std::variant<std::string, bool> propertyValue;
+            if (objectInfo.propertyInfo.isPropBool)
+            {
+                // Boolean property
+                std::string dbusValue = toDbus(value, name);
+                propertyValue = (dbusValue == "true");
+            }
+            else
+            {
+                // String property
+                propertyValue = toDbus(value, name);
+            }
+            
+            // Single method call implementation
             crow::connections::systemBus->async_method_call(
                 [asyncResp](const boost::system::error_code ec) {
                 if (ec)
@@ -290,13 +306,12 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
                     messages::internalError(asyncResp->res);
                     return;
                 }
-
                 messages::success(asyncResp->res);
             },
                 objectInfo.service, objectInfo.obj,
                 "org.freedesktop.DBus.Properties", "Set",
                 objectInfo.propertyInfo.intf, objectInfo.propertyInfo.prop,
-                std::variant<std::string>(toDbus(value, name)));
+                propertyValue);
         }
     }
 
@@ -367,6 +382,12 @@ const PropertyInfo nicTristateAttributeInfo = {
          "xyz.openbmc_project.Control.NcSi.OEM.Nvidia.NicTristateAttribute.Modes.Enabled"},
         {"Disabled",
          "xyz.openbmc_project.Control.NcSi.OEM.Nvidia.NicTristateAttribute.Modes.Disabled"}}};
+const PropertyInfo lfwpInfo = {
+    .intf = "xyz.openbmc_project.Object.Enable",
+    .prop = "Enabled",
+    .dbusToRedfish = {{"true", "Enabled"}, {"false", "Disabled"}},
+    .redfishToDbus = {{"Enabled", "true"}, {"Disabled", "false"}},
+    .isPropBool = true};
 
 const std::string hostRhimTarget = "/redfish/v1/Systems/" +
                                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -375,6 +396,11 @@ const std::string hostRhimTarget = "/redfish/v1/Systems/" +
 const std::string modeTarget = "/redfish/v1/Systems/" +
                                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                                "/Oem/Nvidia/Actions/Mode.Set";
+
+const std::string lfwpTarget = "/redfish/v1/Systems/" +
+                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                              "/Oem/Nvidia/Actions/LFWP.Set";
+
 const std::string dpuStrpOptionGet =
     "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
     "/Oem/Nvidia/Connectx/StrapOptions";
@@ -554,6 +580,14 @@ DpuActionSetAndGetProp mode(
        .propertyInfo = bluefield::modeInfo,
        .required = true}}},
     modeTarget);
+
+DpuActionSetAndGetProp lfwP(
+    {{"LFWP", 
+      {.service = "xyz.openbmc_project.Software.DPU.Version",  
+       .obj = "/xyz/openbmc_project/control/lfwp",      
+       .propertyInfo = lfwpInfo,
+       .required = true}}},
+    lfwpTarget);
 
 #endif // BMCWEB_ENABLE_NVIDIA_OEM_BF3_PROPERTIES
 inline void getIsOemNvidiaRshimEnable(
@@ -1686,6 +1720,14 @@ inline void requestRoutesNvidiaOemBf(App& app)
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
                           std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                          "/Oem/Nvidia/Actions/LFWP.Set")
+        .privileges(redfish::privileges::postComputerSystem)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(&bluefield::DpuActionSetAndGetProp::setAction,
+                            &bluefield::lfwP, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
+                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                           "/Oem/Nvidia/Actions/Mode.Set")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(
@@ -1735,6 +1777,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
         auto& connectx = nvidia["Connectx"];
         auto& hostRshimAction = actions["#HostRshim.Set"];
         auto& modeAction = actions["#Mode.Set"];
+        auto& lfwpAction = actions["#LFWP.Set"];
 
         bluefield::mode.getProperty(&nvidia, asyncResp);
         bluefield::hostRshim.getProperty(&nvidia, asyncResp);
@@ -1743,6 +1786,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
             bluefield::dpuHostPrivGet;
         bluefield::mode.getActionInfo(&modeAction);
         bluefield::hostRshim.getActionInfo(&hostRshimAction);
+        bluefield::lfwP.getActionInfo(&lfwpAction);
 
         nvidia["Truststore"]["Certificates"]["@odata.id"] =
             "/redfish/v1/Systems/" +
