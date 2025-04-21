@@ -7780,6 +7780,12 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
         {
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
         std::string diagnosticDataType;
         std::string oemDiagnosticDataType;
         if (!redfish::json_util::readJsonAction(
