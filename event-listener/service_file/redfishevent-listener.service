@@ -1,0 +1,9 @@
+[Unit]
+Description=EventService Listener service
+
+[Service]
+Restart=always
+RestartSec=5
+EnvironmentFile=-/usr/share/rf_listener/listener.conf
+ExecStart=/usr/bin/listener $RFA_BMC_IP $RFA_BMC_PORT
+SyslogIdentifier=event_listener
