@@ -7,7 +7,7 @@
 #include <boost/beast/http/write.hpp>
 #include <boost/beast/version.hpp>
 #include <boost/config.hpp>
-#include <elog_entry.hpp>
+#include "../include/elog_entry.hpp"
 #include <nlohmann/json.hpp>
 #include <phosphor-logging/lg2.hpp>
 #include <sdbusplus/asio/connection.hpp>

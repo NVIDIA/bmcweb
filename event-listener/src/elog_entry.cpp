@@ -1,4 +1,5 @@
-#include <elog_entry.hpp>
+#include "../include/elog_entry.hpp"
+#include "../../redfish-core/include/utils/dbus_log_utils.hpp"
 
 namespace phosphor
 {
@@ -17,7 +18,13 @@ evtEntry::evtEntry(sdbusplus::bus::bus& bus, const std::string& path,
     updateTimestamp(timestampErr, true);
     message(std::move(msg), true);
     resolution(std::move(resolutionErr), true);
-    additionalData(std::move(additionalDataErr), true);
+    redfish::AdditionalData additional(std::move(additionalDataErr));
+    std::map<std::string, std::string> dataMap;
+    for (const auto& [key, value] : additional)
+    {
+        dataMap[key] = value;
+    }
+    additionalData(dataMap, true);
 
     EntryIfaces::emit_object_added();
 };
