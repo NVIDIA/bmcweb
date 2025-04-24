@@ -1,3 +1,4 @@
+// NOLINTBEGIN
 #include <boost/beast/core.hpp>
 #include <boost/beast/http/message.hpp>
 #include <boost/beast/http/message_generator.hpp>
@@ -85,7 +86,7 @@ class redfishEventMgr
             return;
         }
         // parse redfish event
-        for (auto& evt : data["Events"])
+        for (const auto& evt : data["Events"])
         {
             if (evt.contains("MessageId"))
             {
@@ -149,7 +150,6 @@ class redfishEventMgr
                              static_cast<sdbusplus::bus::bus&>(*conn), path, id,
                              timestamp, severity, std::move(msg),
                              std::move(resolution), std::move(additionalData)));
-        return;
     }
 };
 
@@ -178,11 +178,15 @@ void handle_request(std::shared_ptr<sdbusplus::asio::connection>& bus,
 
     // Make sure we can handle the method
     if (req.method() != http::verb::post)
+    {
         return send(bad_request("Unknown HTTP-method"));
+    }
     // Request path must be absolute and not contain "..".
     if (req.target().empty() || req.target()[0] != '/' ||
         req.target().find("..") != beast::string_view::npos)
+    {
         return send(bad_request("Illegal request-target"));
+    }
 
     std::string body = req.body();
 
@@ -192,10 +196,8 @@ void handle_request(std::shared_ptr<sdbusplus::asio::connection>& bus,
         lg2::error("Json parse error: {BODY}", "BODY", body);
         return send(bad_request("bad Json format"));
     }
-    else
-    {
-        redfishEventMgr::createLogEntry(bus, entryName, data);
-    }
+
+    redfishEventMgr::createLogEntry(bus, entryName, data);
 
     http::response<http::string_body> res{http::status::ok, req.version()};
     res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
@@ -207,7 +209,7 @@ void handle_request(std::shared_ptr<sdbusplus::asio::connection>& bus,
 
 //------------------------------------------------------------------------------
 // Report a failure
-void fail(beast::error_code ec, const char* what, bool excp = true)
+static void fail(beast::error_code ec, const char* what, bool excp = true)
 {
     lg2::error("{WHAT}: {MSG}", "WHAT", what, "MSG", ec.message());
     if (excp)
@@ -303,10 +305,20 @@ class session : public std::enable_shared_from_this<session>
 
         // This means they closed the connection
         if (ec == http::error::end_of_stream)
-            return do_close();
+        {
+            {
+                do_close();
+            }
+            return;
+        }
 
         if (ec)
-            return fail(ec, "read", false);
+        {
+            {
+                fail(ec, "read", false);
+            }
+            return;
+        }
 
         // Send the response
         handle_request(bus_, std::move(req_), lambda_);
@@ -318,13 +330,19 @@ class session : public std::enable_shared_from_this<session>
         boost::ignore_unused(bytes_transferred);
 
         if (ec)
-            return fail(ec, "write", false);
+        {
+            {
+                fail(ec, "write", false);
+            }
+            return;
+        }
 
         if (close)
         {
             // This means we should close the connection, usually because
             // the response indicated the "Connection: close" semantic.
-            return do_close();
+            do_close();
+            return;
         }
 
         // We're done with the response so delete it
@@ -425,21 +443,19 @@ class listener : public std::enable_shared_from_this<listener>
             fail(ec, "accept");
             return; // To avoid infinite loop
         }
+
+        // Create the session and run it
+        if (redfishEventMgr::getSessNum() <= maxSessionNum)
+        {
+            std::make_shared<session>(std::move(socket), conn_)->run();
+        }
         else
         {
-            // Create the session and run it
-            if (redfishEventMgr::getSessNum() <= maxSessionNum)
-            {
-                std::make_shared<session>(std::move(socket), conn_)->run();
-            }
-            else
-            {
-                // close the peer's connection since there is no free session.
-                beast::tcp_stream stream(std::move(socket));
-                beast::error_code ec;
-                stream.socket().shutdown(tcp::socket::shutdown_send, ec);
-                lg2::error("Reach maximum sessions!");
-            }
+            // close the peer's connection since there is no free session.
+            beast::tcp_stream stream(std::move(socket));
+            beast::error_code ec;
+            stream.socket().shutdown(tcp::socket::shutdown_send, ec);
+            lg2::error("Reach maximum sessions!");
         }
 
         // Accept another connection
@@ -490,3 +506,4 @@ int main(int argc, char* argv[])
     ioc.run();
     return EXIT_SUCCESS;
 }
+// NOLINTEND

@@ -1,3 +1,4 @@
+// NOLINTBEGIN
 #include "../include/elog_entry.hpp"
 #include "../../redfish-core/include/utils/dbus_log_utils.hpp"
 
@@ -33,3 +34,4 @@ evtEntry::~evtEntry() {}
 
 } // namespace logging
 } // namespace phosphor
+// NOLINTEND

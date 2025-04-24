@@ -526,3 +526,7 @@ if (get_option('tests').allowed())
         test(fs.stem(test_src), test_bin, protocol: 'gtest')
     endforeach
 endif
+
+if (get_option('redfish-aggregation').enabled())
+    subdir('event-listener')
+endif
