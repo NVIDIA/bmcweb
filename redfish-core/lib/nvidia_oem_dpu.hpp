@@ -164,15 +164,27 @@ class DpuGetProperties : virtual public DpuCommonProperties
         crow::connections::systemBus->async_method_call(
             [&, json, asyncResp,
              name](const boost::system::error_code ec,
-                   const std::variant<std::string>& variant) {
+                   const std::variant<std::string, bool>& variant) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for {}", name);
                 return;
             }
 
-            (*json)[name] = toRedfish(*std::get_if<std::string>(&variant),
-                                      name);
+            std::string var;
+            auto boolVar = std::get_if<bool>(&variant);
+            if (boolVar)
+            {
+                var = *boolVar ? "true" : "false";
+            }
+            else
+            {
+                auto strVar = std::get_if<std::string>(&variant);
+                // If property returned is not a string set var to empty string
+                var = strVar ? *strVar : "";
+            }
+
+            (*json)[name] = toRedfish(var, name);
         },
             objectInfo.service, objectInfo.obj,
             "org.freedesktop.DBus.Properties", "Get",
@@ -296,7 +308,7 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
                 // String property
                 propertyValue = toDbus(value, name);
             }
-            
+
             // Single method call implementation
             crow::connections::systemBus->async_method_call(
                 [asyncResp](const boost::system::error_code ec) {
@@ -398,8 +410,8 @@ const std::string modeTarget = "/redfish/v1/Systems/" +
                                "/Oem/Nvidia/Actions/Mode.Set";
 
 const std::string lfwpTarget = "/redfish/v1/Systems/" +
-                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                              "/Oem/Nvidia/Actions/LFWP.Set";
+                               std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                               "/Oem/Nvidia/Actions/LFWP.Set";
 
 const std::string dpuStrpOptionGet =
     "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -581,13 +593,13 @@ DpuActionSetAndGetProp mode(
        .required = true}}},
     modeTarget);
 
-DpuActionSetAndGetProp lfwP(
-    {{"LFWP", 
-      {.service = "xyz.openbmc_project.Software.DPU.Version",  
-       .obj = "/xyz/openbmc_project/control/lfwp",      
-       .propertyInfo = lfwpInfo,
-       .required = true}}},
-    lfwpTarget);
+DpuActionSetAndGetProp
+    lfwp({{"LFWP",
+           {.service = "xyz.openbmc_project.Software.DPU.Version",
+            .obj = "/xyz/openbmc_project/control/lfwp",
+            .propertyInfo = lfwpInfo,
+            .required = true}}},
+         lfwpTarget);
 
 #endif // BMCWEB_ENABLE_NVIDIA_OEM_BF3_PROPERTIES
 inline void getIsOemNvidiaRshimEnable(
@@ -1724,7 +1736,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(&bluefield::DpuActionSetAndGetProp::setAction,
-                            &bluefield::lfwP, std::ref(app)));
+                            &bluefield::lfwp, std::ref(app)));
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/" +
                           std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -1781,12 +1793,13 @@ inline void requestRoutesNvidiaOemBf(App& app)
 
         bluefield::mode.getProperty(&nvidia, asyncResp);
         bluefield::hostRshim.getProperty(&nvidia, asyncResp);
+        bluefield::lfwp.getProperty(&nvidia, asyncResp);
         connectx["StrapOptions"]["@odata.id"] = bluefield::dpuStrpOptionGet;
         connectx["ExternalHostPrivilege"]["@odata.id"] =
             bluefield::dpuHostPrivGet;
         bluefield::mode.getActionInfo(&modeAction);
         bluefield::hostRshim.getActionInfo(&hostRshimAction);
-        bluefield::lfwP.getActionInfo(&lfwpAction);
+        bluefield::lfwp.getActionInfo(&lfwpAction);
 
         nvidia["Truststore"]["Certificates"]["@odata.id"] =
             "/redfish/v1/Systems/" +
