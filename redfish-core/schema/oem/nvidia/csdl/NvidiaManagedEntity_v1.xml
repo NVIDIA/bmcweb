@@ -45,12 +45,13 @@
         </Annotation>
         <Annotation Term="Capabilities.DeleteRestrictions">
           <Record>
-            <PropertyValue Property="Deletable" Bool="false"/>
+            <PropertyValue Property="Deletable" Bool="true"/>
           </Record>
         </Annotation>
         <Annotation Term="Redfish.Uris">
           <Collection>
-            <String>/redfish/v1/Managers/{PowerComplianceManagerId}/Oem/Nvidia/ManagedEntityGroups/{ManagedEntityGroupId}/ManagedEntities/{ManagedEntityId}</String>
+            <String>/redfish/v1/Managers/{ManagerId}/Oem/Nvidia/PowerCompliance/ManagedEntityGroups/{ManagedEntityGroupId}/ManagedEntities/{ManagedEntityId}</String>
+            <String>/redfish/v1/Managers/{ManagerId}/Oem/Nvidia/PowerCompliance/ManagedEntityGroups/{ManagedEntityGroupId}/ManagedEntities/{ManagedEntityId}/</String>
           </Collection>
         </Annotation>
       </EntityType>

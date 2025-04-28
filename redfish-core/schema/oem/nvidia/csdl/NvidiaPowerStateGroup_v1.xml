@@ -39,7 +39,7 @@
         </Annotation>
         <Annotation Term="Capabilities.UpdateRestrictions">
           <Record>
-            <PropertyValue Property="Updatable" Bool="false"/>
+            <PropertyValue Property="Updatable" Bool="true"/>
             <Annotation Term="OData.Description" String="Any writable properties, such as limits and exceptions, can be updated for sensors."/>
           </Record>
         </Annotation>
@@ -50,7 +50,8 @@
         </Annotation>
         <Annotation Term="Redfish.Uris">
           <Collection>
-            <String>/redfish/v1/Managers/{PowerComplianceManagerId}/Oem/Nvidia/PowerStateGroup</String>
+            <String>/redfish/v1/Managers/{ManagerId}/Oem/Nvidia/PowerCompliance/PowerStateGroup</String>
+            <String>/redfish/v1/Managers/{ManagerId}/Oem/Nvidia/PowerCompliance/PowerStateGroup/</String>
           </Collection>
         </Annotation>
       </EntityType>
@@ -79,21 +80,21 @@
           <Annotation Term="Validation.Minimum" Int="0"/>
           <Annotation Term="Validation.Maximum" Int="9223372036854775807"/>
         </Property>
-        <Property Name="NumberOfPsus" Type="Edm.Int64" Nullable="false" DefaultValue="0">
-          <Annotation Term="OData.Description" String="The total number of Power Supplies."/>
-          <Annotation Term="OData.LongDescription" String="This property shall indicate the total number of Power Supplies."/>
+        <Property Name="NumberOfLocalPsus" Type="Edm.Int64" Nullable="false" DefaultValue="0">
+          <Annotation Term="OData.Description" String="The total number of local Power Supplies."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the total number of local Power Supplies."/>
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="Validation.Minimum" Int="0"/>
           <Annotation Term="Validation.Maximum" Int="9223372036854775807"/>
           <Annotation Term="Redfish.Required" Bool="true"/>
         </Property>
-        <NavigationProperty Name="PowerShelfControllers" Type="NvidiaPscStateCollection.NvidiaPscStateCollection" Nullable="false">
+        <NavigationProperty Name="PowerShelfControllers" Type="NvidiaPscStateCollection.NvidiaPscStateCollection" ContainsTarget="true" Nullable="false">
           <Annotation Term="OData.Description" String="A reference to the collection of Power Shelf Controllers States."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate a reference to the collection of Power Shelf Controllers States."/>
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="Redfish.Required" Bool="true"/>
         </NavigationProperty>
-        <NavigationProperty Name="PowerSupplies" Type="NvidiaPsuStateCollection.NvidiaPsuStateCollection" Nullable="false">
+        <NavigationProperty Name="PowerSupplies" Type="NvidiaPsuStateCollection.NvidiaPsuStateCollection" ContainsTarget="true" Nullable="false">
           <Annotation Term="OData.Description" String="A reference to the collection of Power Supplies States."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate a reference to the collection of Power Supplies States."/>
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>

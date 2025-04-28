@@ -47,7 +47,8 @@
         </Annotation>
         <Annotation Term="Redfish.Uris">
           <Collection>
-            <String>/redfish/v1/Managers/{PowerComplianceManagerId}/Oem/Nvidia/ManagedEntityGroups</String>
+            <String>/redfish/v1/Managers/{ManagerId}/Oem/Nvidia/PowerCompliance/ManagedEntityGroups</String>
+            <String>/redfish/v1/Managers/{ManagerId}/Oem/Nvidia/PowerCompliance/ManagedEntityGroups/</String>
           </Collection>
         </Annotation>
         <NavigationProperty Name="Members" Type="Collection(NvidiaManagedEntityGroup.NvidiaManagedEntityGroup)">

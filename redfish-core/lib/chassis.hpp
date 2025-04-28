@@ -405,6 +405,62 @@ inline void getChassisUUID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     });
 }
 
+inline void afterChassisSpiInterfacesFound(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreePathsResponse& /*paths*/)
+{
+    BMCWEB_LOG_DEBUG("afterChassisSpiInterfacesFound");
+    if (ec)
+    {
+        // NO spi interfaces found. This is fine.
+        BMCWEB_LOG_DEBUG("NO spi interfaces found. This is fine.");
+        return;
+    }
+    BMCWEB_LOG_DEBUG("spi interfaces found");
+    // Only add actions for ProcessorModule chassis
+    if (!boost::starts_with(chassisId, "HGX_ProcessorModule_"))
+    {
+        BMCWEB_LOG_DEBUG("Not a ProcessorModule chassis");
+        return;
+    }
+    BMCWEB_LOG_DEBUG("ProcessorModule chassis found");
+
+    nlohmann::json& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
+    BMCWEB_LOG_DEBUG("oemActions: {}", oemActions.dump());
+    BMCWEB_LOG_DEBUG("chassisId: {}", chassisId);
+    oemActions["#NvidiaProcessor.VariableSpiErase"]["target"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Actions/Oem/NvidiaProcessor.VariableSpiErase",
+        chassisId);
+
+    oemActions["#NvidiaProcessor.VariableSpiRead"]["target"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Actions/Oem/NvidiaProcessor.VariableSpiRead",
+        chassisId);
+}
+
+// Find the existing chassis handler and add SPI interface detection
+inline void getChassisOemNvidiaProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
+{
+    BMCWEB_LOG_DEBUG("getChassisOemNvidiaProperties");
+    if constexpr (!BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        // Nothing to do if the option isn't enabled
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG("Checking for SPI interfaces");
+
+    // Add SPI interface detection
+    std::array<std::string_view, 1> interfaces{"com.nvidia.GraceSPI"};
+    std::string inventoryPath = "/xyz/openbmc_project/inventory/system/" + chassisId;
+    BMCWEB_LOG_DEBUG("inventoryPath: {}", inventoryPath);
+    dbus::utility::getSubTreePaths(
+        inventoryPath, 0, interfaces,
+        std::bind_front(&afterChassisSpiInterfacesFound, asyncResp, chassisId));
+}
+
 inline void handleDecoratorAssetProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& path,
@@ -424,6 +480,7 @@ inline void handleDecoratorAssetProperties(
     if (!success)
     {
         messages::internalError(asyncResp->res);
+        BMCWEB_LOG_ERROR("Failed to unpack properties");
         return;
     }
 
@@ -499,6 +556,7 @@ inline void handleDecoratorAssetProperties(
     asyncResp->res.jsonValue["Links"]["ManagedBy"] = std::move(managedBy);
     getChassisState(asyncResp);
     getStorageLink(asyncResp, path);
+
 }
 
 inline void handleChassisGetSubTree(
@@ -846,6 +904,9 @@ inline void
     dbus::utility::getSubTree(
         "/xyz/openbmc_project", 0, interfaces2,
         std::bind_front(handlePhysicalSecurityGetSubTree, asyncResp));
+
+    BMCWEB_LOG_DEBUG("Calling getChassisOemNvidiaProperties");
+    getChassisOemNvidiaProperties(asyncResp, chassisId);
 }
 
 inline void handleChassisGetPreCheck(

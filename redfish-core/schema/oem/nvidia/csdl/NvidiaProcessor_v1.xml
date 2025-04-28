@@ -510,5 +510,23 @@
         </NavigationProperty>
       </ComplexType>
     </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_6_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_5_0.NvidiaGPU"/>
+      <ComplexType Name="DOEReconfigPermissions" BaseType="NvidiaProcessor.v1_5_0.DOEReconfigPermissions">
+        <Property Name="InfoROMFileSystemRecreate" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for InfoROM Filesystem Recreate."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for InfoROM Filesystem Recreate."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="InbandReconfigPermissions" BaseType="NvidiaProcessor.v1_3_0.InbandReconfigPermissions">
+        <Property Name="InfoROMFileSystemRecreate" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for InfoROM Filesystem Recreate."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for InfoROM Filesystem Recreate."/>
+        </Property>
+      </ComplexType>
+    </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

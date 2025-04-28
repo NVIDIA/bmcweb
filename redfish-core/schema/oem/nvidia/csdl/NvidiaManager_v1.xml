@@ -24,6 +24,9 @@
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Manager_v1.xml">
     <edmx:Include Namespace="Manager.v1_0_0"/>
   </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerComplianceManager_v1.xml">
+    <edmx:Include Namespace="NvidiaPowerComplianceManager.v1_0_0"/>
+  </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -474,6 +477,16 @@
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_5_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_4_0.NvidiaManager"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_6_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_5_0.NvidiaManager">
+        <NavigationProperty Name="PowerCompliance" Type="NvidiaPowerComplianceManager.v1_0_0.NvidiaPowerComplianceManager" Nullable="false">
+          <Annotation Term="OData.Description" String="The Power Compliance Manager service attached to this manager."/>
+          <Annotation Term="OData.LongDescription" String="The property shall contain the Power Compliance Manager service attached to this manager."/>
+          <Annotation Term="Redfish.Required" Bool="false"/>
+        </NavigationProperty>
+      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

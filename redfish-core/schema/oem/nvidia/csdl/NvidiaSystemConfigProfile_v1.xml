@@ -65,6 +65,11 @@
           <Annotation Term="OData.LongDescription" String="This is the JSON string of the profile file, the file will contain a metadata with the requested actions."/>
         </Parameter>
       </Action>
+      <Action Name="FactoryReset" IsBound="true">
+        <Annotation Term="OData.Description" String="Perform a factory reset of the system."/>
+        <Annotation Term="OData.LongDescription" String="Perform a factory reset of the system, including the DPU and NIC. If a default profile is installed, it will be activated. This action also triggers a DPU reset to initiate the factory reset process."/>
+        <Parameter Name="NvidiaSystemConfigProfile" Type="NvidiaSystemConfigProfile.v1_0_0.Actions"/>
+      </Action>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSystemConfigProfile.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>

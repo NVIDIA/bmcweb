@@ -511,7 +511,7 @@ RedfishService::RedfishService(App& app)
         requestRoutesProcessorWorkloadPowerProfileCollection(app);
         requestRoutesProcessorWorkloadPowerProfile(app);
 
-        requestRoutesSystemOemNvidiaProcessorVariableSpiActions(app);
+        requestRoutesChassisOemNvidiaProcessorVariableSpiActions(app);
     }
 
 #ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT

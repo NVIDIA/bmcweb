@@ -265,5 +265,151 @@
         </Property>
       </ComplexType>
     </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_6_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EnumType Name="LinkDownReasonCodeTypes">
+        <Member Name="NoLinkDown">
+          <Annotation Term="OData.Description" String="No link down."/>
+        </Member>
+        <Member Name="Unknown">
+          <Annotation Term="OData.Description" String="Unknown."/>
+        </Member>
+        <Member Name="HighBitErrorRate">
+          <Annotation Term="OData.Description" String="High bit error rate."/>
+        </Member>
+        <Member Name="BlockLockLost">
+          <Annotation Term="OData.Description" String="Block lock lost."/>
+        </Member>
+        <Member Name="AlignmentLost">
+          <Annotation Term="OData.Description" String="Alignment lost."/>
+        </Member>
+        <Member Name="FECSyncLost">
+          <Annotation Term="OData.Description" String="FEC sync lost."/>
+        </Member>
+        <Member Name="PllLockLost">
+          <Annotation Term="OData.Description" String="PLL lock lost."/>
+        </Member>
+        <Member Name="FIFOOverflow">
+          <Annotation Term="OData.Description" String="FIFO overflow."/>
+        </Member>
+        <Member Name="FalseSkipDetected">
+          <Annotation Term="OData.Description" String="False skip detected."/>
+        </Member>
+        <Member Name="MinorErrorThresholdExceeded">
+          <Annotation Term="OData.Description" String="Minor error threshold exceeded."/>
+        </Member>
+        <Member Name="PhyRetransmitTimeout">
+          <Annotation Term="OData.Description" String="PHY retransmit timeout."/>
+        </Member>
+        <Member Name="HeartbeatErrors">
+          <Annotation Term="OData.Description" String="Heartbeat errors."/>
+        </Member>
+        <Member Name="CreditMonitorWatchdogTimeout">
+          <Annotation Term="OData.Description" String="Credit monitor watchdog timeout."/>
+        </Member>
+        <Member Name="LinkLayerIntegrityThresholdExceeded">
+          <Annotation Term="OData.Description" String="Link layer integrity threshold exceeded."/>
+        </Member>
+        <Member Name="LinkLayerBufferOverrun">
+          <Annotation Term="OData.Description" String="Link layer buffer overrun."/>
+        </Member>
+        <Member Name="OOBCommandLinkHealthy">
+          <Annotation Term="OData.Description" String="OOB command link healthy."/>
+        </Member>
+        <Member Name="OOBCommandLinkHighBER">
+          <Annotation Term="OData.Description" String="OOB command link high BER."/>
+        </Member>
+        <Member Name="InbandCommandLinkHealthy">
+          <Annotation Term="OData.Description" String="Inband command link healthy."/>
+        </Member>
+        <Member Name="InbandCommandLinkHighBER">
+          <Annotation Term="OData.Description" String="Inband command link high BER."/>
+        </Member>
+        <Member Name="VerificationGatewayDown">
+          <Annotation Term="OData.Description" String="Verification gateway down."/>
+        </Member>
+        <Member Name="RemoteFaultReceived">
+          <Annotation Term="OData.Description" String="Remote fault received."/>
+        </Member>
+        <Member Name="TrainingSequenceReceived">
+          <Annotation Term="OData.Description" String="Training sequence received."/>
+        </Member>
+        <Member Name="ManagementCommandDown">
+          <Annotation Term="OData.Description" String="Management command down."/>
+        </Member>
+        <Member Name="CableDisconnected">
+          <Annotation Term="OData.Description" String="Cable disconnected."/>
+        </Member>
+        <Member Name="CableAccessFault">
+          <Annotation Term="OData.Description" String="Cable access fault."/>
+        </Member>
+        <Member Name="ThermalShutdown">
+          <Annotation Term="OData.Description" String="Thermal shutdown."/>
+        </Member>
+        <Member Name="CurrentIssue">
+          <Annotation Term="OData.Description" String="Current issue."/>
+        </Member>
+        <Member Name="PowerBudgetExceeded">
+          <Annotation Term="OData.Description" String="Power budget exceeded."/>
+        </Member>
+        <Member Name="FastRawBERRecovery">
+          <Annotation Term="OData.Description" String="Fast raw BER recovery."/>
+        </Member>
+        <Member Name="FastEffectiveBERRecovery">
+          <Annotation Term="OData.Description" String="Fast effective BER recovery."/>
+        </Member>
+        <Member Name="FastSymbolBERRecovery">
+          <Annotation Term="OData.Description" String="Fast symbol BER recovery."/>
+        </Member>
+        <Member Name="FastCreditWatchdogRecovery">
+          <Annotation Term="OData.Description" String="Fast credit watchdog recovery."/>
+        </Member>
+        <Member Name="PeerSleep">
+          <Annotation Term="OData.Description" String="Peer sleep."/>
+        </Member>
+        <Member Name="PeerDisabled">
+          <Annotation Term="OData.Description" String="Peer disabled."/>
+        </Member>
+        <Member Name="PeerDisableLocked">
+          <Annotation Term="OData.Description" String="Peer disable locked."/>
+        </Member>
+        <Member Name="PeerThermalEvent">
+          <Annotation Term="OData.Description" String="Peer thermal event."/>
+        </Member>
+        <Member Name="PeerForcedEvent">
+          <Annotation Term="OData.Description" String="Peer forced event."/>
+        </Member>
+        <Member Name="PeerResetEvent">
+          <Annotation Term="OData.Description" String="Peer reset event."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="NvidiaNVLinkPortMetrics" BaseType="NvidiaPortMetrics.v1_5_0.NvidiaNVLinkPortMetrics">
+        <Property Name="EffectiveBER" Type="Edm.Double">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of effective BER since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of effective BER."/>
+        </Property>
+        <Property Name="TotalRawBER" Type="Edm.Double">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of raw BER since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of raw BER."/>
+        </Property>
+        <Property Name="IntentionalLinkDownCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of intentional link down count since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of intentional link down count."/>
+        </Property>
+        <Property Name="UnintentionalLinkDownCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of unintentional link down count since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of unintentional link down count."/>
+        </Property>
+        <Property Name="LinkDownReasonCode" Type="NvidiaPortMetrics.v1_6_0.LinkDownReasonCodeTypes">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link down reason code."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the link down reason code for the port."/>
+        </Property>
+      </ComplexType>
+    </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

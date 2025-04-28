@@ -27,7 +27,6 @@
 #include "hypervisor_system.hpp"
 #include "led.hpp"
 #include "nvidia_cpu_debug_token.hpp"
-#include "nvidia_system.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
@@ -4074,29 +4073,38 @@ inline void
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& systemName)
 {
+    BMCWEB_LOG_DEBUG("handleComputerSystemGet");
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
+        BMCWEB_LOG_DEBUG("setUpRedfishRoute failed");
         return;
     }
 
+    BMCWEB_LOG_DEBUG("setUpRedfishRoute succeeded");
     if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
     {
         // Option currently returns no systems.  TBD
         messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                    systemName);
+        BMCWEB_LOG_DEBUG("resourceNotFound");
         return;
+
     }
 
+    BMCWEB_LOG_DEBUG("systemName: {}", systemName);
     if (systemName == "hypervisor")
     {
         handleHypervisorSystemGet(asyncResp);
+        BMCWEB_LOG_DEBUG("handleHypervisorSystemGet");
         return;
     }
 
+    BMCWEB_LOG_DEBUG("systemName: {}", systemName);
     if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
     {
         messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                    systemName);
+        BMCWEB_LOG_DEBUG("resourceNotFound");
         return;
     }
     asyncResp->res.addHeader(
@@ -4126,14 +4134,13 @@ inline void
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
         "/Memory";
 
+    BMCWEB_LOG_DEBUG("Check IST Mode");
     if constexpr (BMCWEB_ENABLE_IST_MODE)
     {
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             "#NvidiaComputerSystem.v1_2_0.NvidiaComputerSystem";
         ist_mode_utils::getIstMode(asyncResp);
         debug_token::getSystemsCpuDebugToken(asyncResp, systemName);
-
-        getSystemsOemNvidiaProperties(asyncResp, systemName);
     }
 
 #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
