@@ -6326,6 +6326,20 @@ inline void getProcessorPortMetricsData(
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]["TotalRawBER"] =
                         *value;
                 }
+                else if (property.first == "TotalRawError")
+                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for total raw error");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["TotalRawError"] =
+                        *value;
+                }
                 else if (property.first == "TXWait")
                 {
                     const uint64_t* value =

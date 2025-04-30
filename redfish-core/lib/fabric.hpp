@@ -3623,7 +3623,7 @@ inline void getFabricsPortMetricsData(
         if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
         {
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaPortMetrics.v1_5_0.NvidiaNVLinkPortMetrics";
+                "#NvidiaPortMetrics.v1_6_0.NvidiaNVLinkPortMetrics";
         }
         for (const auto& property : properties)
         {
@@ -4055,6 +4055,90 @@ inline void getFabricsPortMetricsData(
                     }
                     asyncResp->res
                         .jsonValue["Oem"]["Nvidia"]["EffectiveError"] = *value;
+                }
+                else if (property.first == "EffectiveBER")
+                {
+                    const double* value = std::get_if<double>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for effective BER");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["EffectiveBER"] =
+                        *value;
+                }
+                else if (property.first == "SymbolErrors")
+                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for symbol errors");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["SymbolErrors"] =
+                        *value;
+                }
+                else if (property.first == "TotalRawBER")
+                {
+                    const double* value = std::get_if<double>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for total raw BER");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["TotalRawBER"] =
+                        *value;
+                }
+                else if (property.first == "TotalRawError")
+                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for total raw error");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["TotalRawError"] =
+                        *value;
+                }
+                else if (property.first == "IntentionalLinkDownCount")
+                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for intentional link down count");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                            ["IntentionalLinkDownCount"] =
+                        *value;
+                }
+                else if (property.first == "UnintentionalLinkDownCount")
+                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for unintentional link down count");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                            ["UnintentionalLinkDownCount"] =
+                        *value;
                 }
             }
             if (property.first == "ceCount")
