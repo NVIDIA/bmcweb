@@ -11,9 +11,6 @@
 #include "error_messages.hpp"
 #include "logging.hpp"
 #include "persistent_data.hpp"
-#ifdef HAVE_PWQUALITY
-#include <pwquality.h>
-#endif
 
 #include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
@@ -564,54 +561,6 @@ inline void getComponentFirmwareVersion(
                                                    BMCWEB_LOG_ERROR(
                                                        "Could not find property endpoints in parent_chassis element");
                                                });
-}
-
-inline bool checkPasswordQuality(const std::string& username [[maybe_unused]],
-                                 const std::string& password [[maybe_unused]],
-                                 std::string& errorMsg [[maybe_unused]])
-{
-#ifdef HAVE_PWQUALITY
-    void* auxerror = nullptr;
-    std::array<char, PWQ_MAX_ERROR_MESSAGE_LEN> buf{};
-    const char* oldpassword = nullptr;
-    int result = 0;
-
-    pwquality_settings_t* settings = pwquality_default_settings();
-    if (settings == nullptr)
-    {
-        BMCWEB_LOG_ERROR(
-            "Error occurred while creatinf pwquality default settings");
-        return false;
-    }
-
-    // Read the configuration file (default if nullptr)
-    result = pwquality_read_config(settings, nullptr, &auxerror);
-    if (result != 0)
-    {
-        // Free the settings
-        pwquality_free_settings(settings);
-        BMCWEB_LOG_ERROR("Error occurred while reading pwquality settings");
-        return false;
-    }
-
-    result = pwquality_check(settings, password.c_str(), oldpassword,
-                             username.c_str(), &auxerror);
-    // Free the settings
-    pwquality_free_settings(settings);
-    if (result < 0)
-    {
-        // Copy the error message to errorMsg
-        errorMsg = pwquality_strerror(buf.data(), PWQ_MAX_ERROR_MESSAGE_LEN,
-                                      result, auxerror);
-        return false;
-    }
-
-    // Clear errorMsg if the password is acceptable
-    errorMsg.clear();
-    return true;
-#else
-    return true;
-#endif
 }
 
 } // namespace redfish
