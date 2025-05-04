@@ -697,12 +697,12 @@ inline void handlePatchProfile(crow::App& app, const crow::Request& req,
         BMCWEB_LOG_ERROR("Not a Valid JSON");
         return;
     }
-
+    task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
         req.session->username,
-        req, [aResp, activateStatus, deleteStatus, addStatus, profileNumber](
-              req](const boost::system::error_code& ec, const bool isBiosUser) {
-        task::Payload payload(req);
+        [aResp, activateStatus, deleteStatus, addStatus, profileNumber,
+         payload = std::move(payload)](const boost::system::error_code& ec,
+                                       const bool isBiosUser) mutable {
         populateProfileStatues(std::move(payload), aResp, ec, profileNumber,
                                activateStatus, deleteStatus, addStatus,
                                isBiosUser);
@@ -1252,7 +1252,7 @@ inline void handleProfileUpdate(crow::App& app, const crow::Request& req,
     task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
         req.session->username,
-        [payload, aResp, memFd = std::move(memFd)](
+        [aResp, memFd = std::move(memFd), payload = std::move(payload)](
             const boost::system::error_code& ec, bool isBiosUser) mutable {
         handleProfileUpdateCall(std::move(payload), ec, aResp, isBiosUser,
                                 memFd);
@@ -1423,10 +1423,11 @@ inline void
         return;
     }
     std::string requestedStatus = *factoryResetStatus;
+    task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, requestedStatus](const boost::system::error_code& ec,
-                                           bool isBiosUser) {
-        task::Payload payload(req);
+        req.session->username,
+        [payload = std::move(payload), aResp, requestedStatus](
+            const boost::system::error_code& ec, bool isBiosUser) mutable {
         callbackPatchFactoryReset(std::move(payload), aResp, ec,
                                   requestedStatus, isBiosUser);
     });
