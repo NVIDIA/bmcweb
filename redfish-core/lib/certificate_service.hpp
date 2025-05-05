@@ -462,8 +462,25 @@ inline void handleCertificateLocationsGet(
                        "/Links/Certificates@odata.count"_json_pointer);
 }
 
+inline std::string readFailureReason(sdbusplus::message::message& m)
+{
+    // Attempt to extract the reason from the error message
+    std::string reason;
+    try
+    {
+        m.read(reason);
+    }
+    catch (const std::exception& e)
+    {
+        BMCWEB_LOG_DEBUG("Failed to read the reason from the error message={}",
+                         e.what());
+    }
+    return reason;
+}
+
 inline void handleError(const std::string_view dbusErrorName,
                         const std::string& id, const std::string& certificate,
+                        const std::string& reason,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (dbusErrorName == "org.freedesktop.DBus.Error.UnknownObject")
@@ -475,6 +492,11 @@ inline void handleError(const std::string_view dbusErrorName,
     {
         messages::propertyValueIncorrect(asyncResp->res, "Certificate",
                                          certificate);
+    }
+    else if (dbusErrorName == "xyz.openbmc_project.Common.Error.NotAllowed")
+    {
+        messages::resourceErrorsDetectedFormatError(asyncResp->res,
+                                                    "Certificate", reason);
     }
     else
     {
@@ -577,7 +599,9 @@ inline void handleReplaceCertificateAction(
             const sd_bus_error* dbusError = m.get_error();
             if (dbusError && dbusError->name)
             {
-                handleError(dbusError->name, id, certificate, asyncResp);
+                std::string reason = readFailureReason(m);
+                handleError(dbusError->name, id, certificate, reason,
+                            asyncResp);
             }
             else
             {
@@ -959,15 +983,25 @@ inline void handleHTTPSCertificateCollectionPost(
         std::make_shared<CertificateFile>(certHttpBody);
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp, certFile](const boost::system::error_code& ec,
-                              const std::string& objectPath) {
+        [asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
+                                            sdbusplus::message::message& m,
+                                            const std::string& objectPath) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-            messages::internalError(asyncResp->res);
+            const sd_bus_error* dbusError = m.get_error();
+            if (dbusError && dbusError->name)
+            {
+                std::string reason = readFailureReason(m);
+                handleError(dbusError->name, "", certHttpBody, reason,
+                            asyncResp);
+            }
+            else
+            {
+                messages::internalError(asyncResp->res);
+            }
             return;
         }
-
         sdbusplus::message::object_path path(objectPath);
         std::string certId = path.filename();
 
@@ -1074,15 +1108,25 @@ inline void handleLDAPCertificateCollectionPost(
         std::make_shared<CertificateFile>(certHttpBody);
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp, certFile](const boost::system::error_code& ec,
-                              const std::string& objectPath) {
+        [asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
+                                            sdbusplus::message::message& m,
+                                            const std::string& objectPath) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-            messages::internalError(asyncResp->res);
+            const sd_bus_error* dbusError = m.get_error();
+            if (dbusError && dbusError->name)
+            {
+                std::string reason = readFailureReason(m);
+                handleError(dbusError->name, "", certHttpBody, reason,
+                            asyncResp);
+            }
+            else
+            {
+                messages::internalError(asyncResp->res);
+            }
             return;
         }
-
         sdbusplus::message::object_path path(objectPath);
         std::string certId = path.filename();
         const boost::urls::url certURL = boost::urls::format(
@@ -1211,15 +1255,25 @@ inline void handleTrustStoreCertificateCollectionPost(
     std::shared_ptr<CertificateFile> certFile =
         std::make_shared<CertificateFile>(certHttpBody);
     crow::connections::systemBus->async_method_call(
-        [asyncResp, certFile](const boost::system::error_code& ec,
-                              const std::string& objectPath) {
+        [asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
+                                            sdbusplus::message::message& m,
+                                            const std::string& objectPath) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-            messages::internalError(asyncResp->res);
+            const sd_bus_error* dbusError = m.get_error();
+            if (dbusError && dbusError->name)
+            {
+                std::string reason = readFailureReason(m);
+                handleError(dbusError->name, "", certHttpBody, reason,
+                            asyncResp);
+            }
+            else
+            {
+                messages::internalError(asyncResp->res);
+            }
             return;
         }
-
         sdbusplus::message::object_path path(objectPath);
         std::string certId = path.filename();
         const boost::urls::url certURL = boost::urls::format(
