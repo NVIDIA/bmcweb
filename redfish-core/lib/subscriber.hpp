@@ -18,16 +18,17 @@
 #pragma once
 #include "bmcweb_config.h"
 
+#include "redfish_aggregator.hpp"
+
 #include <boost/asio/steady_timer.hpp>
-#include <boost/beast/http/status.hpp>
-#include <boost/system/error_code.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/core/string.hpp>
+#include <boost/beast/http/status.hpp>
+#include <boost/system/error_code.hpp>
 #include <boost/url/url.hpp>
 #include <http_client.hpp>
 #include <logging.hpp>
 #include <nlohmann/json.hpp>
-#include "redfish_aggregator.hpp"
 
 #include <chrono>
 #include <functional>
@@ -179,11 +180,13 @@ inline void doUnsubscribe(std::shared_ptr<crow::HttpClient> client,
                           boost::urls::url url, crow::Response& resp)
 {
     // unsubscribe EventService if there is subscriptions in satellite BMC
-    struct UnsubscribeHandler {
+    struct UnsubscribeHandler
+    {
         std::shared_ptr<crow::HttpClient> client;
         mutable boost::urls::url url;
-        
-        void operator()(nlohmann::json& jsonVal) const {
+
+        void operator()(nlohmann::json& jsonVal) const
+        {
             if (jsonVal.contains("Members"))
             {
                 auto& satMembers = jsonVal["Members"];
@@ -198,14 +201,16 @@ inline void doUnsubscribe(std::shared_ptr<crow::HttpClient> client,
                     boost::beast::http::fields httpHeader;
                     url.set_path(id);
                     client->sendDataWithCallback(
-                        std::move(data), url, ensuressl::VerifyCertificate::Verify,
-                        httpHeader, boost::beast::http::verb::delete_, cb);
+                        std::move(data), url,
+                        ensuressl::VerifyCertificate::Verify, httpHeader,
+                        boost::beast::http::verb::delete_, cb);
                 }
             }
         }
     };
 
-    handleGetSubscriptionResp(resp, UnsubscribeHandler{std::move(client), std::move(url)});
+    handleGetSubscriptionResp(
+        resp, UnsubscribeHandler{std::move(client), std::move(url)});
 }
 
 inline void invokeRedfishEventListener()

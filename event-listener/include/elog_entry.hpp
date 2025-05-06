@@ -1,15 +1,15 @@
 // NOLINTBEGIN
 #pragma once
 
-#include <cstdint>
-#include <memory>
-#include <string>
-#include <vector>
-
 #include <sdbusplus/bus.hpp>
 #include <sdbusplus/message.hpp>
 #include <sdbusplus/server/object.hpp>
 #include <xyz/openbmc_project/Logging/Entry/server.hpp>
+
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
 
 /** @namespace phosphor
  *  @brief The main namespace for OpenBMC phosphor components
@@ -31,7 +31,8 @@ using EntryIfaces = sdbusplus::server::object::object<
  *  xyz.openbmc_project.Associations.Definitions DBus APIs.
  *  This class uses multiple inheritance:
  *  - EntryIfaces: Provides the D-Bus interface implementation
- *  - std::enable_shared_from_this: Enables safe shared_ptr management for callbacks
+ *  - std::enable_shared_from_this: Enables safe shared_ptr management for
+ * callbacks
  */
 class evtEntry final :
     public EntryIfaces,

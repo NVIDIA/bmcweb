@@ -633,21 +633,19 @@ TEST(GetEstimatedJsonSize, ObjectsReturnsSumWithKeyAndValue)
 TEST(ReadJsonSub, IgnoresExtraKeysAndValidatesExistingOnes)
 {
     crow::Response res;
-    nlohmann::json jsonRequest = {
-        {"integer", 1},
-        {"string", "hello"},
-        {"extra_key1", "ignored"},
-        {"extra_key2", 42},
-        {"vector", std::vector<uint64_t>{1, 2, 3}}
-    };
+    nlohmann::json jsonRequest = {{"integer", 1},
+                                  {"string", "hello"},
+                                  {"extra_key1", "ignored"},
+                                  {"extra_key2", 42},
+                                  {"vector", std::vector<uint64_t>{1, 2, 3}}};
 
     int64_t integer = 0;
     std::string str;
     std::vector<uint64_t> vec;
-    
+
     // Should succeed despite extra keys
     ASSERT_TRUE(readJsonSub(jsonRequest, res, "integer", integer, "string", str,
-                           "vector", vec));
+                            "vector", vec));
     EXPECT_EQ(res.result(), boost::beast::http::status::ok);
     EXPECT_THAT(res.jsonValue, IsEmpty());
 
@@ -660,39 +658,36 @@ TEST(ReadJsonSub, IgnoresExtraKeysAndValidatesExistingOnes)
 TEST(ReadJsonSub, ValidatesTypeForRequestedKeysOnly)
 {
     crow::Response res;
-    nlohmann::json jsonRequest = {
-        {"integer", "wrong_type"},  // Wrong type
-        {"string", "hello"},
-        {"extra_key", "wrong_type_but_ignored"}
-    };
+    nlohmann::json jsonRequest = {{"integer", "wrong_type"}, // Wrong type
+                                  {"string", "hello"},
+                                  {"extra_key", "wrong_type_but_ignored"}};
 
     int64_t integer = 0;
     std::string str;
-    
+
     // Should succeed when only requesting "string"
     ASSERT_TRUE(readJsonSub(jsonRequest, res, "string", str));
     EXPECT_EQ(str, "hello");
 
     // Should fail because "integer" has wrong type
-    ASSERT_FALSE(readJsonSub(jsonRequest, res, "integer", integer, "string", str));
+    ASSERT_FALSE(
+        readJsonSub(jsonRequest, res, "integer", integer, "string", str));
     EXPECT_EQ(res.result(), boost::beast::http::status::bad_request);
 }
 
 TEST(ReadJsonSub, HandlesOptionalFields)
 {
     crow::Response res;
-    nlohmann::json jsonRequest = {
-        {"present_field", 42},
-        {"extra_field", "ignored"}
-    };
+    nlohmann::json jsonRequest = {{"present_field", 42},
+                                  {"extra_field", "ignored"}};
 
     std::optional<int> presentField;
     std::optional<int> missingField;
-    
+
     ASSERT_TRUE(readJsonSub(jsonRequest, res, "present_field", presentField,
-                           "missing_field", missingField));
+                            "missing_field", missingField));
     EXPECT_EQ(res.result(), boost::beast::http::status::ok);
-    
+
     EXPECT_EQ(presentField, 42);
     EXPECT_EQ(missingField, std::nullopt);
 }

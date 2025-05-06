@@ -189,20 +189,20 @@ inline void populatePersistentStorageSettingStatus(
             if (*serviceStatus == emmcPartitionMounted)
             {
                 asyncResp->res
-                    .jsonValue["PersistentStorageSettings"]
-                              ["Status"]["State"] = "Enabled";
+                    .jsonValue["PersistentStorageSettings"]["Status"]["State"] =
+                    "Enabled";
             }
             else if (*serviceStatus == eudaProgrammedNotActivated)
             {
                 asyncResp->res
-                    .jsonValue["PersistentStorageSettings"]
-                              ["Status"]["State"] = "StandbyOffline";
+                    .jsonValue["PersistentStorageSettings"]["Status"]["State"] =
+                    "StandbyOffline";
             }
             else
             {
                 asyncResp->res
-                    .jsonValue["PersistentStorageSettings"]
-                              ["Status"]["State"] = "Disabled";
+                    .jsonValue["PersistentStorageSettings"]["Status"]["State"] =
+                    "Disabled";
             }
         },
         "org.freedesktop.systemd1",

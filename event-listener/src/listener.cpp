@@ -1,4 +1,6 @@
 // NOLINTBEGIN
+#include "../include/elog_entry.hpp"
+
 #include <boost/beast/core.hpp>
 #include <boost/beast/http/message.hpp>
 #include <boost/beast/http/message_generator.hpp>
@@ -8,7 +10,6 @@
 #include <boost/beast/http/write.hpp>
 #include <boost/beast/version.hpp>
 #include <boost/config.hpp>
-#include "../include/elog_entry.hpp"
 #include <nlohmann/json.hpp>
 #include <phosphor-logging/lg2.hpp>
 #include <sdbusplus/asio/connection.hpp>
@@ -56,9 +57,9 @@ class redfishEventMgr
         return session_num;
     }
 
-    static void
-        createLogEntry(std::shared_ptr<sdbusplus::asio::connection>& conn,
-                       const std::string& entryName, const nlohmann::json& data)
+    static void createLogEntry(
+        std::shared_ptr<sdbusplus::asio::connection>& conn,
+        const std::string& entryName, const nlohmann::json& data)
     {
         static uint8_t evtIndex = 0;
         static std::map<std::string,

@@ -927,7 +927,6 @@ inline void requestRoutesManager(App& app)
                 std::optional<std::string> privilege;
                 std::optional<bool> tlsAuth;
                 std::optional<bool> openocdValue;
-        
 
                 if (!json_util::readJsonPatch(                            //
                         req, asyncResp->res,                              //
@@ -939,11 +938,11 @@ inline void requestRoutesManager(App& app)
                         "Oem/OpenBmc/Fan/PidControllers", pidControllers, //
                         "Oem/OpenBmc/Fan/Profile", profile,               //
                         "Oem/OpenBmc/Fan/StepwiseControllers",
-                        stepwiseControllers, //
-                        "ServiceIdentification", serviceIdentification, //         
-                        "Oem/Nvidia/SMBPBIFencingPrivilege", privilege, //
-                        "Oem/Nvidia/AuthenticationTLSRequired", tlsAuth, //
-                        "Oem/Nvidia/OpenOCD/Enable", openocdValue //                                      
+                        stepwiseControllers,                              //
+                        "ServiceIdentification", serviceIdentification,   //
+                        "Oem/Nvidia/SMBPBIFencingPrivilege", privilege,   //
+                        "Oem/Nvidia/AuthenticationTLSRequired", tlsAuth,  //
+                        "Oem/Nvidia/OpenOCD/Enable", openocdValue         //
                         ))
                 {
                     return;
@@ -962,8 +961,9 @@ inline void requestRoutesManager(App& app)
 
                 if (serviceIdentification)
                 {
-                    setServiceIdentification(asyncResp, std::move(*serviceIdentification));
-                }                
+                    setServiceIdentification(asyncResp,
+                                             std::move(*serviceIdentification));
+                }
                 RedfishService::getInstance(app).handleSubRoute(req, asyncResp);
             });
 }

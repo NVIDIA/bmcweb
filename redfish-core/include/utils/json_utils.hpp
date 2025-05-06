@@ -495,10 +495,9 @@ inline bool readJsonHelper(nlohmann::json& jsonRequest, crow::Response& res,
                            std::span<PerUnpack> toUnpack,
                            bool allowUnknownKeys);
 
-inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
-                                 crow::Response& res,
-                                 std::span<PerUnpack> toUnpack,
-                                 bool allowUnknownKeys = false)
+inline bool readJsonHelperObject(
+    nlohmann::json::object_t& obj, crow::Response& res,
+    std::span<PerUnpack> toUnpack, bool allowUnknownKeys = false)
 {
     bool result = true;
     for (auto& item : obj)
@@ -547,7 +546,8 @@ inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
                     p.complete = true;
                 }
 
-                result = readJsonHelper(j, res, nextLevel, allowUnknownKeys) && result;
+                result = readJsonHelper(j, res, nextLevel, allowUnknownKeys) &&
+                         result;
                 break;
             }
 
@@ -950,9 +950,9 @@ inline void sortJsonArrayByOData(nlohmann::json::array_t& array)
 uint64_t getEstimatedJsonSize(const nlohmann::json& root);
 
 template <typename FirstType, typename... UnpackTypes>
-bool readJsonSubObject(nlohmann::json::object_t& jsonRequest, crow::Response& res,
-                      std::string_view key, FirstType&& first,
-                      UnpackTypes&&... in)
+bool readJsonSubObject(nlohmann::json::object_t& jsonRequest,
+                       crow::Response& res, std::string_view key,
+                       FirstType&& first, UnpackTypes&&... in)
 {
     const std::size_t n = sizeof...(UnpackTypes) + 2;
     std::array<PerUnpack, n / 2> toUnpack2;
@@ -975,7 +975,7 @@ bool readJsonSub(nlohmann::json& jsonRequest, crow::Response& res,
         return false;
     }
     return readJsonSubObject(*obj, res, key, std::forward<FirstType>(first),
-                            std::forward<UnpackTypes&&>(in)...);
+                             std::forward<UnpackTypes&&>(in)...);
 }
 
 } // namespace json_util
