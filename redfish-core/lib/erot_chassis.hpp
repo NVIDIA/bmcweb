@@ -55,7 +55,7 @@ namespace dot
 constexpr const char* rotObjectPath = "/xyz/openbmc_project/NvidiaRootOfTrust";
 constexpr const char* rotIntf = "com.Nvidia.NvidiaRootOfTrust";
 constexpr const char* rotServiceName = "com.Nvidia.NvidiaRootOfTrust";
-constexpr const char* rotExecMethodName = "executeDotCommand";
+constexpr const char* rotExecMethodName = "ExecuteDotCommand";
 // defined in libmctp project in vdm/nvidia/libmctp-vdm-cmds.h
 constexpr const size_t dotKeySize = 96;
 // related to mctp_vendor_cmd_cak_install structure size in libmctp
