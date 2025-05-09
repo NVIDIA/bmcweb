@@ -2404,6 +2404,12 @@ inline void requestRoutesSELLogService(App& app)
         {
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
         asyncResp->res.jsonValue["@odata.id"] =
             "/redfish/v1/Systems/" +
             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/LogServices/SEL";
@@ -2445,6 +2451,12 @@ inline void requestRoutesJournalEventLogClear(App& app)
                    [[maybe_unused]] const std::string& systemName) {
         if (!redfish::setUpRedfishRoute(app, req, asyncResp))
         {
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
         // Clear the EventLog by deleting the log files
@@ -2694,6 +2706,12 @@ inline void requestRoutesJournalEventLogEntry(App& app)
                                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
 
         const std::string& targetID = param;
 
@@ -2766,6 +2784,12 @@ inline void requestRoutesDBusEventLogEntryCollection(App& app)
             // Option currently returns no systems.  TBD
             messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
 
@@ -3124,6 +3148,12 @@ inline void requestRoutesDBusEventLogEntry(App& app)
             return;
         }
 
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
         std::string entryID = param;
         dbus::utility::escapePathForDbus(entryID);
 
@@ -3340,6 +3370,12 @@ inline void requestRoutesDBusEventLogEntry(App& app)
                                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
         std::optional<bool> resolved;
 
         if (!json_util::readJsonPatch(req, asyncResp->res, "Resolved",
@@ -3372,6 +3408,12 @@ inline void requestRoutesDBusEventLogEntry(App& app)
             // Option currently returns no systems.  TBD
             messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
         BMCWEB_LOG_DEBUG("Do delete single event entries.");
@@ -3699,6 +3741,12 @@ inline void requestRoutesDBusSELLogEntryCollection(App& app)
         {
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
         // Collections don't include the static data added by
         // SubRoute because it has a duplicate entry for members
         asyncResp->res.jsonValue["@odata.type"] =
@@ -3798,6 +3846,12 @@ inline void requestRoutesDBusSELLogEntry(App& app)
         {
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
         std::string entryID = param;
         dbus::utility::escapePathForDbus(entryID);
 
@@ -3849,6 +3903,12 @@ inline void requestRoutesDBusSELLogEntry(App& app)
         {
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
         std::string entryID = param;
 
         dbus::utility::escapePathForDbus(entryID);
@@ -3873,6 +3933,12 @@ inline void requestRoutesDBusSELLogServiceActionsClear(App& app)
                    [[maybe_unused]] const std::string& systemName) {
         if (!redfish::setUpRedfishRoute(app, req, asyncResp))
         {
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
         crow::connections::systemBus->async_method_call(
@@ -3993,6 +4059,12 @@ inline void requestRoutesSystemHostLogger(App& app)
         {
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
         asyncResp->res.jsonValue["@odata.id"] =
             "/redfish/v1/Systems/" +
             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -4026,6 +4098,12 @@ inline void requestRoutesSystemHostLoggerCollection(App& app)
         if (!redfish::setUpRedfishRouteWithDelegation(
                 app, req, asyncResp, delegatedQuery, capabilities))
         {
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
         asyncResp->res.jsonValue["@odata.id"] =
@@ -4111,6 +4189,12 @@ inline void requestRoutesSystemHostLoggerLogEntry(App& app)
             // Option currently returns no systems.  TBD
             messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
         const std::string& targetID = param;
@@ -4422,6 +4506,12 @@ inline void handleLogServicesDumpServiceComputerSystemPatch(
     {
         return;
     }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
 
     std::optional<nlohmann::json> oemObject;
     if (!json_util::readJsonPatch(req, asyncResp->res, "Oem", oemObject))
@@ -4585,6 +4675,12 @@ inline void handleDBusEventLogEntryDownloadGet(
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
         return;
     }
     if (!http_helpers::isContentTypeAllowed(
@@ -4992,6 +5088,12 @@ inline void requestRoutesSystemFaultLogService(App& app)
         {
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
         asyncResp->res.jsonValue["@odata.id"] =
             "/redfish/v1/Systems/" +
             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -5037,6 +5139,12 @@ inline void requestRoutesSystemFaultLogEntryCollection(App& app)
         {
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
         asyncResp->res.jsonValue["@odata.type"] =
             "#LogEntryCollection.LogEntryCollection";
         asyncResp->res.jsonValue["@odata.id"] =
@@ -5066,6 +5174,12 @@ inline void requestRoutesSystemFaultLogEntry(App& app)
         {
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
         getDumpEntryById(asyncResp, param, "FaultLog");
     });
 
@@ -5077,6 +5191,12 @@ inline void requestRoutesSystemFaultLogEntry(App& app)
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                [[maybe_unused]] const std::string& systemName,
                const std::string& param) {
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
         deleteDumpEntry(asyncResp, param, "FaultLog");
     });
 }
@@ -5095,6 +5215,12 @@ inline void requestRoutesSystemFaultLogClear(App& app)
     {
         if (!redfish::setUpRedfishRoute(app, req, asyncResp))
         {
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
         clearDump(asyncResp, "FaultLog");
@@ -5144,6 +5270,12 @@ inline void
     {
         return;
     }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
 
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -5187,6 +5319,12 @@ inline void
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
         return;
     }
 
@@ -5336,6 +5474,12 @@ inline void requestRoutesSystemFDREntryCollection(App& app)
         {
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
 
         asyncResp->res.jsonValue["@odata.type"] =
             "#LogEntryCollection.LogEntryCollection";
@@ -5365,6 +5509,12 @@ inline void requestRoutesSystemFDREntry(App& app)
         {
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
 
         getDumpEntryById(asyncResp, param, "FDR");
     });
@@ -5379,6 +5529,12 @@ inline void requestRoutesSystemFDREntry(App& app)
                    const std::string& param) {
         if (!redfish::setUpRedfishRoute(app, req, asyncResp))
         {
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
         deleteDumpEntry(asyncResp, param, "FDR");
@@ -5398,6 +5554,12 @@ inline void requestRoutesSystemFDREntryDownload(App& app)
                    const std::string& entryID) {
         if (!redfish::setUpRedfishRoute(app, req, asyncResp))
         {
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
 
@@ -5462,6 +5624,12 @@ void inline requestRoutesSystemFDRClear(App& app)
         {
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
 
         std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
             createDumpParamVec;
@@ -5502,6 +5670,12 @@ void inline requestRoutesSystemFDRGenBirthCert(App& app)
                    [[maybe_unused]] const std::string& systemName) {
         if (!redfish::setUpRedfishRoute(app, req, asyncResp))
         {
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
 
@@ -5553,6 +5727,12 @@ inline void requestRoutesCrashdumpService(App& app)
             // Option currently returns no systems.  TBD
             messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
 
@@ -5615,6 +5795,12 @@ void inline requestRoutesCrashdumpClear(App& app)
             // Option currently returns no systems.  TBD
             messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
         crow::connections::systemBus->async_method_call(
@@ -5733,6 +5919,12 @@ inline void requestRoutesCrashdumpEntryCollection(App& app)
                                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
 
         constexpr std::array<std::string_view, 1> interfaces = {
             crashdumpInterface};
@@ -5806,6 +5998,12 @@ inline void requestRoutesCrashdumpEntry(App& app)
                                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
         const std::string& logID = param;
         logCrashdumpEntry(asyncResp, logID, asyncResp->res.jsonValue);
     });
@@ -5835,6 +6033,12 @@ inline void requestRoutesCrashdumpFile(App& app)
             // Option currently returns no systems.  TBD
             messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
 
@@ -5952,6 +6156,12 @@ inline void requestRoutesCrashdumpCollect(App& app)
             return;
         }
 
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
         std::string diagnosticDataType;
         std::string oemDiagnosticDataType;
         if (!redfish::json_util::readJsonAction(
@@ -6079,6 +6289,12 @@ inline void requestRoutesDBusLogServiceActionsClear(App& app)
             // Option currently returns no systems.  TBD
             messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
         BMCWEB_LOG_DEBUG("Do delete all entries.");
@@ -6230,6 +6446,12 @@ inline void requestRoutesEventLogDiagnosticDataCollect(App& app)
         {
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
         std::string diagnosticDataType;
         std::string oemDiagnosticDataType;
         if (!redfish::json_util::readJsonAction(
@@ -6322,6 +6544,12 @@ inline void requestRoutesEventLogDiagnosticDataEntry(App& app)
                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                [[maybe_unused]] const std::string& systemName,
                const std::string& idParam) {
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
         uint32_t id = 0;
         std::string_view paramSV(idParam);
         auto it = std::from_chars(paramSV.begin(), paramSV.end(), id);
@@ -6380,6 +6608,12 @@ inline void requestRoutesPostCodesLogService(App& app)
                                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
 
         asyncResp->res.jsonValue["@odata.id"] =
             "/redfish/v1/Systems/" +
@@ -6431,6 +6665,12 @@ inline void requestRoutesPostCodesClear(App& app)
             // Option currently returns no systems.  TBD
             messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
         BMCWEB_LOG_DEBUG("Do delete all postcodes entries.");
@@ -6930,6 +7170,12 @@ inline void requestRoutesPostCodesEntry(App& app)
             // Option currently returns no systems.  TBD
             messages::resourceNotFound(asyncResp->res, "ComputerSystem",
                                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
         getPostCodeForEntry(asyncResp, targetID);
@@ -7619,6 +7865,12 @@ inline void requestRoutesDebugToken(App& app)
         {
             return;
         }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
         asyncResp->res.jsonValue["@odata.id"] =
             "/redfish/v1/Systems/" +
             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -7658,6 +7910,12 @@ inline void requestRoutesDebugTokenServiceEntryCollection(App& app)
                    [[maybe_unused]] const std::string& systemName) {
         if (!redfish::setUpRedfishRoute(app, req, asyncResp))
         {
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
         asyncResp->res.jsonValue["@odata.type"] =
@@ -7715,6 +7973,12 @@ inline void requestRoutesDebugTokenServiceEntry(App& app)
                    const std::string& idstr) {
         if (!redfish::setUpRedfishRoute(app, req, asyncResp))
         {
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
         std::string_view accept = req.getHeaderValue("Accept");
@@ -8042,6 +8306,12 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataEntryDownload(App& app)
                    const std::string& idstr) {
         if (!redfish::setUpRedfishRoute(app, req, asyncResp))
         {
+            return;
+        }
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
             return;
         }
         std::string_view accept = req.getHeaderValue("Accept");
