@@ -48,7 +48,6 @@ if get_option('nvidia-oem-properties').allowed()
         'NvidiaProcessorMetrics_v1.xml',
         'NvidiaProcessorResetMetrics_v1.xml',
         'NvidiaProcessor_v1.xml',
-        'NvidiaPSURedundancy_v1.xml',
         'NvidiaPscStateCollection_v1.xml',
         'NvidiaPscState_v1.xml',
         'NvidiaPsuStateCollection_v1.xml',
