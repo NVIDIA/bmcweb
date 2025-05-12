@@ -20,19 +20,6 @@ inline void
     handleChassisRedfishURL(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const sdbusplus::message::object_path& chassisPath)
 {
-    if (!boost::ends_with(chassisPath.str, BMCWEB_REDFISH_MANAGER_URI_NAME))
-    {
-        defaultSystemURI(asyncResp);
-        return;
-    }
-
-    if (!(strlen(PLATFORMDEVICEPREFIX) > 0) ||
-        !(boost::starts_with(chassisPath.filename(), PLATFORMDEVICEPREFIX)))
-    {
-        defaultSystemURI(asyncResp);
-        return;
-    }
-
     chassis_utils::getRedfishURL(
         chassisPath.str,
         [asyncResp](const bool& status, const std::string& url) {
