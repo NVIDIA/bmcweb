@@ -44,6 +44,117 @@ struct trayTopology
 };
 #pragma pack()
 
+inline std::string getBootReasonTypes(const std::string& bootReasonType)
+{
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.WakeUp")
+    {
+        return "WakeUp";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.PowerOn")
+    {
+        return "PowerOn";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.VoltageDetect")
+    {
+        return "VoltageDetect";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.WarmReset")
+    {
+        return "WarmReset";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.FatalError")
+    {
+        return "FatalError";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.Pin")
+    {
+        return "Pin";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.DebugAccessPort")
+    {
+        return "DebugAccessPort";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.ResetTimeout")
+    {
+        return "ResetTimeout";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.LowPowerAcknowledgeTimeout")
+    {
+        return "LowPowerAcknowledgeTimeout";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.SystemClockGenerator")
+    {
+        return "SystemClockGenerator";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.WindowedWatchdog0")
+    {
+        return "WindowedWatchdog0";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.WindowedWatchdog1")
+    {
+        return "WindowedWatchdog1";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.Software")
+    {
+        return "Software";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.LockupReset")
+    {
+        return "LockupReset";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.CPU1")
+    {
+        return "CPU1";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.VBAT")
+    {
+        return "VBAT";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.CodeWatchdog0")
+    {
+        return "CodeWatchdog0";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.CodeWatchdog1")
+    {
+        return "CodeWatchdog1";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.JTAG")
+    {
+        return "JTAG";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.SecurityViolation")
+    {
+        return "SecurityViolation";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.Tamper")
+    {
+        return "Tamper";
+    }
+
+    return "";
+}
+
 /* * @brief Fill out links association to underneath chassis by
  * requesting data from the given D-Bus association object.
  *
@@ -290,6 +401,128 @@ inline void populateErrorInjectionChassis(
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject",
         objPath + "/ErrorInjection", std::array<const char*, 0>());
+}
+
+inline void
+    getBootReasonProperties(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                            const std::string& service,
+                            const std::string& resetObjPath)
+{
+    using PropertiesMap = boost::container::flat_map<
+        std::string, std::variant<std::vector<std::string>, double>>;
+
+    crow::connections::systemBus->async_method_call(
+        [aResp{std::move(aResp)}](const boost::system::error_code ec,
+                                  const PropertiesMap& propertiesList) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR(
+                "Dbus error when getting boot reason properties {}",
+                ec.message());
+            messages::internalError(aResp->res);
+            return;
+        }
+        if (propertiesList.size() <= 0)
+        {
+            BMCWEB_LOG_ERROR("No property found.");
+            messages::internalError(aResp->res);
+            return;
+        }
+        nlohmann::json& lastResetReasonsArray =
+            aResp->res.jsonValue["Oem"]["Nvidia"]["LastResetReasons"];
+        lastResetReasonsArray = nlohmann::json::array();
+        for (const auto& property : propertiesList)
+        {
+            if (property.first == "BootReason")
+            {
+                const std::vector<std::string>* value =
+                    std::get_if<std::vector<std::string>>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_DEBUG("Null value returned "
+                                     "Boot Reason");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                for (const std::string& bootReason : *value)
+                {
+                    lastResetReasonsArray.emplace_back(
+                        getBootReasonTypes(bootReason));
+                }
+            }
+        }
+    },
+        service, resetObjPath, "org.freedesktop.DBus.Properties", "GetAll", "");
+}
+
+inline void getResetCounterMetricsObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& resetObjPath)
+{
+    crow::connections::systemBus->async_method_call(
+        [aResp, resetObjPath](
+            const boost::system::error_code ec,
+            const std::vector<std::pair<std::string, std::vector<std::string>>>&
+                objects) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR(
+                "Dbus error when getting reset counter metrics object {}",
+                ec.message());
+            messages::internalError(aResp->res);
+            return;
+        }
+        if (objects.size() <= 0)
+        {
+            BMCWEB_LOG_ERROR(
+                "Dbus error when getting reset counter metrics object");
+            messages::internalError(aResp->res);
+            return;
+        }
+
+        getBootReasonProperties(aResp, objects[0].first, resetObjPath);
+    },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetObject", resetObjPath,
+        std::array<std::string, 1>(
+            {"com.nvidia.ResetCounters.ResetCounterMetrics"}));
+}
+
+/* * @brief Fill out reset statistics on chassis by
+ * requesting data from the given D-Bus association object.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       objPath     D-Bus object to query.
+ */
+inline void getResetStatistics(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                               const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG("Get reset statistics on chassis");
+    crow::connections::systemBus->async_method_call(
+        [aResp](const boost::system::error_code ec,
+                std::variant<std::vector<std::string>>& resp) {
+        if (ec)
+        {
+            return; // no association = no failures
+        }
+        std::vector<std::string>* data =
+            std::get_if<std::vector<std::string>>(&resp);
+        if (data == nullptr)
+        {
+            return;
+        }
+        aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+            "#NvidiaChassis.v1_10_0.NvidiaSMAChassis";
+
+        for (const std::string& resetObjPath : *data)
+        {
+            getResetCounterMetricsObject(aResp, resetObjPath);
+        }
+    },
+        "xyz.openbmc_project.ObjectMapper", objPath + "/reset_statistics",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
 }
 
 inline void

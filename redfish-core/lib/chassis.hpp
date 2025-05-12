@@ -802,6 +802,9 @@ inline void handleChassisGetSubTree(
                                                                     objPath);
             redfish::nvidia_chassis_utils::getProtocolBridgeForDevices(
                 asyncResp, objPath);
+            // get boot status
+            redfish::nvidia_chassis_utils::getResetStatistics(asyncResp,
+                                                              objPath);
             // Links association to connected fabric switches
             redfish::nvidia_chassis_utils::getChassisFabricSwitchesLinks(
                 asyncResp, objPath);
