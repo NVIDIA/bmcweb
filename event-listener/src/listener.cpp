@@ -59,7 +59,7 @@ class redfishEventMgr
 
     static void createLogEntry(
         std::shared_ptr<sdbusplus::asio::connection>& conn,
-        const std::string& entryName, const nlohmann::json& data)
+        const std::string& entryNameIn, const nlohmann::json& data)
     {
         static uint8_t evtIndex = 0;
         static std::map<std::string,
@@ -72,7 +72,7 @@ class redfishEventMgr
         std::vector<std::string> additionalData;
         std::string aData;
         std::string resolution;
-        std::string path = entryName + "/" + std::to_string(evtIndex);
+        std::string path = entryNameIn + "/" + std::to_string(evtIndex);
 
         // increase the index of the event list
         evtIndex++;
@@ -454,8 +454,8 @@ class listener : public std::enable_shared_from_this<listener>
         {
             // close the peer's connection since there is no free session.
             beast::tcp_stream stream(std::move(socket));
-            beast::error_code ec;
-            stream.socket().shutdown(tcp::socket::shutdown_send, ec);
+            beast::error_code ec1;
+            stream.socket().shutdown(tcp::socket::shutdown_send, ec1);
             lg2::error("Reach maximum sessions!");
         }
 

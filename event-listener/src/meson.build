@@ -1,10 +1,4 @@
-project(
-  'event-listener',
-  'cpp',
-  default_options: ['cpp_clang_tidy=false']
-)
-
-listener_incs = include_directories('../include')
+listener_incs = include_directories('../include', '../../redfish-core/include', '../../include')
 
 listener_srcs = files('elog_entry.cpp', 'listener.cpp')
 listener_deps = [default_deps, bmcweb_dependencies]
