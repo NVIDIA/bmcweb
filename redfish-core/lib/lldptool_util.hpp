@@ -20,203 +20,352 @@
 #include "logging.hpp"
 
 #include <boost/asio.hpp>
-#include <boost/process.hpp>
+#include <sdbusplus/asio/connection.hpp>
+#include <sdbusplus/asio/object_server.hpp>
+#include <sdbusplus/message.hpp>
 
 #include <chrono>
 #include <functional>
 #include <iostream>
 #include <string>
 
-namespace bp = boost::process;
+// Callback type definition for handling LLDP command responses
 using LldpResponseCallback = std::function<void(
     const std::shared_ptr<bmcweb::AsyncResp>&, const std::string& /* stdOut*/,
     const std::string& /* stdErr*/, const boost::system::error_code& /* ec */,
     int /*errorCode */)>;
 
+// Enumeration of LLDP TLV (Type-Length-Value) types that can be queried or set
 enum class LldpTlv
 {
-    CHASSIS_ID,
-    PORT_ID,
-    SYSTEM_CAPABILITIES,
-    SYSTEM_DESCRIPTION,
-    SYSTEM_NAME,
-    MANAGEMENT_ADDRESS,
-    ADMIN_STATUS,
-    ENABLE_ADMIN_STATUS,
-    DISABLE_ADMIN_STATUS,
-    ALL
+    CHASSIS_ID,              // Chassis identifier
+    CHASSIS_ID_SUBTYPE,      // Type of chassis identifier
+    PORT_ID,                 // Port identifier
+    PORT_ID_SUBTYPE,         // Type of port identifier
+    SYSTEM_CAPABILITIES,     // System capabilities
+    SYSTEM_DESCRIPTION,      // System description
+    SYSTEM_NAME,             // System name
+    MANAGEMENT_ADDRESS,      // IPv4 management address
+    MANAGEMENT_ADDRESS_IPV6, // IPv6 management address
+    MANAGEMENT_ADDRESS_MAC,  // MAC management address
+    MANAGEMENT_VLAN_ID,      // Management VLAN identifier
+    ADMIN_STATUS,            // Current administrative status
+    ENABLE_ADMIN_STATUS,     // Enable administrative status
+    DISABLE_ADMIN_STATUS,    // Disable administrative status
+    ALL                      // All TLVs
 };
 
+// Enumeration of LLDP command types that can be executed
 enum class LldpCommandType
 {
-    GET,
-    GET_LLDP,
-    SET_LLDP,
-    ENABLE_TLV
+    GET,       // Get a specific TLV value
+    GET_LLDP,  // Get LLDP status
+    SET_LLDP,  // Set LLDP configuration
+    ENABLE_TLV // Enable specific TLV
 };
 
-class LldpToolUtil
+/**
+ * @class LldpUtil
+ * @brief Utility class for handling LLDP (Link Layer Discovery Protocol)
+ * operations
+ *
+ * This class provides methods to interact with LLDP functionality through
+ * D-Bus, allowing querying and configuration of LLDP parameters.
+ */
+class LldpUtil
 {
   public:
     /**
-     * @brief Execute lldptool commands
-     * @param ifName - The interface name
+     * @brief Execute LLDP operations using D-Bus
+     * @param ifName - The interface name (not used in D-Bus implementation)
      * @param lldpTlv - the Requested TLV type
      * @param lldpCommandType - The command type
      * @param isReceived - is the command for received TLV or for transmitted
      * TLV
-     * @param asyncResp - Pointer to object holding response data.
-     * @param responseCallback - callback function to handle the response.
-     *
-     * @return none.
+     * @param asyncResp - Pointer to object holding response data
+     * @param responseCallback - callback function to handle the response
      */
-    static void run(const std::string& ifName, LldpTlv lldpTlv,
+    static void run([[maybe_unused]] const std::string& ifName, LldpTlv lldpTlv,
                     LldpCommandType lldpCommandType, bool isReceived,
                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     LldpResponseCallback responseCallback);
 
   private:
-    LldpToolUtil() = default;
+    LldpUtil() = default;
+
     /**
-     * @brief Translate to lldptool command
-     * @param lldpTlv - the enum with commands available for lldptool tool.
-     * @param ifName - the interface name
-     * @param lldpCommandType - the command type
+     * @brief Get the D-Bus path for LLDP object
      * @param isReceived - is the command for received TLV or for transmitted
      * TLV
-     *
-     * @return string with the command to be executed.
+     * @return string with the D-Bus path
      */
-    static std::string
-        translateOperationToCommand(const std::string& ifName, LldpTlv lldpTlv,
-                                    LldpCommandType lldpCommandType,
-                                    bool isReceived);
-};
-
-/**
- * @brief Translate to lldptool command
- * @param lldpTlv - the enum with commands available for lldptool tool.
- * @param ifName - the interface name
- * @param lldpCommandType - the command type
- * @param isReceived - is the command for received TLV or for transmitted TLV
- *
- * @return string with the command to be executed.
- */
-inline std::string LldpToolUtil::translateOperationToCommand(
-    const std::string& ifName, LldpTlv lldpTlv, LldpCommandType lldpCommandType,
-    bool isReceived)
-{
-    std::string command;
-    std::string cmdAction{" set-tlv "};
-    std::string setRequest{""};
-    std::string tlvRequest{""};
-    std::string neighbor{""};
-
-    switch (lldpCommandType)
+    static std::string getLldpPath(bool isReceived)
     {
-        case LldpCommandType::ENABLE_TLV:
-            setRequest = " enableTx=yes";
-            break;
-        case LldpCommandType::GET:
-            cmdAction = " get-tlv ";
-            break;
-        case LldpCommandType::GET_LLDP:
-            cmdAction = " get-lldp ";
-            break;
-        case LldpCommandType::SET_LLDP:
-            cmdAction = " set-lldp ";
-            break;
+        return isReceived ? "/xyz/openbmc_project/network/lldpReceive"
+                          : "/xyz/openbmc_project/network/lldpTransmit";
     }
 
+    /**
+     * @brief Get the TLV value from D-Bus
+     * @param lldpTlv - the TLV type to get
+     * @param isReceived - is the command for received TLV or for transmitted
+     * TLV
+     * @param asyncResp - Pointer to object holding response data
+     * @param responseCallback - callback function to handle the response
+     */
+    static void getTlvValue(LldpTlv lldpTlv, bool isReceived,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            LldpResponseCallback responseCallback);
+
+    /**
+     * @brief Set the TLV value via D-Bus
+     * @param lldpTlv - the TLV type to set
+     * @param value - the value to set
+     * @param isReceived - is the command for received TLV or for transmitted
+     * TLV
+     * @param asyncResp - Pointer to object holding response data
+     * @param responseCallback - callback function to handle the response
+     */
+    static void setTlvValue(LldpTlv lldpTlv, const std::string& value,
+                            bool isReceived,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            LldpResponseCallback responseCallback);
+};
+
+// Command execution
+inline void LldpUtil::run([[maybe_unused]] const std::string& ifName,
+                          LldpTlv lldpTlv, LldpCommandType lldpCommandType,
+                          bool isReceived,
+                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          LldpResponseCallback responseCallback)
+{
+    try
+    {
+        switch (lldpCommandType)
+        {
+            case LldpCommandType::GET:
+            case LldpCommandType::GET_LLDP:
+                getTlvValue(lldpTlv, isReceived, asyncResp, responseCallback);
+                break;
+            case LldpCommandType::SET_LLDP:
+            case LldpCommandType::ENABLE_TLV:
+                // For SET operations, we need to determine the value to set
+                // This would depend on the specific TLV being set
+                setTlvValue(lldpTlv, "", isReceived, asyncResp,
+                            responseCallback);
+                break;
+        }
+    }
+    catch (const std::exception& e)
+    {
+        BMCWEB_LOG_ERROR("Error in LLDP operation: {}", e.what());
+        responseCallback(asyncResp, "", e.what(),
+                         boost::system::errc::make_error_code(
+                             boost::system::errc::operation_canceled),
+                         1);
+    }
+}
+
+// Get TLV
+inline void
+    LldpUtil::getTlvValue(LldpTlv lldpTlv, bool isReceived,
+                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          LldpResponseCallback responseCallback)
+{
+    std::string path = getLldpPath(isReceived);
+    std::string interface = "xyz.openbmc_project.Network.LLDP.TLVs";
+    std::string property;
+
+    // Map TLV type to corresponding D-Bus property name
     switch (lldpTlv)
     {
         case LldpTlv::CHASSIS_ID:
-            tlvRequest = " -V chassisID ";
+            property = "ChassisId";
+            break;
+        case LldpTlv::CHASSIS_ID_SUBTYPE:
+            property = "ChassisIdSubtype";
             break;
         case LldpTlv::PORT_ID:
-            tlvRequest = " -V portID ";
+            property = "PortId";
+            break;
+        case LldpTlv::PORT_ID_SUBTYPE:
+            property = "PortIdSubtype";
             break;
         case LldpTlv::SYSTEM_CAPABILITIES:
-            tlvRequest = " -V sysCap ";
+            property = "SystemCapabilities";
             break;
         case LldpTlv::SYSTEM_DESCRIPTION:
-            tlvRequest = " -V sysDesc ";
+            property = "SystemDescription";
             break;
         case LldpTlv::SYSTEM_NAME:
-            tlvRequest = " -V sysName ";
+            property = "SystemName";
             break;
         case LldpTlv::MANAGEMENT_ADDRESS:
-            tlvRequest = " -V mngAddr ";
+            property = "ManagementAddressIPv4";
+            break;
+        case LldpTlv::MANAGEMENT_ADDRESS_IPV6:
+            property = "ManagementAddressIPv6";
+            break;
+        case LldpTlv::MANAGEMENT_ADDRESS_MAC:
+            property = "ManagementAddressMAC";
+            break;
+        case LldpTlv::MANAGEMENT_VLAN_ID:
+            property = "ManagementVlanId";
             break;
         case LldpTlv::ADMIN_STATUS:
-            tlvRequest = " adminStatus ";
+            interface = "xyz.openbmc_project.Network.LLDP.Settings";
+            property = "EnableLLDP";
             break;
-        case LldpTlv::ENABLE_ADMIN_STATUS:
-            setRequest = " adminStatus=rxtx";
-            break;
-        case LldpTlv::DISABLE_ADMIN_STATUS:
-            setRequest = " adminStatus=disabled";
-            break;
-        case LldpTlv::ALL:
-            break;
+        default:
+            responseCallback(asyncResp, "", "Unsupported TLV type",
+                             boost::system::errc::make_error_code(
+                                 boost::system::errc::invalid_argument),
+                             1);
+            return;
     }
 
-    if (isReceived)
+    // Make D-Bus call to get the property value
+    if (property == "EnableLLDP")
     {
-        neighbor = " -n ";
-    }
-    command = "lldptool " + cmdAction + neighbor + " -i " + ifName +
-              tlvRequest + setRequest;
-    BMCWEB_LOG_DEBUG("lldptool command: {}", command);
-    return command;
-}
-
-inline void
-    LldpToolUtil::run(const std::string& ifName, LldpTlv lldpTlv,
-                      LldpCommandType lldpCommandType, bool isReceived,
-                      const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      LldpResponseCallback responseCallback)
-{
-    std::string command = translateOperationToCommand(
-        ifName, lldpTlv, lldpCommandType, isReceived);
-    auto dataOut = std::make_shared<boost::process::ipstream>();
-    auto dataErr = std::make_shared<boost::process::ipstream>();
-    auto exitCallback = [asyncResp, dataOut, dataErr,
-                         respCallback = std::move(responseCallback),
-                         command](const boost::system::error_code& ec,
-                                  int errorCode) mutable {
-        std::string stdOut;
-        while (*dataOut)
-        {
-            std::string line;
-            std::getline(*dataOut, line);
-            stdOut += line + "\n";
-        }
-        dataOut->close();
-        std::string stdErr;
-        while (*dataErr)
-        {
-            std::string line;
-            std::getline(*dataErr, line);
-            stdErr += line + "\n";
-        }
-        dataErr->close();
-        if (ec || errorCode)
-        {
-            BMCWEB_LOG_ERROR("Error while executing command: {} Error Code {}",
-                             command, errorCode);
-            BMCWEB_LOG_ERROR("LLDP Error Response: {}", stdErr);
+        sdbusplus::asio::getProperty<bool>(
+            *crow::connections::systemBus, "xyz.openbmc_project.LLDP", path,
+            interface, property,
+            [asyncResp, responseCallback,
+             property](const boost::system::error_code& ec, const bool& value) {
             if (ec)
             {
-                BMCWEB_LOG_ERROR(
-                    "Error while executing command: {} Message: {}", command,
-                    ec.message());
+                BMCWEB_LOG_ERROR("Error getting LLDP property {}: {}", property,
+                                 ec.message());
+                responseCallback(asyncResp, "", ec.message(), ec, 1);
+                return;
             }
-        }
-        respCallback(asyncResp, stdOut, stdErr, ec, errorCode);
+            responseCallback(asyncResp, value ? "enabled" : "disabled", "",
+                             boost::system::error_code{}, 0);
+        });
+    }
+    else if (property == "ManagementVlanId")
+    {
+        sdbusplus::asio::getProperty<uint16_t>(
+            *crow::connections::systemBus, "xyz.openbmc_project.LLDP", path,
+            interface, property,
+            [asyncResp, responseCallback, property](
+                const boost::system::error_code& ec, const uint16_t& value) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Error getting LLDP property {}: {}", property,
+                                 ec.message());
+                responseCallback(asyncResp, "", ec.message(), ec, 1);
+                return;
+            }
+            responseCallback(asyncResp, std::to_string(value), "",
+                             boost::system::error_code{}, 0);
+        });
+    }
+    else if (property == "SystemCapabilities")
+    {
+        sdbusplus::asio::getProperty<std::vector<std::string>>(
+            *crow::connections::systemBus, "xyz.openbmc_project.LLDP", path,
+            interface, property,
+            [asyncResp, responseCallback,
+             property](const boost::system::error_code& ec,
+                       const std::vector<std::string>& value) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Error getting LLDP property {}: {}", property,
+                                 ec.message());
+                responseCallback(asyncResp, "", ec.message(), ec, 1);
+                return;
+            }
+            std::string result;
+            for (const auto& cap : value)
+            {
+                if (!result.empty())
+                {
+                    result += ",";
+                }
+                result += cap;
+            }
+            responseCallback(asyncResp, result, "", boost::system::error_code{},
+                             0);
+        });
+    }
+    else
+    {
+        sdbusplus::asio::getProperty<std::string>(
+            *crow::connections::systemBus, "xyz.openbmc_project.LLDP", path,
+            interface, property,
+            [asyncResp, responseCallback, property](
+                const boost::system::error_code& ec, const std::string& value) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Error getting LLDP property {}: {}", property,
+                                 ec.message());
+                responseCallback(asyncResp, "", ec.message(), ec, 1);
+                return;
+            }
+            responseCallback(asyncResp, value, "", boost::system::error_code{},
+                             0);
+        });
+    }
+}
+
+// Set TLVs
+inline void
+    LldpUtil::setTlvValue(LldpTlv lldpTlv, const std::string& value,
+                          bool isReceived,
+                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          LldpResponseCallback responseCallback)
+{
+    // Cannot set values for received TLVs
+    if (isReceived)
+    {
+        responseCallback(asyncResp, "", "Cannot set values for received TLVs",
+                         boost::system::errc::make_error_code(
+                             boost::system::errc::operation_not_permitted),
+                         1);
         return;
-    };
-    bp::async_system(crow::connections::systemBus->get_io_context(),
-                     std::move(exitCallback), command, bp::std_in.close(),
-                     bp::std_out > *dataOut, bp::std_err > *dataErr);
+    }
+
+    std::string path = getLldpPath(isReceived);
+    std::string interface = "xyz.openbmc_project.Network.LLDP.TLVs";
+    std::string method;
+
+    // Map TLV type to corresponding D-Bus method name
+    switch (lldpTlv)
+    {
+        case LldpTlv::CHASSIS_ID:
+            method = "ChassisId";
+            break;
+        case LldpTlv::PORT_ID:
+            method = "PortId";
+            break;
+        case LldpTlv::SYSTEM_NAME:
+            method = "SystemName";
+            break;
+        case LldpTlv::SYSTEM_DESCRIPTION:
+            method = "SystemDescription";
+            break;
+        case LldpTlv::MANAGEMENT_ADDRESS:
+            method = "ManagementAddressIPv4";
+            break;
+        default:
+            responseCallback(asyncResp, "", "Unsupported TLV type",
+                             boost::system::errc::make_error_code(
+                                 boost::system::errc::invalid_argument),
+                             1);
+            return;
+    }
+
+    // Make D-Bus call to set the property value
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, responseCallback](const boost::system::error_code& ec) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Error setting LLDP property: {}", ec.message());
+            responseCallback(asyncResp, "", ec.message(), ec, 1);
+            return;
+        }
+        responseCallback(asyncResp, "Success", "", ec, 0);
+    },
+        "xyz.openbmc_project.LLDP", path, interface, method, value);
 }
