@@ -1106,20 +1106,9 @@ inline void updateUserProperties(
                      retval == PAM_NEW_AUTHTOK_REQD)
             {
                 // If password is invalid
-                messages::propertyValueFormatError(asyncResp->res, *password,
+                messages::propertyValueFormatError(asyncResp->res, nullptr,
                                                    "Password");
-                // update the resolution message
-                std::string resolution;
-                if (!checkPasswordQuality(username, *password, resolution))
-                {
-                    redfish::message_registries::updateResolution(
-                        asyncResp, "Password", resolution);
-                    BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
-                }
-                else
-                {
-                    BMCWEB_LOG_DEBUG("checkPasswordQuality passed");
-                }
+                BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
             }
 
             else if (retval != PAM_SUCCESS)
@@ -1724,26 +1713,6 @@ inline void processAfterCreateUser(
 
     if (retval != PAM_SUCCESS)
     {
-        // Password Invalid
-        messages::propertyValueFormatError(asyncResp->res, password,
-                                           "Password");
-
-        if (retval == PAM_AUTHTOK_ERR)
-        {
-            // update the resolution message
-            std::string resolution;
-            if (!checkPasswordQuality(username, password, resolution))
-            {
-                redfish::message_registries::updateResolution(
-                    asyncResp, "Password", resolution);
-                BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
-            }
-            else
-            {
-                BMCWEB_LOG_DEBUG("checkPasswordQuality passed");
-            }
-        }
-
         // At this point we have a user that's been
         // created, but the password set
         // failed.Something is wrong, so delete the user
