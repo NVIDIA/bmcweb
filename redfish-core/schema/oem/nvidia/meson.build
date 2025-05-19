@@ -39,6 +39,7 @@ if get_option('nvidia-oem-properties').allowed()
         'NvidiaPowerComplianceManager_v1.xml',
         'NvidiaPowerDomainCollection_v1.xml',
         'NvidiaPowerDomain_v1.xml',
+        'NvidiaPSURedundancy_v1.xml',
         'NvidiaPowerPolicyCollection_v1.xml',
         'NvidiaPowerPolicy_v1.xml',
         'NvidiaPowerSmoothingPresetProfileCollection_v1.xml',
