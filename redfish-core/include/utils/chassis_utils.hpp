@@ -712,6 +712,7 @@ inline void
 
                 for (auto& objectPath : resp)
                 {
+                    bool isMctpEp = false;
                     for (auto& interfaceMap : objectPath.second)
                     {
                         if (interfaceMap.first ==
@@ -730,6 +731,7 @@ inline void
                         if (interfaceMap.first ==
                             "xyz.openbmc_project.MCTP.Endpoint")
                         {
+                            isMctpEp = true;
                             for (auto& propertyMap : interfaceMap.second)
                             {
                                 if (propertyMap.first == "EID")
@@ -746,6 +748,12 @@ inline void
                                 }
                             }
                         }
+                    }
+
+                    // only check EID and UUID if it's a MCTP endpoint
+                    if (!isMctpEp)
+                    {
+                        continue;
                     }
 
                     if (eid == nullptr)
