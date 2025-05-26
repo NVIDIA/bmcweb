@@ -151,7 +151,7 @@ class CertificateFile
 static void updateCertIssuerOrSubject(nlohmann::json& out,
                                       std::string_view value)
 {
-    // example: O=openbmc-project.xyz,CN=localhost
+    // example: O=openbmc.xyz,CN=localhost or O=openbmc.xyz, CN=localhost
     std::string_view::iterator i = value.begin();
     while (i != value.end())
     {
@@ -196,10 +196,11 @@ static void updateCertIssuerOrSubject(nlohmann::json& out,
         {
             out["State"] = val;
         }
-        // skip comma character
+        // skip comma and any following spaces
         if (i != value.end())
         {
-            std::advance(i, 1);
+            i = std::find_if_not(std::next(i), value.end(),
+                                 [](char c) { return c == ',' || c == ' '; });
         }
     }
 }
