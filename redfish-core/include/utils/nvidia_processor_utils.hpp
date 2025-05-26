@@ -2333,7 +2333,7 @@ inline void getOperatingSpeedRangeData(
                         if (errorno)
                         {
                             BMCWEB_LOG_ERROR(
-                                "ObjectMapper::GetObject call failed:{}",
+                                "DBUS Response Error:{} while calling GetAll",
                                 errorno);
                             messages::internalError(asyncResp->res);
                             return;
