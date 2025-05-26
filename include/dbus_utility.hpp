@@ -96,6 +96,9 @@ using ManagedObjectType =
 using MapperServiceMap =
     std::vector<std::pair<std::string, std::vector<std::string>>>;
 
+// Type for component path and its associated services
+using ComponentServicePair = std::pair<std::string, MapperServiceMap>;
+
 // Map of object paths to MapperServiceMaps
 using MapperGetSubTreeResponse =
     std::vector<std::pair<std::string, MapperServiceMap>>;

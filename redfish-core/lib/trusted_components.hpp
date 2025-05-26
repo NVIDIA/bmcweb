@@ -19,7 +19,7 @@
 
 #include "bmcweb_config.h"
 
-#include "certificate_service.hpp"
+#include "utils/certificate_utils.hpp"
 
 #include <app.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -204,7 +204,7 @@ inline void updateSPDMTrustedComponents(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisID, nlohmann::json& memberArray)
 {
-    const std::array<const char*, 1> interfaces = {
+    const std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.SPDM.Responder"};
 
     crow::connections::systemBus->async_method_call(
@@ -703,102 +703,6 @@ inline void
 }
 
 /**
- * @brief Trim leading and trailing spaces from a string
- * @param str The string to trim
- * @return Trimmed string
- */
-static std::string trimSpaces(std::string str)
-{
-    if (str.empty())
-    {
-        return "";
-    }
-
-    str.erase(0, str.find_first_not_of(" "));
-    str.erase(str.find_last_not_of(" ") + 1);
-    return str;
-}
-
-/**
- * @brief Extract a specific field value from a certificate string
- * @param str Certificate string containing fields in format "FIELD=value"
- * @param fieldName Name of the field to extract
- * @return Value of the field, or empty string if not found
- */
-static std::string extractField(const std::string& str,
-                                const std::string& fieldName)
-{
-    std::string searchStr = fieldName + "=";
-    size_t pos = str.find(searchStr);
-    if (pos == std::string::npos)
-    {
-        return "";
-    }
-    pos += searchStr.length();
-    size_t endPos = str.find(',', pos);
-    if (endPos == std::string::npos)
-    {
-        return str.substr(pos);
-    }
-    return str.substr(pos, endPos - pos);
-}
-
-/**
- * @brief Parse certificate fields into structured format
- * @param certStr Certificate string containing fields
- * @return Map of field names to their values
- */
-static std::unordered_map<std::string, std::string>
-    parseCertificateFields(const std::string& certStr)
-{
-    std::unordered_map<std::string, std::string> fields;
-    std::string remaining = trimSpaces(certStr);
-
-    while (!remaining.empty())
-    {
-        size_t equalsPos = remaining.find('=');
-        if (equalsPos == std::string::npos)
-        {
-            break;
-        }
-
-        std::string fieldName(remaining.substr(0, equalsPos));
-        remaining = trimSpaces(remaining.substr(equalsPos + 1));
-
-        size_t commaPos = remaining.find(',');
-        std::string value;
-        if (commaPos == std::string::npos)
-        {
-            value = std::string(remaining);
-            remaining.clear();
-        }
-        else
-        {
-            value = std::string(remaining.substr(0, commaPos));
-            remaining = trimSpaces(remaining.substr(commaPos + 1));
-        }
-
-        if (!fieldName.empty())
-        {
-            fields[fieldName] = value;
-        }
-    }
-
-    return fields;
-}
-
-/**
- * @brief Map of mbedtls field names to Redfish field names
- */
-static const std::unordered_map<std::string, std::string> certFieldMap = {
-    {"C", "Country"},
-    {"ST", "State"},
-    {"L", "City"},
-    {"O", "Organization"},
-    {"OU", "OrganizationalUnit"},
-    {"CN", "CommonName"}};
-
-/**
  * @brief Constructs the complete certificate response in Redfish format
  *
  * This function builds the final certificate response by combining SPDM
@@ -874,47 +778,14 @@ static void constructCertificateResponse(
 
         if (certData.issuer.has_value())
         {
-            auto issuerFields = parseCertificateFields(certData.issuer.value());
-            nlohmann::json issuerJson;
-
-            // Only add fields that are present in the certificate
-            for (const auto& [mbedtlsField, redfishField] : certFieldMap)
-            {
-                std::string value = extractField(certData.issuer.value(),
-                                                 mbedtlsField);
-                if (!value.empty())
-                {
-                    issuerJson[redfishField] = value;
-                }
-            }
-
-            if (!issuerJson.empty())
-            {
-                asyncResp->res.jsonValue["Issuer"] = issuerJson;
-            }
+            cert_utils::updateCertIssuerOrSubject(
+                asyncResp->res.jsonValue["Issuer"], certData.issuer.value());
         }
 
         if (certData.subject.has_value())
         {
-            auto subjectFields =
-                parseCertificateFields(certData.subject.value());
-            nlohmann::json subjectJson;
-
-            // Add fields that are present in the certificate
-            for (const auto& [mbedtlsField, redfishField] : certFieldMap)
-            {
-                std::string value = extractField(certData.subject.value(),
-                                                 mbedtlsField);
-                if (!value.empty())
-                {
-                    subjectJson[redfishField] = value;
-                }
-            }
-
-            if (!subjectJson.empty())
-            {
-                asyncResp->res.jsonValue["Subject"] = subjectJson;
-            }
+            cert_utils::updateCertIssuerOrSubject(
+                asyncResp->res.jsonValue["Subject"], certData.subject.value());
         }
 
         if (certData.notAfter.has_value() && certData.notAfter.value() != 0)
@@ -982,8 +853,7 @@ static void handleCertificateProperties(
                                    certificateID);
         return;
     }
-    const std::string* certificateString =
-        std::get_if<std::string>(&itCertString->second);
+    auto* certificateString = std::get_if<std::string>(&itCertString->second);
     if (certificateString == nullptr)
     {
         BMCWEB_LOG_ERROR(
@@ -997,7 +867,7 @@ static void handleCertificateProperties(
     auto itKeyUsage = certProps.find("KeyUsage");
     if (itKeyUsage != certProps.end())
     {
-        if (const std::vector<std::string>* value =
+        if (auto* value =
                 std::get_if<std::vector<std::string>>(&itKeyUsage->second))
         {
             certData.keyUsage = *value;
@@ -1007,8 +877,7 @@ static void handleCertificateProperties(
     auto itIssuer = certProps.find("Issuer");
     if (itIssuer != certProps.end())
     {
-        if (const std::string* value =
-                std::get_if<std::string>(&itIssuer->second))
+        if (auto* value = std::get_if<std::string>(&itIssuer->second))
         {
             certData.issuer = *value;
         }
@@ -1017,8 +886,7 @@ static void handleCertificateProperties(
     auto itSubject = certProps.find("Subject");
     if (itSubject != certProps.end())
     {
-        if (const std::string* value =
-                std::get_if<std::string>(&itSubject->second))
+        if (auto* value = std::get_if<std::string>(&itSubject->second))
         {
             certData.subject = *value;
         }
@@ -1027,8 +895,7 @@ static void handleCertificateProperties(
     auto itValidNotAfter = certProps.find("ValidNotAfter");
     if (itValidNotAfter != certProps.end())
     {
-        if (const uint64_t* value =
-                std::get_if<uint64_t>(&itValidNotAfter->second))
+        if (auto* value = std::get_if<uint64_t>(&itValidNotAfter->second))
         {
             certData.notAfter = *value;
         }
@@ -1037,8 +904,7 @@ static void handleCertificateProperties(
     auto itValidNotBefore = certProps.find("ValidNotBefore");
     if (itValidNotBefore != certProps.end())
     {
-        if (const uint64_t* value =
-                std::get_if<uint64_t>(&itValidNotBefore->second))
+        if (auto* value = std::get_if<uint64_t>(&itValidNotBefore->second))
         {
             certData.notBefore = *value;
         }
@@ -1063,7 +929,7 @@ static void handleCertificateProperties(
  * @param chassisID The ID of the chassis containing the component
  * @param certificateID The ID of the certificate to retrieve
  */
-static void getTrustedComponentCertificate(
+inline void getTrustedComponentCertificate(
     const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& componentID, const std::string& chassisID,
@@ -1094,12 +960,11 @@ static void getTrustedComponentCertificate(
  * @param services Vector of D-Bus services and their interfaces
  * @param callback Function to call if component is enabled
  */
-static void checkComponentEnabled(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& path,
-    const std::vector<std::pair<std::string, std::vector<std::string>>>&
-        services,
-    std::function<void()> callback)
+inline void
+    isComponentEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       const std::string& path,
+                       const dbus::utility::MapperServiceMap& services,
+                       std::function<void()> callback)
 {
     if (services.empty())
     {
@@ -1137,25 +1002,19 @@ static void checkComponentEnabled(
  * @return An optional pair containing the component's path and its associated
  * services if found, std::nullopt if the component is not found
  */
-static std::optional<std::pair<
-    std::string, std::vector<std::pair<std::string, std::vector<std::string>>>>>
-    findComponentInSubtree(const crow::openbmc_mapper::GetSubTreeType& subtree,
-                           const std::string& componentID)
+inline std::optional<dbus::utility::ComponentServicePair>
+    findComponentInSubtree(
+        const dbus::utility::MapperGetSubTreeResponse& subtree,
+        const std::string& componentID)
 {
     for (const auto& [path, services] : subtree)
     {
-        if (services.empty())
-        {
-            continue;
-        }
-
         sdbusplus::message::object_path objPath(path);
         if (objPath.filename() == componentID)
         {
             return std::make_pair(path, services);
         }
     }
-
     BMCWEB_LOG_ERROR("Component not found: {}", componentID);
     return std::nullopt;
 }
@@ -1235,13 +1094,14 @@ inline void handleTrustedComponentCertificateGet(
     validateChassisAndPlatform(
         asyncResp, chassisID,
         [req, asyncResp, chassisID, componentID, certificateID]() {
-        const std::array<const char*, 1> interfaces = {
+        const std::array<std::string_view, 1> interfaces = {
             "xyz.openbmc_project.SPDM.Responder"};
 
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::getSubTree(
+            "/xyz/openbmc_project/SPDM", 0, interfaces,
             [req, asyncResp, chassisID, componentID, certificateID](
                 const boost::system::error_code ec,
-                const crow::openbmc_mapper::GetSubTreeType& subtree) {
+                const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("GetSubTree error: {}", ec);
@@ -1257,16 +1117,14 @@ inline void handleTrustedComponentCertificateGet(
                 return;
             }
 
-            checkComponentEnabled(
-                asyncResp, result->first, result->second,
+            const auto& [path, services] = *result;
+            isComponentEnabled(
+                asyncResp, path, services,
                 [req, asyncResp, componentID, chassisID, certificateID]() {
                 getTrustedComponentCertificate(req, asyncResp, componentID,
                                                chassisID, certificateID);
             });
-        },
-            dbus_utils::mapperBusName, dbus_utils::mapperObjectPath,
-            dbus_utils::mapperIntf, "GetSubTree", "/xyz/openbmc_project/SPDM",
-            0, interfaces);
+        });
     });
 }
 
@@ -1290,13 +1148,14 @@ inline void handleTrustedComponentCertificatesCollectionGet(
 
     validateChassisAndPlatform(asyncResp, chassisID,
                                [req, asyncResp, chassisID, componentID]() {
-        const std::array<const char*, 1> interfaces = {
+        const std::array<std::string_view, 1> interfaces = {
             "xyz.openbmc_project.SPDM.Responder"};
 
-        crow::connections::systemBus->async_method_call(
-            [req, asyncResp, chassisID,
-             componentID](const boost::system::error_code ec,
-                          const crow::openbmc_mapper::GetSubTreeType& subtree) {
+        dbus::utility::getSubTree(
+            "/xyz/openbmc_project/SPDM", 0, interfaces,
+            [req, asyncResp, chassisID, componentID](
+                const boost::system::error_code ec,
+                const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("GetSubTree error: {}", ec);
@@ -1312,8 +1171,8 @@ inline void handleTrustedComponentCertificatesCollectionGet(
                 return;
             }
 
-            checkComponentEnabled(asyncResp, result->first, result->second,
-                                  [asyncResp, chassisID, componentID]() {
+            isComponentEnabled(asyncResp, result->first, result->second,
+                               [asyncResp, chassisID, componentID]() {
                 std::string url = "/redfish/v1/Chassis/";
                 url.append(chassisID)
                     .append("/TrustedComponents/")
@@ -1333,10 +1192,7 @@ inline void handleTrustedComponentCertificatesCollectionGet(
                 asyncResp->res.jsonValue["Members@odata.count"] =
                     members.size();
             });
-        },
-            dbus_utils::mapperBusName, dbus_utils::mapperObjectPath,
-            dbus_utils::mapperIntf, "GetSubTree", "/xyz/openbmc_project/SPDM",
-            0, interfaces);
+        });
     });
 }
 

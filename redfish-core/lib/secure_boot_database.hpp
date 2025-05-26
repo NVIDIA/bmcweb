@@ -19,6 +19,7 @@
 #include "certificate_service.hpp"
 #include "nlohmann/json.hpp"
 #include "task.hpp"
+#include "utils/certificate_utils.hpp"
 
 #include <app.hpp>
 #include <dbus_utility.hpp>
@@ -529,13 +530,14 @@ inline void
 
         if (issuer != nullptr)
         {
-            updateCertIssuerOrSubject(aResp->res.jsonValue["Issuer"], *issuer);
+            cert_utils::updateCertIssuerOrSubject(
+                aResp->res.jsonValue["Issuer"], *issuer);
         }
 
         if (subject != nullptr)
         {
-            updateCertIssuerOrSubject(aResp->res.jsonValue["Subject"],
-                                      *subject);
+            cert_utils::updateCertIssuerOrSubject(
+                aResp->res.jsonValue["Subject"], *subject);
         }
 
         if (validNotAfter != nullptr)

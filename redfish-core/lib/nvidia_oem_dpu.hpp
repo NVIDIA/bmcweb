@@ -19,6 +19,7 @@
 #include "generated/enums/port.hpp"
 #include "nlohmann/json.hpp"
 #include "task.hpp"
+#include "utils/certificate_utils.hpp"
 
 #include <app.hpp>
 #include <dbus_utility.hpp>
@@ -1021,13 +1022,14 @@ inline void populateTruststoreCertificateInfo(
 
     if (issuer != nullptr)
     {
-        updateCertIssuerOrSubject(asyncResp->res.jsonValue["Issuer"], *issuer);
+        cert_utils::updateCertIssuerOrSubject(
+            asyncResp->res.jsonValue["Issuer"], *issuer);
     }
 
     if (subject != nullptr)
     {
-        updateCertIssuerOrSubject(asyncResp->res.jsonValue["Subject"],
-                                  *subject);
+        cert_utils::updateCertIssuerOrSubject(
+            asyncResp->res.jsonValue["Subject"], *subject);
     }
 
     if (validNotAfter != nullptr)

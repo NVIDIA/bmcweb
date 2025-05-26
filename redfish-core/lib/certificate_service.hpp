@@ -7,6 +7,7 @@
 #include "http_response.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/certificate_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/time_utils.hpp"
@@ -139,71 +140,6 @@ class CertificateFile
     std::filesystem::path certificateFile;
     std::filesystem::path certDirectory;
 };
-
-/**
- * @brief Parse and update Certificate Issue/Subject property
- *
- * @param[in] asyncResp Shared pointer to the response message
- * @param[in] str  Issuer/Subject value in key=value pairs
- * @param[in] type Issuer/Subject
- * @return None
- */
-static void updateCertIssuerOrSubject(nlohmann::json& out,
-                                      std::string_view value)
-{
-    // example: O=openbmc.xyz,CN=localhost or O=openbmc.xyz, CN=localhost
-    std::string_view::iterator i = value.begin();
-    while (i != value.end())
-    {
-        std::string_view::iterator tokenBegin = i;
-        while (i != value.end() && *i != '=')
-        {
-            std::advance(i, 1);
-        }
-        if (i == value.end())
-        {
-            break;
-        }
-        std::string_view key(tokenBegin, static_cast<size_t>(i - tokenBegin));
-        std::advance(i, 1);
-        tokenBegin = i;
-        while (i != value.end() && *i != ',')
-        {
-            std::advance(i, 1);
-        }
-        std::string_view val(tokenBegin, static_cast<size_t>(i - tokenBegin));
-        if (key == "L")
-        {
-            out["City"] = val;
-        }
-        else if (key == "CN")
-        {
-            out["CommonName"] = val;
-        }
-        else if (key == "C")
-        {
-            out["Country"] = val;
-        }
-        else if (key == "O")
-        {
-            out["Organization"] = val;
-        }
-        else if (key == "OU")
-        {
-            out["OrganizationalUnit"] = val;
-        }
-        else if (key == "ST")
-        {
-            out["State"] = val;
-        }
-        // skip comma and any following spaces
-        if (i != value.end())
-        {
-            i = std::find_if_not(std::next(i), value.end(),
-                                 [](char c) { return c == ',' || c == ' '; });
-        }
-    }
-}
 
 /**
  * @brief Retrieve the installed certificate list
@@ -349,14 +285,14 @@ static void getCertificateProperties(
 
         if (issuer != nullptr)
         {
-            updateCertIssuerOrSubject(asyncResp->res.jsonValue["Issuer"],
-                                      *issuer);
+            cert_utils::updateCertIssuerOrSubject(
+                asyncResp->res.jsonValue["Issuer"], *issuer);
         }
 
         if (subject != nullptr)
         {
-            updateCertIssuerOrSubject(asyncResp->res.jsonValue["Subject"],
-                                      *subject);
+            cert_utils::updateCertIssuerOrSubject(
+                asyncResp->res.jsonValue["Subject"], *subject);
         }
 
         if (validNotAfter != nullptr)
