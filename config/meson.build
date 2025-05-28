@@ -109,7 +109,6 @@ feature_options = [
     'systems-lastresettime',
     'rsyslog-client',
     'check-oem-diagnostic-type',
-    'sort-event-log',
     'redfish-sw-einj',
     'redfish-manager-event-log',
     'nsm-raw-command-enable',    

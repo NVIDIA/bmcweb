@@ -1176,13 +1176,6 @@ option(
 )
 
 option(
-    'sort-event-log',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enable/Disable event log sorting based upon ID.',
-)
-
-option(
     'nsm-raw-command-enable',
     type: 'feature',
     value: 'disabled',

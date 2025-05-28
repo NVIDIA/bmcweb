@@ -19,6 +19,7 @@
 #include "app.hpp"
 #include "generated/enums/log_entry.hpp"
 #include "log_services.hpp"
+#include "utils/json_utils.hpp"
 
 namespace redfish
 {
@@ -439,26 +440,7 @@ inline void requestRoutesDBusSELLogEntryCollection(App& app)
                             }
                         }
                     }
-                    if constexpr (BMCWEB_SORT_EVENT_LOG)
-                    {
-                        std::sort(entriesArray.begin(), entriesArray.end(),
-                                  [](const nlohmann::json& left,
-                                     const nlohmann::json& right) {
-                                      int leftId = std::stoi(
-                                          left["Id"].get<std::string>());
-                                      int rightId = std::stoi(
-                                          right["Id"].get<std::string>());
-                                      return (leftId < rightId);
-                                  });
-                    }
-                    else
-                    {
-                        std::sort(entriesArray.begin(), entriesArray.end(),
-                                  [](const nlohmann::json& left,
-                                     const nlohmann::json& right) {
-                                      return (left["Id"] <= right["Id"]);
-                                  });
-                    }
+                    redfish::json_util::sortJsonArrayByKey(entriesArray, "Id");
                     asyncResp->res.jsonValue["Members@odata.count"] =
                         entriesArray.size();
                 },
