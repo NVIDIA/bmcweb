@@ -353,6 +353,10 @@ inline void getEROTChassis(const crow::Request& req,
                   "/redfish/v1/Systems/" +
                       std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME)}}};
 
+            asyncResp->res.jsonValue["TrustedComponents"]["@odata.id"] =
+                boost::urls::format("/redfish/v1/Chassis/{}/TrustedComponents",
+                                    chassisId);
+
             firmware_info::updateProtectedComponentLink(asyncResp, chassisId);
             firmware_info::updateIrreversibleConfigEnabled(asyncResp,
                                                            chassisId);

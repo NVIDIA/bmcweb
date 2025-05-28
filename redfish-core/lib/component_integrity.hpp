@@ -195,6 +195,59 @@ inline void asyncGetSPDMMeasurementData(const std::string& objectPath,
         "org.freedesktop.DBus.Properties", "GetAll", "");
 }
 
+/**
+ * @brief Gets the certificate URI for a component
+ * @param asyncResp The async response object
+ * @param chassisURI The chassis URI to use as base
+ * @param endpoint The endpoint path to extract component ID from
+ */
+inline void
+    getCertificateURI(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                      const std::string& chassisURI,
+                      const std::string& endpoint)
+{
+    const std::string& inventoryEndpoint = endpoint + "/inventory_chassis";
+
+    chassis_utils::getAssociationEndpoint(
+        inventoryEndpoint, [asyncResp, chassisURI, inventoryEndpoint](
+                               const bool& status, const std::string& ep) {
+        if (!status)
+        {
+            BMCWEB_LOG_DEBUG("Unable to get the association endpoint for ",
+                             inventoryEndpoint);
+            return;
+        }
+
+        try
+        {
+            sdbusplus::message::object_path endpointPath(ep);
+            const std::string& endpointName = endpointPath.filename();
+            sdbusplus::message::object_path chassisPath(chassisURI);
+            const std::string& chassisName = chassisPath.filename();
+            std::string componentID = chassisName;
+            if (componentID.starts_with(PLATFORMDEVICEPREFIX))
+            {
+                componentID = componentID.substr(strlen(PLATFORMDEVICEPREFIX));
+            }
+
+            std::string certificateURI = std::string(
+                boost::urls::format(
+                    "/redfish/v1/Chassis/{}/TrustedComponents/{}/Certificates/CertChain",
+                    endpointName, componentID)
+                    .encoded_path());
+
+            asyncResp->res.jsonValue["SPDM"]["IdentityAuthentication"] = {
+                {"ResponderAuthentication",
+                 {{"ComponentCertificate", {{"@odata.id", certificateURI}}}}}};
+        }
+        catch (const std::exception& e)
+        {
+            BMCWEB_LOG_ERROR(
+                "Failed to construct component certificate URI: {}", e.what());
+        }
+    });
+}
+
 inline void handleSPDMGETSignedMeasurement(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& id)
@@ -520,6 +573,7 @@ inline void requestRoutesComponentIntegrity(App& app)
                     {"ResponderAuthentication",
                      {{"ComponentCertificate",
                        {{"@odata.id", certificateURI}}}}}};
+                getCertificateURI(asyncResp, chassisURI, endpoint);
                 std::string objPath = endpoint + "/inventory";
                 chassis_utils::getAssociationEndpoint(
                     objPath, [objPath, asyncResp](const bool& status,
