@@ -1208,6 +1208,10 @@ inline void handleNvidiaRoTProtectedComponent(
                         asyncResp->res.jsonValue["@Redfish.Settings"] = {
                             {"@odata.type", "#Settings.v1_3_3.Settings"},
                             {"SettingsObject", {{"@odata.id", settingsUrl}}}};
+                        if (slotID && isActive && *isActive)
+                        {
+                            asyncResp->res.jsonValue["ActiveSlotId"] = *slotID;
+                        }
                         redfish::chassis_utils::getOemBootStatus(asyncResp,
                                                                  chassisId);
                         updateSigningKeyProperties(asyncResp, chassisId,
