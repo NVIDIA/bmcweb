@@ -3500,7 +3500,7 @@ inline void requestRoutesManager(App& app)
 
             // NvidiaManager
             nlohmann::json& oemNvidia = oem["Nvidia"];
-            oemNvidia["@odata.type"] = "#NvidiaManager.v1_6_0.NvidiaManager";
+            oemNvidia["@odata.type"] = "#NvidiaManager.v1_7_0.NvidiaManager";
             oemNvidia["DebugTokenManagement"]["@odata.id"] =
                 boost::urls::format(
                     "/redfish/v1/Managers/{}/Oem/Nvidia/DebugTokenManagement",
@@ -3594,6 +3594,7 @@ inline void requestRoutesManager(App& app)
 #endif
 
             populatePersistentStorageSettingStatus(asyncResp);
+            nvidia_manager_util::getRestrictionMode(asyncResp);
         }
 
         // Manager.Reset (an action) can be many values, OpenBMC only
@@ -4018,7 +4019,7 @@ inline void requestRoutesManager(App& app)
         std::optional<bool> tlsAuth;
 #endif // BMCWEB_ENABLE_TLS_AUTH_OPT_IN
         std::optional<bool> openocdValue;
-
+        std::optional<std::string> restrictionMode;
         // clang-format off
         if (!json_util::readJsonPatch(req, asyncResp->res,
 #ifdef BMCWEB_ENABLE_REDFISH_OEM_MANAGER_FAN_DATA
@@ -4036,6 +4037,7 @@ inline void requestRoutesManager(App& app)
               "Oem/Nvidia/AuthenticationTLSRequired", tlsAuth,
 #endif // BMCWEB_ENABLE_TLS_AUTH_OPT_IN
               "Oem/Nvidia/OpenOCD/Enable", openocdValue,
+              "Oem/Nvidia/IPMI/RestrictionMode", restrictionMode,
               "Links/ActiveSoftwareImage/@odata.id", activeSoftwareImageOdataId,
               "DateTime", datetime,
               "ServiceIdentification", serviceIdentification
@@ -4044,6 +4046,13 @@ inline void requestRoutesManager(App& app)
             return;
         }
         // clang-format on
+
+        if (restrictionMode)
+        {
+            BMCWEB_LOG_DEBUG("RestrictionMode: {}", *restrictionMode);
+            nvidia_manager_util::setRestrictionMode(asyncResp,
+                                                    *restrictionMode);
+        }
 
 #ifdef BMCWEB_ENABLE_REDFISH_OEM_MANAGER_FAN_DATA
         if (pidControllers || fanControllers || fanZones ||
