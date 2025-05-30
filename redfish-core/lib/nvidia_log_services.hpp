@@ -531,9 +531,18 @@ inline void dBusEventLogEntryGetAdditionalInfo(
     nlohmann::json::object_t cper;
     bool deviceEventData = false;
 
-    if (entry.additionalDataRaw != nullptr)
+    if (!entry.AdditionalData.empty())
     {
-        AdditionalData additional(*entry.additionalDataRaw);
+        std::vector<std::string> additionalDataVec;
+        additionalDataVec.reserve(entry.AdditionalData.size());
+        for (const auto& [key, value] : entry.AdditionalData)
+        {
+            std::string additionalEntry = key;
+            additionalEntry += "=";
+            additionalEntry += value;
+            additionalDataVec.emplace_back(std::move(additionalEntry));
+        }
+        AdditionalData additional(additionalDataVec);
         if (additional.count("REDFISH_MESSAGE_ID") > 0)
         {
             isMessageRegistry = true;
@@ -585,8 +594,7 @@ inline void dBusEventLogEntryGetAdditionalInfo(
             redfish::time_utils::getDateTimeStdtime(
                 redfish::time_utils::getTimestamp(entry.Timestamp)),
             messageId, messageArgs, *entry.Resolution, entry.Resolved,
-            (entry.eventId == nullptr) ? "" : *entry.eventId, deviceName,
-            entry.Severity);
+            deviceName, entry.Severity);
 
         if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
         {
@@ -598,8 +606,7 @@ inline void dBusEventLogEntryGetAdditionalInfo(
 
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
-        if ((entry.eventId != nullptr && !(*entry.eventId).empty()) ||
-            !deviceName.empty())
+        if ((entry.Id != 0U) || !deviceName.empty())
         {
             nlohmann::json oem = {
                 {"Oem",
@@ -610,9 +617,9 @@ inline void dBusEventLogEntryGetAdditionalInfo(
             {
                 oem["Oem"]["Nvidia"]["Device"] = deviceName;
             }
-            if (entry.eventId != nullptr && !(*entry.eventId).empty())
+            if (entry.Id != 0U)
             {
-                oem["Oem"]["Nvidia"]["ErrorId"] = std::string(*entry.eventId);
+                oem["Oem"]["Nvidia"]["ErrorId"] = std::to_string(entry.Id);
             }
             objectToFillOut.update(oem);
         }

@@ -114,14 +114,92 @@ const std::string softwarePrefixDbus = "/xyz/openbmc_project/software/";
 const std::string firmwarePrefix =
     "/redfish/v1/UpdateService/FirmwareInventory/";
 
-static const std::map<std::string, std::string> dBusToRedfishURI = {
+const std::string userPrefixDbus = "/xyz/openbmc_project/user/";
+const std::string userPrefix = "/redfish/v1/AccountService/Accounts/";
+const std::string accountPolicyPrefixDbus = "/xyz/openbmc_project/user";
+const std::string accountPolicyPrefix = "/redfish/v1/AccountService";
+const std::string virtualMediaLegacyUSB1PrefixDbus =
+    "/xyz/openbmc_project/VirtualMedia/Legacy/USB1";
+const std::string virtualMediaUSB1Prefix =
+    "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+    "/VirtualMedia/USB1/Actions/VirtualMedia.";
+const std::string virtualMediaLegacyUSB2PrefixDbus =
+    "/xyz/openbmc_project/VirtualMedia/Legacy/USB2";
+const std::string virtualMediaUSB2Prefix =
+    "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+    "/VirtualMedia/USB2/Actions/VirtualMedia.";
+const std::string sessionServiceServicePrefix = "/redfish/v1/";
+const std::string networkPrefixDbus = "/xyz/openbmc_project/network/";
+const std::string networkPrefix =
+    "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+    "/EthernetInterfaces/";
+const std::string ldapCertificateDbusPrefix =
+    "/xyz/openbmc_project/certs/client/ldap/";
+const std::string ldapCertificatePrefix =
+    "/redfish/v1/AccountService/LDAP/Certificates/";
+const std::string authorityCertificateDbusPrefix =
+    "/xyz/openbmc_project/certs/authority/ldap/";
+const std::string authorityCertificatePrefix =
+    "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+    "/Truststore/Certificates/";
+const std::string httpsCertificateDbusPrefix =
+    "/xyz/openbmc_project/certs/server/https/";
+const std::string httpsCertificatePrefix =
+    "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+    "/NetworkProtocol/HTTPS/Certificates/";
+const std::string updateServiceDbusPrefix = "/xyz/openbmc_project/software/";
+const std::string updateServicePrefix = "/redfish/v1/UpdateService/";
+const std::string managerResetDbusPrefix = "/xyz/openbmc_project/state/bmc0/";
+const std::string managerResetPrefix =
+    "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+    "/Actions/";
+const std::string ledGroupsDbusPrefix =
+    "/xyz/openbmc_project/led/groups/enclosure_identify";
+const std::string ledPrefix =
+    "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME);
+const std::string biosPwdPathDbusPrefix =
+    "/xyz/openbmc_project/bios_config/password";
+const std::string biosPwdPrefix =
+    std::format("/redfish/v1/Systems/{}/Bios/Actions/Bios.ChangePassword",
+                BMCWEB_REDFISH_SYSTEM_URI_NAME);
+const std::string biosConfigDbusPrefix =
+    "/xyz/openbmc_project/bios_config/manager";
+const std::string biosConfigPrefix = std::format(
+    "/redfish/v1/Systems/{}/secureboot", BMCWEB_REDFISH_SYSTEM_URI_NAME);
+const std::string biosSettingsDbusPrefix =
+    "/xyz/openbmc_project/bios_config/manager/bios/settings";
+const std::string biosSettingsPrefix =
+    std::format("/redfish/v1/Systems/{}/Bios/Actions/Bios.ResetBios",
+                BMCWEB_REDFISH_SYSTEM_URI_NAME);
+const std::string chassisResetDbusPrefix = "/xyz/openbmc_project/state/host0";
+const std::string chassisResetPrefix =
+    std::format("/redfish/v1/Chassis/{}/Actions/Chassis.Reset",
+                BMCWEB_REDFISH_SYSTEM_URI_NAME);
+/**
+ *  @brief Table used to find OriginOfCondition
+ */
+inline std::unordered_map<std::string, std::string> dBusToRedfishURI = {
     {chassisPrefixDbus, chassisPrefix},
     {fabricsPrefixDbus, fabricsPrefix},
     {processorPrefixDbus, processorPrefix},
     {memoryPrefixDbus, memoryPrefix},
     {softwarePrefixDbus, firmwarePrefix},
     {sensorSubTree, chassisPrefix},
-    {systemsPrefixDbus, systemsPrefixRedfish}};
+    {systemsPrefixDbus, systemsPrefixRedfish},
+    {userPrefixDbus, userPrefix},
+    {virtualMediaLegacyUSB1PrefixDbus, virtualMediaUSB1Prefix},
+    {virtualMediaLegacyUSB2PrefixDbus, virtualMediaUSB2Prefix},
+    {accountPolicyPrefixDbus, accountPolicyPrefix},
+    {networkPrefixDbus, networkPrefix},
+    {ldapCertificateDbusPrefix, ldapCertificatePrefix},
+    {authorityCertificateDbusPrefix, authorityCertificatePrefix},
+    {httpsCertificateDbusPrefix, httpsCertificatePrefix},
+    {updateServiceDbusPrefix, updateServicePrefix},
+    {managerResetDbusPrefix, managerResetPrefix},
+    {ledGroupsDbusPrefix, ledPrefix},
+    {biosSettingsDbusPrefix, biosSettingsPrefix},
+    {biosPwdPathDbusPrefix, biosPwdPrefix},
+    {chassisResetDbusPrefix, chassisResetPrefix}};
 
 /**
  * Utility function for populating async response with
@@ -283,7 +361,6 @@ inline std::string getDeviceRedfishURI(const std::string& device)
     {
         return device;
     }
-
     if (BMCWEB_REDFISH_SYSTEM_URI_NAME.ends_with(device))
     {
         return systemsPrefixRedfish +

@@ -3,11 +3,13 @@
 #include "dbus_utility.hpp"
 #include "utils/dbus_utils.hpp"
 
+#include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <unordered_map>
 
 namespace redfish
 {
@@ -15,7 +17,7 @@ struct DbusEventLogEntry
 {
     // represents a subset of an instance of dbus interface
     // xyz.openbmc_project.Logging.Entry
-
+    std::unordered_map<std::string, std::string> AdditionalData;
     uint32_t Id = 0;
     std::string Message;
     const std::string* Path = nullptr;
@@ -25,8 +27,6 @@ struct DbusEventLogEntry
     std::string Severity;
     uint64_t Timestamp = 0;
     uint64_t UpdateTimestamp = 0;
-    const std::string* eventId = nullptr;
-    const std::vector<std::string>* additionalDataRaw = nullptr;
 };
 
 inline std::optional<DbusEventLogEntry> fillDbusEventLogEntryFromPropertyMap(
@@ -35,8 +35,9 @@ inline std::optional<DbusEventLogEntry> fillDbusEventLogEntryFromPropertyMap(
     DbusEventLogEntry entry;
 
     // clang-format off
-    bool success = sdbusplus::unpackPropertiesNoThrow(
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), resp,
+        "AdditionalData", entry.AdditionalData,
         "Id", entry.Id,
         "Message", entry.Message,
         "Path", entry.Path,
@@ -45,11 +46,9 @@ inline std::optional<DbusEventLogEntry> fillDbusEventLogEntryFromPropertyMap(
         "ServiceProviderNotify", entry.ServiceProviderNotify,
         "Severity", entry.Severity,
         "Timestamp", entry.Timestamp,
-        "UpdateTimestamp", entry.UpdateTimestamp,
-        "EventId", entry.eventId,
-        "AdditionalData", entry.additionalDataRaw
-    );
+        "UpdateTimestamp", entry.UpdateTimestamp);
     // clang-format on
+
     if (!success)
     {
         return std::nullopt;

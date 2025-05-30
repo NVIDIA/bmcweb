@@ -14,6 +14,7 @@
 #include "io_context_singleton.hpp"
 #include "logging.hpp"
 #include "metric_report.hpp"
+#include "nvidia_dbus_log_watcher.hpp"
 #include "nvidia_event_service_manager.hpp"
 #include "ossl_random.hpp"
 #include "persistent_data.hpp"
@@ -65,6 +66,7 @@ class EventServiceManager
     size_t noOfEventLogSubscribers{0};
     size_t noOfMetricReportSubscribers{0};
     std::optional<DbusEventLogMonitor> dbusEventLogMonitor;
+    std::optional<NvDbusEventLogMonitor> nvDbusEventLogMonitor;
     std::optional<DbusTelemetryMonitor> matchTelemetryMonitor;
     std::optional<FilesystemLogWatcher> filesystemLogMonitor;
     boost::container::flat_map<std::string, std::shared_ptr<Subscription>>
@@ -294,6 +296,14 @@ class EventServiceManager
                             dbusEventLogMonitor.emplace();
                         }
                     }
+
+                    if (!nvDbusEventLogMonitor)
+                    {
+                        if constexpr (BMCWEB_NVIDIA_DBUS_LOG_WATCH)
+                        {
+                            nvDbusEventLogMonitor.emplace();
+                        }
+                    }
                 }
                 else
                 {
@@ -306,6 +316,7 @@ class EventServiceManager
             else
             {
                 dbusEventLogMonitor.reset();
+                nvDbusEventLogMonitor.reset();
                 filesystemLogMonitor.reset();
             }
 
@@ -325,6 +336,7 @@ class EventServiceManager
         {
             matchTelemetryMonitor.reset();
             dbusEventLogMonitor.reset();
+            nvDbusEventLogMonitor.reset();
             filesystemLogMonitor.reset();
         }
 
@@ -334,8 +346,8 @@ class EventServiceManager
             updateConfig = true;
             if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
             {
-                // Send an DsEvent for session creation
-                DsEvent event = redfish::EventUtil::createEventPropertyModified(
+                // Send an NvEvent for session creation
+                NvEvent event = redfish::EventUtil::createEventPropertyModified(
                     "ServiceEnabled",
                     std::to_string(static_cast<int>(serviceEnabled)),
                     "EventService");
@@ -351,8 +363,8 @@ class EventServiceManager
             updateRetryCfg = true;
             if constexpr (BMCWEB_REDFISH_DBUS_LOG)
             {
-                // Send an DsEvent for property change
-                DsEvent event = redfish::EventUtil::createEventPropertyModified(
+                // Send an NvEvent for property change
+                NvEvent event = redfish::EventUtil::createEventPropertyModified(
                     "DeliveryRetryAttempts", std::to_string(retryAttempts),
                     "EventService");
                 redfish::EventServiceManager::getInstance().sendEventWithOOC(
@@ -368,7 +380,7 @@ class EventServiceManager
             if constexpr (BMCWEB_REDFISH_DBUS_LOG)
             {
                 // Send an event for property change
-                DsEvent event = redfish::EventUtil::createEventPropertyModified(
+                NvEvent event = redfish::EventUtil::createEventPropertyModified(
                     "DeliveryRetryIntervalSeconds",
                     std::to_string(retryTimeoutInterval), "EventService");
                 redfish::EventServiceManager::getInstance().sendEventWithOOC(
@@ -419,6 +431,10 @@ class EventServiceManager
                 {
                     dbusEventLogMonitor.emplace();
                 }
+                if (!nvDbusEventLogMonitor && BMCWEB_NVIDIA_DBUS_LOG_WATCH)
+                {
+                    nvDbusEventLogMonitor.emplace();
+                }
             }
             else
             {
@@ -431,6 +447,7 @@ class EventServiceManager
         else
         {
             dbusEventLogMonitor.reset();
+            nvDbusEventLogMonitor.reset();
             filesystemLogMonitor.reset();
         }
 
@@ -781,7 +798,7 @@ class EventServiceManager
      * @param[in] event   The event to be sent.
      * @return  Void
      */
-    void sendEvent(DsEvent& event)
+    void sendEvent(NvEvent& event)
     {
         nlohmann::json logEntry;
         if (event.formatEventLogEntry(logEntry) != 0)
@@ -816,7 +833,7 @@ class EventServiceManager
      * then sends the event for Redfish Event Listener
      * to pick up
      */
-    void sendEventWithOOC(const std::string& ooc, DsEvent& event)
+    void sendEventWithOOC(const std::string& ooc, NvEvent& event)
     {
         event.originOfCondition = ooc;
         sendEvent(event);

@@ -847,7 +847,7 @@ inline void sendRestartEvent(const crow::Request& req, std::string& resetType)
         if constexpr (BMCWEB_REDFISH_DBUS_LOG)
         {
             // Send an event for Manager Reset
-            DsEvent event = redfish::EventUtil::createEventRebootReason(
+            NvEvent event = redfish::EventUtil::createEventRebootReason(
                 "ManagerReset", "Managers");
             redfish::EventServiceManager::getInstance().sendEventWithOOC(
                 std::string(req.target()), event);
@@ -860,7 +860,7 @@ inline void sendFactoryResetEvent(const crow::Request& req)
     if constexpr (BMCWEB_REDFISH_DBUS_LOG)
     {
         // Send an event for reset to defaults
-        DsEvent event = redfish::EventUtil::createEventRebootReason(
+        NvEvent event = redfish::EventUtil::createEventRebootReason(
             "FactoryReset", "Managers");
         redfish::EventServiceManager::getInstance().sendEventWithOOC(
             std::string(req.target()), event);

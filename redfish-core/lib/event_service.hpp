@@ -880,7 +880,7 @@ inline void requestRoutesEventDestination(App& app)
                     if constexpr (BMCWEB_REDFISH_DBUS_LOG)
                     {
                         // Send an event for property change
-                        DsEvent event =
+                        NvEvent event =
                             redfish::EventUtil::createEventPropertyModified(
                                 "Context", *context, "EventService");
                         redfish::EventServiceManager::getInstance()
@@ -916,7 +916,7 @@ inline void requestRoutesEventDestination(App& app)
                     if constexpr (BMCWEB_REDFISH_DBUS_LOG)
                     {
                         // Send an event for property change
-                        DsEvent event =
+                        NvEvent event =
                             redfish::EventUtil::createEventPropertyModified(
                                 "Headers", keyValues, "EventService");
                         redfish::EventServiceManager::getInstance()
@@ -939,7 +939,7 @@ inline void requestRoutesEventDestination(App& app)
                     if constexpr (BMCWEB_REDFISH_DBUS_LOG)
                     {
                         // Send an event for property change
-                        DsEvent event =
+                        NvEvent event =
                             redfish::EventUtil::createEventPropertyModified(
                                 "RetryPolicy", *retryPolicy, "EventService");
                         redfish::EventServiceManager::getInstance()

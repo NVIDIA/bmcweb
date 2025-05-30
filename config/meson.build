@@ -55,6 +55,7 @@ feature_options = [
     'nic-configuration-update',
     'ntp',
     'nvidia-bootentryid',
+    'nvidia-dbus-log-watch',
     'nvidia-oem-bf-properties',
     'nvidia-oem-bf3-properties',
     'nvidia-oem-device-status-from-file',

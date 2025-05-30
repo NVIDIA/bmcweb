@@ -25,6 +25,7 @@
 
 #include <map>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace redfish
@@ -60,6 +61,25 @@ class AdditionalData
         append = 1,
     };
 
+    // Add constructor for unordered_map
+    explicit AdditionalData(
+        const std::unordered_map<std::string, std::string>& additionalData,
+        const SameKeyOp& operation = overwrite)
+    {
+        for (const auto& [key, value] : additionalData)
+        {
+            if (operation == overwrite)
+            {
+                data[key] = value;
+            }
+            else if (operation == append)
+            {
+                data[key] += (!data[key].empty()) ? ";" : "";
+                data[key] += value;
+            }
+        }
+    }
+
     // DBus Event Log additionalData format is like,
     // "key1=val1" "key2=val2"...
     explicit AdditionalData(const std::vector<std::string>& additionalData,
@@ -77,7 +97,7 @@ class AdditionalData
             std::vector<std::string> fields;
             fields.reserve(2);
             bmcweb::split(fields, kv, '=');
-            if (!data.contains(fields[0]))
+            if (data.find(fields[0]) == data.end())
             {
                 data[fields[0]] = "";
             }
@@ -119,6 +139,11 @@ class AdditionalData
         const std::string& key) const
     {
         return data.find(key);
+    }
+
+    bool contains(const std::string& key) const
+    {
+        return data.find(key) != data.end();
     }
 
   protected:

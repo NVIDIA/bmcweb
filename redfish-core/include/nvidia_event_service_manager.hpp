@@ -61,7 +61,7 @@ enum redfish_bool
 // Error constants of class Event
 static constexpr int redfishInvalidEvent = -1;
 static constexpr int redfishInvalidArgs = -2;
-class DsEvent
+class NvEvent
 {
   public:
     // required properties
@@ -93,7 +93,7 @@ class DsEvent
     bool valid;
 
   public:
-    explicit DsEvent(const std::string& messageIdIn) :
+    explicit NvEvent(const std::string& messageIdIn) :
         messageId(messageIdIn),
         registryMsg(redfish::registries::getMessage(messageId))
     {
@@ -303,11 +303,11 @@ class EventUtil
         return handler;
     }
     // This function is used to form event message
-    static DsEvent createEventPropertyModified(const std::string& arg1,
+    static NvEvent createEventPropertyModified(const std::string& arg1,
                                                const std::string& arg2,
                                                const std::string& resourceType)
     {
-        DsEvent event(propertyModified);
+        NvEvent event(propertyModified);
         std::vector<std::string> messageArgs;
         messageArgs.push_back(arg1);
         messageArgs.push_back(arg2);
@@ -319,26 +319,26 @@ class EventUtil
     }
 
     // This function is used to form event message
-    static DsEvent createEventResourceCreated(const std::string& resourceType)
+    static NvEvent createEventResourceCreated(const std::string& resourceType)
     {
-        DsEvent event(resorceCreated);
+        NvEvent event(resorceCreated);
         formBaseEvent(event, resourceType);
         return event;
     }
 
     // This function is used to form event message
-    static DsEvent createEventResourceRemoved(const std::string& resourceType)
+    static NvEvent createEventResourceRemoved(const std::string& resourceType)
     {
-        DsEvent event(resourceDeleted);
+        NvEvent event(resourceDeleted);
         formBaseEvent(event, resourceType);
         return event;
     }
 
     // This function is used to form event message
-    static DsEvent createEventRebootReason(const std::string& arg,
+    static NvEvent createEventRebootReason(const std::string& arg,
                                            const std::string& resourceType)
     {
-        DsEvent event(rebootReason);
+        NvEvent event(rebootReason);
 
         std::vector<std::string> messageArgs;
         messageArgs.push_back(arg);
@@ -349,7 +349,7 @@ class EventUtil
     }
 
   private:
-    void static formBaseEvent(DsEvent& event, const std::string& resourceType)
+    void static formBaseEvent(NvEvent& event, const std::string& resourceType)
     {
         // Set message severity
         event.messageSeverity = "Informational";
