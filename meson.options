@@ -805,6 +805,17 @@ option(
 )
 
 option(
+    'push-smbios-table-feature',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable Redfish OEM action to update SMBIOS table in BMC.
+                    This feature allows pushing system information, encapsulated
+                    in an SMBIOS table blob, to the BMC through the Redfish API.
+                    The action requires the session having BIOS privileges.
+                    The SMBIOS table blob is limited to 64KB.''',
+)
+
+option(
     'insecure-tftp-update',
     type: 'feature',
     value: 'disabled',

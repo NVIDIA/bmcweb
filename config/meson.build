@@ -164,6 +164,7 @@ feature_options = [
     'sort-event-log',
     'enable-ist-mode',
     'profiles-feature',
+    'push-smbios-table-feature',
 ]
 
 string_options = [

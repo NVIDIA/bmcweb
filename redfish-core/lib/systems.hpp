@@ -4210,6 +4210,14 @@ inline void
                                 BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
 #endif
+    if constexpr (BMCWEB_PUSH_SMBIOS_TABLE_FEATURE)
+    {
+        auto& oem_actions = asyncResp->res.jsonValue["Actions"]["Oem"];
+        oem_actions["#NvidiaComputerSystem.PushSmbiosTable"]["target"] =
+            "/redfish/v1/Systems/" +
+            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+            "/Actions/Oem/NvidiaComputerSystem.PushSmbiosTable";
+    }
 #ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
     // Fill in SerialConsole info
     asyncResp->res.jsonValue["SerialConsole"]["MaxConcurrentSessions"] = 15;
