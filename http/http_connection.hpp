@@ -573,18 +573,10 @@ class Connection :
                     doWrite();
                     return;
                 }
-                if (ec == boost::beast::http::error::end_of_stream)
-                {
-                    BMCWEB_LOG_WARNING("{} End of stream, closing {}",
-                                       logPtr(this), ec);
-                    hardClose();
-                    return;
-                }
 
-                BMCWEB_LOG_DEBUG("{} Closing socket due to read error {}",
-                                 logPtr(this), ec.message());
-                gracefulClose();
-
+                BMCWEB_LOG_WARNING("{} End of stream, closing {}", logPtr(this),
+                                   ec);
+                hardClose();
                 return;
             }
 
@@ -662,8 +654,9 @@ class Connection :
                     }
                     return;
                 }
-
-                gracefulClose();
+                BMCWEB_LOG_WARNING("{} End of stream, closing {}", logPtr(this),
+                                   ec);
+                hardClose();
                 return;
             }
 
@@ -700,6 +693,16 @@ class Connection :
             doWrite();
             return;
         }
+
+        if (ec == boost::beast::http::error::end_of_stream ||
+            ec == boost::asio::ssl::error::stream_truncated)
+        {
+            BMCWEB_LOG_WARNING("{} End of stream, closing {}", logPtr(this),
+                               ec);
+            hardClose();
+            return;
+        }
+
         if (ec)
         {
             BMCWEB_LOG_DEBUG("{} from write(2)", logPtr(this));
