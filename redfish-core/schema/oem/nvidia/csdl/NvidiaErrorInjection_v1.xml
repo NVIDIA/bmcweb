@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaErrorInjection   v1.0.0                                   -->
+<!--# Redfish OEM Schema:  NvidiaErrorInjection   v1.1.0                                   -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2024 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -16,6 +16,7 @@
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
     <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
     <edmx:Include Namespace="Resource"/>
@@ -46,11 +47,25 @@
         <Annotation Term="Redfish.Uris">
           <Collection>
             <String>/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}/Oem/Nvidia/ErrorInjection</String>
+            <String>/redfish/v1/Chassis/{ChassisId}/Oem/Nvidia/ErrorInjection</String>
             <String>/redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/Oem/Nvidia/ErrorInjection</String>
             <String>/redfish/v1/Fabrics/{FabricId}/Switches/{SwitchId}/Oem/Nvidia/ErrorInjection</String>
           </Collection>
         </Annotation>
       </EntityType>
+      <Action Name="Activate" IsBound="true">
+        <Annotation Term="OData.Description" String="This action executes the error injection according to the payload of the FaultBitmap property."/>
+        <Annotation Term="OData.LongDescription" String="This action shall execute the error injection according to the payload of the FaultBitmap property."/>
+        <Parameter Name="NvidiaErrorInjection" Type="NvidiaErrorInjection.v1_0_0.Actions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_1_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaErrorInjection.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -111,5 +126,23 @@
         <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
       </ComplexType>
     </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaErrorInjection.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaErrorInjection" BaseType="NvidiaErrorInjection.v1_0_0.NvidiaErrorInjection"/>
+      <ComplexType Name="EIJCapabilities" BaseType="NvidiaErrorInjection.v1_0_0.EIJCapabilities">
+        <Property Name="FatalErrors" Type="NvidiaErrorInjection.v1_0_0.EIJSupport">
+          <Annotation Term="OData.Description" String="The error injection support of the fatal errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the error injection support of the fatal errors."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="EIJSupport" BaseType="NvidiaErrorInjection.v1_0_0.EIJSupport">
+        <Property Name="FaultBitmap" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The fault reason bitmap."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a hex-encoded string representing a fault reason bitmap."/>
+          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]+$"/>
+        </Property>
+      </ComplexType>
+    </Schema>>
   </edmx:DataServices>
 </edmx:Edmx>
