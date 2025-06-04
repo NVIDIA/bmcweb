@@ -98,7 +98,7 @@
           <Annotation Term="Validation.Pattern" String="-?P(\\d+D)?(T(\\d+H)?(\\d+M)?(\\d+(.\\d+)?S)?)?"/>
           <Annotation Term="Redfish.Required" Bool="true"/>
         </Property>
-        <Property Name="PolicyActions" Type="Collection(NvidiaPowerPolicy.v1_0_0.ActionType)" Nullable="true">
+        <Property Name="PolicyActions" Type="NvidiaPowerPolicy.v1_0_0.ActionType" Nullable="true">
           <Annotation Term="OData.Description" String="The Action associated with this Policy."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate the Action associated with this Policy."/>
           <Annotation Term="OData.Permissions" EnumMember="OData.Permissions/ReadWrite"/>

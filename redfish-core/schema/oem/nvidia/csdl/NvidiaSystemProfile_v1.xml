@@ -42,7 +42,7 @@
         </Annotation>
         <Annotation Term="Capabilities.DeleteRestrictions">
           <Record>
-            <PropertyValue Property="Deletable" Bool="false"/>
+            <PropertyValue Property="Deletable" Bool="true"/>
           </Record>
         </Annotation>
         <Annotation Term="Redfish.Uris">
@@ -51,9 +51,19 @@
           </Collection>
         </Annotation>
       </EntityType>
+      <Action Name="Activate" IsBound="true">
+        <Parameter Name="NvidiaSystemProfile" Type="NvidiaSystemProfile.v1_0_0.Actions"/>
+        <Annotation Term="OData.Description" String="This action activates the profile."/>
+        <Annotation Term="OData.LongDescription" String="This action is used to activate the current profile and apply its configuration."/>
+      </Action>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSystemProfile.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
       <EnumType Name="ActionStatus">
         <Member Name="None">
           <Annotation Term="OData.Description" String="Not active"/>
@@ -132,6 +142,14 @@
         <Property Name="Status" Type="NvidiaSystemProfile.v1_0_0.Status" Nullable="false">
           <Annotation Term="OData.Description" String="The profile action status."/>
           <Annotation Term="OData.LongDescription" String="Status of action request - add, activation and delete."/>
+        </Property>
+        <Property Name="ProfileName" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Description" String="The profile name, is as specified in the profile file."/>
+          <Annotation Term="OData.LongDescription" String="The profile name, is as specified in the profile file."/>
+        </Property>
+        <Property Name="Actions" Type="NvidiaSystemProfile.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
         </Property>
       </EntityType>
     </Schema>

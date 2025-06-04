@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaChassis  v1.8.0                                           -->
+<!--# Redfish OEM Schema:  NvidiaChassis  v1.10.0                                           -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2024 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -13,6 +13,7 @@
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
     <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
   </edmx:Reference>
   <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
     <edmx:Include Namespace="Resource"/>
@@ -35,6 +36,9 @@
   </edmx:Reference>
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaPolicyCollection_v1.xml">
     <edmx:Include Namespace="NvidiaPolicyCollection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaErrorInjection_v1.xml">
+    <edmx:Include Namespace="NvidiaErrorInjection"/>
   </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis">
@@ -65,6 +69,32 @@
             <Record>
               <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
               <PropertyValue Property="Version" String="v1_8_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="VariableSpiErase" IsBound="true">
+        <Annotation Term="OData.Description" String="This action initiates an erase operation on the processor module variable SPI device."/>
+        <Annotation Term="OData.LongDescription" String="This action initiates an erase operation on the processor module variable SPI device."/>
+        <Parameter Name="Chassis" Type="Chassis.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_9_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="VariableSpiRead" IsBound="true">
+        <Annotation Term="OData.Description" String="This action returns the raw data contents of the processor module variable SPI device."/>
+        <Annotation Term="OData.LongDescription" String="This action returns the raw data contents of the processor module variable SPI device."/>
+        <Parameter Name="Chassis" Type="Chassis.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_9_0"/>
             </Record>
           </Collection>
         </Annotation>
@@ -324,10 +354,143 @@
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_7_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
       <ComplexType Name="NvidiaRoTChassis" BaseType="NvidiaChassis.v1_5_0.NvidiaRoTChassis"/>
+      <ComplexType Name="NvidiaSMAChassis">
+        <NavigationProperty Name="ProtocolBridgeForDevices" Type="Collection(Resource.Item)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An array of links to resources that are associated with this protocol bridge chassis."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of links to resources that are associated with this protocol bridge chassis."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_8_0">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_7_0"/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_6_0.NvidiaChassis"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_9_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_8_0.NvidiaChassis">
+        <Property Name="NVLink" Type="NvidiaChassis.v1_9_0.NVLink">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="This property provides NVLink information."/>
+          <Annotation Term="OData.LongDescription" String="This property provides NVLink information."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NVLink">
+        <Property Name="LED" Type="NvidiaChassis.v1_9_0.LedStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="This property provides NVLink LED information."/>
+          <Annotation Term="OData.LongDescription" String="This property provides NVLink LED information."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="LedStatus">
+        <Property Name="Blinking" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication of whether the LED is blinking or not."/>
+          <Annotation Term="OData.LongDescription" String="An indication of whether the LED is blinking or not."/>
+        </Property>
+        <Property Name="Color" Type="NvidiaChassis.v1_9_0.ColorType" Nullable="true">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication of the color of the LED that is currently on."/>
+          <Annotation Term="OData.LongDescription" String="An indication of the color of the LED that is currently on."/>
+        </Property>
+        <Property Name="Description" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication of the LED status in detail."/>
+          <Annotation Term="OData.LongDescription" String="An indication of the LED status in detail."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="ColorType">
+        <Member Name="Green">
+          <Annotation Term="OData.Description" String="Green LED is on."/>
+          <Annotation Term="OData.LongDescription" String="Green LED is on."/>
+        </Member>
+        <Member Name="Amber">
+          <Annotation Term="OData.Description" String="Amber LED is on."/>
+          <Annotation Term="OData.LongDescription" String="Amber LED is on."/>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_10_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaSMAChassis" BaseType="NvidiaChassis.v1_7_0.NvidiaSMAChassis">
+        <Property Name="LastResetReasons" Type="Collection(NvidiaChassis.v1_10_0.LastResetReason)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The last reset reasons of the device."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the last reset reasons of the device."/>
+        </Property>
+        <NavigationProperty Name="ErrorInjection" Type="NvidiaErrorInjection.NvidiaErrorInjection" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the error injection resource for this device."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaErrorInjection."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+      <EnumType Name="LastResetReason">
+        <Member Name="WakeUp">
+          <Annotation Term="OData.Description" String="Wake-up"/>
+        </Member>
+        <Member Name="PowerOn">
+          <Annotation Term="OData.Description" String="Power-on"/>
+        </Member>
+        <Member Name="VoltageDetect">
+          <Annotation Term="OData.Description" String="Voltage Detect"/>
+        </Member>
+        <Member Name="WarmReset">
+          <Annotation Term="OData.Description" String="Warm Reset"/>
+        </Member>
+        <Member Name="FatalError">
+          <Annotation Term="OData.Description" String="Fatal Error"/>
+        </Member>
+        <Member Name="Pin">
+          <Annotation Term="OData.Description" String="Pin"/>
+        </Member>
+        <Member Name="DebugAccessPort">
+          <Annotation Term="OData.Description" String="Debug Access Port"/>
+        </Member>
+        <Member Name="ResetTimeout">
+          <Annotation Term="OData.Description" String="Reset Timeout"/>
+        </Member>
+        <Member Name="LowPowerAcknowledgeTimeout">
+          <Annotation Term="OData.Description" String="Low Power Acknowledge Timeout"/>
+        </Member>
+        <Member Name="SystemClockGenerator">
+          <Annotation Term="OData.Description" String="System Clock Generator"/>
+        </Member>
+        <Member Name="WindowedWatchdog0">
+          <Annotation Term="OData.Description" String="Windowed Watchdog 0"/>
+        </Member>
+        <Member Name="Software">
+          <Annotation Term="OData.Description" String="Software"/>
+        </Member>
+        <Member Name="LockupReset">
+          <Annotation Term="OData.Description" String="Lockup Reset"/>
+        </Member>
+        <Member Name="CPU1">
+          <Annotation Term="OData.Description" String="CPU1"/>
+        </Member>
+        <Member Name="VBAT">
+          <Annotation Term="OData.Description" String="VBAT"/>
+        </Member>
+        <Member Name="WindowedWatchdog1">
+          <Annotation Term="OData.Description" String="Windowed Watchdog 1"/>
+        </Member>
+        <Member Name="CodeWatchdog0">
+          <Annotation Term="OData.Description" String="Code Watchdog 0"/>
+        </Member>
+        <Member Name="CodeWatchdog1">
+          <Annotation Term="OData.Description" String="Code Watchdog 1"/>
+        </Member>
+        <Member Name="JTAG">
+          <Annotation Term="OData.Description" String="JTAG"/>
+        </Member>
+        <Member Name="SecurityViolation">
+          <Annotation Term="OData.Description" String="Security Violation"/>
+        </Member>
+        <Member Name="Tamper">
+          <Annotation Term="OData.Description" String="Tamper"/>
+        </Member>
+      </EnumType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

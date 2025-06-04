@@ -107,8 +107,22 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="Indicates whether debug tokens will be erased automatically from devices if token files are not provided in the firmware bundle for firmware updates."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate whether debug tokens will be erased automatically from devices if token files are not provided in the firmware bundle for firmware updates.  If this property is not present, the default is true."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_4_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated in favor of the `AutomaticTokenErased` property in the NvidiaDebugTokenManagement resource."/>
+              </Record>
+            </Collection>
+          </Annotation>
         </Property>
       </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaUpdateService.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to deprecate `AutomaticDebugTokenErased` property in favor of `AutomaticTokenErased` property in the NvidiaDebugTokenManagement resource."/>
+      <ComplexType Name="NvidiaUpdateService" BaseType="NvidiaUpdateService.v1_3_0.NvidiaUpdateService"/>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

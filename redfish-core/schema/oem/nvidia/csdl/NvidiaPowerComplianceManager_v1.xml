@@ -36,6 +36,9 @@
   <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerStateGroup_v1.xml">
     <edmx:Include Namespace="NvidiaPowerStateGroup.v1_0_0"/>
   </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPSURedundancy_v1.xml">
+    <edmx:Include Namespace="NvidiaPSURedundancy.v1_0_0"/>
+  </edmx:Reference>
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerComplianceManager">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
@@ -84,6 +87,10 @@
           <Annotation Term="OData.Description" String="The type of manager that this resource represents."/>
           <Annotation Term="OData.LongDescription" String="This property shall describe the function of this manager. The `ManagementController` value shall be used if none of the other enumerations apply."/>
         </Property>
+        <Property Name="Actions" Type="NvidiaPowerComplianceManager.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
         <NavigationProperty Name="PowerDomains" Type="NvidiaPowerDomainCollection.NvidiaPowerDomainCollection" ContainsTarget="true" Nullable="false">
           <Annotation Term="OData.Description" String="A reference to the collection of Power Domains."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate a reference to the collection of Power Domains."/>
@@ -109,21 +116,17 @@
           <Annotation Term="OData.LongDescription" String="This property shall indicate a reference to the Power State Group."/>
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
         </NavigationProperty>
+        <NavigationProperty Name="PSURedundancy" Type="NvidiaPSURedundancy.v1_0_0.NvidiaPSURedundancy" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Description" String="A reference to the PSU Redundancy settings."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate a reference to the PSU Redundancy settings used to calculate the Max Power that the rack should support."/>
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+        </NavigationProperty>
       </EntityType>
       <EnumType Name="NvidiaManagerType">
         <Member Name="PowerManager">
           <Annotation Term="OData.Description" String="A controller that provides management functions related to power compliance and distribution."/>
         </Member>
       </EnumType>
-    </Schema>
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerComplianceManager.v1_1_0">
-      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <EntityType Name="NvidiaPowerComplianceManager" BaseType="NvidiaPowerComplianceManager.v1_0_0.NvidiaPowerComplianceManager">
-        <Property Name="Actions" Type="NvidiaPowerComplianceManager.v1_1_0.Actions" Nullable="false">
-          <Annotation Term="OData.Description" String="The available actions for this resource."/>
-          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
-        </Property>
-      </EntityType>
       <ComplexType Name="Actions">
         <Annotation Term="OData.AdditionalProperties" Bool="false"/>
         <Annotation Term="OData.Description" String="The available actions for this resource."/>
