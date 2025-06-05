@@ -37,6 +37,7 @@
 #include "power_subsystem.hpp"
 #include "power_supply.hpp"
 #include "processor.hpp"
+#include "redfish_sessions.hpp"
 #include "redfish_nvidia.hpp"
 #include "redfish_v1.hpp"
 #include "roles.hpp"
@@ -81,6 +82,10 @@ RedfishService::RedfishService(App& app)
 
     requestRoutesServiceRoot(app);
     requestRoutesNetworkProtocol(app);
+    if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
+    {
+        requestRoutesSession(app);
+    }
     requestEthernetInterfacesRoutes(app);
 
     if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL)
