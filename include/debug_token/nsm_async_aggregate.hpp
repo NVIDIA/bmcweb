@@ -116,7 +116,7 @@ class Handler : public std::enable_shared_from_this<Handler>
     {
         if (ec)
         {
-            BMCWEB_LOG_ERROR("GetSubTreePaths error: {}", ec.message());
+            BMCWEB_LOG_DEBUG("GetSubTreePaths error: {}", ec.message());
             callback({});
             return;
         }

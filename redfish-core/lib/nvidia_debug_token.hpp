@@ -43,7 +43,7 @@ inline void
                     const dbus::utility::MapperGetSubTreePathsResponse& resp) {
         if (ec)
         {
-            BMCWEB_LOG_ERROR("GetSubTreePaths error: {}", ec);
+            BMCWEB_LOG_DEBUG("GetSubTreePaths error: {}", ec);
             return;
         }
         if (resp.size() == 0)
