@@ -884,8 +884,7 @@ inline bool extractIPv6DefaultGatewayData(
 
             bool success = sdbusplus::unpackPropertiesNoThrow(
                 redfish::dbus_utils::UnpackErrorPrinter(), interface.second,
-                "Gateway", staticGateway.gateway, "PrefixLength",
-                staticGateway.prefixLength, "ProtocolType",
+                "Gateway", staticGateway.gateway, "ProtocolType",
                 staticGateway.protocol);
             if (!success)
             {
@@ -947,10 +946,11 @@ inline void createIPv6(const std::string& ifaceId, uint8_t prefixLength,
  * @return None
  */
 inline void
-    deleteIPv6Gateway(std::string_view gatewayId,
+    deleteIPv6Gateway(std::string_view ifaceId, std::string_view gatewayId,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     sdbusplus::message::object_path path("/xyz/openbmc_project/network");
+    path /= ifaceId;
     path /= gatewayId;
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& ec) {
@@ -974,7 +974,7 @@ inline void
  * @return None
  */
 inline void createIPv6DefaultGateway(
-    std::string_view ifaceId, size_t prefixLength, std::string_view gateway,
+    std::string_view ifaceId, const std::string& gateway,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     sdbusplus::message::object_path path("/xyz/openbmc_project/network");
@@ -988,7 +988,7 @@ inline void createIPv6DefaultGateway(
     crow::connections::systemBus->async_method_call(
         std::move(createIpHandler), "xyz.openbmc_project.Network", path,
         "xyz.openbmc_project.Network.StaticGateway.Create", "StaticGateway",
-        gateway, prefixLength, "xyz.openbmc_project.Network.IP.Protocol.IPv6");
+        gateway, "xyz.openbmc_project.Network.IP.Protocol.IPv6");
 }
 
 /**
@@ -1005,20 +1005,20 @@ inline void createIPv6DefaultGateway(
  */
 inline void deleteAndCreateIPv6DefaultGateway(
     std::string_view ifaceId, std::string_view gatewayId,
-    std::string_view gateway, size_t prefixLength,
+    const std::string& gateway,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     sdbusplus::message::object_path path("/xyz/openbmc_project/network");
+    path /= ifaceId;
     path /= gatewayId;
     crow::connections::systemBus->async_method_call(
-        [asyncResp, ifaceId, gateway,
-         prefixLength](const boost::system::error_code& ec) {
+        [asyncResp, ifaceId, gateway](const boost::system::error_code& ec) {
         if (ec)
         {
             messages::internalError(asyncResp->res);
             return;
         }
-        createIPv6DefaultGateway(ifaceId, prefixLength, gateway, asyncResp);
+        createIPv6DefaultGateway(ifaceId, gateway, asyncResp);
     },
         "xyz.openbmc_project.Network", path,
         "xyz.openbmc_project.Object.Delete", "Delete");
@@ -1069,7 +1069,7 @@ inline void handleIPv6DefaultGateway(
                 messages::resourceCannotBeDeleted(asyncResp->res);
                 return;
             }
-            deleteIPv6Gateway(staticGatewayEntry->id, asyncResp);
+            deleteIPv6Gateway(ifaceId, staticGatewayEntry->id, asyncResp);
             return;
         }
         if (obj->empty())
@@ -1083,15 +1083,13 @@ inline void handleIPv6DefaultGateway(
             }
         }
         std::optional<std::string> address;
-        std::optional<size_t> prefixLength;
 
-        if (!json_util::readJsonObject(*obj, asyncResp->res, "Address", address,
-                                       "PrefixLength", prefixLength))
+        if (!json_util::readJsonObject(*obj, asyncResp->res, "Address",
+                                       address))
         {
             return;
         }
         const std::string* addr = nullptr;
-        size_t prefix = 0;
         if (address)
         {
             addr = &(*address);
@@ -1105,29 +1103,16 @@ inline void handleIPv6DefaultGateway(
             messages::propertyMissing(asyncResp->res, pathString + "/Address");
             return;
         }
-        if (prefixLength)
-        {
-            prefix = *prefixLength;
-        }
-        else if (staticGatewayEntry != staticGatewayData.end())
-        {
-            prefix = staticGatewayEntry->prefixLength;
-        }
-        else
-        {
-            messages::propertyMissing(asyncResp->res,
-                                      pathString + "/PrefixLength");
-            return;
-        }
+
         if (staticGatewayEntry != staticGatewayData.end())
         {
             deleteAndCreateIPv6DefaultGateway(ifaceId, staticGatewayEntry->id,
-                                              *addr, prefix, asyncResp);
+                                              *addr, asyncResp);
             staticGatewayEntry++;
         }
         else
         {
-            createIPv6DefaultGateway(ifaceId, prefix, *addr, asyncResp);
+            createIPv6DefaultGateway(ifaceId, *addr, asyncResp);
         }
         entryIdx++;
     }
@@ -2028,7 +2013,6 @@ inline void
     {
         nlohmann::json::object_t ipv6Gateway;
         ipv6Gateway["Address"] = ipv6GatewayConfig.gateway;
-        ipv6Gateway["PrefixLength"] = ipv6GatewayConfig.prefixLength;
         ipv6StaticGatewayArray.emplace_back(std::move(ipv6Gateway));
     }
     jsonResponse["IPv6StaticDefaultGateways"] =
