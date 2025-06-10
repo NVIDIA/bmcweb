@@ -149,9 +149,9 @@ inline std::string getPortProtocol(const std::string& portProtocol)
         return "OEM";
     }
     if (portProtocol ==
-        "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortProtocol.PCIe")
+        "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortProtocol.InfiniBand")
     {
-        return "PCIe";
+        return "InfiniBand";
     }
 
     // C2C is a non-standard protocol in DMTF. Use the standard port protocol
@@ -160,6 +160,38 @@ inline std::string getPortProtocol(const std::string& portProtocol)
         "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortProtocol.NVLink.C2C")
     {
         return "NVLink";
+    }
+
+    // Unknown or others
+    return "";
+}
+
+inline std::string getLinkNetworkTechnology(const std::string& portProtocol)
+{
+    if (portProtocol ==
+        "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortProtocol.Ethernet")
+    {
+        return "Ethernet";
+    }
+    if (portProtocol ==
+        "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortProtocol.FC")
+    {
+        return "FibreChannel";
+    }
+    if (portProtocol ==
+        "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortProtocol.NVLink")
+    {
+        return "InfiniBand";
+    }
+    if (portProtocol ==
+        "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortProtocol.PCIe")
+    {
+        return "PCIe";
+    }
+    if (portProtocol ==
+        "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortProtocol.InfiniBand")
+    {
+        return "InfiniBand";
     }
 
     // Unknown or others

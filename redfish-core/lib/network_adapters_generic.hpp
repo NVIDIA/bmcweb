@@ -1017,6 +1017,8 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 }
                 asyncResp->res.jsonValue["PortProtocol"] =
                     port_utils::getPortProtocol(*value);
+                asyncResp->res.jsonValue["LinkNetworkTechnology"] =
+                    port_utils::getLinkNetworkTechnology(*value);
             }
             else if (propertyName == "LinkStatus")
             {
