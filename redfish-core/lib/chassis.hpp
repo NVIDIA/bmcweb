@@ -429,13 +429,15 @@ inline void afterChassisSpiInterfacesFound(
     nlohmann::json& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
     BMCWEB_LOG_DEBUG("oemActions: {}", oemActions.dump());
     BMCWEB_LOG_DEBUG("chassisId: {}", chassisId);
-    oemActions["#NvidiaProcessor.VariableSpiErase"]["target"] = boost::urls::format(
-        "/redfish/v1/Chassis/{}/Actions/Oem/NvidiaProcessor.VariableSpiErase",
-        chassisId);
+    oemActions["#NvidiaProcessor.VariableSpiErase"]["target"] =
+        boost::urls::format(
+            "/redfish/v1/Chassis/{}/Actions/Oem/NvidiaProcessor.VariableSpiErase",
+            chassisId);
 
-    oemActions["#NvidiaProcessor.VariableSpiRead"]["target"] = boost::urls::format(
-        "/redfish/v1/Chassis/{}/Actions/Oem/NvidiaProcessor.VariableSpiRead",
-        chassisId);
+    oemActions["#NvidiaProcessor.VariableSpiRead"]["target"] =
+        boost::urls::format(
+            "/redfish/v1/Chassis/{}/Actions/Oem/NvidiaProcessor.VariableSpiRead",
+            chassisId);
 }
 
 // Find the existing chassis handler and add SPI interface detection
@@ -454,7 +456,8 @@ inline void getChassisOemNvidiaProperties(
 
     // Add SPI interface detection
     std::array<std::string_view, 1> interfaces{"com.nvidia.GraceSPI"};
-    std::string inventoryPath = "/xyz/openbmc_project/inventory/system/" + chassisId;
+    std::string inventoryPath = "/xyz/openbmc_project/inventory/system/" +
+                                chassisId;
     BMCWEB_LOG_DEBUG("inventoryPath: {}", inventoryPath);
     dbus::utility::getSubTreePaths(
         inventoryPath, 0, interfaces,
@@ -556,7 +559,6 @@ inline void handleDecoratorAssetProperties(
     asyncResp->res.jsonValue["Links"]["ManagedBy"] = std::move(managedBy);
     getChassisState(asyncResp);
     getStorageLink(asyncResp, path);
-
 }
 
 inline void handleChassisGetSubTree(
@@ -1520,6 +1522,7 @@ inline void handleOemChassisResetActionInfoGet(
     parameter["DataType"] = "String";
     nlohmann::json::array_t allowableValues;
     allowableValues.emplace_back("AuxPowerCycle");
+    allowableValues.emplace_back("AuxPowerCycleForce");
     parameter["AllowableValues"] = std::move(allowableValues);
     parameters.emplace_back(std::move(parameter));
 
