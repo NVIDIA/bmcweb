@@ -3949,7 +3949,7 @@ inline void dBusLogServiceActionsClear(
             return;
         }
 
-        asyncResp->res.result(boost::beast::http::status::no_content);
+        messages::success(asyncResp->res);
     };
 
     // Make call to Logging service to request Clear Log
