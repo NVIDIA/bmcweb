@@ -136,6 +136,7 @@ feature_options = [
     'meta-tls-common-name-parsing',
     'mutual-tls-auth',
     'nsm-raw-command-enable',
+    'nvidia-manager-ready-csm',
     'nvidia-oem-openocd',
     'nvidia-cbc-mfg-fix',
     'redfish-aggregation',

@@ -3271,7 +3271,11 @@ inline void
         }
         asyncResp->res.jsonValue["Status"]["Health"] = "OK";
         asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-        nvidia_manager_util::getOemReadyState(asyncResp, bmcId);
+
+        if (BMCWEB_NVIDIA_MANAGER_READY_CSM)
+        {
+            nvidia_manager_util::getOemReadyState(asyncResp, bmcId);
+        }
     });
 }
 
