@@ -449,6 +449,14 @@ option(
 )
 
 option(
+    'nvidia-manager-ready-csm',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable checking for Configurable state manager in addition to systemd service
+                    state when checking the starting state.''',
+)
+
+option(
     'power-control-type-percentage',
     type: 'feature',
     value: 'disabled',
