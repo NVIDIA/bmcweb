@@ -1466,6 +1466,7 @@ inline void handleOemChassisResetActionInfoGet(
     parameter["DataType"] = "String";
     nlohmann::json::array_t allowableValues;
     allowableValues.emplace_back("AuxPowerCycle");
+    allowableValues.emplace_back("AuxPowerCycleForce");
     parameter["AllowableValues"] = std::move(allowableValues);
     parameters.emplace_back(std::move(parameter));
 
