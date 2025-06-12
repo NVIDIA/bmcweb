@@ -55,7 +55,8 @@ static const std::unordered_map<MctpBinding, Priority> bindingPriority = {
     {"xyz.openbmc_project.MCTP.Binding.BindingTypes.Serial", 4},
     {"xyz.openbmc_project.MCTP.Binding.BindingTypes.SMBus", 5}};
 
-constexpr const char* mctpObjectPath = "/xyz/openbmc_project/mctp";
+constexpr const char* mctpObjectPath =
+    "/au/com/codeconstruct/mctp1/networks/1/endpoints/";
 constexpr const char* mctpStateServiceReadyIntf =
     "xyz.openbmc_project.State.ServiceReady";
 constexpr const char* mctpCommonUUIDIntf = "xyz.openbmc_project.Common.UUID";

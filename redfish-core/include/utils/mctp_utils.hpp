@@ -36,7 +36,7 @@ using GetSubTreeType = std::vector<
 
 constexpr const std::string_view mctpBusPrefix = "xyz.openbmc_project.MCTP";
 constexpr const std::string_view mctpObjectPrefix =
-    "/xyz/openbmc_project/mctp/";
+    "/au/com/codeconstruct/mctp1/networks/1/endpoints/";
 constexpr const uint8_t mctpMessageTypeVdm = 127;
 
 constexpr const char* spdmResponderIntf = "xyz.openbmc_project.SPDM.Responder";
