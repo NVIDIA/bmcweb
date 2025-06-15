@@ -224,60 +224,36 @@ inline void
             return;
     }
 
-    // Make D-Bus call to get the property value
-    if (property == "EnableLLDP")
-    {
-        sdbusplus::asio::getProperty<bool>(
-            *crow::connections::systemBus, "xyz.openbmc_project.LLDP", path,
-            interface, property,
-            [asyncResp, responseCallback,
-             property](const boost::system::error_code& ec, const bool& value) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("Error getting LLDP property {}: {}", property,
-                                 ec.message());
-                responseCallback(asyncResp, "", ec.message(), ec, 1);
-                return;
-            }
-            responseCallback(asyncResp, value ? "enabled" : "disabled", "",
-                             boost::system::error_code{}, 0);
-        });
-    }
-    else if (property == "ManagementVlanId")
-    {
-        sdbusplus::asio::getProperty<uint16_t>(
-            *crow::connections::systemBus, "xyz.openbmc_project.LLDP", path,
-            interface, property,
-            [asyncResp, responseCallback, property](
-                const boost::system::error_code& ec, const uint16_t& value) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("Error getting LLDP property {}: {}", property,
-                                 ec.message());
-                responseCallback(asyncResp, "", ec.message(), ec, 1);
-                return;
-            }
-            responseCallback(asyncResp, std::to_string(value), "",
-                             boost::system::error_code{}, 0);
-        });
-    }
-    else if (property == "SystemCapabilities")
-    {
-        sdbusplus::asio::getProperty<std::vector<std::string>>(
-            *crow::connections::systemBus, "xyz.openbmc_project.LLDP", path,
-            interface, property,
-            [asyncResp, responseCallback,
-             property](const boost::system::error_code& ec,
-                       const std::vector<std::string>& value) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("Error getting LLDP property {}: {}", property,
-                                 ec.message());
-                responseCallback(asyncResp, "", ec.message(), ec, 1);
-                return;
-            }
-            std::string result;
-            for (const auto& cap : value)
+    // Get property value using a single D-Bus call
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, responseCallback](
+            const boost::system::error_code& ec,
+            const std::variant<std::string, bool, uint16_t,
+                               std::vector<std::string>>& variant) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("Error getting LLDP property: {}", ec);
+            responseCallback(asyncResp, "", "Failed to get property", ec, 1);
+            return;
+        }
+
+        std::string result;
+        if (const auto* strVal = std::get_if<std::string>(&variant))
+        {
+            result = *strVal;
+        }
+        else if (const auto* boolVal = std::get_if<bool>(&variant))
+        {
+            result = *boolVal ? "enabled" : "disabled";
+        }
+        else if (const auto* uintVal = std::get_if<uint16_t>(&variant))
+        {
+            result = std::to_string(*uintVal);
+        }
+        else if (const auto* vecVal =
+                     std::get_if<std::vector<std::string>>(&variant))
+        {
+            for (const auto& cap : *vecVal)
             {
                 if (!result.empty())
                 {
@@ -285,28 +261,12 @@ inline void
                 }
                 result += cap;
             }
-            responseCallback(asyncResp, result, "", boost::system::error_code{},
-                             0);
-        });
-    }
-    else
-    {
-        sdbusplus::asio::getProperty<std::string>(
-            *crow::connections::systemBus, "xyz.openbmc_project.LLDP", path,
-            interface, property,
-            [asyncResp, responseCallback, property](
-                const boost::system::error_code& ec, const std::string& value) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("Error getting LLDP property {}: {}", property,
-                                 ec.message());
-                responseCallback(asyncResp, "", ec.message(), ec, 1);
-                return;
-            }
-            responseCallback(asyncResp, value, "", boost::system::error_code{},
-                             0);
-        });
-    }
+        }
+
+        responseCallback(asyncResp, result, "", boost::system::error_code{}, 0);
+    },
+        "xyz.openbmc_project.LLDP", path, "org.freedesktop.DBus.Properties",
+        "Get", interface, property);
 }
 
 // Set TLVs
@@ -328,25 +288,25 @@ inline void
 
     std::string path = getLldpPath(isReceived);
     std::string interface = "xyz.openbmc_project.Network.LLDP.TLVs";
-    std::string method;
+    std::string property;
 
-    // Map TLV type to corresponding D-Bus method name
+    // Map TLV type to corresponding D-Bus property name
     switch (lldpTlv)
     {
         case LldpTlv::CHASSIS_ID:
-            method = "ChassisId";
+            property = "ChassisId";
             break;
         case LldpTlv::PORT_ID:
-            method = "PortId";
+            property = "PortId";
             break;
         case LldpTlv::SYSTEM_NAME:
-            method = "SystemName";
+            property = "SystemName";
             break;
         case LldpTlv::SYSTEM_DESCRIPTION:
-            method = "SystemDescription";
+            property = "SystemDescription";
             break;
         case LldpTlv::MANAGEMENT_ADDRESS:
-            method = "ManagementAddressIPv4";
+            property = "ManagementAddressIPv4";
             break;
         default:
             responseCallback(asyncResp, "", "Unsupported TLV type",
@@ -356,16 +316,8 @@ inline void
             return;
     }
 
-    // Make D-Bus call to set the property value
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, responseCallback](const boost::system::error_code& ec) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("Error setting LLDP property: {}", ec.message());
-            responseCallback(asyncResp, "", ec.message(), ec, 1);
-            return;
-        }
-        responseCallback(asyncResp, "Success", "", ec, 0);
-    },
-        "xyz.openbmc_project.LLDP", path, interface, method, value);
+    // Use setDbusProperty to set the property value
+    redfish::setDbusProperty(asyncResp, property, "xyz.openbmc_project.LLDP",
+                             sdbusplus::message::object_path(path), interface,
+                             property, value);
 }

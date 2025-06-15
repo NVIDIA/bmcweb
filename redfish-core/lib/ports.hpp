@@ -337,7 +337,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const boost::system::error_code& ec, int errorCode) {
         if (ec || errorCode)
         {
-            BMCWEB_LOG_ERROR("Error getting LLDP Chassis ID: {}", ec.message());
+            BMCWEB_LOG_ERROR("Error getting LLDP Chassis ID: {}", ec);
             return;
         }
         setLldpTlvProperty(asyncResp->res.jsonValue, "ChassisId", stdOut,
@@ -353,8 +353,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const boost::system::error_code& ec, int errorCode) {
         if (ec || errorCode)
         {
-            BMCWEB_LOG_ERROR("Error getting LLDP Chassis ID Subtype: {}",
-                             ec.message());
+            BMCWEB_LOG_ERROR("Error getting LLDP Chassis ID Subtype: {}", ec);
             return;
         }
         setLldpTlvProperty(asyncResp->res.jsonValue, "ChassisIdSubtype", stdOut,
@@ -369,7 +368,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const boost::system::error_code& ec, int errorCode) {
         if (ec || errorCode)
         {
-            BMCWEB_LOG_ERROR("Error getting LLDP Port ID: {}", ec.message());
+            BMCWEB_LOG_ERROR("Error getting LLDP Port ID: {}", ec);
             return;
         }
         setLldpTlvProperty(asyncResp->res.jsonValue, "PortId", stdOut,
@@ -385,8 +384,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const boost::system::error_code& ec, int errorCode) {
         if (ec || errorCode)
         {
-            BMCWEB_LOG_ERROR("Error getting LLDP Port ID Subtype: {}",
-                             ec.message());
+            BMCWEB_LOG_ERROR("Error getting LLDP Port ID Subtype: {}", ec);
             return;
         }
         setLldpTlvProperty(asyncResp->res.jsonValue, "PortIdSubtype", stdOut,
@@ -402,8 +400,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const boost::system::error_code& ec, int errorCode) {
         if (ec || errorCode)
         {
-            BMCWEB_LOG_ERROR("Error getting LLDP System Name: {}",
-                             ec.message());
+            BMCWEB_LOG_ERROR("Error getting LLDP System Name: {}", ec);
             return;
         }
         setLldpTlvProperty(asyncResp->res.jsonValue, "SystemName", stdOut,
@@ -419,8 +416,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const boost::system::error_code& ec, int errorCode) {
         if (ec || errorCode)
         {
-            BMCWEB_LOG_ERROR("Error getting LLDP System Description: {}",
-                             ec.message());
+            BMCWEB_LOG_ERROR("Error getting LLDP System Description: {}", ec);
             return;
         }
         setLldpTlvProperty(asyncResp->res.jsonValue, "SystemDescription",
@@ -436,8 +432,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const boost::system::error_code& ec, int errorCode) {
         if (ec || errorCode)
         {
-            BMCWEB_LOG_ERROR("Error getting LLDP System Capabilities: {}",
-                             ec.message());
+            BMCWEB_LOG_ERROR("Error getting LLDP System Capabilities: {}", ec);
             return;
         }
         setLldpTlvProperty(asyncResp->res.jsonValue, "SystemCapabilities",
@@ -454,7 +449,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         if (ec || errorCode)
         {
             BMCWEB_LOG_ERROR("Error getting LLDP Management Address IPv4: {}",
-                             ec.message());
+                             ec);
             return;
         }
         if (!stdOut.empty())
@@ -474,7 +469,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         if (ec || errorCode)
         {
             BMCWEB_LOG_ERROR("Error getting LLDP Management Address IPv6: {}",
-                             ec.message());
+                             ec);
             return;
         }
         if (!stdOut.empty())
@@ -494,7 +489,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         if (ec || errorCode)
         {
             BMCWEB_LOG_ERROR("Error getting LLDP Management Address MAC: {}",
-                             ec.message());
+                             ec);
             return;
         }
         setLldpTlvProperty(asyncResp->res.jsonValue, "ManagementAddressMAC",
@@ -510,8 +505,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const boost::system::error_code& ec, int errorCode) {
         if (ec || errorCode)
         {
-            BMCWEB_LOG_ERROR("Error getting LLDP Management VLAN ID: {}",
-                             ec.message());
+            BMCWEB_LOG_ERROR("Error getting LLDP Management VLAN ID: {}", ec);
             return;
         }
         setLldpTlvProperty(asyncResp->res.jsonValue, "ManagementVlanId", stdOut,
