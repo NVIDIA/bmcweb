@@ -748,6 +748,8 @@ inline void handleChassisGetSubTree(
                 getChassisStateWrapper(asyncResp, propertiesList,
                                        connectionName, path);
                 getStorageLink(asyncResp, path);
+                redfish::nvidia_chassis_utils::populateErrorInjectionChassis(
+                    asyncResp, path, chassisId);
             });
 
             for (const auto& interface : interfaces2)
@@ -791,9 +793,6 @@ inline void handleChassisGetSubTree(
                 redfish::nvidia_chassis_utils::getOemBaseboardChassisAssert(
                     asyncResp, objPath);
             }
-            redfish::nvidia_chassis_utils::populateErrorInjectionChassis(
-                asyncResp, objPath, chassisId);
-
             // Links association to underneath chassis
             redfish::nvidia_chassis_utils::getChassisLinksContains(asyncResp,
                                                                    objPath);
