@@ -237,33 +237,33 @@ inline void
             return;
         }
 
-        std::string result;
+        std::string value;
         if (const auto* strVal = std::get_if<std::string>(&variant))
         {
-            result = *strVal;
+            value = *strVal;
         }
         else if (const auto* boolVal = std::get_if<bool>(&variant))
         {
-            result = *boolVal ? "enabled" : "disabled";
+            value = *boolVal ? "enabled" : "disabled";
         }
         else if (const auto* uintVal = std::get_if<uint16_t>(&variant))
         {
-            result = std::to_string(*uintVal);
+            value = std::to_string(*uintVal);
         }
         else if (const auto* vecVal =
                      std::get_if<std::vector<std::string>>(&variant))
         {
             for (const auto& cap : *vecVal)
             {
-                if (!result.empty())
+                if (!value.empty())
                 {
-                    result += ",";
+                    value += ",";
                 }
-                result += cap;
+                value += cap;
             }
         }
 
-        responseCallback(asyncResp, result, "", boost::system::error_code{}, 0);
+        responseCallback(asyncResp, value, "", boost::system::error_code{}, 0);
     },
         "xyz.openbmc_project.LLDP", path, "org.freedesktop.DBus.Properties",
         "Get", interface, property);

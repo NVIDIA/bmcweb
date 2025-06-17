@@ -79,8 +79,7 @@ inline void getLldpStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
-                    "Error while running lldtool get status, Message: {}",
-                    ec.message());
+                    "Error while running lldtool get status, Message: {}", ec);
             }
             return;
         }
@@ -162,8 +161,7 @@ inline void
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
-                    "Error while running lldtool enable TLV, Message: {}",
-                    ec.message());
+                    "Error while running lldtool enable TLV, Message: {}", ec);
             }
             return;
         }
@@ -190,8 +188,7 @@ inline void
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
-                    "Error while running lldtool get TLV, Message: {}",
-                    ec.message());
+                    "Error while running lldtool get TLV, Message: {}", ec);
             }
             return;
         }
@@ -217,8 +214,7 @@ inline void
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
-                    "Error while running lldtool enable TLV, message: {}",
-                    ec.message());
+                    "Error while running lldtool enable TLV, message: {}", ec);
             }
             return;
         }
@@ -240,7 +236,23 @@ inline void setLldpTlvProperty(nlohmann::json& jsonSchema,
 {
     if (property == "SystemCapabilities")
     {
-        // Split by comma, then by dot, and keep only the last part
+        // Input format examples from D-Bus:
+        // 1. Single capability:
+        // "xyz.openbmc_project.Network.LLDP.TLVs.SystemCapabilities.Station"
+        // 2. Multiple capabilities: they are comma-separated in the input
+        // string.
+        //    "xyz.openbmc_project.Network.LLDP.TLVs.SystemCapabilities.Station"
+        //    +
+        //    ",xyz.openbmc_project.Network.LLDP.TLVs.SystemCapabilities.Bridge"
+        // The format is:
+        // "xyz.openbmc_project.Network.LLDP.TLVs.SystemCapabilities.<CapabilityName>"
+        // We split by comma in case of multiple capabilities and then by dot,
+        // and keep only the last part
+        // Example output for
+        // "xyz.openbmc_project.Network.LLDP.TLVs.SystemCapabilities.Station":
+        // ["Station"]
+        // Example output for multiple capabilities:
+        // ["Station", "Bridge"]
         std::vector<std::string> caps;
         std::istringstream ss(propertyValue);
         std::string cap;
@@ -577,7 +589,6 @@ inline void getLldpInformationWithIndex(
  */
 inline void requestDedicatedPortsInterfacesRoutes(App& app)
 {
-    // Route for getting collection of dedicated network ports
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/DedicatedNetworkPorts/")
         .privileges(redfish::privileges::getEthernetInterfaceCollection)
         .methods(boost::beast::http::verb::get)(
@@ -632,7 +643,6 @@ inline void requestDedicatedPortsInterfacesRoutes(App& app)
         });
     });
 
-    // Route for getting individual dedicated network port
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/DedicatedNetworkPorts/<str>/")
         .privileges(redfish::privileges::getEthernetInterface)
         .methods(boost::beast::http::verb::get)(
@@ -691,7 +701,6 @@ inline void requestDedicatedPortsInterfacesRoutes(App& app)
         });
     });
 
-    // Route for patching dedicated network port
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/DedicatedNetworkPorts/<str>/")
         .privileges(redfish::privileges::patchEthernetInterface)
         .methods(boost::beast::http::verb::patch)(
