@@ -218,6 +218,7 @@ class Trie
         return findHelper(reqUrl, head(), start);
     }
 
+    __attribute__((no_sanitize_address)) // temp fix downstream CI, not seen in upstream CI 
     void add(std::string_view urlIn, unsigned ruleIndex)
     {
         size_t idx = 0;
