@@ -33,6 +33,41 @@ inline void
     });
 }
 
+inline void populateRelatedNetworkAdapterData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objPath)
+{
+    // get parent of the network adapter to construct the URI
+    dbus::utility::findAssociations(
+        objPath + "/parent_chassis",
+        [asyncResp, objPath](const boost::system::error_code ec,
+                             std::variant<std::vector<std::string>>& resp) {
+        if (ec)
+        {
+            // default
+            defaultSystemURI(asyncResp);
+            return;
+        }
+        auto data = std::get_if<std::vector<std::string>>(&resp);
+        if (data == nullptr)
+        {
+            return;
+        }
+        nlohmann::json& itemsArray = asyncResp->res.jsonValue["RelatedItem"];
+        for (const std::string& chassisPath : *data)
+        {
+            sdbusplus::message::object_path adapterPath(objPath);
+            std::string adapterId = adapterPath.filename();
+            sdbusplus::message::object_path objectPath(chassisPath);
+            std::string chassisId = objectPath.filename();
+            std::string adapterURI =
+                std::format("/redfish/v1/Chassis/{}/NetworkAdapters/{}",
+                            chassisId, adapterId);
+            itemsArray.push_back({{"@odata.id", adapterURI}});
+        }
+    });
+}
+
 inline void getRelatedNetworkAdapterData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objPath)
@@ -81,16 +116,9 @@ inline void getRelatedNetworkAdapterData(
                 {
                     return;
                 }
-                nlohmann::json& itemsArray1 =
-                    asyncResp->res.jsonValue["RelatedItem"];
                 for (const std::string& adapterPath : *data1)
                 {
-                    sdbusplus::message::object_path objectPath1(adapterPath);
-                    std::string adapterId = objectPath1.filename();
-                    std::string adapterURI =
-                        std::format("/redfish/v1/Chassis/{}/NetworkAdapters/{}",
-                                    chassisId, adapterId);
-                    itemsArray1.push_back({{"@odata.id", adapterURI}});
+                    populateRelatedNetworkAdapterData(asyncResp, adapterPath);
                 }
             },
                 "xyz.openbmc_project.ObjectMapper",
