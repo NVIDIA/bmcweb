@@ -308,6 +308,12 @@ inline void
         case LldpTlv::MANAGEMENT_ADDRESS:
             property = "ManagementAddressIPv4";
             break;
+        case LldpTlv::ADMIN_STATUS:
+        case LldpTlv::ENABLE_ADMIN_STATUS:
+        case LldpTlv::DISABLE_ADMIN_STATUS:
+            interface = "xyz.openbmc_project.Network.LLDP.Settings";
+            property = "EnableLLDP";
+            break;
         default:
             responseCallback(asyncResp, "", "Unsupported TLV type",
                              boost::system::errc::make_error_code(
@@ -317,7 +323,21 @@ inline void
     }
 
     // Use setDbusProperty to set the property value
-    redfish::setDbusProperty(asyncResp, property, "xyz.openbmc_project.LLDP",
-                             sdbusplus::message::object_path(path), interface,
-                             property, value);
+    if (lldpTlv == LldpTlv::ENABLE_ADMIN_STATUS ||
+        lldpTlv == LldpTlv::DISABLE_ADMIN_STATUS)
+    {
+        // For EnableLLDP property, we need to pass a boolean value
+        bool boolValue = (lldpTlv == LldpTlv::ENABLE_ADMIN_STATUS);
+        redfish::setDbusProperty(asyncResp, property,
+                                 "xyz.openbmc_project.LLDP",
+                                 sdbusplus::message::object_path(path),
+                                 interface, property, boolValue);
+    }
+    else
+    {
+        // For other properties, use the string value
+        redfish::setDbusProperty(
+            asyncResp, property, "xyz.openbmc_project.LLDP",
+            sdbusplus::message::object_path(path), interface, property, value);
+    }
 }
