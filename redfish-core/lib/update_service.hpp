@@ -2208,7 +2208,7 @@ void handleSatBMCResponse(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  * @return None
  */
 inline void forwardImage(
-    crow::Request& req, const bool updateAll,
+    std::shared_ptr<crow::Request> sharedReq, const bool updateAll,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
@@ -2229,14 +2229,14 @@ inline void forwardImage(
     }
 
     crow::HttpClient client(
-        *req.ioService,
+        *sharedReq->ioService,
         std::make_shared<crow::ConnectionPolicy>(getPostAggregationPolicy()));
 
     std::function<void(crow::Response&)> cb =
         std::bind_front(handleSatBMCResponse, asyncResp);
 
     MultipartParser parser;
-    ParserError parserEc = parser.parse(req);
+    ParserError parserEc = parser.parse(*sharedReq);
     if (parserEc != ParserError::PARSER_SUCCESS)
     {
         BMCWEB_LOG_ERROR("MIME parse failed, ec : {}",
@@ -2244,12 +2244,14 @@ inline void forwardImage(
         messages::internalError(asyncResp->res);
         return;
     }
+    size_t originalRequestSize = sharedReq->body().size();
     // clear up the body buffer of the request to save memory
-    req.clearBody();
+    sharedReq->clearBody();
     bool hasUpdateFile = false;
     std::string data;
+    data.reserve(originalRequestSize);
     std::string_view boundary(parser.boundary);
-    for (const FormPart& formpart : parser.mime_fields)
+    for (FormPart& formpart : parser.mime_fields)
     {
         boost::beast::http::fields::const_iterator it =
             formpart.fields.find("Content-Disposition");
@@ -2353,15 +2355,16 @@ inline void forwardImage(
         data += "--\r\n";
 
         boost::urls::url url(sat->second);
-        url.set_path(req.url().path());
+        url.set_path(sharedReq->url().path());
         // Remove headers not handled for RFA firmware upgrade flow
-        if (!req.getHeaderValue("Expect").empty())
+        if (!sharedReq->getHeaderValue("Expect").empty())
         {
             BMCWEB_LOG_INFO("Removed Expect header from the request");
-            req.clearHeader(boost::beast::http::field::expect);
+            sharedReq->clearHeader(boost::beast::http::field::expect);
         }
-        BMCWEB_LOG_INFO("Expect header value {}", req.getHeaderValue("Expect"));
-        client.sendDataWithCallback(std::move(data), url, req.fields(),
+        BMCWEB_LOG_INFO("Expect header value {}",
+                        sharedReq->getHeaderValue("Expect"));
+        client.sendDataWithCallback(std::move(data), url, sharedReq->fields(),
                                     boost::beast::http::verb::post, cb);
     }
 }
@@ -2525,9 +2528,10 @@ inline void processMultipartFormData(
             {
                 // All URIs in Target has the prepended prefix
                 BMCWEB_LOG_DEBUG("forward image {}", uriTargets[0]);
-
-                RedfishAggregator::getSatelliteConfigs(
-                    std::bind_front(forwardImage, req, updateAll, asyncResp));
+                auto sharedReq =
+                    std::make_shared<crow::Request>(std::move(req));
+                RedfishAggregator::getSatelliteConfigs(std::bind_front(
+                    forwardImage, sharedReq, updateAll, asyncResp));
             }
             return;
         }
