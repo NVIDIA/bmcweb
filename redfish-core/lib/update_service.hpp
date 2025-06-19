@@ -3307,7 +3307,6 @@ inline void requestRoutesSoftwareInventoryCollection(App& app)
 
                 std::ranges::sort(pathNames, AlphanumLess<std::string>());
                 nlohmann::json& members = asyncResp->res.jsonValue["Members"];
-                members = nlohmann::json::array();
 
                 for (const std::string& leaf : pathNames)
                 {
