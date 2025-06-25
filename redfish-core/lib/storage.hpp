@@ -1932,7 +1932,7 @@ inline void getStorageControllerAsset(
         return;
     }
 
-    if (partNumber != nullptr)
+    if (partNumber != nullptr && !partNumber->empty())
     {
         asyncResp->res.jsonValue["PartNumber"] = *partNumber;
     }
