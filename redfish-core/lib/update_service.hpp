@@ -357,30 +357,6 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
     return !task::completed;
 }
 
-/**
- * @brief Retrieve the task message in JSON format for a given task state and
- * index.
- *
- * This function overrides the base function to handle firmware update state
- * management. It is designed to manage the "Aborted" state and reset the global
- * fwUpdateInProgress flag to false.
- *
- * @param state A string representing the task state
- * @param index The index to identify the specific task message
- *
- * @return nlohmann::json The task message corresponding to the given state and
- * index
- */
-inline nlohmann::json getTaskMessage(const std::string_view state, size_t index)
-{
-    if (state == "Aborted")
-    {
-        fwUpdateInProgress = false;
-    }
-
-    return redfish::task::getMessage(state, index);
-}
-
 inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        task::Payload&& payload,
                        const sdbusplus::message::object_path& objPath)
@@ -389,26 +365,11 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         std::bind_front(handleCreateTask),
         "type='signal',interface='org.freedesktop.DBus.Properties',"
         "member='PropertiesChanged',path='" +
-            objPath.str + "'",
-        std::bind_front(getTaskMessage));
+            objPath.str + "'");
 
     task->startTimer(std::chrono::minutes(BMCWEB_UPDATE_SERVICE_TASK_TIMEOUT));
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
-    loggingMatch = std::make_unique<sdbusplus::bus::match::match>(
-        *crow::connections::systemBus,
-        "interface='org.freedesktop.DBus.ObjectManager',type='signal',"
-        "member='InterfacesAdded',"
-        "path='/xyz/openbmc_project/logging'",
-        [task](sdbusplus::message_t& msgLog) {
-            loggingMatchCallback(task, msgLog);
-        });
-    if (!preTaskMessages.empty())
-    {
-        task->messages.insert(task->messages.end(), preTaskMessages.begin(),
-                              preTaskMessages.end());
-    }
-    preTaskMessages = {};
 }
 
 // Note that asyncResp can be either a valid pointer or nullptr. If nullptr
@@ -480,12 +441,12 @@ inline void softwareInterfaceAdded(
                         messages::internalError(asyncResp->res);
                         return;
                     }
-
+                    activateImage(objPath.str, objInfo[0].first);
                     if (asyncResp)
                     {
                         createTask(asyncResp, std::move(payload), objPath);
                     }
-                    activateImage(objPath.str, objInfo[0].first);
+                    fwUpdateInProgress = false;
                 });
             break;
         }
@@ -649,7 +610,7 @@ inline void monitorForSoftwareAvailable(
     fwUpdateMatcher = std::make_unique<sdbusplus::bus::match_t>(
         *crow::connections::systemBus,
         "interface='org.freedesktop.DBus.ObjectManager',type='signal',"
-        "member='InterfacesAdded',path='/xyz/openbmc_project/software'",
+        "member='InterfacesAdded',path='/'",
         callback);
 
     fwUpdateErrorMatcher = std::make_unique<sdbusplus::bus::match_t>(
