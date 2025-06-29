@@ -294,7 +294,7 @@ inline void setLldpTlvProperty(nlohmann::json& jsonSchema,
                 subtypeIndex = 4;
             else if (subtype == "NetworkAddress")
                 subtypeIndex = 5;
-            else if (subtype == "InterfaceName")
+            else if (subtype == "InterfaceName" || subtype == "IfName")
                 subtypeIndex = 6;
             else if (subtype == "LocallyAssigned")
                 subtypeIndex = 7;
@@ -310,14 +310,33 @@ inline void setLldpTlvProperty(nlohmann::json& jsonSchema,
                 subtypeIndex = 3;
             else if (subtype == "NetworkAddress")
                 subtypeIndex = 4;
-            else if (subtype == "InterfaceName")
+            else if (subtype == "InterfaceName" || subtype == "IfName")
                 subtypeIndex = 5;
-            else if (subtype == "AgentCircuitID")
+            else if (subtype == "AgentCircuitID" || subtype == "AgentId")
                 subtypeIndex = 6;
             else if (subtype == "LocallyAssigned")
                 subtypeIndex = 7;
         }
         jsonSchema["Ethernet"][lldpType][property] = subtypeIndex;
+    }
+    else if (property == "ManagementVlanId")
+    {
+        // Handle ManagementVlanId as integer
+        BMCWEB_LOG_DEBUG("Processing ManagementVlanId: '{}'", propertyValue);
+
+        try
+        {
+            int vlanId = std::stoi(propertyValue);
+            jsonSchema["Ethernet"][lldpType][property] = vlanId;
+        }
+        catch (const std::exception&)
+        {
+            // If conversion fails, set to 0 (default)
+            BMCWEB_LOG_WARNING(
+                "Could not parse ManagementVlanId: '{}', setting to 0",
+                propertyValue);
+            jsonSchema["Ethernet"][lldpType][property] = 0;
+        }
     }
     else
     {
