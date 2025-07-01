@@ -6,6 +6,7 @@ if get_option('nvidia-oem-properties').allowed()
         'NvidiaComputerSystem_v1.xml',
         'NvidiaCondition_v1.xml',
         'NvidiaDebugToken_v1.xml',
+        'NvidiaDebugTokenManagement_v1.xml',
         'NvidiaEnvironmentMetrics_v1.xml',
         'NvidiaErrorInjection_v1.xml',
         'NvidiaEvent_v1.xml',
