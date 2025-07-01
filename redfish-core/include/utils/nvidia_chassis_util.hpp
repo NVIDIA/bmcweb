@@ -151,6 +151,146 @@ inline std::string getBootReasonTypes(const std::string& bootReasonType)
     {
         return "Tamper";
     }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.IAccViol")
+    {
+        return "WDT_IACCVIOL";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.DAccViol")
+    {
+        return "WDT_DACCVIOL";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.Munstkerr")
+    {
+        return "WDT_MUNSTKERR";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.Mstkerr")
+    {
+        return "WDT_MSTKERR";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.MMFarValid")
+    {
+        return "WDT_MMARVALID";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.BFarValid")
+    {
+        return "WDT_BFARVALID";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.Stkerr")
+    {
+        return "WDT_STKERR";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.Unstkerr")
+    {
+        return "WDT_UNSTKERR";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.ImpreciseError")
+    {
+        return "WDT_IMPRECISEERR";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.PreciseError")
+    {
+        return "WDT_PRECISERR";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.IBusErr")
+    {
+        return "WDT_IBUSERR";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.UndefInstr")
+    {
+        return "WDT_UNDEFINSTR";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.InvState")
+    {
+        return "WDT_INVSTATE";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.InvPC")
+    {
+        return "WDT_INVPC";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.NoCP")
+    {
+        return "WDT_NOCP";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.Unaligned")
+    {
+        return "WDT_UNALIGNED";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.DevByZero")
+    {
+        return "WDT_DIVBYZERO";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.VectTbl")
+    {
+        return "WDT_VECTTBL";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.Forced")
+    {
+        return "WDT_FORCED";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.DebugEvt")
+    {
+        return "WDT_DEBUGEVT";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.MCTP")
+    {
+        return "WDT_MCTP";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.I2C")
+    {
+        return "WDT_I2C";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.I3C")
+    {
+        return "WDT_I3C";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.PLDM")
+    {
+        return "WDT_PLDM";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.USB")
+    {
+        return "WDT_USB";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.Flash")
+    {
+        return "WDT_Flash";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.Logger")
+    {
+        return "WDT_Logger";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.SPDM")
+    {
+        return "WDT_SPDM";
+    }
 
     return "";
 }
@@ -513,7 +653,7 @@ inline void getResetStatistics(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             return;
         }
         aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaChassis.v1_10_0.NvidiaSMAChassis";
+            "#NvidiaChassis.v1_11_0.NvidiaSMAChassis";
 
         for (const std::string& resetObjPath : *data)
         {
