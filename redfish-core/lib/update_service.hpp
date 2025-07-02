@@ -151,6 +151,8 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
         interfacesProperties;
     sdbusplus::message::object_path objPath;
     m.read(objPath, interfacesProperties);
+    const std::unordered_map<std::string, std::string>* additionalData =
+        nullptr;
     for (auto interface : interfacesProperties)
     {
         if (interface.first == "xyz.openbmc_project.Logging.Entry")
@@ -159,29 +161,31 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
             std::string resolution;
             std::string messageNamespace;
             std::vector<std::string> rfArgs;
-            const std::vector<std::string>* vData = nullptr;
             for (auto& propertyMap : interface.second)
             {
                 if (propertyMap.first == "AdditionalData")
                 {
-                    vData = std::get_if<std::vector<std::string>>(
+                    additionalData = std::get_if<
+                        std::unordered_map<std::string, std::string>>(
                         &propertyMap.second);
 
-                    for (const auto& kv : *vData)
+                    if (additionalData != nullptr)
                     {
-                        std::vector<std::string> fields;
-                        bmcweb::split(fields, kv, '=');
-                        if (fields[0] == "REDFISH_MESSAGE_ID")
+                        redfish::AdditionalData additional(*additionalData);
+
+                        if (additional.count("REDFISH_MESSAGE_ID") > 0)
                         {
-                            rfMessage = fields[1];
+                            rfMessage = additional["REDFISH_MESSAGE_ID"];
                         }
-                        else if (fields[0] == "REDFISH_MESSAGE_ARGS")
+                        if (additional.count("REDFISH_MESSAGE_ARGS") > 0)
                         {
-                            bmcweb::split(rfArgs, fields[1], ',');
+                            bmcweb::split(rfArgs,
+                                          additional["REDFISH_MESSAGE_ARGS"],
+                                          ',');
                         }
-                        else if (fields[0] == "namespace")
+                        if (additional.count("namespace") > 0)
                         {
-                            messageNamespace = fields[1];
+                            messageNamespace = additional["namespace"];
                         }
                     }
                 }
@@ -198,7 +202,7 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
             /* we need to have found the id, data, this image needs to
                correspond to the image we are working with right now and the
                message should be update related */
-            if (vData == nullptr || messageNamespace != "FWUpdate")
+            if (additionalData == nullptr || messageNamespace != "FWUpdate")
             {
                 // something is invalid
                 BMCWEB_LOG_DEBUG("Got invalid log message");

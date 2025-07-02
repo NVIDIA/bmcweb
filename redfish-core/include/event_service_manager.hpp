@@ -14,7 +14,6 @@
 #include "io_context_singleton.hpp"
 #include "logging.hpp"
 #include "metric_report.hpp"
-#include "nvidia_dbus_log_watcher.hpp"
 #include "nvidia_event_service_manager.hpp"
 #include "ossl_random.hpp"
 #include "persistent_data.hpp"
@@ -66,7 +65,6 @@ class EventServiceManager
     size_t noOfEventLogSubscribers{0};
     size_t noOfMetricReportSubscribers{0};
     std::optional<DbusEventLogMonitor> dbusEventLogMonitor;
-    std::optional<NvDbusEventLogMonitor> nvDbusEventLogMonitor;
     std::optional<DbusTelemetryMonitor> matchTelemetryMonitor;
     std::optional<FilesystemLogWatcher> filesystemLogMonitor;
     boost::container::flat_map<std::string, std::shared_ptr<Subscription>>
@@ -296,14 +294,6 @@ class EventServiceManager
                             dbusEventLogMonitor.emplace();
                         }
                     }
-
-                    if (!nvDbusEventLogMonitor)
-                    {
-                        if constexpr (BMCWEB_NVIDIA_DBUS_LOG_WATCH)
-                        {
-                            nvDbusEventLogMonitor.emplace();
-                        }
-                    }
                 }
                 else
                 {
@@ -316,7 +306,6 @@ class EventServiceManager
             else
             {
                 dbusEventLogMonitor.reset();
-                nvDbusEventLogMonitor.reset();
                 filesystemLogMonitor.reset();
             }
 
@@ -336,7 +325,6 @@ class EventServiceManager
         {
             matchTelemetryMonitor.reset();
             dbusEventLogMonitor.reset();
-            nvDbusEventLogMonitor.reset();
             filesystemLogMonitor.reset();
         }
 
@@ -431,10 +419,6 @@ class EventServiceManager
                 {
                     dbusEventLogMonitor.emplace();
                 }
-                if (!nvDbusEventLogMonitor && BMCWEB_NVIDIA_DBUS_LOG_WATCH)
-                {
-                    nvDbusEventLogMonitor.emplace();
-                }
             }
             else
             {
@@ -447,7 +431,6 @@ class EventServiceManager
         else
         {
             dbusEventLogMonitor.reset();
-            nvDbusEventLogMonitor.reset();
             filesystemLogMonitor.reset();
         }
 

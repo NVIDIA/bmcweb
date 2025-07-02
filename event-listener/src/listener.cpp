@@ -69,7 +69,7 @@ class redfishEventMgr
         int64_t timestamp = 0;
         Level severity = Level::Informational;
         std::string msg;
-        std::vector<std::string> additionalData;
+        std::unordered_map<std::string, std::string> additionalData;
         std::string aData;
         std::string resolution;
         std::string path = entryNameIn + "/" + std::to_string(evtIndex);
@@ -92,18 +92,17 @@ class redfishEventMgr
             if (evt.contains("MessageId"))
             {
                 msg = evt["MessageId"];
-                additionalData.push_back("REDFISH_MESSAGE_ID=" + msg);
+                additionalData["REDFISH_MESSAGE_ID"] = msg;
             }
             std::string ooc;
             if (evt.contains("OriginOfCondition"))
             {
                 ooc = evt["OriginOfCondition"]["@odata.id"];
-                aData = "REDFISH_ORIGIN_OF_CONDITION=" + ooc;
-                additionalData.push_back(aData);
+                additionalData["REDFISH_ORIGIN_OF_CONDITION"] = ooc;
             }
             if (evt.contains("MessageArgs"))
             {
-                std::string argStr = "REDFISH_MESSAGE_ARGS=";
+                std::string argStr;
                 uint16_t counter = 0;
                 for (auto arg : evt["MessageArgs"])
                 {
@@ -114,14 +113,13 @@ class redfishEventMgr
                     argStr += arg;
                     counter++;
                 }
-                additionalData.push_back(argStr);
+                additionalData["REDFISH_MESSAGE_ARGS"] = argStr;
             }
 
             if (evt.contains("LogEntry"))
             {
-                std::string logStr = "REDFISH_LOGENTRY=";
-                logStr += evt["LogEntry"]["@odata.id"];
-                additionalData.push_back(logStr);
+                std::string logStr = evt["LogEntry"]["@odata.id"];
+                additionalData["REDFISH_LOGENTRY"] = logStr;
             }
 
             if (evt.contains("MessageSeverity"))

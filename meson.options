@@ -182,7 +182,7 @@ option(
 option(
     'experimental-redfish-dbus-log-subscription',
     type: 'feature',
-    value: 'disabled',
+    value: 'enabled',
     description: '''
         Allows EventService subscriptions when the redfish-dbus-log option is
         enabled.
@@ -1197,9 +1197,9 @@ option(
                     system dumps are served as raw binary data.''',
 )
 
-# BMCWEB_NVIDIA_DBUS_LOG_WATCH
+# BMCWEB_NVIDIA_REDFISH_EVENT_SUPPORT
 option(
-    'nvidia-dbus-log-watch',
+    'nvidia-redfish-event-support',
     type: 'feature',
     value: 'enabled',
     description: 'nvidia Dbus log entry handling implementation',

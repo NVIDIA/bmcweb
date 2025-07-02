@@ -533,16 +533,7 @@ inline void dBusEventLogEntryGetAdditionalInfo(
 
     if (!entry.AdditionalData.empty())
     {
-        std::vector<std::string> additionalDataVec;
-        additionalDataVec.reserve(entry.AdditionalData.size());
-        for (const auto& [key, value] : entry.AdditionalData)
-        {
-            std::string additionalEntry = key;
-            additionalEntry += "=";
-            additionalEntry += value;
-            additionalDataVec.emplace_back(std::move(additionalEntry));
-        }
-        AdditionalData additional(additionalDataVec);
+        AdditionalData additional(entry.AdditionalData);
         if (additional.count("REDFISH_MESSAGE_ID") > 0)
         {
             isMessageRegistry = true;

@@ -382,7 +382,6 @@ srcfiles_bmcweb = files(
     'redfish-core/src/filter_expr_executor.cpp',
     'redfish-core/src/filter_expr_printer.cpp',
     'redfish-core/src/heartbeat_messages.cpp',
-    'redfish-core/src/nvidia_dbus_log_watcher.cpp',
     'redfish-core/src/redfish.cpp',
     'redfish-core/src/registries.cpp',
     'redfish-core/src/resource_messages.cpp',

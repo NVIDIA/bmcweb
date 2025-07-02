@@ -23,7 +23,6 @@
 
 #include "str_utility.hpp"
 
-#include <map>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -89,7 +88,7 @@ class AdditionalData
     }
 
     static void convert(const std::vector<std::string>& additionalData,
-                        std::map<std::string, std::string>& data,
+                        std::unordered_map<std::string, std::string>& data,
                         const SameKeyOp& op)
     {
         for (const auto& kv : additionalData)
@@ -125,17 +124,17 @@ class AdditionalData
         return data.count(key);
     }
 
-    std::map<std::string, std::string>::const_iterator begin() const
+    std::unordered_map<std::string, std::string>::const_iterator begin() const
     {
         return data.cbegin();
     }
 
-    std::map<std::string, std::string>::const_iterator end() const
+    std::unordered_map<std::string, std::string>::const_iterator end() const
     {
         return data.cend();
     }
 
-    std::map<std::string, std::string>::const_iterator find(
+    std::unordered_map<std::string, std::string>::const_iterator find(
         const std::string& key) const
     {
         return data.find(key);
@@ -147,6 +146,6 @@ class AdditionalData
     }
 
   protected:
-    std::map<std::string, std::string> data;
+    std::unordered_map<std::string, std::string> data;
 };
 } // namespace redfish
