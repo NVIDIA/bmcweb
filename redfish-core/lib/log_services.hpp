@@ -2006,6 +2006,28 @@ inline void precheckOemDiagDataTypeAndCreateDump(
             isValid =
                 std::find(oemAllowableValues.begin(), oemAllowableValues.end(),
                           *oemDiagnosticDataType) != oemAllowableValues.end();
+
+            if (!isValid)
+            {
+                auto additionalData =
+                    parseOEMAdditionalData(*oemDiagnosticDataType);
+                for (const auto& [type, value] : additionalData)
+                {
+                    if (type == "DiagnosticType")
+                    {
+                        const std::string* oemDiagType =
+                            std::get_if<std::string>(&value);
+                        if (oemDiagType && *oemDiagType == "RetRegister")
+                        {
+                            isValid = std::find(oemAllowableValues.begin(),
+                                                oemAllowableValues.end(),
+                                                "DiagnosticType=RetRegister") !=
+                                      oemAllowableValues.end();
+                            break;
+                        }
+                    }
+                }
+            }
         }
         else if (dumpType == "FDR")
         {
