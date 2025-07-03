@@ -1912,6 +1912,7 @@ inline void
     {
         jsonResponse["LinkStatus"] = ethData.linkUp ? "LinkUp" : "LinkDown";
         jsonResponse["Status"]["State"] = "Enabled";
+        jsonResponse["Status"]["Health"] = "OK";
     }
     else
     {
