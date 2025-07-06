@@ -16,17 +16,17 @@
  */
 
 #pragma once
-#include "logging.hpp"
-#include "utils/dbus_utils.hpp"
-#include "utils/json_utils.hpp"
-#include "utils/nvidia_async_call_utils.hpp"
+
 #include "utils/nvidia_async_set_callbacks.hpp"
-#include "utils/nvidia_async_set_utils.hpp"
+
+#include <utils/nvidia_async_set_utils.hpp>
+
 namespace redfish
 {
 namespace nvidia_control_utils
 {
-static const std::map<std::string, std::string> clockLimitModes = {
+
+static std::map<std::string, std::string> clockLimitModes = {
     {"com.nvidia.ClockMode.Mode.MaximumPerformance", "Automatic"},
     {"com.nvidia.ClockMode.Mode.OEM", "Override"},
     {"com.nvidia.ClockMode.Mode.PowerSaving", "Manual"},
@@ -40,7 +40,7 @@ inline void getClockLimitControlObjects(
     members = nlohmann::json::array();
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisID,
-         &members](const boost::system::error_code&,
+         &members](const boost::system::error_code,
                    std::variant<std::vector<std::string>>& resp) {
             std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
@@ -68,7 +68,7 @@ inline void getChassisClockLimit(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, path](
-            const boost::system::error_code& errorno,
+            const boost::system::error_code errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) {
             if (errorno)
@@ -91,22 +91,26 @@ inline void getChassisClockLimit(
                     {
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, path, interface](
-                                const boost::system::error_code& erroCode,
+                                const boost::system::error_code errorno2,
                                 const std::vector<std::pair<
                                     std::string,
-                                    std::variant<uint32_t, std::string>>>&
+                                    std::variant<
+                                        uint32_t, std::string,
+                                        std::tuple<uint32_t, uint32_t>>>>&
                                     propertiesList) {
-                                if (erroCode)
+                                if (errorno2)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "ObjectMapper::GetObject call failed:{}",
-                                        erroCode);
+                                        errorno2);
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
                                 for (const std::pair<
                                          std::string,
-                                         std::variant<uint32_t, std::string>>&
+                                         std::variant<
+                                             uint32_t, std::string,
+                                             std::tuple<uint32_t, uint32_t>>>&
                                          property : propertiesList)
                                 {
                                     std::string propertyName = property.first;
@@ -128,7 +132,7 @@ inline void getChassisClockLimit(
                                             *value;
                                         continue;
                                     }
-                                    if (propertyName == "MinSpeed")
+                                    else if (propertyName == "MinSpeed")
                                     {
                                         propertyName = "AllowableMin";
                                         const uint32_t* value =
@@ -146,45 +150,28 @@ inline void getChassisClockLimit(
                                             *value;
                                         continue;
                                     }
-                                    if (propertyName ==
-                                        "RequestedSpeedLimitMax")
+                                    else if (propertyName ==
+                                             "RequestedSpeedLimits")
                                     {
-                                        propertyName = "SettingMax";
-                                        const uint32_t* value =
-                                            std::get_if<uint32_t>(
+                                        const std::tuple<uint32_t, uint32_t>*
+                                            value = std::get_if<
+                                                std::tuple<uint32_t, uint32_t>>(
                                                 &property.second);
                                         if (value == nullptr)
                                         {
                                             BMCWEB_LOG_ERROR(
-                                                "Internal errror for SettingMax");
+                                                "Internal errror for RequestedSpeedLimits");
                                             messages::internalError(
                                                 asyncResp->res);
                                             return;
                                         }
-                                        asyncResp->res.jsonValue[propertyName] =
-                                            *value;
+                                        asyncResp->res.jsonValue["SettingMin"] =
+                                            std::get<0>(*value);
+                                        asyncResp->res.jsonValue["SettingMax"] =
+                                            std::get<1>(*value);
                                         continue;
                                     }
-                                    if (propertyName ==
-                                        "RequestedSpeedLimitMin")
-                                    {
-                                        propertyName = "SettingMin";
-                                        const uint32_t* value =
-                                            std::get_if<uint32_t>(
-                                                &property.second);
-                                        if (value == nullptr)
-                                        {
-                                            BMCWEB_LOG_ERROR(
-                                                "Internal errror for SettingMin");
-                                            messages::internalError(
-                                                asyncResp->res);
-                                            return;
-                                        }
-                                        asyncResp->res.jsonValue[propertyName] =
-                                            *value;
-                                        continue;
-                                    }
-                                    if (propertyName == "PhysicalContext")
+                                    else if (propertyName == "PhysicalContext")
                                     {
                                         const std::string* physicalcontext =
                                             std::get_if<std::string>(
@@ -195,19 +182,21 @@ inline void getChassisClockLimit(
                                                     *physicalcontext);
                                         continue;
                                     }
-                                    if (propertyName == "ClockMode")
+                                    else if (propertyName == "ClockMode")
                                     {
                                         propertyName = "ControlMode";
                                         const std::string* mode =
                                             std::get_if<std::string>(
                                                 &property.second);
-                                        for (const auto& itr : clockLimitModes)
+                                        std::map<std::string,
+                                                 std::string>::iterator itr;
+                                        for (auto& itr1 : clockLimitModes)
                                         {
-                                            if (*mode == itr.first)
+                                            if (*mode == itr1.first)
                                             {
                                                 asyncResp->res
                                                     .jsonValue[propertyName] =
-                                                    itr.second;
+                                                    itr1.second;
                                                 break;
                                             }
                                         }
@@ -249,7 +238,7 @@ inline void getClockLimitControl(
         "/redfish/v1/Chassis/" + chassisID + "/Controls/" + controlID;
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisID, controlID, validChassisPath,
-         processorName](const boost::system::error_code& ec,
+         processorName](const boost::system::error_code ec,
                         std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -276,10 +265,7 @@ inline void getClockLimitControl(
                 if (objPath.filename() == controlID)
                 {
                     asyncResp->res.jsonValue["Name"] =
-                        std::string("Control for ")
-                            .append(processorName)
-                            .append(" ")
-                            .append(controlID);
+                        "Control for " + processorName + " " + controlID;
                     asyncResp->res.jsonValue["ControlType"] = "FrequencyMHz";
                     asyncResp->res.jsonValue["Status"]["Health"] = "OK";
                     asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
@@ -287,19 +273,16 @@ inline void getClockLimitControl(
                         asyncResp->res.jsonValue["RelatedItem"];
                     relatedItemsArray = nlohmann::json::array();
                     relatedItemsArray.push_back(
-                        {{"@odata.id", std::string("/redfish/v1/Systems/")
-                                           .append(chassisID)
-                                           .append("/Processors/")
-                                           .append(processorName)}});
+                        {{"@odata.id",
+                          "/redfish/v1/Systems/" +
+                              std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                              "/Processors/" + processorName}});
 
                     asyncResp->res
                         .jsonValue["Actions"]["#Control.ResetToDefaults"]
                                   ["target"] =
-                        std::string("/redfish/v1/Chassis/")
-                            .append(chassisID)
-                            .append("/Controls/")
-                            .append(controlID)
-                            .append("/Actions/Control.ResetToDefaults");
+                        "/redfish/v1/Chassis/" + chassisID + "/Controls/" +
+                        controlID + "/Actions/Control.ResetToDefaults";
                     redfish::nvidia_control_utils::getChassisClockLimit(
                         asyncResp, object, *validChassisPath);
                     validendpoint = true;
@@ -321,7 +304,8 @@ inline void getClockLimitControl(
 
 inline void changeClockLimitControl(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& path, const uint32_t& value,
+    const std::string& path,
+    const std::variant<uint32_t, std::tuple<uint32_t, uint32_t>>& value,
     const std::string& patchProp)
 {
     crow::connections::systemBus->async_method_call(
@@ -338,25 +322,59 @@ inline void changeClockLimitControl(
             }
             for (const auto& element : objInfo)
             {
-                if (patchProp == "SettingMin")
-
+                if (patchProp == "SettingRange")
                 {
+                    const std::tuple<uint32_t, uint32_t>* requestedLimit =
+                        std::get_if<std::tuple<uint32_t, uint32_t>>(&value);
+                    std::vector<std::tuple<std::string, uint32_t>> clockLimits;
+                    clockLimits.push_back(std::make_tuple(
+                        "SettingMin", std::get<0>(*requestedLimit)));
+                    clockLimits.push_back(std::make_tuple(
+                        "SettingMax", std::get<1>(*requestedLimit)));
                     nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
                         asyncResp, std::chrono::seconds(60), element.first,
                         path,
                         "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig",
-                        "RequestedSpeedLimitMin", std::variant<uint32_t>(value),
+                        "RequestedSpeedLimits",
+                        std::variant<
+                            std::vector<std::tuple<std::string, uint32_t>>>(
+                            clockLimits),
+                        nvidia_async_operation_utils::
+                            PatchClockLimitControlCallback{asyncResp});
+                }
+                else if (patchProp == "SettingMin")
+
+                {
+                    const uint32_t* settingMin = std::get_if<uint32_t>(&value);
+                    std::vector<std::tuple<std::string, uint32_t>> clockLimits;
+                    clockLimits.push_back(
+                        std::make_tuple("SettingMin", *settingMin));
+                    nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
+                        asyncResp, std::chrono::seconds(60), element.first,
+                        path,
+                        "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig",
+                        "RequestedSpeedLimits",
+                        std::variant<
+                            std::vector<std::tuple<std::string, uint32_t>>>(
+                            clockLimits),
                         nvidia_async_operation_utils::
                             PatchClockLimitControlCallback{asyncResp});
                 }
                 else if (patchProp == "SettingMax")
 
                 {
+                    const uint32_t* settingMax = std::get_if<uint32_t>(&value);
+                    std::vector<std::tuple<std::string, uint32_t>> clockLimits;
+                    clockLimits.push_back(
+                        std::make_tuple("SettingMax", *settingMax));
                     nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
                         asyncResp, std::chrono::seconds(60), element.first,
                         path,
                         "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig",
-                        "RequestedSpeedLimitMax", std::variant<uint32_t>(value),
+                        "RequestedSpeedLimits",
+                        std::variant<
+                            std::vector<std::tuple<std::string, uint32_t>>>(
+                            clockLimits),
                         nvidia_async_operation_utils::
                             PatchClockLimitControlCallback{asyncResp});
                 }
@@ -384,7 +402,7 @@ inline void patchClockLimitControl(
     }
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisID, controlID, validChassisPath, processorName,
-         req](const boost::system::error_code& ec,
+         req](const boost::system::error_code ec,
               std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -418,14 +436,23 @@ inline void patchClockLimitControl(
                 sdbusplus::message::object_path objPath(object);
                 if (objPath.filename() == controlID)
                 {
-                    if (settingMin)
+                    if (settingMin && settingMax)
                     {
-                        changeClockLimitControl(asyncResp, object, *settingMin,
+                        std::tuple<uint32_t, uint32_t> value(*settingMin,
+                                                             *settingMax);
+                        changeClockLimitControl(asyncResp, object, value,
+                                                "SettingRange");
+                    }
+                    else if (settingMin)
+                    {
+                        uint32_t value = *settingMin;
+                        changeClockLimitControl(asyncResp, object, value,
                                                 "SettingMin");
                     }
                     else if (settingMax)
                     {
-                        changeClockLimitControl(asyncResp, object, *settingMax,
+                        uint32_t value = *settingMax;
+                        changeClockLimitControl(asyncResp, object, value,
                                                 "SettingMax");
                     }
                     validendpoint = true;
@@ -506,7 +533,7 @@ inline void postClockLimitControl(
     }
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisID, controlID,
-         validChassisPath](const boost::system::error_code& ec,
+         validChassisPath](const boost::system::error_code ec,
                            std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -526,11 +553,11 @@ inline void postClockLimitControl(
                 return;
             }
 
-            for (const auto& sensorpath : *data)
+            for (auto sensorpath : *data)
             {
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, sensorpath](
-                        const boost::system::error_code& ec1,
+                        const boost::system::error_code ec1,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
                         if (ec1)
@@ -542,7 +569,7 @@ inline void postClockLimitControl(
                                 sensorpath);
                             return;
                         }
-                        for (const auto& [connection, interfaces] : object)
+                        for (auto [connection, interfaces] : object)
                         {
                             resetClockLimitControl(asyncResp, connection,
                                                    sensorpath);
@@ -572,18 +599,17 @@ inline void getControlSettingRelatedItems(
 
 inline void getControlCpuObjects(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const auto& getControlCpu,
+    const auto getControlCpu,
     const std::optional<std::string>& validChassisPath)
 {
     // Get the Processors Associations to cover all processors' cases,
     // to ensure the object has `all_processors` and go ahead.
     sdbusplus::asio::getProperty<std::vector<std::string>>(
         *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
-        // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
         *validChassisPath + "/all_processors",
         "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, getControlCpu,
-         validChassisPath](const boost::system::error_code& ec,
+         validChassisPath](const boost::system::error_code ec,
                            const std::vector<std::string>& resp) {
             std::string objPath;
             if (ec)
@@ -598,7 +624,7 @@ inline void getControlCpuObjects(
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp, getControlCpu, objPath, validChassisPath](
-                    const boost::system::error_code& ec1,
+                    const boost::system::error_code ec1,
                     const dbus::utility::MapperGetObject& objType) {
                     if (ec1 || objType.empty())
                     {

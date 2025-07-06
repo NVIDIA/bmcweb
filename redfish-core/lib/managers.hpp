@@ -10,13 +10,17 @@
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
+#include "event_service_manager.hpp"
 #include "generated/enums/action_info.hpp"
 #include "generated/enums/manager.hpp"
 #include "generated/enums/resource.hpp"
+#include "health.hpp"
 #include "http_request.hpp"
 #include "logging.hpp"
 #include "nvidia_managers.hpp"
+#include "nvidia_oem_managers_pmc.hpp"
 #include "persistent_data.hpp"
+#include "persistentstorage_util.hpp"
 #include "query.hpp"
 #include "redfish.hpp"
 #include "redfish_util.hpp"
@@ -180,6 +184,17 @@ inline void requestRoutesManagerResetAction(App& app)
                 if constexpr (BMCWEB_REDFISH_DBUS_LOG)
                 {
                     sendRestartEvent(req, resetType);
+                    if (resetType == "GracefulRestart" ||
+                        resetType == "ForceRestart" ||
+                        resetType == "GracefulShutdown")
+                    {
+                        // Send an event for Manager Reset
+                        NvEvent event = redfish::EventUtil::getInstance()
+                                            .createEventRebootReason(
+                                                "ManagerReset", "Managers");
+                        redfish::EventServiceManager::getInstance()
+                            .sendEventWithOOC(std::string(req.target()), event);
+                    }
                 }
 
                 if (resetType == "GracefulRestart")
@@ -252,6 +267,15 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
 
             std::optional<std::string> resetType;
             std::optional<std::string> resetToDefaultsType;
+            if constexpr (BMCWEB_REDFISH_DBUS_LOG)
+            {
+                // Send an event for reset to defaults
+                NvEvent event =
+                    redfish::EventUtil::getInstance().createEventRebootReason(
+                        "FactoryReset", "Managers");
+                redfish::EventServiceManager::getInstance().sendEventWithOOC(
+                    std::string(req.target()), event);
+            }
 
             if (!json_util::readJsonAction(                     //
                     req, asyncResp->res,                        //
@@ -602,7 +626,8 @@ inline void checkForQuiesced(
             asyncResp->res.jsonValue["Status"]["State"] =
                 resource::State::Enabled;
             // Nvidia override for State property
-            nvidia_manager_util::getOemReadyState(asyncResp);
+            nvidia_manager_util::getOemReadyState(
+                asyncResp, std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
         });
 }
 

@@ -120,6 +120,102 @@ struct MemoryFileDescriptor
     }
 };
 
+/**
+ * @brief A session for asynchronously writing image data to a file.
+ *
+ * This struct manages the asynchronous writing of image data to a specified
+ * file path using Boost.Asio. It handles writing data in chunks and ensures
+ * that the file is properly closed upon completion or error.
+ */
+struct AsyncImageWriteSession :
+    public std::enable_shared_from_this<AsyncImageWriteSession>
+{
+    /**
+     * @brief Constructs an AsyncImageWriteSession.
+     *
+     * @param asyncRespIn A shared pointer to the asynchronous response object.
+     * @param streamIn A shared pointer to the Boost.Asio stream descriptor.
+     * @param filepathIn The file path where the image data will be written.
+     * @param dataRefIn A reference to the string containing the image data.
+     * @param sharedReqIn An optional shared pointer to the request object.
+     */
+    AsyncImageWriteSession(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
+        std::shared_ptr<boost::asio::posix::stream_descriptor> streamIn,
+        const std::filesystem::path& filepathIn, const std::string& dataRefIn,
+        std::shared_ptr<const crow::Request> sharedReqIn = nullptr) :
+        asyncResp(asyncRespIn), stream(std::move(streamIn)),
+        filepath(filepathIn), dataRef(dataRefIn),
+        sharedReq(std::move(sharedReqIn))
+    {}
+
+    /**
+     * @brief Starts the asynchronous write operation.
+     *
+     * Initiates the process of writing the image data to the file in chunks.
+     */
+    void start()
+    {
+        writeChunk(0);
+    }
+
+  private:
+    /**
+     * @brief Writes a chunk of data to the file.
+     *
+     * @param offset The current offset in the data to start writing from.
+     */
+    void writeChunk(std::size_t offset)
+    {
+        if (offset >= dataRef.size())
+        {
+            boost::system::error_code ec;
+            stream->close(ec);
+            BMCWEB_LOG_INFO("Finished writing file to {}", filepath.string());
+            return;
+        }
+
+        static constexpr std::size_t CHUNK_SIZE = 8192;
+        const std::size_t bytesToWrite =
+            std::min(CHUNK_SIZE, dataRef.size() - offset);
+
+        std::string_view dataRefView{dataRef};
+        std::string_view chunk = dataRefView.substr(offset, bytesToWrite);
+
+        auto buffer = boost::asio::buffer(chunk.data(), chunk.size());
+
+        auto self = shared_from_this();
+        boost::asio::async_write(
+            *stream, buffer,
+            [self, offset,
+             bytesToWrite](const boost::system::error_code& ec,
+                           std::size_t /*bytesTransferred*/) mutable {
+                if (!ec)
+                {
+                    const std::size_t newOffset = offset + bytesToWrite;
+                    BMCWEB_LOG_DEBUG("Wrote {} bytes [offset={}] to {}",
+                                     bytesToWrite, newOffset,
+                                     self->filepath.string());
+                    self->writeChunk(newOffset);
+                }
+                else
+                {
+                    BMCWEB_LOG_ERROR("Write error on {}: {}",
+                                     self->filepath.string(), ec.message());
+                    boost::system::error_code closeEc;
+                    self->stream->close(closeEc);
+                    messages::internalError(self->asyncResp->res);
+                }
+            });
+    }
+
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp;
+    std::shared_ptr<boost::asio::posix::stream_descriptor> stream;
+    std::filesystem::path filepath;
+    const std::string& dataRef;
+    std::shared_ptr<const crow::Request> sharedReq;
+};
+
 inline void cleanUp()
 {
     fwUpdateInProgress = false;
@@ -1143,12 +1239,12 @@ inline bool preCheckMultipartUpdateServiceReq(
         if (asyncResp)
         {
             BMCWEB_LOG_ERROR("Large image size: {}", req.body().size());
-            // std::string resolution =
-            //     "Firmware package size is greater than allowed "
-            //     "size. Make sure package size is less than "
-            //     "UpdateService.MaxImageSizeBytes property and "
-            //     "retry the firmware update operation.";
-            messages::payloadTooLarge(asyncResp->res);
+            std::string resolution =
+                "Firmware package size is greater than allowed "
+                "size. Make sure package size is less than "
+                "UpdateService.MaxImageSizeBytes property and "
+                "retry the firmware update operation.";
+            messages::payloadTooLarge(asyncResp->res, resolution);
         }
         return false;
     }

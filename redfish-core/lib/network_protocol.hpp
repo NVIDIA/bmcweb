@@ -13,11 +13,11 @@
 #include "generated/enums/resource.hpp"
 #include "http_request.hpp"
 #include "logging.hpp"
+#include "nvidia_rsyslog_utils.hpp"
 #include "privileges.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
-#include "rsyslog_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/stl_utils.hpp"
@@ -592,50 +592,52 @@ inline void handleManagersNetworkProtocolPatch(
         return;
     }
 
-    if (ntpEnabled)
+    if constexpr (BMCWEB_NTP)
     {
-        handleNTPProtocolEnabled(asyncResp, *ntpEnabled);
-    }
-    if (ntpServerObjects)
-    {
-        getEthernetIfaceData(
-            [asyncResp, ntpServerObjects](
-                const bool success, std::vector<std::string>& currentNtpServers,
-                const std::vector<std::string>& /*dynamicNtpServers*/,
-                const std::vector<std::string>& /*domainNames*/) {
-                if (!success)
-                {
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                handleNTPServersPatch(asyncResp, *ntpServerObjects,
-                                      std::move(currentNtpServers));
-            });
-    }
-
-    if (ipmiEnabled)
-    {
-        handleProtocolEnabled(
-            *ipmiEnabled, asyncResp,
-            encodeServiceObjectPath(std::string(ipmiServiceName) + '@'));
+        if (ntpEnabled)
+        {
+            handleNTPProtocolEnabled(asyncResp, *ntpEnabled);
+        }
+        if (ntpServerObjects)
+        {
+            getEthernetIfaceData(
+                [asyncResp, ntpServerObjects](
+                    const bool success,
+                    std::vector<std::string>& currentNtpServers,
+                    const std::vector<std::string>& /*dynamicNtpServers*/,
+                    const std::vector<std::string>& /*domainNames*/) {
+                    if (!success)
+                    {
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    handleNTPServersPatch(asyncResp, *ntpServerObjects,
+                                          std::move(currentNtpServers));
+                });
+        }
     }
 
-    if (sshEnabled)
+    if constexpr (BMCWEB_IPMI)
     {
-        handleProtocolEnabled(*sshEnabled, asyncResp,
-                              encodeServiceObjectPath(sshServiceName));
+        if (ipmiEnabled)
+        {
+            handleProtocolEnabled(
+                *ipmiEnabled, asyncResp,
+                encodeServiceObjectPath(std::string(ipmiServiceName) + '@'));
+        }
     }
+
+    if constexpr (BMCWEB_PATCH_SSH)
+    {
+        if (sshEnabled)
+        {
+            handleProtocolEnabled(*sshEnabled, asyncResp,
+                                  encodeServiceObjectPath(sshServiceName));
+        }
+    }
+
     if constexpr (BMCWEB_RSYSLOG_CLIENT)
     {
-        // Call the function to process the settings
-        if (!redfish::rsyslog::sanityCheck(*address, port))
-        {
-            BMCWEB_LOG_ERROR("Invalid Ip or Port");
-            std::string err = *address + ":" + std::to_string(*port);
-            messages::propertyValueIncorrect(asyncResp->res, "Address or Port",
-                                             err);
-            return;
-        }
         redfish::rsyslog::processRsyslogClientSettings(
             asyncResp, address, port, state, tls, facility, severity, protocol);
     }

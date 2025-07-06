@@ -13,10 +13,11 @@
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
+#include "nvidia_error_messages.hpp"
 #include "privileges.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
-#include "utility.hpp"
+#include "utils/certificate_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/time_utils.hpp"
@@ -179,70 +180,6 @@ class CertificateFile
 };
 
 /**
- * @brief Parse and update Certificate Issue/Subject property
- *
- * @param[in] asyncResp Shared pointer to the response message
- * @param[in] str  Issuer/Subject value in key=value pairs
- * @param[in] type Issuer/Subject
- * @return None
- */
-inline void updateCertIssuerOrSubject(nlohmann::json& out,
-                                      std::string_view value)
-{
-    // example: O=openbmc-project.xyz,CN=localhost
-    std::string_view::iterator i = value.begin();
-    while (i != value.end())
-    {
-        std::string_view::iterator tokenBegin = i;
-        while (i != value.end() && *i != '=')
-        {
-            std::advance(i, 1);
-        }
-        if (i == value.end())
-        {
-            break;
-        }
-        std::string_view key(tokenBegin, static_cast<size_t>(i - tokenBegin));
-        std::advance(i, 1);
-        tokenBegin = i;
-        while (i != value.end() && *i != ',')
-        {
-            std::advance(i, 1);
-        }
-        std::string_view val(tokenBegin, static_cast<size_t>(i - tokenBegin));
-        if (key == "L")
-        {
-            out["City"] = val;
-        }
-        else if (key == "CN")
-        {
-            out["CommonName"] = val;
-        }
-        else if (key == "C")
-        {
-            out["Country"] = val;
-        }
-        else if (key == "O")
-        {
-            out["Organization"] = val;
-        }
-        else if (key == "OU")
-        {
-            out["OrganizationalUnit"] = val;
-        }
-        else if (key == "ST")
-        {
-            out["State"] = val;
-        }
-        // skip comma character
-        if (i != value.end())
-        {
-            std::advance(i, 1);
-        }
-    }
-}
-
-/**
  * @brief Retrieve the installed certificate list
  *
  * @param[in] asyncResp Shared pointer to the response message
@@ -389,14 +326,14 @@ inline void getCertificateProperties(
 
             if (issuer != nullptr)
             {
-                updateCertIssuerOrSubject(asyncResp->res.jsonValue["Issuer"],
-                                          *issuer);
+                cert_utils::updateCertIssuerOrSubject(
+                    asyncResp->res.jsonValue["Issuer"], *issuer);
             }
 
             if (subject != nullptr)
             {
-                updateCertIssuerOrSubject(asyncResp->res.jsonValue["Subject"],
-                                          *subject);
+                cert_utils::updateCertIssuerOrSubject(
+                    asyncResp->res.jsonValue["Subject"], *subject);
             }
 
             if (validNotAfter != nullptr)
@@ -503,8 +440,25 @@ inline void handleCertificateLocationsGet(
                        "/Links/Certificates@odata.count"_json_pointer);
 }
 
+inline std::string readFailureReason(sdbusplus::message::message& m)
+{
+    // Attempt to extract the reason from the error message
+    std::string reason;
+    try
+    {
+        m.read(reason);
+    }
+    catch (const std::exception& e)
+    {
+        BMCWEB_LOG_DEBUG("Failed to read the reason from the error message={}",
+                         e.what());
+    }
+    return reason;
+}
+
 inline void handleError(const std::string_view dbusErrorName,
                         const std::string& id, const std::string& certificate,
+                        const std::string& reason,
                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     if (dbusErrorName == "org.freedesktop.DBus.Error.UnknownObject")
@@ -516,6 +470,11 @@ inline void handleError(const std::string_view dbusErrorName,
     {
         messages::propertyValueIncorrect(asyncResp->res, "Certificate",
                                          certificate);
+    }
+    else if (dbusErrorName == "xyz.openbmc_project.Common.Error.NotAllowed")
+    {
+        messages::resourceErrorsDetectedFormatError(asyncResp->res,
+                                                    "Certificate", reason);
     }
     else
     {
@@ -535,12 +494,9 @@ inline void handleReplaceCertificateAction(
     std::string certURI;
     std::optional<std::string> certificateType = "PEM";
 
-    if (!json_util::readJsonAction(             //
-            req, asyncResp->res,                //
-            "CertificateString", certificate,   //
-            "CertificateType", certificateType, //
-            "CertificateUri/@odata.id", certURI //
-            ))
+    if (!json_util::readJsonAction(req, asyncResp->res, "CertificateString",
+                                   certificate, "CertificateUri/@odata.id",
+                                   certURI, "CertificateType", certificateType))
     {
         BMCWEB_LOG_ERROR("Required parameters are missing");
         return;
@@ -614,14 +570,16 @@ inline void handleReplaceCertificateAction(
     crow::connections::systemBus->async_method_call(
         [asyncResp, certFile, objectPath, service, url{*parsedUrl}, id, name,
          certificate](const boost::system::error_code& ec,
-                      sdbusplus::message_t& m) {
+                      sdbusplus::message::message& m) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
                 const sd_bus_error* dbusError = m.get_error();
-                if ((dbusError != nullptr) && (dbusError->name != nullptr))
+                if (dbusError && dbusError->name)
                 {
-                    handleError(dbusError->name, id, certificate, asyncResp);
+                    std::string reason = readFailureReason(m);
+                    handleError(dbusError->name, id, certificate, reason,
+                                asyncResp);
                 }
                 else
                 {
@@ -1014,17 +972,28 @@ inline void handleHTTPSCertificateCollectionPost(
         std::make_shared<CertificateFile>(certHttpBody);
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp, certFile](const boost::system::error_code& ec,
-                              const std::string& objectPath) {
+        [asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
+                                            sdbusplus::message::message& m,
+                                            const std::string& objectPath) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-                messages::internalError(asyncResp->res);
+                const sd_bus_error* dbusError = m.get_error();
+                if (dbusError && dbusError->name)
+                {
+                    std::string reason = readFailureReason(m);
+                    handleError(dbusError->name, "", certHttpBody, reason,
+                                asyncResp);
+                }
+                else
+                {
+                    messages::internalError(asyncResp->res);
+                }
                 return;
             }
-
             sdbusplus::message::object_path path(objectPath);
             std::string certId = path.filename();
+
             const boost::urls::url certURL = boost::urls::format(
                 "/redfish/v1/Managers/{}/NetworkProtocol/HTTPS/Certificates/{}",
                 BMCWEB_REDFISH_MANAGER_URI_NAME, certId);
@@ -1129,15 +1098,25 @@ inline void handleLDAPCertificateCollectionPost(
         std::make_shared<CertificateFile>(certHttpBody);
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp, certFile](const boost::system::error_code& ec,
-                              const std::string& objectPath) {
+        [asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
+                                            sdbusplus::message::message& m,
+                                            const std::string& objectPath) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-                messages::internalError(asyncResp->res);
+                const sd_bus_error* dbusError = m.get_error();
+                if (dbusError && dbusError->name)
+                {
+                    std::string reason = readFailureReason(m);
+                    handleError(dbusError->name, "", certHttpBody, reason,
+                                asyncResp);
+                }
+                else
+                {
+                    messages::internalError(asyncResp->res);
+                }
                 return;
             }
-
             sdbusplus::message::object_path path(objectPath);
             std::string certId = path.filename();
             const boost::urls::url certURL = boost::urls::format(
@@ -1267,15 +1246,25 @@ inline void handleTrustStoreCertificateCollectionPost(
     std::shared_ptr<CertificateFile> certFile =
         std::make_shared<CertificateFile>(certHttpBody);
     crow::connections::systemBus->async_method_call(
-        [asyncResp, certFile](const boost::system::error_code& ec,
-                              const std::string& objectPath) {
+        [asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
+                                            sdbusplus::message::message& m,
+                                            const std::string& objectPath) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-                messages::internalError(asyncResp->res);
+                const sd_bus_error* dbusError = m.get_error();
+                if (dbusError && dbusError->name)
+                {
+                    std::string reason = readFailureReason(m);
+                    handleError(dbusError->name, "", certHttpBody, reason,
+                                asyncResp);
+                }
+                else
+                {
+                    messages::internalError(asyncResp->res);
+                }
                 return;
             }
-
             sdbusplus::message::object_path path(objectPath);
             std::string certId = path.filename();
             const boost::urls::url certURL = boost::urls::format(

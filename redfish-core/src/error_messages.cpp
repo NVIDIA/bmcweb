@@ -963,10 +963,15 @@ nlohmann::json payloadTooLarge()
     return getLog(redfish::registries::base::Index::payloadTooLarge, {});
 }
 
-void payloadTooLarge(crow::Response& res)
+void payloadTooLarge(crow::Response& res, const std::string& resolution)
 {
-    res.result(boost::beast::http::status::bad_request);
-    addMessageToErrorJson(res.jsonValue, payloadTooLarge());
+    res.result(boost::beast::http::status::payload_too_large);
+    nlohmann::json responseMessage = payloadTooLarge();
+    if (!resolution.empty())
+    {
+        responseMessage["Resolution"] = resolution;
+    }
+    addMessageToErrorJson(res.jsonValue, responseMessage);
 }
 
 /**

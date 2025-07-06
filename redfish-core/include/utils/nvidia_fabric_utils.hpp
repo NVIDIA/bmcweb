@@ -16,25 +16,10 @@
  */
 #pragma once
 
-#include "async_resp.hpp"
-#include "dbus_utility.hpp"
-#include "error_messages.hpp"
-#include "http_body.hpp"
-#include "logging.hpp"
-#include "utils/nvidia_async_call_utils.hpp"
-#include "utils/nvidia_async_set_callbacks.hpp"
-#include "utils/nvidia_async_set_utils.hpp"
-
-#include <boost/container/flat_map.hpp>
-#include <boost/system/error_code.hpp>
-#include <nlohmann/json.hpp>
+#include "utils/nvidia_manager_utils.hpp"
 
 #include <atomic>
 #include <cstdint>
-#include <memory>
-#include <string>
-#include <variant>
-#include <vector>
 namespace redfish
 {
 
@@ -60,9 +45,11 @@ using MapperGetSubTreeResponse =
  * @param[in]       ObjectPath      Path of object to modify.
  * @param[in]       serviceMap      Service map for CPU object.
  */
-inline void patchL1PowerModeBool(
+inline void patchL1PowerMode(
     const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& fabricId,
-    const std::string& switchId, const bool propertyValue,
+    const std::string& switchId,
+    const std::vector<std::tuple<std::string, std::variant<bool, uint32_t>>>&
+        properties,
     const std::string& propertyName, const std::string& objectPath,
     const MapperServiceMap& serviceMap)
 {
@@ -70,8 +57,8 @@ inline void patchL1PowerModeBool(
     const std::string* inventoryService = nullptr;
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
-        if (std::ranges::find(interfaceList.begin(), interfaceList.end(),
-                              "com.nvidia.PowerMode") != interfaceList.end())
+        if (std::find(interfaceList.begin(), interfaceList.end(),
+                      "com.nvidia.PowerMode") != interfaceList.end())
         {
             inventoryService = &serviceName;
             break;
@@ -89,7 +76,7 @@ inline void patchL1PowerModeBool(
         objectPath,
         std::array<std::string_view, 1>{
             nvidia_async_operation_utils::setAsyncInterfaceName},
-        [resp, propertyValue, propertyName, fabricId, switchId, objectPath,
+        [resp, properties, propertyName, fabricId, switchId, objectPath,
          service =
              *inventoryService](const boost::system::error_code& ec,
                                 const dbus::utility::MapperGetObject& object) {
@@ -110,79 +97,9 @@ inline void patchL1PowerModeBool(
                         doGenericSetAsyncAndGatherResult(
                             resp, std::chrono::seconds(60), service, objectPath,
                             "com.nvidia.PowerMode", propertyName,
-                            std::variant<bool>(propertyValue),
-                            nvidia_async_operation_utils::
-                                PatchPowerModeCallback{resp});
-
-                    return;
-                }
-            }
-        });
-}
-
-/**
- * Handle the PATCH operation of the L1 Power Mode int Property. Do basic
- * validation of the input data, and then update using async way.
- *
- * @param[in,out]   resp            Async HTTP response.
- * @param[in]       fabricId        Fabric's Id.
- * @param[in]       switchId        Switch's Id.
- * @param[in]       propertyValue   New property value to apply.
- * @param[in]       propertyName    Property name for new value
- * @param[in]       ObjectPath      Path of object to modify.
- * @param[in]       serviceMap      Service map for CPU object.
- */
-inline void patchL1PowerModeInt(
-    const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& fabricId,
-    const std::string& switchId, const uint32_t propertyValue,
-    const std::string& propertyName, const std::string& objectPath,
-    const MapperServiceMap& serviceMap)
-{
-    // Check that the property even exists by checking for the interface
-    const std::string* inventoryService = nullptr;
-    for (const auto& [serviceName, interfaceList] : serviceMap)
-    {
-        if (std::ranges::find(interfaceList.begin(), interfaceList.end(),
-                              "com.nvidia.PowerMode") != interfaceList.end())
-        {
-            inventoryService = &serviceName;
-            break;
-        }
-    }
-    if (inventoryService == nullptr)
-    {
-        BMCWEB_LOG_ERROR(" L1PowerMode interface not found while {} patch",
-                         propertyName);
-        messages::internalError(resp->res);
-        return;
-    }
-
-    dbus::utility::getDbusObject(
-        objectPath,
-        std::array<std::string_view, 1>{
-            nvidia_async_operation_utils::setAsyncInterfaceName},
-        [resp, propertyValue, propertyName, fabricId, switchId, objectPath,
-         service =
-             *inventoryService](const boost::system::error_code& ec,
-                                const dbus::utility::MapperGetObject& object) {
-            if (!ec)
-            {
-                for (const auto& [serv, _] : object)
-                {
-                    if (serv != service)
-                    {
-                        continue;
-                    }
-
-                    BMCWEB_LOG_DEBUG(
-                        "Performing Patch using Set Async Method Call for {}",
-                        propertyName);
-
-                    nvidia_async_operation_utils::
-                        doGenericSetAsyncAndGatherResult(
-                            resp, std::chrono::seconds(60), service, objectPath,
-                            "com.nvidia.PowerMode", propertyName,
-                            std::variant<uint32_t>(propertyValue),
+                            std::variant<std::vector<std::tuple<
+                                std::string, std::variant<bool, uint32_t>>>>(
+                                properties),
                             nvidia_async_operation_utils::
                                 PatchPowerModeCallback{resp});
 
@@ -212,7 +129,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
     crow::connections::systemBus->async_method_call(
         [resp, fabricId, switchId, handler = std::forward<Handler>(handler)](
-            const boost::system::error_code& ec,
+            boost::system::error_code ec,
             const MapperGetSubTreeResponse& subtree) mutable {
             if (ec)
             {
@@ -226,20 +143,20 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
             for (const auto& [objectPath, serviceMap] : subtree)
             {
                 // Ignore any objects which don't end with our desired fabric
-                if (!objectPath.ends_with(fabricId))
+                if (!boost::ends_with(objectPath, fabricId))
                 {
                     continue;
                 }
 
                 crow::connections::systemBus->async_method_call(
                     [resp, fabricId, switchId, handler](
-                        const boost::system::error_code& ec1,
+                        const boost::system::error_code ec2,
                         std::variant<std::vector<std::string>>& response) {
-                        if (ec1)
+                        if (ec2)
                         {
                             BMCWEB_LOG_ERROR(
                                 "DBUS response error: {} while getting switch",
-                                ec1);
+                                ec2);
                             messages::internalError(resp->res);
                             return;
                         }
@@ -265,11 +182,11 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
                             crow::connections::systemBus->async_method_call(
                                 [resp, fabricId, switchId, path, handler](
-                                    const boost::system::error_code& innerError,
+                                    const boost::system::error_code ec3,
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         object) {
-                                    if (innerError)
+                                    if (ec3)
                                     {
                                         BMCWEB_LOG_ERROR(
                                             "Dbus response error while getting service name for switch");
@@ -285,7 +202,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                                 path, std::array<const char*, 0>());
                             isFoundSwitchObject = true;
                         }
-                        if (!isFoundSwitchObject)
+                        if (isFoundSwitchObject == false)
                         {
                             messages::resourceNotFound(resp->res, "Switch",
                                                        switchId);
@@ -298,7 +215,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
                 isFoundFabricObject = true;
             }
-            if (!isFoundFabricObject)
+            if (isFoundFabricObject == false)
             {
                 messages::resourceNotFound(resp->res, "Fabric", fabricId);
             }
@@ -326,21 +243,21 @@ inline void populateErrorInjectionData(
     getSwitchObject(
         resp, fabricId, switchId,
         [](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-           const std::string& fabricIdInput, const std::string& switchIdInput,
+           const std::string& fabricId2, const std::string& switchId2,
            const std::string& path,
            [[maybe_unused]] const MapperServiceMap& serviceMap) {
             crow::connections::systemBus->async_method_call(
-                [aResp, fabricIdInput, switchIdInput,
-                 path](const boost::system::error_code& ec,
-                       const MapperServiceMap& serviceMapInput) {
-                    if (ec)
+                [aResp, fabricId2, switchId2,
+                 path](const boost::system::error_code ec4,
+                       const MapperServiceMap& serviceMap2) {
+                    if (ec4)
                     {
                         BMCWEB_LOG_DEBUG(
                             "ErrorInjection object not found in {}", path);
                         return;
                     }
 
-                    for (const auto& [_, interfaces] : serviceMapInput)
+                    for (const auto& [_, interfaces] : serviceMap2)
                     {
                         if (std::find(
                                 interfaces.begin(), interfaces.end(),
@@ -350,15 +267,12 @@ inline void populateErrorInjectionData(
                             continue;
                         }
                         aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                            "#NvidiaSwitch.v1_2_0.NvidiaSwitch";
+                            "#NvidiaSwitch.v1_4_0.NvidiaSwitch";
                         aResp->res
                             .jsonValue["Oem"]["Nvidia"]["ErrorInjection"] = {
                             {"@odata.id",
-                             std::string("/redfish/v1/Fabrics/")
-                                 .append(fabricIdInput)
-                                 .append("/Switches/")
-                                 .append(switchIdInput)
-                                 .append("/Oem/Nvidia/ErrorInjection")}};
+                             "/redfish/v1/Fabrics/" + fabricId2 + "/Switches/" +
+                                 switchId2 + "/Oem/Nvidia/ErrorInjection"}};
                         return;
                     }
                 },
@@ -380,11 +294,10 @@ inline void updateSwitchPowerModeData(
         boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
     // Get interface properties
     crow::connections::systemBus->async_method_call(
-        [asyncResp, objPath](const boost::system::error_code& ec,
+        [asyncResp, objPath](const boost::system::error_code ec,
                              const PropertiesMap& properties) {
-            if (ec || properties.empty())
+            if (ec)
             {
-                BMCWEB_LOG_ERROR("DBUS response error {}", ec.message());
                 messages::internalError(asyncResp->res);
                 return;
             }
@@ -502,7 +415,7 @@ inline void getSwitchPowerModeLink(
         std::string switchPowerModeURI = switchURI;
         switchPowerModeURI += "/Oem/Nvidia/PowerMode";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaSwitch.v1_2_0.NvidiaSwitch";
+            "#NvidiaSwitch.v1_4_0.NvidiaSwitch";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["PowerMode"]["@odata.id"] =
             switchPowerModeURI;
         return;
@@ -591,11 +504,11 @@ inline void getSwitchIsolationMode(
     using PropertiesMap =
         boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code& ec,
+        [asyncResp](const boost::system::error_code ec,
                     const PropertiesMap& properties) {
-            if (ec || properties.empty())
+            if (ec)
             {
-                BMCWEB_LOG_ERROR("DBUS response error {}", ec.message());
+                BMCWEB_LOG_DEBUG("DBUS response error");
                 messages::internalError(asyncResp->res);
                 return;
             }
@@ -623,18 +536,123 @@ inline void getSwitchIsolationMode(
         serv, objPath, "org.freedesktop.DBus.Properties", "GetAll", interface);
 }
 
+inline void getFabricManagerState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& serv, const std::string& objPath,
+    const std::string& interface)
+{
+    using PropertiesMap =
+        boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code ec,
+                    const PropertiesMap& properties) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            for (const auto& property : properties)
+            {
+                if (property.first == "FMState")
+                {
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for FM state");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res
+                        .jsonValue["Oem"]["Nvidia"]["FabricManager"]["State"] =
+                        redfish::nvidia_manager_util::getFMState(*value);
+                }
+                else if (property.first == "ReportStatus")
+                {
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for Report Status");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["FabricManager"]
+                                            ["ReportStatus"] =
+                        redfish::nvidia_manager_util::getFMReportStatus(*value);
+                }
+                else if (property.first == "LastRestartDuration")
+                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for Duration Since LastRestart");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res
+                        .jsonValue["Oem"]["Nvidia"]["FabricManager"]
+                                  ["DurationSinceLastRestartSeconds"] = *value;
+                }
+                else if (property.first == "LastRestartTime")
+                {
+                    const uint64_t* value =
+                        std::get_if<uint64_t>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Null value returned "
+                                         "for Time Since LastRestart");
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]["FabricManager"]
+                                            ["LastResetTime"] =
+                        redfish::time_utils::getDateTimeUint(*value);
+                }
+            }
+        },
+        serv, objPath, "org.freedesktop.DBus.Properties", "GetAll", interface);
+}
+
 inline void getSwitchHistogramLink(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::vector<std::string>& interfaces,
-    const std::string& switchURI)
+    const std::string& switchURI, const std::string& objectPath)
 {
-    // TODO: to be done based on discovery flow, for now adding link
-    std::string switchHistogramURI = switchURI;
-    switchHistogramURI += "/Oem/Nvidia/Histograms";
-    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-        "#NvidiaSwitch.v1_3_0.NvidiaSwitch";
-    asyncResp->res.jsonValue["Oem"]["Nvidia"]["Histograms"]["@odata.id"] =
-        switchHistogramURI;
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, switchURI](const boost::system::error_code ec,
+                               std::variant<std::vector<std::string>>& resp) {
+            if (ec)
+            {
+                // no associated histograms = no failure
+                BMCWEB_LOG_DEBUG("No associated histograms on {}", switchURI);
+                return;
+            }
+            std::vector<std::string>* data =
+                std::get_if<std::vector<std::string>>(&resp);
+            if (data == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Null data error while getting histograms");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            std::string switchHistogramURI = switchURI;
+            switchHistogramURI += "/Oem/Nvidia/Histograms";
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaSwitch.v1_4_0.NvidiaSwitch";
+            asyncResp->res
+                .jsonValue["Oem"]["Nvidia"]["Histograms"]["@odata.id"] =
+                switchHistogramURI;
+        },
+        "xyz.openbmc_project.ObjectMapper", objectPath + "/histograms",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
+    return;
 }
 
 } // namespace nvidia_fabric_utils

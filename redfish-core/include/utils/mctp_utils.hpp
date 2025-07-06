@@ -30,10 +30,6 @@ namespace redfish
 namespace mctp_utils
 {
 
-using GetSubTreeType = std::vector<
-    std::pair<std::string,
-              std::vector<std::pair<std::string, std::vector<std::string>>>>>;
-
 constexpr const std::string_view mctpBusPrefix = "xyz.openbmc_project.MCTP";
 constexpr const std::string_view mctpObjectPrefix =
     "/au/com/codeconstruct/mctp1/networks/1/endpoints/";
@@ -229,15 +225,16 @@ using ErrorCallback = std::function<void(
     bool /* is critical (end of operation) */,
     const std::string& /* resource / procedure associated with the error */,
     const std::string& /* error message*/)>;
+
 inline void enumerateMctpEndpoints(
     EndpointCallback&& endpointCallback, ErrorCallback&& errorCallback,
-    const std::string& spdmObjectFilter = "", uint64_t timeoutUs = 0)
+    const std::vector<std::string>& spdmObjectFilter =
+        std::vector<std::string>(),
+    uint64_t timeoutUs = 0)
 {
-    auto epCallback = std::move(endpointCallback);
-    auto errCallback = std::move(errorCallback);
     crow::connections::systemBus->async_method_call_timed(
-        [epCallback = std::move(epCallback),
-         errCallback = std::move(errCallback),
+        [endpointCallback{std::forward<EndpointCallback>(endpointCallback)},
+         errorCallback{std::forward<ErrorCallback>(errorCallback)},
          spdmObjectFilter](const boost::system::error_code ec,
                            const dbus::utility::GetSubTreeType& subtree) {
             const std::string desc = "SPDM / MCTP endpoint enumeration";
@@ -245,65 +242,50 @@ inline void enumerateMctpEndpoints(
             if (ec)
             {
                 BMCWEB_LOG_ERROR("{}: {}", desc, ec.message());
-                errCallback(true, desc, ec.message());
+                errorCallback(true, desc, ec.message());
                 return;
             }
-            if (subtree.empty())
+            if (subtree.size() == 0)
             {
-                errCallback(true, desc, "no SPDM objects found");
+                errorCallback(true, desc, "no SPDM objects found");
                 return;
             }
-            if (!spdmObjectFilter.empty())
-            {
-                auto obj = std::find_if(
-                    subtree.begin(), subtree.end(),
-                    [spdmObjectFilter](const auto& object) {
-                        const auto& name =
-                            sdbusplus::message::object_path(object.first)
-                                .filename();
-                        return spdmObjectFilter == name;
-                    });
-                if (obj != subtree.end())
-                {
-                    auto endpoints = std::make_shared<Endpoints>();
-                    endpoints->reserve(1);
-                    endpoints->emplace_back(
-                        obj->first,
-                        [desc, endpoints, epCallback,
-                         errCallback](bool success, const std::string& msg) {
-                            if (!success)
-                            {
-                                errCallback(true, desc, msg);
-                            }
-                            else
-                            {
-                                epCallback(endpoints);
-                            }
-                        });
-                    return;
-                }
-                errCallback(true, desc,
-                            "no SPDM objects matching " + spdmObjectFilter +
-                                " found");
-                return;
-            }
-
             auto endpoints = std::make_shared<Endpoints>();
             endpoints->reserve(subtree.size());
-            std::shared_ptr<size_t> enumeratedEndpoints =
+            std::shared_ptr<size_t> processedEndpoints =
                 std::make_shared<size_t>(0);
             for (const auto& object : subtree)
             {
+                if (!spdmObjectFilter.empty())
+                {
+                    bool match = false;
+                    const auto& name =
+                        sdbusplus::message::object_path(object.first)
+                            .filename();
+                    for (const auto& f : spdmObjectFilter)
+                    {
+                        if (name.find(f) != std::string::npos)
+                        {
+                            match = true;
+                            break;
+                        }
+                    }
+                    if (!match)
+                    {
+                        *processedEndpoints += 1;
+                        continue;
+                    }
+                }
                 endpoints->emplace_back(
                     object.first,
-                    [desc, endpoints, enumeratedEndpoints, epCallback,
-                     errCallback](bool success, const std::string& msg) {
+                    [desc, endpoints, processedEndpoints, endpointCallback,
+                     errorCallback](bool success, const std::string& msg) {
                         if (!success)
                         {
-                            errCallback(false, desc, msg);
+                            errorCallback(false, desc, msg);
                         }
-                        *enumeratedEndpoints += 1;
-                        if (*enumeratedEndpoints == endpoints->capacity())
+                        *processedEndpoints += 1;
+                        if (*processedEndpoints == endpoints->capacity())
                         {
                             std::sort(endpoints->begin(), endpoints->end(),
                                       [](const MctpEndpoint& a,
@@ -311,14 +293,29 @@ inline void enumerateMctpEndpoints(
                                           return a.getMctpEid() <
                                                  b.getMctpEid();
                                       });
-                            epCallback(endpoints);
+                            endpointCallback(endpoints);
                         }
                     });
             }
         },
         dbus_utils::mapperBusName, dbus_utils::mapperObjectPath,
         dbus_utils::mapperIntf, "GetSubTree", timeoutUs,
-        "/xyz/openbmc_project/SPDM", 0, std::array{spdmResponderIntf});
+        "/xyz/openbmc_project/SPDM", 0,
+        std::array<const char*, 1>{spdmResponderIntf});
+}
+
+inline void enumerateMctpEndpoints(
+    EndpointCallback&& endpointCallback, ErrorCallback&& errorCallback,
+    const std::string& spdmObjectFilter = "", uint64_t timeoutUs = 0)
+{
+    std::vector<std::string> filterVector;
+    if (!spdmObjectFilter.empty())
+    {
+        filterVector.emplace_back(spdmObjectFilter);
+    }
+    enumerateMctpEndpoints(std::forward<EndpointCallback>(endpointCallback),
+                           std::forward<ErrorCallback>(errorCallback),
+                           filterVector, timeoutUs);
 }
 
 } // namespace mctp_utils

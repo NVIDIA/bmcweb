@@ -123,6 +123,30 @@ constexpr std::array registry =
             "None.",
         }},
     MessageEntry{
+        "DOTActionResponseError",
+        {
+            "Indicates that an error occured for the requested DOT command.",
+            "Requested DOT action has resulted in error of type '%1'.",
+            "Warning",
+            1,
+            {
+                "string",
+            },
+            "None.",
+        }},
+    MessageEntry{
+        "DOTMCTPStatusError",
+        {
+            "Indicates that an MCTP error occured for the requested DOT command.",
+            "Requested DOT action has resulted in MCTP error of type '%1'.",
+            "Warning",
+            1,
+            {
+                "string",
+            },
+            "None.",
+        }},
+    MessageEntry{
         "FirmwareNotInRecovery",
         {
             "Indicates that a firmware is not in Recovery Mode",
@@ -183,9 +207,11 @@ enum class Index
     debugTokenRequestSuccess = 4,
     debugTokenStatusSuccess = 5,
     debugTokenUnsupported = 6,
-    firmwareNotInRecovery = 7,
-    recoveryStarted = 8,
-    recoverySuccessful = 9,
-    stageSuccessful = 10,
+    dotActionResponseError = 7,
+    dotMctpStatusError = 8,
+    firmwareNotInRecovery = 9,
+    recoveryStarted = 10,
+    recoverySuccessful = 11,
+    stageSuccessful = 12,
 };
 } // namespace redfish::registries::nvidia

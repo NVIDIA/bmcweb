@@ -277,12 +277,12 @@ struct Type
     const unsigned severityLevel;
 };
 
-static const Type ok{
+[[maybe_unused]] static const Type ok{
     "OK", "xyz.openbmc_project.State.Decorator.Health.HealthType.OK", 2U};
-static const Type warning{
+[[maybe_unused]] static const Type warning{
     "Warning", "xyz.openbmc_project.State.Decorator.Health.HealthType.Warning",
     1U};
-static const Type critical{
+[[maybe_unused]] static const Type critical{
     "Critical",
     "xyz.openbmc_project.State.Decorator.Health.HealthType.Critical", 0U};
 

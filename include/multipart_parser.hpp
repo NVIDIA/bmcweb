@@ -6,9 +6,8 @@
 
 #include <boost/beast/http/fields.hpp>
 
-#include <algorithm>
-#include <array>
-#include <cstddef>
+#include <filesystem>
+#include <fstream>
 #include <ranges>
 #include <string>
 #include <string_view>
@@ -27,7 +26,9 @@ enum class ParserError
     ERROR_HEADER_ENDING,
     ERROR_UNEXPECTED_END_OF_HEADER,
     ERROR_UNEXPECTED_END_OF_INPUT,
-    ERROR_OUT_OF_RANGE
+    ERROR_OUT_OF_RANGE,
+    ERROR_FILE_OPEN,
+    ERROR_FILE_WRITE
 };
 
 enum class State
@@ -56,12 +57,29 @@ struct FormPart
 {
     boost::beast::http::fields fields;
     std::string content;
+    bool isUpdateFile = false;
+    std::ofstream fileOut;
 };
 
 class MultipartParser
 {
   public:
-    MultipartParser() = default;
+    /**
+     * @brief Constructor to skip file content if skipFileContentIn==true.
+     *        This is used in handleMultipartUpdateServicePost to parse
+     *        just metadata.
+     */
+    explicit MultipartParser(bool skipFileContentIn = false) :
+        skipFileContent(skipFileContentIn)
+    {}
+
+    /**
+     * @brief Constructor that allows direct writing if needed.
+     *        If you pass a valid file path, you can do fileOut writes.
+     */
+    explicit MultipartParser(const std::filesystem::path& filePathIn) :
+        skipFileContent(false), filePath(filePathIn)
+    {}
 
     [[nodiscard]] ParserError parse(const crow::Request& req)
     {
@@ -172,8 +190,32 @@ class MultipartParser
                     {
                         std::string_view value(&buffer[headerValueMark],
                                                i - headerValueMark);
-                        mime_fields.rbegin()->fields.set(currentHeaderName,
-                                                         value);
+                        mime_fields.back().fields.set(currentHeaderName, value);
+
+                        // If it's Content-Disposition with name="UpdateFile"
+                        if (currentHeaderName == "Content-Disposition" &&
+                            value.find("name=\"UpdateFile\"") !=
+                                std::string::npos)
+                        {
+                            FormPart& fp = mime_fields.back();
+                            fp.isUpdateFile = true;
+
+                            // If we wanted to write directly to file in this
+                            // parse:
+                            if (!filePath.empty() && !skipFileContent)
+                            {
+                                // open an ofstream
+                                fp.fileOut.open(filePath,
+                                                std::ofstream::out |
+                                                    std::ofstream::binary |
+                                                    std::ofstream::trunc);
+                                if (!fp.fileOut.is_open())
+                                {
+                                    return ParserError::ERROR_FILE_OPEN;
+                                }
+                            }
+                        }
+
                         state = State::HEADER_VALUE_ALMOST_DONE;
                     }
                     break;
@@ -225,6 +267,15 @@ class MultipartParser
             return ParserError::ERROR_UNEXPECTED_END_OF_INPUT;
         }
 
+        // close any open file streams
+        for (FormPart& part : mime_fields)
+        {
+            if (part.isUpdateFile && part.fileOut.is_open())
+            {
+                part.fileOut.close();
+            }
+        }
+
         return ParserError::PARSER_SUCCESS;
     }
     std::vector<FormPart> mime_fields;
@@ -266,6 +317,7 @@ class MultipartParser
 
     ParserError processPartData(const std::string& buffer, size_t& i, char c)
     {
+        FormPart& current = mime_fields.back();
         size_t prevIndex = index;
 
         if (index < boundary.size())
@@ -274,10 +326,34 @@ class MultipartParser
             {
                 if (index == 0)
                 {
-                    const char* start = &buffer[partDataMark];
-                    size_t size = i - partDataMark;
-                    mime_fields.rbegin()->content +=
-                        std::string_view(start, size);
+                    size_t chunkSize = i - partDataMark;
+                    if (chunkSize > 0)
+                    {
+                        // **If this part is UpdateFile** and **we're skipping**
+                        // big data, do nothing
+                        if (current.isUpdateFile && skipFileContent)
+                        {
+                            // skip storing big data
+                        }
+                        else if (current.isUpdateFile &&
+                                 current.fileOut.is_open())
+                        {
+                            // If we have an open file, write chunk to disk
+                            current.fileOut.write(
+                                &buffer[partDataMark],
+                                static_cast<std::streamsize>(chunkSize));
+                            if (!current.fileOut.good())
+                            {
+                                return ParserError::ERROR_FILE_WRITE;
+                            }
+                        }
+                        else
+                        {
+                            // normal small field
+                            current.content.append(&buffer[partDataMark],
+                                                   chunkSize);
+                        }
+                    }
                 }
                 index++;
             }
@@ -343,10 +419,24 @@ class MultipartParser
         }
         else if (prevIndex > 0)
         {
-            // if our boundary turned out to be rubbish, the captured
-            // lookbehind belongs to partData
-
-            mime_fields.rbegin()->content += lookbehind.substr(0, prevIndex);
+            // partial boundary was not complete -> belongs to content
+            if (current.isUpdateFile && skipFileContent)
+            {
+                // skip
+            }
+            else if (current.isUpdateFile && current.fileOut.is_open())
+            {
+                current.fileOut.write(lookbehind.data(),
+                                      static_cast<std::streamsize>(prevIndex));
+                if (!current.fileOut.good())
+                {
+                    return ParserError::ERROR_FILE_WRITE;
+                }
+            }
+            else
+            {
+                current.content.append(lookbehind.data(), prevIndex);
+            }
             partDataMark = i;
 
             // reconsider the current character even so it interrupted
@@ -357,7 +447,8 @@ class MultipartParser
     }
 
     std::string currentHeaderName;
-    std::string currentHeaderValue;
+    bool skipFileContent = false;
+    std::filesystem::path filePath;
 
     static constexpr char cr = '\r';
     static constexpr char lf = '\n';

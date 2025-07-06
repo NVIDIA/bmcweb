@@ -36,10 +36,6 @@
 
 namespace redfish
 {
-using GetSubTreeType = std::vector<
-    std::pair<std::string,
-              std::vector<std::pair<std::string, std::vector<std::string>>>>>;
-
 inline void processSensorsValue(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::vector<std::string>& sensorPaths, const std::string& chassisId,
@@ -392,9 +388,9 @@ inline void processSensorServices(
 
     // Get all sensors on the system
     auto getAllSensors = [asyncResp, chassisPath, sensingInterval,
-                          requestTimestamp,
-                          metricsType](const boost::system::error_code& ec,
-                                       const GetSubTreeType& subtree) {
+                          requestTimestamp, metricsType](
+                             const boost::system::error_code& ec,
+                             const dbus::utility::GetSubTreeType& subtree) {
         if (ec)
         {
             BMCWEB_LOG_ERROR(

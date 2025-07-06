@@ -16,20 +16,6 @@
  */
 #pragma once
 
-#include "dbus_singleton.hpp"
-#include "error_messages.hpp"
-#include "logging.hpp"
-#include "utils/json_utils.hpp"
-#include "utils/nvidia_chassis_util.hpp"
-
-#include <boost/container/flat_map.hpp>
-#include <boost/system/error_code.hpp>
-
-#include <memory>
-#include <string> // For std::string
-#include <variant>
-#include <vector>
-
 namespace redfish
 {
 namespace port_utils
@@ -163,9 +149,9 @@ inline std::string getPortProtocol(const std::string& portProtocol)
         return "OEM";
     }
     if (portProtocol ==
-        "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortProtocol.PCIe")
+        "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortProtocol.InfiniBand")
     {
-        return "PCIe";
+        return "InfiniBand";
     }
 
     // C2C is a non-standard protocol in DMTF. Use the standard port protocol
@@ -174,6 +160,38 @@ inline std::string getPortProtocol(const std::string& portProtocol)
         "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortProtocol.NVLink.C2C")
     {
         return "NVLink";
+    }
+
+    // Unknown or others
+    return "";
+}
+
+inline std::string getLinkNetworkTechnology(const std::string& portProtocol)
+{
+    if (portProtocol ==
+        "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortProtocol.Ethernet")
+    {
+        return "Ethernet";
+    }
+    if (portProtocol ==
+        "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortProtocol.FC")
+    {
+        return "FibreChannel";
+    }
+    if (portProtocol ==
+        "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortProtocol.NVLink")
+    {
+        return "InfiniBand";
+    }
+    if (portProtocol ==
+        "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortProtocol.PCIe")
+    {
+        return "PCIe";
+    }
+    if (portProtocol ==
+        "xyz.openbmc_project.Inventory.Decorator.PortInfo.PortProtocol.InfiniBand")
+    {
+        return "InfiniBand";
     }
 
     // Unknown or others
@@ -259,7 +277,7 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     using PropertiesMap = boost::container::flat_map<std::string, PropertyType>;
     // Get interface properties
     crow::connections::systemBus->async_method_call(
-        [asyncResp{asyncResp}](const boost::system::error_code& ec,
+        [asyncResp{asyncResp}](const boost::system::error_code ec,
                                const PropertiesMap& properties) {
             if (ec)
             {
@@ -269,7 +287,7 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
                 asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaPort.v1_0_0.NvidiaPort";
+                    "#NvidiaPort.v1_2_0.NvidiaNVLinkPort";
             }
             for (const auto& property : properties)
             {
@@ -456,10 +474,9 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     asyncResp->res.jsonValue["Status"]["Health"] = "OK";
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-    if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
-    {
-        asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-    }
+#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
+    asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
+#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
 }
 
 /**
@@ -480,7 +497,7 @@ inline void getCpuPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     // Get interface properties
     crow::connections::systemBus->async_method_call(
-        [asyncResp{asyncResp}](const boost::system::error_code& ec,
+        [asyncResp{asyncResp}](const boost::system::error_code ec,
                                const PropertiesMap& properties) {
             if (ec)
             {

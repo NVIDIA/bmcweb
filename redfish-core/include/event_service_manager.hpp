@@ -19,11 +19,13 @@
 #include "persistent_data.hpp"
 #include "server_sent_event.hpp"
 #include "subscription.hpp"
+#include "utils/nvidia_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <boost/circular_buffer.hpp>
 #include <boost/circular_buffer/base.hpp>
 #include <boost/container/flat_map.hpp>
+#include <boost/format.hpp>
 #include <boost/system/result.hpp>
 #include <boost/url/parse.hpp>
 #include <boost/url/url_view_base.hpp>
@@ -46,15 +48,11 @@
 
 namespace redfish
 {
-const std::regex urlRegex("(http|https)://([^/\\x20\\x3f\\x23\\x3a]+):?([0-9]*)"
-                          "((/[^\\x20\\x23\\x3f]*\\x3f?[^\\x20\\x23\\x3f]*)?)");
-
 static constexpr const char* eventFormatType = "Event";
 static constexpr const char* metricReportFormatType = "MetricReport";
 
 static constexpr const char* eventServiceFile =
     "/var/lib/bmcweb/eventservice_config.json";
-
 class EventServiceManager
 {
   private:
@@ -334,8 +332,8 @@ class EventServiceManager
             updateConfig = true;
             if constexpr (BMCWEB_REDFISH_DBUS_EVENT)
             {
-                // Send an DsEvent for session creation
-                DsEvent event = redfish::EventUtil::createEventPropertyModified(
+                // Send an NvEvent for session creation
+                NvEvent event = redfish::EventUtil::createEventPropertyModified(
                     "ServiceEnabled",
                     std::to_string(static_cast<int>(serviceEnabled)),
                     "EventService");
@@ -351,8 +349,8 @@ class EventServiceManager
             updateRetryCfg = true;
             if constexpr (BMCWEB_REDFISH_DBUS_LOG)
             {
-                // Send an DsEvent for property change
-                DsEvent event = redfish::EventUtil::createEventPropertyModified(
+                // Send an NvEvent for property change
+                NvEvent event = redfish::EventUtil::createEventPropertyModified(
                     "DeliveryRetryAttempts", std::to_string(retryAttempts),
                     "EventService");
                 redfish::EventServiceManager::getInstance().sendEventWithOOC(
@@ -368,7 +366,7 @@ class EventServiceManager
             if constexpr (BMCWEB_REDFISH_DBUS_LOG)
             {
                 // Send an event for property change
-                DsEvent event = redfish::EventUtil::createEventPropertyModified(
+                NvEvent event = redfish::EventUtil::createEventPropertyModified(
                     "DeliveryRetryIntervalSeconds",
                     std::to_string(retryTimeoutInterval), "EventService");
                 redfish::EventServiceManager::getInstance().sendEventWithOOC(
@@ -639,14 +637,16 @@ class EventServiceManager
 
     bool sendTestEventLog(TestEvent& testEvent)
     {
-        eventId++;
         nlohmann::json::array_t logEntryArray;
-        nlohmann::json& logEntryJson = logEntryArray.emplace_back();
+        nlohmann::json& logEntryJson =
+            logEntryArray.emplace_back(nlohmann::json::object());
 
         if (testEvent.eventGroupId)
         {
             logEntryJson["EventGroupId"] = *testEvent.eventGroupId;
         }
+        eventId++;
+        logEntryJson["EventId"] = std::to_string(eventId);
 
         if (testEvent.eventTimestamp)
         {
@@ -685,24 +685,26 @@ class EventServiceManager
         // MemberId is 0 : since we are sending one event record.
         logEntryJson["MemberId"] = "0";
 
-        nlohmann::json msg;
-        msg["@odata.type"] = "#Event.v1_4_0.Event";
-        msg["Id"] = std::to_string(eventId);
+        nlohmann::json::object_t msg;
+        msg["@odata.type"] = "#Event.v1_9_0.Event";
         msg["Name"] = "Event Log";
         msg["Events"] = logEntryArray;
-
-        std::string strMsg =
-            msg.dump(2, ' ', true, nlohmann::json::error_handler_t::replace);
-
         messages.push_back(Event(eventId, msg));
+        msg["Id"] = std::to_string(eventId);
+
         for (const auto& it : subscriptionsMap)
         {
             std::shared_ptr<Subscription> entry = it.second;
-            if (!entry->sendEventToSubscriber(eventId, std::string(strMsg)))
+            if (!eventMatchesFilter(*entry->userSub, logEntryJson, "Event"))
             {
-                return false;
+                BMCWEB_LOG_DEBUG("Filter didn't match");
+                continue;
             }
+            std::string strMsg = nlohmann::json(msg).dump(
+                2, ' ', true, nlohmann::json::error_handler_t::replace);
+            entry->sendEventToSubscriber(eventId, std::move(strMsg));
         }
+
         return true;
     }
 
@@ -781,9 +783,9 @@ class EventServiceManager
      * @param[in] event   The event to be sent.
      * @return  Void
      */
-    void sendEvent(DsEvent& event)
+    void sendEvent(NvEvent& event)
     {
-        nlohmann::json logEntry;
+        nlohmann::json::object_t logEntry;
         if (event.formatEventLogEntry(logEntry) != 0)
         {
             BMCWEB_LOG_ERROR("Failed to format the event log entry");
@@ -816,7 +818,7 @@ class EventServiceManager
      * then sends the event for Redfish Event Listener
      * to pick up
      */
-    void sendEventWithOOC(const std::string& ooc, DsEvent& event)
+    void sendEventWithOOC(const std::string& ooc, NvEvent& event)
     {
         event.originOfCondition = ooc;
         sendEvent(event);

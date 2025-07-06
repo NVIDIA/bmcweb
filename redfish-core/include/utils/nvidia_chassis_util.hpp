@@ -16,20 +16,10 @@
  */
 #pragma once
 
-#include "async_resp.hpp"
 #include "openbmc_dbus_rest.hpp"
-#include "utils/chassis_utils.hpp"
 
 #include <boost/container/flat_set.hpp>
-#include <boost/system/error_code.hpp>
 #include <boost/system/linux_error.hpp>
-#include <boost/url/format.hpp>
-#include <health.hpp>
-#include <nlohmann/json.hpp>
-
-#include <memory>
-#include <string>
-#include <variant>
 
 namespace redfish
 {
@@ -41,7 +31,7 @@ constexpr const size_t trayTopologyByteLength = 8;
 constexpr const size_t trayTopologyTokenLength = 2;
 constexpr const uint8_t trayTopologyMinRevision = 2;
 #pragma pack(1)
-struct TrayTopology
+struct trayTopology
 {
     uint8_t revision;
     uint8_t reserved1;
@@ -54,6 +44,117 @@ struct TrayTopology
 };
 #pragma pack()
 
+inline std::string getBootReasonTypes(const std::string& bootReasonType)
+{
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.WakeUp")
+    {
+        return "WakeUp";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.PowerOn")
+    {
+        return "PowerOn";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.VoltageDetect")
+    {
+        return "VoltageDetect";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.WarmReset")
+    {
+        return "WarmReset";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.FatalError")
+    {
+        return "FatalError";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.Pin")
+    {
+        return "Pin";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.DebugAccessPort")
+    {
+        return "DebugAccessPort";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.ResetTimeout")
+    {
+        return "ResetTimeout";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.LowPowerAcknowledgeTimeout")
+    {
+        return "LowPowerAcknowledgeTimeout";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.SystemClockGenerator")
+    {
+        return "SystemClockGenerator";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.WindowedWatchdog0")
+    {
+        return "WindowedWatchdog0";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.WindowedWatchdog1")
+    {
+        return "WindowedWatchdog1";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.Software")
+    {
+        return "Software";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.LockupReset")
+    {
+        return "LockupReset";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.CPU1")
+    {
+        return "CPU1";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.VBAT")
+    {
+        return "VBAT";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.CodeWatchdog0")
+    {
+        return "CodeWatchdog0";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.CodeWatchdog1")
+    {
+        return "CodeWatchdog1";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.JTAG")
+    {
+        return "JTAG";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.SecurityViolation")
+    {
+        return "SecurityViolation";
+    }
+    if (bootReasonType ==
+        "com.nvidia.ResetCounters.ResetCounterMetrics.BootReasonTypes.Tamper")
+    {
+        return "Tamper";
+    }
+
+    return "";
+}
+
 /* * @brief Fill out links association to underneath chassis by
  * requesting data from the given D-Bus association object.
  *
@@ -65,7 +166,7 @@ inline void getChassisLinksContains(
 {
     BMCWEB_LOG_DEBUG("Get underneath chassis links");
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code& ec2,
+        [aResp](const boost::system::error_code ec2,
                 std::variant<std::vector<std::string>>& resp) {
             if (ec2)
             {
@@ -103,6 +204,330 @@ inline void getChassisLinksContains(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
+/* * @brief Fill out links association to underneath chassis by
+ * requesting data from the given D-Bus association object.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       objPath     D-Bus object to query.
+ */
+inline void getChassisProcessorProtocolBridgeForDevices(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG("Get underneath chassis links");
+    crow::connections::systemBus->async_method_call(
+        [aResp](const boost::system::error_code ec2,
+                std::variant<std::vector<std::string>>& resp) {
+            if (ec2)
+            {
+                return; // no chassis = no failures
+            }
+            std::vector<std::string>* data =
+                std::get_if<std::vector<std::string>>(&resp);
+            if (data == nullptr)
+            {
+                return;
+            }
+            aResp->res.jsonValue["Links"]["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaChassis.v1_7_0.NvidiaSMAChassis";
+            nlohmann::json& protocalBridgeArray =
+                aResp->res.jsonValue["Links"]["Oem"]["Nvidia"]
+                                    ["ProtocolBridgeForDevices"];
+            protocalBridgeArray = nlohmann::json::array();
+            boost::container::flat_set<std::string> chassisNames;
+            for (const std::string& chassisPath : *data)
+            {
+                sdbusplus::message::object_path objectPath(chassisPath);
+                std::string chassisName = objectPath.filename();
+                if (chassisName.empty())
+                {
+                    BMCWEB_LOG_ERROR(
+                        "Empty string on chassisName for objPath:{}",
+                        chassisPath);
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                chassisNames.emplace(std::move(chassisName));
+            }
+            for (const auto& chassisName : chassisNames)
+            {
+                protocalBridgeArray.push_back(
+                    {{"@odata.id",
+                      "/redfish/v1/Systems/" +
+                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                          "/Processors/" + chassisName}});
+            }
+        },
+        "xyz.openbmc_project.ObjectMapper", objPath + "/bridging_processor",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
+}
+
+/* * @brief Fill out links association to underneath chassis by
+ * requesting data from the given D-Bus association object.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       objPath     D-Bus object to query.
+ */
+inline void getChassisNetworkAdapterProtocolBridgeForDevices(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG("Get underneath chassis links");
+    crow::connections::systemBus->async_method_call(
+        [aResp](const boost::system::error_code ec,
+                std::variant<std::vector<std::string>>& resp) {
+            if (ec)
+            {
+                return; // no chassis = no failures
+            }
+            std::vector<std::string>* data =
+                std::get_if<std::vector<std::string>>(&resp);
+            if (data == nullptr)
+            {
+                return;
+            }
+            aResp->res.jsonValue["Links"]["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaChassis.v1_7_0.NvidiaSMAChassis";
+            nlohmann::json& protocalBridgeArray =
+                aResp->res.jsonValue["Links"]["Oem"]["Nvidia"]
+                                    ["ProtocolBridgeForDevices"];
+            protocalBridgeArray = nlohmann::json::array();
+            for (const std::string& chassisPath : *data)
+            {
+                crow::connections::systemBus->async_method_call(
+                    [aResp, &protocalBridgeArray, chassisPath](
+                        const boost::system::error_code ec2,
+                        std::variant<std::vector<std::string>>& resp2) {
+                        if (ec2)
+                        {
+                            return; // no chassis = no failures
+                        }
+                        std::vector<std::string>* data2 =
+                            std::get_if<std::vector<std::string>>(&resp2);
+                        if (data2 == nullptr)
+                        {
+                            return;
+                        }
+                        for (const std::string& networkAdapterPath : *data2)
+                        {
+                            sdbusplus::message::object_path objectPath(
+                                networkAdapterPath);
+                            std::string networkAdapterId =
+                                objectPath.filename();
+                            if (networkAdapterId.empty())
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Empty String networkAdapterId for objPath:{}",
+                                    networkAdapterPath);
+                                messages::internalError(aResp->res);
+                                return;
+                            }
+
+                            sdbusplus::message::object_path objpath(
+                                chassisPath);
+                            std::string chassisId = objpath.filename();
+                            if (chassisId.empty())
+                            {
+                                messages::internalError(aResp->res);
+                                return;
+                            }
+                            protocalBridgeArray.push_back(
+                                {{"@odata.id",
+                                  "/redfish/v1/Chassis/" + chassisId +
+                                      "/NetworkAdapters/" + networkAdapterId}});
+                        }
+                    },
+                    "xyz.openbmc_project.ObjectMapper",
+                    chassisPath + "/network_adapters",
+                    "org.freedesktop.DBus.Properties", "Get",
+                    "xyz.openbmc_project.Association", "endpoints");
+            }
+        },
+        "xyz.openbmc_project.ObjectMapper", objPath + "/bridging_chassis",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
+}
+
+/* * @brief Fill out links association to underneath chassis by
+ * requesting data from the given D-Bus association object.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       objPath     D-Bus object to query.
+ */
+inline void getProtocolBridgeForDevices(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
+{
+    // Links association to underneath chassis
+    getChassisNetworkAdapterProtocolBridgeForDevices(aResp, objPath);
+    // Links association to underneath processors
+    getChassisProcessorProtocolBridgeForDevices(aResp, objPath);
+}
+
+/* * @brief Fill out links association to underneath chassis by
+ * requesting data from the given D-Bus object.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       objPath     D-Bus object to query.
+ */
+inline void populateErrorInjectionChassis(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath,
+    const std::string& chassisId)
+{
+    crow::connections::systemBus->async_method_call(
+        [aResp, chassisId, objPath](
+            const boost::system::error_code ec,
+            const std::vector<std::pair<std::string, std::vector<std::string>>>&
+                serviceMap) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("ErrorInjection object not found in {}",
+                                 objPath);
+                return;
+            }
+
+            for (const auto& [_, interfaces] : serviceMap)
+            {
+                if (std::find(interfaces.begin(), interfaces.end(),
+                              "com.nvidia.ErrorInjection.ErrorInjection") ==
+                    interfaces.end())
+                {
+                    continue;
+                }
+                aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                    "#NvidiaChassis.v1_0_0.NvidiaSMAChassis";
+                aResp->res
+                    .jsonValue["Oem"]["Nvidia"]["ErrorInjection"]["@odata.id"] =
+                    "/redfish/v1/Chassis/" + chassisId +
+                    "/Oem/Nvidia/ErrorInjection";
+                return;
+            }
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetObject",
+        objPath + "/ErrorInjection", std::array<const char*, 0>());
+}
+
+inline void getBootReasonProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
+    const std::string& resetObjPath)
+{
+    using PropertiesMap = boost::container::flat_map<
+        std::string, std::variant<std::vector<std::string>, double>>;
+
+    crow::connections::systemBus->async_method_call(
+        [aResp{std::move(aResp)}](const boost::system::error_code ec,
+                                  const PropertiesMap& propertiesList) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Dbus error when getting boot reason properties {}",
+                    ec.message());
+                messages::internalError(aResp->res);
+                return;
+            }
+            if (propertiesList.size() <= 0)
+            {
+                BMCWEB_LOG_ERROR("No property found.");
+                messages::internalError(aResp->res);
+                return;
+            }
+            nlohmann::json& lastResetReasonsArray =
+                aResp->res.jsonValue["Oem"]["Nvidia"]["LastResetReasons"];
+            lastResetReasonsArray = nlohmann::json::array();
+            for (const auto& property : propertiesList)
+            {
+                if (property.first == "BootReason")
+                {
+                    const std::vector<std::string>* value =
+                        std::get_if<std::vector<std::string>>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_DEBUG("Null value returned "
+                                         "Boot Reason");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    for (const std::string& bootReason : *value)
+                    {
+                        lastResetReasonsArray.emplace_back(
+                            getBootReasonTypes(bootReason));
+                    }
+                }
+            }
+        },
+        service, resetObjPath, "org.freedesktop.DBus.Properties", "GetAll", "");
+}
+
+inline void getResetCounterMetricsObject(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& resetObjPath)
+{
+    crow::connections::systemBus->async_method_call(
+        [aResp, resetObjPath](
+            const boost::system::error_code ec,
+            const std::vector<std::pair<std::string, std::vector<std::string>>>&
+                objects) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Dbus error when getting reset counter metrics object {}",
+                    ec.message());
+                messages::internalError(aResp->res);
+                return;
+            }
+            if (objects.size() <= 0)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Dbus error when getting reset counter metrics object");
+                messages::internalError(aResp->res);
+                return;
+            }
+
+            getBootReasonProperties(aResp, objects[0].first, resetObjPath);
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetObject", resetObjPath,
+        std::array<std::string, 1>(
+            {"com.nvidia.ResetCounters.ResetCounterMetrics"}));
+}
+
+/* * @brief Fill out reset statistics on chassis by
+ * requesting data from the given D-Bus association object.
+ *
+ * @param[in,out]   aResp       Async HTTP response.
+ * @param[in]       objPath     D-Bus object to query.
+ */
+inline void getResetStatistics(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+                               const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG("Get reset statistics on chassis");
+    crow::connections::systemBus->async_method_call(
+        [aResp](const boost::system::error_code ec,
+                std::variant<std::vector<std::string>>& resp) {
+            if (ec)
+            {
+                return; // no association = no failures
+            }
+            std::vector<std::string>* data =
+                std::get_if<std::vector<std::string>>(&resp);
+            if (data == nullptr)
+            {
+                return;
+            }
+            aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaChassis.v1_10_0.NvidiaSMAChassis";
+
+            for (const std::string& resetObjPath : *data)
+            {
+                getResetCounterMetricsObject(aResp, resetObjPath);
+            }
+        },
+        "xyz.openbmc_project.ObjectMapper", objPath + "/reset_statistics",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
+}
+
 inline void getHealthByAssociation(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objPath, const std::string& association,
@@ -127,17 +552,17 @@ inline void getHealthByAssociation(
 
             for (const std::string& sensorPath : *data)
             {
-                if (!sensorPath.ends_with(objId))
+                if (!boost::ends_with(sensorPath, objId))
                 {
                     continue;
                 }
                 // Check Interface in Object or not
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, sensorPath](
-                        const boost::system::error_code& ec1,
+                        const boost::system::error_code ec2,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& object) {
-                        if (ec1)
+                        if (ec2)
                         {
                             // the path does not implement Decorator Health
                             // interfaces
@@ -148,10 +573,10 @@ inline void getHealthByAssociation(
                             std::string, std::variant<std::string, size_t>>;
                         // Get interface properties
                         crow::connections::systemBus->async_method_call(
-                            [asyncResp, sensorPath](
-                                const boost::system::error_code& innerError,
-                                const PropertiesMap& properties) {
-                                if (innerError)
+                            [asyncResp,
+                             sensorPath](const boost::system::error_code ec3,
+                                         const PropertiesMap& properties) {
+                                if (ec3)
                                 {
                                     messages::internalError(asyncResp->res);
                                     return;
@@ -177,42 +602,34 @@ inline void getHealthByAssociation(
                                         asyncResp->res
                                             .jsonValue["Status"]["State"] =
                                             "Enabled";
-                                        if constexpr (
-                                            !BMCWEB_DISABLE_HEALTH_ROLLUP)
-                                        {
-                                            asyncResp->res
-                                                .jsonValue["Status"]
-                                                          ["HealthRollup"] =
-                                                "OK";
-                                        }
-                                        // update health
-                                        if constexpr (
-                                            BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
-                                        {
-                                            std::shared_ptr<HealthRollup>
-                                                health = std::make_shared<
-                                                    HealthRollup>(
-                                                    sensorPath,
-                                                    [asyncResp](
-                                                        const std::string&
-                                                            rootHealth,
-                                                        const std::string&
-                                                            healthRollup) {
-                                                        asyncResp->res.jsonValue
-                                                            ["Status"]
-                                                            ["Health"] =
-                                                            rootHealth;
-                                                        if constexpr (
-                                                            !BMCWEB_DISABLE_HEALTH_ROLLUP)
-                                                        {
-                                                            asyncResp->res.jsonValue
-                                                                ["Status"]
-                                                                ["HealthRollup"] =
-                                                                healthRollup;
-                                                        }
-                                                    });
-                                            health->start();
-                                        }
+#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
+                                        asyncResp->res
+                                            .jsonValue["Status"]
+                                                      ["HealthRollup"] = "OK";
+#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
+       // update health
+#ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+                                        std::shared_ptr<HealthRollup> health =
+                                            std::make_shared<HealthRollup>(
+                                                sensorPath,
+                                                [asyncResp](const std::string&
+                                                                rootHealth,
+                                                            const std::string&
+                                                                healthRollup) {
+                                                    asyncResp->res
+                                                        .jsonValue["Status"]
+                                                                  ["Health"] =
+                                                        rootHealth;
+#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
+                                                    asyncResp->res.jsonValue
+                                                        ["Status"]
+                                                        ["HealthRollup"] =
+                                                        healthRollup;
+#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
+                                                });
+                                        health->start();
+
+#endif // ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
                                         if (*value ==
                                             "xyz.openbmc_project.State.Decorator.Health.HealthType.OK")
                                         {
@@ -273,7 +690,7 @@ inline void getChassisProcessorLinks(
 {
     BMCWEB_LOG_DEBUG("Get underneath processor links");
     crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code& ec2,
+        [aResp](const boost::system::error_code ec2,
                 std::variant<std::vector<std::string>>& resp) {
             if (ec2)
             {
@@ -321,9 +738,9 @@ inline void getChassisFabricSwitchesLinks(
 {
     BMCWEB_LOG_DEBUG("Get fabric switches links");
     crow::connections::systemBus->async_method_call(
-        [aResp, objPath](const boost::system::error_code& ec,
+        [aResp, objPath](const boost::system::error_code ec2,
                          std::variant<std::vector<std::string>>& resp) {
-            if (ec)
+            if (ec2)
             {
                 return; // no fabric = no failures
             }
@@ -345,7 +762,7 @@ inline void getChassisFabricSwitchesLinks(
             // Get the switches
             crow::connections::systemBus->async_method_call(
                 [aResp,
-                 fabricId](const boost::system::error_code& ec1,
+                 fabricId](const boost::system::error_code ec1,
                            std::variant<std::vector<std::string>>& resp1) {
                     if (ec1)
                     {
@@ -395,9 +812,8 @@ inline void getChassisFabricSwitchesLinks(
  * @param[in]       connectionName D-Bus service to query.
  * @param[in]       path           D-Bus object path to query.
  */
-inline void getOemCBCChassisAsset(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& connectionName, const std::string& path)
+inline void getOemCBCChassisAsset(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
+                                  std::string connectionName, std::string path)
 {
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
@@ -420,7 +836,7 @@ inline void getOemCBCChassisAsset(
                 return;
             }
 
-            std::array<uint8_t, trayTopologyByteLength> byteArray{};
+            std::array<uint8_t, trayTopologyByteLength> byteArray;
             for (size_t i = 0; i < trayTopologyByteLength; i++)
             {
                 byteArray[i] = static_cast<uint8_t>(
@@ -428,10 +844,8 @@ inline void getOemCBCChassisAsset(
                                               trayTopologyTokenLength),
                               nullptr, 16));
             }
-            // Safe conversion
-            TrayTopology trayTopology{};
-            std::memcpy(&trayTopology, byteArray.data(), sizeof(TrayTopology));
-            TrayTopology* trayTopologyPtr = &trayTopology;
+            trayTopology* trayTopologyPtr =
+                reinterpret_cast<trayTopology*>(byteArray.data());
 
             // make sure it can support trayTopologyMinRevision at least
             if (trayTopologyPtr->revision < trayTopologyMinRevision)
@@ -459,7 +873,6 @@ inline void getOemCBCChassisAsset(
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void getOemBaseboardChassisAssert(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& objPath)
 
@@ -468,7 +881,7 @@ inline void getOemBaseboardChassisAssert(
     dbus::utility::findAssociations(
         objPath + "/associated_fru",
         [aResp{std::move(aResp)}](
-            const boost::system::error_code& ec,
+            const boost::system::error_code ec,
             std::variant<std::vector<std::string>>& assoc) {
             if (ec)
             {
@@ -483,12 +896,12 @@ inline void getOemBaseboardChassisAssert(
             }
             const std::string& fruPath = data->front();
             crow::connections::systemBus->async_method_call(
-                [aResp{aResp},
+                [aResp{std::move(aResp)},
                  fruPath](const boost::system::error_code ec2,
                           const std::vector<
                               std::pair<std::string, std::vector<std::string>>>&
                               objects) {
-                    if (ec2 || objects.empty())
+                    if (ec2 || objects.size() <= 0)
                     {
                         BMCWEB_LOG_DEBUG("Null value returned "
                                          "for serial number");
@@ -497,13 +910,13 @@ inline void getOemBaseboardChassisAssert(
                     }
                     const std::string& fruObject = objects[0].first;
                     crow::connections::systemBus->async_method_call(
-                        [aResp{aResp}](
-                            const boost::system::error_code ec1,
+                        [aResp{std::move(aResp)}](
+                            const boost::system::error_code ec3,
                             const std::vector<std::pair<
                                 std::string,
                                 std::variant<std::string, bool, uint64_t>>>&
                                 propertiesList) {
-                            if (ec1 || propertiesList.empty())
+                            if (ec3 || propertiesList.size() <= 0)
                             {
                                 messages::internalError(aResp->res);
                                 return;
@@ -562,7 +975,6 @@ inline void getOemBaseboardChassisAssert(
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void setOemBaseboardChassisAssert(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& objPath,
     const std::string& prop, const std::string& value)
@@ -571,7 +983,7 @@ inline void setOemBaseboardChassisAssert(
     dbus::utility::findAssociations(
         objPath + "/associated_fru",
         [aResp{std::move(aResp)}, prop,
-         value](const boost::system::error_code& ec,
+         value](const boost::system::error_code ec,
                 std::variant<std::vector<std::string>>& assoc) {
             if (ec)
             {
@@ -586,11 +998,11 @@ inline void setOemBaseboardChassisAssert(
             }
             const std::string& fruPath = data->front();
             crow::connections::systemBus->async_method_call(
-                [aResp{aResp}, fruPath, prop,
-                 value](const boost::system::error_code ec1,
+                [aResp{std::move(aResp)}, fruPath, prop,
+                 value](const boost::system::error_code ec4,
                         const std::vector<std::pair<
                             std::string, std::vector<std::string>>>& objects) {
-                    if (ec1 || objects.empty())
+                    if (ec4 || objects.size() <= 0)
                     {
                         messages::internalError(aResp->res);
                         return;
@@ -599,13 +1011,12 @@ inline void setOemBaseboardChassisAssert(
                     if (prop == "PartNumber")
                     {
                         crow::connections::systemBus->async_method_call(
-                            [aResp](
-                                const boost::system::error_code& innerError) {
-                                if (innerError)
+                            [aResp](const boost::system::error_code ec5) {
+                                if (ec5)
                                 {
                                     BMCWEB_LOG_DEBUG(
                                         "DBUS response error: Set CHASSIS_PART_NUMBER{}",
-                                        innerError);
+                                        ec5);
                                     messages::internalError(aResp->res);
                                     return;
                                 }
@@ -622,13 +1033,12 @@ inline void setOemBaseboardChassisAssert(
                     else if (prop == "SerialNumber")
                     {
                         crow::connections::systemBus->async_method_call(
-                            [aResp](
-                                const boost::system::error_code& innerError) {
-                                if (innerError)
+                            [aResp](const boost::system::error_code ec6) {
+                                if (ec6)
                                 {
                                     BMCWEB_LOG_DEBUG(
                                         "DBUS response error: Set CHASSIS_SERIAL_NUMBER{}",
-                                        innerError);
+                                        ec6);
                                     messages::internalError(aResp->res);
                                     return;
                                 }
@@ -659,7 +1069,6 @@ inline void setOemBaseboardChassisAssert(
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void getOemAssemblyAssert(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                  const std::string& assemblyId,
                                  const std::string& objPath)
@@ -674,9 +1083,9 @@ inline void getOemAssemblyAssert(std::shared_ptr<bmcweb::AsyncResp> aResp,
     dbus::utility::findAssociations(
         objPath + "/associated_fru",
         [aResp{std::move(aResp)},
-         assemblyId](const boost::system::error_code& ec,
+         assemblyId](const boost::system::error_code ec7,
                      std::variant<std::vector<std::string>>& assoc) {
-            if (ec)
+            if (ec7)
             {
                 BMCWEB_LOG_DEBUG("Cannot get association");
                 return;
@@ -689,11 +1098,11 @@ inline void getOemAssemblyAssert(std::shared_ptr<bmcweb::AsyncResp> aResp,
             }
             const std::string& fruPath = data->front();
             crow::connections::systemBus->async_method_call(
-                [aResp{aResp}, fruPath, assemblyId](
-                    const boost::system::error_code ec1,
+                [aResp{std::move(aResp)}, fruPath, assemblyId](
+                    const boost::system::error_code ec8,
                     const std::vector<std::pair<
                         std::string, std::vector<std::string>>>& objects) {
-                    if (ec1 || objects.empty())
+                    if (ec8 || objects.size() <= 0)
                     {
                         BMCWEB_LOG_DEBUG("Cannpt get object");
                         messages::internalError(aResp->res);
@@ -701,13 +1110,13 @@ inline void getOemAssemblyAssert(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     }
                     const std::string& fruObject = objects[0].first;
                     crow::connections::systemBus->async_method_call(
-                        [aResp{aResp}, assemblyId](
-                            const boost::system::error_code innerError,
+                        [aResp{std::move(aResp)}, assemblyId](
+                            const boost::system::error_code ec9,
                             const std::vector<std::pair<
                                 std::string,
                                 std::variant<std::string, bool, uint64_t>>>&
                                 propertiesList) {
-                            if (innerError || propertiesList.empty())
+                            if (ec9 || propertiesList.size() <= 0)
                             {
                                 messages::internalError(aResp->res);
                                 return;
@@ -743,7 +1152,7 @@ inline void getOemAssemblyAssert(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                                 return;
                                             }
                                             vendorDataArray.emplace_back(
-                                                *value);
+                                                std::move(*value));
                                         }
                                         else if (property.first.find(
                                                      "PRODUCT_INFO_AM") !=
@@ -764,7 +1173,7 @@ inline void getOemAssemblyAssert(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                                 return;
                                             }
                                             vendorDataArray.emplace_back(
-                                                *value);
+                                                std::move(*value));
                                         }
                                         else if (property.first.find(
                                                      "CHASSIS_INFO_AM") !=
@@ -785,7 +1194,7 @@ inline void getOemAssemblyAssert(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                                 return;
                                             }
                                             vendorDataArray.emplace_back(
-                                                *value);
+                                                std::move(*value));
                                         }
                                     }
                                 }
@@ -809,7 +1218,6 @@ inline void getOemAssemblyAssert(std::shared_ptr<bmcweb::AsyncResp> aResp,
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void getOemHdwWriteProtectInfo(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                       const std::string& service,
                                       const std::string& objPath)
@@ -817,7 +1225,7 @@ inline void getOemHdwWriteProtectInfo(std::shared_ptr<bmcweb::AsyncResp> aResp,
     BMCWEB_LOG_DEBUG("Get Baseboard Hardware write protect info");
     crow::connections::systemBus->async_method_call(
         [aResp{std::move(aResp)}](
-            const boost::system::error_code& ec,
+            const boost::system::error_code ec,
             const std::vector<std::pair<
                 std::string, std::variant<std::string, bool, uint64_t>>>&
                 propertiesList) {
@@ -875,7 +1283,6 @@ inline void getOemHdwWriteProtectInfo(std::shared_ptr<bmcweb::AsyncResp> aResp,
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void getOemPCIeDeviceClockReferenceInfo(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& service,
     const std::string& objPath)
@@ -883,7 +1290,7 @@ inline void getOemPCIeDeviceClockReferenceInfo(
     BMCWEB_LOG_DEBUG("Get Baseboard PCIeReference clock count");
     crow::connections::systemBus->async_method_call(
         [aResp{std::move(aResp)}](
-            const boost::system::error_code& ec,
+            const boost::system::error_code ec,
             const std::vector<std::pair<
                 std::string, std::variant<std::string, bool, uint64_t>>>&
                 propertiesList) {
@@ -925,7 +1332,6 @@ inline void getOemPCIeDeviceClockReferenceInfo(
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void getChassisPowerLimits(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                   const std::string& service,
                                   const std::string& objPath)
@@ -933,7 +1339,7 @@ inline void getChassisPowerLimits(std::shared_ptr<bmcweb::AsyncResp> aResp,
     BMCWEB_LOG_DEBUG("Get chassis power limits");
     crow::connections::systemBus->async_method_call(
         [aResp{std::move(aResp)}](
-            const boost::system::error_code& ec,
+            const boost::system::error_code ec,
             const std::vector<std::pair<std::string, std::variant<size_t>>>&
                 propertiesList) {
             if (ec)
@@ -966,7 +1372,6 @@ inline void getChassisPowerLimits(std::shared_ptr<bmcweb::AsyncResp> aResp,
         "xyz.openbmc_project.Inventory.Decorator.PowerLimit");
 }
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void setStaticPowerHintByObjPath(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objPath, double cpuClockFrequency, double workloadFactor,
@@ -974,7 +1379,7 @@ inline void setStaticPowerHintByObjPath(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath, cpuClockFrequency, workloadFactor, temperature](
-            const boost::system::error_code& errorno,
+            const boost::system::error_code errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) {
             if (errorno)
@@ -987,16 +1392,16 @@ inline void setStaticPowerHintByObjPath(
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, objPath, service{service}, cpuClockFrequency,
                      workloadFactor, temperature](
-                        const boost::system::error_code& ec,
+                        const boost::system::error_code errorno2,
                         const std::vector<
                             std::pair<std::string,
                                       std::variant<double, std::string, bool>>>&
                             propertiesList) {
-                        if (ec)
+                        if (errorno2)
                         {
                             BMCWEB_LOG_ERROR(
-                                "Properties::GetAll failed:{}objPath:{}", ec,
-                                objPath);
+                                "Properties::GetAll failed:{}objPath:{}",
+                                errorno2, objPath);
                             messages::internalError(asyncResp->res);
                             return;
                         }
@@ -1071,13 +1476,13 @@ inline void setStaticPowerHintByObjPath(
                         }
 
                         crow::connections::systemBus->async_method_call(
-                            [asyncResp,
-                             objPath](const boost::system::error_code& ec1) {
-                                if (ec1)
+                            [asyncResp, objPath](
+                                const boost::system::error_code errorno3) {
+                                if (errorno3)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "StaticPowerHint::Estimate failed:{}",
-                                        ec1);
+                                        errorno3);
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
@@ -1095,7 +1500,7 @@ inline void setStaticPowerHintByObjPath(
         "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
         std::array<const char*, 1>{"com.nvidia.StaticPowerHint"});
 }
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+
 inline void setStaticPowerHintByChassis(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisObjPath, double cpuClockFrequency,
@@ -1104,7 +1509,7 @@ inline void setStaticPowerHintByChassis(
     // get endpoints of chassisId/all_controls
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisObjPath, cpuClockFrequency, workloadFactor,
-         temperature](const boost::system::error_code&,
+         temperature](const boost::system::error_code,
                       std::variant<std::vector<std::string>>& resp) {
             std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
@@ -1130,7 +1535,7 @@ inline void getStaticPowerHintByObjPath(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath](
-            const boost::system::error_code& errorno,
+            const boost::system::error_code errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) {
             if (errorno)
@@ -1142,16 +1547,16 @@ inline void getStaticPowerHintByObjPath(
             {
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, objPath](
-                        const boost::system::error_code& ec,
+                        const boost::system::error_code errorno4,
                         const std::vector<
                             std::pair<std::string,
                                       std::variant<double, std::string, bool>>>&
                             propertiesList) {
-                        if (ec)
+                        if (errorno4)
                         {
                             BMCWEB_LOG_ERROR(
-                                "Properties::GetAll failed:{}objPath:{}", ec,
-                                objPath);
+                                "Properties::GetAll failed:{}objPath:{}",
+                                errorno4, objPath);
                             messages::internalError(asyncResp->res);
                             return;
                         }
@@ -1258,7 +1663,7 @@ inline void getStaticPowerHintByChassis(
     // get endpoints of chassisId/all_controls
     crow::connections::systemBus->async_method_call(
         [asyncResp,
-         chassisObjPath](const boost::system::error_code&,
+         chassisObjPath](const boost::system::error_code,
                          std::variant<std::vector<std::string>>& resp) {
             std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
@@ -1300,14 +1705,14 @@ inline void getNetworkAdapters(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisId(std::string(chassisId))](
-            const boost::system::error_code& ec,
+            const boost::system::error_code ec,
             const dbus::utility::GetSubTreeType& subtree) {
             if (ec)
             {
                 return;
             }
 
-            if (subtree.empty())
+            if (subtree.size() == 0)
             {
                 return;
             }
@@ -1336,7 +1741,7 @@ inline void getChassisDimensions(std::shared_ptr<bmcweb::AsyncResp> aResp,
     BMCWEB_LOG_DEBUG("Get chassis dimensions");
     crow::connections::systemBus->async_method_call(
         [aResp{std::move(aResp)}](
-            const boost::system::error_code& ec,
+            const boost::system::error_code ec,
             const std::vector<std::pair<
                 std::string, dbus::utility::DbusVariantType>>& propertiesList) {
             if (ec)
@@ -1394,10 +1799,10 @@ inline void getChassisDimensions(std::shared_ptr<bmcweb::AsyncResp> aResp,
 
 inline void getChassisWriteProtectProtectEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec, const std::string& chassisId,
+    const boost::system::error_code& ec1, const std::string& chassisId,
     const dbus::utility::MapperGetObject& object)
 {
-    if (ec)
+    if (ec1)
     {
         BMCWEB_LOG_INFO(
             "No ChassisWP Dbus Object, Skip 'HardwareWriteProtectEnable'");
@@ -1408,9 +1813,9 @@ inline void getChassisWriteProtectProtectEnable(
         sdbusplus::message::object_path("/xyz/openbmc_project/software") /=
         chassisId,
         object[0].second[0], "WriteProtected",
-        [asyncResp](const boost::system::error_code& ec1,
+        [asyncResp](const boost::system::error_code& ec2,
                     const bool& property) {
-            if (ec1.value() ==
+            if (ec2.value() ==
                 boost::system::linux_error::bad_request_descriptor)
             {
                 BMCWEB_LOG_ERROR("WriteProtected property is not found");
@@ -1418,7 +1823,7 @@ inline void getChassisWriteProtectProtectEnable(
                     asyncResp->res, "WriteProtected property is not found", "");
                 return;
             }
-            if (ec1)
+            if (ec2)
             {
                 BMCWEB_LOG_ERROR("getProperty WriteProtected error");
                 messages::internalError(asyncResp->res);
@@ -1432,19 +1837,19 @@ inline void getChassisWriteProtectProtectEnable(
 
 inline void setChassisWriteProtectProtectEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec, const std::string& chassisId,
+    const boost::system::error_code& ec1, const std::string& chassisId,
     const dbus::utility::MapperGetObject& object, const bool value)
 {
-    if (ec == boost::system::errc::io_error)
+    if (ec1 == boost::system::errc::io_error)
     {
         BMCWEB_LOG_ERROR("ChassisWP: {}, Interface is not found", chassisId);
         messages::resourceNotFound(asyncResp->res, chassisId,
                                    "Interface is not found");
         return;
     }
-    if (ec)
+    if (ec1)
     {
-        BMCWEB_LOG_ERROR("getDbusObject: {}, error: {}", chassisId, ec);
+        BMCWEB_LOG_ERROR("getDbusObject: {}, error: {}", chassisId, ec1);
         messages::internalError(asyncResp->res);
         return;
     }
@@ -1453,8 +1858,8 @@ inline void setChassisWriteProtectProtectEnable(
         sdbusplus::message::object_path("/xyz/openbmc_project/software") /=
         chassisId,
         object[0].second[0], "WriteProtected", value,
-        [asyncResp](const boost::system::error_code& ec1) {
-            if (ec1.value() ==
+        [asyncResp](const boost::system::error_code& ec2) {
+            if (ec2.value() ==
                 boost::system::linux_error::bad_request_descriptor)
             {
                 BMCWEB_LOG_ERROR("WriteProtected property is not found");
@@ -1462,7 +1867,7 @@ inline void setChassisWriteProtectProtectEnable(
                     asyncResp->res, "WriteProtected property is not found", "");
                 return;
             }
-            if (ec1)
+            if (ec2)
             {
                 BMCWEB_LOG_ERROR("setProperty WriteProtected error");
                 messages::internalError(asyncResp->res);
@@ -1725,13 +2130,12 @@ inline void handleChassisGetAllProperties(
                 *pCIeReferenceClockCount;
         }
 
-        if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
-        {
-            // Policy Collection
-            getValidLeakDetectionPath(asyncResp, chassisId,
-                                      std::bind_front(doLeakDetectionPolicyGet,
-                                                      asyncResp, chassisId));
-        }
+#ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
+        // Policy Collection
+        getValidLeakDetectionPath(
+            asyncResp, chassisId,
+            std::bind_front(doLeakDetectionPolicyGet, asyncResp, chassisId));
+#endif
     }
     if (std::find(interfaces.begin(), interfaces.end(),
                   "xyz.openbmc_project.Inventory.Item.Chassis") !=
@@ -1741,32 +2145,26 @@ inline void handleChassisGetAllProperties(
     }
     asyncResp->res.jsonValue["Name"] = chassisId;
     asyncResp->res.jsonValue["Id"] = chassisId;
-    if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL)
-    {
-        if constexpr (BMCWEB_HOST_OS_FEATURES)
-        {
-            asyncResp->res.jsonValue["Thermal"]["@odata.id"] =
-                boost::urls::format("/redfish/v1/Chassis/{}/Thermal",
-                                    chassisId);
+#ifdef BMCWEB_ALLOW_DEPRECATED_POWER_THERMAL
+#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
+    asyncResp->res.jsonValue["Thermal"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/Thermal", chassisId);
 
-            // Power object
-            asyncResp->res.jsonValue["Power"]["@odata.id"] =
-                boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
-        }
-    }
-
-    if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
-    {
-        asyncResp->res.jsonValue["ThermalSubsystem"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/ThermalSubsystem",
-                                chassisId);
-        asyncResp->res.jsonValue["PowerSubsystem"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/PowerSubsystem",
-                                chassisId);
-        asyncResp->res.jsonValue["EnvironmentMetrics"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/EnvironmentMetrics",
-                                chassisId);
-    }
+    // Power object
+    asyncResp->res.jsonValue["Power"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
+#endif
+#endif
+#ifdef BMCWEB_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM
+    asyncResp->res.jsonValue["ThermalSubsystem"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/ThermalSubsystem",
+                            chassisId);
+    asyncResp->res.jsonValue["PowerSubsystem"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/PowerSubsystem", chassisId);
+    asyncResp->res.jsonValue["EnvironmentMetrics"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/EnvironmentMetrics",
+                            chassisId);
+#endif
     // SensorCollection
     asyncResp->res.jsonValue["Sensors"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);
@@ -1776,14 +2174,12 @@ inline void handleChassisGetAllProperties(
     asyncResp->res.jsonValue["Assembly"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Assembly", chassisId);
 
-    if constexpr (BMCWEB_NETWORK_ADAPTERS)
-    {
-        // NetworkAdapters collection
-        asyncResp->res.jsonValue["NetworkAdapters"]["@odata.id"] =
-            boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters",
-                                chassisId);
-    }
-
+#ifdef BMCWEB_ENABLE_NETWORK_ADAPTERS
+    // NetworkAdapters collection
+    asyncResp->res.jsonValue["NetworkAdapters"]["@odata.id"] =
+        boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters",
+                            chassisId);
+#endif
     // PCIeSlots collection
     asyncResp->res.jsonValue["PCIeSlots"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/PCIeSlots", chassisId);
@@ -1813,7 +2209,7 @@ inline void handleChassisGetAllProperties(
     asyncResp->res.jsonValue["Links"]["ManagedBy"] = std::move(managedBy);
 }
 
-inline void oemChassisHardwareWriteProtectEnable(
+inline void OemChassisHardwareWriteProtectEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const bool value)
 {
@@ -1830,7 +2226,6 @@ inline void oemChassisHardwareWriteProtectEnable(
         });
 }
 
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline void getChassisAssetData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
                                 const std::string& service,
                                 const std::string& objPath)
@@ -2004,7 +2399,7 @@ inline void getPhysicalSecurityData(
 
 // Function to insert an element in sorted order based on "Id" field
 inline void insertSorted(nlohmann::json& arr, const nlohmann::json& element,
-                         const std::string& sortField)
+                         const std::string sortField)
 {
     auto it = std::lower_bound(
         arr.begin(), arr.end(), element,
@@ -2035,12 +2430,9 @@ inline void getChassisRelatedItem(
         objectPath.str.substr(0, chassisNamePos), 0, chassisInterface,
         [asyncResp, objectPath, chassisId,
          handler = std::forward<Handler>(handler)](
-            const boost::system::error_code& ec,
+            const boost::system::error_code ec,
             const dbus::utility::MapperGetSubTreePathsResponse& subtreePaths) {
-            if ((!ec) && (!subtreePaths.empty()))
-            {
-                return;
-            }
+            if ((!ec) && (subtreePaths.size() != 0))
             {
                 for (const auto& path : subtreePaths)
                 {
@@ -2052,6 +2444,42 @@ inline void getChassisRelatedItem(
                     }
                 }
             }
+        });
+}
+
+template <typename CallbackFunc>
+inline void checkIndicatorChassis(const std::string& connectionName,
+                                  const std::string& path,
+                                  CallbackFunc&& callback)
+{
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus, connectionName, path,
+        "xyz.openbmc_project.Inventory.Item.Chassis", "Type",
+        [callback](const boost::system::error_code& ec,
+                   const std::string& chassisType) {
+            // The default should be true because this object may have other
+            // hasIndicatorLed interfaces to support it.
+            bool indicatorChassis = true;
+
+            if (!ec)
+            {
+                // If the object has Chassis interface, need to ensure the
+                // ChassisType should be 'Blade', 'Enclosure', 'Shelf', or
+                // 'StorageEnclosure' to support the enclosure LED.
+                std::array<std::string, 4> supportedType = {
+                    "Blade", "Enclosure", "Shelf", "StorageEnclosure"};
+                std::string strChassisType =
+                    redfish::chassis_utils::getChassisType(chassisType);
+                auto it = std::find(supportedType.begin(), supportedType.end(),
+                                    strChassisType);
+                if (it == supportedType.end())
+                {
+                    // unsupported ChassisType
+                    indicatorChassis = false;
+                }
+            }
+
+            callback(indicatorChassis);
         });
 }
 

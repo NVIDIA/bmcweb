@@ -55,6 +55,16 @@ inline nlohmann::json updateInProgress()
         {"Severity", "OK"},
         {"Resolution", "None."}};
 }
+inline nlohmann::json updateInProgress(const std::string& arg1)
+{
+    return nlohmann::json{
+        {"@odata.type", "#MessageRegistry.v1_4_1.MessageRegistry"},
+        {"MessageId", "Update.1.0.UpdateInProgress"},
+        {"Message", "An update is in progress."},
+        {"MessageArgs", {arg1}},
+        {"Severity", "OK"},
+        {"Resolution", "None."}};
+}
 inline nlohmann::json transferringToComponent(const std::string& arg1,
                                               const std::string& arg2)
 {

@@ -20,6 +20,7 @@
 #include "network_adapters.hpp"
 #include "network_adapters_generic.hpp"
 #include "nvidia_debug_token.hpp"
+#include "nvidia_dpu_system_profiles.hpp"
 #include "nvidia_error_injection.hpp"
 #include "nvidia_fabric.hpp"
 #include "nvidia_log_services.hpp"
@@ -41,7 +42,6 @@
 #include "pcieslots.hpp"
 #include "ports.hpp"
 #include "processor.hpp"
-#include "profiles.hpp"
 #include "secure_boot.hpp"
 #include "secure_boot_database.hpp"
 #include "sensors.hpp"
@@ -133,7 +133,7 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesSwitchHistogramCollection(app);
         requestRoutesSwitchHistogram(app);
         requestRoutesSwitchHistogramBucketCollection(app);
-        requestRoutesSwitchHistogramBucket(app);
+        requestRoutesSwitchHistogramBuckets(app);
     }
 
     if constexpr (BMCWEB_NETWORK_ADAPTERS)

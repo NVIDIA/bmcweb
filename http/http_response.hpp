@@ -232,7 +232,7 @@ struct Response
         if (is1XXReturn || result() == status::no_content ||
             result() == status::not_modified)
         {
-            BMCWEB_LOG_DEBUG("{} Response content provided but code was "
+            BMCWEB_LOG_ERROR("{} Response content provided but code was "
                              "no-content or not_modified, which aren't "
                              "allowed to have a body",
                              logPtr(this));

@@ -977,6 +977,16 @@ inline void getPowerLimits(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "xyz.openbmc_project.Inventory.Decorator.PowerLimit");
 }
 
+inline void getPowerLimitDataSourceUri(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID, const std::string& ctrlPath)
+{
+    sdbusplus::message::object_path path(ctrlPath);
+    const std::string name = path.filename();
+    asyncResp->res.jsonValue["PowerLimitWatts"]["DataSourceUri"] =
+        "/redfish/v1/Chassis/" + chassisID + "/Controls/" + name;
+}
+
 inline void getControlMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& connectionName,
                            const std::string& objPath)
@@ -1025,11 +1035,10 @@ template <std::size_t SIZE>
 inline void getPowerAndControlData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& resourceId,
-    const std::array<std::string_view, SIZE>& interfaceArray)
+    const std::array<const char*, SIZE>& interfaces)
 {
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project/inventory", 0, interfaceArray,
-        [asyncResp, resourceId](const boost::system::error_code& ec,
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, resourceId](const boost::system::error_code ec,
                                 const dbus::utility::GetSubTreeType& subtree) {
             if (ec)
             {
@@ -1053,19 +1062,19 @@ inline void getPowerAndControlData(
                     continue;
                 }
 
-                if (connectionNames.empty())
+                if (connectionNames.size() < 1)
                 {
                     BMCWEB_LOG_ERROR("Got 0 Connection names");
                     continue;
                 }
 
                 const std::string& connectionName = connectionNames[0].first;
-                const std::vector<std::string>& interfaceList =
+                const std::vector<std::string>& interfaces =
                     connectionNames[0].second;
 
-                if (std::find(interfaceList.begin(), interfaceList.end(),
+                if (std::find(interfaces.begin(), interfaces.end(),
                               "xyz.openbmc_project.Inventory.Item.Cpu") !=
-                    interfaceList.end())
+                    interfaces.end())
                 {
                     // Skip PowerAndControlData for
                     // /Chassis/CPU_{ID}/EnvironmentMetrics URI The CPU power
@@ -1075,29 +1084,30 @@ inline void getPowerAndControlData(
                 }
 
                 crow::connections::systemBus->async_method_call(
-                    [asyncResp, connectionName, interfaceList, resourceId](
-                        const boost::system::error_code& e,
-                        std::variant<std::vector<std::string>>& resp1) {
+                    [asyncResp, connectionName, interfaces,
+                     resourceId](const boost::system::error_code& e,
+                                 std::variant<std::vector<std::string>>& resp) {
                         if (e)
                         {
                             return;
                         }
-                        std::vector<std::string>* data1 =
-                            std::get_if<std::vector<std::string>>(&resp1);
-                        if (data1 == nullptr)
+                        std::vector<std::string>* data =
+                            std::get_if<std::vector<std::string>>(&resp);
+                        if (data == nullptr)
                         {
                             return;
                         }
-                        for (const std::string& ctrlPath : *data1)
+                        for (const std::string& ctrlPath : *data)
                         {
                             getPowerCap(asyncResp, connectionName, ctrlPath);
                             getPowerCap(asyncResp, resourceId, ctrlPath);
+                            getPowerLimitDataSourceUri(asyncResp, resourceId,
+                                                       ctrlPath);
                             // Skip getControlMode if it does not support the
                             // Control Mode
-                            if (std::find(interfaceList.begin(),
-                                          interfaceList.end(),
+                            if (std::find(interfaces.begin(), interfaces.end(),
                                           "xyz.openbmc_project.Control.Mode") !=
-                                interfaceList.end())
+                                interfaces.end())
                             {
                                 getControlMode(asyncResp, connectionName,
                                                ctrlPath);
@@ -1117,7 +1127,11 @@ inline void getPowerAndControlData(
                     path + "/power_controls", "org.freedesktop.DBus.Properties",
                     "Get", "xyz.openbmc_project.Association", "endpoints");
             }
-        });
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
+        "/xyz/openbmc_project/inventory", 0, interfaces);
 }
 
 /**
@@ -1451,7 +1465,7 @@ inline void getEnvironmentMetricsDataByService(
             }
             std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr || data->size() > 1)
+            if (data == nullptr || data->empty())
             {
                 // Object must have single parent chassis
                 return;
@@ -1468,19 +1482,21 @@ inline void getEnvironmentMetricsDataByService(
             crow::connections::systemBus->async_method_call(
                 [aResp, service, resourceType, chassisId, isSupportPowerLimit](
                     const boost::system::error_code& e,
-                    std::variant<std::vector<std::string>>& resp1) {
+                    std::variant<std::vector<std::string>>& resp2) {
                     if (e)
                     {
+                        BMCWEB_LOG_ERROR("Failed to get all sensors: {}",
+                                         e.message());
                         messages::internalError(aResp->res);
                         return;
                     }
-                    std::vector<std::string>* data1 =
-                        std::get_if<std::vector<std::string>>(&resp1);
-                    if (data1 == nullptr)
+                    std::vector<std::string>* data2 =
+                        std::get_if<std::vector<std::string>>(&resp2);
+                    if (data2 == nullptr)
                     {
                         return;
                     }
-                    for (const std::string& sensorPath : *data1)
+                    for (const std::string& sensorPath : *data2)
                     {
                         getSensorDataByService(aResp, service, chassisId,
                                                sensorPath, resourceType,
@@ -1496,28 +1512,30 @@ inline void getEnvironmentMetricsDataByService(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-inline void getCpuEnvironmentMetricsDataByService(
+inline void getMemoryEnvironmentMetricsDataByService(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
-    const std::string& objPath)
+    const std::string& objPath, bool isSupportPowerLimit = false)
 {
-    BMCWEB_LOG_DEBUG("Get CPU environment metrics data.");
+    BMCWEB_LOG_DEBUG("Get environment metrics data.");
+
+    // Get parent chassis for sensors URI
     crow::connections::systemBus->async_method_call(
-        [aResp, service,
-         objPath](const boost::system::error_code& e,
-                  std::variant<std::vector<std::string>>& resp) {
-            if (e)
+        [aResp, service, objPath,
+         isSupportPowerLimit](const boost::system::error_code& ec,
+                              std::variant<std::vector<std::string>>& resp) {
+            if (ec)
             {
-                messages::internalError(aResp->res);
-                return;
+                return; // no chassis = no failures
             }
             std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+            if (data == nullptr || data->empty())
             {
+                // Object must have single parent chassis
                 return;
             }
-
-            sdbusplus::message::object_path objectPath(objPath);
+            const std::string& chassisPath = data->front();
+            sdbusplus::message::object_path objectPath(chassisPath);
             std::string chassisName = objectPath.filename();
             if (chassisName.empty())
             {
@@ -1525,14 +1543,103 @@ inline void getCpuEnvironmentMetricsDataByService(
                 return;
             }
             const std::string& chassisId = chassisName;
-            const std::string resourceType = "Processor";
-            for (const std::string& sensorPath : *data)
-            {
-                getSensorDataService(aResp, service, chassisId, sensorPath,
-                                     resourceType);
-            }
+            crow::connections::systemBus->async_method_call(
+                [aResp, service, chassisId, isSupportPowerLimit](
+                    const boost::system::error_code& e,
+                    std::variant<std::vector<std::string>>& resp) {
+                    if (e)
+                    {
+                        BMCWEB_LOG_ERROR("Failed to get all sensors: {}",
+                                         e.message());
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    std::vector<std::string>* data =
+                        std::get_if<std::vector<std::string>>(&resp);
+                    if (data == nullptr)
+                    {
+                        return;
+                    }
+                    const std::string resourceType = "Memory";
+                    for (const std::string& sensorPath : *data)
+                    {
+                        getSensorDataByService(aResp, service, chassisId,
+                                               sensorPath, resourceType,
+                                               isSupportPowerLimit);
+                    }
+                },
+                // all_sensors association to get sensors associated with dimm
+                // Note: objPath belong to dimm where Item.Dimm iface is
+                // implemented
+                "xyz.openbmc_project.ObjectMapper", objPath + "/all_sensors",
+                "org.freedesktop.DBus.Properties", "Get",
+                "xyz.openbmc_project.Association", "endpoints");
         },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/all_sensors",
+        // parent_chassis to get the chassis, dimm is present on
+        "xyz.openbmc_project.ObjectMapper", objPath + "/parent_chassis",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
+}
+
+inline void getCpuEnvironmentMetricsDataByService(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
+    const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG("Get CPU environment metrics data.");
+    // Get parent chassis for sensors URI
+    crow::connections::systemBus->async_method_call(
+        [aResp, service,
+         objPath](const boost::system::error_code& ec,
+                  std::variant<std::vector<std::string>>& resp) {
+            if (ec)
+            {
+                return; // no chassis = no failures
+            }
+            std::vector<std::string>* data =
+                std::get_if<std::vector<std::string>>(&resp);
+            if (data == nullptr || data->empty())
+            {
+                // Object must have single parent chassis
+                return;
+            }
+            const std::string& chassisPath = data->front();
+            sdbusplus::message::object_path objectPath(chassisPath);
+            std::string chassisName = objectPath.filename();
+            if (chassisName.empty())
+            {
+                messages::internalError(aResp->res);
+                return;
+            }
+            const std::string& chassisId = chassisName;
+            crow::connections::systemBus->async_method_call(
+                [aResp, service, objPath,
+                 chassisId](const boost::system::error_code& e,
+                            std::variant<std::vector<std::string>>& resp) {
+                    if (e)
+                    {
+                        BMCWEB_LOG_ERROR("Failed to get all sensors: {}",
+                                         e.message());
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    std::vector<std::string>* data =
+                        std::get_if<std::vector<std::string>>(&resp);
+                    if (data == nullptr)
+                    {
+                        return;
+                    }
+                    const std::string resourceType = "Processor";
+                    for (const std::string& sensorPath : *data)
+                    {
+                        getSensorDataService(aResp, service, chassisId,
+                                             sensorPath, resourceType);
+                    }
+                },
+                "xyz.openbmc_project.ObjectMapper", objPath + "/all_sensors",
+                "org.freedesktop.DBus.Properties", "Get",
+                "xyz.openbmc_project.Association", "endpoints");
+        },
+        "xyz.openbmc_project.ObjectMapper", objPath + "/parent_chassis",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
 }
@@ -1626,24 +1733,24 @@ inline void getCpuPowerCapByService(
     const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get CPU power Cap");
+    // Get parent chassis for sensors URI
     crow::connections::systemBus->async_method_call(
         [aResp, service,
-         objPath](const boost::system::error_code& e,
+         objPath](const boost::system::error_code& ec,
                   std::variant<std::vector<std::string>>& resp) {
-            if (e)
+            if (ec)
             {
-                // The path does not implement any power cap interfaces.
-                return;
+                return; // no chassis = no failures
             }
             std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+            if (data == nullptr || data->empty())
             {
-                messages::internalError(aResp->res);
+                // Object must have single parent chassis
                 return;
             }
-
-            sdbusplus::message::object_path objectPath(objPath);
+            const std::string& chassisPath = data->front();
+            sdbusplus::message::object_path objectPath(chassisPath);
             std::string cpuName = objectPath.filename();
             if (cpuName.empty())
             {
@@ -1651,12 +1758,35 @@ inline void getCpuPowerCapByService(
                 return;
             }
             const std::string& cpuId = cpuName;
-            for (const std::string& sensorPath : *data)
-            {
-                getCpuPowerCapService(aResp, service, sensorPath, cpuId);
-            }
+            crow::connections::systemBus->async_method_call(
+                [aResp, service, objPath,
+                 cpuId](const boost::system::error_code& e,
+                        std::variant<std::vector<std::string>>& resp) {
+                    if (e)
+                    {
+                        // The path does not implement any power cap interfaces.
+                        return;
+                    }
+                    std::vector<std::string>* data =
+                        std::get_if<std::vector<std::string>>(&resp);
+                    if (data == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("Failed to get all sensors: {}",
+                                         e.message());
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    for (const std::string& sensorPath : *data)
+                    {
+                        getCpuPowerCapService(aResp, service, sensorPath,
+                                              cpuId);
+                    }
+                },
+                "xyz.openbmc_project.ObjectMapper", objPath + "/power_controls",
+                "org.freedesktop.DBus.Properties", "Get",
+                "xyz.openbmc_project.Association", "endpoints");
         },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/power_controls",
+        "xyz.openbmc_project.ObjectMapper", objPath + "/parent_chassis",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
 }
@@ -1807,29 +1937,28 @@ inline void getMemoryEnvironmentMetricsData(
     BMCWEB_LOG_DEBUG("Get available system memory resource");
     crow::connections::systemBus->async_method_call(
         [dimmId, aResp{std::move(aResp)}](
-            const boost::system::error_code& ec,
+            const boost::system::error_code ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
                 subtree) {
-            if (ec || subtree.empty())
+            if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
                 messages::internalError(aResp->res);
 
                 return;
             }
-            const std::string resourceType = "Memory";
             for (const auto& [path, object] : subtree)
             {
-                if (!path.ends_with(dimmId))
+                if (!boost::ends_with(path, dimmId))
                 {
                     continue;
                 }
                 for (const auto& [service, interfaces] : object)
                 {
-                    getEnvironmentMetricsDataByService(aResp, service, path,
-                                                       resourceType);
+                    getMemoryEnvironmentMetricsDataByService(aResp, service,
+                                                             path);
                 }
                 return;
             }

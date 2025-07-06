@@ -1,0 +1,383 @@
+/*
+ * SPDX-FileCopyrightText: Copyright (c) 2021-2024 NVIDIA CORPORATION &
+ * AFFILIATES. All rights reserved. SPDX-License-Identifier: Apache-2.0
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#pragma once
+#include "app.hpp"
+#include "dbus_utility.hpp"
+#include "error_messages.hpp"
+#include "generated/enums/nvidia_network_protocol.hpp"
+#include "query.hpp"
+#include "redfish_util.hpp"
+#include "registries/privilege_registry.hpp"
+#include "utils/json_utils.hpp"
+#include "utils/stl_utils.hpp"
+
+#include <boost/system/error_code.hpp>
+#include <boost/url/format.hpp>
+#include <sdbusplus/asio/property.hpp>
+
+#include <array>
+#include <optional>
+#include <regex>
+#include <string>
+#include <string_view>
+
+namespace redfish
+{
+namespace rsyslog
+{
+
+inline nvidia_network_protocol::ClientStatus dbusToClientStatus(
+    bool clientState)
+{
+    if (clientState)
+    {
+        return nvidia_network_protocol::ClientStatus::Enabled;
+    }
+    if (!clientState)
+    {
+        return nvidia_network_protocol::ClientStatus::Disabled;
+    }
+    return nvidia_network_protocol::ClientStatus::Invalid;
+}
+
+inline nvidia_network_protocol::TLSStatus dbusToTLSStatus(const bool& tlsState)
+{
+    if (tlsState == true)
+    {
+        return nvidia_network_protocol::TLSStatus::Enabled;
+    }
+    else if (tlsState == false)
+    {
+        return nvidia_network_protocol::TLSStatus::Disabled;
+    }
+    return nvidia_network_protocol::TLSStatus::Invalid;
+}
+
+inline nvidia_network_protocol::FilterSeverity dbusToFilterSeverity(
+    const std::string& sevStr)
+{
+    if (sevStr ==
+        "xyz.openbmc_project.Logging.RsyslogClient.SeverityType.Error")
+    {
+        return nvidia_network_protocol::FilterSeverity::Error;
+    }
+    else if (sevStr ==
+             "xyz.openbmc_project.Logging.RsyslogClient.SeverityType.Warning")
+    {
+        return nvidia_network_protocol::FilterSeverity::Warning;
+    }
+    else if (sevStr ==
+             "xyz.openbmc_project.Logging.RsyslogClient.SeverityType.Info")
+    {
+        return nvidia_network_protocol::FilterSeverity::Info;
+    }
+    else if (sevStr ==
+             "xyz.openbmc_project.Logging.RsyslogClient.SeverityType.All")
+    {
+        return nvidia_network_protocol::FilterSeverity::All;
+    }
+    return nvidia_network_protocol::FilterSeverity::Invalid;
+}
+
+inline nvidia_network_protocol::FilterFacility dbusToFilterFacility(
+    const std::string& facStr)
+{
+    if (facStr ==
+        "xyz.openbmc_project.Logging.RsyslogClient.FacilityType.Daemon")
+    {
+        return nvidia_network_protocol::FilterFacility::Daemon;
+    }
+    else if (facStr ==
+             "xyz.openbmc_project.Logging.RsyslogClient.FacilityType.Kern")
+    {
+        return nvidia_network_protocol::FilterFacility::Kern;
+    }
+    else if (facStr ==
+             "xyz.openbmc_project.Logging.RsyslogClient.FacilityType.All")
+    {
+        return nvidia_network_protocol::FilterFacility::All;
+    }
+    return nvidia_network_protocol::FilterFacility::Invalid;
+}
+
+inline nvidia_network_protocol::Protocol dbusToProtocol(
+    const std::string& protoStr)
+{
+    if (protoStr == "xyz.openbmc_project.Network.Client.TransportProtocol.TCP")
+    {
+        return nvidia_network_protocol::Protocol::TCP;
+    }
+    else if (protoStr ==
+             "xyz.openbmc_project.Network.Client.TransportProtocol.UDP")
+    {
+        return nvidia_network_protocol::Protocol::UDP;
+    }
+    return nvidia_network_protocol::Protocol::Invalid;
+}
+
+inline std::optional<bool> isEnabled(const std::optional<std::string>& input)
+{
+    if (!input)
+    {
+        return std::nullopt; // Input is nullopt, cannot determine state
+    }
+
+    if (*input == "Enabled")
+    {
+        return true; // Enabled
+    }
+    else if (*input == "Disabled")
+    {
+        return false; // Disabled
+    }
+
+    // Invalid input case
+    BMCWEB_LOG_ERROR("Invalid input value for isEnabled: {}", *input);
+    return std::nullopt;
+}
+
+inline void populateRsyslogClientSettings(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    const std::string service = "xyz.openbmc_project.Syslog.Config";
+    const std::string path = "/xyz/openbmc_project/logging/config/remote";
+
+    asyncResp->res.jsonValue["Oem"] = nlohmann::json::object();
+    asyncResp->res.jsonValue["Oem"]["Nvidia"] = nlohmann::json::object();
+    auto& rsyslog = asyncResp->res.jsonValue["Oem"]["Nvidia"]["Rsyslog"];
+    rsyslog = nlohmann::json::object();
+    rsyslog["@odata.type"] = "#NvidiaNetworkProtocol.v1_0_0.Rsyslog";
+
+    sdbusplus::asio::getAllProperties(
+        *crow::connections::systemBus, service, path, "",
+        [asyncResp,
+         &rsyslog](const boost::system::error_code& ec,
+                   const dbus::utility::DBusPropertiesMap& properties) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Failed to get properties: {}", ec.message());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            // Declare variables to unpack properties into
+            std::optional<bool> enabled;
+            std::optional<std::string> address;
+            std::optional<uint16_t> port;
+            std::optional<bool> tls;
+            std::optional<std::vector<std::string>> facility;
+            std::optional<std::string> severity;
+            std::optional<std::string> transportProtocol;
+
+            // Unpack properties from the map
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), properties, "Enabled",
+                enabled, "Address", address, "Port", port, "Tls", tls,
+                "Facility", facility, "Severity", severity, "TransportProtocol",
+                transportProtocol);
+
+            if (!success)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            // Populate JSON response with the retrieved properties
+            if (enabled)
+            {
+                auto clientState = dbusToClientStatus(*enabled);
+                rsyslog["State"] = clientState;
+            }
+            if (address)
+            {
+                rsyslog["Address"] = *address;
+            }
+            if (port)
+            {
+                rsyslog["Port"] = *port;
+            }
+            if (tls)
+            {
+                auto tlsStatus = dbusToTLSStatus(*tls);
+                rsyslog["TLS"] = tlsStatus;
+            }
+            if (facility)
+            {
+                nlohmann::json& jsonArray = rsyslog["Filter"]["Facilities"];
+                jsonArray = nlohmann::json::array();
+                for (const auto& f : *facility)
+                {
+                    nvidia_network_protocol::FilterFacility fac =
+                        dbusToFilterFacility(f);
+                    jsonArray.push_back(fac);
+                }
+            }
+            if (severity)
+            {
+                nvidia_network_protocol::FilterSeverity sev =
+                    dbusToFilterSeverity(*severity);
+                rsyslog["Filter"]["LowestSeverity"] = sev;
+            }
+            if (transportProtocol)
+            {
+                nvidia_network_protocol::Protocol proto =
+                    dbusToProtocol(*transportProtocol);
+                rsyslog["TransportProtocol"] = proto;
+            }
+        });
+}
+
+inline void processRsyslogClientSettings(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::optional<std::string>& address = std::nullopt,
+    const std::optional<uint16_t>& port = std::nullopt,
+    const std::optional<std::string>& state = std::nullopt,
+    const std::optional<std::string>& TLS = std::nullopt,
+    const std::optional<std::vector<std::string>>& facilities = std::nullopt,
+    const std::optional<std::string>& severity = std::nullopt,
+    const std::optional<std::string>& transportProtocol = std::nullopt)
+{
+    const std::string path = "/xyz/openbmc_project/logging/config/remote";
+    const std::string service = "xyz.openbmc_project.Syslog.Config";
+
+    // Set State
+    if (state)
+    {
+        if (isEnabled(state) == std::nullopt)
+        {
+            BMCWEB_LOG_ERROR("Invalid State value for rsyslog");
+            messages::propertyValueFormatError(asyncResp->res, *state, "State");
+            return;
+        }
+        const std::optional<bool>& enabled = isEnabled(state);
+        setDbusProperty(asyncResp, "Oem/Nvidia/Rsyslog/State", service, path,
+                        "xyz.openbmc_project.Logging.RsyslogClient", "Enabled",
+                        *enabled);
+    }
+
+    // Set Address
+    if (address)
+    {
+        setDbusProperty(asyncResp, "Oem/Nvidia/Rsyslog/Address", service, path,
+                        "xyz.openbmc_project.Network.Client", "Address",
+                        *address);
+    }
+
+    // Set Port
+    if (port)
+    {
+        setDbusProperty(asyncResp, "Oem/Nvidia/Rsyslog/Port", service, path,
+                        "xyz.openbmc_project.Network.Client", "Port", *port);
+    }
+
+    // Set TLS
+    if (TLS)
+    {
+        if (isEnabled(TLS) == std::nullopt)
+        {
+            BMCWEB_LOG_ERROR("Invalid TLS value for rsyslog");
+            messages::propertyValueFormatError(asyncResp->res, *TLS, "TLS");
+            return;
+        }
+        const std::optional<bool>& tls = isEnabled(TLS);
+        setDbusProperty(asyncResp, "Oem/Nvidia/Rsyslog/TLS", service, path,
+                        "xyz.openbmc_project.Logging.RsyslogClient", "Tls",
+                        *tls);
+    }
+
+    // Validate and Set Facility
+    if (facilities)
+    {
+        std::vector<std::string> facilityDbus;
+        for (const auto& f : *facilities)
+        {
+            if (f == "All")
+            {
+                // If "All" is found, clear the array and only add "All"
+                facilityDbus.clear();
+                facilityDbus.push_back(
+                    "xyz.openbmc_project.Logging.RsyslogClient.FacilityType.All");
+                break; // Exit the loop as "All" supersedes other values
+            }
+            else if (f == "Daemon" || f == "Kern")
+            {
+                facilityDbus.push_back(
+                    "xyz.openbmc_project.Logging.RsyslogClient.FacilityType." +
+                    f);
+            }
+            else
+            {
+                BMCWEB_LOG_ERROR("Invalid facility: {}", f);
+                messages::propertyValueFormatError(asyncResp->res, f,
+                                                   "Filter/Facilities");
+                return;
+            }
+        }
+        setDbusProperty(asyncResp, "Oem/Nvidia/Rsyslog/Filter/Facilities",
+                        service, path,
+                        "xyz.openbmc_project.Logging.RsyslogClient", "Facility",
+                        facilityDbus);
+    }
+
+    // Validate and Set Severity
+    if (severity)
+    {
+        if (*severity == "Error" || *severity == "Warning" ||
+            *severity == "Info" || *severity == "All")
+        {
+            std::string severityDbus =
+                "xyz.openbmc_project.Logging.RsyslogClient.SeverityType." +
+                *severity;
+            setDbusProperty(asyncResp,
+                            "Oem/Nvidia/Rsyslog/Filter/LowestSeverity", service,
+                            path, "xyz.openbmc_project.Logging.RsyslogClient",
+                            "Severity", severityDbus);
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR("Invalid severity: {}", *severity);
+            messages::propertyValueFormatError(asyncResp->res, *severity,
+                                               "Filter/LowestSeverity");
+            return;
+        }
+    }
+
+    // Set Transport Protocol
+    if (transportProtocol)
+    {
+        if (*transportProtocol == "TCP" || *transportProtocol == "UDP")
+        {
+            std::string protocolDbus =
+                "xyz.openbmc_project.Network.Client.TransportProtocol." +
+                *transportProtocol;
+            setDbusProperty(asyncResp, "Oem/Nvidia/Rsyslog/Protocol", service,
+                            path, "xyz.openbmc_project.Network.Client",
+                            "TransportProtocol", protocolDbus);
+        }
+        else
+        {
+            BMCWEB_LOG_ERROR("Invalid transport protocol: {}",
+                             *transportProtocol);
+            messages::propertyValueFormatError(
+                asyncResp->res, *transportProtocol, "TransportProtocol");
+            return;
+        }
+    }
+}
+
+} // namespace rsyslog
+} // namespace redfish

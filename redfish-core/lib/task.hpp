@@ -110,14 +110,14 @@ struct Payload
  * task monitor URI
  *
  */
-struct TaskResponse
-{
-    explicit TaskResponse(const nlohmann::json& jsonResp) :
-        jsonResponse(jsonResp)
-    {}
-    TaskResponse() = delete;
-    nlohmann::json jsonResponse;
-};
+using TaskResponseCallback =
+    std::function<void(const std::shared_ptr<bmcweb::AsyncResp>&)>;
+
+/*
+A task response might have json, or a callback to get the binary data.
+*/
+using TaskResponse =
+    std::variant<std::monostate, nlohmann::json, TaskResponseCallback>;
 
 static nlohmann::json getMessage(const std::string_view state, size_t index)
 {
@@ -475,7 +475,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
     std::unique_ptr<sdbusplus::bus::match_t> match;
     std::optional<time_t> endTime;
     std::optional<Payload> payload;
-    std::optional<TaskResponse> taskResponse;
+    TaskResponse taskResponse;
     bool taskComplete = false;
     bool gave204 = false;
     int percentComplete = 0;
@@ -544,74 +544,78 @@ inline void requestRoutesTaskUpdate(App& app)
                 return;
             }
 
-            privilege_utils::isBiosPrivilege(req, [req, asyncResp, strParam](
-                                                      const boost::system::
-                                                          error_code ec,
-                                                      const bool isBios) {
-                if (ec || !isBios)
-                {
-                    asyncResp->res.addHeader(boost::beast::http::field::allow,
-                                             "");
-                    messages::resourceNotFound(asyncResp->res, "", "Update");
-                    return;
-                }
-
-                auto find = std::find_if(
-                    task::tasks.begin(), task::tasks.end(),
-                    [&strParam](const std::shared_ptr<task::TaskData>& task) {
-                        if (!task)
-                        {
-                            return false;
-                        }
-
-                        // we compare against the string version as on failure
-                        // strtoul returns 0
-                        return std::to_string(task->index) == strParam;
-                    });
-
-                if (find == task::tasks.end())
-                {
-                    messages::resourceNotFound(asyncResp->res, "Tasks",
-                                               strParam);
-                    return;
-                }
-
-                const std::shared_ptr<task::TaskData>& ptr = *find;
-
-                std::optional<std::string> taskState;
-                std::optional<nlohmann::json> messages;
-                if (!json_util::readJsonPatch(req, asyncResp->res, "TaskState",
-                                              taskState, "Messages", messages))
-                {
-                    BMCWEB_LOG_DEBUG(
-                        "/redfish/v1/TaskService/Tasks/<str>/Update/ readJsonPatch error");
-                    return;
-                }
-
-                if (messages)
-                {
-                    ptr->messages = *messages;
-                }
-
-                if (taskState && ptr->state != *taskState)
-                {
-                    ptr->state = *taskState;
-                    if (ptr->state == "Completed" ||
-                        ptr->state == "Cancelled" ||
-                        ptr->state == "Exception" || ptr->state == "Killed")
+            privilege_utils::isBiosPrivilege(
+                req.session->username,
+                [req, asyncResp, strParam](const boost::system::error_code ec,
+                                           const bool isBios) {
+                    if (ec || !isBios)
                     {
-                        ptr->timer.cancel();
-                        ptr->finishTask();
-                        if (ptr->state == "Completed")
-                        {
-                            ptr->percentComplete = 100;
-                        }
+                        asyncResp->res.addHeader(
+                            boost::beast::http::field::allow, "");
+                        messages::resourceNotFound(asyncResp->res, "",
+                                                   "Update");
+                        return;
                     }
-                    task::TaskData::sendTaskEvent(ptr->state, ptr->index);
-                }
 
-                asyncResp->res.result(boost::beast::http::status::no_content);
-            });
+                    auto find = std::find_if(
+                        task::tasks.begin(), task::tasks.end(),
+                        [&strParam](
+                            const std::shared_ptr<task::TaskData>& task) {
+                            if (!task)
+                            {
+                                return false;
+                            }
+
+                            // we compare against the string version as on
+                            // failure strtoul returns 0
+                            return std::to_string(task->index) == strParam;
+                        });
+
+                    if (find == task::tasks.end())
+                    {
+                        messages::resourceNotFound(asyncResp->res, "Tasks",
+                                                   strParam);
+                        return;
+                    }
+
+                    const std::shared_ptr<task::TaskData>& ptr = *find;
+
+                    std::optional<std::string> taskState;
+                    std::optional<nlohmann::json> messages;
+                    if (!json_util::readJsonPatch(req, asyncResp->res,
+                                                  "TaskState", taskState,
+                                                  "Messages", messages))
+                    {
+                        BMCWEB_LOG_DEBUG(
+                            "/redfish/v1/TaskService/Tasks/<str>/Update/ readJsonPatch error");
+                        return;
+                    }
+
+                    if (messages)
+                    {
+                        ptr->messages = *messages;
+                    }
+
+                    if (taskState && ptr->state != *taskState)
+                    {
+                        ptr->state = *taskState;
+                        if (ptr->state == "Completed" ||
+                            ptr->state == "Cancelled" ||
+                            ptr->state == "Exception" || ptr->state == "Killed")
+                        {
+                            ptr->timer.cancel();
+                            ptr->finishTask();
+                            if (ptr->state == "Completed")
+                            {
+                                ptr->percentComplete = 100;
+                            }
+                        }
+                        task::TaskData::sendTaskEvent(ptr->state, ptr->index);
+                    }
+
+                    asyncResp->res.result(
+                        boost::beast::http::status::no_content);
+                });
         });
 }
 

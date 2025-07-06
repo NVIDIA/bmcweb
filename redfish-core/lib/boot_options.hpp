@@ -234,28 +234,27 @@ inline void handleBootOptionCollectionPost(
     {
         return;
     }
-
+    std::string newBootOptionReference;
+    bool newBootOptionEnabled = true;
+    std::optional<std::string> optBootOptionDescription;
+    std::optional<std::string> optBootOptionDisplayName;
+    std::optional<std::string> optBootOptionUefiDevicePath;
+    if (!json_util::readJsonPatch(
+            req, aResp->res, "BootOptionReference", newBootOptionReference,
+            "BootOptionEnabled", newBootOptionEnabled, "Description",
+            optBootOptionDescription, "DisplayName", optBootOptionDisplayName,
+            "UefiDevicePath", optBootOptionUefiDevicePath))
+    {
+        return;
+    }
     privilege_utils::isBiosPrivilege(
-        req,
-        [req, aResp](const boost::system::error_code ec, const bool isBios) {
-            if (ec || !isBios)
+        req.session->username,
+        [newBootOptionReference, newBootOptionEnabled, optBootOptionDescription,
+         optBootOptionDisplayName, optBootOptionUefiDevicePath,
+         aResp](const boost::system::error_code ec, const bool isBios) {
+            if (ec || isBios == false)
             {
                 messages::insufficientPrivilege(aResp->res);
-                return;
-            }
-            std::string newBootOptionReference;
-            bool newBootOptionEnabled = true;
-            std::optional<std::string> optBootOptionDescription;
-            std::optional<std::string> optBootOptionDisplayName;
-            std::optional<std::string> optBootOptionUefiDevicePath;
-            if (!json_util::readJsonPatch(
-                    req, aResp->res, "BootOptionReference",
-                    newBootOptionReference, "BootOptionEnabled",
-                    newBootOptionEnabled, "Description",
-                    optBootOptionDescription, "DisplayName",
-                    optBootOptionDisplayName, "UefiDevicePath",
-                    optBootOptionUefiDevicePath))
-            {
                 return;
             }
 
@@ -269,25 +268,25 @@ inline void handleBootOptionCollectionPost(
 
             dbus::utility::escapePathForDbus(id);
             dbus::utility::DBusPropertiesMap properties;
-            properties.emplace_back("Enabled", newBootOptionEnabled);
+            properties.push_back({"Enabled", newBootOptionEnabled});
             if (optBootOptionDescription)
             {
-                properties.emplace_back("Description",
-                                        *optBootOptionDescription);
+                properties.push_back(
+                    {"Description", *optBootOptionDescription});
             }
             if (optBootOptionDisplayName)
             {
-                properties.emplace_back("DisplayName",
-                                        *optBootOptionDisplayName);
+                properties.push_back(
+                    {"DisplayName", *optBootOptionDisplayName});
             }
             if (optBootOptionUefiDevicePath)
             {
-                properties.emplace_back("UefiDevicePath",
-                                        *optBootOptionUefiDevicePath);
+                properties.push_back(
+                    {"UefiDevicePath", *optBootOptionUefiDevicePath});
             }
 
             createBootOption(id, [aResp, id, properties](
-                                     const boost::system::error_code& ec2) {
+                                     const boost::system::error_code ec2) {
                 if (ec2)
                 {
                     messages::resourceAlreadyExists(aResp->res, "BootOption",
@@ -296,7 +295,7 @@ inline void handleBootOptionCollectionPost(
                 }
 
                 setBootOption(id, properties,
-                              [aResp](const boost::system::error_code& ec3) {
+                              [aResp](const boost::system::error_code ec3) {
                                   if (ec3)
                                   {
                                       messages::internalError(aResp->res);
@@ -430,26 +429,26 @@ inline void handleBootOptionPatch(
     {
         return;
     }
+    bool newBootOptionEnabled = true;
+    if (!json_util::readJsonPatch(req, aResp->res, "BootOptionEnabled",
+                                  newBootOptionEnabled))
+    {
+        return;
+    }
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, bootOptionName](const boost::system::error_code& ec,
-                                          const bool isBios) {
-            if (ec || !isBios)
+        req.session->username,
+        [newBootOptionEnabled, aResp, bootOptionName](
+            const boost::system::error_code ec, const bool isBios) {
+            if (ec || isBios == false)
             {
                 messages::insufficientPrivilege(aResp->res);
                 return;
             }
-            bool newBootOptionEnabled = true;
-            if (!json_util::readJsonPatch(req, aResp->res, "BootOptionEnabled",
-                                          newBootOptionEnabled))
-            {
-                return;
-            }
-
             dbus::utility::DBusPropertiesMap properties;
-            properties.emplace_back("Enabled", newBootOptionEnabled);
+            properties.push_back({"Enabled", newBootOptionEnabled});
             setBootOption(
                 bootOptionName, properties,
-                [aResp, bootOptionName](const boost::system::error_code& ec1) {
+                [aResp, bootOptionName](const boost::system::error_code ec1) {
                     if (ec1 == boost::system::errc::no_such_device_or_address)
                     {
                         messages::resourceNotFound(aResp->res, "BootOption",
@@ -478,9 +477,10 @@ inline void handleBootOptionDelete(
     }
 
     privilege_utils::isBiosPrivilege(
-        req, [aResp, bootOptionName](const boost::system::error_code& ec,
-                                     const bool isBios) {
-            if (ec || !isBios)
+        req.session->username,
+        [aResp, bootOptionName](const boost::system::error_code ec,
+                                const bool isBios) {
+            if (ec || isBios == false)
             {
                 messages::insufficientPrivilege(aResp->res);
                 return;

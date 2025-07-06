@@ -69,10 +69,6 @@ using MapperServiceMap =
 using MapperGetSubTreeResponse =
     std::vector<std::pair<std::string, MapperServiceMap>>;
 
-using GetSubTreeType = std::vector<
-    std::pair<std::string,
-              std::vector<std::pair<std::string, std::vector<std::string>>>>>;
-
 const std::string hexPrefix = "0x";
 
 const int invalidDataOutSizeErr = 0x116;
@@ -641,7 +637,7 @@ inline void getLinkManagerForSwitches(
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, fabric,
                      fabricId](const boost::system::error_code& ec2,
-                               const GetSubTreeType& subtree) {
+                               const dbus::utility::GetSubTreeType& subtree) {
                         if (ec2)
                         {
                             messages::internalError(asyncResp->res);
@@ -847,7 +843,7 @@ inline void sendRestartEvent(const crow::Request& req, std::string& resetType)
         if constexpr (BMCWEB_REDFISH_DBUS_LOG)
         {
             // Send an event for Manager Reset
-            DsEvent event = redfish::EventUtil::createEventRebootReason(
+            NvEvent event = redfish::EventUtil::createEventRebootReason(
                 "ManagerReset", "Managers");
             redfish::EventServiceManager::getInstance().sendEventWithOOC(
                 std::string(req.target()), event);
@@ -860,7 +856,7 @@ inline void sendFactoryResetEvent(const crow::Request& req)
     if constexpr (BMCWEB_REDFISH_DBUS_LOG)
     {
         // Send an event for reset to defaults
-        DsEvent event = redfish::EventUtil::createEventRebootReason(
+        NvEvent event = redfish::EventUtil::createEventRebootReason(
             "FactoryReset", "Managers");
         redfish::EventServiceManager::getInstance().sendEventWithOOC(
             std::string(req.target()), event);

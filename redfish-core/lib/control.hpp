@@ -632,10 +632,10 @@ inline void getPowerReading(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 }
 
 inline void changepowercap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& path, size_t setpoint)
+                           const std::string& path, size_t setpointValue)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp, setpoint, path](
+        [asyncResp, setpointValue, path](
             const boost::system::error_code& errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) {
@@ -652,7 +652,7 @@ inline void changepowercap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     path,
                     std::array<std::string_view, 1>{
                         nvidia_async_operation_utils::setAsyncInterfaceName},
-                    [asyncResp, path, setpoint,
+                    [asyncResp, path, setpointValue,
                      element](const boost::system::error_code& ec,
                               const dbus::utility::MapperGetObject& object) {
                         if (!ec)
@@ -675,11 +675,11 @@ inline void changepowercap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                         "xyz.openbmc_project.Control.Power.Cap",
                                         setPointPropName2,
                                         dbus::utility::DbusVariantType(
-                                            setpoint),
+                                            setpointValue),
                                         nvidia_async_operation_utils::
                                             PatchPowerCapCallback{
                                                 asyncResp, static_cast<int64_t>(
-                                                               setpoint)});
+                                                               setpointValue)});
 
                                 return;
                             }
@@ -689,7 +689,7 @@ inline void changepowercap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             "Performing Patch using set-property Call");
 
                         crow::connections::systemBus->async_method_call(
-                            [asyncResp, path, setpoint,
+                            [asyncResp, path, setpointValue,
                              element](const boost::system::error_code& ec2,
                                       sdbusplus::message::message& msg) {
                                 if (!ec2)
@@ -715,7 +715,7 @@ inline void changepowercap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                     // Invalid value
                                     messages::propertyValueIncorrect(
                                         asyncResp->res, "setpoint",
-                                        std::to_string(setpoint));
+                                        std::to_string(setpointValue));
                                 }
                                 else if (strcmp(dbusError->name,
                                                 "xyz.openbmc_project.Common."
@@ -762,7 +762,7 @@ inline void changepowercap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             "org.freedesktop.DBus.Properties", "Set",
                             "xyz.openbmc_project.Control.Power.Cap",
                             setPointPropName(),
-                            dbus::utility::DbusVariantType(setpoint));
+                            dbus::utility::DbusVariantType(setpointValue));
                     });
             }
         },
@@ -1312,10 +1312,10 @@ inline void requestRoutesChassisControls(App& app)
                             {
                                 validendpoint = true;
                                 std::optional<std::string> mode;
-                                std::optional<uint32_t> setpoint;
+                                std::optional<uint32_t> setpointValue;
                                 if (!json_util::readJsonAction(
                                         req, asyncResp->res, "ControlMode",
-                                        mode, "SetPoint", setpoint))
+                                        mode, "SetPoint", setpointValue))
                                 {
                                     return;
                                 }
@@ -1340,20 +1340,20 @@ inline void requestRoutesChassisControls(App& app)
                                             *mode);
                                     }
                                 }
-                                if (setpoint)
+                                if (setpointValue)
                                 {
                                     if (BMCWEB_POWER_CONTROL_TYPE_PERCENTAGE &&
-                                        (setpoint > 100))
+                                        (setpointValue > 100))
                                     {
                                         BMCWEB_LOG_ERROR("invalid input");
-                                        std::string strValue =
-                                            std::to_string(setpoint.value());
+                                        std::string strValue = std::to_string(
+                                            setpointValue.value());
                                         messages::actionParameterUnknown(
                                             asyncResp->res, "SetPoint",
                                             std::string_view(strValue));
                                     }
                                     changepowercap(asyncResp, object,
-                                                   *setpoint);
+                                                   *setpointValue);
                                 }
                                 break;
                             }
@@ -1503,10 +1503,10 @@ inline void requestRoutesChassisControls(App& app)
                             {
                                 validendpoint = true;
                                 std::optional<std::string> mode;
-                                std::optional<uint32_t> setpoint;
+                                std::optional<uint32_t> setpointValue2;
                                 if (!json_util::readJsonPatch(
                                         req, asyncResp->res, "ControlMode",
-                                        mode, "SetPoint", setpoint))
+                                        mode, "SetPoint", setpointValue2))
                                 {
                                     return;
                                 }
@@ -1544,10 +1544,10 @@ inline void requestRoutesChassisControls(App& app)
                                     }
                                 }
 
-                                if (setpoint)
+                                if (setpointValue2)
                                 {
                                     changepowercap(asyncResp, object,
-                                                   *setpoint);
+                                                   *setpointValue2);
                                 }
                                 break;
                             }

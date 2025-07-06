@@ -28,8 +28,11 @@ namespace nvidia_async_operation_utils
 class PatchGenericCallback
 {
   public:
-    explicit PatchGenericCallback(std::shared_ptr<bmcweb::AsyncResp> response) :
-        resp(std::move(response))
+    explicit PatchGenericCallback(std::shared_ptr<bmcweb::AsyncResp> respIn,
+                                  std::string propertyNameIn = "",
+                                  std::string propertyValueIn = "") :
+        resp(std::move(respIn)), propertyName(propertyNameIn),
+        propertyValue(propertyValueIn)
     {}
 
     void operator()(const std::string& status) const
@@ -65,6 +68,14 @@ class PatchGenericCallback
             // timeout error
             messages::asyncError(resp->res, errTimeout, errTimeoutResolution);
         }
+        else if (status == nvidia_async_operation_utils::
+                               asyncStatusValueInvalidArgument &&
+                 propertyName.size())
+        {
+            // Invalid value
+            messages::propertyValueIncorrect(resp->res, propertyName,
+                                             propertyValue);
+        }
         else
         {
             messages::internalError(resp->res);
@@ -73,6 +84,8 @@ class PatchGenericCallback
 
   private:
     std::shared_ptr<bmcweb::AsyncResp> resp;
+    std::string propertyName;
+    std::string propertyValue;
 };
 
 using PatchMigModeCallback = PatchGenericCallback;
@@ -83,7 +96,7 @@ using PatchIsolationModeCallback = PatchGenericCallback;
 using PatchEdppSetPointCallback = PatchGenericCallback;
 using PatchCCModeCallback = PatchGenericCallback;
 using PatchEgmModeCallback = PatchGenericCallback;
-
+using PatchErrorInjectionPayloadCallback = PatchGenericCallback;
 class PatchSpeedConfigCallback
 {
   public:
@@ -155,6 +168,7 @@ class PatchPowerCapCallback
     {
         if (status == nvidia_async_operation_utils::asyncStatusValueSuccess)
         {
+            messages::success(resp->res);
             return;
         }
 
@@ -269,7 +283,7 @@ class PatchClockLimitControlCallback
  * DBus path
  */
 template <typename Callback = PatchGenericCallback, typename Value>
-inline void patch(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+inline void patch(std::shared_ptr<bmcweb::AsyncResp> aResp,
                   const std::string& service, const std::string& path,
                   const std::string& interface, const std::string& property,
                   const Value& value, bool showError = true)
@@ -279,9 +293,9 @@ inline void patch(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     dbus::utility::getDbusObject(
         path, std::array<std::string_view, 1>{setAsyncInterfaceName},
         [aResp, path, service, property, interface, value,
-         showError](const boost::system::error_code& ec1,
+         showError](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& object) {
-            if (!ec1)
+            if (!ec)
             {
                 for (const auto& [serv, _] : object)
                 {
@@ -318,6 +332,7 @@ inline void patch(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     {
                         BMCWEB_LOG_DEBUG("Set {} property for {} succeeded",
                                          property, interface);
+                        messages::success(aResp->res);
                         return;
                     }
                     BMCWEB_LOG_WARNING(

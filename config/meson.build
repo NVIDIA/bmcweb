@@ -6,10 +6,30 @@ if get_option('firmware-image-limit') > get_option('http-body-limit')
   error('Firmware image size limit should be lesser than http body limit.')
 endif
 
+conf_data.set_quoted(
+    'PLATFORM_GPU_NAME_PREFIX',
+    get_option('platform-gpu-name-prefix'),
+)
+conf_data.set_quoted(
+    'PLATFORM_CHASSIS_NAME',
+    get_option('platform-chassis-name'),
+)
+conf_data.set_quoted(
+    'PLATFORM_DEVICE_PREFIX',
+    get_option('platform-device-prefix'),
+)
+conf_data.set_quoted(
+    'NETWORK_ADAPTER_PREFIX',
+    get_option('nvidia-network-adapter-prefix'),
+)
+conf_data.set_quoted(
+    'NETWORK_ADAPTER_LINK_PREFIX',
+    get_option('nvidia-network-adapter-link-prefix'),
+)
 feature_options = [
     'basic-auth',
     'bios',
-    'http-chunking',
+    'check-oem-diagnostic-type',
     'command-shell',
     'command-smbpbi-oob',
     'cookie-auth',
@@ -21,6 +41,7 @@ feature_options = [
     'dot-support',
     'dpu-bios',
     'enable-fabric-adapter',
+    'enable-ist-mode',
     'enforce_sensor_name_format',
     'erot-reset',
     'experimental-http2',
@@ -29,11 +50,13 @@ feature_options = [
     'fencing-privilege',
     'google-api',
     'health-rollup-alternative',
+    'hide-host-os-features-init-value',
     'host-auxpower-features',
     'host-eth-iface',
     'host-iface',
     'host-os-features',
     'host-serial-socket',
+    'http-chunking',
     'hypervisor-computer-system',
     'ibm-management-console',
     'insecure-disable-auth',
@@ -50,30 +73,36 @@ feature_options = [
     'manufacturing-test',
     'meta-tls-common-name-parsing',
     'mutual-tls-auth',
-    'network-adapters-generic',
     'network-adapters',
+    'network-adapters-generic',
     'nic-configuration-update',
+    'nsm-raw-command-enable',
     'ntp',
     'nvidia-bootentryid',
+    'nvidia-device-status-from-association',
     'nvidia-oem-bf-properties',
     'nvidia-oem-bf3-properties',
+    'nvidia-oem-common-properties',
     'nvidia-oem-device-status-from-file',
     'nvidia-oem-fw-update-staging',
-    'nvidia-oem-logservices',
     'nvidia-oem-gb200nvl-properties',
+    'nvidia-oem-logservices',
+    'nvidia-oem-openocd',
+    'nvidia-oem-pmc',
     'nvidia-oem-properties',
-    'nvidia-uuid-from-platform-chassis-name',
     'nvidia-retimer-debugmode',
-    'nvidia-device-status-from-association',
+    'nvidia-uuid-from-platform-chassis-name',
     'patch-ssh',
     'platform-metrics',
     'power-control-type-percentage',
+    'profiles-feature',
     'profile-configuration',
+    'push-smbios-table-feature',
+    'redfish',
     'redfish-aggregation',
     'redfish-aggregation-prefix-removal',
     'redfish-allow-deprecated-power-thermal',
     'redfish-allow-simple-update',
-    'redfish-use-3-digit-messageid',
     'redfish-bmc-journal',
     'redfish-cpu-log',
     'redfish-dbus-event',
@@ -84,36 +113,31 @@ feature_options = [
     'redfish-health-populate',
     'redfish-host-logger',
     'redfish-leak-detect',
+    'redfish-manager-event-log',
     'redfish-new-powersubsystem-thermalsubsystem',
     'redfish-oem-manager-fan-data',
     'redfish-post-to-old-updateservice',
     'redfish-provisioning-feature',
-    'system-dump-base64-encode',
+    'redfish-sw-einj',
     'redfish-system-faultlog-dump-log',
     'redfish-updateservice-http-pull',
     'redfish-updateservice-use-dbus',
-    'redfish',
+    'redfish-use-3-digit-messageid',
     'reset-bios-by-clear-nonvolatile',
     'rest',
     'rmedia',
+    'rsyslog-client',
     'scp-update',
     'session-auth',
     'shmem-platform-metrics',
     'static-hosting',
+    'system-dump-base64-encode',
+    'systems-lastresettime',
     'tests',
     'tls-auth-opt-in',
     'use-efficient-expand-on-sensors',
     'vm-websocket',
     'xtoken-auth',
-    'nvidia-oem-openocd',
-    'systems-lastresettime',
-    'rsyslog-client',
-    'check-oem-diagnostic-type',
-    'redfish-sw-einj',
-    'redfish-manager-event-log',
-    'nsm-raw-command-enable',    
-    'enable-ist-mode',
-    'hide-host-os-features-init-value',
 ]
 
 string_options = [
@@ -160,7 +184,7 @@ int_options = [
     'update-service-task-timeout',
 ]
 
-array_options = ['oem-diagnostic-allowable-type']
+array_options = []
 
 feature_options_string = '\n//Feature options\n'
 string_options_string = '\n// String options\n'

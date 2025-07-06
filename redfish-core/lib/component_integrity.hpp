@@ -195,6 +195,63 @@ inline void asyncGetSPDMMeasurementData(const std::string& objectPath,
         "org.freedesktop.DBus.Properties", "GetAll", "");
 }
 
+/**
+ * @brief Gets the certificate URI for a component
+ * @param asyncResp The async response object
+ * @param chassisURI The chassis URI to use as base
+ * @param endpoint The endpoint path to extract component ID from
+ */
+inline void getCertificateURI(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisURI, const std::string& endpoint)
+{
+    const std::string& inventoryEndpoint = endpoint + "/inventory_chassis";
+
+    chassis_utils::getAssociationEndpoint(inventoryEndpoint, [asyncResp,
+                                                              chassisURI,
+                                                              inventoryEndpoint](
+                                                                 const bool&
+                                                                     status,
+                                                                 const std::
+                                                                     string&
+                                                                         ep) {
+        if (!status)
+        {
+            BMCWEB_LOG_DEBUG("Unable to get the association endpoint for ",
+                             inventoryEndpoint);
+            return;
+        }
+
+        try
+        {
+            sdbusplus::message::object_path endpointPath(ep);
+            const std::string& endpointName = endpointPath.filename();
+            sdbusplus::message::object_path chassisPath(chassisURI);
+            const std::string& chassisName = chassisPath.filename();
+            std::string componentID = chassisName;
+            if (componentID.starts_with(PLATFORMDEVICEPREFIX))
+            {
+                componentID = componentID.substr(strlen(PLATFORMDEVICEPREFIX));
+            }
+
+            std::string certificateURI = std::string(
+                boost::urls::format(
+                    "/redfish/v1/Chassis/{}/TrustedComponents/{}/Certificates/CertChain",
+                    endpointName, componentID)
+                    .encoded_path());
+
+            asyncResp->res.jsonValue["SPDM"]["IdentityAuthentication"] = {
+                {"ResponderAuthentication",
+                 {{"ComponentCertificate", {{"@odata.id", certificateURI}}}}}};
+        }
+        catch (const std::exception& e)
+        {
+            BMCWEB_LOG_ERROR(
+                "Failed to construct component certificate URI: {}", e.what());
+        }
+    });
+}
+
 inline void handleSPDMGETSignedMeasurement(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& id)
@@ -517,9 +574,9 @@ inline void requestRoutesComponentIntegrity(App& app)
 
                 chassis_utils::getAssociationEndpoint(
                     objectPath + "/inventory_object",
-                    [asyncResp](const bool& statusOuter,
+                    [asyncResp](const bool& status,
                                 const std::string& endpoint) {
-                        if (!statusOuter)
+                        if (!status)
                         {
                             BMCWEB_LOG_DEBUG(
                                 "Unable to get the association endpoint");
@@ -529,9 +586,8 @@ inline void requestRoutesComponentIntegrity(App& app)
                         const std::string& objName =
                             erotInvObjectPath.filename();
                         std::string chassisURI =
-                            boost::urls::format("/redfish/v1/Chassis/{}",
-                                                objName)
-                                .buffer();
+                            (boost::format("/redfish/v1/Chassis/%s") % objName)
+                                .str();
                         std::string certificateURI =
                             chassisURI + "/Certificates/CertChain";
                         asyncResp->res.jsonValue["TargetComponentURI"] =
@@ -541,12 +597,13 @@ inline void requestRoutesComponentIntegrity(App& app)
                             {"ResponderAuthentication",
                              {{"ComponentCertificate",
                                {{"@odata.id", certificateURI}}}}}};
+                        getCertificateURI(asyncResp, chassisURI, endpoint);
                         std::string objPath = endpoint + "/inventory";
                         chassis_utils::getAssociationEndpoint(
                             objPath,
-                            [objPath, asyncResp](const bool& statusInner,
-                                                 const std::string& url) {
-                                if (!statusInner)
+                            [objPath, asyncResp](const bool& status2,
+                                                 const std::string& ep) {
+                                if (!status2)
                                 {
                                     BMCWEB_LOG_DEBUG(
                                         "Unable to get the association endpoint for ",
@@ -561,33 +618,36 @@ inline void requestRoutesComponentIntegrity(App& app)
                                     return;
                                 }
 
-                                chassis_utils::getRedfishURL(
-                                    url, [asyncResp,
-                                          url](const bool& status,
-                                               const std::string& urlResult) {
-                                        nlohmann::json&
-                                            componentsProtectedArray =
-                                                asyncResp->res.jsonValue
-                                                    ["Links"]
-                                                    ["ComponentsProtected"];
-                                        componentsProtectedArray =
-                                            nlohmann::json::array();
-                                        // if (!status || url.empty()) In curent
-                                        // implementation of getRedfishURL
-                                        // function never returns empty URL with
-                                        // status = true
-                                        if (!status)
-                                        {
-                                            BMCWEB_LOG_DEBUG(
-                                                "Unable to get the Redfish URL for {}",
-                                                url);
-                                            return;
-                                        }
+                                chassis_utils::getRedfishURL(ep, [ep,
+                                                                  asyncResp](
+                                                                     const bool&
+                                                                         status3,
+                                                                     const std::
+                                                                         string&
+                                                                             url) {
+                                    nlohmann::json& componentsProtectedArray =
+                                        asyncResp->res
+                                            .jsonValue["Links"]
+                                                      ["ComponentsProtected"];
+                                    componentsProtectedArray =
+                                        nlohmann::json::array();
 
-                                        componentsProtectedArray.push_back(
-                                            {nlohmann::json::array(
-                                                {"@odata.id", urlResult})});
-                                    });
+                                    // if (!status3 || url.empty()) In curent
+                                    // implementation of getRedfishURL
+                                    // function never returns empty URL with
+                                    // status3 = true
+                                    if (!status3)
+                                    {
+                                        BMCWEB_LOG_DEBUG(
+                                            "Unable to get the Redfish URL for {}",
+                                            ep);
+                                        return;
+                                    }
+
+                                    componentsProtectedArray.push_back(
+                                        {nlohmann::json::array(
+                                            {"@odata.id", url})});
+                                });
                             });
                     });
             });

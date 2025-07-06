@@ -55,6 +55,55 @@ static std::map<std::string, std::string> taskUri;
 const std::array<const char*, 1> driveInterface = {
     "xyz.openbmc_project.Inventory.Item.Drive"};
 
+inline void getDrivePresent(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            const std::string& connectionName,
+                            const std::string& path)
+{
+    sdbusplus::asio::getProperty<bool>(
+        *crow::connections::systemBus, connectionName, path,
+        "xyz.openbmc_project.Inventory.Item", "Present",
+        [asyncResp,
+         path](const boost::system::error_code& ec, const bool isPresent) {
+            // this interface isn't necessary, only check it if
+            // we get a good return
+            if (ec)
+            {
+                return;
+            }
+
+            if (isPresent)
+            {
+                asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
+            }
+        });
+}
+
+inline void getDriveState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                          const std::string& connectionName,
+                          const std::string& path)
+{
+    sdbusplus::asio::getProperty<bool>(
+        *crow::connections::systemBus, connectionName, path,
+        "xyz.openbmc_project.State.Drive", "Rebuilding",
+        [asyncResp](const boost::system::error_code& ec, const bool updating) {
+            // this interface isn't necessary, only check it
+            // if we get a good return
+            if (ec)
+            {
+                return;
+            }
+
+            // updating and disabled in the backend shouldn't be
+            // able to be set at the same time, so we don't need
+            // to check for the race condition of these two
+            // calls
+            if (updating)
+            {
+                asyncResp->res.jsonValue["Status"]["State"] = "Updating";
+            }
+        });
+}
+
 inline std::optional<std::string> convertDriveFormFactor(
     const std::string& formFactor)
 {
@@ -755,55 +804,6 @@ inline void getDriveAsset(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             if (model != nullptr)
             {
                 asyncResp->res.jsonValue["Model"] = *model;
-            }
-        });
-}
-
-inline void getDrivePresent(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& connectionName,
-                            const std::string& path)
-{
-    dbus::utility::getProperty<bool>(
-        connectionName, path, "xyz.openbmc_project.Inventory.Item", "Present",
-        [asyncResp,
-         path](const boost::system::error_code& ec, const bool isPresent) {
-            // this interface isn't necessary, only check it if
-            // we get a good return
-            if (ec)
-            {
-                return;
-            }
-
-            if (!isPresent)
-            {
-                asyncResp->res.jsonValue["Status"]["State"] =
-                    resource::State::Absent;
-            }
-        });
-}
-
-inline void getDriveState(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& connectionName,
-                          const std::string& path)
-{
-    dbus::utility::getProperty<bool>(
-        connectionName, path, "xyz.openbmc_project.State.Drive", "Rebuilding",
-        [asyncResp](const boost::system::error_code& ec, const bool updating) {
-            // this interface isn't necessary, only check it
-            // if we get a good return
-            if (ec)
-            {
-                return;
-            }
-
-            // updating and disabled in the backend shouldn't be
-            // able to be set at the same time, so we don't need
-            // to check for the race condition of these two
-            // calls
-            if (updating)
-            {
-                asyncResp->res.jsonValue["Status"]["State"] =
-                    resource::State::Updating;
             }
         });
 }
@@ -1527,8 +1527,8 @@ inline void afterGetSubtreeSystemsStorageDrive(
 
     getChassisID(asyncResp, driveId, path);
 
-    // default it to Enabled
-    asyncResp->res.jsonValue["Status"]["State"] = resource::State::Enabled;
+    // default it to Absent
+    asyncResp->res.jsonValue["Status"]["State"] = "Absent";
 
     for (const auto& [connectionName, connInterfaces] : connectionNames)
     {
@@ -1972,7 +1972,7 @@ inline void getStorageControllerAsset(
         return;
     }
 
-    if (partNumber != nullptr)
+    if (partNumber != nullptr && !partNumber->empty())
     {
         asyncResp->res.jsonValue["PartNumber"] = *partNumber;
     }
@@ -2073,7 +2073,13 @@ inline void getStorageControllerHandler(
         const std::string& connectionName = interfaceDict.front().first;
         populateStorageController(asyncResp, controllerId, connectionName,
                                   path);
+        return;
     }
+
+    // No controllerId matched
+    messages::resourceNotFound(asyncResp->res,
+                               "#StorageController.v1_6_0.StorageController",
+                               controllerId);
 }
 
 inline void populateStorageControllerCollection(

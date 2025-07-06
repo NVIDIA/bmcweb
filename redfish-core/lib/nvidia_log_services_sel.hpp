@@ -629,67 +629,40 @@ inline void requestRoutesDBusSELLogServiceActionsClear(App& app)
             {
                 return;
             }
+            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                           systemName);
+                return;
+            }
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code& ec,
-                            GetManagedObjectsType& resp) {
+                [asyncResp](const boost::system::error_code ec) {
                     if (ec)
                     {
-                        // TODO Handle for specific error code
-                        BMCWEB_LOG_ERROR(
-                            "getLogEntriesIfaceData resp_handler got error {}",
-                            ec);
-                        messages::internalError(asyncResp->res);
+                        if (ec.value() == EBADR)
+                        {
+                            messages::resourceNotFound(
+                                asyncResp->res, "LogService", "ClearSELLog");
+                        }
+                        else
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "getLogEntriesIfaceData resp_handler got error {}",
+                                ec);
+                            messages::internalError(asyncResp->res);
+                        }
                         return;
                     }
 
-                    for (auto& objectPath : resp)
-                    {
-                        uint32_t* id = nullptr;
-                        std::string* message = nullptr;
-                        const std::vector<std::string>* additionalData =
-                            nullptr;
-
-                        for (auto& interfaceMap : objectPath.second)
-                        {
-                            if (interfaceMap.first ==
-                                "xyz.openbmc_project.Logging.Entry")
-                            {
-                                for (auto& propertyMap : interfaceMap.second)
-                                {
-                                    if (propertyMap.first == "Id")
-                                    {
-                                        id = std::get_if<uint32_t>(
-                                            &propertyMap.second);
-                                    }
-                                    else if (propertyMap.first == "Message")
-                                    {
-                                        message = std::get_if<std::string>(
-                                            &propertyMap.second);
-                                    }
-                                    else if (propertyMap.first ==
-                                             "AdditionalData")
-                                    {
-                                        additionalData = std::get_if<
-                                            std::vector<std::string>>(
-                                            &propertyMap.second);
-                                    }
-                                }
-                                if (id == nullptr || message == nullptr)
-                                {
-                                    messages::internalError(asyncResp->res);
-                                    continue;
-                                }
-                                if (isSelEntry(message, additionalData))
-                                {
-                                    std::string entryId = std::to_string(*id);
-                                    deleteDbusLogEntry(entryId, asyncResp);
-                                }
-                            }
-                        }
-                    }
+                    // Add a log entry to journal log when using redfish commend
+                    // to clear the SEL. This entry in journal log will be
+                    // captured and generate a SEL Clear Event.
+                    BMCWEB_LOG_INFO("Deleting all log entries");
+                    messages::success(asyncResp->res);
                 },
                 "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
-                "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
+                "xyz.openbmc_project.Logging.Namespace", "DeleteAllTypes",
+                "SEL");
         });
 }
 } // namespace redfish

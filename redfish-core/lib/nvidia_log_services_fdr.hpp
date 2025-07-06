@@ -129,7 +129,15 @@ inline void handleLogServicesFDRDumpCollectDiagnosticDataPost(
     {
         return;
     }
-    createDump(asyncResp, req, dumpType);
+
+    if constexpr (BMCWEB_CHECK_OEM_DIAGNOSTIC_TYPE)
+    {
+        precheckOemDiagDataTypeAndCreateDump(asyncResp, req, dumpType);
+    }
+    else
+    {
+        createDump(asyncResp, req, dumpType);
+    }
 }
 
 inline void requestRoutesSystemFDRCreate(App& app)
@@ -270,6 +278,12 @@ inline void handleFDRServicePatch(
     {
         return;
     }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
 
     std::optional<bool> enabled;
 
@@ -297,39 +311,65 @@ inline void handleFDRServicePatch(
     constexpr const char* disableService = "DisableUnitFiles";
     // change fdrServiceName accoridng to FDR service name
     constexpr const char* fdrServiceName = "nvidia-fdr.service";
+    constexpr const char* resetFailedUnit = "ResetFailedUnit";
 
     if (*enabled)
     {
-        // Try to enable service persistently
-        constexpr bool runtime = false;
-        constexpr bool force = false;
-
+        // Attempting to reset failed
         crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code& ec) {
+            [asyncResp, fdrServiceName](const boost::system::error_code& ec) {
                 if (ec)
                 {
-                    BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
-                    messages::internalError(asyncResp->res);
-                    return;
+                    BMCWEB_LOG_ERROR(
+                        "ResetFailedUnit D-Bus call failed for {}: {}",
+                        fdrServiceName, ec);
                 }
-            },
-            serviceName, objectPath, interfaceName, enableService,
-            std::array<std::string, 1>{fdrServiceName}, runtime, force);
 
-        // Try to start service
-        constexpr const char* mode = "replace";
+                // Enable the service persistently
+                constexpr bool runtime = false;
+                constexpr bool force = false;
 
-        crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code& ec) {
-                if (ec)
-                {
-                    BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp,
+                     fdrServiceName](const boost::system::error_code ec) {
+                        if (ec)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "EnableService D-Bus call failed for {}: {}",
+                                fdrServiceName, ec);
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        BMCWEB_LOG_DEBUG(
+                            "Successfully enabled service persistently for {}",
+                            fdrServiceName);
+
+                        // Start the service
+                        constexpr const char* mode = "replace";
+
+                        crow::connections::systemBus->async_method_call(
+                            [asyncResp, fdrServiceName](
+                                const boost::system::error_code ec) {
+                                if (ec)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "StartService D-Bus call failed for {}: {}",
+                                        fdrServiceName, ec);
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                BMCWEB_LOG_DEBUG(
+                                    "Successfully started service {}",
+                                    fdrServiceName);
+                            },
+                            serviceName, objectPath, interfaceName,
+                            startService, fdrServiceName, mode);
+                    },
+                    serviceName, objectPath, interfaceName, enableService,
+                    std::array<std::string, 1>{fdrServiceName}, runtime, force);
             },
-            serviceName, objectPath, interfaceName, startService,
-            fdrServiceName, mode);
+            serviceName, objectPath, interfaceName, resetFailedUnit,
+            fdrServiceName);
     }
     else
     {
@@ -337,7 +377,7 @@ inline void handleFDRServicePatch(
         constexpr const char* mode = "replace";
 
         crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code& ec) {
+            [asyncResp](const boost::system::error_code ec) {
                 if (ec)
                 {
                     BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
@@ -352,7 +392,7 @@ inline void handleFDRServicePatch(
         constexpr bool runtime = false;
 
         crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code& ec) {
+            [asyncResp](const boost::system::error_code ec) {
                 if (ec)
                 {
                     BMCWEB_LOG_DEBUG("DBUS response error {}", ec);

@@ -601,14 +601,18 @@ void resourceNotFound(crow::Response& res, std::string_view arg1,
 
 /**
  * @brief Formats PayloadTooLarge message into JSON
- * Message body: "The supplied payload exceeds the maximum size supported by the
- * service."
  *
- *
- * @returns Message PayloadTooLarge formatted to JSON */
+ * @returns Message PayloadTooLarge formatted to JSON
+ */
 nlohmann::json payloadTooLarge();
 
-void payloadTooLarge(crow::Response& res);
+/**
+ * @brief error message for payloadTooLarge
+ *
+ * @param[in] res - response
+ * @param[in] resolution - optional resolution
+ */
+void payloadTooLarge(crow::Response& res, const std::string& resolution = {});
 
 /**
  * @brief Formats InsufficientStorage message into JSON

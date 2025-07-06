@@ -29,7 +29,22 @@
 #include "metric_report_definition.hpp"
 #include "network_protocol.hpp"
 #include "nvidia_manager_eventlog.hpp"
-#include "nvidia_persistent_data.hpp"
+#include "nvidia_oem_dpu.hpp"
+#include "nvidia_oem_managed_entity.hpp"
+#include "nvidia_oem_managed_entity_group.hpp"
+#include "nvidia_oem_managers_pmc.hpp"
+#include "nvidia_oem_power_domain.hpp"
+#include "nvidia_oem_power_policy.hpp"
+#include "nvidia_oem_power_state_group.hpp"
+#include "nvidia_oem_psc_state.hpp"
+#include "nvidia_oem_psu_redundancy.hpp"
+#include "nvidia_oem_psu_state.hpp"
+#include "nvidia_policy.hpp"
+#include "nvidia_power_reset_metrics.hpp"
+#include "nvidia_processor.hpp"
+#include "nvidia_protected_component.hpp"
+#include "nvidia_smbios_mdr.hpp"
+#include "nvidia_system_variable_spi_erase.hpp"
 #include "odata.hpp"
 #include "openbmc/openbmc_managers.hpp"
 #include "pcie.hpp"
@@ -54,6 +69,34 @@
 #include "trigger.hpp"
 #include "update_service.hpp"
 #include "virtual_media.hpp"
+// #ifdef BMCWEB_ENABLE_NETWORK_ADAPTERS_GENERIC
+#include "network_adapters_generic.hpp"
+// #endif
+#include "boot_options.hpp"
+#include "erot_chassis.hpp"
+#include "fabric.hpp"
+#include "fabric_adapters.hpp"
+#include "host_interface.hpp"
+#include "nvidia_debug_token.hpp"
+#include "nvidia_error_injection.hpp"
+#include "nvidia_power_smoothing.hpp"
+#include "nvidia_workload_power_profiles.hpp"
+// #ifdef BMCWEB_ENABLE_NETWORK_ADAPTERS
+#include "network_adapters.hpp"
+// #endif
+#include "nvidia_sweinj.hpp"
+#include "pcie_slots.hpp"
+#include "pcieslots.hpp"
+#include "ports.hpp"
+#include "secure_boot.hpp"
+#include "secure_boot_database.hpp"
+// #ifdef BMCWEB_ENABLE_HOST_ETH_IFACE
+#include "system_host_eth.hpp"
+// #endif
+#include "trusted_components.hpp"
+// #ifdef BMCWEB_ENABLE_PROFILES_FEATURE
+#include "nvidia_dpu_system_profiles.hpp"
+// #endif
 
 namespace redfish
 {
@@ -102,6 +145,7 @@ RedfishService::RedfishService(App& app)
         requestRoutesFan(app);
         requestRoutesFanCollection(app);
     }
+
     requestRoutesManagerCollection(app);
     requestRoutesManager(app);
     requestRoutesManagerResetAction(app);
@@ -181,9 +225,21 @@ RedfishService::RedfishService(App& app)
     requestRoutesProcessor(app);
     requestRoutesOperatingConfigCollection(app);
     requestRoutesOperatingConfig(app);
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+#ifdef BMCWEB_COMMAND_SMBPBI_OOB
+        requestRouteAsyncRawOobCommand(app);
+#endif // BMCWEB_COMMAND_SMBPBI_OOB
+        if constexpr (BMCWEB_NSM_RAW_COMMAND_ENABLE)
+        {
+            nvidia_manager_util::requestRouteNSMRawCommand(app);
+            nvidia_manager_util::requestRouteNSMRawCommandActionInfo(app);
+        }
+        nvidia_manager_util::requestRoutesDebugTokenManagement(app);
+    }
+
     requestRoutesMemoryCollection(app);
     requestRoutesMemory(app);
-
     requestRoutesSystems(app);
 
     if constexpr (BMCWEB_BIOS)
@@ -261,6 +317,36 @@ RedfishService::RedfishService(App& app)
     {
         requestRoutesTriggerCollection(app);
         requestRoutesTrigger(app);
+    }
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        requestRoutesProcessorPortHistogramCollection(app);
+        requestRoutesProcessorPortHistogram(app);
+        requestRoutesProcessorPortHistogramBuckets(app);
+    }
+
+    requestRoutesNvidiaSmbios(app);
+
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        requestRoutesProcessorResetMetrics(app);
+        requestRoutesSystemOemNvidiaProcessorVariableSpiActions(app);
+    }
+
+    if constexpr (BMCWEB_NVIDIA_OEM_PMC)
+    {
+        nvidia_oem_managers_pmc::requestRoutesNvidiaPowerCompliance(app);
+        nvidia_oem_managers_pmc::
+            requestRoutesNvidiaPowerComplianceManagerActions(app);
+        nvidia_oem_power_domain::requestRoutesNvidiaPowerDomain(app);
+        nvidia_oem_power_policy::requestRoutesNvidiaPowerPolicy(app);
+        nvidia_oem_power_state_group::requestRoutesNvidiaPowerStateGroup(app);
+        nvidia_oem_psc_state::requestRoutesNvidiaPscState(app);
+        nvidia_oem_psu_state::requestRoutesNvidiaPsuState(app);
+        nvidia_oem_psu_redundancy::requestRoutesNvidiaPsuRedundancy(app);
+        nvidia_oem_managed_entity_group::requestRoutesNvidiaManagedEntityGroup(
+            app);
+        nvidia_oem_managed_entity::requestRoutesNvidiaManagedEntity(app);
     }
 
     requestRoutesNvidia(app);

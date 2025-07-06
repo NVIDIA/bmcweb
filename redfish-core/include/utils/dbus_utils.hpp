@@ -428,6 +428,19 @@ inline std::string toPowerSupplyType(const std::string& powerSupply)
     }
     return "";
 }
+
+inline nlohmann::json toChannelPresence(const std::string& state)
+{
+    if (state == "com.nvidia.MemorySpareChannel.Presence.Present")
+    {
+        return true;
+    }
+    if (state == "com.nvidia.MemorySpareChannel.Presence.NotPresent")
+    {
+        return false;
+    }
+    return nullptr;
+}
 /**
  * @brief Defer the callback function until the shared_ptr destroys the returned
  * object.

@@ -681,7 +681,19 @@ inline void extendUpdateServiceGet(
                        return std::vector<std::string>{"StageAndActivate"};
                    }
                }()}}}};
-        debug_token::getErasePolicy(asyncResp);
+        debug_token::getErasePolicy(
+            [asyncResp](const std::optional<bool>& erasePolicy) {
+                if (erasePolicy)
+                {
+                    asyncResp->res.jsonValue["Oem"]["Nvidia"]
+                                            ["AutomaticDebugTokenErased"] =
+                        *erasePolicy;
+                }
+                else
+                {
+                    messages::internalError(asyncResp->res);
+                }
+            });
     }
 
     auto getUpdateStatus = std::make_shared<BMCStatusAsyncResp>(asyncResp);
@@ -1003,8 +1015,8 @@ inline void computeDigest(const crow::Request& req,
                                     jsonResponse
                                         ["FirmwareDigestHashingAlgorithm"] =
                                             *hashAlgoValue;
-                                    taskData->taskResponse.emplace(
-                                        jsonResponse);
+                                    taskData->taskResponse
+                                        .emplace<nlohmann::json>(jsonResponse);
                                     std::string location =
                                         "Location: /redfish/v1/TaskService/Tasks/" +
                                         std::to_string(taskData->index) +

@@ -87,13 +87,13 @@ inline void getResetMetricsInterfaceProperties(
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, objPath](
-            const boost::system::error_code& ec,
+            const boost::system::error_code errorCode,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) {
-            if (ec)
+            if (errorCode)
             {
                 BMCWEB_LOG_ERROR("Failed to get object info for path {}: {}",
-                                 objPath, ec.message());
+                                 objPath, errorCode.message());
                 messages::internalError(asyncResp->res);
                 return;
             }
@@ -125,13 +125,13 @@ inline void getResetMetricsInterfaceProperties(
                 *crow::connections::systemBus, targetService, objPath,
                 "com.nvidia.ResetCounters.ResetCounterMetrics",
                 [asyncResp,
-                 objPath](const boost::system::error_code& ec1,
+                 objPath](const boost::system::error_code ec,
                           const dbus::utility::DBusPropertiesMap& properties) {
-                    if (ec1)
+                    if (ec)
                     {
                         BMCWEB_LOG_ERROR(
                             "Failed to fetch properties for path {}: {}",
-                            objPath, ec1.message());
+                            objPath, ec.message());
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -170,7 +170,7 @@ inline void getResetMetricsInterfaceProperties(
                                     std::get_if<double>(&value))
                             {
                                 asyncResp->res.jsonValue[jsonKey->second] =
-                                    *count;
+                                    static_cast<uint64_t>(*count);
                             }
                             else if (const std::string* resetType =
                                          std::get_if<std::string>(&value))

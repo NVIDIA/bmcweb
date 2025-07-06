@@ -20,8 +20,11 @@
 #include "dbus_utility.hpp"
 #include "debug_token/base.hpp"
 #include "debug_token/endpoint.hpp"
+#include "debug_token/nsm_async_aggregate.hpp"
+#include "debug_token/nsm_status_utils.hpp"
 #include "debug_token/request_utils.hpp"
-#include "debug_token/status_utils.hpp"
+#include "debug_token/vdm_status.hpp"
+#include "debug_token/vdm_status_utils.hpp"
 #include "nvidia_cpu_debug_token.hpp"
 #include "openbmc_dbus_rest.hpp"
 #include "utils/dbus_utils.hpp"
@@ -39,19 +42,16 @@
 #include <sstream>
 #include <vector>
 
-namespace redfish::debug_token
+namespace redfish
 {
-
+namespace debug_token
+{
 // mctp-vdm-util's output size per endpoint
 constexpr const size_t statusQueryOutputSize = 256;
 constexpr const int statusQueryTimeoutSeconds = 60;
 
 constexpr const std::string_view nsmDebugTokenSpecifier = "CRDT";
 
-constexpr const auto nsmMatchRule =
-    "type='signal',interface='org.freedesktop.DBus.Properties',"
-    "member='PropertiesChanged',"
-    "path_namespace='/xyz/openbmc_project/debug_token'";
 constexpr const auto spdmMatchRule =
     "type='signal',interface='org.freedesktop.DBus.Properties',"
     "member='PropertiesChanged',"
@@ -93,49 +93,7 @@ class OperationHandler
     ResultCallback resCallback;
     ErrorCallback errCallback;
 
-    std::unique_ptr<sdbusplus::bus::match_t> nsmMatch;
     std::unique_ptr<sdbusplus::bus::match_t> spdmMatch;
-
-    void createNsmMatch(const std::function<void(const std::string&,
-                                                 const std::string&)>& callback)
-    {
-        nsmMatch = std::make_unique<sdbusplus::bus::match_t>(
-            *crow::connections::systemBus, nsmMatchRule,
-            [callback](sdbusplus::message_t& msg) {
-                if (msg.is_method_error())
-                {
-                    BMCWEB_LOG_ERROR("NSM match message error");
-                    return;
-                }
-                std::string object(msg.get_path());
-                BMCWEB_LOG_DEBUG("NSM match handler: {}", object);
-                std::string interface;
-                std::map<std::string, dbus::utility::DbusVariantType> props;
-                msg.read(interface, props);
-                std::string* progressStatus = nullptr;
-                if (interface == "xyz.openbmc_project.Common.Progress")
-                {
-                    auto it = props.find("Status");
-                    if (it != props.end())
-                    {
-                        progressStatus =
-                            std::get_if<std::string>(&(it->second));
-                    }
-                }
-                if (progressStatus == nullptr)
-                {
-                    return;
-                }
-                if (*progressStatus ==
-                    "xyz.openbmc_project.Common.Progress.OperationStatus.InProgress")
-                {
-                    return;
-                }
-                std::string status = progressStatus->substr(
-                    progressStatus->find_last_of('.') + 1);
-                callback(object, status);
-            });
-    }
 
     void createSpdmMatch(
         const std::function<void(const std::string&, const std::string&)>&
@@ -175,7 +133,6 @@ class OperationHandler
 
     void resetMatches()
     {
-        nsmMatch.reset();
         spdmMatch.reset();
     }
 };
@@ -183,24 +140,27 @@ class OperationHandler
 class StatusQueryHandler : public OperationHandler
 {
   public:
-    StatusQueryHandler(const ResultCallback&& resultCallback,
-                       const ErrorCallback&& errorCallback, bool useNsm = true)
+    StatusQueryHandler(ResultCallback&& resultCallback,
+                       ErrorCallback&& errorCallback,
+                       const std::vector<std::string>& endpointFilter =
+                           std::vector<std::string>(),
+                       bool useNsm = true)
     {
         BMCWEB_LOG_DEBUG("StatusQueryHandler constructor");
         resCallback = resultCallback;
         errCallback = errorCallback;
-        getCpuObjectPath([this,
-                          &errorCallback](const boost::system::error_code&,
-                                          const std::string& cpuPath) {
+        getCpuObjectPath([this, errorCallback,
+                          endpointFilter](const boost::system::error_code&,
+                                          const std::string cpuPath) {
             mctp_utils::enumerateMctpEndpoints(
                 [this, cpuPath](
                     const std::shared_ptr<
                         std::vector<mctp_utils::MctpEndpoint>>& mctpEndpoints) {
-                    spdmEnumerationFinished = true;
                     const std::string desc = "SPDM endpoint enumeration";
                     BMCWEB_LOG_DEBUG("{}", desc);
-                    if (!mctpEndpoints || mctpEndpoints->empty())
+                    if (!mctpEndpoints || mctpEndpoints->size() == 0)
                     {
+                        spdmPending = false;
                         BMCWEB_LOG_ERROR("{}: {}", desc, "no endpoints found");
                         finalize();
                         return;
@@ -215,76 +175,60 @@ class StatusQueryHandler : public OperationHandler
                     {
                         if (!ep.isEnabled())
                         {
-                            continue;
+                            BMCWEB_LOG_ERROR("{}: {}", desc,
+                                             "no endpoints found");
+                            finalize();
+                            return;
                         }
-                        // ignore satmc (CPU debug token) endpoint
-                        if (ep.getSpdmObject() == cpuPath)
+                        if (!endpoints)
                         {
-                            continue;
+                            endpoints = std::make_shared<std::vector<
+                                std::unique_ptr<DebugTokenEndpoint>>>();
+                            endpoints->reserve(mctpEndpoints->size());
                         }
-                        const auto& msgTypes = ep.getMctpMessageTypes();
-                        if (std::find(msgTypes.begin(), msgTypes.end(),
-                                      mctp_utils::mctpMessageTypeVdm) !=
-                            msgTypes.end())
+                        for (auto& ep : *mctpEndpoints)
                         {
-                            endpoints->emplace_back(
-                                std::make_unique<DebugTokenSpdmEndpoint>(ep));
+                            if (!ep.isEnabled())
+                            {
+                                continue;
+                            }
+                            // ignore satmc (CPU debug token) endpoint
+                            if (ep.getSpdmObject() == cpuPath)
+                            {
+                                continue;
+                            }
+                            const auto& msgTypes = ep.getMctpMessageTypes();
+                            if (std::find(msgTypes.begin(), msgTypes.end(),
+                                          mctp_utils::mctpMessageTypeVdm) !=
+                                msgTypes.end())
+                            {
+                                endpoints->emplace_back(
+                                    std::make_unique<DebugTokenSpdmEndpoint>(
+                                        ep));
+                            }
                         }
                     }
                     endpoints->shrink_to_fit();
-                    getMctpVdmStatus();
+                    getVdmStatus();
                     finalize();
                 },
                 [this, &errorCallback](bool, const std::string& desc,
                                        const std::string& error) {
-                    spdmEnumerationFinished = true;
+                    spdmPending = false;
                     errorCallback(false, desc, error);
                     finalize();
                 },
-                "",
-                static_cast<uint64_t>(statusQueryTimeoutSeconds) * 1000000U);
+                endpointFilter,
+                static_cast<uint64_t>(statusQueryTimeoutSeconds) * 1000000u);
         });
-
-        if (!useNsm)
+        if (useNsm)
         {
-            nsmEnumerationFinished = true;
-            return;
+            getNsmStatus();
         }
-        constexpr std::array<std::string_view, 1> interfaces = {debugTokenIntf};
-        dbus::utility::getSubTreePaths(
-            "/xyz/openbmc_project/debug_token", 0, interfaces,
-            [this](const boost::system::error_code& ec,
-                   const dbus::utility::MapperGetSubTreePathsResponse& paths) {
-                nsmEnumerationFinished = true;
-                const std::string desc = "NSM endpoint enumeration";
-                BMCWEB_LOG_DEBUG("{}", desc);
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR("{}: {}", desc, ec.message());
-                    finalize();
-                    return;
-                }
-                if (paths.empty())
-                {
-                    BMCWEB_LOG_ERROR("{}: {}", desc, "no endpoints found");
-                    finalize();
-                    return;
-                }
-                if (!endpoints)
-                {
-                    endpoints = std::make_shared<
-                        std::vector<std::unique_ptr<DebugTokenEndpoint>>>();
-                    endpoints->reserve(paths.size());
-                }
-                for (const auto& objectPath : paths)
-                {
-                    endpoints->emplace_back(
-                        std::make_unique<DebugTokenNsmEndpoint>(objectPath));
-                }
-                endpoints->shrink_to_fit();
-                getNsmStatus();
-                finalize();
-            });
+        else
+        {
+            nsmPending = false;
+        }
     }
 
     StatusQueryHandler() = delete;
@@ -322,230 +266,104 @@ class StatusQueryHandler : public OperationHandler
     }
 
   private:
-    std::unique_ptr<boost::process::child> subprocess;
-    std::unique_ptr<boost::asio::steady_timer> subprocessTimer;
-    std::vector<char> subprocessOutput;
-
-    bool nsmEnumerationFinished{false};
-    bool spdmEnumerationFinished{false};
+    bool nsmPending{true};
+    bool spdmPending{true};
 
     void getNsmStatus()
     {
-        createNsmMatch([this](const std::string& object,
-                              const std::string& status) {
-            const std::string descStr =
-                "NSM token status acquisition for " + std::string(object);
-            BMCWEB_LOG_DEBUG("{}", descStr);
-            auto endpoint = std::find_if(
-                endpoints->begin(), endpoints->end(), [object](const auto& ep) {
-                    return ep->getType() == EndpointType::NSM &&
-                           ep->getObject() == object;
-                });
-            if (endpoint == endpoints->end())
-            {
-                errCallback(false, descStr, "unknown object");
-                return;
-            }
-            auto& ep = *endpoint;
-            auto state = ep->getState();
-            if (state == EndpointState::Error ||
-                state == EndpointState::StatusAcquired ||
-                state == EndpointState::TokenInstalled)
-            {
-                errCallback(false, descStr, "received unexpected update");
-                return;
-            }
-            if (status == "Failed")
-            {
-                errCallback(false, descStr, "operation rejected");
-                ep->setError();
+        nsm_async::aggregate::Handler::startOperation(
+            nsm_async::aggregate::Operation::GetTokenStatus,
+            std::string(nsmDebugTokenSpecifier),
+            [this](const std::vector<nsm_async::aggregate::Result>& results) {
+                const std::string desc = "NSM token status acquisition";
+                BMCWEB_LOG_DEBUG("{}", desc);
+                if (results.empty())
+                {
+                    errCallback(false, desc,
+                                "No valid NSM token status responses");
+                }
+                if (!endpoints)
+                {
+                    endpoints = std::make_shared<
+                        std::vector<std::unique_ptr<DebugTokenEndpoint>>>();
+                    endpoints->reserve(results.size());
+                }
+                else
+                {
+                    endpoints->reserve(endpoints->size() + results.size());
+                }
+                for (const auto& result : results)
+                {
+                    const auto& [object, state, output] = result;
+                    endpoints->emplace_back(
+                        std::make_unique<DebugTokenNsmEndpoint>(object));
+                    DebugTokenNsmEndpoint* nsmEp =
+                        static_cast<DebugTokenNsmEndpoint*>(
+                            endpoints->back().get());
+                    if (state == EndpointState::StatusAcquired)
+                    {
+                        nsmEp->setStatus(std::get<NsmTokenStatus>(output));
+                    }
+                    else
+                    {
+                        nsmEp->setStatus(state);
+                    }
+                }
+                endpoints->shrink_to_fit();
+                nsmPending = false;
                 finalize();
-                return;
-            }
-            DebugTokenNsmEndpoint* nsmEp =
-                dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
-            if (status == "Aborted")
-            {
-                sdbusplus::asio::getProperty<std::tuple<uint16_t, std::string>>(
-                    *crow::connections::systemBus, "xyz.openbmc_project.NSM",
-                    object, std::string(debugTokenIntf), "ErrorCode",
-                    [this, descStr, object, nsmEp](
-                        const boost::system::error_code& ec,
-                        const std::tuple<uint16_t, std::string>& errorCode) {
-                        const std::string innerDescStr =
-                            object.substr(object.find_last_of('/') + 1);
-                        BMCWEB_LOG_DEBUG("{}", innerDescStr);
-                        if (ec)
-                        {
-                            BMCWEB_LOG_ERROR("{}: {}", innerDescStr,
-                                             ec.message());
-                            errCallback(false, descStr, ec.message());
-                            nsmEp->setError();
-                            finalize();
-                            return;
-                        }
-                        if (std::get<uint16_t>(errorCode) ==
-                            debugTokenUnsupportedNsmErrorCode)
-                        {
-                            nsmEp->setStatus(
-                                EndpointState::DebugTokenUnsupported);
-                            finalize();
-                            return;
-                        }
-                        errCallback(false, descStr, "operation failure");
-                        nsmEp->setError();
-                        finalize();
-                        return;
-                    });
-                return;
-            }
-            sdbusplus::asio::getProperty<NsmDbusTokenStatus>(
-                *crow::connections::systemBus, "xyz.openbmc_project.NSM",
-                object, std::string(debugTokenIntf), "TokenStatus",
-                [this, descStr, nsmEp,
-                 object](const boost::system::error_code& ec,
-                         const NsmDbusTokenStatus& dbusStatus) {
-                    const std::string outerDescStr =
-                        "NSM get call for " + std::string(object);
-                    BMCWEB_LOG_DEBUG("{}", outerDescStr);
-                    if (ec)
-                    {
-                        BMCWEB_LOG_ERROR("{}: {}", outerDescStr, ec.message());
-                        errCallback(false, descStr, ec.message());
-                        nsmEp->setError();
-                        finalize();
-                        return;
-                    }
-                    try
-                    {
-                        nsmEp->setStatus(
-                            std::make_unique<NsmTokenStatus>(dbusStatus));
-                    }
-                    catch (std::exception&)
-                    {
-                        nsmEp->setError();
-                    }
-                    finalize();
-                });
-        });
-
-        bool getStatusIssued = false;
-        for (auto& ep : *endpoints)
-        {
-            if (ep->getType() != EndpointType::NSM)
-            {
-                continue;
-            }
-            DebugTokenNsmEndpoint* nsmEp =
-                dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
-            auto objectPath = ep->getObject();
-            crow::connections::systemBus->async_method_call(
-                [this, nsmEp, objectPath](const boost::system::error_code& ec) {
-                    const std::string descStr =
-                        "NSM GetStatus call for " + objectPath;
-                    BMCWEB_LOG_DEBUG("{}", descStr);
-                    if (ec)
-                    {
-                        BMCWEB_LOG_ERROR("{}: {}", descStr, ec.message());
-                        errCallback(false, descStr, ec.message());
-                        nsmEp->setError();
-                        finalize();
-                    }
-                },
-                "xyz.openbmc_project.NSM", objectPath,
-                std::string(debugTokenIntf), "GetStatus",
-                std::string(debugTokenTypesEnumPrefix) +
-                    std::string(nsmDebugTokenSpecifier));
-            getStatusIssued = true;
-        }
-        if (!getStatusIssued)
-        {
-            nsmMatch.reset();
-        }
+            });
     }
 
-    void subprocessExitCallback(int exitCode, const std::error_code& ec)
+    void vdmStatusHandler(const std::vector<vdm_status::Result>& results)
     {
-        const std::string desc = "VDM token status query";
+        const std::string desc = "VDM token status acquisition";
         BMCWEB_LOG_DEBUG("{}", desc);
-        subprocessTimer.reset();
-        if (ec)
+        if (results.size() == 0)
         {
-            BMCWEB_LOG_ERROR("{}: {}", desc, ec.message());
-            errCallback(true, desc, ec.message());
+            errCallback(false, desc, "no results");
+            finalize();
             return;
         }
-        if (exitCode != 0)
+        for (const auto& endpoint : *endpoints)
         {
-            // If error is encountered mctp message will not have the proper
-            // response for debug token, TX/RX parsing below will handle the
-            // error messages
-            BMCWEB_LOG_ERROR("{}: {}", desc, exitCode);
-        }
-        std::map<int, VdmTokenStatus> outputMap =
-            parseVdmUtilWrapperOutput(subprocessOutput);
-        for (auto& [eid, vdmStatus] : outputMap)
-        {
-            // report errors if found
-            if (vdmStatus.responseStatus == VdmResponseStatus::INVALID_LENGTH ||
-                vdmStatus.responseStatus == VdmResponseStatus::PROCESSING_ERROR)
-            {
-                errCallback(false, desc,
-                            "Invalid status query data for EID " +
-                                std::to_string(eid));
-            }
-            else if (vdmStatus.responseStatus == VdmResponseStatus::ERROR)
-            {
-                errCallback(false, desc,
-                            "Error code received for EID " +
-                                std::to_string(eid) + ": " +
-                                std::to_string(*vdmStatus.errorCode));
-            }
-            else if (vdmStatus.tokenStatus ==
-                     VdmTokenInstallationStatus::INVALID)
-            {
-                errCallback(false, desc,
-                            "Invalid token status for EID " +
-                                std::to_string(eid));
-            }
-            auto ep = std::find_if(endpoints->begin(), endpoints->end(),
-                                   [eid](const auto& endpoint) {
-                                       return endpoint->getType() ==
-                                                  EndpointType::SPDM &&
-                                              endpoint->getMctpEid() == eid;
-                                   });
-            if (ep == endpoints->end())
+            if (endpoint->getType() != EndpointType::SPDM)
             {
                 continue;
             }
-            DebugTokenSpdmEndpoint* spdmEp =
-                dynamic_cast<DebugTokenSpdmEndpoint*>(ep->get());
-            spdmEp->setStatus(std::make_unique<VdmTokenStatus>(vdmStatus));
+            auto spdmEp = static_cast<DebugTokenSpdmEndpoint*>(endpoint.get());
+            auto epEid = spdmEp->getMctpEid();
+            if (epEid == -1)
+            {
+                continue;
+            }
+            auto result = std::find_if(results.begin(), results.end(),
+                                       [epEid](const auto& result) {
+                                           return std::get<0>(result) == epEid;
+                                       });
+            if (result == results.end())
+            {
+                errCallback(false, desc, "no data for " + spdmEp->getObject());
+                spdmEp->setError();
+                continue;
+            }
+            const auto& [eid, state, output] = *result;
+            if (std::holds_alternative<VdmTokenStatus>(output))
+            {
+                spdmEp->setStatus(std::get<VdmTokenStatus>(output));
+            }
+            else
+            {
+                spdmEp->setStatus(state);
+            }
         }
+        spdmPending = false;
         finalize();
     }
 
-    void getMctpVdmStatus()
+    void getVdmStatus()
     {
-        const std::string desc = "VDM token status query";
-        BMCWEB_LOG_DEBUG("{}", desc);
-        subprocessTimer = std::make_unique<boost::asio::steady_timer>(
-            crow::connections::systemBus->get_io_context());
-        subprocessTimer->expires_after(
-            std::chrono::seconds(statusQueryTimeoutSeconds));
-        subprocessTimer->async_wait(
-            [this, desc](const boost::system::error_code& ec) {
-                if (ec && ec != boost::asio::error::operation_aborted)
-                {
-                    if (subprocess)
-                    {
-                        subprocess.reset();
-                        errCallback(true, desc, "Timeout");
-                    }
-                }
-            });
-
-        std::vector<std::string> args;
+        std::vector<vdm_status::Eid> eids;
         for (const auto& ep : *endpoints)
         {
             if (ep->getType() != EndpointType::SPDM)
@@ -555,39 +373,26 @@ class StatusQueryHandler : public OperationHandler
             auto mctpEid = ep->getMctpEid();
             if (mctpEid != -1)
             {
-                args.emplace_back(std::to_string(mctpEid));
+                eids.emplace_back(static_cast<vdm_status::Eid>(mctpEid));
             }
         }
-        if (args.empty())
+        if (eids.size() == 0)
         {
-            errCallback(false, desc, "no valid endpoints");
+            errCallback(false, "VDM token status acquisition",
+                        "no valid endpoints");
+            spdmPending = false;
             finalize();
             return;
         }
-        try
-        {
-            subprocessOutput.resize(statusQueryOutputSize * args.size());
-            auto callback = [this](int exitCode, const std::error_code& ec) {
-                subprocessExitCallback(exitCode, ec);
-            };
-            subprocess = std::make_unique<boost::process::child>(
-                "/usr/bin/mctp-vdm-util-token-status-query-wrapper.sh", args,
-                boost::process::std_err > boost::process::null,
-                boost::process::std_out > boost::asio::buffer(subprocessOutput),
-                crow::connections::systemBus->get_io_context(),
-                boost::process::on_exit = std::move(callback));
-        }
-        catch (const std::runtime_error& e)
-        {
-            errCallback(false, desc, e.what());
-        }
+        vdm_status::Handler::startOperation(
+            eids, std::bind_front(&StatusQueryHandler::vdmStatusHandler, this));
     }
 
     void finalize()
     {
         const std::string desc = "Token status query processing";
         BMCWEB_LOG_DEBUG("{}", desc);
-        if (!nsmEnumerationFinished || !spdmEnumerationFinished)
+        if (nsmPending || spdmPending)
         {
             return;
         }
@@ -620,38 +425,39 @@ class StatusQueryHandler : public OperationHandler
 class RequestHandler : public OperationHandler
 {
   public:
-    RequestHandler(const ResultCallback&& resultCallback,
-                   const ErrorCallback&& errorCallback, RequestType typeIn) :
-        type(typeIn)
+    RequestHandler(ResultCallback&& resultCallback,
+                   ErrorCallback&& errorCallback, RequestType type,
+                   const std::vector<std::string>& endpointFilter =
+                       std::vector<std::string>()) : type(type)
     {
         BMCWEB_LOG_DEBUG("RequestHandler constructor");
         resCallback = resultCallback;
         errCallback = errorCallback;
         statusHandler = std::make_unique<StatusQueryHandler>(
-            [this](const std::shared_ptr<std::vector<
-                       std::unique_ptr<DebugTokenEndpoint>>>& statusEndpoints) {
-                if (!statusEndpoints || statusEndpoints->empty())
+            [this, type](const std::shared_ptr<std::vector<
+                             std::unique_ptr<DebugTokenEndpoint>>>& endpoints) {
+                if (!endpoints || endpoints->size() == 0)
                 {
                     errCallback(true, "Debug token status check",
                                 "No valid endpoints");
                     return;
                 }
-                this->endpoints = statusEndpoints;
-
-                bool nsmRequestStarted =
-                    this->type == RequestType::DebugTokenRequest &&
-                    getNsmRequest();
-                bool spdmRequestStarted = getSpdmRequest();
-                if (!nsmRequestStarted && !spdmRequestStarted)
+                this->endpoints = endpoints;
+                if (type == RequestType::DebugTokenRequest)
                 {
-                    resCallback(statusEndpoints);
+                    getNsmRequest();
                 }
+                else
+                {
+                    nsmPending = false;
+                }
+                getSpdmRequest();
             },
             [&errorCallback](bool critical, const std::string& desc,
                              const std::string& error) {
                 errorCallback(critical, desc, error);
             },
-            type == RequestType::DebugTokenRequest);
+            endpointFilter, type == RequestType::DebugTokenRequest);
     }
 
     RequestHandler() = delete;
@@ -685,7 +491,9 @@ class RequestHandler : public OperationHandler
 
     RequestType type;
 
-    static uint8_t typeToMeasurementIndex(RequestType type)
+    bool nsmPending{true};
+
+    uint8_t typeToMeasurementIndex(RequestType type)
     {
         static const std::map<RequestType, uint8_t> indexMap{
             {RequestType::DebugTokenRequest, 50},
@@ -697,54 +505,59 @@ class RequestHandler : public OperationHandler
         return indexMap.at(type);
     }
 
-    bool getNsmRequest()
+    bool isEndpointRequestPending(EndpointState state)
     {
-        createNsmMatch(
-            [this](const std::string& object, const std::string& status) {
-                nsmUpdate(object, status);
-            });
-
-        bool getRequestIssued = false;
-        for (auto& ep : *endpoints)
-        {
-            auto epType = ep->getType();
-            auto state = ep->getState();
-            if (epType != EndpointType::NSM ||
-                state != EndpointState::StatusAcquired)
-            {
-                continue;
-            }
-            DebugTokenNsmEndpoint* nsmEp =
-                dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
-            auto objectPath = ep->getObject();
-            crow::connections::systemBus->async_method_call(
-                [this, nsmEp, objectPath](const boost::system::error_code& ec) {
-                    const std::string descStr =
-                        "NSM GetStatus call for " + objectPath;
-                    BMCWEB_LOG_DEBUG("{}", descStr);
-                    if (ec)
-                    {
-                        BMCWEB_LOG_ERROR("{}: {}", descStr, ec.message());
-                        errCallback(false, descStr, ec.message());
-                        nsmEp->setError();
-                        finalize();
-                    }
-                },
-                "xyz.openbmc_project.NSM", objectPath,
-                std::string(debugTokenIntf), "GetRequest",
-                std::string(debugTokenOpcodesEnumPrefix) +
-                    std::string(nsmDebugTokenSpecifier));
-            getRequestIssued = true;
-        }
-        if (!getRequestIssued)
-        {
-            nsmMatch.reset();
-        }
-
-        return getRequestIssued;
+        return state == EndpointState::StatusAcquired ||
+               state == EndpointState::TokenInstalled;
     }
 
-    bool getSpdmRequest()
+    void getNsmRequest()
+    {
+        nsm_async::aggregate::Handler::startOperation(
+            nsm_async::aggregate::Operation::GenerateTokenRequest,
+            std::string(nsmDebugTokenSpecifier),
+            [this](const std::vector<nsm_async::aggregate::Result>& results) {
+                const std::string desc = "NSM token request acquisition";
+                BMCWEB_LOG_DEBUG("{}", desc);
+                if (results.empty())
+                {
+                    errCallback(false, desc,
+                                "No valid NSM token request responses");
+                }
+                for (const auto& result : results)
+                {
+                    const auto& [object, state, output] = result;
+                    auto endpoint = std::find_if(
+                        endpoints->begin(), endpoints->end(),
+                        [object](const auto& ep) {
+                            return ep->getType() == EndpointType::NSM &&
+                                   ep->getObject() == object;
+                        });
+                    if (endpoint == endpoints->end())
+                    {
+                        errCallback(false, desc, "unknown object");
+                        return;
+                    }
+                    auto& ep = *endpoint;
+                    DebugTokenNsmEndpoint* nsmEp =
+                        static_cast<DebugTokenNsmEndpoint*>(ep.get());
+                    if (state == EndpointState::RequestAcquired)
+                    {
+                        nsmEp->setRequest(
+                            std::get<std::vector<uint8_t>>(output));
+                    }
+                    else
+                    {
+                        nsmEp->setStatus(state);
+                    }
+                }
+                nsmPending = false;
+                endpoints->shrink_to_fit();
+                finalize();
+            });
+    }
+
+    void getSpdmRequest()
     {
         createSpdmMatch(
             [this](const std::string& object, const std::string& status) {
@@ -757,7 +570,7 @@ class RequestHandler : public OperationHandler
             auto epType = ep->getType();
             auto state = ep->getState();
             if (epType != EndpointType::SPDM ||
-                state != EndpointState::StatusAcquired)
+                !isEndpointRequestPending(state))
             {
                 continue;
             }
@@ -786,108 +599,8 @@ class RequestHandler : public OperationHandler
         if (!refreshIssued)
         {
             spdmMatch.reset();
-        }
-
-        return refreshIssued;
-    }
-
-    void nsmUpdate(const std::string& object, const std::string& status)
-    {
-        const std::string descStr =
-            "Token request acquisition for " + std::string(object);
-        BMCWEB_LOG_DEBUG("{}", descStr);
-        auto endpoint = std::find_if(
-            endpoints->begin(), endpoints->end(), [object](const auto& ep) {
-                return ep->getType() == EndpointType::NSM &&
-                       ep->getObject() == object;
-            });
-        if (endpoint == endpoints->end())
-        {
-            errCallback(false, descStr, "unknown object");
-            return;
-        }
-        auto& ep = *endpoint;
-        auto state = ep->getState();
-        if (state == EndpointState::Error ||
-            state == EndpointState::TokenInstalled ||
-            state == EndpointState::RequestAcquired)
-        {
-            errCallback(false, descStr, "received unexpected update");
-            return;
-        }
-        if (status == "Failed")
-        {
-            errCallback(false, descStr, "operation rejected");
-            ep->setError();
             finalize();
-            return;
         }
-        DebugTokenNsmEndpoint* nsmEp =
-            dynamic_cast<DebugTokenNsmEndpoint*>(ep.get());
-        if (status == "Aborted")
-        {
-            sdbusplus::asio::getProperty<std::tuple<uint16_t, std::string>>(
-                *crow::connections::systemBus, "xyz.openbmc_project.NSM",
-                object, std::string(debugTokenIntf), "ErrorCode",
-                [this, descStr, object,
-                 nsmEp](const boost::system::error_code& ec,
-                        const std::tuple<uint16_t, std::string>& errorCode) {
-                    const std::string innerDescStr =
-                        object.substr(object.find_last_of('/') + 1);
-                    BMCWEB_LOG_DEBUG("{}", innerDescStr);
-                    if (ec)
-                    {
-                        BMCWEB_LOG_ERROR("{}: {}", innerDescStr, ec.message());
-                        errCallback(false, descStr, ec.message());
-                        nsmEp->setError();
-                        finalize();
-                        return;
-                    }
-                    static const uint16_t unsupportedErrorCode = 5;
-                    if (std::get<uint16_t>(errorCode) == unsupportedErrorCode)
-                    {
-                        nsmEp->setStatus(EndpointState::DebugTokenUnsupported);
-                        finalize();
-                        return;
-                    }
-                    errCallback(false, descStr, "operation failure");
-                    nsmEp->setError();
-                    finalize();
-                    return;
-                });
-            return;
-        }
-        sdbusplus::asio::getProperty<sdbusplus::message::unix_fd>(
-            *crow::connections::systemBus, "xyz.openbmc_project.NSM", object,
-            std::string(debugTokenIntf), "RequestFd",
-            [this, object, nsmEp,
-             descStr](const boost::system::error_code& ec,
-                      const sdbusplus::message::unix_fd& unixfd) {
-                const std::string outerDescStr =
-                    "NSM get call for " + std::string(object);
-                BMCWEB_LOG_DEBUG("{}", outerDescStr);
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR("{}: {}", outerDescStr, ec.message());
-                    errCallback(false, descStr, ec.message());
-                    nsmEp->setError();
-                    finalize();
-                    return;
-                }
-                BMCWEB_LOG_DEBUG("Received fd: {}", unixfd.fd);
-                std::vector<uint8_t> request;
-                if (readNsmTokenRequestFd(unixfd.fd, request))
-                {
-                    nsmEp->setRequest(request);
-                }
-                else
-                {
-                    errCallback(false, descStr,
-                                "request file operation failure");
-                    nsmEp->setError();
-                }
-                finalize();
-            });
     }
 
     void spdmUpdate(const std::string& object, const std::string& status)
@@ -908,7 +621,6 @@ class RequestHandler : public OperationHandler
         auto& ep = *endpoint;
         auto state = ep->getState();
         if (state == EndpointState::Error ||
-            state == EndpointState::TokenInstalled ||
             state == EndpointState::RequestAcquired)
         {
             errCallback(false, statusDescStr, "received unexpected update");
@@ -1032,15 +744,18 @@ class RequestHandler : public OperationHandler
         const std::string desc = "Debug token request acquisition";
         BMCWEB_LOG_DEBUG("{}", desc);
         int completedRequestsCount = 0;
+        if (nsmPending)
+        {
+            return;
+        }
         for (const auto& ep : *endpoints)
         {
             auto state = ep->getState();
-            if (state == EndpointState::StatusAcquired)
+            if (isEndpointRequestPending(state))
             {
                 return;
             }
-            if (state == EndpointState::RequestAcquired ||
-                state == EndpointState::TokenInstalled)
+            if (state == EndpointState::RequestAcquired)
             {
                 ++completedRequestsCount;
             }
@@ -1057,4 +772,5 @@ class RequestHandler : public OperationHandler
     }
 };
 
-} // namespace redfish::debug_token
+} // namespace debug_token
+} // namespace redfish

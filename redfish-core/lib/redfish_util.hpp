@@ -415,9 +415,9 @@ inline void getComponentFirmwareVersion(
                                                                "xyz.openbmc_project.Association",
                                                                "endpoints",
                                                                [asyncResp,
-                                                                &firstElement](const boost::system::error_code& ec1, const std::vector<
-                                                                                                                         std::
-                                                                                                                             string>& objPaths) {
+                                                                firstElement](const boost::system::error_code& ec1, const std::
+                                                                                                                        vector<
+                                                                                                                            std::string>& objPaths) {
                                                                    if (ec1)
                                                                    {
                                                                        BMCWEB_LOG_ERROR(

@@ -1144,7 +1144,6 @@ inline void afterVerifyUserExists(
                                                "Password");
             BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
         }
-
         else if (retval != PAM_SUCCESS)
         {
             messages::internalError(asyncResp->res);
@@ -1386,7 +1385,7 @@ inline void handleAccountServiceGet(
     json["Name"] = "Account Service";
     json["Description"] = "Account Service";
     json["ServiceEnabled"] = true;
-    json["MaxPasswordLength"] = 20;
+    json["MaxPasswordLength"] = 64;
     json["Accounts"]["@odata.id"] = "/redfish/v1/AccountService/Accounts";
     json["Roles"]["@odata.id"] = "/redfish/v1/AccountService/Roles";
     json["HTTPBasicAuth"] = authMethodsConfig.basic
@@ -1820,15 +1819,6 @@ inline void processAfterCreateUser(
 
     if (retval != PAM_SUCCESS)
     {
-        // Password Invalid
-        messages::propertyValueFormatError(asyncResp->res, password,
-                                           "Password");
-
-        if (retval == PAM_AUTHTOK_ERR)
-        {
-            BMCWEB_LOG_ERROR("pamUpdatePassword Failed");
-        }
-
         // At this point we have a user that's been
         // created, but the password set
         // failed.Something is wrong, so delete the user

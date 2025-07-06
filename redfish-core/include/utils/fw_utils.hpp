@@ -535,17 +535,17 @@ inline void getFwStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  */
 inline void getFwWriteProtectedStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::shared_ptr<std::string>& swId, const std::string& dbusSvc)
+    const std::string& swId, const std::string& dbusSvc)
 {
-    BMCWEB_LOG_DEBUG("getFwWriteProtectedStatus: swId {} serviceName {}", *swId,
+    BMCWEB_LOG_DEBUG("getFwWriteProtectedStatus: swId {} serviceName {}", swId,
                      dbusSvc);
 
     crow::connections::systemBus->async_method_call(
         [asyncResp, swId](
-            const boost::system::error_code& ec,
+            const boost::system::error_code errorCode,
             const boost::container::flat_map<
                 std::string, dbus::utility::DbusVariantType>& propertiesList) {
-            if (ec || propertiesList.empty())
+            if (errorCode)
             {
                 return;
             }
@@ -567,8 +567,7 @@ inline void getFwWriteProtectedStatus(
             }
             asyncResp->res.jsonValue["WriteProtected"] = *writeProtected;
         },
-        dbusSvc, "/xyz/openbmc_project/software/" + *swId,
-        "org.freedesktop.DBus.Properties", "GetAll",
+        dbusSvc, swId, "org.freedesktop.DBus.Properties", "GetAll",
         "xyz.openbmc_project.Software.Settings");
 }
 

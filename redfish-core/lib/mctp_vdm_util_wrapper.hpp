@@ -70,7 +70,6 @@ struct MctpVdmUtilProgressStatusResponse
     std::string status;
 };
 
-namespace bp = boost::process;
 using ResponseCallback = std::function<void(
     const crow::Request&, const std::shared_ptr<bmcweb::AsyncResp>&,
     uint32_t /* endpointId */, const std::string& /* stdOut*/,
@@ -231,8 +230,10 @@ struct MctpVdmUtil
                              errorCode);
                 return;
             };
-        bp::async_system(crow::connections::systemBus->get_io_context(),
-                         std::move(exitCallback), command, bp::std_in.close(),
-                         bp::std_out > *dataOut, bp::std_err > *dataErr);
+        boost::process::async_system(
+            crow::connections::systemBus->get_io_context(),
+            std::move(exitCallback), command, boost::process::std_in.close(),
+            boost::process::std_out > *dataOut,
+            boost::process::std_err > *dataErr);
     }
 };

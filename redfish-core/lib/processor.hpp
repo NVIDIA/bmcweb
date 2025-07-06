@@ -55,10 +55,6 @@
 
 namespace redfish
 {
-
-using GetSubTreeType = std::vector<
-    std::pair<std::string,
-              std::vector<std::pair<std::string, std::vector<std::string>>>>>;
 using GetManagedPropertyType =
     boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
 // Map of service name to list of interfaces
@@ -1892,8 +1888,17 @@ inline void requestRoutesProcessorSettings(App& app)
                 {
                     return;
                 }
-                redfish::nvidia_processor::getProcessorSettingsData(
-                    asyncResp, processorId);
+                redfish::processor_utils::getProcessorObject(
+                    asyncResp, processorId,
+                    [](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
+                       const std::string& processorId1,
+                       const std::string& objectPath,
+                       const MapperServiceMap& serviceMap,
+                       [[maybe_unused]] const std::string& deviceType) {
+                        redfish::nvidia_processor::getProcessorEccModeData(
+                            asyncResp1, processorId1, serviceMap.begin()->first,
+                            objectPath);
+                    });
             });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"

@@ -10,6 +10,7 @@
 #include "http_utility.hpp"
 #include "human_sort.hpp"
 #include "nvidia_error_messages.hpp"
+#include "nvidia_event_service_manager.hpp"
 #include "nvidia_messages.hpp"
 #include "query.hpp"
 #include "registries.hpp"
@@ -364,64 +365,59 @@ inline void requestRoutesSystemDumpServiceActionInfo(App& app)
         app,
         "/redfish/v1/Systems/<str>/LogServices/Dump/CollectDiagnosticDataActionInfo/")
         .privileges(redfish::privileges::getActionInfo)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& managerName) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
+        .methods(
+            boost::beast::http::verb::
+                get)([&app](const crow::Request& req,
+                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                            [[maybe_unused]] const std::string& managerName) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
 
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#ActionInfo.v1_2_0.ActionInfo";
-                asyncResp->res.jsonValue["@odata.id"] =
-                    "/redfish/v1/Systems/" +
-                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                    "/LogServices/Dump/CollectDiagnosticDataActionInfo";
-                asyncResp->res.jsonValue["Name"] =
-                    "CollectDiagnosticDataActionInfo Action Info";
-                asyncResp->res.jsonValue["Id"] =
-                    "CollectDiagnosticDataActionInfo";
+            asyncResp->res.jsonValue["@odata.type"] =
+                "#ActionInfo.v1_2_0.ActionInfo";
+            asyncResp->res.jsonValue["@odata.id"] =
+                "/redfish/v1/Systems/" +
+                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                "/LogServices/Dump/CollectDiagnosticDataActionInfo";
+            asyncResp->res.jsonValue["Name"] =
+                "CollectDiagnosticDataActionInfo Action Info";
+            asyncResp->res.jsonValue["Id"] = "CollectDiagnosticDataActionInfo";
 
-                nlohmann::json::object_t parameterDiagnosticDataType;
-                parameterDiagnosticDataType["Name"] = "DiagnosticDataType";
-                parameterDiagnosticDataType["Required"] = true;
-                parameterDiagnosticDataType["DataType"] = "String";
+            // Get the OEM AllowableValues from D-Bus
+            redfish::getOEMDiagnosticAllowableValues(
+                "System",
+                [asyncResp](
+                    const std::vector<std::string>& oemAllowableValues) {
+                    nlohmann::json::object_t parameter_diagnosticDataType;
+                    parameter_diagnosticDataType["Name"] = "DiagnosticDataType";
+                    parameter_diagnosticDataType["Required"] = true;
+                    parameter_diagnosticDataType["DataType"] = "String";
 
-                nlohmann::json::array_t diagnosticDataTypeAllowableValues;
-                diagnosticDataTypeAllowableValues.emplace_back("OEM");
-                parameterDiagnosticDataType["AllowableValues"] =
-                    std::move(diagnosticDataTypeAllowableValues);
+                    nlohmann::json::array_t diagnosticDataType_allowableValues;
+                    diagnosticDataType_allowableValues.push_back("OEM");
+                    parameter_diagnosticDataType["AllowableValues"] =
+                        std::move(diagnosticDataType_allowableValues);
 
-                nlohmann::json::object_t parameterOemDiagnosticDataType;
-                parameterOemDiagnosticDataType["Name"] =
-                    "OEMDiagnosticDataType";
-                parameterOemDiagnosticDataType["Required"] = true;
-                parameterOemDiagnosticDataType["DataType"] = "String";
+                    nlohmann::json::object_t parameter_OEMDiagnosticDataType;
+                    parameter_OEMDiagnosticDataType["Name"] =
+                        "OEMDiagnosticDataType";
+                    parameter_OEMDiagnosticDataType["Required"] = true;
+                    parameter_OEMDiagnosticDataType["DataType"] = "String";
+                    parameter_OEMDiagnosticDataType["AllowableValues"] =
+                        oemAllowableValues;
 
-                nlohmann::json::array_t oeMdiagnosticDataTypeAllowableValues;
+                    nlohmann::json::array_t parameters;
+                    parameters.push_back(
+                        std::move(parameter_diagnosticDataType));
+                    parameters.push_back(
+                        std::move(parameter_OEMDiagnosticDataType));
 
-                // Get the OEMDiagnosticDataType from meson option to push back
-                std::string diagTypeStr;
-                for (const auto& typeStr : BMCWEB_OEM_DIAGNOSTIC_ALLOWABLE_TYPE)
-                {
-                    diagTypeStr = std::string("DiagnosticType=") +
-                                  std::string(typeStr);
-                    oeMdiagnosticDataTypeAllowableValues.emplace_back(
-                        diagTypeStr);
-                }
-
-                parameterOemDiagnosticDataType["AllowableValues"] =
-                    std::move(oeMdiagnosticDataTypeAllowableValues);
-
-                nlohmann::json::array_t parameters;
-                parameters.emplace_back(std::move(parameterDiagnosticDataType));
-                parameters.emplace_back(
-                    std::move(parameterOemDiagnosticDataType));
-
-                asyncResp->res.jsonValue["Parameters"] = std::move(parameters);
-            });
+                    asyncResp->res.jsonValue["Parameters"] =
+                        std::move(parameters);
+                });
+        });
 }
 
 inline void extendSystemLogServicesGet(

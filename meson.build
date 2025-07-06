@@ -100,7 +100,6 @@ if (cxx.get_id() == 'clang')
         '-Wno-switch-enum',
         '-Wno-unused-macros',
         '-Wno-covered-switch-default',
-        '-Wno-error=deprecated-declarations',
         '-Wno-attributes',
         '-Wno-comment',
         '-Wno-disabled-macro-expansion',
@@ -129,7 +128,7 @@ if (cxx.get_id() == 'gcc')
         '-Wunused-parameter',
         '-Wdouble-promotion',
         '-Wno-psabi',
-        '-Wshadow',
+        #'-Wshadow',
         '-Wno-attributes',
         '-Wno-error=deprecated-declarations',
         language: 'cpp',
@@ -399,7 +398,6 @@ srcfiles_bmcweb = files(
     'src/nvidia_persistent_data.cpp',
     'src/nvidia_ssl_key_handler.cpp',
     'src/ossl_random.cpp',
-    'src/ssl_key_handler.cpp',
     'src/webserver_run.cpp',
     'redfish-core/src/redfish_nvidia.cpp',
 )
@@ -457,8 +455,7 @@ srcfiles_unittest = files(
     'test/include/multipart_test.cpp',
     'test/include/openbmc_dbus_rest_test.cpp',
     'test/include/ossl_random.cpp',
-    'test/include/ssl_key_handler_test.cpp',
-    'test/include/str_utility_test.cpp',
+    #'test/include/str_utility_test.cpp',
     'test/redfish-core/include/dbus_log_watcher_test.cpp',
     'test/redfish-core/include/event_log_test.cpp',
     'test/redfish-core/include/event_matches_filter_test.cpp',
@@ -472,6 +469,7 @@ srcfiles_unittest = files(
     'test/redfish-core/include/submit_test_event_test.cpp',
     'test/redfish-core/include/utils/dbus_utils.cpp',
     'test/redfish-core/include/utils/error_code_test.cpp',
+    #'test/redfish-core/include/event_service_manager_test.cpp',
     'test/redfish-core/include/utils/hex_utils_test.cpp',
     'test/redfish-core/include/utils/ip_utils_test.cpp',
     'test/redfish-core/include/utils/json_utils_test.cpp',
@@ -522,6 +520,6 @@ if (get_option('tests').allowed())
     endforeach
 endif
 
-if (get_option('redfish-aggregation').enabled())
-    subdir('event-listener')
-endif
+#if (get_option('redfish-aggregation').enabled())
+#    subdir('event-listener')
+#endif

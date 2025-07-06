@@ -53,9 +53,6 @@
 
 namespace redfish
 {
-using GetSubTreeType = std::vector<
-    std::pair<std::string,
-              std::vector<std::pair<std::string, std::vector<std::string>>>>>;
 using GetManagedPropertyType =
     boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
 // Map of service name to list of interfaces
@@ -93,7 +90,7 @@ inline void requestRoutesProcessorPortCollection(App& app)
                     "/xyz/openbmc_project/inventory", 0, interfaces,
                     [processorId,
                      asyncResp](const boost::system::error_code& ec,
-                                const GetSubTreeType& subtree) {
+                                const dbus::utility::GetSubTreeType& subtree) {
                         if (ec)
                         {
                             BMCWEB_LOG_DEBUG("DBUS response error");
@@ -516,7 +513,7 @@ inline void getProcessorAcceleratorPortData(
                     objPath, 0, interfacesList,
                     [aResp, sensorpath, processorId,
                      portId](const boost::system::error_code& ec,
-                             const GetSubTreeType& subtree1) {
+                             const dbus::utility::GetSubTreeType& subtree1) {
                         if (ec)
                         {
                             // the path does not implement port interfaces
@@ -571,6 +568,13 @@ inline void getProcessorAcceleratorPortData(
                                 getProcessorPortLinks(aResp, sensorpath,
                                                       processorId, portId);
                             }
+                            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                            {
+                                redfish::nvidia_histogram_utils::
+                                    getHistogramLink(
+                                        aResp, portUri, portPath,
+                                        "#NvidiaPort.v1_2_0.NvidiaNVLinkPort");
+                            }
                             return;
                         }
                     });
@@ -604,7 +608,7 @@ inline void requestRoutesProcessorPort(App& app)
             crow::connections::systemBus->async_method_call(
                 [processorId, port,
                  asyncResp](const boost::system::error_code& ec,
-                            const GetSubTreeType& subtree) {
+                            const dbus::utility::GetSubTreeType& subtree) {
                     if (ec)
                     {
                         BMCWEB_LOG_DEBUG("DBUS response error");
@@ -1228,7 +1232,7 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                 "/xyz/openbmc_project/inventory", 0, interfacesList,
                 [processorId, portId,
                  asyncResp](const boost::system::error_code& ec,
-                            const GetSubTreeType& subtree) {
+                            const dbus::utility::GetSubTreeType& subtree) {
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR("DBUS response error");

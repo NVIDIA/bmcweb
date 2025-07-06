@@ -32,14 +32,15 @@ void actionInfoResponse(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 bool parseRequestJson(const crow::Request& req,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       uint8_t& commandCode, uint8_t& deviceIdentificationId,
-                      uint8_t& deviceInstanceId, uint8_t& messageType,
-                      bool& isLongRunning, uint16_t& dataSizeInBytes,
-                      std::vector<uint8_t>& data);
+                      uint8_t& deviceRoleId, uint8_t& deviceInstanceId,
+                      uint8_t& messageType, bool& isLongRunning,
+                      uint16_t& dataSizeInBytes, std::vector<uint8_t>& data);
 
 void callSendRequest(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     uint8_t deviceIdentificationId, uint8_t deviceInstanceId,
-                     bool isLongRunning, uint8_t messageType,
-                     uint8_t commandCode, const std::vector<uint8_t>& data);
+                     uint8_t deviceIdentificationId, uint8_t deviceRoleId,
+                     uint8_t deviceInstanceId, bool isLongRunning,
+                     uint8_t messageType, uint8_t commandCode,
+                     const std::vector<uint8_t>& data);
 
 } // namespace nsm_command_support
 } // namespace redfish

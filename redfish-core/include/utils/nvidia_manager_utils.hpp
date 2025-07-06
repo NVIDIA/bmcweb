@@ -14,94 +14,18 @@
 // limitations under the License.
 */
 #pragma once
-#include "app.hpp"
-#include "async_resp.hpp"
-#include "error_messages.hpp"
-#include "logging.hpp"
+#include "debug_token/erase_policy.hpp"
 #include "nsm_cmd_support.hpp"
-#include "query.hpp"
-#include "registries/privilege_registry.hpp"
-#include "utils/chassis_utils.hpp"
 #include "utils/time_utils.hpp"
 
-#include <boost/system/error_code.hpp>
-#include <boost/url/format.hpp>
+#include <async_resp.hpp>
 #include <sdbusplus/asio/connection.hpp>
-
-#include <memory>
-#include <string>
-#include <variant>
-#include <vector>
-
+#include <utils/chassis_utils.hpp>
 namespace redfish
 {
 
 namespace nvidia_manager_util
 {
-
-inline void processFeatureReadyPropertiesList(
-    const boost::system::error_code& ec,
-    const std::vector<std::pair<std::string, std::variant<std::string>>>&
-        propertiesList,
-    const std::shared_ptr<bmcweb::AsyncResp>& aResp)
-{
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("Error in getting manager service state");
-        aResp->res.jsonValue["Status"]["State"] = "Starting";
-        return;
-    }
-
-    const std::string* featureType = nullptr;
-    const std::string* stateValue = nullptr;
-
-    for (const auto& property : propertiesList)
-    {
-        if (property.first == "FeatureType")
-        {
-            featureType = std::get_if<std::string>(&property.second);
-        }
-        else if (property.first == "State")
-        {
-            stateValue = std::get_if<std::string>(&property.second);
-        }
-
-        if ((featureType != nullptr) && (stateValue != nullptr))
-        {
-            break; // Exit early if both values are found
-        }
-    }
-
-    if ((featureType == nullptr) ||
-        *featureType !=
-            "xyz.openbmc_project.State.FeatureReady.FeatureTypes.Manager")
-    {
-        BMCWEB_LOG_ERROR("Invalid or missing FeatureType");
-        messages::internalError(aResp->res);
-        return;
-    }
-
-    if (stateValue == nullptr)
-    {
-        BMCWEB_LOG_DEBUG("Null value returned for manager service state");
-        messages::internalError(aResp->res);
-        return;
-    }
-
-    std::string state =
-        redfish::chassis_utils::getFeatureReadyStateType(*stateValue);
-    aResp->res.jsonValue["Status"]["State"] = state;
-
-    if (state == "Enabled")
-    {
-        aResp->res.jsonValue["Status"]["Health"] = "OK";
-    }
-    else
-    {
-        aResp->res.jsonValue["Status"]["Health"] = "Critical";
-    }
-}
-
 /**
  * @brief Retrieves telemetry ready state data over DBus
  *
@@ -119,22 +43,80 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     uint64_t timeout =
         std::chrono::duration_cast<std::chrono::microseconds>(1s).count();
     crow::connections::systemBus->async_method_call_timed(
-        [aResp](const boost::system::error_code& ec,
+        [aResp](const boost::system::error_code ec,
                 const std::vector<std::pair<
                     std::string, std::variant<std::string>>>& propertiesList) {
-            processFeatureReadyPropertiesList(ec, propertiesList, aResp);
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Error in getting manager service state");
+                aResp->res.jsonValue["Status"]["State"] = "Starting";
+                return;
+            }
+            for (const std::pair<std::string, std::variant<std::string>>&
+                     property : propertiesList)
+            {
+                if (property.first == "FeatureType")
+                {
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR("nullptr while reading FeatureType");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    if (*value ==
+                        "xyz.openbmc_project.State.FeatureReady.FeatureTypes.Manager")
+                    {
+                        for (const std::pair<std::string,
+                                             std::variant<std::string>>&
+                                 propertyItr : propertiesList)
+                        {
+                            if (propertyItr.first == "State")
+                            {
+                                const std::string* stateValue =
+                                    std::get_if<std::string>(
+                                        &propertyItr.second);
+                                if (stateValue == nullptr)
+                                {
+                                    BMCWEB_LOG_DEBUG(
+                                        "Null value returned for manager service state");
+                                    messages::internalError(aResp->res);
+                                    return;
+                                }
+                                std::string state = redfish::chassis_utils::
+                                    getFeatureReadyStateType(*stateValue);
+                                aResp->res.jsonValue["Status"]["State"] = state;
+                                if (state == "Enabled")
+                                {
+                                    aResp->res.jsonValue["Status"]["Health"] =
+                                        "OK";
+                                    aResp->res.jsonValue["Status"]["State"] =
+                                        "Enabled";
+                                }
+                                else
+                                {
+                                    aResp->res.jsonValue["Status"]["Health"] =
+                                        "Critical";
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         },
         connectionName, path, "org.freedesktop.DBus.Properties", "GetAll",
         timeout, "xyz.openbmc_project.State.FeatureReady");
 }
 
 inline void getOemReadyState(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& bmcId)
 {
     // call to get telemtery Ready status
     crow::connections::systemBus->async_method_call(
-        [asyncResp](
-            const boost::system::error_code& ec,
+        [asyncResp, bmcId](
+            const boost::system::error_code ec,
             const std::vector<std::pair<
                 std::string,
                 std::vector<std::pair<std::string, std::vector<std::string>>>>>&
@@ -230,26 +212,33 @@ inline void isLoaded(const std::string_view& unit, Callback&& callbackIn)
 inline void getOemNvidiaOpenOCD(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    isLoaded("openocdon_2eservice", [asyncResp](
-                                        boost::system::error_code& ec,
-                                        std::variant<std::string>& property) {
-        if (ec)
-        {
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        std::string* serviceStatus = std::get_if<std::string>(&property);
-        if (*serviceStatus == "active")
-        {
-            asyncResp->res.jsonValue["OpenOCD"]["Status"]["State"] = "Enabled";
-            asyncResp->res.jsonValue["OpenOCD"]["Enable"] = true;
-        }
-        else
-        {
-            asyncResp->res.jsonValue["OpenOCD"]["Status"]["State"] = "Disabled";
-            asyncResp->res.jsonValue["OpenOCD"]["Enable"] = false;
-        }
-    });
+    isLoaded(
+        "openocdon_2eservice",
+        [asyncResp](boost::system::error_code& ec,
+                    std::variant<std::string>& property) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            std::string* serviceStatus = std::get_if<std::string>(&property);
+            if (*serviceStatus == "active")
+            {
+                asyncResp->res
+                    .jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Status"]["State"] =
+                    "Enabled";
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Enable"] =
+                    true;
+            }
+            else
+            {
+                asyncResp->res
+                    .jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Status"]["State"] =
+                    "Disabled";
+                asyncResp->res.jsonValue["Oem"]["Nvidia"]["OpenOCD"]["Enable"] =
+                    false;
+            }
+        });
 }
 
 inline void setOemNvidiaOpenOCD(const bool value)
@@ -327,7 +316,7 @@ inline void getFabricManagerInformation(
 
     crow::connections::systemBus->async_method_call(
         [aResp](
-            const boost::system::error_code& ec,
+            const boost::system::error_code ec,
             const std::vector<
                 std::pair<std::string, std::variant<std::string, uint64_t>>>&
                 propertiesList) {
@@ -367,7 +356,8 @@ inline void getFabricManagerInformation(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["FabricManagerState"] =
+                    aResp->res
+                        .jsonValue["Oem"]["Nvidia"]["FabricManagerState"] =
                         getFMState(*value);
                     addOemNvidiaOdataType = true;
                 }
@@ -382,7 +372,7 @@ inline void getFabricManagerInformation(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["ReportStatus"] =
+                    aResp->res.jsonValue["Oem"]["Nvidia"]["ReportStatus"] =
                         getFMReportStatus(*value);
                     addOemNvidiaOdataType = true;
                 }
@@ -397,7 +387,8 @@ inline void getFabricManagerInformation(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["DurationSinceLastRestartSeconds"] =
+                    aResp->res.jsonValue["Oem"]["Nvidia"]
+                                        ["DurationSinceLastRestartSeconds"] =
                         *value;
                     addOemNvidiaOdataType = true;
                 }
@@ -418,7 +409,7 @@ inline void getFabricManagerInformation(
             }
             if (addOemNvidiaOdataType)
             {
-                aResp->res.jsonValue["@odata.type"] =
+                aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                     "#NvidiaManager.v1_4_0.NvidiaFabricManager";
             }
         },
@@ -426,7 +417,7 @@ inline void getFabricManagerInformation(
 }
 
 inline void getNSMRawCommandActions(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp)
 {
     auto& oemNsmRawCommand =
         asyncResp->res
@@ -446,9 +437,9 @@ inline void requestRouteNSMRawCommand(App& app)
         "/redfish/v1/Managers/<str>/Actions/Oem/NvidiaManager.NSMRawCommand/")
         .privileges(redfish::privileges::postManager)
         .methods(boost::beast::http::verb::post)(
-            [&](const crow::Request& req,
-                const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                const std::string& bmcId) {
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& bmcId) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     BMCWEB_LOG_ERROR("Failed to set up Redfish route.");
@@ -462,22 +453,21 @@ inline void requestRouteNSMRawCommand(App& app)
                     return;
                 }
 
-                uint8_t deviceIdentificationId = 0;
-                uint8_t deviceInstanceId = 0;
-                uint8_t messageType = 0;
-                uint8_t commandCode = 0;
+                uint8_t deviceIdentificationId = 0, deviceRoleId = 0,
+                        deviceInstanceId = 0, messageType = 0, commandCode = 0;
                 uint16_t dataSizeInBytes = 0;
                 bool isLongRunning = false;
                 std::vector<uint8_t> data;
 
                 if (nsm_command_support::parseRequestJson(
                         req, asyncResp, commandCode, deviceIdentificationId,
-                        deviceInstanceId, messageType, isLongRunning,
-                        dataSizeInBytes, data))
+                        deviceRoleId, deviceInstanceId, messageType,
+                        isLongRunning, dataSizeInBytes, data))
                 {
                     nsm_command_support::callSendRequest(
-                        asyncResp, deviceIdentificationId, deviceInstanceId,
-                        isLongRunning, messageType, commandCode, data);
+                        asyncResp, deviceIdentificationId, deviceRoleId,
+                        deviceInstanceId, isLongRunning, messageType,
+                        commandCode, data);
                 }
             });
 }
@@ -505,6 +495,90 @@ inline void requestRouteNSMRawCommandActionInfo(App& app)
 
                 nsm_command_support::actionInfoResponse(asyncResp, bmcId);
             });
+}
+
+/**
+ * @brief Manager Oem/Nvidia/DebugTokenManagement GET handler
+ */
+inline void debugTokenManagementGetHandler(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "#Manager.v1_11_0.Manager",
+                                   managerId);
+        return;
+    }
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#NvidiaDebugTokenManagement.v1_0_0.NvidiaDebugTokenManagement";
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/Managers/{}/Oem/Nvidia/DebugTokenManagement", managerId);
+    asyncResp->res.jsonValue["Id"] = "DebugTokenManagement";
+    asyncResp->res.jsonValue["Name"] =
+        managerId + " Oem Nvidia DebugTokenManagement";
+    debug_token::getErasePolicy([asyncResp](std::optional<bool> erasePolicy) {
+        if (!erasePolicy)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        asyncResp->res.jsonValue["AutomaticTokenErased"] = *erasePolicy;
+    });
+}
+
+/**
+ * @brief Manager Oem/Nvidia/DebugTokenManagement PATCH handler
+ */
+inline void debugTokenManagementPatchHandler(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& managerId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "#Manager.v1_11_0.Manager",
+                                   managerId);
+        return;
+    }
+    std::optional<bool> automaticTokenErased;
+    if (!json_util::readJsonPatch(req, asyncResp->res, "AutomaticTokenErased",
+                                  automaticTokenErased))
+    {
+        return;
+    }
+    if (!automaticTokenErased)
+    {
+        messages::propertyMissing(asyncResp->res, "AutomaticTokenErased");
+        return;
+    }
+    debug_token::setErasePolicy(asyncResp, *automaticTokenErased);
+}
+
+/**
+ * @brief Manager Oem/Nvidia/DebugTokenManagement route handler
+ */
+inline void requestRoutesDebugTokenManagement(App& app)
+{
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Managers/<str>/Oem/Nvidia/DebugTokenManagement/")
+        .privileges(redfish::privileges::getManager)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(debugTokenManagementGetHandler, std::ref(app)));
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/Managers/<str>/Oem/Nvidia/DebugTokenManagement/")
+        .privileges(redfish::privileges::patchManager)
+        .methods(boost::beast::http::verb::patch)(
+            std::bind_front(debugTokenManagementPatchHandler, std::ref(app)));
 }
 
 } // namespace nvidia_manager_util

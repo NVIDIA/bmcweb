@@ -261,6 +261,11 @@ void Subscription::filterAndSendEventLogs(
     msg["Id"] = std::to_string(eventId);
     msg["Name"] = "Event Log";
     msg["Events"] = std::move(logEntryArray);
+    if (!userSub->customText.empty())
+    {
+        msg["Context"] = userSub->customText;
+    }
+
     std::string strMsg =
         msg.dump(2, ' ', true, nlohmann::json::error_handler_t::replace);
     sendEventToSubscriber(eventId, std::move(strMsg));

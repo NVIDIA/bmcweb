@@ -19,6 +19,7 @@
 #include "certificate_service.hpp"
 #include "nlohmann/json.hpp"
 #include "task.hpp"
+#include "utils/certificate_utils.hpp"
 
 #include <app.hpp>
 #include <dbus_utility.hpp>
@@ -116,13 +117,13 @@ inline bool hasSignature(const std::string& databaseId)
 }
 
 inline void createPendingRequest(
-    const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& aResp)
+    task::Payload&& payload, const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     auto task = task::TaskData::createTask(
         [](boost::system::error_code, sdbusplus::message_t&,
            const std::shared_ptr<task::TaskData>&) { return false; },
         "0");
-    task->payload.emplace(req);
+    task->payload.emplace(std::move(payload));
     task->state = "Pending";
     task->populateResp(aResp->res);
 }
@@ -300,9 +301,11 @@ inline void handleSecureBootDatabaseResetKeys(
         return;
     }
 
+    task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, databaseId](const boost::system::error_code& ec,
-                                      const bool isBios) {
+        req.session->username,
+        [payload, aResp, databaseId](const boost::system::error_code ec,
+                                     const bool isBios) mutable {
             if (ec)
             {
                 messages::internalError(aResp->res);
@@ -312,10 +315,10 @@ inline void handleSecureBootDatabaseResetKeys(
             {
                 if (isDefaultDatabase(databaseId))
                 {
-                    messages::insufficientPrivilege(aResp->res);
+                    messages::internalError(aResp->res);
                     return;
                 }
-                createPendingRequest(req, aResp);
+                createPendingRequest(std::move(payload), aResp);
                 return;
             }
 
@@ -390,9 +393,11 @@ inline void handleCertificateCollectionPost(
         return;
     }
 
+    task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, databaseId, certString,
-              owner](const boost::system::error_code& ec, const bool isBios) {
+        req.session->username,
+        [payload, aResp, databaseId, certString,
+         owner](const boost::system::error_code ec, const bool isBios) mutable {
             if (ec)
             {
                 messages::internalError(aResp->res);
@@ -402,10 +407,10 @@ inline void handleCertificateCollectionPost(
             {
                 if (isDefaultDatabase(databaseId))
                 {
-                    messages::insufficientPrivilege(aResp->res);
+                    messages::internalError(aResp->res);
                     return;
                 }
-                createPendingRequest(req, aResp);
+                createPendingRequest(std::move(payload), aResp);
                 return;
             }
 
@@ -414,11 +419,11 @@ inline void handleCertificateCollectionPost(
 
             crow::connections::systemBus->async_method_call(
                 [aResp, databaseId, owner,
-                 certFile](const boost::system::error_code& ec1,
+                 certFile](const boost::system::error_code ec,
                            const std::string& objectPath) {
-                    if (ec1)
+                    if (ec)
                     {
-                        BMCWEB_LOG_ERROR("DBUS response error: {}", ec1);
+                        BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
                         messages::internalError(aResp->res);
                         return;
                     }
@@ -436,11 +441,11 @@ inline void handleCertificateCollectionPost(
                     if (owner)
                     {
                         crow::connections::systemBus->async_method_call(
-                            [aResp](const boost::system::error_code& ec2) {
-                                if (ec2)
+                            [aResp](const boost::system::error_code ec) {
+                                if (ec)
                                 {
                                     BMCWEB_LOG_ERROR("DBUS response error: {}",
-                                                     ec2);
+                                                     ec);
                                     messages::internalError(aResp->res);
                                     return;
                                 }
@@ -524,14 +529,14 @@ inline void handleCertificateGet(
 
             if (issuer != nullptr)
             {
-                updateCertIssuerOrSubject(aResp->res.jsonValue["Issuer"],
-                                          *issuer);
+                cert_utils::updateCertIssuerOrSubject(
+                    aResp->res.jsonValue["Issuer"], *issuer);
             }
 
             if (subject != nullptr)
             {
-                updateCertIssuerOrSubject(aResp->res.jsonValue["Subject"],
-                                          *subject);
+                cert_utils::updateCertIssuerOrSubject(
+                    aResp->res.jsonValue["Subject"], *subject);
             }
 
             if (validNotAfter != nullptr)
@@ -564,9 +569,11 @@ inline void handleCertificateDelete(
         return;
     }
 
+    task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, databaseId,
-              certId](const boost::system::error_code& ec, const bool isBios) {
+        req.session->username,
+        [payload, aResp, databaseId, certId](const boost::system::error_code ec,
+                                             const bool isBios) mutable {
             if (ec)
             {
                 messages::internalError(aResp->res);
@@ -576,10 +583,10 @@ inline void handleCertificateDelete(
             {
                 if (isDefaultDatabase(databaseId))
                 {
-                    messages::insufficientPrivilege(aResp->res);
+                    messages::internalError(aResp->res);
                     return;
                 }
-                createPendingRequest(req, aResp);
+                createPendingRequest(std::move(payload), aResp);
                 return;
             }
 
@@ -683,69 +690,69 @@ inline void handleSignatureCollectionPost(
         return;
     }
 
-    privilege_utils::isBiosPrivilege(req, [req, aResp, databaseId, sigString,
-                                           sigTypeDbus, owner](
-                                              const boost::system::error_code&
-                                                  ec,
-                                              const bool isBios) {
-        if (ec)
-        {
-            messages::internalError(aResp->res);
-            return;
-        }
-        if (!isBios)
-        {
-            if (isDefaultDatabase(databaseId))
+    task::Payload payload(req);
+    privilege_utils::isBiosPrivilege(
+        req.session->username,
+        [payload, aResp, databaseId, sigString, sigTypeDbus,
+         owner](const boost::system::error_code ec, const bool isBios) mutable {
+            if (ec)
             {
-                messages::insufficientPrivilege(aResp->res);
+                messages::internalError(aResp->res);
                 return;
             }
-            createPendingRequest(req, aResp);
-            return;
-        }
-
-        crow::connections::systemBus->async_method_call(
-            [aResp, databaseId, owner](const boost::system::error_code& ec1,
-                                       const std::string& objectPath) {
-                if (ec1)
+            if (!isBios)
+            {
+                if (isDefaultDatabase(databaseId))
                 {
-                    BMCWEB_LOG_ERROR("DBUS response error: {}", ec1);
-                    messages::internalError(aResp->res);
+                    messages::insufficientPrivilege(aResp->res);
                     return;
                 }
+                createPendingRequest(std::move(payload), aResp);
+                return;
+            }
 
-                sdbusplus::message::object_path path(objectPath);
-                std::string sigId = path.filename();
-                messages::created(aResp->res);
-                aResp->res.addHeader(
-                    boost::beast::http::field::location,
-                    "/redfish/v1/Systems/" +
-                        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                        "/SecureBoot/SecureBootDatabases/" + databaseId +
-                        "/Signatures/" + sigId);
+            crow::connections::systemBus->async_method_call(
+                [aResp, databaseId, owner](const boost::system::error_code& ec1,
+                                           const std::string& objectPath) {
+                    if (ec1)
+                    {
+                        BMCWEB_LOG_ERROR("DBUS response error: {}", ec1);
+                        messages::internalError(aResp->res);
+                        return;
+                    }
 
-                if (owner)
-                {
-                    crow::connections::systemBus->async_method_call(
-                        [aResp](const boost::system::error_code& ec2) {
-                            if (ec2)
-                            {
-                                BMCWEB_LOG_ERROR("DBUS response error: {}",
-                                                 ec2);
-                                messages::internalError(aResp->res);
-                                return;
-                            }
-                        },
-                        getServiceName(databaseId), objectPath,
-                        "org.freedesktop.DBus.Properties", "Set",
-                        "xyz.openbmc_project.Common.UUID", "UUID",
-                        dbus::utility::DbusVariantType(*owner));
-                }
-            },
-            getServiceName(databaseId), getSigObjectPath(databaseId),
-            "xyz.openbmc_project.BIOSConfig.SecureBootDatabase.AddSignature",
-            "Add", sigString, sigTypeDbus);
-    });
+                    sdbusplus::message::object_path path(objectPath);
+                    std::string sigId = path.filename();
+                    messages::created(aResp->res);
+                    aResp->res.addHeader(
+                        boost::beast::http::field::location,
+                        "/redfish/v1/Systems/" +
+                            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                            "/SecureBoot/SecureBootDatabases/" + databaseId +
+                            "/Signatures/" + sigId);
+
+                    if (owner)
+                    {
+                        crow::connections::systemBus->async_method_call(
+                            [aResp](const boost::system::error_code& ec2) {
+                                if (ec2)
+                                {
+                                    BMCWEB_LOG_ERROR("DBUS response error: {}",
+                                                     ec2);
+                                    messages::internalError(aResp->res);
+                                    return;
+                                }
+                            },
+                            getServiceName(databaseId), objectPath,
+                            "org.freedesktop.DBus.Properties", "Set",
+                            "xyz.openbmc_project.Common.UUID", "UUID",
+                            dbus::utility::DbusVariantType(*owner));
+                    }
+                },
+                getServiceName(databaseId), getSigObjectPath(databaseId),
+                "xyz.openbmc_project.BIOSConfig.SecureBootDatabase.AddSignature",
+                "Add", sigString, sigTypeDbus);
+        });
 }
 
 inline void handleSignatureGet(crow::App& app, const crow::Request& req,
@@ -836,9 +843,11 @@ inline void handleSignatureDelete(
         return;
     }
 
+    task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
-        req, [req, aResp, databaseId,
-              sigId](const boost::system::error_code& ec, const bool isBios) {
+        req.session->username,
+        [payload, aResp, databaseId,
+         sigId](const boost::system::error_code ec, const bool isBios) mutable {
             if (ec)
             {
                 messages::internalError(aResp->res);
@@ -848,10 +857,10 @@ inline void handleSignatureDelete(
             {
                 if (isDefaultDatabase(databaseId))
                 {
-                    messages::insufficientPrivilege(aResp->res);
+                    messages::internalError(aResp->res);
                     return;
                 }
-                createPendingRequest(req, aResp);
+                createPendingRequest(std::move(payload), aResp);
                 return;
             }
 

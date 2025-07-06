@@ -14,6 +14,7 @@
 #include "generated/enums/action_info.hpp"
 #include "generated/enums/chassis.hpp"
 #include "generated/enums/resource.hpp"
+#include "health.hpp"
 #include "http_request.hpp"
 #include "led.hpp"
 #include "logging.hpp"
@@ -812,8 +813,15 @@ inline void handleChassisGetSubTree(
                 if (std::ranges::find(interfaces2, interface) !=
                     interfaces2.end())
                 {
-                    getIndicatorLedState(asyncResp);
-                    getSystemLocationIndicatorActive(asyncResp);
+                    redfish::nvidia_chassis_utils::checkIndicatorChassis(
+                        connectionName, path,
+                        [asyncResp](bool indicatorChassis) {
+                            if (indicatorChassis == true)
+                            {
+                                getIndicatorLedState(asyncResp);
+                                getSystemLocationIndicatorActive(asyncResp);
+                            }
+                        });
                     break;
                 }
             }
@@ -835,11 +843,14 @@ inline void handleChassisGetSubTree(
 
             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
-                const std::string itemSystemInterface =
-                    "xyz.openbmc_project.Inventory.Item.System";
-
-                if (std::find(interfaces2.begin(), interfaces2.end(),
-                              itemSystemInterface) != interfaces2.end())
+                if (std::any_of(
+                        interfaces2.begin(), interfaces2.end(),
+                        [](std::string_view itemInterface) {
+                            return itemInterface ==
+                                       "xyz.openbmc_project.Inventory.Item.System" ||
+                                   itemInterface ==
+                                       "xyz.openbmc_project.Inventory.Item.Chassis";
+                        }))
                 {
                     // static power hint
                     redfish::nvidia_chassis_utils::getStaticPowerHintByChassis(
@@ -897,6 +908,8 @@ inline void handleChassisGetSubTree(
                 redfish::nvidia_chassis_utils::getOemBaseboardChassisAssert(
                     asyncResp, objPath);
             }
+            redfish::nvidia_chassis_utils::populateErrorInjectionChassis(
+                asyncResp, objPath, chassisId);
 
             // Links association to underneath chassis
             redfish::nvidia_chassis_utils::getChassisLinksContains(
@@ -904,6 +917,11 @@ inline void handleChassisGetSubTree(
             // Links association to underneath processors
             redfish::nvidia_chassis_utils::getChassisProcessorLinks(
                 asyncResp, objPath);
+            redfish::nvidia_chassis_utils::getProtocolBridgeForDevices(
+                asyncResp, objPath);
+            // get boot status
+            redfish::nvidia_chassis_utils::getResetStatistics(asyncResp,
+                                                              objPath);
             // Links association to connected fabric switches
             redfish::nvidia_chassis_utils::getChassisFabricSwitchesLinks(
                 asyncResp, objPath);
@@ -1166,7 +1184,7 @@ inline void handleChassisPatch(
                     if (hardwareWriteProtectEnable)
                     {
                         redfish::nvidia_chassis_utils::
-                            oemChassisHardwareWriteProtectEnable(
+                            OemChassisHardwareWriteProtectEnable(
                                 asyncResp, chassisId,
                                 *hardwareWriteProtectEnable);
                     }
@@ -1586,6 +1604,7 @@ inline void handleOemChassisResetActionInfoGet(
     parameter["DataType"] = "String";
     nlohmann::json::array_t allowableValues;
     allowableValues.emplace_back("AuxPowerCycle");
+    allowableValues.emplace_back("AuxPowerCycleForce");
     parameter["AllowableValues"] = std::move(allowableValues);
     parameters.emplace_back(std::move(parameter));
 

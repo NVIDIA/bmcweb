@@ -40,6 +40,12 @@ inline void requestRoutesDebugToken(App& app)
             {
                 return;
             }
+            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                           systemName);
+                return;
+            }
             asyncResp->res.jsonValue["@odata.id"] =
                 "/redfish/v1/Systems/" +
                 std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -79,6 +85,12 @@ inline void requestRoutesDebugTokenServiceEntryCollection(App& app)
                    [[maybe_unused]] const std::string& systemName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 asyncResp->res.jsonValue["@odata.type"] =
@@ -142,6 +154,12 @@ inline void requestRoutesDebugTokenServiceEntry(App& app)
             {
                 return;
             }
+            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                           systemName);
+                return;
+            }
             std::string_view accept = req.getHeaderValue("Accept");
             if (!accept.empty() &&
                 !http_helpers::isContentTypeAllowed(
@@ -200,6 +218,12 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
                           [[maybe_unused]] const std::string& systemName) {
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
+                return;
+            }
+            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                           systemName);
                 return;
             }
             std::string diagnosticDataType;
@@ -454,6 +478,12 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataEntryDownload(App& app)
                             const std::string& idstr) {
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
+                return;
+            }
+            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                           systemName);
                 return;
             }
             std::string_view accept = req.getHeaderValue("Accept");

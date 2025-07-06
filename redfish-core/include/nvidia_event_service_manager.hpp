@@ -18,6 +18,7 @@
 #include "subscriber.hpp"
 #include "utility.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <sys/inotify.h>
@@ -61,29 +62,34 @@ enum redfish_bool
 // Error constants of class Event
 static constexpr int redfishInvalidEvent = -1;
 static constexpr int redfishInvalidArgs = -2;
-class DsEvent
+static constexpr const char* logEntryVersion = "#LogEntry.v1_15_0.LogEntry";
+
+void parseAdditionalDataForCPER(nlohmann::json::object_t& entry,
+                                const nlohmann::json::object_t& oem,
+                                const AdditionalData& additional,
+                                std::string& origin, bool isLogEntry = true);
+
+class NvEvent
 {
   public:
     // required properties
-    const std::string messageId;
+    std::string messageId;
     // optional properties
-    std::vector<std::string> actions;
+    std::vector<std::string> actions = {};
     int64_t eventGroupId = -1;
-    std::string eventId;
-    std::string eventTimestamp;
-    std::string logEntry;
-    std::string memberId;
-    std::vector<std::string> messageArgs;
-    std::string message;
-    std::string messageSeverity;
-    std::string originOfCondition;
+    std::string eventTimestamp = "";
+    std::string logEntry = "";
+    std::string memberId = "";
+    std::vector<std::string> messageArgs = {};
+    std::string message = "";
+    std::string messageSeverity = "";
+    std::string originOfCondition = "";
     nlohmann::json::object_t oem;
     nlohmann::json::object_t cper;
-    std::string eventResolution;
-    std::string logEntryId;
-    std::string satBMCLogEntryUrl;
+    std::string eventResolution = "";
+    std::string logEntryId = "";
+    std::string satBMCLogEntryUrl = "";
     redfish_bool specificEventExistsInGroup = redfishBoolNa;
-
     // derived properties
     std::string registryPrefix;
     std::string resourceType;
@@ -93,10 +99,10 @@ class DsEvent
     bool valid;
 
   public:
-    explicit DsEvent(const std::string& messageIdIn) :
-        messageId(messageIdIn),
-        registryMsg(redfish::registries::getMessage(messageId))
+    NvEvent(const std::string& msgId) : messageId(msgId)
     {
+        registryPrefix = message_registries::getPrefix(messageId);
+        registryMsg = redfish::registries::getMessage(messageId);
         if (registryMsg == nullptr)
         {
             BMCWEB_LOG_ERROR("{}", "Message not found in registry with ID: " +
@@ -104,7 +110,6 @@ class DsEvent
             valid = false;
             return;
         }
-        registryPrefix = message_registries::getPrefix(messageId);
         valid = true;
         messageSeverity = registryMsg->messageSeverity;
         if (registryMsg->resolution != nullptr)
@@ -113,20 +118,20 @@ class DsEvent
         }
     }
 
-    bool isValid() const
+    bool isValid()
     {
         return valid;
     }
 
-    int setRegistryMsg(const std::vector<std::string>& messageArgsIn =
-                           std::vector<std::string>{})
+    int setRegistryMsg(
+        const std::vector<std::string>& args = std::vector<std::string>{})
     {
         if (!valid)
         {
             BMCWEB_LOG_ERROR("Invalid Event instance.");
             return redfishInvalidEvent;
         }
-        if (messageArgsIn.size() != registryMsg->numberOfArgs)
+        if (args.size() != registryMsg->numberOfArgs)
         {
             BMCWEB_LOG_ERROR("Message argument number mismatched.");
             return redfishInvalidArgs;
@@ -137,7 +142,7 @@ class DsEvent
 
         message = registryMsg->message;
         // Fill the MessageArgs into the Message
-        for (const std::string& messageArg : messageArgsIn)
+        for (const std::string& messageArg : args)
         {
             argStr = "%" + std::to_string(i++);
             size_t argPos = message.find(argStr);
@@ -146,15 +151,15 @@ class DsEvent
                 message.replace(argPos, argStr.length(), messageArg);
             }
         }
-        this->messageArgs = messageArgsIn;
+        this->messageArgs = args;
         return 0;
     }
 
-    int setCustomMsg(const std::string& messageIn,
-                     const std::vector<std::string>& messageArgsIn =
-                         std::vector<std::string>{})
+    int setCustomMsg(
+        const std::string& msg,
+        const std::vector<std::string>& args = std::vector<std::string>{})
     {
-        std::string msg = messageIn;
+        std::string processedMsg = msg;
         int i = 1;
         std::string argStr;
 
@@ -164,13 +169,13 @@ class DsEvent
             return redfishInvalidEvent;
         }
         // Fill the MessageArgs into the Message
-        for (const std::string& messageArg : messageArgsIn)
+        for (const std::string& messageArg : args)
         {
             argStr = "%" + std::to_string(i++);
-            size_t argPos = msg.find(argStr);
+            size_t argPos = processedMsg.find(argStr);
             if (argPos != std::string::npos)
             {
-                msg.replace(argPos, argStr.length(), messageArg);
+                processedMsg.replace(argPos, argStr.length(), messageArg);
             }
             else
             {
@@ -179,14 +184,14 @@ class DsEvent
             }
         }
         argStr = "%" + std::to_string(i);
-        if (msg.find(argStr) != std::string::npos)
+        if (processedMsg.find(argStr) != std::string::npos)
         {
             BMCWEB_LOG_ERROR("Too few MessageArgs.");
             return redfishInvalidArgs;
         }
 
-        this->message = std::move(msg);
-        this->messageArgs = messageArgsIn;
+        this->message = std::move(processedMsg);
+        this->messageArgs = args;
         return 0;
     }
 
@@ -195,7 +200,7 @@ class DsEvent
      * @param[out] eventLogEntry    The reference to the json event log entry.
      * @return  Return 0 for success. Otherwise, return error codes.
      */
-    int formatEventLogEntry(nlohmann::json& eventLogEntry,
+    int formatEventLogEntry(nlohmann::json::object_t& eventLogEntry,
                             bool includeOriginOfCondition = true)
     {
         if (!valid)
@@ -203,7 +208,6 @@ class DsEvent
             BMCWEB_LOG_ERROR("Invalid Event instance.");
             return redfishInvalidEvent;
         }
-
         eventLogEntry["MessageId"] = messageId;
         eventLogEntry["EventType"] = "Event";
         if (!actions.empty())
@@ -213,10 +217,6 @@ class DsEvent
         if (eventGroupId >= 0)
         {
             eventLogEntry["EventGroupId"] = eventGroupId;
-        }
-        if (!eventId.empty())
-        {
-            eventLogEntry["EventId"] = eventId;
         }
         if (!eventTimestamp.empty())
         {
@@ -243,14 +243,17 @@ class DsEvent
         {
             eventLogEntry["MessageSeverity"] = messageSeverity;
         }
-        if (!oem.empty())
+
+        for (auto& [key, value] : oem)
         {
-            eventLogEntry.update(oem);
+            eventLogEntry[key] = value;
         }
-        if (!cper.empty())
+
+        for (auto& [key, value] : cper)
         {
-            eventLogEntry.update(cper);
+            eventLogEntry[key] = value;
         }
+
         if (!originOfCondition.empty() && includeOriginOfCondition)
         {
             eventLogEntry["OriginOfCondition"] = nlohmann::json::object();
@@ -259,7 +262,7 @@ class DsEvent
         if (specificEventExistsInGroup != redfishBoolNa)
         {
             eventLogEntry["SpecificEventExistsInGroup"] =
-                specificEventExistsInGroup != redfishBoolFalse;
+                specificEventExistsInGroup == redfishBoolFalse ? false : true;
         }
         if (!eventResolution.empty())
         {
@@ -268,18 +271,17 @@ class DsEvent
         if (!logEntryId.empty())
         {
             eventLogEntry["LogEntry"] = nlohmann::json::object();
-            if constexpr (BMCWEB_REDFISH_AGGREGATION)
+#ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
+            if (!satBMCLogEntryUrl.empty())
             {
-                if (!satBMCLogEntryUrl.empty())
-                {
-                    // the URL is from the satellite BMC so URL fixup will be
-                    // performed.
-                    addPrefixToStringItem(satBMCLogEntryUrl,
-                                          BMCWEB_REDFISH_AGGREGATION_PREFIX);
-                    eventLogEntry["LogEntry"]["@odata.id"] = satBMCLogEntryUrl;
-                }
+                // the URL is from the satellite BMC so URL fixup will be
+                // performed.
+                addPrefixToStringItem(satBMCLogEntryUrl,
+                                      redfishAggregationPrefix);
+                eventLogEntry["LogEntry"]["@odata.id"] = satBMCLogEntryUrl;
             }
             else
+#endif
             {
                 eventLogEntry["LogEntry"]["@odata.id"] =
                     redfish::getLogEntryDataId(logEntryId);
@@ -303,11 +305,11 @@ class EventUtil
         return handler;
     }
     // This function is used to form event message
-    static DsEvent createEventPropertyModified(const std::string& arg1,
+    static NvEvent createEventPropertyModified(const std::string& arg1,
                                                const std::string& arg2,
                                                const std::string& resourceType)
     {
-        DsEvent event(propertyModified);
+        NvEvent event(propertyModified);
         std::vector<std::string> messageArgs;
         messageArgs.push_back(arg1);
         messageArgs.push_back(arg2);
@@ -319,26 +321,26 @@ class EventUtil
     }
 
     // This function is used to form event message
-    static DsEvent createEventResourceCreated(const std::string& resourceType)
+    static NvEvent createEventResourceCreated(const std::string& resourceType)
     {
-        DsEvent event(resorceCreated);
+        NvEvent event(resorceCreated);
         formBaseEvent(event, resourceType);
         return event;
     }
 
     // This function is used to form event message
-    static DsEvent createEventResourceRemoved(const std::string& resourceType)
+    static NvEvent createEventResourceRemoved(const std::string& resourceType)
     {
-        DsEvent event(resourceDeleted);
+        NvEvent event(resourceDeleted);
         formBaseEvent(event, resourceType);
         return event;
     }
 
     // This function is used to form event message
-    static DsEvent createEventRebootReason(const std::string& arg,
+    static NvEvent createEventRebootReason(const std::string& arg,
                                            const std::string& resourceType)
     {
-        DsEvent event(rebootReason);
+        NvEvent event(rebootReason);
 
         std::vector<std::string> messageArgs;
         messageArgs.push_back(arg);
@@ -349,7 +351,7 @@ class EventUtil
     }
 
   private:
-    void static formBaseEvent(DsEvent& event, const std::string& resourceType)
+    void static formBaseEvent(NvEvent& event, const std::string& resourceType)
     {
         // Set message severity
         event.messageSeverity = "Informational";

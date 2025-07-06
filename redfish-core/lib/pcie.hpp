@@ -48,11 +48,6 @@
 
 namespace redfish
 {
-
-using GetSubTreeType = std::vector<
-    std::pair<std::string,
-              std::vector<std::pair<std::string, std::vector<std::string>>>>>;
-
 static constexpr const char* inventoryPath = "/xyz/openbmc_project/inventory";
 static constexpr std::array<std::string_view, 1> pcieDeviceInterface = {
     "xyz.openbmc_project.Inventory.Item.PCIeDevice"};
@@ -1168,7 +1163,7 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                             [asyncResp, device, chassisPCIePath, interface,
                              chassisId, chassisPCIeDevicePath, chassisPath](
                                 const boost::system::error_code& ecInner,
-                                const GetSubTreeType& subtree) {
+                                const dbus::utility::GetSubTreeType& subtree) {
                                 if (ecInner)
                                 {
                                     BMCWEB_LOG_DEBUG("DBUS response error");

@@ -21,6 +21,7 @@
 
 #include <boost/asio/error.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/ssl/error.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/ssl/stream_base.hpp>
 #include <boost/asio/ssl/verify_context.hpp>
@@ -655,6 +656,10 @@ class Connection :
                     keepAlive = false;
                     doWrite();
                 }
+
+                BMCWEB_LOG_WARNING("{} End of stream, closing {}", logPtr(this),
+                                   ec);
+                hardClose();
                 return;
             }
 
@@ -696,7 +701,54 @@ class Connection :
         startDeadline();
         boost::beast::http::async_read_some(
             adaptor, buffer, *parser,
-            std::bind_front(&self_type::afterRead, this, shared_from_this()));
+            [this,
+             self(shared_from_this())](const boost::system::error_code& ec,
+                                       std::size_t bytesTransferred) {
+                BMCWEB_LOG_DEBUG("{} async_read_some {} Bytes", logPtr(this),
+                                 bytesTransferred);
+
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR("{} Error while reading: {}", logPtr(this),
+                                     ec.message());
+                    if (ec == boost::beast::http::error::body_limit)
+                    {
+                        if (handleContentLengthError())
+                        {
+                            BMCWEB_LOG_CRITICAL(
+                                "Body length limit reached, "
+                                "but no content-length "
+                                "available?  Should never happen");
+                            res.result(boost::beast::http::status::
+                                           internal_server_error);
+                            keepAlive = false;
+                            doWrite();
+                        }
+                        return;
+                    }
+                    BMCWEB_LOG_WARNING("{} End of stream, closing {}",
+                                       logPtr(this), ec);
+                    hardClose();
+                    return;
+                }
+
+                // If the user is logged in, allow them to send files
+                // incrementally one piece at a time. If authentication is
+                // disabled then there is no user session hence always allow to
+                // send one piece at a time.
+                if (userSession != nullptr)
+                {
+                    cancelDeadlineTimer();
+                }
+                if (!parser->is_done())
+                {
+                    doRead();
+                    return;
+                }
+
+                cancelDeadlineTimer();
+                handle();
+            });
     }
 
     void afterDoWrite(const std::shared_ptr<self_type>& /*self*/,
@@ -714,6 +766,16 @@ class Connection :
             doWrite();
             return;
         }
+
+        if (ec == boost::beast::http::error::end_of_stream ||
+            ec == boost::asio::ssl::error::stream_truncated)
+        {
+            BMCWEB_LOG_WARNING("{} End of stream, closing {}", logPtr(this),
+                               ec);
+            hardClose();
+            return;
+        }
+
         if (ec)
         {
             BMCWEB_LOG_DEBUG("{} from write(2)", logPtr(this));

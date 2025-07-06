@@ -1,4 +1,4 @@
-listener_incs = include_directories('../include', '../../redfish-core/include', '../../include')
+listener_incs = include_directories('../include', '../../redfish-core/include', '../../redfish-core/lib', '../../include', '../../http')
 
 listener_srcs = files('elog_entry.cpp', 'listener.cpp')
 listener_deps = [default_deps, bmcweb_dependencies]

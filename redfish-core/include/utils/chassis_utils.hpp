@@ -49,9 +49,6 @@ constexpr const char* gpmMetricsIntf = "com.nvidia.GPMMetrics";
 using Associations =
     std::vector<std::tuple<std::string, std::string, std::string>>;
 
-using GetSubTreeType = std::vector<
-    std::pair<std::string,
-              std::vector<std::pair<std::string, std::vector<std::string>>>>>;
 using GetObjectType =
     std::vector<std::pair<std::string, std::vector<std::string>>>;
 
@@ -683,7 +680,7 @@ inline void handleMctpInBandActions(
         "org.freedesktop.DBus.ObjectManager"};
 
     dbus::utility::getDbusObject(
-        "/au/com/codeconstruct/mctp1", interfaces,
+        "/xyz/openbmc_project/mctp", interfaces,
         [req, asyncResp, chassisId, chassisUUID, option,
          enabled](const boost::system::error_code& ec,
                   const dbus::utility::MapperGetObject& resp) mutable {
@@ -695,19 +692,20 @@ inline void handleMctpInBandActions(
                 return;
             }
             auto chassisProcessed = std::make_shared<bool>(false);
-            for (const auto& it : resp)
+            for (auto it = resp.begin(); it != resp.end(); ++it)
             {
                 if (*chassisProcessed)
                 {
                     return;
                 }
-                std::string serviceName = it.first;
+                std::string serviceName = it->first;
                 crow::connections::systemBus->async_method_call(
                     [req, asyncResp, chassisUUID, serviceName, option, enabled,
-                     chassisId, chassisProcessed](
-                        const boost::system::error_code& ec1,
-                        const dbus::utility::ManagedObjectType& objects) {
-                        if (ec1)
+                     chassisId,
+                     chassisProcessed](const boost::system::error_code& ec2,
+                                       const dbus::utility::ManagedObjectType&
+                                           managedObjects) {
+                        if (ec2)
                         {
                             BMCWEB_LOG_DEBUG(
                                 "DBUS response error for MCTP.Control");
@@ -715,19 +713,20 @@ inline void handleMctpInBandActions(
                             return;
                         }
 
-                        const uint8_t* eid = nullptr;
+                        const uint32_t* eid = nullptr;
                         const std::string* uuid = nullptr;
                         const std::vector<uint8_t>* supportedMsgTypes = nullptr;
                         bool foundEID = false;
 
-                        for (const auto& objectPath : objects)
+                        for (auto& objectPath : managedObjects)
                         {
-                            for (const auto& interfaceMap : objectPath.second)
+                            bool isMctpEp = false;
+                            for (auto& interfaceMap : objectPath.second)
                             {
                                 if (interfaceMap.first ==
                                     "xyz.openbmc_project.Common.UUID")
                                 {
-                                    for (const auto& propertyMap :
+                                    for (auto& propertyMap :
                                          interfaceMap.second)
                                     {
                                         if (propertyMap.first == "UUID")
@@ -741,12 +740,13 @@ inline void handleMctpInBandActions(
                                 if (interfaceMap.first ==
                                     "xyz.openbmc_project.MCTP.Endpoint")
                                 {
-                                    for (const auto& propertyMap :
+                                    isMctpEp = true;
+                                    for (auto& propertyMap :
                                          interfaceMap.second)
                                     {
                                         if (propertyMap.first == "EID")
                                         {
-                                            eid = std::get_if<uint8_t>(
+                                            eid = std::get_if<uint32_t>(
                                                 &propertyMap.second);
                                         }
                                         else if (propertyMap.first ==
@@ -760,14 +760,22 @@ inline void handleMctpInBandActions(
                                 }
                             }
 
+                            // only check EID and UUID if it's a MCTP endpoint
+                            if (!isMctpEp)
+                            {
+                                continue;
+                            }
+
+                            // only check EID if it's a MCTP endpoint
                             if (eid == nullptr)
                             {
                                 BMCWEB_LOG_DEBUG(
                                     "handleMctpInBandActions: EID not found");
+                                messages::internalError(asyncResp->res);
                                 continue;
                             }
-                            if (uuid != nullptr && (*uuid) == chassisUUID &&
-                                supportedMsgTypes != nullptr)
+                            if (uuid && (*uuid) == chassisUUID &&
+                                supportedMsgTypes)
                             {
                                 if (std::find(supportedMsgTypes->begin(),
                                               supportedMsgTypes->end(),
@@ -904,7 +912,7 @@ inline void handleMctpInBandActions(
                             }
                         }
                     },
-                    serviceName, "/au/com/codeconstruct/mctp1",
+                    serviceName, "/xyz/openbmc_project/mctp",
                     "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
             }
         });
@@ -1192,7 +1200,10 @@ inline void getChassisSerialNumber(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            asyncResp->res.jsonValue["SerialNumber"] = serialNumber;
+            if (!serialNumber.empty())
+            {
+                asyncResp->res.jsonValue["SerialNumber"] = serialNumber;
+            }
         });
 }
 
@@ -1204,7 +1215,7 @@ inline void isEROTChassis(const std::string& chassisID, CallbackFunc&& callback)
 
     crow::connections::systemBus->async_method_call(
         [chassisID, callback](const boost::system::error_code& ec,
-                              const GetSubTreeType& subtree) {
+                              const dbus::utility::GetSubTreeType& subtree) {
             if (ec)
             {
                 callback(false, false);

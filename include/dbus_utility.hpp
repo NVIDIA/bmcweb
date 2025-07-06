@@ -68,7 +68,8 @@ using DbusVariantType = std::variant<
       std::string, std::string, uint64_t>>,
     std::vector<std::pair<sdbusplus::message::object_path, std::string>>,
     std::vector<std::tuple<std::string, uint64_t, std::string, double>>,
-    std::vector<std::tuple<std::string, std::string, uint64_t, std::string>>
+    std::vector<std::tuple<std::string, std::string, uint64_t, std::string>>,
+    std::vector<std::tuple<uint16_t, std::tuple<double, double, double>>>
  >;
 
 // clang-format on
@@ -81,6 +82,9 @@ using ManagedObjectType =
 // Map of service name to list of interfaces
 using MapperServiceMap =
     std::vector<std::pair<std::string, std::vector<std::string>>>;
+
+// Type for component path and its associated services
+using ComponentServicePair = std::pair<std::string, MapperServiceMap>;
 
 // Map of object paths to MapperServiceMaps
 using MapperGetSubTreeResponse =

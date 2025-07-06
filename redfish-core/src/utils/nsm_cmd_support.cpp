@@ -56,7 +56,11 @@ void actionInfoResponse(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         {{{"Name", "DeviceIdentificationId"},
           {"Required", true},
           {"DataType", "Number"},
-          {"AllowableValues", {0, 1, 2, 3, 4}}},
+          {"AllowableValues", {0, 1, 2, 3, 4, 5}}},
+         {{"Name", "DeviceRoleId"},
+          {"Required", false},
+          {"DataType", "Number"},
+          {"AllowableValues", {0, 1, 2}}},
          {{"Name", "DeviceInstanceId"},
           {"Required", true},
           {"DataType", "Number"}},
@@ -80,19 +84,20 @@ void actionInfoResponse(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 bool parseRequestJson(const crow::Request& req,
                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       uint8_t& commandCode, uint8_t& deviceIdentificationId,
-                      uint8_t& deviceInstanceId, uint8_t& messageType,
-                      bool& isLongRunning, uint16_t& dataSizeInBytes,
-                      std::vector<uint8_t>& data)
+                      uint8_t& deviceRoleId, uint8_t& deviceInstanceId,
+                      uint8_t& messageType, bool& isLongRunning,
+                      uint16_t& dataSizeInBytes, std::vector<uint8_t>& data)
 {
     std::optional<bool> optionalIsLongRunning;
     std::optional<std::vector<uint8_t>> optionalData;
+    std::optional<uint8_t> optionalDeviceRoleId;
 
     if (!redfish::json_util::readJsonAction(
             req, asyncResp->res, "CommandCode", commandCode, "Data",
             optionalData, "DataSizeBytes", dataSizeInBytes,
-            "DeviceIdentificationId", deviceIdentificationId,
-            "DeviceInstanceId", deviceInstanceId, "IsLongRunning",
-            optionalIsLongRunning, "MessageType", messageType))
+            "DeviceIdentificationId", deviceIdentificationId, "DeviceRoleId",
+            optionalDeviceRoleId, "DeviceInstanceId", deviceInstanceId,
+            "IsLongRunning", optionalIsLongRunning, "MessageType", messageType))
     {
         BMCWEB_LOG_ERROR("Failed to parse JSON body.");
         return false;
@@ -100,6 +105,7 @@ bool parseRequestJson(const crow::Request& req,
 
     isLongRunning = optionalIsLongRunning.value_or(false);
     data = optionalData.value_or(std::vector<uint8_t>(dataSizeInBytes));
+    deviceRoleId = optionalDeviceRoleId.value_or(0);
     return true;
 }
 
@@ -144,9 +150,10 @@ static void parseResponse(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 }
 
 void callSendRequest(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                     uint8_t deviceIdentificationId, uint8_t deviceInstanceId,
-                     bool isLongRunning, uint8_t messageType,
-                     uint8_t commandCode, const std::vector<uint8_t>& data)
+                     uint8_t deviceIdentificationId, uint8_t deviceRoleId,
+                     uint8_t deviceInstanceId, bool isLongRunning,
+                     uint8_t messageType, uint8_t commandCode,
+                     const std::vector<uint8_t>& data)
 {
     MemoryFD memFd;
     sdbusplus::message::unix_fd fd(memFd.fd);
@@ -165,8 +172,8 @@ void callSendRequest(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             BMCWEB_LOG_ERROR("Send Nsm Raw Command error {}", status);
             messages::internalError(asyncResp->res);
         },
-        deviceIdentificationId, deviceInstanceId, isLongRunning, messageType,
-        commandCode, fd);
+        deviceIdentificationId, deviceRoleId, deviceInstanceId, isLongRunning,
+        messageType, commandCode, fd);
 }
 
 } // namespace nsm_command_support

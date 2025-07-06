@@ -84,6 +84,12 @@ inline void requestRoutesSystemFaultLogEntryCollection(App& app)
                 {
                     return;
                 }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
+                    return;
+                }
                 asyncResp->res.jsonValue["@odata.type"] =
                     "#LogEntryCollection.LogEntryCollection";
                 asyncResp->res.jsonValue["@odata.id"] =
@@ -142,6 +148,12 @@ inline void requestRoutesSystemFaultLogClear(App& app)
             {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 clearDump(asyncResp, "FaultLog");

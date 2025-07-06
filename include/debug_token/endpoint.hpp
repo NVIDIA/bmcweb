@@ -16,8 +16,9 @@
  */
 #pragma once
 
+#include "debug_token/nsm_status_utils.hpp"
 #include "debug_token/request_utils.hpp"
-#include "debug_token/status_utils.hpp"
+#include "debug_token/vdm_status_utils.hpp"
 #include "nlohmann/json.hpp"
 #include "utils/mctp_utils.hpp"
 
@@ -60,7 +61,7 @@ class DebugTokenEndpoint
     {
         return request;
     }
-    virtual void setRequest(std::vector<uint8_t>&) = 0;
+    virtual void setRequest(const std::vector<uint8_t>&) = 0;
 
     virtual void getStatusAsJson(nlohmann::json&) const = 0;
 
@@ -106,11 +107,11 @@ class DebugTokenNsmEndpoint : public DebugTokenEndpoint
         return objectPath;
     }
 
-    void setRequest(std::vector<uint8_t>& r) override
+    void setRequest(const std::vector<uint8_t>& r) override
     {
-        NsmDebugTokenRequest* nsmReq =
+        const NsmDebugTokenRequest* nsmReq =
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-            reinterpret_cast<NsmDebugTokenRequest*>(r.data());
+            reinterpret_cast<const NsmDebugTokenRequest*>(r.data());
         switch (nsmReq->status)
         {
             case NsmDebugTokenChallengeQueryStatus::OK:
@@ -156,6 +157,11 @@ class DebugTokenNsmEndpoint : public DebugTokenEndpoint
         state = EndpointState::StatusAcquired;
     }
 
+    void setStatus(NsmTokenStatus s)
+    {
+        setStatus(std::make_unique<NsmTokenStatus>(s));
+    }
+
     void setStatus(EndpointState s)
     {
         state = s;
@@ -194,7 +200,7 @@ class DebugTokenSpdmEndpoint : public DebugTokenEndpoint
         return mctpEp.getSpdmObject();
     }
 
-    void setRequest(std::vector<uint8_t>& r) override
+    void setRequest(const std::vector<uint8_t>& r) override
     {
         state = EndpointState::RequestAcquired;
         request = addTokenRequestHeader(r);
@@ -206,6 +212,11 @@ class DebugTokenSpdmEndpoint : public DebugTokenEndpoint
         {
             vdmTokenStatusToJson(*status, json);
         }
+    }
+
+    void setStatus(VdmTokenStatus s)
+    {
+        setStatus(std::make_unique<VdmTokenStatus>(std::move(s)));
     }
 
     void setStatus(std::unique_ptr<VdmTokenStatus> s)
@@ -234,6 +245,11 @@ class DebugTokenSpdmEndpoint : public DebugTokenEndpoint
             state = EndpointState::TokenInstalled;
             return;
         }
+    }
+
+    void setStatus(EndpointState s)
+    {
+        state = s;
     }
 
     EndpointType getType() const override

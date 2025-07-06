@@ -18,10 +18,10 @@
 #pragma once
 
 #include "logging.hpp"
+#include "nvidia_event_service_manager.hpp"
 #include "utils/dbus_log_utils.hpp"
 
 #include <boost/url/format.hpp>
-#include <boost/url/url.hpp>
 #include <nlohmann/json.hpp>
 
 #include <map>
@@ -97,19 +97,6 @@ inline void jsonIterate(nlohmann::json& jOut, const nlohmann::json& jIn,
         BMCWEB_LOG_DEBUG(
             "---------------------------------------------------------------------\n\n\n\n");
     }
-}
-
-inline int severityToStr(const std::string& code, std::string& out)
-{
-    const std::map<std::string, std::string> codeMap = {
-        {"0", "Warning"}, {"1", "Critical"}, {"2", "OK"}, {"3", "Warning"}};
-    const auto it = codeMap.find(code);
-    if (it != codeMap.end())
-    {
-        out = it->second;
-        return 0;
-    }
-    return 1;
 }
 
 inline boost::urls::url handleMemProcessorOrigin(const nlohmann::json& mainCper)
@@ -202,7 +189,7 @@ inline std::optional<boost::urls::url> handleOriginCondition(
 inline void parseAdditionalDataForCPER(
     nlohmann::json::object_t& entry,
     [[maybe_unused]] const nlohmann::json::object_t& oem,
-    const AdditionalData& additional, std::string& originStr)
+    const AdditionalData& additional, std::string& originStr, bool isLogEntry)
 {
     const auto& type = additional.find("diagnosticDataType");
     if (additional.end() == type ||
@@ -229,13 +216,6 @@ inline void parseAdditionalDataForCPER(
     {
         BMCWEB_LOG_ERROR("severity code property not found in CPER log");
         return;
-    }
-
-    std::string codeVal;
-    if (0 == severityToStr(sevCode->second, codeVal))
-    {
-        BMCWEB_LOG_DEBUG("Adding severity code");
-        jOut["Severity"] = codeVal;
     }
 
     const auto& diagData = additional.find("diagnosticData");
@@ -315,7 +295,7 @@ inline void parseAdditionalDataForCPER(
 
     // NVIDIA
     jOut["CPER"]["Oem"]["Nvidia"]["@odata.type"] =
-        "#NvidiaCPER.v1_0_0.NvidiaCPER";
+        "#NvidiaCPER.v0_8_0.NvidiaCPER";
 
     // OriginOfCondition
     if (originStr.empty())
@@ -330,10 +310,18 @@ inline void parseAdditionalDataForCPER(
         }
         else
         {
+            if (isLogEntry)
+            {
+                jOut["Links"]["OriginOfCondition"]["@odata.id"] =
+                    origin->buffer();
+            }
+            else
+            {
+                jOut["OriginOfCondition"]["@odata.id"] = origin->buffer();
+            }
             // Eventing needs ooc as a string
             // maintain support for sendEventWithOOC()
-            originStr = std::string((*origin).buffer());
-            jOut["Links"]["OriginOfCondition"]["@odata.id"] = originStr;
+            originStr = origin->buffer();
         }
     }
 
@@ -342,4 +330,74 @@ inline void parseAdditionalDataForCPER(
     BMCWEB_LOG_DEBUG("Done {}", type->second);
 }
 
+/**
+ * @brief Parse CPER data from event and add to additional data
+ * @param evt JSON object containing the event data
+ * @param additionalData Vector to store the parsed data
+ * @return true if CPER event was found and parsed, false otherwise
+ */
+inline bool parseCperData(const nlohmann::json& evt,
+                          std::vector<std::string>& additionalData)
+{
+    auto cperIt = evt.find("CPER");
+    if (cperIt == evt.end())
+    {
+        return false;
+    }
+
+    const auto& cper = *cperIt;
+    std::string msg;
+
+    // Parse NotificationType
+    auto notifType = cper.find("NotificationType");
+    if (notifType == cper.end())
+    {
+        BMCWEB_LOG_ERROR("NotificationType isn't found in CPER");
+        return false;
+    }
+    msg = notifType->get<std::string>();
+    additionalData.push_back("notificationType=" + msg);
+
+    // Parse SectionType if present
+    if (auto sectionType = cper.find("SectionType"); sectionType != cper.end())
+    {
+        msg = sectionType->get<std::string>();
+        additionalData.push_back("sectionType=" + msg);
+    }
+
+    // Parse OEM data
+    auto oemPtr = cper.get_ptr<const nlohmann::json::object_t*>();
+    if (!oemPtr)
+    {
+        BMCWEB_LOG_ERROR("Failed to get Oem/Nvidia pointer from CPER");
+        return false;
+    }
+
+    nlohmann::json cperJson;
+    nlohmann::json cperSection;
+    for (const auto& [key, value] : *oemPtr)
+    {
+        if (key != "@odata.type")
+        {
+            cperSection[key] = value;
+        }
+    }
+    cperJson["sections"] = nlohmann::json::array({std::move(cperSection)});
+    additionalData.push_back("jsonDiagnosticData=" + cperJson.dump());
+
+    std::string severityStr;
+    if (auto sevIt = evt.find("Severity"); sevIt != evt.end())
+    {
+        severityStr = sevIt->get<std::string>();
+    }
+
+    const std::map<std::string, std::string> severityMap = {
+        {"Warning", "0"}, {"Critical", "1"}, {"OK", "2"}};
+
+    if (auto it = severityMap.find(severityStr); it != severityMap.end())
+    {
+        additionalData.push_back("cperSeverityCode=" + it->second);
+    }
+    return true;
+}
 } // namespace redfish

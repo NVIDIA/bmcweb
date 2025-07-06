@@ -7,6 +7,7 @@
 #include "registries/openbmc_message_registry.hpp"
 #include "registries/platform_message_registry.hpp"
 #include "registries/resource_event_message_registry.hpp"
+#include "registries/sensor_event_message_registry.hpp"
 #include "registries/task_event_message_registry.hpp"
 #include "registries/telemetry_message_registry.hpp"
 #include "registries/update_message_registry.hpp"
@@ -91,6 +92,10 @@ inline std::span<const MessageEntry> getRegistryFromPrefix(
     if (platform::header.registryPrefix == registryName)
     {
         return {platform::registry};
+    }
+    if (sensor_event::header.registryPrefix == registryName)
+    {
+        return {sensor_event::registry};
     }
 
     return {openbmc::registry};

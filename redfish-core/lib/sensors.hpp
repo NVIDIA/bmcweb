@@ -2562,9 +2562,8 @@ inline void getRelatedItemData(
                         {
                             // Call to network adapter-related items when
                             // processor check fails
-                            redfish::nvidia_sensor_utils::
-                                getRelatedNetworkAdapterData(asyncResp,
-                                                             objPath);
+                            nvidia_sensor_utils::getRelatedNetworkAdapterData(
+                                asyncResp, objPath);
                             return;
                         }
                         std::vector<std::string>* data =
