@@ -429,14 +429,14 @@ inline void afterChassisSpiInterfacesFound(
     nlohmann::json& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
     BMCWEB_LOG_DEBUG("oemActions: {}", oemActions.dump());
     BMCWEB_LOG_DEBUG("chassisId: {}", chassisId);
-    oemActions["#NvidiaProcessor.VariableSpiErase"]["target"] =
+    oemActions["#NvidiaChassis.VariableSpiErase"]["target"] =
         boost::urls::format(
-            "/redfish/v1/Chassis/{}/Actions/Oem/NvidiaProcessor.VariableSpiErase",
+            "/redfish/v1/Chassis/{}/Actions/Oem/NvidiaChassis.VariableSpiErase",
             chassisId);
 
-    oemActions["#NvidiaProcessor.VariableSpiRead"]["target"] =
+    oemActions["#NvidiaChassis.VariableSpiRead"]["target"] =
         boost::urls::format(
-            "/redfish/v1/Chassis/{}/Actions/Oem/NvidiaProcessor.VariableSpiRead",
+            "/redfish/v1/Chassis/{}/Actions/Oem/NvidiaChassis.VariableSpiRead",
             chassisId);
 }
 

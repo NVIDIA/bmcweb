@@ -196,7 +196,7 @@ inline void afterSpiInterfacesFound(
     if (paths.empty())
     {
         messages::resourceNotFound(asyncResp->res, "Action",
-                                   "NvidiaProcessor.VariableSpiErase");
+                                   "NvidiaChassis.VariableSpiErase");
         return;
     }
 
@@ -245,7 +245,8 @@ inline void handleSystemOemNvidiaVariableSpi(
     task::Payload payload(req);
 
     std::array<std::string_view, 1> interfaces{"com.nvidia.GraceSPI"};
-    std::string inventoryPath = "/xyz/openbmc_project/inventory/system/" + chassisId;
+    std::string inventoryPath = "/xyz/openbmc_project/inventory/system/" +
+                                chassisId;
     dbus::utility::getSubTree(inventoryPath, 0, interfaces,
                               std::bind_front(&afterSpiInterfacesFound,
                                               spiEventType, std::move(payload),
@@ -262,7 +263,7 @@ inline void requestRoutesChassisOemNvidiaProcessorVariableSpiActions(App& app)
     using enum nvidia_system_variable_spi_erase::SpiEventType;
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Chassis/<str>/Actions/Oem/NvidiaProcessor.VariableSpiErase/")
+        "/redfish/v1/Chassis/<str>/Actions/Oem/NvidiaChassis.VariableSpiErase/")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             nvidia_system_variable_spi_erase::handleSystemOemNvidiaVariableSpi,
@@ -270,7 +271,7 @@ inline void requestRoutesChassisOemNvidiaProcessorVariableSpiActions(App& app)
 
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Chassis/<str>/Actions/Oem/NvidiaProcessor.VariableSpiRead/")
+        "/redfish/v1/Chassis/<str>/Actions/Oem/NvidiaChassis.VariableSpiRead/")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             nvidia_system_variable_spi_erase::handleSystemOemNvidiaVariableSpi,
