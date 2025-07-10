@@ -50,6 +50,14 @@ inline std::optional<registries::HeaderAndUrl>
     {
         return HeaderAndUrl{telemetry::header, telemetry::url};
     }
+    if (platform::header.registryPrefix == registryName)
+    {
+        return HeaderAndUrl{platform::header, platform::url};
+    }
+    if (update::header.registryPrefix == registryName)
+    {
+        return HeaderAndUrl{update::header, update::url};
+    }
     return std::nullopt;
 }
 
@@ -79,10 +87,6 @@ inline std::span<const MessageEntry> getRegistryFromPrefix(
     if (telemetry::header.registryPrefix == registryName)
     {
         return {telemetry::registry};
-    }
-    if (resource_event::header.registryPrefix == registryName)
-    {
-        return {resource_event::registry};
     }
     if (update::header.registryPrefix == registryName)
     {
