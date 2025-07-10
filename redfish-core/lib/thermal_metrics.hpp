@@ -65,7 +65,7 @@ inline void processSensorsValue(
         // Reserve space for
         // /xyz/openbmc_project/sensors/<name>/<subname>
         split.reserve(6);
-        boost::algorithm::split(split, sensorPath, boost::is_any_of("/"));
+        bmcweb::split(split, sensorPath, '/');
         if (split.size() < 6)
         {
             BMCWEB_LOG_ERROR("Got path that isn't long enough {}", sensorPath);

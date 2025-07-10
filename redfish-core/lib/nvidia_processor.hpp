@@ -32,7 +32,6 @@
 #include "utils/processor_utils.hpp"
 #include "utils/time_utils.hpp"
 
-#include <boost/algorithm/string.hpp>
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
@@ -2811,8 +2810,7 @@ inline void getSensorMetric(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         // Reserve space for
                         // /xyz/openbmc_project/sensors/<name>/<subname>
                         split.reserve(6);
-                        boost::algorithm::split(split, sensorPath,
-                                                boost::is_any_of("/"));
+                        bmcweb::split(split, sensorPath, '/');
                         if (split.size() < 6)
                         {
                             BMCWEB_LOG_ERROR(
