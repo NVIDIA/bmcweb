@@ -30,7 +30,6 @@
 #include "utils/nvidia_async_set_callbacks.hpp"
 #include "utils/nvidia_async_set_utils.hpp"
 
-#include <boost/algorithm/string/predicate.hpp>
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
@@ -1085,8 +1084,7 @@ inline void patchPresetProfile(
             }
             for (const auto& [path, object] : subtree)
             {
-                BMCWEB_LOG_ERROR("path : {}", boost::algorithm::ends_with(
-                                                  path, processorId));
+                BMCWEB_LOG_ERROR("path : {}", path.ends_with(processorId));
                 if (!path.ends_with(processorId))
                 {
                     continue;

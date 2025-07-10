@@ -19,7 +19,6 @@
 #include "lldptool_util.hpp"
 
 #include <app.hpp>
-#include <boost/algorithm/string.hpp>
 
 namespace redfish
 {

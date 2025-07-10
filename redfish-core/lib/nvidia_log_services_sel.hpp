@@ -217,7 +217,10 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
                     if (additional.count("SENSOR_DATA") > 0)
                     {
                         sensorData = additional["SENSOR_DATA"];
-                        boost::algorithm::to_lower(sensorData);
+                        std::transform(sensorData.begin(), sensorData.end(),
+                                       sensorData.begin(), [](unsigned char c) {
+                                           return std::tolower(c);
+                                       });
                     }
                     // MessageId for SEL is of the form 0xNNaabbcc
                     // where 'NN' is the EventDir/EventType byte, aa is first
