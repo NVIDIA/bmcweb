@@ -1,3 +1,5 @@
+// NOLINTBEGIN
+#include "../include/elog_entry.hpp"
 #include "cper_utils.hpp"
 #include "utils/dbus_log_utils.hpp"
 #include "utils/json_utils.hpp"

@@ -469,7 +469,7 @@ srcfiles_unittest = files(
     'test/redfish-core/include/submit_test_event_test.cpp',
     'test/redfish-core/include/utils/dbus_utils.cpp',
     'test/redfish-core/include/utils/error_code_test.cpp',
-    #'test/redfish-core/include/event_service_manager_test.cpp',
+    'test/redfish-core/include/event_service_manager_test.cpp',
     'test/redfish-core/include/utils/hex_utils_test.cpp',
     'test/redfish-core/include/utils/ip_utils_test.cpp',
     'test/redfish-core/include/utils/json_utils_test.cpp',
@@ -520,6 +520,6 @@ if (get_option('tests').allowed())
     endforeach
 endif
 
-#if (get_option('redfish-aggregation').enabled())
-#    subdir('event-listener')
-#endif
+if (get_option('redfish-aggregation').enabled())
+    subdir('event-listener')
+endif
