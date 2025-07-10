@@ -23,7 +23,7 @@
 #include "debug_token/request_utils.hpp"
 #include "utils/dbus_utils.hpp"
 
-#include <boost/asio.hpp>
+#include <boost/asio/post.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
 #include <filesystem>

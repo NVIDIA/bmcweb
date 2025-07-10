@@ -20,7 +20,10 @@
 #include "debug_token/endpoint.hpp"
 #include "debug_token/vdm_status_utils.hpp"
 
-#include <boost/asio.hpp>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/error.hpp>
+#include <boost/asio/post.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/process.hpp>
 #include <boost/process/async.hpp>
 #include <boost/process/child.hpp>
