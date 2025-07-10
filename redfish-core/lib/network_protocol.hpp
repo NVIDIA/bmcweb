@@ -217,23 +217,6 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     // defaults to ensure something is always returned.
     for (const auto& nwkProtocol : networkProtocolToDbus)
     {
-        // if TLS authentication is disabled then don't support HTTPS.
-        // even if SSL is enabled
-        if constexpr (!BMCWEB_INSECURE_DISABLE_SSL)
-        {
-            if (nwkProtocol.first == "HTTPS" &&
-                !persistent_data::nvidia::getConfig().isTLSAuthEnabled())
-            {
-                continue;
-            }
-        }
-        else
-        {
-            if (nwkProtocol.first == "HTTPS")
-            {
-                continue;
-            }
-        }
         if constexpr (!BMCWEB_IPMI)
         {
             if (nwkProtocol.first == "IPMI")
