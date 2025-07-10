@@ -25,6 +25,7 @@
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/bios_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/health_utils.hpp"
 #include "utils/json_utils.hpp"
@@ -4077,8 +4078,10 @@ inline void handleComputerSystemGet(
         getBootProperties(asyncResp);
         getBootProgress(asyncResp);
         getBootProgressLastStateTime(asyncResp);
-        redfish::nvidia_systems_utils::getBootOrder(asyncResp);
-        redfish::nvidia_systems_utils::getSecureBoot(asyncResp);
+        redfish::bios_utils::checkBiosSupport([asyncResp]() {
+            redfish::nvidia_systems_utils::getBootOrder(asyncResp);
+            redfish::nvidia_systems_utils::getSecureBoot(asyncResp);
+        });
         redfish::nvidia_systems_utils::populateFromEntityManger(asyncResp);
         getUefiPropertySettingsHost(asyncResp, true);
         asyncResp->res.jsonValue["Boot"]["BootOrderPropertySelection"] =
