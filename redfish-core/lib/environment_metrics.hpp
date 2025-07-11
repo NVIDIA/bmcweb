@@ -420,7 +420,7 @@ inline void handleEnvironmentMetricsGet(
             asyncResp, chassisId, *validChassisPath);
 
         // TODO: Remove interfaces from here
-        const std::array<const char*, 2> interfaces = {
+        const std::array<std::string_view, 2> interfaces = {
             "xyz.openbmc_project.Inventory.Item.Board",
             "xyz.openbmc_project.Inventory.Item.Chassis"};
         redfish::nvidia_env_utils::getPowerAndControlData(asyncResp, chassisId,

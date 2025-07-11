@@ -1035,10 +1035,11 @@ template <std::size_t SIZE>
 inline void getPowerAndControlData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& resourceId,
-    const std::array<const char*, SIZE>& interfaces)
+    const std::array<std::string_view, SIZE>& interfaces)
 {
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, resourceId](const boost::system::error_code ec,
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
+        [asyncResp, resourceId](const boost::system::error_code& ec,
                                 const dbus::utility::GetSubTreeType& subtree) {
             if (ec)
             {
@@ -1062,20 +1063,19 @@ inline void getPowerAndControlData(
                     continue;
                 }
 
-                if (connectionNames.size() < 1)
+                if (connectionNames.empty())
                 {
                     BMCWEB_LOG_ERROR("Got 0 Connection names");
                     continue;
                 }
 
                 const std::string& connectionName = connectionNames[0].first;
-                const std::vector<std::string>& serviceInterfaces =
+                const std::vector<std::string>& interfaceList =
                     connectionNames[0].second;
 
-                if (std::find(serviceInterfaces.begin(),
-                              serviceInterfaces.end(),
+                if (std::find(interfaceList.begin(), interfaceList.end(),
                               "xyz.openbmc_project.Inventory.Item.Cpu") !=
-                    serviceInterfaces.end())
+                    interfaceList.end())
                 {
                     // Skip PowerAndControlData for
                     // /Chassis/CPU_{ID}/EnvironmentMetrics URI The CPU power
@@ -1085,31 +1085,29 @@ inline void getPowerAndControlData(
                 }
 
                 crow::connections::systemBus->async_method_call(
-                    [asyncResp, connectionName, serviceInterfaces,
-                     resourceId](const boost::system::error_code& e,
-                                 std::variant<std::vector<std::string>>& resp) {
+                    [asyncResp, connectionName, interfaceList, resourceId](
+                        const boost::system::error_code& e,
+                        std::variant<std::vector<std::string>>& resp1) {
                         if (e)
                         {
                             return;
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
+                        std::vector<std::string>* data1 =
+                            std::get_if<std::vector<std::string>>(&resp1);
+                        if (data1 == nullptr)
                         {
                             return;
                         }
-                        for (const std::string& ctrlPath : *data)
+                        for (const std::string& ctrlPath : *data1)
                         {
                             getPowerCap(asyncResp, connectionName, ctrlPath);
                             getPowerCap(asyncResp, resourceId, ctrlPath);
-                            getPowerLimitDataSourceUri(asyncResp, resourceId,
-                                                       ctrlPath);
                             // Skip getControlMode if it does not support the
                             // Control Mode
-                            if (std::find(serviceInterfaces.begin(),
-                                          serviceInterfaces.end(),
+                            if (std::find(interfaceList.begin(),
+                                          interfaceList.end(),
                                           "xyz.openbmc_project.Control.Mode") !=
-                                serviceInterfaces.end())
+                                interfaceList.end())
                             {
                                 getControlMode(asyncResp, connectionName,
                                                ctrlPath);
@@ -1129,11 +1127,7 @@ inline void getPowerAndControlData(
                     path + "/power_controls", "org.freedesktop.DBus.Properties",
                     "Get", "xyz.openbmc_project.Association", "endpoints");
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0, interfaces);
+        });
 }
 
 /**
