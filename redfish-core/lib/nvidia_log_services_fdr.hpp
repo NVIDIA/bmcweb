@@ -331,12 +331,12 @@ inline void handleFDRServicePatch(
 
                 crow::connections::systemBus->async_method_call(
                     [asyncResp,
-                     fdrServiceName](const boost::system::error_code ec) {
-                        if (ec)
+                     fdrServiceName](const boost::system::error_code ec2) {
+                        if (ec2)
                         {
                             BMCWEB_LOG_ERROR(
                                 "EnableService D-Bus call failed for {}: {}",
-                                fdrServiceName, ec);
+                                fdrServiceName, ec2);
                             messages::internalError(asyncResp->res);
                             return;
                         }
@@ -349,12 +349,12 @@ inline void handleFDRServicePatch(
 
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, fdrServiceName](
-                                const boost::system::error_code ec) {
-                                if (ec)
+                                const boost::system::error_code ec3) {
+                                if (ec3)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "StartService D-Bus call failed for {}: {}",
-                                        fdrServiceName, ec);
+                                        fdrServiceName, ec3);
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }

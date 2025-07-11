@@ -461,16 +461,16 @@ struct InsertMediaActionParams
 inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& service, const std::string& name,
                             const std::string& imageUrl, bool rw,
-                            std::string&& userName, std::string&& password)
+                            std::string&& userName, std::string&& userPassword)
 {
     int fd = -1;
     std::shared_ptr<CredentialsPipe> secretPipe;
     dbus::utility::DbusVariantType unixFd = -1;
-    if (!userName.empty() || !password.empty())
+    if (!userName.empty() || !userPassword.empty())
     {
         // Payload must contain data + NULL delimiters
         constexpr const size_t secretLimit = 1024;
-        if (userName.size() + password.size() + 2 > secretLimit)
+        if (userName.size() + userPassword.size() + 2 > secretLimit)
         {
             BMCWEB_LOG_ERROR("Credentials too long to handle");
             messages::unrecognizedRequestBody(asyncResp->res);
@@ -484,7 +484,7 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         unixFd = static_cast<sdbusplus::message::unix_fd>(fd);
         // Pass secret over pipe
         secretPipe->asyncWrite(
-            std::move(userName), std::move(password),
+            std::move(userName), std::move(userPassword),
             [asyncResp,
              secretPipe](const boost::system::error_code& ec, std::size_t) {
                 if (ec)

@@ -66,13 +66,13 @@ inline void getLldpStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         ifaceId, LldpTlv::ADMIN_STATUS, LldpCommandType::GET_LLDP, false,
         asyncResp,
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                   const std::string& stdOut, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
             if (ec || errorCode)
             {
                 messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res,
+                    aResp->res,
                     "/redfish/v1/Managers/" +
                         std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                         "/DedicatedNetworkPorts/" + ifaceId,
@@ -91,11 +91,11 @@ inline void getLldpStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             {
                 if (stdOut.find("disabled") != std::string::npos)
                 {
-                    asyncResp->res.jsonValue["Ethernet"]["LLDPEnabled"] = false;
+                    aResp->res.jsonValue["Ethernet"]["LLDPEnabled"] = false;
                 }
                 else
                 {
-                    asyncResp->res.jsonValue["Ethernet"]["LLDPEnabled"] = true;
+                    aResp->res.jsonValue["Ethernet"]["LLDPEnabled"] = true;
                 }
             }
             BMCWEB_LOG_DEBUG("get Lldp Status: {}", stdOut);
@@ -115,13 +115,13 @@ inline void setLldpStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     LldpUtil::run(
         ifaceId, commandType, LldpCommandType::SET_LLDP, false, asyncResp,
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                   const std::string&, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
             if (ec || errorCode)
             {
                 messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res,
+                    aResp->res,
                     "/redfish/v1/Managers/" +
                         std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                         "/DedicatedNetworkPorts/" + ifaceId,
@@ -153,13 +153,13 @@ inline void getEnableLldpTlvs(
         ifaceId, LldpTlv::SYSTEM_CAPABILITIES, LldpCommandType::ENABLE_TLV,
         false, asyncResp,
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                   const std::string& stdOut, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
             if (ec || errorCode)
             {
                 messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res,
+                    aResp->res,
                     "/redfish/v1/Managers/" +
                         std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                         "/DedicatedNetworkPorts/" + ifaceId,
@@ -183,13 +183,13 @@ inline void getEnableLldpTlvs(
         ifaceId, LldpTlv::SYSTEM_DESCRIPTION, LldpCommandType::ENABLE_TLV,
         false, asyncResp,
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                   const std::string& stdOut, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
             if (ec || errorCode)
             {
                 messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res,
+                    aResp->res,
                     "/redfish/v1/Managers/" +
                         std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                         "/DedicatedNetworkPorts/" + ifaceId,
@@ -211,13 +211,13 @@ inline void getEnableLldpTlvs(
         ifaceId, LldpTlv::SYSTEM_NAME, LldpCommandType::ENABLE_TLV, false,
         asyncResp,
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [ifaceId](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                   const std::string& stdOut, const std::string&,
                   const boost::system::error_code& ec, int errorCode) {
             if (ec || errorCode)
             {
                 messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res,
+                    aResp->res,
                     "/redfish/v1/Managers/" +
                         std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
                         "/DedicatedNetworkPorts/" + ifaceId,
@@ -377,7 +377,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         ifaceId, LldpTlv::CHASSIS_ID, LldpCommandType::GET, isReceived,
         asyncResp,
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                          const std::string& stdOut, const std::string&,
                          const boost::system::error_code& ec, int errorCode) {
             if (ec || errorCode)
@@ -385,7 +385,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 BMCWEB_LOG_ERROR("Error getting LLDP Chassis ID: {}", ec);
                 return;
             }
-            setLldpTlvProperty(asyncResp->res.jsonValue, "ChassisId", stdOut,
+            setLldpTlvProperty(aResp->res.jsonValue, "ChassisId", stdOut,
                                lldpType);
         });
 
@@ -395,7 +395,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         ifaceId, LldpTlv::CHASSIS_ID_SUBTYPE, LldpCommandType::GET, isReceived,
         asyncResp,
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                          const std::string& stdOut, const std::string&,
                          const boost::system::error_code& ec, int errorCode) {
             if (ec || errorCode)
@@ -404,8 +404,8 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                  ec);
                 return;
             }
-            setLldpTlvProperty(asyncResp->res.jsonValue, "ChassisIdSubtype",
-                               stdOut, lldpType);
+            setLldpTlvProperty(aResp->res.jsonValue, "ChassisIdSubtype", stdOut,
+                               lldpType);
         });
 
     // Get Port ID
@@ -413,7 +413,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     LldpUtil::run(
         ifaceId, LldpTlv::PORT_ID, LldpCommandType::GET, isReceived, asyncResp,
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                          const std::string& stdOut, const std::string&,
                          const boost::system::error_code& ec, int errorCode) {
             if (ec || errorCode)
@@ -421,7 +421,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 BMCWEB_LOG_ERROR("Error getting LLDP Port ID: {}", ec);
                 return;
             }
-            setLldpTlvProperty(asyncResp->res.jsonValue, "PortId", stdOut,
+            setLldpTlvProperty(aResp->res.jsonValue, "PortId", stdOut,
                                lldpType);
         });
 
@@ -431,7 +431,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         ifaceId, LldpTlv::PORT_ID_SUBTYPE, LldpCommandType::GET, isReceived,
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         asyncResp,
-        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                          const std::string& stdOut, const std::string&,
                          const boost::system::error_code& ec, int errorCode) {
             if (ec || errorCode)
@@ -439,8 +439,8 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 BMCWEB_LOG_ERROR("Error getting LLDP Port ID Subtype: {}", ec);
                 return;
             }
-            setLldpTlvProperty(asyncResp->res.jsonValue, "PortIdSubtype",
-                               stdOut, lldpType);
+            setLldpTlvProperty(aResp->res.jsonValue, "PortIdSubtype", stdOut,
+                               lldpType);
         });
 
     // Get System Name
@@ -449,7 +449,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         ifaceId, LldpTlv::SYSTEM_NAME, LldpCommandType::GET, isReceived,
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         asyncResp,
-        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                          const std::string& stdOut, const std::string&,
                          const boost::system::error_code& ec, int errorCode) {
             if (ec || errorCode)
@@ -457,7 +457,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 BMCWEB_LOG_ERROR("Error getting LLDP System Name: {}", ec);
                 return;
             }
-            setLldpTlvProperty(asyncResp->res.jsonValue, "SystemName", stdOut,
+            setLldpTlvProperty(aResp->res.jsonValue, "SystemName", stdOut,
                                lldpType);
         });
 
@@ -467,7 +467,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         ifaceId, LldpTlv::SYSTEM_DESCRIPTION, LldpCommandType::GET, isReceived,
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         asyncResp,
-        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                          const std::string& stdOut, const std::string&,
                          const boost::system::error_code& ec, int errorCode) {
             if (ec || errorCode)
@@ -476,7 +476,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                  ec);
                 return;
             }
-            setLldpTlvProperty(asyncResp->res.jsonValue, "SystemDescription",
+            setLldpTlvProperty(aResp->res.jsonValue, "SystemDescription",
                                stdOut, lldpType);
         });
 
@@ -486,7 +486,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         ifaceId, LldpTlv::SYSTEM_CAPABILITIES, LldpCommandType::GET, isReceived,
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
         asyncResp,
-        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                          const std::string& stdOut, const std::string&,
                          const boost::system::error_code& ec, int errorCode) {
             if (ec || errorCode)
@@ -495,7 +495,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                  ec);
                 return;
             }
-            setLldpTlvProperty(asyncResp->res.jsonValue, "SystemCapabilities",
+            setLldpTlvProperty(aResp->res.jsonValue, "SystemCapabilities",
                                stdOut, lldpType);
         });
 
@@ -505,7 +505,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         ifaceId, LldpTlv::MANAGEMENT_ADDRESS, LldpCommandType::GET, isReceived,
         asyncResp,
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                          const std::string& stdOut, const std::string&,
                          const boost::system::error_code& ec, int errorCode) {
             if (ec || errorCode)
@@ -516,7 +516,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             if (!stdOut.empty())
             {
-                setLldpTlvProperty(asyncResp->res.jsonValue,
+                setLldpTlvProperty(aResp->res.jsonValue,
                                    "ManagementAddressIPv4", stdOut, lldpType);
             }
         });
@@ -527,7 +527,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         ifaceId, LldpTlv::MANAGEMENT_ADDRESS_IPV6, LldpCommandType::GET,
         isReceived, asyncResp,
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                          const std::string& stdOut, const std::string&,
                          const boost::system::error_code& ec, int errorCode) {
             if (ec || errorCode)
@@ -538,7 +538,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
             if (!stdOut.empty())
             {
-                setLldpTlvProperty(asyncResp->res.jsonValue,
+                setLldpTlvProperty(aResp->res.jsonValue,
                                    "ManagementAddressIPv6", stdOut, lldpType);
             }
         });
@@ -549,7 +549,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         ifaceId, LldpTlv::MANAGEMENT_ADDRESS_MAC, LldpCommandType::GET,
         isReceived, asyncResp,
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                          const std::string& stdOut, const std::string&,
                          const boost::system::error_code& ec, int errorCode) {
             if (ec || errorCode)
@@ -558,7 +558,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     "Error getting LLDP Management Address MAC: {}", ec);
                 return;
             }
-            setLldpTlvProperty(asyncResp->res.jsonValue, "ManagementAddressMAC",
+            setLldpTlvProperty(aResp->res.jsonValue, "ManagementAddressMAC",
                                stdOut, lldpType);
         });
 
@@ -568,7 +568,7 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         ifaceId, LldpTlv::MANAGEMENT_VLAN_ID, LldpCommandType::GET, isReceived,
         asyncResp,
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [lldpType, path](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                          const std::string& stdOut, const std::string&,
                          const boost::system::error_code& ec, int errorCode) {
             if (ec || errorCode)
@@ -577,8 +577,8 @@ inline void getLldpTlvs(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                  ec);
                 return;
             }
-            setLldpTlvProperty(asyncResp->res.jsonValue, "ManagementVlanId",
-                               stdOut, lldpType);
+            setLldpTlvProperty(aResp->res.jsonValue, "ManagementVlanId", stdOut,
+                               lldpType);
         });
 }
 
@@ -617,20 +617,20 @@ inline void getLldpInformationWithIndex(
         ifaceId, LldpTlv::ADMIN_STATUS, LldpCommandType::GET_LLDP, false,
         asyncResp,
         // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-        [entryIdx](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        [entryIdx](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                    const std::string& stdOut, const std::string&,
                    const boost::system::error_code& ec, int errorCode) {
             if (ec || errorCode)
             {
                 // Don't report error if we can't get LLDP status
                 // Just set LLDPEnabled to false and continue
-                asyncResp->res.jsonValue["Ethernet"]["LLDPEnabled"] = false;
+                aResp->res.jsonValue["Ethernet"]["LLDPEnabled"] = false;
                 BMCWEB_LOG_DEBUG(
                     "LLDP status not available, defaulting to disabled");
                 return;
             }
             // The status is now directly returned as "enabled" or "disabled"
-            asyncResp->res.jsonValue["Ethernet"]["LLDPEnabled"] =
+            aResp->res.jsonValue["Ethernet"]["LLDPEnabled"] =
                 (stdOut == "enabled");
             BMCWEB_LOG_DEBUG("get Lldp Status: {}", stdOut);
         });

@@ -2209,10 +2209,10 @@ inline void requestRoutesNVSwitchReset(App& app)
                             }
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, fabricId, switchId, resetType](
-                                    const boost::system::error_code ec,
+                                    const boost::system::error_code ec1,
                                     std::variant<std::vector<std::string>>&
                                         resp) {
-                                    if (ec)
+                                    if (ec1)
                                     {
                                         BMCWEB_LOG_ERROR("DBUS response error");
                                         messages::internalError(asyncResp->res);

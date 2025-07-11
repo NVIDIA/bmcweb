@@ -1203,10 +1203,10 @@ inline void handleProfileUpdateCall(
     }
     crow::connections::systemBus->async_method_call(
         [payload = std::move(payload), aResp,
-         isBiosUser](const boost::system::error_code& ec,
+         isBiosUser](const boost::system::error_code& ec2,
                      sdbusplus::message::message& msg,
                      const uint16_t& profileNumber) mutable {
-            callbackProfileUpdate(ec, msg, std::move(payload), aResp,
+            callbackProfileUpdate(ec2, msg, std::move(payload), aResp,
                                   isBiosUser, profileNumber);
         }, // end async_method_call handler
         profileService, profileManagerPath.str, managerIntrf, "Update",
@@ -1247,8 +1247,8 @@ inline void handleProfileUpdate(crow::App& app, const crow::Request& req,
     privilege_utils::isBiosPrivilege(
         req.session->username,
         [aResp, memFd = std::move(memFd), payload = std::move(payload)](
-            const boost::system::error_code& ec, bool isBiosUser) mutable {
-            handleProfileUpdateCall(std::move(payload), ec, aResp, isBiosUser,
+            const boost::system::error_code& ec2, bool isBiosUser) mutable {
+            handleProfileUpdateCall(std::move(payload), ec2, aResp, isBiosUser,
                                     memFd);
         }); // end  isBiosPrivilege handler
 }

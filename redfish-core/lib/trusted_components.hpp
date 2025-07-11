@@ -408,9 +408,9 @@ inline void handleTrustedComponentsCollectionGet(
  */
 inline void fetchInventoryProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisID, const std::string& inventoryPath)
+    const std::string& chassisID, const std::string& componentInventoryPath)
 {
-    if (chassisID.empty() || inventoryPath.empty())
+    if (chassisID.empty() || componentInventoryPath.empty())
     {
         BMCWEB_LOG_ERROR(
             "Invalid input parameters for fetchInventoryProperties");
@@ -422,14 +422,14 @@ inline void fetchInventoryProperties(
         "xyz.openbmc_project.Inventory.Decorator.Asset"};
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp, chassisID, inventoryPath](
+        [asyncResp, chassisID, componentInventoryPath](
             const boost::system::error_code ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 servicesToInterfaces) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("ObjectMapper GetObject error for {}: {}",
-                                 inventoryPath, ec);
+                                 componentInventoryPath, ec);
                 messages::internalError(asyncResp->res);
                 return;
             }
@@ -437,7 +437,7 @@ inline void fetchInventoryProperties(
             if (servicesToInterfaces.empty())
             {
                 BMCWEB_LOG_ERROR("No services found for path: {}",
-                                 inventoryPath);
+                                 componentInventoryPath);
                 messages::internalError(asyncResp->res);
                 return;
             }
@@ -445,7 +445,7 @@ inline void fetchInventoryProperties(
             const std::string& service = servicesToInterfaces[0].first;
 
             crow::connections::systemBus->async_method_call(
-                [asyncResp, chassisID, service, inventoryPath](
+                [asyncResp, chassisID, service, componentInventoryPath](
                     const boost::system::error_code ecInv,
                     const std::vector<std::pair<
                         std::string, dbus::utility::DbusVariantType>>& props) {
@@ -453,7 +453,7 @@ inline void fetchInventoryProperties(
                     {
                         BMCWEB_LOG_ERROR(
                             "GetAll inventory properties failed for service {} path {}: {}",
-                            service, inventoryPath, ecInv);
+                            service, componentInventoryPath, ecInv);
                         messages::internalError(asyncResp->res);
                         return;
                     }
@@ -480,12 +480,12 @@ inline void fetchInventoryProperties(
                         }
                     }
                 },
-                service, inventoryPath, "org.freedesktop.DBus.Properties",
-                "GetAll", "");
+                service, componentInventoryPath,
+                "org.freedesktop.DBus.Properties", "GetAll", "");
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", inventoryPath,
+        "xyz.openbmc_project.ObjectMapper", "GetObject", componentInventoryPath,
         interfaces);
 }
 
@@ -498,14 +498,14 @@ inline void fetchInventoryProperties(
 inline void fetchTrustedComponentLinks(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     [[maybe_unused]] const std::string& chassisID,
-    const std::string& inventoryPath)
+    const std::string& componentInventoryPath)
 {
     const std::string& endpointComponent =
-        std::filesystem::path(inventoryPath).filename().string();
+        std::filesystem::path(componentInventoryPath).filename().string();
     asyncResp->res.jsonValue["Links"]["ComponentIntegrity"] = {
         {{"@odata.id", "/redfish/v1/ComponentIntegrity/" + endpointComponent}}};
 
-    std::string objPath = inventoryPath + "/inventory";
+    std::string objPath = componentInventoryPath + "/inventory";
 
     chassis_utils::getAssociationEndpoint(objPath, [objPath, asyncResp](
                                                        const bool& status,
@@ -522,13 +522,13 @@ inline void fetchTrustedComponentLinks(
         }
 
         chassis_utils::getRedfishURL(ep, [ep,
-                                          asyncResp](const bool& status,
+                                          asyncResp](const bool& urlStatus,
                                                      const std::string& url) {
             nlohmann::json& componentsProtectedArray =
                 asyncResp->res.jsonValue["Links"]["ComponentsProtected"];
             componentsProtectedArray = nlohmann::json::array();
 
-            if (!status)
+            if (!urlStatus)
             {
                 BMCWEB_LOG_DEBUG("Unable to get the Redfish URL for {}", ep);
                 return;

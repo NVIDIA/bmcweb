@@ -2214,14 +2214,14 @@ inline void requestEthernetInterfacesRoutes(App& app)
                     return;
                 }
 
-                bool vlanEnable = false;
+                bool vlanEnabled = false;
                 uint32_t vlanId = 0;
                 std::vector<nlohmann::json::object_t> relatedInterfaces;
 
                 if (!json_util::readJsonPatch(                        //
                         req, asyncResp->res,                          //
                         "Links/RelatedInterfaces", relatedInterfaces, //
-                        "VLAN/VLANEnable", vlanEnable,                //
+                        "VLAN/VLANEnable", vlanEnabled,               //
                         "VLAN/VLANId", vlanId                         //
                         ))
                 {
@@ -2268,7 +2268,7 @@ inline void requestEthernetInterfacesRoutes(App& app)
                     return;
                 }
 
-                if (!vlanEnable)
+                if (!vlanEnabled)
                 {
                     // In OpenBMC implementation, VLANEnable cannot be false on
                     // create

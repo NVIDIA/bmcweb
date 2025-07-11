@@ -370,15 +370,15 @@ inline void handleCpuDisableToken(
         mctpVdmUtilWrapper.run(
             MctpVdmUtilCommand::DEBUG_TOKEN_ERASE, std::monostate(), req,
             asyncResp,
-            [](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, uint32_t,
+            [](const crow::Request& reqParam,
+               const std::shared_ptr<bmcweb::AsyncResp>& aResp, uint32_t,
                const std::string& stdOut, const std::string&,
                const boost::system::error_code& ec, int errorCode) {
                 if (ec || errorCode)
                 {
                     BMCWEB_LOG_ERROR("mctp-vdm-util error: {} {}", ec.message(),
                                      errorCode);
-                    messages::internalError(asyncResp->res);
+                    messages::internalError(aResp->res);
                     return;
                 }
                 std::size_t rxPos = stdOut.find("RX: ");
@@ -386,7 +386,7 @@ inline void handleCpuDisableToken(
                 {
                     BMCWEB_LOG_ERROR("Invalid VDM command response: {}",
                                      stdOut);
-                    messages::internalError(asyncResp->res);
+                    messages::internalError(aResp->res);
                     return;
                 }
                 std::string rxData = stdOut.substr(rxPos + 4);
@@ -398,7 +398,7 @@ inline void handleCpuDisableToken(
                 {
                     BMCWEB_LOG_ERROR("Invalid VDM command response: {}",
                                      rxData);
-                    messages::internalError(asyncResp->res);
+                    messages::internalError(aResp->res);
                     return;
                 }
                 try
@@ -406,18 +406,18 @@ inline void handleCpuDisableToken(
                     int vdmCode = std::stoi(bytes[mctpVdmUtilErrorCodeOffset]);
                     if (vdmCode == 0)
                     {
-                        messages::success(asyncResp->res);
+                        messages::success(aResp->res);
                         return;
                     }
                     messages::resourceErrorsDetectedFormatError(
-                        asyncResp->res, req.url().buffer(),
+                        aResp->res, reqParam.url().buffer(),
                         "VDM command error");
                 }
                 catch (std::exception&)
                 {
                     BMCWEB_LOG_ERROR("Invalid VDM command response: {}",
                                      rxData);
-                    messages::internalError(asyncResp->res);
+                    messages::internalError(aResp->res);
                 }
             });
     });
@@ -465,19 +465,19 @@ inline void handleCpuGenerateToken(
             crow::connections::systemBus->get_io_context());
         timer->expires_after(
             std::chrono::seconds(cpuTokenGenerationTimeoutSeconds));
-        timer->async_wait([asyncResp](const boost::system::error_code& ec) {
+        timer->async_wait([asyncResp](const boost::system::error_code& ec2) {
             match.reset(nullptr);
             boost::asio::post(crow::connections::systemBus->get_io_context(),
                               [] { timer.reset(nullptr); });
-            if (!ec)
+            if (!ec2)
             {
                 BMCWEB_LOG_ERROR("CPU debug token generation timeout");
                 messages::internalError(asyncResp->res);
                 return;
             }
-            if (ec != boost::asio::error::operation_aborted)
+            if (ec2 != boost::asio::error::operation_aborted)
             {
-                BMCWEB_LOG_ERROR("async_wait error {}", ec);
+                BMCWEB_LOG_ERROR("async_wait error {}", ec2);
                 messages::internalError(asyncResp->res);
             }
         });
@@ -535,13 +535,13 @@ inline void handleCpuGenerateToken(
                     sdbusplus::asio::getProperty<std::vector<uint8_t>>(
                         *crow::connections::systemBus, spdmBusName, path,
                         spdmResponderIntf, "SignedMeasurements",
-                        [asyncResp](const boost::system::error_code ec,
+                        [asyncResp](const boost::system::error_code ec3,
                                     const std::vector<uint8_t>& meas) {
-                            if (ec)
+                            if (ec3)
                             {
                                 BMCWEB_LOG_ERROR(
                                     "Failed to get SignedMeasurements for CPU: {}",
-                                    ec.message());
+                                    ec3.message());
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
@@ -558,11 +558,11 @@ inline void handleCpuGenerateToken(
             });
         std::vector<uint8_t> indices{cpuTokenGenerationMeasIndex};
         crow::connections::systemBus->async_method_call(
-            [asyncResp](const boost::system::error_code ec) {
-                if (ec)
+            [asyncResp](const boost::system::error_code ec4) {
+                if (ec4)
                 {
                     BMCWEB_LOG_ERROR("Failed to issue Refresh for CPU: {}",
-                                     ec.message());
+                                     ec4.message());
                     match.reset(nullptr);
                     timer.reset(nullptr);
                     messages::internalError(asyncResp->res);
@@ -667,37 +667,36 @@ inline void handleCpuInstallToken(
 
 inline void requestRoutesCpuDebugToken([[maybe_unused]] App& app)
 {
-    // using namespace debug_token;
-    // BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/CPUDebugToken/")
-    //     .privileges(redfish::privileges::getComputerSystem)
-    //     .methods(boost::beast::http::verb::get)(
-    //         std::bind_front(handleCpuDebugTokenResourceInfo, std::ref(app)));
-    // BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/CPUDebugToken"
-    //                   "/GenerateTokenActionInfo/")
-    //     .privileges(redfish::privileges::getComputerSystem)
-    //     .methods(boost::beast::http::verb::get)(
-    //         std::bind_front(handleCpuGenerateTokenActionInfo,
-    //         std::ref(app)));
-    // BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/CPUDebugToken"
-    //                   "/InstallTokenActionInfo/")
-    //     .privileges(redfish::privileges::getComputerSystem)
-    //     .methods(boost::beast::http::verb::get)(
-    //         std::bind_front(handleCpuInstallTokenActionInfo, std::ref(app)));
-    // BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/CPUDebugToken"
-    //                   "/Actions/NvidiaDebugToken.DisableToken")
-    //     .privileges(redfish::privileges::postComputerSystem)
-    //     .methods(boost::beast::http::verb::post)(
-    //         std::bind_front(handleCpuDisableToken, std::ref(app)));
-    // BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/CPUDebugToken"
-    //                   "/Actions/NvidiaDebugToken.GenerateToken")
-    //     .privileges(redfish::privileges::postComputerSystem)
-    //     .methods(boost::beast::http::verb::post)(
-    //         std::bind_front(handleCpuGenerateToken, std::ref(app)));
-    // BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/CPUDebugToken"
-    //                   "/Actions/NvidiaDebugToken.InstallToken")
-    //     .privileges(redfish::privileges::postComputerSystem)
-    //     .methods(boost::beast::http::verb::post)(
-    //         std::bind_front(handleCpuInstallToken, std::ref(app)));
+    using namespace debug_token;
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/CPUDebugToken/")
+        .privileges(redfish::privileges::getComputerSystem)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleCpuDebugTokenResourceInfo, std::ref(app)));
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/CPUDebugToken"
+                      "/GenerateTokenActionInfo/")
+        .privileges(redfish::privileges::getComputerSystem)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleCpuGenerateTokenActionInfo, std::ref(app)));
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/CPUDebugToken"
+                      "/InstallTokenActionInfo/")
+        .privileges(redfish::privileges::getComputerSystem)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleCpuInstallTokenActionInfo, std::ref(app)));
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/CPUDebugToken"
+                      "/Actions/NvidiaDebugToken.DisableToken")
+        .privileges(redfish::privileges::postComputerSystem)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleCpuDisableToken, std::ref(app)));
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/CPUDebugToken"
+                      "/Actions/NvidiaDebugToken.GenerateToken")
+        .privileges(redfish::privileges::postComputerSystem)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleCpuGenerateToken, std::ref(app)));
+    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/CPUDebugToken"
+                      "/Actions/NvidiaDebugToken.InstallToken")
+        .privileges(redfish::privileges::postComputerSystem)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleCpuInstallToken, std::ref(app)));
 }
 
 } // namespace redfish

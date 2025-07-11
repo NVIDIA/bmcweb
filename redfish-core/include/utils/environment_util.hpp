@@ -1069,12 +1069,13 @@ inline void getPowerAndControlData(
                 }
 
                 const std::string& connectionName = connectionNames[0].first;
-                const std::vector<std::string>& interfaces =
+                const std::vector<std::string>& serviceInterfaces =
                     connectionNames[0].second;
 
-                if (std::find(interfaces.begin(), interfaces.end(),
+                if (std::find(serviceInterfaces.begin(),
+                              serviceInterfaces.end(),
                               "xyz.openbmc_project.Inventory.Item.Cpu") !=
-                    interfaces.end())
+                    serviceInterfaces.end())
                 {
                     // Skip PowerAndControlData for
                     // /Chassis/CPU_{ID}/EnvironmentMetrics URI The CPU power
@@ -1084,7 +1085,7 @@ inline void getPowerAndControlData(
                 }
 
                 crow::connections::systemBus->async_method_call(
-                    [asyncResp, connectionName, interfaces,
+                    [asyncResp, connectionName, serviceInterfaces,
                      resourceId](const boost::system::error_code& e,
                                  std::variant<std::vector<std::string>>& resp) {
                         if (e)
@@ -1105,9 +1106,10 @@ inline void getPowerAndControlData(
                                                        ctrlPath);
                             // Skip getControlMode if it does not support the
                             // Control Mode
-                            if (std::find(interfaces.begin(), interfaces.end(),
+                            if (std::find(serviceInterfaces.begin(),
+                                          serviceInterfaces.end(),
                                           "xyz.openbmc_project.Control.Mode") !=
-                                interfaces.end())
+                                serviceInterfaces.end())
                             {
                                 getControlMode(asyncResp, connectionName,
                                                ctrlPath);
@@ -1546,7 +1548,7 @@ inline void getMemoryEnvironmentMetricsDataByService(
             crow::connections::systemBus->async_method_call(
                 [aResp, service, chassisId, isSupportPowerLimit](
                     const boost::system::error_code& e,
-                    std::variant<std::vector<std::string>>& resp) {
+                    std::variant<std::vector<std::string>>& sensorResp) {
                     if (e)
                     {
                         BMCWEB_LOG_ERROR("Failed to get all sensors: {}",
@@ -1554,14 +1556,14 @@ inline void getMemoryEnvironmentMetricsDataByService(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    std::vector<std::string>* data =
-                        std::get_if<std::vector<std::string>>(&resp);
-                    if (data == nullptr)
+                    std::vector<std::string>* sensorData =
+                        std::get_if<std::vector<std::string>>(&sensorResp);
+                    if (sensorData == nullptr)
                     {
                         return;
                     }
                     const std::string resourceType = "Memory";
-                    for (const std::string& sensorPath : *data)
+                    for (const std::string& sensorPath : *sensorData)
                     {
                         getSensorDataByService(aResp, service, chassisId,
                                                sensorPath, resourceType,
@@ -1612,9 +1614,9 @@ inline void getCpuEnvironmentMetricsDataByService(
             }
             const std::string& chassisId = chassisName;
             crow::connections::systemBus->async_method_call(
-                [aResp, service, objPath,
-                 chassisId](const boost::system::error_code& e,
-                            std::variant<std::vector<std::string>>& resp) {
+                [aResp, service, objPath, chassisId](
+                    const boost::system::error_code& e,
+                    std::variant<std::vector<std::string>>& sensorResp) {
                     if (e)
                     {
                         BMCWEB_LOG_ERROR("Failed to get all sensors: {}",
@@ -1622,14 +1624,14 @@ inline void getCpuEnvironmentMetricsDataByService(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    std::vector<std::string>* data =
-                        std::get_if<std::vector<std::string>>(&resp);
-                    if (data == nullptr)
+                    std::vector<std::string>* sensorData =
+                        std::get_if<std::vector<std::string>>(&sensorResp);
+                    if (sensorData == nullptr)
                     {
                         return;
                     }
                     const std::string resourceType = "Processor";
-                    for (const std::string& sensorPath : *data)
+                    for (const std::string& sensorPath : *sensorData)
                     {
                         getSensorDataService(aResp, service, chassisId,
                                              sensorPath, resourceType);
@@ -1761,22 +1763,22 @@ inline void getCpuPowerCapByService(
             crow::connections::systemBus->async_method_call(
                 [aResp, service, objPath,
                  cpuId](const boost::system::error_code& e,
-                        std::variant<std::vector<std::string>>& resp) {
+                        std::variant<std::vector<std::string>>& powerResp) {
                     if (e)
                     {
                         // The path does not implement any power cap interfaces.
                         return;
                     }
-                    std::vector<std::string>* data =
-                        std::get_if<std::vector<std::string>>(&resp);
-                    if (data == nullptr)
+                    std::vector<std::string>* data1 =
+                        std::get_if<std::vector<std::string>>(&powerResp);
+                    if (data1 == nullptr)
                     {
                         BMCWEB_LOG_ERROR("Failed to get all sensors: {}",
                                          e.message());
                         messages::internalError(aResp->res);
                         return;
                     }
-                    for (const std::string& sensorPath : *data)
+                    for (const std::string& sensorPath : *data1)
                     {
                         getCpuPowerCapService(aResp, service, sensorPath,
                                               cpuId);

@@ -390,11 +390,11 @@ inline void getHealthByAssociation(
                         // Check Interface in Object or not
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, sensorPath, networkAdapterId](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code ec2,
                                 const std::vector<std::pair<
                                     std::string, std::vector<std::string>>>&
                                     object) {
-                                if (ec)
+                                if (ec2)
                                 {
                                     // the path does not implement Decorator
                                     // Health interfaces
@@ -446,9 +446,9 @@ inline void getAssetData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
             // Get interface properties
             crow::connections::systemBus->async_method_call(
-                [asyncResp, service](const boost::system::error_code ec,
+                [asyncResp, service](const boost::system::error_code ec1,
                                      const PropertiesMap& properties) {
-                    if (ec)
+                    if (ec1)
                     {
                         messages::internalError(asyncResp->res);
                         return;
@@ -528,11 +528,11 @@ inline void getPCIeInterfaceData(
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp, deviceId, controllerObject](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code ec1,
                     const std::vector<std::pair<
                         std::string, std::variant<std::string, size_t>>>&
                         propertiesList) {
-                    if (ec)
+                    if (ec1)
                     {
                         BMCWEB_LOG_ERROR(
                             "Error no getting data from interface on {}",
@@ -657,7 +657,7 @@ inline void getPCIeData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisId, networkAdapterId, controllerObject](
                         const boost::system::error_code ec1,
-                        std::variant<std::vector<std::string>>& resp) {
+                        std::variant<std::vector<std::string>>& pcieResp) {
                         if (ec1)
                         {
                             BMCWEB_LOG_DEBUG(
@@ -666,7 +666,7 @@ inline void getPCIeData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             return;
                         }
                         std::vector<std::string>* data2 =
-                            std::get_if<std::vector<std::string>>(&resp);
+                            std::get_if<std::vector<std::string>>(&pcieResp);
                         if (data2 == nullptr)
                         {
                             return;

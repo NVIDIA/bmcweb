@@ -186,25 +186,26 @@ class StatusQueryHandler : public OperationHandler
                                 std::unique_ptr<DebugTokenEndpoint>>>();
                             endpoints->reserve(mctpEndpoints->size());
                         }
-                        for (auto& ep : *mctpEndpoints)
+                        for (auto& endpoint : *mctpEndpoints)
                         {
-                            if (!ep.isEnabled())
+                            if (!endpoint.isEnabled())
                             {
                                 continue;
                             }
                             // ignore satmc (CPU debug token) endpoint
-                            if (ep.getSpdmObject() == cpuPath)
+                            if (endpoint.getSpdmObject() == cpuPath)
                             {
                                 continue;
                             }
-                            const auto& msgTypes = ep.getMctpMessageTypes();
+                            const auto& msgTypes =
+                                endpoint.getMctpMessageTypes();
                             if (std::find(msgTypes.begin(), msgTypes.end(),
                                           mctp_utils::mctpMessageTypeVdm) !=
                                 msgTypes.end())
                             {
                                 endpoints->emplace_back(
                                     std::make_unique<DebugTokenSpdmEndpoint>(
-                                        ep));
+                                        endpoint));
                             }
                         }
                     }
@@ -337,10 +338,9 @@ class StatusQueryHandler : public OperationHandler
             {
                 continue;
             }
-            auto result = std::find_if(results.begin(), results.end(),
-                                       [epEid](const auto& result) {
-                                           return std::get<0>(result) == epEid;
-                                       });
+            auto result = std::find_if(
+                results.begin(), results.end(),
+                [epEid](const auto& res) { return std::get<0>(res) == epEid; });
             if (result == results.end())
             {
                 errCallback(false, desc, "no data for " + spdmEp->getObject());
@@ -426,24 +426,24 @@ class RequestHandler : public OperationHandler
 {
   public:
     RequestHandler(ResultCallback&& resultCallback,
-                   ErrorCallback&& errorCallback, RequestType type,
+                   ErrorCallback&& errorCallback, RequestType reqType,
                    const std::vector<std::string>& endpointFilter =
-                       std::vector<std::string>()) : type(type)
+                       std::vector<std::string>()) : type(reqType)
     {
         BMCWEB_LOG_DEBUG("RequestHandler constructor");
         resCallback = resultCallback;
         errCallback = errorCallback;
         statusHandler = std::make_unique<StatusQueryHandler>(
-            [this, type](const std::shared_ptr<std::vector<
-                             std::unique_ptr<DebugTokenEndpoint>>>& endpoints) {
-                if (!endpoints || endpoints->size() == 0)
+            [this](const std::shared_ptr<
+                   std::vector<std::unique_ptr<DebugTokenEndpoint>>>& epList) {
+                if (!epList || epList->size() == 0)
                 {
                     errCallback(true, "Debug token status check",
                                 "No valid endpoints");
                     return;
                 }
-                this->endpoints = endpoints;
-                if (type == RequestType::DebugTokenRequest)
+                this->endpoints = epList;
+                if (this->type == RequestType::DebugTokenRequest)
                 {
                     getNsmRequest();
                 }
@@ -457,7 +457,7 @@ class RequestHandler : public OperationHandler
                              const std::string& error) {
                 errorCallback(critical, desc, error);
             },
-            endpointFilter, type == RequestType::DebugTokenRequest);
+            endpointFilter, this->type == RequestType::DebugTokenRequest);
     }
 
     RequestHandler() = delete;
@@ -493,7 +493,7 @@ class RequestHandler : public OperationHandler
 
     bool nsmPending{true};
 
-    uint8_t typeToMeasurementIndex(RequestType type)
+    uint8_t typeToMeasurementIndex(RequestType reqType)
     {
         static const std::map<RequestType, uint8_t> indexMap{
             {RequestType::DebugTokenRequest, 50},
@@ -502,7 +502,7 @@ class RequestHandler : public OperationHandler
             {RequestType::DOTSignTestToken, 60},
             {RequestType::DOTOverrideTokenRequest, 61}};
 
-        return indexMap.at(type);
+        return indexMap.at(reqType);
     }
 
     bool isEndpointRequestPending(EndpointState state)
@@ -563,7 +563,7 @@ class RequestHandler : public OperationHandler
             [this](const std::string& object, const std::string& status) {
                 spdmUpdate(object, status);
             });
-        std::vector<uint8_t> indices{typeToMeasurementIndex(type)};
+        std::vector<uint8_t> indices{typeToMeasurementIndex(this->type)};
         bool refreshIssued = false;
         for (auto& ep : *endpoints)
         {

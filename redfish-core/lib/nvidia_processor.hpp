@@ -3375,9 +3375,9 @@ inline void getProcessorMemoryMetricsData(
                     {
                         crow::connections::systemBus->async_method_call(
                             [aResp{aResp}](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code ec2,
                                 const OperatingConfigProperties& properties) {
-                                if (ec)
+                                if (ec2)
                                 {
                                     BMCWEB_LOG_DEBUG(
                                         "DBUS response error for processor memory metrics");
@@ -3595,13 +3595,13 @@ inline void requestRoutesProcessorPortHistogramBuckets(App& app)
 
                         crow::connections::systemBus->async_method_call(
                             [aResp, objPath, processorId, portId, histogramId](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code ec2,
                                 std::variant<std::vector<std::string>>& resp) {
-                                if (ec)
+                                if (ec2)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "DBUS response error while getting port on processor: {}",
-                                        ec.message());
+                                        ec2.message());
                                     messages::internalError(aResp->res);
                                     return;
                                 }
@@ -3633,23 +3633,23 @@ inline void requestRoutesProcessorPortHistogramBuckets(App& app)
                                     crow::connections::systemBus->async_method_call(
                                         [aResp, processorId, portId,
                                          histogramId](
-                                            const boost::system::error_code ec,
+                                            const boost::system::error_code ec3,
                                             std::variant<std::vector<
-                                                std::string>>& resp) {
-                                            if (ec)
+                                                std::string>>& resp2) {
+                                            if (ec3)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "DBUS response error while getting switch on fabric: {}",
-                                                    ec.message());
+                                                    ec3.message());
                                                 messages::internalError(
                                                     aResp->res);
                                                 return;
                                             }
-                                            std::vector<std::string>* data =
-                                                std::get_if<
+                                            std::vector<std::string>*
+                                                bucketData = std::get_if<
                                                     std::vector<std::string>>(
-                                                    &resp);
-                                            if (data == nullptr)
+                                                    &resp2);
+                                            if (bucketData == nullptr)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "Null data response while getting switch on fabric");
@@ -3660,7 +3660,7 @@ inline void requestRoutesProcessorPortHistogramBuckets(App& app)
                                             // Iterate over all retrieved
                                             // ObjectPaths.
                                             for (const std::string& histoPath :
-                                                 *data)
+                                                 *bucketData)
                                             {
                                                 sdbusplus::message::object_path
                                                     histoObjPath(histoPath);
@@ -3782,13 +3782,13 @@ inline void requestRoutesProcessorPortHistogram(App& app)
 
                         crow::connections::systemBus->async_method_call(
                             [aResp, processorId, portId, histogramId](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code ec2,
                                 std::variant<std::vector<std::string>>& resp) {
-                                if (ec)
+                                if (ec2)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "DBUS response error while getting port on processor: {}",
-                                        ec.message());
+                                        ec2.message());
                                     messages::internalError(aResp->res);
                                     return;
                                 }
@@ -3917,13 +3917,13 @@ inline void requestRoutesProcessorPortHistogramCollection(App& app)
 
                         crow::connections::systemBus->async_method_call(
                             [aResp, objPath, processorId, portId](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code ec2,
                                 std::variant<std::vector<std::string>>& resp) {
-                                if (ec)
+                                if (ec2)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "DBUS response error while getting port on processor: {}",
-                                        ec.message());
+                                        ec2.message());
                                     messages::internalError(aResp->res);
                                     return;
                                 }

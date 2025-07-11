@@ -386,13 +386,13 @@ inline void requestRoutesSwitchHistogramCollection(App& app)
                         }
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, fabricId, switchId](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code ec2,
                                 std::variant<std::vector<std::string>>& resp) {
-                                if (ec)
+                                if (ec2)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "DBUS response error while getting switch on fabric: {}",
-                                        ec.message());
+                                        ec2.message());
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
@@ -818,13 +818,13 @@ inline void requestRoutesSwitchPortHistogram(App& app)
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, fabricId, switchId, portId,
                              histogramId](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code ec2,
                                 std::variant<std::vector<std::string>>& resp) {
-                                if (ec)
+                                if (ec2)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "DBUS response error while getting switch on fabric: {}",
-                                        ec.message());
+                                        ec2.message());
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
@@ -850,23 +850,23 @@ inline void requestRoutesSwitchPortHistogram(App& app)
                                     crow::connections::systemBus->async_method_call(
                                         [asyncResp, fabricId, switchId, portId,
                                          histogramId](
-                                            const boost::system::error_code ec,
+                                            const boost::system::error_code ec3,
                                             std::variant<std::vector<
-                                                std::string>>& resp) {
-                                            if (ec)
+                                                std::string>>& portResp) {
+                                            if (ec3)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "DBUS response error while getting port on switch: {}",
-                                                    ec.message());
+                                                    ec3.message());
                                                 messages::internalError(
                                                     asyncResp->res);
                                                 return;
                                             }
-                                            std::vector<std::string>* data =
+                                            std::vector<std::string>* portData =
                                                 std::get_if<
                                                     std::vector<std::string>>(
-                                                    &resp);
-                                            if (data == nullptr)
+                                                    &portResp);
+                                            if (portData == nullptr)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "Null data response while getting port on switch");
@@ -877,7 +877,7 @@ inline void requestRoutesSwitchPortHistogram(App& app)
                                             // Iterate over all retrieved
                                             // ObjectPaths.
                                             for (const std::string& portPath :
-                                                 *data)
+                                                 *portData)
                                             {
                                                 sdbusplus::message::object_path
                                                     switchPortObjPath(portPath);
@@ -999,13 +999,13 @@ inline void requestRoutesSwitchPortHistogramCollection(App& app)
                         }
                         crow::connections::systemBus->async_method_call(
                             [asyncResp, fabricId, switchId, portId](
-                                const boost::system::error_code ec,
+                                const boost::system::error_code ec2,
                                 std::variant<std::vector<std::string>>& resp) {
-                                if (ec)
+                                if (ec2)
                                 {
                                     BMCWEB_LOG_ERROR(
                                         "DBUS response error while getting switch on fabric: {}",
-                                        ec.message());
+                                        ec2.message());
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
@@ -1030,23 +1030,23 @@ inline void requestRoutesSwitchPortHistogramCollection(App& app)
                                     }
                                     crow::connections::systemBus->async_method_call(
                                         [asyncResp, fabricId, switchId, portId](
-                                            const boost::system::error_code ec,
+                                            const boost::system::error_code ec3,
                                             std::variant<std::vector<
-                                                std::string>>& resp) {
-                                            if (ec)
+                                                std::string>>& portResp) {
+                                            if (ec3)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "DBUS response error while getting port on switch: {}",
-                                                    ec.message());
+                                                    ec3.message());
                                                 messages::internalError(
                                                     asyncResp->res);
                                                 return;
                                             }
-                                            std::vector<std::string>* data =
+                                            std::vector<std::string>* portData =
                                                 std::get_if<
                                                     std::vector<std::string>>(
-                                                    &resp);
-                                            if (data == nullptr)
+                                                    &portResp);
+                                            if (portData == nullptr)
                                             {
                                                 BMCWEB_LOG_ERROR(
                                                     "Null data response while getting port on switch");
@@ -1057,7 +1057,7 @@ inline void requestRoutesSwitchPortHistogramCollection(App& app)
                                             // Iterate over all retrieved
                                             // ObjectPaths.
                                             for (const std::string& portPath :
-                                                 *data)
+                                                 *portData)
                                             {
                                                 sdbusplus::message::object_path
                                                     switchPortObjPath(portPath);

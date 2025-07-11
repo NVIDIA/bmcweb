@@ -1007,10 +1007,11 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
 
-        std::string command = erotResetPath + " " + std::to_string(endpointId);
+        std::string resetCommand =
+            erotResetPath + " " + std::to_string(endpointId);
         auto secondExitCallback =
-            [](const boost::system::error_code& ec, int errorCode) mutable {
-                BMCWEB_LOG_DEBUG("ec: {}  errorCode {}", ec, errorCode);
+            [](const boost::system::error_code& ec2, int errorCode2) mutable {
+                BMCWEB_LOG_DEBUG("ec: {}  errorCode {}", ec2, errorCode2);
             };
         BMCWEB_LOG_DEBUG("Sending ERoT self-reset command");
 
@@ -1020,7 +1021,7 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
         boost::process::async_system(
             crow::connections::systemBus->get_io_context(),
-            std::move(secondExitCallback), command,
+            std::move(secondExitCallback), resetCommand,
             boost::process::std_in.close(), boost::process::std_out > *dataOut,
             boost::process::std_err > *dataErr);
     };
@@ -1195,9 +1196,9 @@ inline void handleEROTChassisResetAction(
                 sdbusplus::asio::getProperty<std::string>(
                     *crow::connections::systemBus, connectionNames[0].first,
                     path, "xyz.openbmc_project.Common.UUID", "UUID",
-                    [req, asyncResp](const boost::system::error_code ec,
+                    [req, asyncResp](const boost::system::error_code ec2,
                                      const std::string& chassisUUID) {
-                        if (ec)
+                        if (ec2)
                         {
                             BMCWEB_LOG_DEBUG(
                                 "ERROR DBUS response error for UUID");

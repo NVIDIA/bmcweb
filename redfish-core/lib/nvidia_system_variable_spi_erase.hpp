@@ -164,8 +164,8 @@ inline void afterSpiEventStarted(
     {
         task::TaskResponseCallback callback =
             [eraseObjPath,
-             serviceName](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-                getSpiReadData(serviceName, eraseObjPath, asyncResp);
+             serviceName](const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
+                getSpiReadData(serviceName, eraseObjPath, aResp);
             };
         task->taskResponse.emplace<task::TaskResponseCallback>(
             std::move(callback));
@@ -218,10 +218,10 @@ inline void afterSpiInterfacesFound(
     }
     crow::connections::systemBus->async_method_call(
         [asyncResp, payload = std::move(payload), chassisId, spiEventType,
-         service](const boost::system::error_code& ec,
-                  const sdbusplus::message::object_path& path) mutable {
+         service](const boost::system::error_code& ec2,
+                  const sdbusplus::message::object_path& objPath) mutable {
             afterSpiEventStarted(spiEventType, std::move(payload), asyncResp,
-                                 service, path, ec);
+                                 service, objPath, ec2);
         },
         service, path, "com.nvidia.GraceSPI", method);
 }

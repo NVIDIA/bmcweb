@@ -1002,9 +1002,10 @@ inline void handleTruststoreCertificatesCollectionPost(
                 std::make_shared<CertificateFile>(certString);
 
             crow::connections::systemBus->async_method_call(
-                [asyncResp, owner, certFile](const boost::system::error_code ec,
-                                             const std::string& objectPath) {
-                    if (ec)
+                [asyncResp, owner,
+                 certFile](const boost::system::error_code ec2,
+                           const std::string& objectPath) {
+                    if (ec2)
                     {
                         messages::internalError(asyncResp->res);
                         return;
@@ -1022,8 +1023,8 @@ inline void handleTruststoreCertificatesCollectionPost(
                     if (owner)
                     {
                         crow::connections::systemBus->async_method_call(
-                            [asyncResp](const boost::system::error_code ec) {
-                                if (ec)
+                            [asyncResp](const boost::system::error_code ec3) {
+                                if (ec3)
                                 {
                                     messages::internalError(asyncResp->res);
                                     return;
@@ -1454,13 +1455,13 @@ inline void handleSetOemFru([[maybe_unused]] crow::App& app,
                     [productManufacturer, productSerialNumber,
                      productPartNumber, productVersion, productExtra,
                      productManufactureDate, productAssetTag, productGUID,
-                     asyncResp](const boost::system::error_code& ec,
+                     asyncResp](const boost::system::error_code& ec2,
                                 bool enabled) {
-                        if (ec)
+                        if (ec2)
                         {
                             BMCWEB_LOG_ERROR(
                                 "DBUS response error: Checking OEM FRU Enabled error{}",
-                                ec);
+                                ec2);
                             messages::internalError(asyncResp->res);
                             return;
                         }

@@ -228,13 +228,13 @@ inline void getProcessorResetMetricsData(
 
                 crow::connections::systemBus->async_method_call(
                     [aResp, processorId](
-                        const boost::system::error_code& ec,
+                        const boost::system::error_code& ec2,
                         const std::variant<std::vector<std::string>>& resp) {
-                        if (ec)
+                        if (ec2)
                         {
                             BMCWEB_LOG_ERROR(
                                 "Failed to get ResetMetrics association endpoints: {}",
-                                ec.message());
+                                ec2.message());
                             messages::internalError(aResp->res);
                             // No associated ResetMetrics found
                             return;
