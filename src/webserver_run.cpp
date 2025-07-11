@@ -74,6 +74,10 @@ int run()
     // Static assets need to be initialized before Authorization, because auth
     // needs to build the whitelist from the static routes
 
+    // TODO : This is temporary solution to ensure the persistent data is
+    // initialized before the routes are requested.
+    persistent_data::getConfig();
+
     if constexpr (BMCWEB_STATIC_HOSTING)
     {
         crow::webassets::requestRoutes(app);
