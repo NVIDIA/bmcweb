@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaChassis  v1.10.0                                           -->
+<!--# Redfish OEM Schema:  NvidiaChassis  v1.11.0                                          -->
 <!--#                                                                                      -->
-<!--# Copyright 2021-2024 NVIDIA.                                                          -->
+<!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
 <!--################################################################################       -->
 <!---->
@@ -490,7 +490,319 @@
         <Member Name="Tamper">
           <Annotation Term="OData.Description" String="Tamper"/>
         </Member>
+        <Member Name="WDT_IACCVIOL">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to IACCVIOL (Instruction Access Violation) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_DACCVIOL">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to DACCVIOL (Data Access Violation) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_MUNSTKERR">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to MUNSTKERR (MemManage Fault on Unstacking) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_MSTKERR">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to MSTKERR (MemManage Fault on Stacking) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_MMARVALID">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to MMARVALID exception, indicating that the MemManage Fault Address Register holds a valid address after a MemManage fault."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_BFARVALID">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to BFARVALID exception, indicating that the BusFault Address Register holds a valid address after a BusFault."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_STKERR">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to STKERR (BusFault on Stacking) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_UNSTKERR">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to UNSTKERR (BusFault on Unstacking) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_IMPRECISEERR">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to IMPRECISEERR (Imprecise Data Bus Error) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_PRECISERR">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to PRECISERR (Precise Data Bus Error) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_IBUSERR">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to IBUSERR (Instruction Bus Error) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_UNDEFINSTR">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to UNDEFINSTR (Undefined Instruction UsageFault) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_INVSTATE">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to INVSTATE (Invalid State UsageFault) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_INVPC">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to INVPC (Invalid PC Load UsageFault) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_NOCP">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to NOCP (No Coprocessor UsageFault) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_UNALIGNED">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to UNALIGNED (Unaligned Access UsageFault) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_DIVBYZERO">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to DIVBYZERO (Divide by Zero UsageFault) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_VECTTBL">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to VECTTBL (BusFault on Vector Table Read)."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_FORCED">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to FORCED (Forced HardFault) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_DEBUGEVT">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to DEBUGEVT (Debug Event) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_MCTP">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to a task hang detected during MCTP communication."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_I2C">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to a task hang detected during I2C communication."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_I3C">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to a task hang detected during I3C communication."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_PLDM">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to a task hang detected during PLDM communication."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_USB">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to a task hang detected during USB communication."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_Flash">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to a task hang detected during flash access."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_Logger">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to a task hang detected during a logging operation."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_SPDM">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to a task hang detected during SPDM communication."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
       </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_11_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaSMAChassis" BaseType="NvidiaChassis.v1_10_0.NvidiaSMAChassis"/>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
