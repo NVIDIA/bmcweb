@@ -3,7 +3,7 @@
 <!--################################################################################       -->
 <!--# Redfish OEM Schema:  NvidiaManager  v1.6.0                                           -->
 <!--#                                                                                      -->
-<!--# Copyright 2021-2024 NVIDIA.                                                          -->
+<!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
 <!--################################################################################       -->
 <!---->
@@ -491,9 +491,37 @@
         <NavigationProperty Name="DebugTokenManagement" Type="NvidiaDebugTokenManagement.v1_0_0.NvidiaDebugTokenManagement" Nullable="false">
           <Annotation Term="OData.Description" String="The debug token settings managed by this manager."/>
           <Annotation Term="OData.LongDescription" String="The property shall contain the debug token settings managed by this manager."/>
-          <Annotation Term="Redfish.Required" Bool="false"/>
         </NavigationProperty>
       </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_7_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_6_0.NvidiaManager">
+        <Property Name="IPMI" Type="NvidiaManager.v1_7_0.IPMI">
+          <Annotation Term="OData.Description" String="The IPMI settings for this manager."/>
+          <Annotation Term="OData.LongDescription" String="The property shall contain the IPMI settings for this manager."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="IPMI">
+        <Property Name="RestrictionMode" Type="NvidiaManager.v1_7_0.RestrictionMode">
+          <Annotation Term="OData.Description" String="The restriction mode that controls IPMI access for this manager."/>
+          <Annotation Term="OData.LongDescription" String="The property shall contain the restriction mode that controls IPMI access for this manager."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="RestrictionMode">
+        <Member Name="None">
+          <Annotation Term="OData.Description" String="All commands are accepted on all interfaces."/>
+        </Member>
+        <Member Name="Allowlist">
+          <Annotation Term="OData.Description" String="Only IPMI commands defined in the allowlist are accepted on the SSIF interface, both before and after POST (Power-On Self-Test). Channel mask filtering is disabled."/>
+        </Member>
+        <Member Name="ProvisionedHostAllowlist">
+          <Annotation Term="OData.Description" String="Before the host is fully provisioned or booted (pre-POST), all commands are accepted on the SSIF interface. After POST, only allowlist commands passing channel mask validation are accepted."/>
+        </Member>
+        <Member Name="ProvisionedHostDisabled">
+          <Annotation Term="OData.Description" String="Before the host is fully provisioned or booted (pre-POST), only allowlist commands passing channel mask validation are accepted. After POST, all IPMI commands on SSIF are not accepted."/>
+        </Member>
+      </EnumType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>
