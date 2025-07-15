@@ -16,6 +16,10 @@
  */
 #pragma once
 
+#include <logging.hpp>
+#include <nlohmann/json.hpp>
+
+#include <string>
 #include <tuple>
 #include <unordered_map>
 
@@ -34,8 +38,11 @@ struct NsmTokenStatus
      */
     NsmTokenStatus(const NsmDbusTokenStatus& dbusStatus)
     {
+        // NOLINTNEXTLINE(bugprone-unused-local-non-trivial-variable)
         auto dbusTokenType = std::get<0>(dbusStatus);
+        // NOLINTNEXTLINE(bugprone-unused-local-non-trivial-variable)
         auto dbusTokenStatus = std::get<1>(dbusStatus);
+        // NOLINTNEXTLINE(bugprone-unused-local-non-trivial-variable)
         auto dbusAdditionalInfo = std::get<2>(dbusStatus);
         try
         {

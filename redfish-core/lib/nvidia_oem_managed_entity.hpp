@@ -19,6 +19,7 @@
 #include "bmcweb_config.h"
 
 #include "nvidia_oem_power_profile.hpp"
+#include "registries/privilege_registry.hpp"
 
 namespace redfish
 {
@@ -73,12 +74,12 @@ inline void afterGetManagedEntityProperties(
         "#NvidiaManagedEntity.v1_0_0.NvidiaManagedEntity";
     asyncResp->res.jsonValue["Id"] = entityId;
     asyncResp->res.jsonValue["Name"] = name;
-    if (ipv4Address != "")
+    if (!ipv4Address.empty())
     {
         nlohmann::json ipv4AddressJson = {{"Address", ipv4Address}};
         asyncResp->res.jsonValue["IPv4Address"] = ipv4AddressJson;
     }
-    if (ipv6Address != "")
+    if (!ipv6Address.empty())
     {
         nlohmann::json ipv6AddressJson = {{"Address", ipv6Address}};
         asyncResp->res.jsonValue["IPv6Address"] = ipv6AddressJson;

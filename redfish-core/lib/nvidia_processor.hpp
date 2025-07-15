@@ -3294,7 +3294,7 @@ inline void getProcessorMemoryMetricsData(
             }
             for (const auto& [path, object] : subtree)
             {
-                if (!boost::ends_with(path, processorId))
+                if (!path.ends_with(processorId))
                 {
                     continue;
                 }
@@ -3419,6 +3419,131 @@ inline void getProcessorMemoryMetricsData(
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0,
         std::array<const char*, 2>{
+            "xyz.openbmc_project.Inventory.Item.Accelerator",
+            "com.nvidia.GPMMetrics"});
+}
+
+inline std::string toRequestedApplyTime(const std::string& applyTime)
+{
+    if (applyTime ==
+        "xyz.openbmc_project.Software.ApplyTime.RequestedApplyTimes.Immediate")
+    {
+        return "Immediate";
+    }
+    if (applyTime ==
+        "xyz.openbmc_project.Software.ApplyTime.RequestedApplyTimes.OnReset")
+    {
+        return "OnReset";
+    }
+    // Unknown or others
+    return "";
+}
+
+inline void getProcessorSettingsData(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp,
+    const std::string& processorId)
+{
+    BMCWEB_LOG_DEBUG("Get available system processor resource");
+    crow::connections::systemBus->async_method_call(
+        [aResp, processorId](
+            boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreeResponse& subtree) mutable {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error: {}", ec);
+                messages::internalError(aResp->res);
+                return;
+            }
+            for (const auto& [path, object] : subtree)
+            {
+                if (!path.ends_with(processorId))
+                {
+                    continue;
+                }
+                nlohmann::json& json = aResp->res.jsonValue;
+                json["@odata.id"] =
+                    "/redfish/v1/Systems/" +
+                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                    "/Processors/" + processorId + "/Settings";
+                json["@odata.type"] = "#Processor.v1_20_0.Processor";
+                json["Id"] = "Settings";
+                json["Name"] = processorId + "PendingSettings";
+                for (const auto& [service, interfaces] : object)
+                {
+                    if (std::find(interfaces.begin(), interfaces.end(),
+                                  "xyz.openbmc_project.Memory.MemoryECC") !=
+                        interfaces.end())
+                    {
+                        redfish::nvidia_processor::getEccPendingData(
+                            aResp, processorId, service, path);
+                    }
+                    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                    {
+                        if (std::find(interfaces.begin(), interfaces.end(),
+                                      "com.nvidia.CCMode") != interfaces.end())
+                        {
+                            redfish::nvidia_processor_utils::
+                                getCCModePendingData(aResp, processorId,
+                                                     service, path);
+                        }
+                        if (std::find(interfaces.begin(), interfaces.end(),
+                                      "com.nvidia.EgmMode") != interfaces.end())
+                        {
+                            redfish::nvidia_processor_utils::
+                                getEgmModePendingData(aResp, processorId,
+                                                      service, path);
+                        }
+                    }
+                    if (std::find(interfaces.begin(), interfaces.end(),
+                                  "xyz.openbmc_project.Software.ApplyTime") !=
+                        interfaces.end())
+                    {
+                        crow::connections::systemBus->async_method_call(
+                            [aResp](
+                                const boost::system::error_code& ec1,
+                                const OperatingConfigProperties& properties) {
+                                if (ec1)
+                                {
+                                    BMCWEB_LOG_DEBUG("DBUS response error");
+                                    messages::internalError(aResp->res);
+                                    return;
+                                }
+                                nlohmann::json& json1 = aResp->res.jsonValue;
+                                for (const auto& property : properties)
+                                {
+                                    if (property.first == "RequestedApplyTime")
+                                    {
+                                        const std::string* applyTime =
+                                            std::get_if<std::string>(
+                                                &property.second);
+                                        if (applyTime == nullptr)
+                                        {
+                                            messages::internalError(aResp->res);
+                                            return;
+                                        }
+                                        json1
+                                            ["@Redfish.SettingsApplyTime"]
+                                            ["@odata.type"] =
+                                                "#Settings.v1_3_3.PreferredApplyTime";
+                                        json1["@Redfish.SettingsApplyTime"]
+                                             ["ApplyTime"] =
+                                                 toRequestedApplyTime(
+                                                     *applyTime);
+                                    }
+                                }
+                            },
+                            service, path, "org.freedesktop.DBus.Properties",
+                            "GetAll", "xyz.openbmc_project.Software.ApplyTime");
+                    }
+                }
+            }
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<const char*, 3>{
+            "xyz.openbmc_project.Inventory.Item.Cpu",
             "xyz.openbmc_project.Inventory.Item.Accelerator",
             "com.nvidia.GPMMetrics"});
 }
@@ -3588,7 +3713,7 @@ inline void requestRoutesProcessorPortHistogramBuckets(App& app)
                     }
                     for (const auto& [objPath, object] : subtree)
                     {
-                        if (!boost::ends_with(objPath, processorId))
+                        if (!objPath.ends_with(processorId))
                         {
                             continue;
                         }
@@ -3688,10 +3813,14 @@ inline void requestRoutesProcessorPortHistogramBuckets(App& app)
                                                 aResp->res
                                                     .jsonValue["@odata.id"] =
                                                     histoURI;
+                                                std::string name = processorId;
+                                                name += "_";
+                                                name += portId;
+                                                name += "_Histogram_";
+                                                name += histogramId;
+                                                name += "_Buckets";
                                                 aResp->res.jsonValue["Name"] =
-                                                    processorId + "_" + portId +
-                                                    "_Histogram_" +
-                                                    histogramId + "_Buckets";
+                                                    name;
                                                 aResp->res.jsonValue["Id"] =
                                                     "Buckets";
                                                 aResp->res
@@ -3775,7 +3904,7 @@ inline void requestRoutesProcessorPortHistogram(App& app)
                     }
                     for (const auto& [objPath, object] : subtree)
                     {
-                        if (!boost::ends_with(objPath, processorId))
+                        if (!objPath.ends_with(processorId))
                         {
                             continue;
                         }
@@ -3832,9 +3961,12 @@ inline void requestRoutesProcessorPortHistogram(App& app)
                                     aResp->res.jsonValue["@odata.id"] =
                                         histoURI;
                                     aResp->res.jsonValue["Id"] = histogramId;
-                                    aResp->res.jsonValue["Name"] =
-                                        processorId + "_" + portId +
-                                        "_Histogram_" + histogramId;
+                                    std::string name = processorId;
+                                    name += "_";
+                                    name += portId;
+                                    name += "_Histogram_";
+                                    name += histogramId;
+                                    aResp->res.jsonValue["Name"] = name;
 
                                     std::string bucketURI =
                                         histoURI + "/Buckets";
@@ -3910,7 +4042,7 @@ inline void requestRoutesProcessorPortHistogramCollection(App& app)
                     }
                     for (const auto& [objPath, object] : subtree)
                     {
-                        if (!boost::ends_with(objPath, processorId))
+                        if (!objPath.ends_with(processorId))
                         {
                             continue;
                         }
@@ -3965,19 +4097,24 @@ inline void requestRoutesProcessorPortHistogramCollection(App& app)
                                         "#NvidiaHistogramCollection.NvidiaHistogramCollection";
                                     aResp->res.jsonValue["@odata.id"] =
                                         histoURI;
-                                    aResp->res.jsonValue["Name"] =
-                                        processorId + "_" + portId +
-                                        "_Histogram_Collection";
+                                    std::string name = processorId;
+                                    name += "_";
+                                    name += portId;
+                                    name += "_Histogram_Collection";
+                                    aResp->res.jsonValue["Name"] = name;
 
+                                    std::string collectionUri =
+                                        "/redfish/v1/Systems/";
+                                    collectionUri += std::string(
+                                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
+                                    collectionUri += "/Processors/";
+                                    collectionUri += processorId;
+                                    collectionUri += "/Ports/";
+                                    collectionUri += portId;
+                                    collectionUri += "/Oem/Nvidia/Histograms";
                                     collection_util::
                                         getCollectionMembersByAssociation(
-                                            aResp,
-                                            "/redfish/v1/Systems/" +
-                                                std::string(
-                                                    BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                                                "/Processors/" + processorId +
-                                                "/Ports/" + portId +
-                                                "/Oem/Nvidia/Histograms",
+                                            aResp, collectionUri,
                                             sensorpath + "/histograms", {});
                                     return;
                                 }

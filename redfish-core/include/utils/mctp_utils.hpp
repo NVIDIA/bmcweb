@@ -91,6 +91,14 @@ class MctpEndpoint
                             "Invalid MCTP object path: {} and error: {}",
                             mctpObj, e.what());
                         callback(false, "Invalid MCTP object path: " + mctpObj);
+                        return;
+                    }
+                    catch (const std::exception& e)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Unexpected error parsing MCTP object path: {} and error: {}",
+                            mctpObj, e.what());
+                        callback(false, "Invalid MCTP object path: " + mctpObj);
                     }
                     return;
                 }
@@ -235,7 +243,7 @@ inline void enumerateMctpEndpoints(
     crow::connections::systemBus->async_method_call_timed(
         [endpointCallback{std::forward<EndpointCallback>(endpointCallback)},
          errorCallback{std::forward<ErrorCallback>(errorCallback)},
-         spdmObjectFilter](const boost::system::error_code ec,
+         spdmObjectFilter](const boost::system::error_code& ec,
                            const dbus::utility::GetSubTreeType& subtree) {
             const std::string desc = "SPDM / MCTP endpoint enumeration";
             BMCWEB_LOG_DEBUG("{}", desc);
@@ -245,7 +253,7 @@ inline void enumerateMctpEndpoints(
                 errorCallback(true, desc, ec.message());
                 return;
             }
-            if (subtree.size() == 0)
+            if (subtree.empty())
             {
                 errorCallback(true, desc, "no SPDM objects found");
                 return;

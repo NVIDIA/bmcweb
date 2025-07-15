@@ -18,6 +18,7 @@
 #pragma once
 
 #include "query.hpp"
+#include "registries/privilege_registry.hpp"
 
 #include <app.hpp>
 #include <utils/dbus_utils.hpp>

@@ -6,6 +6,7 @@
 #include "async_resp.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
+#include "registries/privilege_registry.hpp"
 
 #include <boost/beast/http/verb.hpp>
 #include <boost/url/format.hpp>

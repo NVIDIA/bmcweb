@@ -1888,17 +1888,8 @@ inline void requestRoutesProcessorSettings(App& app)
                 {
                     return;
                 }
-                redfish::processor_utils::getProcessorObject(
-                    asyncResp, processorId,
-                    [](const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
-                       const std::string& processorId1,
-                       const std::string& objectPath,
-                       const MapperServiceMap& serviceMap,
-                       [[maybe_unused]] const std::string& deviceType) {
-                        redfish::nvidia_processor::getProcessorEccModeData(
-                            asyncResp1, processorId1, serviceMap.begin()->first,
-                            objectPath);
-                    });
+                redfish::nvidia_processor::getProcessorSettingsData(
+                    asyncResp, processorId);
             });
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"

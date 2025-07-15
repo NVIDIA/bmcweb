@@ -82,7 +82,7 @@ struct MctpVdmUtil
 {
   private:
     void translateOperationToCommand(MctpVdmUtilCommand mctpVdmUtilcommand,
-                                     MctpVdmUtilData&& data)
+                                     MctpVdmUtilData&& data) const
     {
         std::string cmd;
 
@@ -168,7 +168,7 @@ struct MctpVdmUtil
         }
     }
     uint32_t endpointId = 0L;
-    std::string command;
+    mutable std::string command;
 
   public:
     explicit MctpVdmUtil(uint32_t endpointIdIn) : endpointId(endpointIdIn) {}
@@ -187,7 +187,7 @@ struct MctpVdmUtil
     void run(MctpVdmUtilCommand mctpVdmUtilcommand, MctpVdmUtilData data,
              const crow::Request& req,
              const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-             ResponseCallback responseCallback)
+             ResponseCallback responseCallback) const
     {
         translateOperationToCommand(mctpVdmUtilcommand, std::move(data));
         auto dataOut = std::make_shared<boost::process::ipstream>();

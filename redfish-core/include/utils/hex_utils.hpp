@@ -36,7 +36,7 @@ inline std::string bytesToHexString(const std::vector<uint8_t>& bytes)
     for (size_t i = 0; i < bytes.size(); ++i)
     {
         rc[i * 2] = digitsArray[(bytes[i] & 0xf0) >> 4];
-        rc[i * 2 + 1] = digitsArray[bytes[i] & 0x0f];
+        rc[(i * 2) + 1] = digitsArray[bytes[i] & 0x0f];
     }
     return rc;
 }

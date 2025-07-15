@@ -2559,7 +2559,7 @@ inline void requestRoutesNvidiaUpdateService(App& app)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleUpdateServiceSoftwareInventoryGet, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/SoftwareInventory")
+    BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/SoftwareInventory/")
         .privileges(redfish::privileges::getSoftwareInventory)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleUpdateServiceSoftwareInventoryCollectionGet, std::ref(app)));

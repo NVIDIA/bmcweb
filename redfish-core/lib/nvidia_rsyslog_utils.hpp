@@ -60,7 +60,7 @@ inline nvidia_network_protocol::TLSStatus dbusToTLSStatus(const bool& tlsState)
     {
         return nvidia_network_protocol::TLSStatus::Enabled;
     }
-    else if (tlsState == false)
+    if (tlsState == false)
     {
         return nvidia_network_protocol::TLSStatus::Disabled;
     }
@@ -75,18 +75,16 @@ inline nvidia_network_protocol::FilterSeverity dbusToFilterSeverity(
     {
         return nvidia_network_protocol::FilterSeverity::Error;
     }
-    else if (sevStr ==
-             "xyz.openbmc_project.Logging.RsyslogClient.SeverityType.Warning")
+    if (sevStr ==
+        "xyz.openbmc_project.Logging.RsyslogClient.SeverityType.Warning")
     {
         return nvidia_network_protocol::FilterSeverity::Warning;
     }
-    else if (sevStr ==
-             "xyz.openbmc_project.Logging.RsyslogClient.SeverityType.Info")
+    if (sevStr == "xyz.openbmc_project.Logging.RsyslogClient.SeverityType.Info")
     {
         return nvidia_network_protocol::FilterSeverity::Info;
     }
-    else if (sevStr ==
-             "xyz.openbmc_project.Logging.RsyslogClient.SeverityType.All")
+    if (sevStr == "xyz.openbmc_project.Logging.RsyslogClient.SeverityType.All")
     {
         return nvidia_network_protocol::FilterSeverity::All;
     }
@@ -101,13 +99,11 @@ inline nvidia_network_protocol::FilterFacility dbusToFilterFacility(
     {
         return nvidia_network_protocol::FilterFacility::Daemon;
     }
-    else if (facStr ==
-             "xyz.openbmc_project.Logging.RsyslogClient.FacilityType.Kern")
+    if (facStr == "xyz.openbmc_project.Logging.RsyslogClient.FacilityType.Kern")
     {
         return nvidia_network_protocol::FilterFacility::Kern;
     }
-    else if (facStr ==
-             "xyz.openbmc_project.Logging.RsyslogClient.FacilityType.All")
+    if (facStr == "xyz.openbmc_project.Logging.RsyslogClient.FacilityType.All")
     {
         return nvidia_network_protocol::FilterFacility::All;
     }
@@ -121,8 +117,7 @@ inline nvidia_network_protocol::Protocol dbusToProtocol(
     {
         return nvidia_network_protocol::Protocol::TCP;
     }
-    else if (protoStr ==
-             "xyz.openbmc_project.Network.Client.TransportProtocol.UDP")
+    if (protoStr == "xyz.openbmc_project.Network.Client.TransportProtocol.UDP")
     {
         return nvidia_network_protocol::Protocol::UDP;
     }
@@ -140,7 +135,7 @@ inline std::optional<bool> isEnabled(const std::optional<std::string>& input)
     {
         return true; // Enabled
     }
-    else if (*input == "Disabled")
+    if (*input == "Disabled")
     {
         return false; // Disabled
     }
@@ -246,7 +241,7 @@ inline void processRsyslogClientSettings(
     const std::optional<std::string>& address = std::nullopt,
     const std::optional<uint16_t>& port = std::nullopt,
     const std::optional<std::string>& state = std::nullopt,
-    const std::optional<std::string>& TLS = std::nullopt,
+    const std::optional<std::string>& tls = std::nullopt,
     const std::optional<std::vector<std::string>>& facilities = std::nullopt,
     const std::optional<std::string>& severity = std::nullopt,
     const std::optional<std::string>& transportProtocol = std::nullopt)
@@ -257,13 +252,13 @@ inline void processRsyslogClientSettings(
     // Set State
     if (state)
     {
-        if (isEnabled(state) == std::nullopt)
+        auto enabled = isEnabled(state);
+        if (!enabled)
         {
             BMCWEB_LOG_ERROR("Invalid State value for rsyslog");
             messages::propertyValueFormatError(asyncResp->res, *state, "State");
             return;
         }
-        const std::optional<bool>& enabled = isEnabled(state);
         setDbusProperty(asyncResp, "Oem/Nvidia/Rsyslog/State", service, path,
                         "xyz.openbmc_project.Logging.RsyslogClient", "Enabled",
                         *enabled);
@@ -285,18 +280,18 @@ inline void processRsyslogClientSettings(
     }
 
     // Set TLS
-    if (TLS)
+    if (tls)
     {
-        if (isEnabled(TLS) == std::nullopt)
+        auto tlsEnabled = isEnabled(tls);
+        if (!tlsEnabled)
         {
             BMCWEB_LOG_ERROR("Invalid TLS value for rsyslog");
-            messages::propertyValueFormatError(asyncResp->res, *TLS, "TLS");
+            messages::propertyValueFormatError(asyncResp->res, *tls, "TLS");
             return;
         }
-        const std::optional<bool>& tls = isEnabled(TLS);
         setDbusProperty(asyncResp, "Oem/Nvidia/Rsyslog/TLS", service, path,
                         "xyz.openbmc_project.Logging.RsyslogClient", "Tls",
-                        *tls);
+                        *tlsEnabled);
     }
 
     // Validate and Set Facility
@@ -309,11 +304,11 @@ inline void processRsyslogClientSettings(
             {
                 // If "All" is found, clear the array and only add "All"
                 facilityDbus.clear();
-                facilityDbus.push_back(
+                facilityDbus.emplace_back(
                     "xyz.openbmc_project.Logging.RsyslogClient.FacilityType.All");
                 break; // Exit the loop as "All" supersedes other values
             }
-            else if (f == "Daemon" || f == "Kern")
+            if (f == "Daemon" || f == "Kern")
             {
                 facilityDbus.push_back(
                     "xyz.openbmc_project.Logging.RsyslogClient.FacilityType." +

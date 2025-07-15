@@ -16,6 +16,9 @@
  */
 #pragma once
 
+#include "query.hpp"
+#include "registries/privilege_registry.hpp"
+
 #include <app.hpp>
 #include <utils/memfd_utils.hpp>
 #include <utils/privilege_utils.hpp>
@@ -52,8 +55,7 @@ inline void pushSmbiosTable(const crow::Request& req,
     {
         BMCWEB_LOG_ERROR("SMBIOS blob size ({} bytes) is too large",
                          req.body().size());
-        messages::payloadTooLarge(asyncResp->res,
-                                  "SMBIOS blob size is too large");
+        messages::payloadTooLarge(asyncResp->res);
         return;
     }
 

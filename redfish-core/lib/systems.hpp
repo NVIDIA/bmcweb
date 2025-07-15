@@ -45,7 +45,6 @@
 #include <nlohmann/json.hpp>
 #include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
-#include <utils/bios_utils.hpp>
 #include <utils/istmode_utils.hpp>
 #include <utils/nvidia_pcie_utils.hpp>
 #include <utils/nvidia_systems_util.hpp>
@@ -3936,8 +3935,8 @@ inline void handleComputerSystemGet(
 
     if constexpr (BMCWEB_PUSH_SMBIOS_TABLE_FEATURE)
     {
-        auto& oem_actions = asyncResp->res.jsonValue["Actions"]["Oem"];
-        oem_actions["#NvidiaComputerSystem.PushSmbiosTable"]["target"] =
+        auto& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
+        oemActions["#NvidiaComputerSystem.PushSmbiosTable"]["target"] =
             "/redfish/v1/Systems/" +
             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
             "/Actions/Oem/NvidiaComputerSystem.PushSmbiosTable";

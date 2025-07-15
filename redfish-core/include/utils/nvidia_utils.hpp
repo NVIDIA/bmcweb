@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 #pragma once
+#include "logging.hpp"
+#include "str_utility.hpp"
 #include "utils/dbus_log_utils.hpp"
 
 #include <boost/algorithm/string.hpp>
@@ -104,10 +106,10 @@ constexpr std::string_view locked = "Locked";
 constexpr std::string_view userPrivilegeDbus = "UserPrivilege";
 constexpr std::string_view roleid = "RoleId";
 constexpr std::string_view ldapbindDNPasswordDbus = "LDAPBindDNPassword";
-constexpr std::string_view password = "Password";
+constexpr std::string_view passwordRedfish = "Password";
 constexpr std::string_view ldapBindDNDbus = "LDAPBindDN";
 constexpr std::string_view usernameDbus = "UserName";
-constexpr std::string_view username = "UserName";
+constexpr std::string_view usernameRedfish = "UserName";
 constexpr std::string_view ldapServerURIDbus = "LDAPServerURI";
 constexpr std::string_view serviceAddresses = "ServiceAddresses";
 constexpr std::string_view enabledDbus = "Enabled";
@@ -149,12 +151,12 @@ inline std::unordered_map<std::string_view, std::string_view>
         {userEnabledDbus, userEnabled},
         {userLockedForFailedAttemptDbus, locked},
         {userPrivilegeDbus, roleid},
-        {ldapbindDNPasswordDbus, password},
-        {ldapBindDNDbus, username},
+        {ldapbindDNPasswordDbus, passwordRedfish},
+        {ldapBindDNDbus, usernameRedfish},
         {ldapServerURIDbus, serviceAddresses},
         {enabledDbus, srvcEnabled},
         {ldapBaseDNDbus, baseDistinguishedNames},
-        {usernameDbus, username},
+        {usernameDbus, usernameRedfish},
         {groupNameAttributeDbus, groupsAttribute},
         {userNameAttributeDbus, userNameAttribute},
         {privilageDbus, localRole},

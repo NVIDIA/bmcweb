@@ -18,8 +18,15 @@
 #ifdef NVIDIA_HAVE_TAL
 #include "tal.hpp"
 #endif
+#include "bmcweb_config.h"
+
+#include "async_resp.hpp"
+#include "error_messages.hpp"
+
 #include <nlohmann/json.hpp>
 
+#include <regex>
+#include <set>
 #include <unordered_set>
 
 namespace redfish
@@ -225,7 +232,7 @@ inline void replaceNumber(const std::string& input, const std::string& key,
 {
     std::regex pattern(key + "(\\d+)");
     std::smatch match;
-    std::string res = input;
+    const std::string& res = input;
     if (value == "{BSWild}" || value == "{PDBWild}" || value == "{BFSWild}")
     {
         if (std::regex_search(res, match, pattern))
@@ -259,12 +266,11 @@ inline void replaceNumber(const std::string& input, const std::string& key,
             replacedName.insert(number);
         }
     }
-    return;
 }
 
 inline void metricsReplacementsNonPlatformMetrics(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    std::vector<std::string> inputMetricProperties,
+    const std::vector<std::string>& inputMetricProperties,
     const std::string& deviceType, const std::set<std::string>& wildcardSet)
 {
     // Precompute allowed flags based on the wildcards present in
@@ -290,8 +296,8 @@ inline void metricsReplacementsNonPlatformMetrics(
         (wildcardSet.find("CXId") != wildcardSet.end());
 
     std::smatch match;
-    std::set<int> nvSwitchId_Type_1;
-    std::set<int> nvlinkId_Type_1;
+    std::set<int> nvSwitchIdType1;
+    std::set<int> nvlinkIdType1;
     std::set<int> gpuId;
     std::set<int> gpmInstance;
     std::set<int> networkAdapterNId;
@@ -306,26 +312,26 @@ inline void metricsReplacementsNonPlatformMetrics(
     std::set<int> pcieLinkId;
     std::set<int> networkAdapterCXId;
     nlohmann::json& wildCards = asyncResp->res.jsonValue["Wildcards"];
-    for (const auto& e : inputMetricProperties)
+    for (const auto& property : inputMetricProperties)
     {
         if (deviceType == "NVSwitchPortMetrics")
         {
             if (allowNVSwitchId)
             {
                 std::regex switchPattern(nvSwitch + "(\\d+)");
-                if (std::regex_search(e, match, switchPattern))
+                if (std::regex_search(property, match, switchPattern))
                 {
                     int number = std::stoi(match[1].str());
-                    nvSwitchId_Type_1.insert(number);
+                    nvSwitchIdType1.insert(number);
                 }
             }
             if (allowNvlinkId)
             {
                 std::regex nvLinkPattern(nvLink + "(\\d+)");
-                if (std::regex_search(e, match, nvLinkPattern))
+                if (std::regex_search(property, match, nvLinkPattern))
                 {
                     int number = std::stoi(match[1].str());
-                    nvlinkId_Type_1.insert(number);
+                    nvlinkIdType1.insert(number);
                 }
             }
         }
@@ -334,10 +340,10 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowNVSwitchId)
             {
                 std::regex switchPattern(nvSwitch + "(\\d+)");
-                if (std::regex_search(e, match, switchPattern))
+                if (std::regex_search(property, match, switchPattern))
                 {
                     int number = std::stoi(match[1].str());
-                    nvSwitchId_Type_1.insert(number);
+                    nvSwitchIdType1.insert(number);
                 }
             }
         }
@@ -346,7 +352,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowRetimerId)
             {
                 std::regex retimerPattern(retimer + "(\\d+)");
-                if (std::regex_search(e, match, retimerPattern))
+                if (std::regex_search(property, match, retimerPattern))
                 {
                     int number = std::stoi(match[1].str());
                     retimerId.insert(number);
@@ -362,7 +368,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowGpuId)
             {
                 std::regex gpuPattern(gpuPrefix + "(\\d+)");
-                if (std::regex_search(e, match, gpuPattern))
+                if (std::regex_search(property, match, gpuPattern))
                 {
                     int number = std::stoi(match[1].str());
                     gpuId.insert(number);
@@ -374,7 +380,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowInstanceId)
             {
                 std::regex gpmInstancePattern(gpmInstances + "(\\d+)");
-                if (std::regex_search(e, match, gpmInstancePattern))
+                if (std::regex_search(property, match, gpmInstancePattern))
                 {
                     int number = std::stoi(match[1].str());
                     gpmInstance.insert(number);
@@ -387,10 +393,10 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowNvlinkId)
             {
                 std::regex nvLinkPattern(nvLink + "(\\d+)");
-                if (std::regex_search(e, match, nvLinkPattern))
+                if (std::regex_search(property, match, nvLinkPattern))
                 {
                     int number = std::stoi(match[1].str());
-                    nvlinkId_Type_1.insert(number);
+                    nvlinkIdType1.insert(number);
                 }
             }
         }
@@ -399,7 +405,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowNetworkAdapterNId)
             {
                 std::regex networkAdapterPattern(networkAdapter + "(\\d+)");
-                if (std::regex_search(e, match, networkAdapterPattern))
+                if (std::regex_search(property, match, networkAdapterPattern))
                 {
                     int number = std::stoi(match[1].str());
                     networkAdapterNId.insert(number);
@@ -409,7 +415,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             {
                 std::regex nvLinkManagementPattern(
                     networkAdapterLink + "(\\d+)");
-                if (std::regex_search(e, match, nvLinkManagementPattern))
+                if (std::regex_search(property, match, nvLinkManagementPattern))
                 {
                     int number = std::stoi(match[1].str());
                     nvLinkManagementId.insert(number);
@@ -419,7 +425,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             {
                 std::regex networkAdapterPattern(
                     networkAdapterConnectX + "(\\d+)");
-                if (std::regex_search(e, match, networkAdapterPattern))
+                if (std::regex_search(property, match, networkAdapterPattern))
                 {
                     int number = std::stoi(match[1].str());
                     networkAdapterCXId.insert(number);
@@ -431,7 +437,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowRetimerId)
             {
                 std::regex pcieRetimerPattern(retimer + "(\\d+)");
-                if (std::regex_search(e, match, pcieRetimerPattern))
+                if (std::regex_search(property, match, pcieRetimerPattern))
                 {
                     int number = std::stoi(match[1].str());
                     retimerId.insert(number);
@@ -440,7 +446,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowPortType && allowPortId)
             {
                 std::regex retimerPortPattern("/Ports/(\\w+)_(\\d+)");
-                if (std::regex_search(e, match, retimerPortPattern) &&
+                if (std::regex_search(property, match, retimerPortPattern) &&
                     match.size() > 2)
                 {
                     std::string portType = match[1].str();
@@ -456,7 +462,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowCpuId)
             {
                 std::regex cpuProcessorPattern(cpuProcessor + "(\\d+)");
-                if (std::regex_search(e, match, cpuProcessorPattern))
+                if (std::regex_search(property, match, cpuProcessorPattern))
                 {
                     int number = std::stoi(match[1].str());
                     cpuId.insert(number);
@@ -465,7 +471,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowProcessorId)
             {
                 std::regex processorPattern(processor + "(\\d+)");
-                if (std::regex_search(e, match, processorPattern))
+                if (std::regex_search(property, match, processorPattern))
                 {
                     int number = std::stoi(match[1].str());
                     processorId.insert(number);
@@ -474,7 +480,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowCoreId)
             {
                 std::regex cpuCorePattern(cpuCore + "(\\d+)");
-                if (std::regex_search(e, match, cpuCorePattern))
+                if (std::regex_search(property, match, cpuCorePattern))
                 {
                     int number = std::stoi(match[1].str());
                     coreId.insert(number);
@@ -483,7 +489,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowNvlinkId)
             {
                 std::regex nvLinkPattern(nvLink + "(\\d+)");
-                if (std::regex_search(e, match, nvLinkPattern))
+                if (std::regex_search(property, match, nvLinkPattern))
                 {
                     int number = std::stoi(match[1].str());
                     nvLinkId.insert(number);
@@ -492,7 +498,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowPCIeLinkId)
             {
                 std::regex pcieLinkPattern(pcieLink + "(\\d+)");
-                if (std::regex_search(e, match, pcieLinkPattern))
+                if (std::regex_search(property, match, pcieLinkPattern))
                 {
                     int number = std::stoi(match[1].str());
                     pcieLinkId.insert(number);
@@ -504,7 +510,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowCpuId)
             {
                 std::regex cpuProcessorPattern(cpuProcessor + "(\\d+)");
-                if (std::regex_search(e, match, cpuProcessorPattern))
+                if (std::regex_search(property, match, cpuProcessorPattern))
                 {
                     int number = std::stoi(match[1].str());
                     cpuId.insert(number);
@@ -513,7 +519,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowGpuId)
             {
                 std::regex gpuPattern(gpuPrefix + "(\\d+)");
-                if (std::regex_search(e, match, gpuPattern))
+                if (std::regex_search(property, match, gpuPattern))
                 {
                     int number = std::stoi(match[1].str());
                     gpuId.insert(number);
@@ -522,7 +528,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowRetimerId)
             {
                 std::regex pcieRetimerPattern(retimer + "(\\d+)");
-                if (std::regex_search(e, match, pcieRetimerPattern))
+                if (std::regex_search(property, match, pcieRetimerPattern))
                 {
                     int number = std::stoi(match[1].str());
                     retimerId.insert(number);
@@ -531,10 +537,10 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowNVSwitchId)
             {
                 std::regex switchPattern(nvSwitch + "(\\d+)");
-                if (std::regex_search(e, match, switchPattern))
+                if (std::regex_search(property, match, switchPattern))
                 {
                     int number = std::stoi(match[1].str());
-                    nvSwitchId_Type_1.insert(number);
+                    nvSwitchIdType1.insert(number);
                 }
             }
         }
@@ -543,26 +549,26 @@ inline void metricsReplacementsNonPlatformMetrics(
     {
         if (allowNVSwitchId)
         {
-            nlohmann::json devCountSwitchType_1 = nlohmann::json::array();
-            for (const auto& e : nvSwitchId_Type_1)
+            nlohmann::json devCountSwitchType1 = nlohmann::json::array();
+            for (const auto& item : nvSwitchIdType1)
             {
-                devCountSwitchType_1.push_back(std::to_string(e));
+                devCountSwitchType1.push_back(std::to_string(item));
             }
             wildCards.push_back({
                 {"Name", "NVSwitchId"},
-                {"Values", devCountSwitchType_1},
+                {"Values", devCountSwitchType1},
             });
         }
         if (allowNvlinkId)
         {
-            nlohmann::json devCountNVlinkId_Type_1 = nlohmann::json::array();
-            for (const auto& e : nvlinkId_Type_1)
+            nlohmann::json devCountNVlinkIdType1 = nlohmann::json::array();
+            for (const auto& item : nvlinkIdType1)
             {
-                devCountNVlinkId_Type_1.push_back(std::to_string(e));
+                devCountNVlinkIdType1.push_back(std::to_string(item));
             }
             wildCards.push_back({
                 {"Name", "NvlinkId"},
-                {"Values", devCountNVlinkId_Type_1},
+                {"Values", devCountNVlinkIdType1},
             });
         }
     }
@@ -571,9 +577,9 @@ inline void metricsReplacementsNonPlatformMetrics(
         if (allowNetworkAdapterNId)
         {
             nlohmann::json devCountNetworkAdapter = nlohmann::json::array();
-            for (const auto& e : networkAdapterNId)
+            for (const auto& item : networkAdapterNId)
             {
-                devCountNetworkAdapter.push_back(std::to_string(e));
+                devCountNetworkAdapter.push_back(std::to_string(item));
             }
             wildCards.push_back({
                 {"Name", "NId"},
@@ -583,9 +589,9 @@ inline void metricsReplacementsNonPlatformMetrics(
         if (allowNvlinkId)
         {
             nlohmann::json devCountNVLinkManagementId = nlohmann::json::array();
-            for (const auto& e : nvLinkManagementId)
+            for (const auto& item : nvLinkManagementId)
             {
-                devCountNVLinkManagementId.push_back(std::to_string(e));
+                devCountNVLinkManagementId.push_back(std::to_string(item));
             }
             wildCards.push_back({
                 {"Name", "NvlinkId"},
@@ -595,9 +601,9 @@ inline void metricsReplacementsNonPlatformMetrics(
         if (allowNetworkAdapterCXId)
         {
             nlohmann::json devCountNetworkAdapterCX = nlohmann::json::array();
-            for (const auto& e : networkAdapterCXId)
+            for (const auto& item : networkAdapterCXId)
             {
-                devCountNetworkAdapterCX.push_back(std::to_string(e));
+                devCountNetworkAdapterCX.push_back(std::to_string(item));
             }
             wildCards.push_back({
                 {"Name", "CXId"},
@@ -610,9 +616,9 @@ inline void metricsReplacementsNonPlatformMetrics(
         if (allowRetimerId)
         {
             nlohmann::json devCountRetimerId = nlohmann::json::array();
-            for (const auto& e : retimerId)
+            for (const auto& item : retimerId)
             {
-                devCountRetimerId.push_back(std::to_string(e));
+                devCountRetimerId.push_back(std::to_string(item));
             }
             wildCards.push_back({
                 {"Name", "RetimerId"},
@@ -622,9 +628,9 @@ inline void metricsReplacementsNonPlatformMetrics(
         if (allowPortType)
         {
             nlohmann::json devCountRetimerPortType = nlohmann::json::array();
-            for (const auto& e : portTypes)
+            for (const auto& item : portTypes)
             {
-                devCountRetimerPortType.push_back(e);
+                devCountRetimerPortType.push_back(item);
             }
             wildCards.push_back({
                 {"Name", "PortType"},
@@ -634,9 +640,9 @@ inline void metricsReplacementsNonPlatformMetrics(
         if (allowPortId)
         {
             nlohmann::json devCountRetimerPortId = nlohmann::json::array();
-            for (const auto& e : portIds)
+            for (const auto& item : portIds)
             {
-                devCountRetimerPortId.push_back(std::to_string(e));
+                devCountRetimerPortId.push_back(std::to_string(item));
             }
             wildCards.push_back({
                 {"Name", "PortId"},
@@ -649,9 +655,9 @@ inline void metricsReplacementsNonPlatformMetrics(
         if (allowRetimerId)
         {
             nlohmann::json devCountRetimerId = nlohmann::json::array();
-            for (const auto& e : retimerId)
+            for (const auto& item : retimerId)
             {
-                devCountRetimerId.push_back(std::to_string(e));
+                devCountRetimerId.push_back(std::to_string(item));
             }
             wildCards.push_back({
                 {"Name", "RetimerId"},
@@ -664,9 +670,9 @@ inline void metricsReplacementsNonPlatformMetrics(
         if (allowNVSwitchId)
         {
             nlohmann::json devCountNVSwitchId = nlohmann::json::array();
-            for (const auto& e : nvSwitchId_Type_1)
+            for (const auto& item : nvSwitchIdType1)
             {
-                devCountNVSwitchId.push_back(std::to_string(e));
+                devCountNVSwitchId.push_back(std::to_string(item));
             }
             wildCards.push_back({
                 {"Name", "NVSwitchId"},
@@ -683,9 +689,9 @@ inline void metricsReplacementsNonPlatformMetrics(
         if (allowGpuId)
         {
             nlohmann::json devCountGpuId = nlohmann::json::array();
-            for (const auto& e : gpuId)
+            for (const auto& item : gpuId)
             {
-                devCountGpuId.push_back(std::to_string(e));
+                devCountGpuId.push_back(std::to_string(item));
             }
             wildCards.push_back({
                 {"Name", "GpuId"},
@@ -698,9 +704,9 @@ inline void metricsReplacementsNonPlatformMetrics(
         if (allowInstanceId)
         {
             nlohmann::json devCountInstanceId = nlohmann::json::array();
-            for (const auto& e : gpmInstance)
+            for (const auto& item : gpmInstance)
             {
-                devCountInstanceId.push_back(std::to_string(e));
+                devCountInstanceId.push_back(std::to_string(item));
             }
             wildCards.push_back({
                 {"Name", "InstanceId"},
@@ -714,9 +720,9 @@ inline void metricsReplacementsNonPlatformMetrics(
         if (allowNvlinkId)
         {
             nlohmann::json devCountnvlinkId = nlohmann::json::array();
-            for (const auto& e : nvlinkId_Type_1)
+            for (const auto& item : nvlinkIdType1)
             {
-                devCountnvlinkId.push_back(std::to_string(e));
+                devCountnvlinkId.push_back(std::to_string(item));
             }
             wildCards.push_back({
                 {"Name", "NvlinkId"},
@@ -806,10 +812,10 @@ inline void metricsReplacements(
     nlohmann::json& wildCards = asyncResp->res.jsonValue["Wildcards"];
     std::set<std::string> wildCardValues;
 
-    for (const auto& e : inputMetricProperties)
+    for (const auto& property : inputMetricProperties)
     {
-        replaceNumber(e, replacement.searchPattern, replacement.wildcardPattern,
-                      wildCardValues);
+        replaceNumber(property, replacement.searchPattern,
+                      replacement.wildcardPattern, wildCardValues);
     }
 
     // insert set to json payload here
@@ -823,7 +829,6 @@ inline void metricsReplacements(
         {"Name", replacement.wildcardName},
         {"Values", devCount},
     });
-    return;
 }
 
 inline void getShmemMetricsDefinitionWildCard(

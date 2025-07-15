@@ -103,7 +103,7 @@ inline void getCpuEid(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       std::function<void(uint32_t)>&& callback)
 {
     getCpuObjectPath([asyncResp, callback](const boost::system::error_code& ec,
-                                           const std::string path) {
+                                           const std::string& path) {
         if (ec || path.empty())
         {
             BMCWEB_LOG_DEBUG("Failed to find CPU object path: {}",
@@ -118,7 +118,7 @@ inline void getCpuEid(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             [asyncResp, callback](
                 const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
                     endpoints) {
-                if (!endpoints || endpoints->size() == 0)
+                if (!endpoints || endpoints->empty())
                 {
                     BMCWEB_LOG_ERROR("Failed to find CPU MCTP EID");
                     messages::internalError(asyncResp->res);
@@ -150,7 +150,7 @@ inline void getSystemsCpuDebugToken(
     }
     getCpuObjectPath([asyncResp,
                       systemName](const boost::system::error_code& ec,
-                                  const std::string path) {
+                                  const std::string& path) {
         if (ec)
         {
             BMCWEB_LOG_ERROR("Failed to find CPU object path: {}",
@@ -453,7 +453,7 @@ inline void handleCpuGenerateToken(
         return;
     }
     getCpuObjectPath([asyncResp](const boost::system::error_code& ec,
-                                 const std::string path) {
+                                 const std::string& path) {
         if (ec || path.empty())
         {
             BMCWEB_LOG_ERROR("Failed to find CPU object path: {}",
@@ -502,7 +502,7 @@ inline void handleCpuGenerateToken(
                     auto it = props.find("Status");
                     if (it != props.end())
                     {
-                        auto status = std::get_if<std::string>(&(it->second));
+                        auto* status = std::get_if<std::string>(&(it->second));
                         if (status)
                         {
                             opStatus =
@@ -514,7 +514,7 @@ inline void handleCpuGenerateToken(
                 {
                     return;
                 }
-                if (opStatus.rfind("Error_", 0) == 0)
+                if (opStatus.starts_with("Error_"))
                 {
                     timer.reset(nullptr);
                     boost::asio::post(
@@ -548,9 +548,7 @@ inline void handleCpuGenerateToken(
                             std::vector<std::vector<uint8_t>> requestVec{
                                 addTokenRequestHeader(meas)};
                             auto file = generateTokenRequestFile(requestVec);
-                            std::string_view binaryData(
-                                reinterpret_cast<const char*>(file.data()),
-                                file.size());
+                            std::string binaryData(file.begin(), file.end());
                             asyncResp->res.jsonValue["Token"] =
                                 crow::utility::base64encode(binaryData);
                         });

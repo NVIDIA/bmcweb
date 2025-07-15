@@ -93,6 +93,14 @@ void callAsyncGetValue(std::shared_ptr<CallAsyncStatusInfo> statusInfo,
                         std::get_if<typename CallAsyncStatusInfo::Value>(
                             &value);
 
+                    if (valuePtr == nullptr)
+                    {
+                        BMCWEB_LOG_INFO(
+                            "Call Async : Failed to get value from variant");
+                        reportErrorAndCancel(statInfo);
+                        return;
+                    }
+
                     BMCWEB_LOG_INFO(
                         "Call Async : Successfully Obtained the Value.");
 

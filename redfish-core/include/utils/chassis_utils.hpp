@@ -692,13 +692,13 @@ inline void handleMctpInBandActions(
                 return;
             }
             auto chassisProcessed = std::make_shared<bool>(false);
-            for (auto it = resp.begin(); it != resp.end(); ++it)
+            for (const auto& it : resp)
             {
                 if (*chassisProcessed)
                 {
                     return;
                 }
-                std::string serviceName = it->first;
+                std::string serviceName = it.first;
                 crow::connections::systemBus->async_method_call(
                     [req, asyncResp, chassisUUID, serviceName, option, enabled,
                      chassisId,
@@ -718,15 +718,15 @@ inline void handleMctpInBandActions(
                         const std::vector<uint8_t>* supportedMsgTypes = nullptr;
                         bool foundEID = false;
 
-                        for (auto& objectPath : managedObjects)
+                        for (const auto& objectPath : managedObjects)
                         {
                             bool isMctpEp = false;
-                            for (auto& interfaceMap : objectPath.second)
+                            for (const auto& interfaceMap : objectPath.second)
                             {
                                 if (interfaceMap.first ==
                                     "xyz.openbmc_project.Common.UUID")
                                 {
-                                    for (auto& propertyMap :
+                                    for (const auto& propertyMap :
                                          interfaceMap.second)
                                     {
                                         if (propertyMap.first == "UUID")
@@ -741,7 +741,7 @@ inline void handleMctpInBandActions(
                                     "xyz.openbmc_project.MCTP.Endpoint")
                                 {
                                     isMctpEp = true;
-                                    for (auto& propertyMap :
+                                    for (const auto& propertyMap :
                                          interfaceMap.second)
                                     {
                                         if (propertyMap.first == "EID")

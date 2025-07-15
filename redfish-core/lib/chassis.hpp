@@ -1184,7 +1184,7 @@ inline void handleChassisPatch(
                     if (hardwareWriteProtectEnable)
                     {
                         redfish::nvidia_chassis_utils::
-                            OemChassisHardwareWriteProtectEnable(
+                            oemChassisHardwareWriteProtectEnable(
                                 asyncResp, chassisId,
                                 *hardwareWriteProtectEnable);
                     }

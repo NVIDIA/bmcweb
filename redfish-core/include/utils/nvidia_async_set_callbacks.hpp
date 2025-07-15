@@ -31,8 +31,8 @@ class PatchGenericCallback
     explicit PatchGenericCallback(std::shared_ptr<bmcweb::AsyncResp> respIn,
                                   std::string propertyNameIn = "",
                                   std::string propertyValueIn = "") :
-        resp(std::move(respIn)), propertyName(propertyNameIn),
-        propertyValue(propertyValueIn)
+        resp(std::move(respIn)), propertyName(std::move(propertyNameIn)),
+        propertyValue(std::move(propertyValueIn))
     {}
 
     void operator()(const std::string& status) const
@@ -70,7 +70,7 @@ class PatchGenericCallback
         }
         else if (status == nvidia_async_operation_utils::
                                asyncStatusValueInvalidArgument &&
-                 propertyName.size())
+                 !propertyName.empty())
         {
             // Invalid value
             messages::propertyValueIncorrect(resp->res, propertyName,
@@ -283,7 +283,7 @@ class PatchClockLimitControlCallback
  * DBus path
  */
 template <typename Callback = PatchGenericCallback, typename Value>
-inline void patch(std::shared_ptr<bmcweb::AsyncResp> aResp,
+inline void patch(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                   const std::string& service, const std::string& path,
                   const std::string& interface, const std::string& property,
                   const Value& value, bool showError = true)

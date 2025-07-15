@@ -156,7 +156,7 @@ inline void doSubscribe(std::shared_ptr<crow::HttpClient> client,
                 BMCWEB_LOG_DEBUG("No subscription. Subscribe directly!");
 
                 boost::beast::http::fields httpHeader;
-                std::function<void(crow::Response&)> cb =
+                std::function<void(crow::Response&)> callback =
                     std::bind_front(handleSubscribeResponse);
 
                 std::string path("/redfish/v1/EventService/Subscriptions");
@@ -169,7 +169,7 @@ inline void doSubscribe(std::shared_ptr<crow::HttpClient> client,
                 url.set_path(path);
                 client->sendDataWithCallback(
                     std::move(data), url, ensuressl::VerifyCertificate::Verify,
-                    httpHeader, boost::beast::http::verb::post, cb);
+                    httpHeader, boost::beast::http::verb::post, callback);
             }
         }
     };
@@ -192,18 +192,19 @@ inline void doUnsubscribe(std::shared_ptr<crow::HttpClient> client,
                 auto& satMembers = jsonVal["Members"];
                 for (auto& satMem : satMembers)
                 {
-                    std::string id = satMem["@odata.id"].get<std::string>();
-                    BMCWEB_LOG_DEBUG("unSubscribe: {}", id);
-                    std::function<void(crow::Response&)> cb =
+                    std::string subscriptionId =
+                        satMem["@odata.id"].get<std::string>();
+                    BMCWEB_LOG_DEBUG("unSubscribe: {}", subscriptionId);
+                    std::function<void(crow::Response&)> callback =
                         std::bind_front(handleSubscribeResponse);
 
                     std::string data;
                     boost::beast::http::fields httpHeader;
-                    url.set_path(id);
+                    url.set_path(subscriptionId);
                     client->sendDataWithCallback(
                         std::move(data), url,
                         ensuressl::VerifyCertificate::Verify, httpHeader,
-                        boost::beast::http::verb::delete_, cb);
+                        boost::beast::http::verb::delete_, callback);
                 }
             }
         }
@@ -239,14 +240,14 @@ inline void querySubscriptionList(
     std::string data;
     boost::beast::http::fields httpHeader;
 
-    std::function<void(crow::Response&)> cb =
+    std::function<void(crow::Response&)> callback =
         std::bind_front(doSubscribe, client, url);
 
     std::string path("/redfish/v1/EventService/Subscriptions");
     url.set_path(path);
-    client->sendDataWithCallback(std::move(data), url,
-                                 ensuressl::VerifyCertificate::Verify,
-                                 httpHeader, boost::beast::http::verb::get, cb);
+    client->sendDataWithCallback(
+        std::move(data), url, ensuressl::VerifyCertificate::Verify, httpHeader,
+        boost::beast::http::verb::get, callback);
     auto subscribeTimer = SubscribeSatBmc::getInstance().getTimer();
     // check HMC subscription periodically in case of HMC
     // reset-to-default
@@ -337,11 +338,11 @@ inline void unSubscribe(
     std::string data;
     boost::beast::http::fields httpHeader;
 
-    std::function<void(crow::Response&)> cb =
+    std::function<void(crow::Response&)> callback =
         std::bind_front(doUnsubscribe, client, url);
-    client->sendDataWithCallback(std::move(data), url,
-                                 ensuressl::VerifyCertificate::Verify,
-                                 httpHeader, boost::beast::http::verb::get, cb);
+    client->sendDataWithCallback(
+        std::move(data), url, ensuressl::VerifyCertificate::Verify, httpHeader,
+        boost::beast::http::verb::get, callback);
 }
 
 inline int stopRedfishEventListener(boost::asio::io_context& ioc)

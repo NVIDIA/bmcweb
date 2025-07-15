@@ -24,11 +24,15 @@
 #include "utils/dbus_utils.hpp"
 
 #include <boost/asio/post.hpp>
+#include <sdbusplus/bus/match.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
+#include <array>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <tuple>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -71,6 +75,15 @@ using ErrorType = std::variant<NsmError>;
 class Handler : public std::enable_shared_from_this<Handler>
 {
   public:
+    // Delete copy constructor and assignment operator since this class manages
+    // shared state and should not be copied
+    Handler(const Handler&) = delete;
+    Handler& operator=(const Handler&) = delete;
+
+    // Delete move constructor and assignment operator since this class manages
+    // shared state and should not be moved
+    Handler(Handler&&) = delete;
+    Handler& operator=(Handler&&) = delete;
     /**
      * @brief Start an NSM operation for a specific chassis
      *
@@ -87,12 +100,12 @@ class Handler : public std::enable_shared_from_this<Handler>
      * complete
      */
     static void startOperation(const std::string& chassisId, Operation op,
-                               Argument arg, ResultCallback callback)
+                               const Argument& arg, ResultCallback callback)
     {
         struct MakeSharedHelper : public Handler
         {
             MakeSharedHelper(Operation op, Argument arg, ResultCallback cb) :
-                Handler(op, arg, std::move(cb))
+                Handler(op, std::move(arg), std::move(cb))
             {}
         };
         std::shared_ptr<Handler> t =
@@ -116,23 +129,18 @@ class Handler : public std::enable_shared_from_this<Handler>
      */
     static void startOperation(const std::string& service,
                                const std::string& objectPath, Operation op,
-                               Argument arg, ResultCallback callback)
+                               const Argument& arg, ResultCallback callback)
     {
         struct MakeSharedHelper : public Handler
         {
             MakeSharedHelper(Operation op, Argument arg, ResultCallback cb) :
-                Handler(op, arg, std::move(cb))
+                Handler(op, std::move(arg), std::move(cb))
             {}
         };
         std::shared_ptr<Handler> t =
             std::make_shared<MakeSharedHelper>(op, arg, std::move(callback));
         t->run(service, objectPath);
     }
-
-  private:
-    Handler(Operation op, Argument arg, ResultCallback cb) :
-        operation(op), argument(arg), callback(cb)
-    {}
 
     ~Handler()
     {
@@ -141,6 +149,11 @@ class Handler : public std::enable_shared_from_this<Handler>
             callback(result);
         }
     }
+
+  private:
+    Handler(Operation op, Argument arg, ResultCallback cb) :
+        operation(op), argument(std::move(arg)), callback(std::move(cb))
+    {}
 
     Operation operation;
     Argument argument;
@@ -175,7 +188,7 @@ class Handler : public std::enable_shared_from_this<Handler>
      * @param chassisId The chassis ID for which the operation is to be
      * performed
      */
-    void subTreeHandler(const std::shared_ptr<Handler>&,
+    void subTreeHandler(const std::shared_ptr<Handler>& /*unused*/,
                         const std::string& chassisId,
                         const boost::system::error_code& ec,
                         const dbus::utility::MapperGetSubTreeResponse& resp)
@@ -186,7 +199,7 @@ class Handler : public std::enable_shared_from_this<Handler>
             tokenUnsupportedHandler();
             return;
         }
-        if (resp.size() == 0)
+        if (resp.empty())
         {
             BMCWEB_LOG_ERROR("No objects with DebugToken interface found");
             tokenUnsupportedHandler();
@@ -245,7 +258,7 @@ class Handler : public std::enable_shared_from_this<Handler>
             case Operation::GenerateTokenRequest:
             {
                 std::string* tokenOpcode = std::get_if<std::string>(&argument);
-                if (!tokenOpcode)
+                if (tokenOpcode == nullptr)
                 {
                     BMCWEB_LOG_ERROR("Invalid argument");
                     generalErrorHandler();
@@ -262,7 +275,7 @@ class Handler : public std::enable_shared_from_this<Handler>
             case Operation::GetTokenStatus:
             {
                 std::string* tokenType = std::get_if<std::string>(&argument);
-                if (!tokenType)
+                if (tokenType == nullptr)
                 {
                     BMCWEB_LOG_ERROR("Invalid argument");
                     generalErrorHandler();
@@ -280,7 +293,7 @@ class Handler : public std::enable_shared_from_this<Handler>
             {
                 std::vector<uint8_t>* token =
                     std::get_if<std::vector<uint8_t>>(&argument);
-                if (!token)
+                if (token == nullptr)
                 {
                     BMCWEB_LOG_ERROR("Invalid argument");
                     generalErrorHandler();
@@ -319,7 +332,7 @@ class Handler : public std::enable_shared_from_this<Handler>
      *
      * @param self The shared self pointer to the parent object (unused)
      */
-    void destroyMatch(const std::shared_ptr<Handler>&)
+    void destroyMatch(const std::shared_ptr<Handler>& /*unused*/)
     {
         match.reset(nullptr);
     }
@@ -353,9 +366,8 @@ class Handler : public std::enable_shared_from_this<Handler>
         {
             return;
         }
-        boost::asio::post(
-            crow::connections::systemBus->get_io_context(),
-            std::bind_front(&Handler::destroyMatch, this, std::move(self)));
+        boost::asio::post(crow::connections::systemBus->get_io_context(),
+                          std::bind_front(&Handler::destroyMatch, this, self));
     }
 
     /**
@@ -379,7 +391,7 @@ class Handler : public std::enable_shared_from_this<Handler>
         sdbusplus::asio::getProperty<std::string>(
             *crow::connections::systemBus, asyncObjectService, asyncObjectPath,
             std::string(asyncStatusIntf), "Status",
-            std::bind_front(&Handler::getStatusHandler, this, std::move(self)));
+            std::bind_front(&Handler::getStatusHandler, this, self));
     }
 
     /**
@@ -434,13 +446,13 @@ class Handler : public std::enable_shared_from_this<Handler>
             switch (operation)
             {
                 case Operation::GenerateTokenRequest:
-                    resultHandler<RequestType>(std::bind_front(
-                        &Handler::requestHandler, this, std::move(self)));
+                    resultHandler<RequestType>(
+                        std::bind_front(&Handler::requestHandler, this, self));
                     break;
 
                 case Operation::GetTokenStatus:
-                    resultHandler<StatusType>(std::bind_front(
-                        &Handler::statusHandler, this, std::move(self)));
+                    resultHandler<StatusType>(
+                        std::bind_front(&Handler::statusHandler, this, self));
                     break;
 
                 default:
@@ -451,7 +463,7 @@ class Handler : public std::enable_shared_from_this<Handler>
         else
         {
             resultHandler<ErrorType>(
-                std::bind_front(&Handler::errorHandler, this, std::move(self)));
+                std::bind_front(&Handler::errorHandler, this, self));
         }
         return true;
     }
@@ -477,7 +489,7 @@ class Handler : public std::enable_shared_from_this<Handler>
      * @param ec The error code from the DBus call
      * @param dbusFd The file descriptor containing the token request
      */
-    void requestHandler(const std::shared_ptr<Handler>&,
+    void requestHandler(const std::shared_ptr<Handler>& /*unused*/,
                         const boost::system::error_code ec,
                         const RequestType& dbusFd)
     {
@@ -487,8 +499,8 @@ class Handler : public std::enable_shared_from_this<Handler>
             generalErrorHandler();
             return;
         }
-        auto unixFd = std::get_if<sdbusplus::message::unix_fd>(&dbusFd);
-        if (!unixFd)
+        const auto* unixFd = std::get_if<sdbusplus::message::unix_fd>(&dbusFd);
+        if (unixFd == nullptr)
         {
             BMCWEB_LOG_ERROR("Failed to read NSM token request fd");
             generalErrorHandler();
@@ -502,6 +514,7 @@ class Handler : public std::enable_shared_from_this<Handler>
             return;
         }
         NsmDebugTokenRequest* nsmReq =
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
             reinterpret_cast<NsmDebugTokenRequest*>(request.data());
         switch (nsmReq->status)
         {
@@ -533,7 +546,7 @@ class Handler : public std::enable_shared_from_this<Handler>
      * @param ec The error code from the DBus call
      * @param dbusStatus The token status value
      */
-    void statusHandler(const std::shared_ptr<Handler>&,
+    void statusHandler(const std::shared_ptr<Handler>& /*unused*/,
                        const boost::system::error_code& ec,
                        const StatusType& dbusStatus)
     {
@@ -543,8 +556,8 @@ class Handler : public std::enable_shared_from_this<Handler>
             generalErrorHandler();
             return;
         }
-        auto status = std::get_if<NsmDbusTokenStatus>(&dbusStatus);
-        if (!status)
+        const auto* status = std::get_if<NsmDbusTokenStatus>(&dbusStatus);
+        if (status == nullptr)
         {
             BMCWEB_LOG_ERROR("Failed to read NSM token status");
             generalErrorHandler();
@@ -569,7 +582,7 @@ class Handler : public std::enable_shared_from_this<Handler>
      * @param ec The error code from the DBus call
      * @param dbusError The error value
      */
-    void errorHandler(const std::shared_ptr<Handler>&,
+    void errorHandler(const std::shared_ptr<Handler>& /*unused*/,
                       const boost::system::error_code ec,
                       const ErrorType& dbusError)
     {
@@ -579,8 +592,8 @@ class Handler : public std::enable_shared_from_this<Handler>
             generalErrorHandler();
             return;
         }
-        auto error = std::get_if<NsmError>(&dbusError);
-        if (!error)
+        const auto* error = std::get_if<NsmError>(&dbusError);
+        if (error == nullptr)
         {
             BMCWEB_LOG_ERROR("Failed to read NSM error");
             generalErrorHandler();

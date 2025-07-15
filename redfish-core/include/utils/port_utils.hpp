@@ -16,6 +16,20 @@
  */
 #pragma once
 
+#include "dbus_singleton.hpp"
+#include "error_messages.hpp"
+#include "logging.hpp"
+#include "utils/json_utils.hpp"
+#include "utils/nvidia_chassis_util.hpp"
+
+#include <boost/container/flat_map.hpp>
+#include <boost/system/error_code.hpp>
+
+#include <memory>
+#include <string>
+#include <variant>
+#include <vector>
+
 namespace redfish
 {
 namespace port_utils
@@ -497,7 +511,7 @@ inline void getCpuPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     // Get interface properties
     crow::connections::systemBus->async_method_call(
-        [asyncResp{asyncResp}](const boost::system::error_code ec,
+        [asyncResp{asyncResp}](const boost::system::error_code& ec,
                                const PropertiesMap& properties) {
             if (ec)
             {

@@ -22,14 +22,18 @@
 #pragma once
 #include "bmcweb_config.h"
 
+#include "async_resp.hpp"
 #ifdef BMCWEB_NVIDIA_DUMP_SUPPORT
 #include "com/nvidia/Dump/AllowableValues/server.hpp"
 #endif
 #include "dbus_singleton.hpp"
+#include "http_response.hpp"
+#include "logging.hpp"
 
 #include <boost/system/error_code.hpp>
 #include <sdbusplus/asio/connection.hpp>
 
+#include <fstream>
 #include <string>
 #include <variant>
 #include <vector>
@@ -106,14 +110,14 @@ inline void getOEMDiagnosticAllowableValues(const std::string& dumpType,
 
             for (const auto& [type, oemAllowableValues] : oemAllowableValuesMap)
             {
-                // std::string typeStr =
-                //     AllowableValuesIface::convertDumpTypeToString(type);
-                // std::string typeName = typeStr;
-                // std::size_t pos = typeStr.rfind('.');
-                // if (pos != std::string::npos)
-                // {
-                //     typeName = typeStr.substr(pos + 1);
-                // }
+                std::string typeStr =
+                    AllowableValuesIface::convertDumpTypeToString(type);
+                std::string typeName = typeStr;
+                std::size_t pos = typeStr.rfind('.');
+                if (pos != std::string::npos)
+                {
+                    typeName = typeStr.substr(pos + 1);
+                }
 
                 if (typeName == dumpType && !oemAllowableValues.empty())
                 {

@@ -75,20 +75,20 @@ class NvEvent
     // required properties
     std::string messageId;
     // optional properties
-    std::vector<std::string> actions = {};
+    std::vector<std::string> actions;
     int64_t eventGroupId = -1;
-    std::string eventTimestamp = "";
-    std::string logEntry = "";
-    std::string memberId = "";
-    std::vector<std::string> messageArgs = {};
-    std::string message = "";
-    std::string messageSeverity = "";
-    std::string originOfCondition = "";
+    std::string eventTimestamp;
+    std::string logEntry;
+    std::string memberId;
+    std::vector<std::string> messageArgs;
+    std::string message;
+    std::string messageSeverity;
+    std::string originOfCondition;
     nlohmann::json::object_t oem;
     nlohmann::json::object_t cper;
-    std::string eventResolution = "";
-    std::string logEntryId = "";
-    std::string satBMCLogEntryUrl = "";
+    std::string eventResolution;
+    std::string logEntryId;
+    std::string satBMCLogEntryUrl;
     redfish_bool specificEventExistsInGroup = redfishBoolNa;
     // derived properties
     std::string registryPrefix;
@@ -99,10 +99,12 @@ class NvEvent
     bool valid;
 
   public:
-    NvEvent(const std::string& msgId) : messageId(msgId)
+    NvEvent(const std::string& msgId) :
+        messageId(msgId),
+        registryMsg(redfish::registries::getMessage(messageId))
     {
         registryPrefix = message_registries::getPrefix(messageId);
-        registryMsg = redfish::registries::getMessage(messageId);
+
         if (registryMsg == nullptr)
         {
             BMCWEB_LOG_ERROR("{}", "Message not found in registry with ID: " +
@@ -118,7 +120,7 @@ class NvEvent
         }
     }
 
-    bool isValid()
+    bool isValid() const
     {
         return valid;
     }
@@ -262,7 +264,7 @@ class NvEvent
         if (specificEventExistsInGroup != redfishBoolNa)
         {
             eventLogEntry["SpecificEventExistsInGroup"] =
-                specificEventExistsInGroup == redfishBoolFalse ? false : true;
+                specificEventExistsInGroup != redfishBoolFalse;
         }
         if (!eventResolution.empty())
         {
@@ -271,17 +273,18 @@ class NvEvent
         if (!logEntryId.empty())
         {
             eventLogEntry["LogEntry"] = nlohmann::json::object();
-#ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
-            if (!satBMCLogEntryUrl.empty())
+            if constexpr (BMCWEB_REDFISH_AGGREGATION)
             {
-                // the URL is from the satellite BMC so URL fixup will be
-                // performed.
-                addPrefixToStringItem(satBMCLogEntryUrl,
-                                      redfishAggregationPrefix);
-                eventLogEntry["LogEntry"]["@odata.id"] = satBMCLogEntryUrl;
+                if (!satBMCLogEntryUrl.empty())
+                {
+                    // the URL is from the satellite BMC so URL fixup will be
+                    // performed.
+                    addPrefixToStringItem(satBMCLogEntryUrl,
+                                          BMCWEB_REDFISH_AGGREGATION_PREFIX);
+                    eventLogEntry["LogEntry"]["@odata.id"] = satBMCLogEntryUrl;
+                }
             }
             else
-#endif
             {
                 eventLogEntry["LogEntry"]["@odata.id"] =
                     redfish::getLogEntryDataId(logEntryId);

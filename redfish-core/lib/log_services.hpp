@@ -1565,19 +1565,18 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     std::optional<std::string> oemDiagnosticDataType;
     std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
         createDumpParamVec;
-
-    if (!redfish::json_util::readJsonAction(
-            req, asyncResp->res, "DiagnosticDataType", diagnosticDataType,
-            "OEMDiagnosticDataType", oemDiagnosticDataType))
+    // clang-format off
+    if (!redfish::json_util::readJsonAction(           //
+        req, asyncResp->res,                           //
+        "DiagnosticDataType", diagnosticDataType,      //
+        "OEMDiagnosticDataType", oemDiagnosticDataType //
+        ))
     {
         return;
     }
-
+    // clang-format on
     if (dumpType == "System")
     {
-        // Decode oemDiagnosticDataType string format
-        createDumpParamVec = parseOEMAdditionalData(*oemDiagnosticDataType);
-
         if (!oemDiagnosticDataType || !diagnosticDataType)
         {
             BMCWEB_LOG_ERROR(
@@ -1587,6 +1586,9 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 "DiagnosticDataType & OEMDiagnosticDataType");
             return;
         }
+
+        // Decode oemDiagnosticDataType string format
+        createDumpParamVec = parseOEMAdditionalData(*oemDiagnosticDataType);
 
         if (*diagnosticDataType != "OEM")
         {
@@ -1602,9 +1604,6 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     }
     else if (dumpType == "FDR")
     {
-        // Decode oemDiagnosticDataType string format
-        createDumpParamVec = parseOEMAdditionalData(*oemDiagnosticDataType);
-
         if (!oemDiagnosticDataType || !diagnosticDataType)
         {
             BMCWEB_LOG_ERROR(
@@ -1614,6 +1613,9 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 "DiagnosticDataType & OEMDiagnosticDataType");
             return;
         }
+
+        // Decode oemDiagnosticDataType string format
+        createDumpParamVec = parseOEMAdditionalData(*oemDiagnosticDataType);
 
         if (*diagnosticDataType != "OEM")
         {

@@ -149,13 +149,13 @@ inline void getProcessorObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
         });
 }
 
-inline void getPCIeErrorData(std::shared_ptr<bmcweb::AsyncResp> aResp,
+inline void getPCIeErrorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                              const std::string& service,
                              const std::string& objPath)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code& ec,
-                                  const OperatingConfigProperties& properties) {
+        [aResp](const boost::system::error_code& ec,
+                const OperatingConfigProperties& properties) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");

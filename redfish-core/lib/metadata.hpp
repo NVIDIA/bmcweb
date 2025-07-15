@@ -93,7 +93,7 @@ inline void handleMetadataGet(
     for (const auto& dirEntry : iter)
     {
         std::string path = dirEntry.path().filename();
-        if (!std::string_view(path).ends_with("_v1.xml"))
+        if (!path.ends_with("_v1.xml"))
         {
             continue;
         }

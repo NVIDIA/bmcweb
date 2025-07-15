@@ -357,6 +357,7 @@ readability-implicit-bool-conversion,
 readability-inconsistent-declaration-parameter-name,
 -readability-isolate-declaration,
 readability-make-member-function-const,
+-readability-magic-numbers,
 readability-misleading-indentation,
 readability-misplaced-array-index,
 readability-named-parameter,
@@ -398,4 +399,4 @@ CheckOptions:
   - { key: readability-identifier-naming.StructIgnoredRegexp,  value: (BMCWEB_LOG_DEBUG|BMCWEB_LOG_INFO|BMCWEB_LOG_WARNING|BMCWEB_LOG_ERROR|BMCWEB_LOG_CRITICAL) }
   - { key: cppcoreguidelines-macro-usage.AllowedRegexp, value: DEBUG*|NLOHMANN_JSON_SERIALIZE_ENUM }
   - { key: cppcoreguidelines-rvalue-reference-param-not-moved.IgnoreUnnamedParams, value: true }
-  - { key: misc-include-cleaner.IgnoreHeaders, value: ((nlohmann/json.hpp)|(nlohmann/json_fwd.hpp)|(boost/asio/connect_pipe.hpp)|(boost/beast/websocket/rfc6455.hpp)|(read.hpp)|(write.hpp)|(boost/circular_buffer.hpp)|(boost/asio/.*read.hpp)|(boost/.*/src.hpp)|(boost/.*/detail/.*)|(nlohmann/detail/.*)|(stdio.h)|(ranges)|(bits/.*)|(boost/system/error_code.hpp)|(json_formatters.hpp)|(boost_formatters.hpp)|(CLI/.*)) }
+  - { key: misc-include-cleaner.IgnoreHeaders, value: ((nlohmann/json.hpp)|(nlohmann/json_fwd.hpp)|(boost/asio/connect_pipe.hpp)|(boost/beast/websocket/rfc6455.hpp)|(read.hpp)|(write.hpp)|(boost/circular_buffer.hpp)|(boost/asio/.*read.hpp)|(boost/.*/src.hpp)|(boost/.*/detail/.*)|(nlohmann/detail/.*)|(stdio.h)|(ranges)|(bits/.*)|(boost/system/error_code.hpp)|(json_formatters.hpp)|(boost_formatters.hpp)|(http/.*)|(include/debug_token/nsm_async.hpp) | (CLI/.*)) }

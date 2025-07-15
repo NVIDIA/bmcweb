@@ -46,7 +46,7 @@ constexpr const std::string_view erasePolicyEnumPrefix{
  * @param[in] policy - The erase policy property value
  */
 static inline void dbusGetHandler(
-    std::function<void(std::optional<bool>)> callback,
+    const std::function<void(std::optional<bool>)>& callback,
     const boost::system::error_code& ec, const std::string& policy)
 {
     if (ec)
@@ -68,8 +68,8 @@ static inline void dbusGetHandler(
  * @param[in] path - The path to the erase policy object
  */
 static inline void getPathCallback(
-    std::function<void(std::optional<bool>)> callback, std::string service,
-    std::string path)
+    std::function<void(std::optional<bool>)> callback,
+    const std::string& service, const std::string& path)
 {
     if (service.empty() || path.empty())
     {
@@ -113,7 +113,7 @@ static inline void dbusSetHandler(
  */
 static inline void setPathCallback(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, bool automatic,
-    std::string service, std::string path)
+    const std::string& service, const std::string& path)
 {
     if (service.empty() || path.empty())
     {
@@ -124,7 +124,7 @@ static inline void setPathCallback(
     std::string erasePolicy = automatic ? "Automatic" : "Manual";
     std::string dbusValue = std::string(erasePolicyEnumPrefix) + erasePolicy;
     std::function<void(const boost::system::error_code&)> handler =
-        std::bind_front(dbusSetHandler, std::move(asyncResp));
+        std::bind_front(dbusSetHandler, asyncResp);
     sdbusplus::asio::setProperty(*crow::connections::systemBus, service, path,
                                  std::string(erasePolicyIntf), "Policy",
                                  dbusValue, handler);
@@ -138,7 +138,7 @@ static inline void setPathCallback(
  * @param[in] subtree - The subtree response
  */
 static inline void getSubTreeHandler(
-    std::function<void(std::string, std::string)> callback,
+    const std::function<void(std::string, std::string)>& callback,
     const boost::system::error_code& ec,
     const dbus::utility::MapperGetSubTreeResponse& subtree)
 {
@@ -147,7 +147,7 @@ static inline void getSubTreeHandler(
     {
         BMCWEB_LOG_ERROR("getSubTree error: {}", ec.message());
     }
-    else if (subtree.size() == 0)
+    else if (subtree.empty())
     {
         BMCWEB_LOG_ERROR("No erase policy objects found");
     }

@@ -23,13 +23,15 @@ inline void afterSystemSpiInterfacesFound(
     nlohmann::json& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
 
     // AuxPowerReset
-    oemActions["#NvidiaSystem.VariableSpiErase"]["target"] = boost::urls::format(
-        "/redfish/v1/Systems/{}/Actions/Oem/NvidiaProcessor.VariableSpiErase",
-        chassisId);
+    oemActions["#NvidiaSystem.VariableSpiErase"]["target"] =
+        boost_swap_impl::format(
+            "/redfish/v1/Systems/{}/Actions/Oem/NvidiaProcessor.VariableSpiErase",
+            chassisId);
 
-    oemActions["#NvidiaSystem.VariableSpiRead"]["target"] = boost::urls::format(
-        "/redfish/v1/Systems/{}/Actions/Oem/NvidiaProcessor.VariableSpiRead",
-        chassisId);
+    oemActions["#NvidiaSystem.VariableSpiRead"]["target"] =
+        boost_swap_impl::format(
+            "/redfish/v1/Systems/{}/Actions/Oem/NvidiaProcessor.VariableSpiRead",
+            chassisId);
 }
 
 inline void getSystemsOemNvidiaProperties(

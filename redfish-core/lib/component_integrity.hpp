@@ -231,7 +231,7 @@ inline void getCertificateURI(
             std::string componentID = chassisName;
             if (componentID.starts_with(PLATFORMDEVICEPREFIX))
             {
-                componentID = componentID.substr(strlen(PLATFORMDEVICEPREFIX));
+                componentID = componentID.substr(PLATFORMDEVICEPREFIX.size());
             }
 
             std::string certificateURI = std::string(
@@ -461,7 +461,7 @@ inline void requestRoutesComponentIntegrity(App& app)
                 "xyz.openbmc_project.SPDM.Responder"};
 
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code ec,
+                [asyncResp](const boost::system::error_code& ec,
                             const dbus::utility::GetSubTreeType& subtree) {
                     if (ec)
                     {
@@ -676,7 +676,7 @@ inline void requestRoutesComponentIntegrity(App& app)
                 asyncGetSPDMMeasurementData(
                     objPath, [asyncResp, id,
                               objPath](const SPDMMeasurementData& config,
-                                       const boost::system::error_code ec) {
+                                       const boost::system::error_code& ec) {
                         if (ec)
                         {
                             if (ec.value() == EBADR)

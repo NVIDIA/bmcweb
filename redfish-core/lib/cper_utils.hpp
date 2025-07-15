@@ -366,8 +366,8 @@ inline bool parseCperData(const nlohmann::json& evt,
     }
 
     // Parse OEM data
-    auto oemPtr = cper.get_ptr<const nlohmann::json::object_t*>();
-    if (!oemPtr)
+    const auto* oemPtr = cper.get_ptr<const nlohmann::json::object_t*>();
+    if (oemPtr == nullptr)
     {
         BMCWEB_LOG_ERROR("Failed to get Oem/Nvidia pointer from CPER");
         return false;

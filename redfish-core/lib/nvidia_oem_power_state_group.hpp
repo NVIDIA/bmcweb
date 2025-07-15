@@ -21,7 +21,7 @@
 #include "nvidia_oem_power_profile.hpp"
 #include "nvidia_oem_psc_state.hpp"
 #include "nvidia_oem_psu_state.hpp"
-
+#include "registries/privilege_registry.hpp"
 namespace redfish
 {
 

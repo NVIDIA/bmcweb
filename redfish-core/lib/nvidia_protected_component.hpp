@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/dbus_utils.hpp"
@@ -88,10 +89,8 @@ static inline std::string getStrAfterLastDot(const std::string& text)
     {
         return text.substr(lastDot + 1);
     }
-    else
-    {
-        return text;
-    }
+
+    return text;
 }
 
 static inline bool stringToInt(const std::string& str, int& number)
@@ -119,29 +118,28 @@ static inline bool stringToInt(const std::string& str, int& number)
 static inline std::string removeRoTFromStr(const std::string& input)
 {
     // Find the position of "RoT" in the string
-    size_t rot_pos = input.find("RoT");
-    if (rot_pos == std::string::npos)
+    size_t rotPos = input.find("RoT");
+    if (rotPos == std::string::npos)
     {
         return input;
     }
 
     // Find the underscore before "RoT", if it exists; otherwise, use start of
     // string
-    size_t first_underscore = input.rfind('_', rot_pos);
-    size_t second_underscore = input.find('_', rot_pos + 3);
+    size_t firstUnderscore = input.rfind('_', rotPos);
+    size_t secondUnderscore = input.find('_', rotPos + 3);
 
-    if (second_underscore != std::string::npos)
+    if (secondUnderscore != std::string::npos)
     {
-        bool isRoTAtStart = (first_underscore == std::string::npos);
+        bool isRoTAtStart = (firstUnderscore == std::string::npos);
 
         // If "RoT" is at the start, start from beginning (0)
         // Otherwise, keep the part before first_underscore
-        size_t startPos = isRoTAtStart ? 0 : first_underscore;
+        size_t startPos = isRoTAtStart ? 0 : firstUnderscore;
 
         // If "RoT" is at the start, skip the underscore after it
         // Otherwise, include the underscore
-        size_t endPos =
-            isRoTAtStart ? second_underscore + 1 : second_underscore;
+        size_t endPos = isRoTAtStart ? secondUnderscore + 1 : secondUnderscore;
 
         return input.substr(0, startPos) + input.substr(endPos);
     }
@@ -387,7 +385,7 @@ inline void handleNvidiaRoTImageSlot(
                                 return;
                             }
                             (*parsedSlotCount) += 1;
-                            const auto slotType =
+                            const auto* const slotType =
                                 (fwTypeStr == "Self")
                                     ? "xyz.openbmc_project.Software.Slot.FirmwareType.EC"
                                     : "xyz.openbmc_project.Software.Slot.FirmwareType.AP";
@@ -410,16 +408,23 @@ inline void handleNvidiaRoTImageSlot(
                                 (slotId && *slotId == slotNum))
                             {
                                 *slotFound = true;
-                                asyncResp->res.jsonValue["Name"] =
-                                    chassisId + " RoTProtectedComponent " +
-                                    fwTypeStr + " ImageSlot " + slotNumStr;
+                                std::string name = chassisId;
+                                name += " RoTProtectedComponent ";
+                                name += fwTypeStr;
+                                name += " ImageSlot ";
+                                name += slotNumStr;
+                                asyncResp->res.jsonValue["Name"] = name;
                                 asyncResp->res.jsonValue["Id"] = slotNumStr;
                                 asyncResp->res.jsonValue["@odata.type"] =
                                     "#NvidiaRoTImageSlot.v1_0_0.NvidiaRoTImageSlot";
-                                asyncResp->res.jsonValue["@odata.id"] =
-                                    "/redfish/v1/Chassis/" + chassisId +
-                                    "/Oem/NvidiaRoT/RoTProtectedComponents/" +
-                                    fwTypeStr + "/ImageSlots/" + slotNumStr;
+                                std::string odataId = "/redfish/v1/Chassis/";
+                                odataId += chassisId;
+                                odataId +=
+                                    "/Oem/NvidiaRoT/RoTProtectedComponents/";
+                                odataId += fwTypeStr;
+                                odataId += "/ImageSlots/";
+                                odataId += slotNumStr;
+                                asyncResp->res.jsonValue["@odata.id"] = odataId;
                                 updateSlotProperties(asyncResp, service,
                                                      objectPath);
                             }
@@ -453,7 +458,7 @@ inline void updateProtectedComponentLink(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            if (subtreePaths.size() > 0)
+            if (!subtreePaths.empty())
             {
                 asyncResp->res
                     .jsonValue["Oem"]["Nvidia"]["RoTProtectedComponents"] = {
@@ -660,7 +665,7 @@ inline void handleNvidiaRoTImageSlotCollection(
                                 return;
                             }
                             (*parsedSlotCount) += 1;
-                            const auto slotType =
+                            const auto* const slotType =
                                 (fwTypeStr == "Self")
                                     ? "xyz.openbmc_project.Software.Slot.FirmwareType.EC"
                                     : "xyz.openbmc_project.Software.Slot.FirmwareType.AP";
@@ -684,13 +689,18 @@ inline void handleNvidiaRoTImageSlotCollection(
                                 *slotFound = true;
                                 asyncResp->res.jsonValue["@odata.type"] =
                                     "#NvidiaRoTImageSlotCollection.NvidiaRoTImageSlotCollection";
-                                asyncResp->res.jsonValue["@odata.id"] =
-                                    "/redfish/v1/Chassis/" + chassisId +
-                                    "/Oem/NvidiaRoT/RoTProtectedComponents/" +
-                                    fwTypeStr + "/ImageSlots";
-                                asyncResp->res.jsonValue["Name"] =
-                                    chassisId + " RoTProtectedComponent " +
-                                    fwTypeStr + " ImageSlot";
+                                std::string odataId = "/redfish/v1/Chassis/";
+                                odataId += chassisId;
+                                odataId +=
+                                    "/Oem/NvidiaRoT/RoTProtectedComponents/";
+                                odataId += fwTypeStr;
+                                odataId += "/ImageSlots";
+                                asyncResp->res.jsonValue["@odata.id"] = odataId;
+                                std::string name = chassisId;
+                                name += " RoTProtectedComponent ";
+                                name += fwTypeStr;
+                                name += " ImageSlot";
+                                asyncResp->res.jsonValue["Name"] = name;
                                 auto memberId = boost::urls::format(
                                     "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents/{}/ImageSlots/{}",
                                     chassisId, fwTypeStr,
@@ -771,7 +781,7 @@ inline void updateSigningKeyProperties(
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    if (properties.size() != 0)
+                    if (!properties.empty())
                     {
                         auto revokeKeysTarget = boost::urls::format(
                             "/redfish/v1/Chassis/{}/Oem/NvidiaRoT/RoTProtectedComponents"
@@ -1101,7 +1111,7 @@ inline void handleNvidiaRoTProtectedComponentSettings(
                                 return;
                             }
                             (*parsedSlotCount) += 1;
-                            const auto slotType =
+                            const auto* const slotType =
                                 (fwTypeStr == "Self")
                                     ? "xyz.openbmc_project.Software.Slot.FirmwareType.EC"
                                     : "xyz.openbmc_project.Software.Slot.FirmwareType.AP";
@@ -1267,7 +1277,7 @@ inline void handleNvidiaRoTProtectedComponent(
                                                                        }
                                                                        (*parsedSlotCount) +=
                                                                            1;
-                                                                       const auto slotType =
+                                                                       const auto* const slotType =
                                                                            (fwTypeStr ==
                                                                             "Self")
                                                                                ? "xyz.openbmc_project.Software.Slot.FirmwareType.EC"
@@ -1320,13 +1330,18 @@ inline void handleNvidiaRoTProtectedComponent(
                                                                                .jsonValue
                                                                                    ["@odata.type"] =
                                                                                "#NvidiaRoTProtectedComponent.v1_0_0.NvidiaRoTProtectedComponent";
+                                                                           std::string
+                                                                               name =
+                                                                                   chassisId;
+                                                                           name +=
+                                                                               " RoTProtectedComponent ";
+                                                                           name +=
+                                                                               fwTypeStr;
                                                                            asyncResp
                                                                                ->res
                                                                                .jsonValue
                                                                                    ["Name"] =
-                                                                               chassisId +
-                                                                               " RoTProtectedComponent " +
-                                                                               fwTypeStr;
+                                                                               name;
                                                                            asyncResp
                                                                                ->res
                                                                                .jsonValue
@@ -1510,8 +1525,8 @@ inline void handleIrreversibleConfigResponse(
         auto progress = values.find("Status");
         if (progress != values.end())
         {
-            auto value = std::get_if<std::string>(&(progress->second));
-            if (!value)
+            auto* value = std::get_if<std::string>(&(progress->second));
+            if (value == nullptr)
             {
                 return;
             }
@@ -1525,36 +1540,30 @@ inline void handleIrreversibleConfigResponse(
                     irreversibleConfigTimer = nullptr;
                     return;
                 }
-                else // Enable, return Nonce
-                {
-                    sdbusplus::asio::getProperty<uint64_t>(
-                        *crow::connections::systemBus, service, chassisCfgPath,
-                        securityConfigInterface, "Nonce",
-                        [asyncResp](const boost::system::error_code& ec1,
-                                    const uint64_t property) {
-                            if (ec1)
-                            {
-                                BMCWEB_LOG_ERROR(
-                                    "updateIrreversibleConfigEnabled DBUS error");
-                                messages::internalError(asyncResp->res);
-                                return;
-                            }
-                            asyncResp->res.jsonValue["Nonce"] =
-                                intToHexString(property, 16);
-                            updateIrreversibleConfigMatch = nullptr;
-                            irreversibleConfigTimer = nullptr;
-                        });
-                    return;
-                }
+                // Enable, return Nonce
+                sdbusplus::asio::getProperty<uint64_t>(
+                    *crow::connections::systemBus, service, chassisCfgPath,
+                    securityConfigInterface, "Nonce",
+                    [asyncResp](const boost::system::error_code& ec1,
+                                const uint64_t property) {
+                        if (ec1)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "updateIrreversibleConfigEnabled DBUS error");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        asyncResp->res.jsonValue["Nonce"] =
+                            intToHexString(property, 16);
+                        updateIrreversibleConfigMatch = nullptr;
+                        irreversibleConfigTimer = nullptr;
+                    });
+                return;
             }
-            else
-            {
-                BMCWEB_LOG_ERROR(
-                    "updateIrreversibleConfigEnabled Method failed");
-                messages::internalError(asyncResp->res);
-                updateIrreversibleConfigMatch = nullptr;
-                irreversibleConfigTimer = nullptr;
-            }
+            BMCWEB_LOG_ERROR("updateIrreversibleConfigEnabled Method failed");
+            messages::internalError(asyncResp->res);
+            updateIrreversibleConfigMatch = nullptr;
+            irreversibleConfigTimer = nullptr;
             return;
         }
     }
@@ -1722,8 +1731,8 @@ inline void handleupdateMinSecVersionResponse(
         auto progress = values.find("Status");
         if (progress != values.end())
         {
-            auto value = std::get_if<std::string>(&(progress->second));
-            if (!value)
+            auto* value = std::get_if<std::string>(&(progress->second));
+            if (value == nullptr)
             {
                 return;
             }
@@ -1734,7 +1743,7 @@ inline void handleupdateMinSecVersionResponse(
                     *crow::connections::systemBus, service, securityPath,
                     minSecVersionConfigInterface, "UpdateMethod",
                     [asyncResp](const boost::system::error_code& ec1,
-                                const std::vector<std::string> property) {
+                                const std::vector<std::string>& property) {
                         if (ec1)
                         {
                             BMCWEB_LOG_ERROR("UpdateMinSecVersion DBUS error");
@@ -1759,7 +1768,7 @@ inline void handleupdateMinSecVersionResponse(
                     minSecVersionConfigInterface, "ErrorCode",
                     [asyncResp](
                         const boost::system::error_code& ec1,
-                        const std::tuple<uint16_t, std::string> property) {
+                        const std::tuple<uint16_t, std::string>&& property) {
                         if (ec1)
                         {
                             BMCWEB_LOG_ERROR("UpdateMinSecVersion DBUS error");
@@ -1921,8 +1930,8 @@ inline void handleUpdateMinSecVersionAction(
 
 inline void handleRevokeKeysActionInfo(
     App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string&,
-    const std::string&)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& /*unused*/, const std::string& /*unused*/)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -1962,8 +1971,8 @@ inline void handleRevokeKeysResponse(
         auto progress = values.find("Status");
         if (progress != values.end())
         {
-            auto value = std::get_if<std::string>(&(progress->second));
-            if (!value)
+            auto* value = std::get_if<std::string>(&(progress->second));
+            if (value == nullptr)
             {
                 return;
             }
@@ -1974,7 +1983,7 @@ inline void handleRevokeKeysResponse(
                     *crow::connections::systemBus, service, securityPath,
                     securitySigningConfigInterface, "UpdateMethod",
                     [asyncResp](const boost::system::error_code& ec1,
-                                const std::vector<std::string> property) {
+                                const std::vector<std::string>& property) {
                         if (ec1)
                         {
                             BMCWEB_LOG_ERROR("RevokeKeys DBUS error");
@@ -1999,7 +2008,7 @@ inline void handleRevokeKeysResponse(
                     securitySigningConfigInterface, "ErrorCode",
                     [asyncResp](
                         const boost::system::error_code& ec1,
-                        const std::tuple<uint16_t, std::string> property) {
+                        const std::tuple<uint16_t, std::string>&& property) {
                         if (ec1)
                         {
                             BMCWEB_LOG_ERROR("RevokeKeys DBUS error");

@@ -18,6 +18,7 @@
 #include "app.hpp"
 #include "debug_token.hpp"
 #include "nvidia_messages.hpp"
+#include "registries/privilege_registry.hpp"
 
 namespace redfish
 {

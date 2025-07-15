@@ -16,6 +16,7 @@
  */
 #pragma once
 
+#include "nvidia_error_messages.hpp"
 #include "nvidia_messages.hpp"
 #include "utils/mctp_utils.hpp"
 
@@ -80,15 +81,15 @@ class DotCommandHandler
                       const std::vector<uint8_t>& data,
                       ResultCallback&& resultCallbackIn,
                       ErrorCallback&& errorCallbackIn, int timeoutSec = 3) :
+        externalResultCallback(std::move(resultCallbackIn)),
+        externalErrorCallback(std::move(errorCallbackIn)),
         subprocessTimeout(timeoutSec)
     {
-        externalResultCallback = resultCallbackIn;
-        externalErrorCallback = errorCallbackIn;
         mctp_utils::enumerateMctpEndpoints(
             [this, command,
              data](const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
                        endpoints) {
-                if (endpoints && endpoints->size() != 0)
+                if (endpoints && !endpoints->empty())
                 {
                     runCommand(endpoints->begin()->getMctpEid(), command, data);
                 }

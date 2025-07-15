@@ -18,6 +18,8 @@
 
 #include "nsm_async.hpp"
 
+#include <utility>
+
 namespace redfish::debug_token
 {
 
@@ -40,6 +42,14 @@ using ResultCallback = std::function<void(const std::vector<Result>&)>;
 class Handler : public std::enable_shared_from_this<Handler>
 {
   public:
+    // Delete copy constructor and assignment operator
+    Handler(const Handler&) = delete;
+    Handler& operator=(const Handler&) = delete;
+
+    // Delete move constructor and assignment operator
+    Handler(Handler&&) = delete;
+    Handler& operator=(Handler&&) = delete;
+
     /**
      * @brief Start an aggregate NSM operation for all endpoints
      *
@@ -53,14 +63,14 @@ class Handler : public std::enable_shared_from_this<Handler>
      * @param callback The callback function to be called when the operation is
      * complete
      */
-    static void startOperation(Operation op, Argument arg,
-                               ResultCallback callback)
+    static void startOperation(Operation op, const Argument& arg,
+                               const ResultCallback& callback)
     {
         struct MakeSharedHelper : public Handler
         {
             MakeSharedHelper(Operation opParam, Argument argParam,
                              ResultCallback callbackParam) :
-                Handler(opParam, argParam, callbackParam)
+                Handler(opParam, std::move(argParam), std::move(callbackParam))
             {}
         };
         std::shared_ptr<Handler> t =
@@ -71,7 +81,8 @@ class Handler : public std::enable_shared_from_this<Handler>
   private:
     Handler(Operation opParam, Argument argParam,
             ResultCallback callbackParam) :
-        op(opParam), arg(argParam), callback(callbackParam)
+        op(opParam), arg(std::move(argParam)),
+        callback(std::move(callbackParam))
     {}
 
     ~Handler()
@@ -111,7 +122,7 @@ class Handler : public std::enable_shared_from_this<Handler>
      * @param ec The error code from the DBus call
      * @param resp The subtree response from the DBus utility
      */
-    void subTreeHandler(const std::shared_ptr<Handler>&,
+    void subTreeHandler(const std::shared_ptr<Handler>& /*unused*/,
                         const boost::system::error_code& ec,
                         const dbus::utility::MapperGetSubTreeResponse& resp)
     {
@@ -121,7 +132,7 @@ class Handler : public std::enable_shared_from_this<Handler>
             callback({});
             return;
         }
-        if (resp.size() == 0)
+        if (resp.empty())
         {
             BMCWEB_LOG_ERROR("No objects with DebugToken interface found");
             callback({});
@@ -144,7 +155,8 @@ class Handler : public std::enable_shared_from_this<Handler>
      * the provided operation, argument, and callback function.
      * @param objects The vector of service and object paths of the endpoints
      */
-    void run(const std::vector<std::pair<std::string, std::string>>& objects)
+    void run(const std::vector<std::pair<std::string, std::string>>&
+                 objects) /*unused*/
     {
         single_op::Operation opType;
         if (op == Operation::GenerateTokenRequest)
@@ -181,8 +193,8 @@ class Handler : public std::enable_shared_from_this<Handler>
      * @param aggregateResult The aggregate result entry to be updated
      * @param result The result of the NSM operation
      */
-    void resultHandler(const std::shared_ptr<Handler>&, Result& aggregateResult,
-                       const single_op::Result& result)
+    void resultHandler(const std::shared_ptr<Handler>& /*unused*/,
+                       Result& aggregateResult, const single_op::Result& result)
     {
         const auto& [state, output] = result;
         std::get<1>(aggregateResult) = state;

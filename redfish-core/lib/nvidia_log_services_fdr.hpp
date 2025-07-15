@@ -18,6 +18,7 @@
 #include "app.hpp"
 #include "generated/enums/log_entry.hpp"
 #include "log_services.hpp"
+#include "registries/privilege_registry.hpp"
 
 namespace redfish
 {
@@ -305,9 +306,9 @@ inline void handleFDRServicePatch(
     constexpr const char* serviceName = "org.freedesktop.systemd1";
     constexpr const char* objectPath = "/org/freedesktop/systemd1";
     constexpr const char* interfaceName = "org.freedesktop.systemd1.Manager";
-    constexpr const char* startService = "StartUnit";
+    [[maybe_unused]] constexpr const char* startService = "StartUnit";
     constexpr const char* stopService = "StopUnit";
-    constexpr const char* enableService = "EnableUnitFiles";
+    [[maybe_unused]] constexpr const char* enableService = "EnableUnitFiles";
     constexpr const char* disableService = "DisableUnitFiles";
     // change fdrServiceName accoridng to FDR service name
     constexpr const char* fdrServiceName = "nvidia-fdr.service";

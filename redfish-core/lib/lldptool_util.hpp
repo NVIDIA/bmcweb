@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include "app.hpp"
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
 #include "logging.hpp"
 
 #include <boost/asio.hpp>
@@ -88,7 +91,7 @@ class LldpUtil
     static void run([[maybe_unused]] const std::string& ifName, LldpTlv lldpTlv,
                     LldpCommandType lldpCommandType, bool isReceived,
                     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                    LldpResponseCallback responseCallback);
+                    const LldpResponseCallback& responseCallback);
 
   private:
     LldpUtil() = default;
@@ -115,7 +118,7 @@ class LldpUtil
      */
     static void getTlvValue(LldpTlv lldpTlv, bool isReceived,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            LldpResponseCallback responseCallback);
+                            const LldpResponseCallback& responseCallback);
 
     /**
      * @brief Set the TLV value via D-Bus
@@ -129,7 +132,7 @@ class LldpUtil
     static void setTlvValue(LldpTlv lldpTlv, const std::string& value,
                             bool isReceived,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            LldpResponseCallback responseCallback);
+                            const LldpResponseCallback& responseCallback);
 };
 
 // Command execution
@@ -137,7 +140,7 @@ inline void LldpUtil::run([[maybe_unused]] const std::string& ifName,
                           LldpTlv lldpTlv, LldpCommandType lldpCommandType,
                           bool isReceived,
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          LldpResponseCallback responseCallback)
+                          const LldpResponseCallback& responseCallback)
 {
     try
     {
@@ -153,6 +156,8 @@ inline void LldpUtil::run([[maybe_unused]] const std::string& ifName,
                 // This would depend on the specific TLV being set
                 setTlvValue(lldpTlv, "", isReceived, asyncResp,
                             responseCallback);
+                break;
+            default:
                 break;
         }
     }
@@ -170,7 +175,7 @@ inline void LldpUtil::run([[maybe_unused]] const std::string& ifName,
 inline void LldpUtil::getTlvValue(
     LldpTlv lldpTlv, bool isReceived,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    LldpResponseCallback responseCallback)
+    const LldpResponseCallback& responseCallback)
 {
     std::string path = getLldpPath(isReceived);
     std::string interface = "xyz.openbmc_project.Network.LLDP.TLVs";
@@ -275,7 +280,7 @@ inline void LldpUtil::getTlvValue(
 inline void LldpUtil::setTlvValue(
     LldpTlv lldpTlv, const std::string& value, bool isReceived,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    LldpResponseCallback responseCallback)
+    const LldpResponseCallback& responseCallback)
 {
     // Cannot set values for received TLVs
     if (isReceived)

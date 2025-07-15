@@ -33,7 +33,7 @@ inline std::string padZeros(int64_t value, size_t pad)
     std::string result(pad, '0');
     for (int64_t val = value; pad > 0; pad--)
     {
-        result[pad - 1] = static_cast<char>('0' + val % 10);
+        result[pad - 1] = static_cast<char>('0' + (val % 10));
         val /= 10;
     }
     return result;

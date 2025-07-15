@@ -22,9 +22,11 @@
 
 #include <utils/chassis_utils.hpp>
 #include <utils/collection.hpp>
+#include <utils/conditions_utils.hpp>
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_network_adapters_utils.hpp>
 #include <utils/nvidia_utils.hpp>
+#include <utils/pcie_util.hpp>
 #include <utils/port_utils.hpp>
 
 #include <map>
@@ -172,7 +174,7 @@ inline void doNetworkAdaptersCollectionGeneric(
 
     const std::string networkInterface =
         "xyz.openbmc_project.Inventory.Item.NetworkInterface";
-    std::string path = *validChassisPath;
+    const std::string& path = *validChassisPath;
 
     if (std::find(chassisIntfList.begin(), chassisIntfList.end(),
                   networkInterface) != chassisIntfList.end())
@@ -308,7 +310,7 @@ inline void getHealthData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     // Get interface properties
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const PropertiesMap& properties) {
             if (ec)
             {
@@ -383,7 +385,7 @@ inline void getHealthByAssociation(
 
                     for (const std::string& sensorPath : *data)
                     {
-                        if (!boost::ends_with(sensorPath, networkAdapterId))
+                        if (!sensorPath.ends_with(networkAdapterId))
                         {
                             continue;
                         }
@@ -510,7 +512,7 @@ inline void getAssetData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 inline void getPCIeInterfaceData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& deviceId, const std::string& path,
-    std::shared_ptr<nlohmann::json> controllerObject)
+    const std::shared_ptr<nlohmann::json>& controllerObject)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, deviceId, path, controllerObject](
@@ -633,7 +635,7 @@ inline void getPCIeData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& devicePath,
                         const std::string& chassisId,
                         const std::string& networkAdapterId,
-                        std::shared_ptr<nlohmann::json> controllerObject)
+                        const std::shared_ptr<nlohmann::json>& controllerObject)
 {
     BMCWEB_LOG_DEBUG("Get PCIe interface data and PCIe device on {}",
                      networkAdapterId);
@@ -798,12 +800,15 @@ inline void doNetworkAdapterGeneric(
 
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
 
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-    asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-#ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
-    asyncResp->res.jsonValue["Status"]["Conditions"] = nlohmann::json::array();
-#endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
+    if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
+    {
+        asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
+    } // BMCWEB_DISABLE_HEALTH_ROLLUP
+    if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+    {
+        asyncResp->res.jsonValue["Status"]["Conditions"] =
+            nlohmann::json::array();
+    } // BMCWEB_DISABLE_CONDITIONS_ARRAY
 
     getControllersData(asyncResp, *validNetworkAdapterPath, chassisId,
                        networkAdapterId);
@@ -834,7 +839,7 @@ inline void doPortCollection(
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters/{}/Ports",
                             chassisId, networkAdapterId);
-    std::string path = *validNetworkAdapterPath;
+    const std::string& path = *validNetworkAdapterPath;
 
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Chassis/" + chassisId + "/NetworkAdapters/" +
@@ -1106,26 +1111,31 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
 
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-    asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-       // update health rollup
-#ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
-    std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
-        objPath, [asyncResp](const std::string& rootHealth,
-                             const std::string& healthRollup) {
-            asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-            asyncResp->res.jsonValue["Status"]["HealthRollup"] = healthRollup;
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-        });
-    health->start();
+    if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
+    {
+        asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
+    } // BMCWEB_DISABLE_HEALTH_ROLLUP
+      // update health rollup
+    if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
+    {
+        std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
+            objPath, [asyncResp](const std::string& rootHealth,
+                                 const std::string& healthRollup) {
+                asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
+                if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
+                {
+                    asyncResp->res.jsonValue["Status"]["HealthRollup"] =
+                        healthRollup;
+                } // BMCWEB_DISABLE_HEALTH_ROLLUP
+            });
+        health->start();
 
-#endif // ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
-#ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
-    redfish::conditions_utils::populateServiceConditions(asyncResp,
-                                                         networkAdapterId);
-#endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
+    } // ifdef BMCWEB_HEALTH_ROLLUP_ALTERNATIVE
+    if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+    {
+        redfish::conditions_utils::populateServiceConditions(asyncResp,
+                                                             networkAdapterId);
+    } // BMCWEB_DISABLE_CONDITIONS_ARRAY
 }
 
 inline void getSwitchPorts(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

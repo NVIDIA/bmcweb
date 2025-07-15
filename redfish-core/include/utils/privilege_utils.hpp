@@ -15,11 +15,20 @@
  * limitations under the License.
  */
 #pragma once
+#include "dbus_singleton.hpp"
+#include "dbus_utility.hpp"
+#include "logging.hpp"
 
 #include <async_resp.hpp>
+#include <boost/system/error_code.hpp>
 #include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <utils/dbus_utils.hpp>
+
+#include <map>
+#include <string>
+#include <vector>
+
 namespace redfish
 {
 
@@ -40,7 +49,7 @@ inline void isRedfishHostInterfaceUser(const std::string& username,
 
     auto respHandler =
         [callback{std::forward<Callback>(callback)}](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::map<std::string, dbus::utility::DbusVariantType>&
                 userInfo) mutable {
             BMCWEB_LOG_DEBUG("isRedfishHostInterfaceUser respHandler enter");

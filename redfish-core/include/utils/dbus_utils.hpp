@@ -433,11 +433,11 @@ inline nlohmann::json toChannelPresence(const std::string& state)
 {
     if (state == "com.nvidia.MemorySpareChannel.Presence.Present")
     {
-        return true;
+        return 1;
     }
     if (state == "com.nvidia.MemorySpareChannel.Presence.NotPresent")
     {
-        return false;
+        return 0;
     }
     return nullptr;
 }

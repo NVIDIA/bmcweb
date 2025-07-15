@@ -18,6 +18,16 @@
 
 #include "bmcweb_config.h"
 
+#include "query.hpp"
+#include "utils/collection.hpp"
+
+#include <app.hpp>
+#include <async_resp.hpp>
+#include <boost/url/url.hpp>
+#include <http_request.hpp>
+#include <http_response.hpp>
+#include <redfish_util.hpp>
+#include <sdbusplus/message.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
 namespace redfish

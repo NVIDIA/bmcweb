@@ -63,7 +63,7 @@ class DebugTokenEndpoint
     }
     virtual void setRequest(const std::vector<uint8_t>&) = 0;
 
-    virtual void getStatusAsJson(nlohmann::json&) const = 0;
+    virtual void getStatusAsJson(nlohmann::json& jsonObj) const = 0;
 
     virtual EndpointType getType() const = 0;
 
@@ -133,11 +133,11 @@ class DebugTokenNsmEndpoint : public DebugTokenEndpoint
         }
     }
 
-    void getStatusAsJson(nlohmann::json& json) const override
+    void getStatusAsJson(nlohmann::json& jsonObj) const override
     {
         if (status)
         {
-            nsmTokenStatusToJson(*status, json);
+            nsmTokenStatusToJson(*status, jsonObj);
         }
     }
 
@@ -157,7 +157,7 @@ class DebugTokenNsmEndpoint : public DebugTokenEndpoint
         state = EndpointState::StatusAcquired;
     }
 
-    void setStatus(NsmTokenStatus s)
+    void setStatus(const NsmTokenStatus& s)
     {
         setStatus(std::make_unique<NsmTokenStatus>(s));
     }
@@ -206,11 +206,11 @@ class DebugTokenSpdmEndpoint : public DebugTokenEndpoint
         request = addTokenRequestHeader(r);
     }
 
-    void getStatusAsJson(nlohmann::json& json) const override
+    void getStatusAsJson(nlohmann::json& jsonObj) const override
     {
         if (status)
         {
-            vdmTokenStatusToJson(*status, json);
+            vdmTokenStatusToJson(*status, jsonObj);
         }
     }
 

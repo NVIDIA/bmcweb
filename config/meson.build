@@ -26,6 +26,26 @@ conf_data.set_quoted(
     'NETWORK_ADAPTER_LINK_PREFIX',
     get_option('nvidia-network-adapter-link-prefix'),
 )
+conf_data.set_quoted(
+    'PLATFORM_SYSTEM_DESCRIPTION',
+    get_option('platform-system-description'),
+)
+conf_data.set_quoted(
+    'PLATFORM_METRICS_ID',
+    get_option('platform-metrics-id'),
+)
+conf_data.set_quoted(
+    'PLATFORM_NETWORK_ADAPTER',
+    get_option('platform-network-adapter'),
+)
+conf_data.set_quoted(
+    'HOST_IFACE_CHANNEL',
+    get_option('host-iface-channel'),
+)
+conf_data.set_quoted(
+    'FW_UUID_MAPPING_JSON',
+    join_paths(package_datadir, 'fw_uuid_mapping.json'),
+)
 feature_options = [
     'basic-auth',
     'bios',

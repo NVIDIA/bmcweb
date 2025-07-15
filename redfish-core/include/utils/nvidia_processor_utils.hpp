@@ -1,7 +1,23 @@
 #pragma once
 
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
+#include "utils/dbus_utils.hpp"
+#include "utils/json_utils.hpp"
+#include "utils/nvidia_async_call_utils.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"
+#include "utils/processor_utils.hpp"
 
+#include <boost/container/flat_map.hpp>
+#include <boost/system/error_code.hpp>
+#include <sdbusplus/unpack_properties.hpp>
+
+#include <map>
+#include <memory>
+#include <optional>
+#include <string>
+#include <variant>
+#include <vector>
 namespace redfish
 {
 namespace nvidia_processor_utils
@@ -36,19 +52,18 @@ inline void parseReconfigSettingsJson(
     {
         if (allowOneShotConfig)
         {
-            permissions.emplace_back(std::make_tuple(
-                featureName, "AllowOneShotConfig", *allowOneShotConfig));
+            permissions.emplace_back(featureName, "AllowOneShotConfig",
+                                     *allowOneShotConfig);
         }
         if (allowPersistentConfig)
         {
-            permissions.emplace_back(std::make_tuple(
-                featureName, "AllowPersistentConfig", *allowPersistentConfig));
+            permissions.emplace_back(featureName, "AllowPersistentConfig",
+                                     *allowPersistentConfig);
         }
         if (allowFLRPersistentConfig)
         {
-            permissions.emplace_back(
-                std::make_tuple(featureName, "AllowFLRPersistentConfig",
-                                *allowFLRPersistentConfig));
+            permissions.emplace_back(featureName, "AllowFLRPersistentConfig",
+                                     *allowFLRPersistentConfig);
         }
     }
 }
@@ -146,21 +161,22 @@ inline void patchInbandReconfigPermissions(
     const std::string& processorId, nlohmann::json& json)
 {
     auto patchRequests = parseReconfigPermissionsJson(asyncResp, json);
-    processor_utils::getProcessorObject(
+    redfish::processor_utils::getProcessorObject(
         asyncResp, processorId,
         [patchRequests](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         [[maybe_unused]] const std::string& procId,
                         const std::string& objectPath,
-                        const MapperServiceMap& serviceMap,
+                        const dbus::utility::MapperServiceMap& serviceMap,
                         [[maybe_unused]] const std::string& deviceType) {
             for (const auto& [service, _] : serviceMap)
             {
                 for (const auto& [featureName, property, value] : patchRequests)
                 {
+                    std::string path = objectPath;
+                    path += "/InbandReconfigPermissions/";
+                    path += featureName;
                     nvidia_async_operation_utils::patch(
-                        aResp, service,
-                        objectPath + "/InbandReconfigPermissions/" +
-                            featureName,
+                        aResp, service, path,
                         "com.nvidia.InbandReconfigSettings", property, value);
                 }
             }
@@ -180,20 +196,22 @@ inline void patchDOEReconfigPermissions(
     const std::string& processorId, nlohmann::json& json)
 {
     auto patchRequests = parseReconfigPermissionsJson(asyncResp, json);
-    processor_utils::getProcessorObject(
+    redfish::processor_utils::getProcessorObject(
         asyncResp, processorId,
         [patchRequests](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         [[maybe_unused]] const std::string& procId,
                         const std::string& objectPath,
-                        const MapperServiceMap& serviceMap,
+                        const dbus::utility::MapperServiceMap& serviceMap,
                         [[maybe_unused]] const std::string& deviceType) {
             for (const auto& [service, _] : serviceMap)
             {
                 for (const auto& [featureName, property, value] : patchRequests)
                 {
+                    std::string path = objectPath;
+                    path += "/DOEReconfigPermissions/";
+                    path += featureName;
                     nvidia_async_operation_utils::patch(
-                        aResp, service,
-                        objectPath + "/DOEReconfigPermissions/" + featureName,
+                        aResp, service, path,
                         "com.nvidia.InbandReconfigSettings", property, value);
                 }
             }
@@ -213,7 +231,7 @@ inline void patchDOEReconfigPermissions(
 inline void patchCCMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                         const std::string& processorId, const bool ccMode,
                         const std::string& cpuObjectPath,
-                        const MapperServiceMap& serviceMap)
+                        const dbus::utility::MapperServiceMap& serviceMap)
 {
     // Check that the property even exists by checking for the interface
     const std::string* inventoryService = nullptr;
@@ -228,7 +246,7 @@ inline void patchCCMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
     }
     if (inventoryService == nullptr)
     {
-        BMCWEB_LOG_ERROR(" CCDevMode interface not found ");
+        BMCWEB_LOG_ERROR(" CCMode interface not found ");
         messages::internalError(resp->res);
         return;
     }
@@ -320,7 +338,7 @@ inline void patchCCMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 inline void patchCCDevMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                            const std::string& processorId, const bool ccDevMode,
                            const std::string& cpuObjectPath,
-                           const MapperServiceMap& serviceMap)
+                           const dbus::utility::MapperServiceMap& serviceMap)
 {
     // Check that the property even exists by checking for the interface
     const std::string* inventoryService = nullptr;
@@ -473,7 +491,6 @@ static void egmAsyncRespHandler(const std::shared_ptr<bmcweb::AsyncResp>& resp,
         BMCWEB_LOG_ERROR("UnknownError While Doing Patch on EGMMode");
         messages::internalError(resp->res);
     }
-    return;
 }
 
 static void egmGetDbusObjectHandler(
@@ -513,8 +530,6 @@ static void egmGetDbusObjectHandler(
         },
         service, cpuObjectPath, "org.freedesktop.DBus.Properties", "Set",
         "com.nvidia.EgmMode", "EGMModeEnabled", std::variant<bool>(egmMode));
-
-    return;
 }
 
 /**
@@ -530,7 +545,7 @@ static void egmGetDbusObjectHandler(
 inline void patchEgmMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                          const std::string& processorId, const bool egmMode,
                          const std::string& cpuObjectPath,
-                         const MapperServiceMap& serviceMap)
+                         const dbus::utility::MapperServiceMap& serviceMap)
 {
     // Check that the property even exists by checking for the interface
     const std::string* inventoryService = nullptr;
@@ -565,8 +580,6 @@ inline void patchEgmMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
             egmGetDbusObjectHandler(resp, egmMode, processorId, cpuObjectPath,
                                     service, ec, obj);
         });
-
-    return;
 }
 
 /*
@@ -574,15 +587,15 @@ inline void patchEgmMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-inline void getSysGUID(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
+inline void getSysGUID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get System-GUID");
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, service, objPath,
         "com.nvidia.SysGUID.SysGUID", "SysGUID",
-        [objPath, asyncResp{std::move(asyncResp)}](
-            const boost::system::error_code& ec, const std::string& property) {
+        [objPath, asyncResp](const boost::system::error_code& ec,
+                             const std::string& property) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -612,7 +625,7 @@ inline void getCCModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                           const std::string& objPath)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp, cpuId](const boost::system::error_code ec,
+        [aResp, cpuId](const boost::system::error_code& ec,
                        const OperatingConfigProperties& properties) {
             if (ec)
             {
@@ -668,7 +681,7 @@ inline void getReconfigPermissionsData(
     const std::string& service, const std::string& objPath)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp, cpuId, objPath](const boost::system::error_code ec,
+        [aResp, cpuId, objPath](const boost::system::error_code& ec,
                                 const OperatingConfigProperties& properties) {
             if (ec)
             {
@@ -680,7 +693,7 @@ inline void getReconfigPermissionsData(
                 sdbusplus::message::object_path(objPath).filename();
             aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                 "#NvidiaProcessor.v1_6_0.NvidiaGPU";
-            std::string reconfigPermissionsType = "";
+            std::string reconfigPermissionsType;
             if (objPath.find("InbandReconfigPermissions") != std::string::npos)
             {
                 reconfigPermissionsType = "InbandReconfigPermissions";
@@ -758,6 +771,10 @@ inline void getReconfigPermissionsData(
             }
             for (const auto& [objectPath, serviceMap] : subtree)
             {
+                if (!objectPath.ends_with(cpuId))
+                {
+                    continue;
+                }
                 for (const auto& [serviceName, interfaceList] : serviceMap)
                 {
                     getReconfigPermissionsData(aResp, cpuId, serviceName,
@@ -780,15 +797,16 @@ inline void getReconfigPermissionsData(
 inline void populateErrorInjectionData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId)
 {
-    processor_utils::getProcessorObject(
+    redfish::processor_utils::getProcessorObject(
         aResp, cpuId,
         [](const std::shared_ptr<bmcweb::AsyncResp>& aResp2,
            const std::string& procId, const std::string& path,
-           [[maybe_unused]] const MapperServiceMap& serviceMap,
+           [[maybe_unused]] const dbus::utility::MapperServiceMap& serviceMap,
            [[maybe_unused]] const std::string& deviceType) {
             crow::connections::systemBus->async_method_call(
-                [aResp2, procId, path](const boost::system::error_code ec,
-                                       const MapperServiceMap& serviceMap2) {
+                [aResp2, procId,
+                 path](const boost::system::error_code& ec,
+                       const dbus::utility::MapperServiceMap& serviceMap2) {
                     if (ec)
                     {
                         return;
@@ -838,7 +856,7 @@ inline void getCCModePendingData(
 
 {
     crow::connections::systemBus->async_method_call(
-        [aResp, cpuId](const boost::system::error_code ec,
+        [aResp, cpuId](const boost::system::error_code& ec,
                        const OperatingConfigProperties& properties) {
             if (ec)
             {
@@ -892,14 +910,14 @@ inline void getCCModePendingData(
  * @param[in]       service     D-Bus service to query.
  * @param[in]       objPath     D-Bus object to query.
  */
-inline void getSMUtilizationData(std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                 const std::string& service,
-                                 const std::string& objPath)
+inline void getSMUtilizationData(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
+    const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get processor metrics SMUtilizationPercent data.");
     crow::connections::systemBus->async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code ec,
-                                  const OperatingConfigProperties& properties) {
+        [aResp](const boost::system::error_code& ec,
+                const OperatingConfigProperties& properties) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -935,7 +953,7 @@ inline void getNvLinkTotalCount(
     const std::string& service, const std::string& objPath)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp, cpuId](const boost::system::error_code ec,
+        [aResp, cpuId](const boost::system::error_code& ec,
                        const OperatingConfigProperties& properties) {
             if (ec)
             {
@@ -1058,7 +1076,7 @@ inline void getClearablePcieCounters(
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<
                 std::pair<std::string, std::variant<std::vector<std::string>>>>&
                 propertiesList) {
@@ -1083,7 +1101,7 @@ inline void getClearablePcieCounters(
 
                     if (data)
                     {
-                        for (auto counter : *data)
+                        for (const auto& counter : *data)
                         {
                             clearableDataSource.push_back(
                                 counter.substr(counter.find_last_of('.') + 1));
@@ -1113,7 +1131,7 @@ inline void getClearPCIeCountersActionInfo(
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
         [processorId, portId, asyncResp](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
@@ -1127,7 +1145,7 @@ inline void getClearPCIeCountersActionInfo(
             }
             for (const auto& [path, object] : subtree)
             {
-                if (!boost::ends_with(path, processorId))
+                if (!path.ends_with(processorId))
                 {
                     continue;
                 }
@@ -1206,7 +1224,7 @@ inline void getClearPCIeCountersActionInfo(
                                     for (const auto& [service, interfaces] :
                                          interfaceObj)
                                     {
-                                        for (auto interface : interfaces)
+                                        for (const auto& interface : interfaces)
                                         {
                                             if (interface ==
                                                 "xyz.openbmc_project.PCIe.ClearPCIeCounters")
@@ -1267,7 +1285,7 @@ inline void getPortLinkStatusSetting(
     using PropertiesMap = boost::container::flat_map<std::string, PropertyType>;
 
     crow::connections::systemBus->async_method_call(
-        [aResp, portsToDisable](const boost::system::error_code ec,
+        [aResp, portsToDisable](const boost::system::error_code& ec,
                                 const PropertiesMap& properties) {
             if (ec)
             {
@@ -1348,7 +1366,7 @@ inline void getPortDisableFutureStatus(
 
     crow::connections::systemBus->async_method_call(
         [aResp, processorId, portId,
-         objectPath](const boost::system::error_code ec,
+         objectPath](const boost::system::error_code& ec,
                      const PropertiesMap& properties) {
             if (ec)
             {
@@ -1362,7 +1380,7 @@ inline void getPortDisableFutureStatus(
                 const std::string& propertyName = property.first;
                 if (propertyName == "PortDisableFuture")
                 {
-                    auto* value =
+                    const auto* value =
                         std::get_if<std::vector<uint8_t>>(&property.second);
                     if (value == nullptr)
                     {
@@ -1449,7 +1467,7 @@ inline void getPortNumberAndCallSetAsync(
 
     crow::connections::systemBus->async_method_call(
         [aResp, processorId, portId, propertyValue, propertyName, processorPath,
-         processorService, portsToDisable](const boost::system::error_code ec,
+         processorService, portsToDisable](const boost::system::error_code& ec,
                                            const PropertiesMap& properties) {
             if (ec)
             {
@@ -1500,14 +1518,18 @@ inline void getPortNumberAndCallSetAsync(
                                     if (propertyValue == "Disabled")
                                     {
                                         if (it == portListToDisable.end())
+                                        {
                                             portListToDisable.push_back(
                                                 static_cast<uint8_t>(
                                                     portNumber));
+                                        }
                                     }
                                     else if (propertyValue == "Enabled")
                                     {
                                         if (it != portListToDisable.end())
+                                        {
                                             portListToDisable.erase(it);
+                                        }
                                     }
                                     else
                                     {
@@ -1577,7 +1599,7 @@ inline void patchPortDisableFuture(
 
     crow::connections::systemBus->async_method_call(
         [aResp, processorId, portId, propertyValue, propertyName, objectPath,
-         service = *inventoryService](const boost::system::error_code ec,
+         service = *inventoryService](const boost::system::error_code& ec,
                                       const PropertiesMap& properties) {
             if (ec)
             {
@@ -1592,7 +1614,7 @@ inline void patchPortDisableFuture(
                 const std::string& propName = property.first;
                 if (propName == "PortDisableFuture")
                 {
-                    auto* value =
+                    const auto* value =
                         std::get_if<std::vector<uint8_t>>(&property.second);
                     if (value == nullptr)
                     {
@@ -1677,222 +1699,187 @@ inline std::string getLinkDownReasonCode(const std::string& linkDownReasonCode)
     {
         return "NoLinkDown";
     }
-    else if (linkDownReasonCode ==
-             "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.Unknown")
+    if (linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.Unknown")
     {
         return "Unknown";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.HighBitErrorRate")
     {
         return "HighBitErrorRate";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.BlockLockLost")
     {
         return "BlockLockLost";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.AlignmentLost")
     {
         return "AlignmentLost";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.FECSyncLost")
     {
         return "FECSyncLost";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PllLockLost")
     {
         return "PllLockLost";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.FIFOOverflow")
     {
         return "FIFOOverflow";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.FalseSkipDetected")
     {
         return "FalseSkipDetected";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.MinorErrorThresholdExceeded")
     {
         return "MinorErrorThresholdExceeded";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PhyRetransmitTimeout")
     {
         return "PhyRetransmitTimeout";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.HeartbeatErrors")
     {
         return "HeartbeatErrors";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.CreditMonitorWatchdogTimeout")
     {
         return "CreditMonitorWatchdogTimeout";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.LinkLayerIntegrityThresholdExceeded")
     {
         return "LinkLayerIntegrityThresholdExceeded";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.LinkLayerBufferOverrun")
     {
         return "LinkLayerBufferOverrun";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.OOBCommandLinkHealthy")
     {
         return "OOBCommandLinkHealthy";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.OOBCommandLinkHighBER")
     {
         return "OOBCommandLinkHighBER";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.InbandCommandLinkHealthy")
     {
         return "InbandCommandLinkHealthy";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.InbandCommandLinkHighBER")
     {
         return "InbandCommandLinkHighBER";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.VerificationGatewayDown")
     {
         return "VerificationGatewayDown";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.RemoteFaultReceived")
     {
         return "RemoteFaultReceived";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.TrainingSequenceReceived")
     {
         return "TrainingSequenceReceived";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.ManagementCommandDown")
     {
         return "ManagementCommandDown";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.CableDisconnected")
     {
         return "CableDisconnected";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.CableAccessFault")
     {
         return "CableAccessFault";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.ThermalShutdown")
     {
         return "ThermalShutdown";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.CurrentIssue")
     {
         return "CurrentIssue";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PowerBudgetExceeded")
     {
         return "PowerBudgetExceeded";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.FastRawBERRecovery")
     {
         return "FastRawBERRecovery";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.FastEffectiveBERRecovery")
     {
         return "FastEffectiveBERRecovery";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.FastSymbolBERRecovery")
     {
         return "FastSymbolBERRecovery";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.FastCreditWatchdogRecovery")
     {
         return "FastCreditWatchdogRecovery";
     }
-    else if (linkDownReasonCode ==
-             "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PeerSleep")
+    if (linkDownReasonCode ==
+        "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PeerSleep")
     {
         return "PeerSleep";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PeerDisabled")
     {
         return "PeerDisabled";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PeerDisableLocked")
     {
         return "PeerDisableLocked";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PeerThermalEvent")
     {
         return "PeerThermalEvent";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PeerForcedEvent")
     {
         return "PeerForcedEvent";
     }
-    else if (
-        linkDownReasonCode ==
+    if (linkDownReasonCode ==
         "xyz.openbmc_project.Metrics.IBPort.LinkDownReasonCodes.PeerResetEvent")
     {
         return "PeerResetEvent";
@@ -1920,7 +1907,7 @@ inline void getMNNVLinkTopologyInfo(
 {
     sdbusplus::asio::getAllProperties(
         *crow::connections::systemBus, service, objPath, interface,
-        [aResp, cpuId](const boost::system::error_code ec,
+        [aResp, cpuId](const boost::system::error_code& ec,
                        const dbus::utility::DBusPropertiesMap& resp) {
             if (ec)
             {
@@ -2068,7 +2055,7 @@ inline void postPCIeClearCounter(
     BMCWEB_LOG_DEBUG("Get available system processor resource");
     crow::connections::systemBus->async_method_call(
         [processorId, portId, asyncResp, counterType](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, boost::container::flat_map<
                                  std::string, std::vector<std::string>>>&
@@ -2082,7 +2069,7 @@ inline void postPCIeClearCounter(
             }
             for (const auto& [path, object] : subtree)
             {
-                if (!boost::ends_with(path, processorId))
+                if (!path.ends_with(processorId))
                 {
                     continue;
                 }
@@ -2139,7 +2126,7 @@ inline void postPCIeClearCounter(
                                         return;
                                     }
 
-                                    for (auto [connection, interfaces] :
+                                    for (const auto& [connection, interfaces] :
                                          interfaceObj)
                                     {
                                         clearPCIeCounter(asyncResp, connection,
@@ -2192,7 +2179,7 @@ inline void setOperatingSpeedRange(
                 return;
             }
 
-            for (auto& [service, interfaces] : objInfo)
+            for (const auto& [service, interfaces] : objInfo)
             {
                 if (std::find(
                         interfaces.begin(), interfaces.end(),
@@ -2207,10 +2194,10 @@ inline void setOperatingSpeedRange(
                     const std::tuple<uint32_t, uint32_t>* requestedLimit =
                         std::get_if<std::tuple<uint32_t, uint32_t>>(&value);
                     std::vector<std::tuple<std::string, uint32_t>> clockLimits;
-                    clockLimits.push_back(std::make_tuple(
-                        "SettingMin", std::get<0>(*requestedLimit)));
-                    clockLimits.push_back(std::make_tuple(
-                        "SettingMax", std::get<1>(*requestedLimit)));
+                    clockLimits.emplace_back("SettingMin",
+                                             std::get<0>(*requestedLimit));
+                    clockLimits.emplace_back("SettingMax",
+                                             std::get<1>(*requestedLimit));
                     nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
                         asyncResp, std::chrono::seconds(60), service, path,
                         "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig",
@@ -2226,8 +2213,7 @@ inline void setOperatingSpeedRange(
                 {
                     const uint32_t* settingMin = std::get_if<uint32_t>(&value);
                     std::vector<std::tuple<std::string, uint32_t>> clockLimits;
-                    clockLimits.push_back(
-                        std::make_tuple("SettingMin", *settingMin));
+                    clockLimits.emplace_back("SettingMin", *settingMin);
                     nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
                         asyncResp, std::chrono::seconds(60), service, path,
                         "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig",
@@ -2243,8 +2229,7 @@ inline void setOperatingSpeedRange(
                 {
                     const uint32_t* settingMax = std::get_if<uint32_t>(&value);
                     std::vector<std::tuple<std::string, uint32_t>> clockLimits;
-                    clockLimits.push_back(
-                        std::make_tuple("SettingMax", *settingMax));
+                    clockLimits.emplace_back("SettingMax", *settingMax);
                     nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
                         asyncResp, std::chrono::seconds(60), service, path,
                         "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig",
@@ -2289,11 +2274,11 @@ inline void patchOperatingSpeedRangeMHz(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& processorId,
     const std::variant<uint32_t, std::tuple<uint32_t, uint32_t>>& value,
-    const std::string& patchProp, const std::string processorObjPath)
+    const std::string& patchProp, const std::string& processorObjPath)
 {
     crow::connections::systemBus->async_method_call(
         [asyncResp, value, patchProp, processorId,
-         processorObjPath](const boost::system::error_code ec,
+         processorObjPath](const boost::system::error_code& ec,
                            std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -2306,7 +2291,7 @@ inline void patchOperatingSpeedRangeMHz(
 
             if (data)
             {
-                for (auto chassisPath : *data)
+                for (const auto& chassisPath : *data)
                 {
                     crow::connections::systemBus->async_method_call(
                         [asyncResp, value, patchProp, processorId, chassisPath](
@@ -2321,7 +2306,7 @@ inline void patchOperatingSpeedRangeMHz(
                             std::vector<std::string>* data1 =
                                 std::get_if<std::vector<std::string>>(&resp2);
 
-                            for (auto clockLimitPath : *data1)
+                            for (const auto& clockLimitPath : *data1)
                             {
                                 setOperatingSpeedRange(asyncResp, value,
                                                        patchProp,
@@ -2417,7 +2402,7 @@ inline void getOperatingSpeedRangeData(
                                                       [propertyName] = *value;
                                         continue;
                                     }
-                                    else if (propertyName == "MinSpeed")
+                                    if (propertyName == "MinSpeed")
                                     {
                                         propertyName = "AllowableMin";
                                         const uint32_t* value =
@@ -2436,8 +2421,7 @@ inline void getOperatingSpeedRangeData(
                                                       [propertyName] = *value;
                                         continue;
                                     }
-                                    else if (propertyName ==
-                                             "RequestedSpeedLimits")
+                                    if (propertyName == "RequestedSpeedLimits")
                                     {
                                         const std::tuple<uint32_t, uint32_t>*
                                             value = std::get_if<
@@ -2487,7 +2471,7 @@ inline void getOperatingSpeedRange(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp, objPath](const boost::system::error_code ec,
+        [aResp, objPath](const boost::system::error_code& ec,
                          std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -2496,7 +2480,7 @@ inline void getOperatingSpeedRange(
             std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
 
-            for (auto chassisPath : *data)
+            for (const auto& chassisPath : *data)
             {
                 crow::connections::systemBus->async_method_call(
                     [aResp, chassisPath](
@@ -2509,7 +2493,7 @@ inline void getOperatingSpeedRange(
                         std::vector<std::string>* chassisData =
                             std::get_if<std::vector<std::string>>(&chassisResp);
 
-                        for (auto clockControlPath : *chassisData)
+                        for (const auto& clockControlPath : *chassisData)
                         {
                             aResp->res.jsonValue["OperatingSpeedRangeMHz"]
                                                 ["DataSourceUri"] =
@@ -2538,7 +2522,7 @@ inline void getOperatingSpeedRange(
 // Function to handle the getEgmModePendingData async method call response
 static void getEgmModePendingDataHandler(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const boost::system::error_code ec,
+    const boost::system::error_code& ec,
     const OperatingConfigProperties& properties)
 {
     if (ec)
@@ -2564,8 +2548,6 @@ static void getEgmModePendingDataHandler(
             json["Oem"]["Nvidia"]["EGMModeEnabled"] = *pendingEgmState;
         }
     }
-
-    return;
 }
 
 /**
@@ -2585,20 +2567,18 @@ inline void getEgmModePendingData(
     BMCWEB_LOG_DEBUG("Get pending egmMode path:{}, id:{}", objPath, cpuId);
 
     crow::connections::systemBus->async_method_call(
-        [aResp, cpuId](const boost::system::error_code ec,
+        [aResp, cpuId](const boost::system::error_code& ec,
                        const OperatingConfigProperties& properties) {
             getEgmModePendingDataHandler(aResp, ec, properties);
         },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
         "com.nvidia.EgmMode");
-
-    return;
 }
 
 // Function to handle the getEgmModeData async method call response
 inline void getEgmModeDataHandler(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const boost::system::error_code ec,
+    const boost::system::error_code& ec,
     const OperatingConfigProperties& properties)
 {
     if (ec)
@@ -2623,8 +2603,6 @@ inline void getEgmModeDataHandler(
             json["Oem"]["Nvidia"]["EGMModeEnabled"] = *egmModeEnabled;
         }
     }
-
-    return;
 }
 
 /**
@@ -2644,14 +2622,12 @@ inline void getEgmModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     BMCWEB_LOG_DEBUG("Get egmMode path:{}, id:{}", objPath, cpuId);
 
     crow::connections::systemBus->async_method_call(
-        [aResp, cpuId](const boost::system::error_code ec,
+        [aResp, cpuId](const boost::system::error_code& ec,
                        const OperatingConfigProperties& properties) {
             getEgmModeDataHandler(aResp, ec, properties);
         },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
         "com.nvidia.EgmMode");
-
-    return;
 }
 
 } // namespace nvidia_processor_utils

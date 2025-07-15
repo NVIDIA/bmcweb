@@ -1302,7 +1302,7 @@ inline void handleGenericManager(
                     std::pair<std::string, std::vector<std::string>>>&
                     connectionNames = object.second;
 
-                if (!boost::ends_with(path, managerId))
+                if (!path.ends_with(managerId))
                 {
                     continue;
                 }
@@ -1550,8 +1550,7 @@ inline void extendManagerGet(
                          object : subtree)
                 {
                     const std::string& path = object.first;
-                    if (!boost::ends_with(path,
-                                          BMCWEB_REDFISH_MANAGER_URI_NAME))
+                    if (!path.ends_with(BMCWEB_REDFISH_MANAGER_URI_NAME))
                     {
                         continue;
                     }

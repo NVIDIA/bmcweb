@@ -7,6 +7,7 @@
 #include "async_resp.hpp"
 #include "error_messages.hpp"
 #include "http_request.hpp"
+#include "nvidia_log_services.hpp"
 #include "query.hpp"
 #include "redfish-core/lib/bios.hpp"
 #include "registries.hpp"
@@ -48,6 +49,7 @@ inline void handleMessageRegistryFileCollectionGet(
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
     std::vector<std::string> prefixes =
         message_registries::getRegistryPrefixes();
+    // registries::getRegistryPrefixes();
     for (std::string memberName : prefixes)
     {
         nlohmann::json::object_t member;

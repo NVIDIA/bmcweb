@@ -19,6 +19,10 @@
 #include "bmcweb_config.h"
 
 #include "nvidia_oem_power_profile.hpp"
+#include "redfish_util.hpp"
+#include "registries/privilege_registry.hpp"
+#include "utils/json_utils.hpp"
+#include "utils/time_utils.hpp"
 
 namespace redfish
 {

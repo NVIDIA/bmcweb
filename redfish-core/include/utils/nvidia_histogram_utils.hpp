@@ -16,6 +16,9 @@
  */
 #pragma once
 
+#include "openbmc_dbus_rest.hpp"
+#include "utils/nvidia_chassis_util.hpp"
+
 #include <cstdint>
 namespace redfish
 {
@@ -126,7 +129,6 @@ inline void getHistogramLink(
         "xyz.openbmc_project.ObjectMapper", objectPath + "/histograms",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
-    return;
 }
 
 inline void updateHistogramData(

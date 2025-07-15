@@ -19,17 +19,25 @@
 #include <endian.h>
 
 #include <boost/interprocess/streams/bufferstream.hpp>
+#include <logging.hpp>
+#include <nlohmann/json.hpp>
 
+#include <array>
+#include <cstring>
+#include <iomanip>
 #include <iterator>
 #include <map>
 #include <optional>
 #include <sstream>
+#include <string>
 #include <vector>
 
 namespace redfish::debug_token
 {
 
-static std::string setOrAppend(std::string str, std::string in)
+using json = nlohmann::json;
+
+static std::string setOrAppend(const std::string& str, const std::string& in)
 {
     if (str.empty())
     {
@@ -184,9 +192,9 @@ static VdmTokenInstallationStatus getTokenInstallationStatus(uint8_t arg)
  * @param json JSON object to store the token installation status
  */
 static void tokenInstallationStatusToJson(const VdmTokenInstallationStatus& arg,
-                                          nlohmann::json& json)
+                                          nlohmann::json& jsonObj)
 {
-    json["TokenInstalled"] = arg == VdmTokenInstallationStatus::INSTALLED;
+    jsonObj["TokenInstalled"] = arg == VdmTokenInstallationStatus::INSTALLED;
 }
 
 /**
@@ -220,19 +228,19 @@ static VdmTokenFuseType getTokenFuseType(uint8_t arg)
  * @param json JSON object to store the token fuse type
  */
 static void tokenFuseTypeToJson(const VdmTokenFuseType& type,
-                                nlohmann::json& json)
+                                nlohmann::json& jsonObj)
 {
     if (type == VdmTokenFuseType::DEBUG)
     {
-        json["FirmwareFuseType"] = "Debug";
+        jsonObj["FirmwareFuseType"] = "Debug";
     }
     else if (type == VdmTokenFuseType::PRODUCTION)
     {
-        json["FirmwareFuseType"] = "Production";
+        jsonObj["FirmwareFuseType"] = "Production";
     }
     else
     {
-        json["FirmwareFuseType"] = "Invalid";
+        jsonObj["FirmwareFuseType"] = "Invalid";
     }
 }
 
@@ -282,24 +290,24 @@ static VdmDeviceType getDeviceType(uint16_t arg)
  * @param arg Device type enum value
  * @param json JSON object to store the device type
  */
-static void erotTokenTypeToJson(const uint32_t& type, nlohmann::json& json)
+static void erotTokenTypeToJson(const uint32_t& type, nlohmann::json& jsonObj)
 {
     if (type == static_cast<uint32_t>(VdmTokenTypeERoT::UNDEFINED))
     {
-        json["TokenType"] = "Undefined";
+        jsonObj["TokenType"] = "Undefined";
     }
     else
     {
         std::string tokenType;
-        if (type & static_cast<uint32_t>(VdmTokenTypeERoT::DEBUG_FW))
+        if ((type & static_cast<uint32_t>(VdmTokenTypeERoT::DEBUG_FW)) != 0U)
         {
             tokenType = setOrAppend(tokenType, "DebugFw");
         }
-        if (type & static_cast<uint32_t>(VdmTokenTypeERoT::EFRC))
+        if ((type & static_cast<uint32_t>(VdmTokenTypeERoT::EFRC)) != 0U)
         {
             tokenType = setOrAppend(tokenType, "Efrc");
         }
-        json["TokenType"] = tokenType;
+        jsonObj["TokenType"] = tokenType;
     }
 }
 
@@ -309,36 +317,38 @@ static void erotTokenTypeToJson(const uint32_t& type, nlohmann::json& json)
  * @param arg GPU IRoT token type enum value
  * @param json JSON object to store the GPU IRoT token type
  */
-static void gpuTokenTypeToJson(const uint32_t& type, nlohmann::json& json)
+static void gpuTokenTypeToJson(const uint32_t& type, nlohmann::json& jsonObj)
 {
     if (type == static_cast<uint32_t>(VdmTokenTypeIRoT::UNDEFINED))
     {
-        json["TokenType"] = "Undefined";
+        jsonObj["TokenType"] = "Undefined";
     }
     else
     {
         std::string tokenType;
-        if (type & static_cast<uint32_t>(VdmTokenTypeIRoT::DEBUG_FW))
+        if ((type & static_cast<uint32_t>(VdmTokenTypeIRoT::DEBUG_FW)) != 0U)
         {
             tokenType = setOrAppend(tokenType, "DebugFw");
         }
-        if (type & static_cast<uint32_t>(VdmTokenTypeIRoT::JTAG_UNLOCK))
+        if ((type & static_cast<uint32_t>(VdmTokenTypeIRoT::JTAG_UNLOCK)) != 0U)
         {
             tokenType = setOrAppend(tokenType, "JtagUnlock");
         }
-        if (type & static_cast<uint32_t>(VdmTokenTypeIRoT::HW_UNLOCK))
+        if ((type & static_cast<uint32_t>(VdmTokenTypeIRoT::HW_UNLOCK)) != 0U)
         {
             tokenType = setOrAppend(tokenType, "HwUnlock");
         }
-        if (type & static_cast<uint32_t>(VdmTokenTypeIRoT::RUNTIME_DEBUG))
+        if ((type & static_cast<uint32_t>(VdmTokenTypeIRoT::RUNTIME_DEBUG)) !=
+            0U)
         {
             tokenType = setOrAppend(tokenType, "RuntimeDebug");
         }
-        if (type & static_cast<uint32_t>(VdmTokenTypeIRoT::FEATURE_UNLOCK))
+        if ((type & static_cast<uint32_t>(VdmTokenTypeIRoT::FEATURE_UNLOCK)) !=
+            0U)
         {
             tokenType = setOrAppend(tokenType, "FeatureUnlock");
         }
-        json["TokenType"] = tokenType;
+        jsonObj["TokenType"] = tokenType;
     }
 }
 
@@ -348,24 +358,25 @@ static void gpuTokenTypeToJson(const uint32_t& type, nlohmann::json& json)
  * @param arg MCU token type enum value
  * @param json JSON object to store the MCU token type
  */
-static void mcuTokenTypeToJson(const uint32_t& type, nlohmann::json& json)
+static void mcuTokenTypeToJson(const uint32_t& type, nlohmann::json& jsonObj)
 {
     if (type == static_cast<uint32_t>(VdmTokenTypeMCU::UNDEFINED))
     {
-        json["TokenType"] = "Undefined";
+        jsonObj["TokenType"] = "Undefined";
     }
     else
     {
         std::string tokenType;
-        if (type & static_cast<uint32_t>(VdmTokenTypeMCU::DEBUG_FW))
+        if ((type & static_cast<uint32_t>(VdmTokenTypeMCU::DEBUG_FW)) != 0U)
         {
             tokenType = setOrAppend(tokenType, "DebugFw");
         }
-        if (type & static_cast<uint32_t>(VdmTokenTypeMCU::OTP_DUMP_ENABLE))
+        if ((type & static_cast<uint32_t>(VdmTokenTypeMCU::OTP_DUMP_ENABLE)) !=
+            0U)
         {
             tokenType = setOrAppend(tokenType, "OtpDumpEnable");
         }
-        json["TokenType"] = tokenType;
+        jsonObj["TokenType"] = tokenType;
     }
 }
 
@@ -378,7 +389,7 @@ static void mcuTokenTypeToJson(const uint32_t& type, nlohmann::json& json)
 static VdmTokenLifecycle getTokenLifecycle(uint16_t tokenConfig)
 {
     VdmTokenLifecycle ret;
-    if (tokenConfig & static_cast<uint16_t>(VdmTokenLifecycle::TEMPORAL))
+    if ((tokenConfig & static_cast<uint16_t>(VdmTokenLifecycle::TEMPORAL)) != 0)
     {
         ret = VdmTokenLifecycle::TEMPORAL;
     }
@@ -396,9 +407,9 @@ static VdmTokenLifecycle getTokenLifecycle(uint16_t tokenConfig)
  * @param json JSON object to store the token lifecycle
  */
 static void tokenLifecycleToJson(const VdmTokenLifecycle& arg,
-                                 nlohmann::json& json)
+                                 nlohmann::json& jsonObj)
 {
-    json["Lifecycle"] =
+    jsonObj["Lifecycle"] =
         arg == VdmTokenLifecycle::TEMPORAL ? "Temporal" : "Persistent";
 }
 
@@ -411,7 +422,7 @@ static void tokenLifecycleToJson(const VdmTokenLifecycle& arg,
 static VdmTokenActivation getTokenActivation(uint16_t tokenConfig)
 {
     VdmTokenActivation ret;
-    if (tokenConfig & static_cast<uint16_t>(VdmTokenActivation::MANUAL))
+    if ((tokenConfig & static_cast<uint16_t>(VdmTokenActivation::MANUAL)) != 0)
     {
         ret = VdmTokenActivation::MANUAL;
     }
@@ -429,9 +440,9 @@ static VdmTokenActivation getTokenActivation(uint16_t tokenConfig)
  * @param json JSON object to store the token activation
  */
 static void tokenActivationToJson(const VdmTokenActivation& arg,
-                                  nlohmann::json& json)
+                                  nlohmann::json& jsonObj)
 {
-    json["Activation"] =
+    jsonObj["Activation"] =
         arg == VdmTokenActivation::MANUAL ? "Manual" : "OnBoot";
 }
 
@@ -444,7 +455,8 @@ static void tokenActivationToJson(const VdmTokenActivation& arg,
 static VdmTokenRevocation getTokenRevocation(uint16_t tokenConfig)
 {
     VdmTokenRevocation ret;
-    if (tokenConfig & static_cast<uint16_t>(VdmTokenRevocation::AUTOMATIC))
+    if ((tokenConfig & static_cast<uint16_t>(VdmTokenRevocation::AUTOMATIC)) !=
+        0)
     {
         ret = VdmTokenRevocation::AUTOMATIC;
     }
@@ -462,9 +474,9 @@ static VdmTokenRevocation getTokenRevocation(uint16_t tokenConfig)
  * @param json JSON object to store the token revocation
  */
 static void tokenRevocationToJson(const VdmTokenRevocation& arg,
-                                  nlohmann::json& json)
+                                  nlohmann::json& jsonObj)
 {
-    json["Revocation"] =
+    jsonObj["Revocation"] =
         arg == VdmTokenRevocation::AUTOMATIC ? "Automatic" : "Manual";
 }
 
@@ -477,7 +489,8 @@ static void tokenRevocationToJson(const VdmTokenRevocation& arg,
 static VdmTokenDevIdStatus getTokenDevIdStatus(uint16_t tokenConfig)
 {
     VdmTokenDevIdStatus ret;
-    if (tokenConfig & static_cast<uint16_t>(VdmTokenDevIdStatus::ENABLED))
+    if ((tokenConfig & static_cast<uint16_t>(VdmTokenDevIdStatus::ENABLED)) !=
+        0)
     {
         ret = VdmTokenDevIdStatus::ENABLED;
     }
@@ -495,9 +508,9 @@ static VdmTokenDevIdStatus getTokenDevIdStatus(uint16_t tokenConfig)
  * @param json JSON object to store the token device ID status
  */
 static void tokenDevIdStatusToJson(const VdmTokenDevIdStatus& arg,
-                                   nlohmann::json& json)
+                                   nlohmann::json& jsonObj)
 {
-    json["DevIdStatus"] =
+    jsonObj["DevIdStatus"] =
         arg == VdmTokenDevIdStatus::ENABLED ? "Enabled" : "Disabled";
 }
 
@@ -510,7 +523,8 @@ static void tokenDevIdStatusToJson(const VdmTokenDevIdStatus& arg,
 static VdmTokenAntiReplay getTokenAntiReplay(uint16_t tokenConfig)
 {
     VdmTokenAntiReplay ret;
-    if (tokenConfig & static_cast<uint16_t>(VdmTokenAntiReplay::NONCE_ENABLED))
+    if ((tokenConfig &
+         static_cast<uint16_t>(VdmTokenAntiReplay::NONCE_ENABLED)) != 0)
     {
         ret = VdmTokenAntiReplay::NONCE_ENABLED;
     }
@@ -528,23 +542,24 @@ static VdmTokenAntiReplay getTokenAntiReplay(uint16_t tokenConfig)
  * @param json JSON object to store the token anti-replay
  */
 static void tokenAntiReplayToJson(const VdmTokenAntiReplay& arg,
-                                  nlohmann::json& json)
+                                  nlohmann::json& jsonObj)
 {
-    json["AntiReplay"] = arg == VdmTokenAntiReplay::NONCE_ENABLED
-                             ? "NonceEnabled"
-                             : "NonceDisabled";
+    jsonObj["AntiReplay"] = arg == VdmTokenAntiReplay::NONCE_ENABLED
+                                ? "NonceEnabled"
+                                : "NonceDisabled";
 }
 
 /**
- * @brief Decode the binary token reset post-install to the enum value
+ * @brief Decode the binary token reset post install to the enum value
  *
- * @param arg Binary token reset post-install
- * @return Token reset post-install enum value
+ * @param arg Binary token reset post install
+ * @return Token reset post install enum value
  */
 static VdmTokenResetPostInstall getTokenResetPostInstall(uint16_t tokenConfig)
 {
     VdmTokenResetPostInstall ret;
-    if (tokenConfig & static_cast<uint16_t>(VdmTokenResetPostInstall::MANDATED))
+    if ((tokenConfig &
+         static_cast<uint16_t>(VdmTokenResetPostInstall::MANDATED)) != 0)
     {
         ret = VdmTokenResetPostInstall::MANDATED;
     }
@@ -562,9 +577,9 @@ static VdmTokenResetPostInstall getTokenResetPostInstall(uint16_t tokenConfig)
  * @param json JSON object to store the token reset post-install
  */
 static void tokenResetPostInstallToJson(const VdmTokenResetPostInstall& arg,
-                                        nlohmann::json& json)
+                                        nlohmann::json& jsonObj)
 {
-    json["ResetPostInstall"] =
+    jsonObj["ResetPostInstall"] =
         arg == VdmTokenResetPostInstall::MANDATED ? "Mandated" : "NotMandated";
 }
 
@@ -609,27 +624,27 @@ static VdmTokenProcessingStatus getTokenProcessingStatus(uint16_t arg)
  * @param json JSON object to store the token processing status
  */
 static void tokenProcessingStatusToJson(const VdmTokenProcessingStatus& status,
-                                        nlohmann::json& json)
+                                        nlohmann::json& jsonObj)
 {
     if (status == VdmTokenProcessingStatus::NOT_PROCESSED)
     {
-        json["ProcessingStatus"] = "NotProcessed";
+        jsonObj["ProcessingStatus"] = "NotProcessed";
     }
     else if (status == VdmTokenProcessingStatus::PROCESSED)
     {
-        json["ProcessingStatus"] = "Processed";
+        jsonObj["ProcessingStatus"] = "Processed";
     }
     else if (status == VdmTokenProcessingStatus::VERIFICATION_FAILURE)
     {
-        json["ProcessingStatus"] = "VerificationFailure";
+        jsonObj["ProcessingStatus"] = "VerificationFailure";
     }
     else if (status == VdmTokenProcessingStatus::RUNTIME_ERROR)
     {
-        json["ProcessingStatus"] = "RuntimeError";
+        jsonObj["ProcessingStatus"] = "RuntimeError";
     }
     else
     {
-        json["ProcessingStatus"] = "Invalid";
+        jsonObj["ProcessingStatus"] = "Invalid";
     }
 }
 
@@ -640,7 +655,7 @@ static void tokenProcessingStatusToJson(const VdmTokenProcessingStatus& status,
  * @param json JSON object to store the device ID
  */
 static void deviceIDToJson(const std::vector<uint8_t>& deviceId,
-                           nlohmann::json& json)
+                           nlohmann::json& jsonObj)
 {
     std::ostringstream oss;
     oss << "0x";
@@ -650,7 +665,7 @@ static void deviceIDToJson(const std::vector<uint8_t>& deviceId,
     {
         oss << std::setw(2) << static_cast<int>(*itr++);
     }
-    json["DeviceID"] = oss.str();
+    jsonObj["DeviceID"] = oss.str();
 }
 
 /**
@@ -662,7 +677,7 @@ struct VdmTokenStatus
     struct VdmStatusV1
     {
         uint8_t tokenInstallationStatus;
-        uint8_t deviceId[vdmStatusDeviceIdLength];
+        std::array<uint8_t, vdmStatusDeviceIdLength> deviceId;
         uint8_t fuseType;
     };
 #pragma pack()
@@ -670,13 +685,13 @@ struct VdmTokenStatus
     struct VdmStatusV2
     {
         uint8_t tokenInstallationStatus;
-        uint8_t deviceId[vdmStatusV2DeviceIdLength];
+        std::array<uint8_t, vdmStatusV2DeviceIdLength> deviceId;
         uint8_t fuseType;
         uint32_t tokenType;
         uint16_t validityCounter;
         uint16_t tokenConfig;
         uint16_t processingStatus;
-        uint8_t reserved[8];
+        std::array<uint8_t, 8> reserved;
     };
 #pragma pack()
 #pragma pack(1)
@@ -685,10 +700,10 @@ struct VdmTokenStatus
         uint8_t responseDataVersion;
         uint16_t deviceType;
         uint8_t tokenInstallationStatus;
-        uint8_t deviceId[vdmStatusV3DeviceIdLength];
+        std::array<uint8_t, vdmStatusV3DeviceIdLength> deviceId;
         uint8_t fuseType;
         uint32_t tokenType;
-        uint8_t reserved[16];
+        std::array<uint8_t, 16> reserved;
     };
 #pragma pack()
 
@@ -783,11 +798,12 @@ struct VdmTokenStatus
                 return;
             }
             VdmStatusV1* status =
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
                 reinterpret_cast<VdmStatusV1*>(statusData.data());
             tokenStatus =
                 getTokenInstallationStatus(status->tokenInstallationStatus);
             deviceId.resize(vdmStatusDeviceIdLength);
-            std::memcpy(deviceId.data(), status->deviceId,
+            std::memcpy(deviceId.data(), status->deviceId.data(),
                         vdmStatusDeviceIdLength);
             fuseType = getTokenFuseType(status->fuseType);
             responseStatus = VdmResponseStatus::STATUS;
@@ -804,6 +820,7 @@ struct VdmTokenStatus
                 return;
             }
             VdmStatusV2* status =
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
                 reinterpret_cast<VdmStatusV2*>(statusData.data());
             status->tokenType = be32toh(status->tokenType);
             status->validityCounter = be16toh(status->validityCounter);
@@ -812,7 +829,7 @@ struct VdmTokenStatus
             tokenStatus =
                 getTokenInstallationStatus(status->tokenInstallationStatus);
             deviceId.resize(vdmStatusV2DeviceIdLength);
-            std::memcpy(deviceId.data(), status->deviceId,
+            std::memcpy(deviceId.data(), status->deviceId.data(),
                         vdmStatusV2DeviceIdLength);
             fuseType = getTokenFuseType(status->fuseType);
             tokenType = status->tokenType;
@@ -840,6 +857,7 @@ struct VdmTokenStatus
                 return;
             }
             VdmStatusV3* status =
+                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
                 reinterpret_cast<VdmStatusV3*>(statusData.data());
             status->deviceType = be16toh(status->deviceType);
             status->tokenType = be32toh(status->tokenType);
@@ -847,7 +865,7 @@ struct VdmTokenStatus
             tokenStatus =
                 getTokenInstallationStatus(status->tokenInstallationStatus);
             deviceId.resize(vdmStatusV3DeviceIdLength);
-            std::memcpy(deviceId.data(), status->deviceId,
+            std::memcpy(deviceId.data(), status->deviceId.data(),
                         vdmStatusV3DeviceIdLength);
             fuseType = getTokenFuseType(status->fuseType);
             tokenType = status->tokenType;
@@ -935,57 +953,57 @@ inline std::map<int, VdmTokenStatus> parseVdmUtilWrapperOutput(
  * @param json JSON object to store the VDM token status
  */
 inline void vdmTokenStatusToJson(const VdmTokenStatus& status,
-                                 nlohmann::json& json)
+                                 nlohmann::json& jsonObj)
 {
-    tokenInstallationStatusToJson(status.tokenStatus, json);
-    tokenFuseTypeToJson(status.fuseType, json);
-    deviceIDToJson(status.deviceId, json);
+    tokenInstallationStatusToJson(status.tokenStatus, jsonObj);
+    tokenFuseTypeToJson(status.fuseType, jsonObj);
+    deviceIDToJson(status.deviceId, jsonObj);
     if (status.tokenType)
     {
         if (status.deviceType == VdmDeviceType::EROT)
         {
-            erotTokenTypeToJson(*status.tokenType, json);
+            erotTokenTypeToJson(*status.tokenType, jsonObj);
         }
         else if (status.deviceType == VdmDeviceType::GPU)
         {
-            gpuTokenTypeToJson(*status.tokenType, json);
+            gpuTokenTypeToJson(*status.tokenType, jsonObj);
         }
         else if (status.deviceType == VdmDeviceType::MCU)
         {
-            mcuTokenTypeToJson(*status.tokenType, json);
+            mcuTokenTypeToJson(*status.tokenType, jsonObj);
         }
     }
     if (status.validityCounter)
     {
-        json["ValidityCounter"] = *status.validityCounter;
+        jsonObj["ValidityCounter"] = *status.validityCounter;
     }
     if (status.tokenLifecycle)
     {
-        tokenLifecycleToJson(*status.tokenLifecycle, json);
+        tokenLifecycleToJson(*status.tokenLifecycle, jsonObj);
     }
     if (status.tokenActivation)
     {
-        tokenActivationToJson(*status.tokenActivation, json);
+        tokenActivationToJson(*status.tokenActivation, jsonObj);
     }
     if (status.tokenRevocation)
     {
-        tokenRevocationToJson(*status.tokenRevocation, json);
+        tokenRevocationToJson(*status.tokenRevocation, jsonObj);
     }
     if (status.tokenDevIdStatus)
     {
-        tokenDevIdStatusToJson(*status.tokenDevIdStatus, json);
+        tokenDevIdStatusToJson(*status.tokenDevIdStatus, jsonObj);
     }
     if (status.tokenAntiReplay)
     {
-        tokenAntiReplayToJson(*status.tokenAntiReplay, json);
+        tokenAntiReplayToJson(*status.tokenAntiReplay, jsonObj);
     }
     if (status.tokenResetPostInstall)
     {
-        tokenResetPostInstallToJson(*status.tokenResetPostInstall, json);
+        tokenResetPostInstallToJson(*status.tokenResetPostInstall, jsonObj);
     }
     if (status.tokenProcessingStatus)
     {
-        tokenProcessingStatusToJson(*status.tokenProcessingStatus, json);
+        tokenProcessingStatusToJson(*status.tokenProcessingStatus, jsonObj);
     }
 }
 

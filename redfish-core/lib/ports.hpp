@@ -15,10 +15,15 @@
  * limitations under the License.
  */
 #pragma once
+#include "error_messages.hpp"
 #include "ethernet.hpp"
 #include "lldptool_util.hpp"
+#include "nvidia_error_messages.hpp"
 
 #include <app.hpp>
+#include <boost/algorithm/string.hpp>
+
+#include <sstream>
 
 namespace redfish
 {
@@ -295,38 +300,66 @@ inline void setLldpTlvProperty(
         if (property == "ChassisIdSubtype")
         {
             if (subtype == "ChassisComponent")
+            {
                 subtypeIndex = 1;
+            }
             else if (subtype == "InterfaceAlias")
+            {
                 subtypeIndex = 2;
+            }
             else if (subtype == "PortComponent")
+            {
                 subtypeIndex = 3;
+            }
             else if (subtype == "MacAddr" || subtype == "MACAddress" ||
                      subtype == "MacAddress")
+            {
                 subtypeIndex = 4;
+            }
             else if (subtype == "NetworkAddress")
+            {
                 subtypeIndex = 5;
+            }
             else if (subtype == "InterfaceName" || subtype == "IfName")
+            {
                 subtypeIndex = 6;
+            }
             else if (subtype == "LocallyAssigned")
+            {
                 subtypeIndex = 7;
+            }
         }
         else // PortIdSubtype
         {
             if (subtype == "InterfaceAlias")
+            {
                 subtypeIndex = 1;
+            }
             else if (subtype == "PortComponent")
+            {
                 subtypeIndex = 2;
+            }
             else if (subtype == "MacAddr" || subtype == "MACAddress" ||
                      subtype == "MacAddress")
+            {
                 subtypeIndex = 3;
+            }
             else if (subtype == "NetworkAddress")
+            {
                 subtypeIndex = 4;
+            }
             else if (subtype == "InterfaceName" || subtype == "IfName")
+            {
                 subtypeIndex = 5;
+            }
             else if (subtype == "AgentCircuitID" || subtype == "AgentId")
+            {
                 subtypeIndex = 6;
+            }
             else if (subtype == "LocallyAssigned")
+            {
                 subtypeIndex = 7;
+            }
         }
         jsonSchema["Ethernet"][lldpType][property] = subtypeIndex;
     }

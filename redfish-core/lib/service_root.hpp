@@ -194,11 +194,12 @@ inline void handleServiceRootGetImpl(
             "/redfish/v1/AggregationService";
     }
     asyncResp->res.jsonValue["Chassis"]["@odata.id"] = "/redfish/v1/Chassis";
-#if !defined(BMCWEB_ENABLE_NVIDIA_OEM_BF_PROPERTIES) ||                        \
-    defined(BMCWEB_ENABLE_NVIDIA_OEM_BF3_PROPERTIES)
-    asyncResp->res.jsonValue["ComponentIntegrity"]["@odata.id"] =
-        "/redfish/v1/ComponentIntegrity";
-#endif
+    if constexpr (!BMCWEB_NVIDIA_OEM_BF_PROPERTIES ||
+                  BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)
+    {
+        asyncResp->res.jsonValue["ComponentIntegrity"]["@odata.id"] =
+            "/redfish/v1/ComponentIntegrity";
+    }
     asyncResp->res.jsonValue["Fabrics"]["@odata.id"] = "/redfish/v1/Fabrics";
     asyncResp->res.jsonValue["JsonSchemas"]["@odata.id"] =
         "/redfish/v1/JsonSchemas";

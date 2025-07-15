@@ -1947,7 +1947,7 @@ inline void getMemoryEnvironmentMetricsData(
             }
             for (const auto& [path, object] : subtree)
             {
-                if (!boost::ends_with(path, dimmId))
+                if (!path.ends_with(dimmId))
                 {
                     continue;
                 }

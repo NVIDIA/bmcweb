@@ -16,22 +16,31 @@
  */
 #pragma once
 
+#include "async_resp.hpp"
+#include "dbus_utility.hpp"
+#include "error_messages.hpp"
+#include "http_body.hpp"
+#include "logging.hpp"
+#include "utils/nvidia_async_call_utils.hpp"
+#include "utils/nvidia_async_set_callbacks.hpp"
+#include "utils/nvidia_async_set_utils.hpp"
 #include "utils/nvidia_manager_utils.hpp"
+
+#include <boost/container/flat_map.hpp>
+#include <boost/system/error_code.hpp>
+#include <nlohmann/json.hpp>
 
 #include <atomic>
 #include <cstdint>
+#include <memory>
+#include <string>
+#include <variant>
+#include <vector>
 namespace redfish
 {
 
 namespace nvidia_fabric_utils
 {
-// Map of service name to list of interfaces
-using MapperServiceMap =
-    std::vector<std::pair<std::string, std::vector<std::string>>>;
-
-// Map of object paths to MapperServiceMaps
-using MapperGetSubTreeResponse =
-    std::vector<std::pair<std::string, MapperServiceMap>>;
 
 /**
  * Handle the PATCH operation of the L1 Power Mode Boolean Property. Do basic
@@ -51,7 +60,7 @@ inline void patchL1PowerMode(
     const std::vector<std::tuple<std::string, std::variant<bool, uint32_t>>>&
         properties,
     const std::string& propertyName, const std::string& objectPath,
-    const MapperServiceMap& serviceMap)
+    const dbus::utility::MapperServiceMap& serviceMap)
 {
     // Check that the property even exists by checking for the interface
     const std::string* inventoryService = nullptr;
@@ -129,8 +138,8 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
     crow::connections::systemBus->async_method_call(
         [resp, fabricId, switchId, handler = std::forward<Handler>(handler)](
-            boost::system::error_code ec,
-            const MapperGetSubTreeResponse& subtree) mutable {
+            boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreeResponse& subtree) mutable {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: {} while getting fabric",
@@ -143,14 +152,14 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
             for (const auto& [objectPath, serviceMap] : subtree)
             {
                 // Ignore any objects which don't end with our desired fabric
-                if (!boost::ends_with(objectPath, fabricId))
+                if (!objectPath.ends_with(fabricId))
                 {
                     continue;
                 }
 
                 crow::connections::systemBus->async_method_call(
                     [resp, fabricId, switchId, handler](
-                        const boost::system::error_code ec2,
+                        const boost::system::error_code& ec2,
                         std::variant<std::vector<std::string>>& response) {
                         if (ec2)
                         {
@@ -182,7 +191,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
                             crow::connections::systemBus->async_method_call(
                                 [resp, fabricId, switchId, path, handler](
-                                    const boost::system::error_code ec3,
+                                    const boost::system::error_code& ec3,
                                     const std::vector<std::pair<
                                         std::string, std::vector<std::string>>>&
                                         object) {
@@ -245,11 +254,13 @@ inline void populateErrorInjectionData(
         [](const std::shared_ptr<bmcweb::AsyncResp>& aResp,
            const std::string& fabricId2, const std::string& switchId2,
            const std::string& path,
-           [[maybe_unused]] const MapperServiceMap& serviceMap) {
+           [[maybe_unused]] const dbus::utility::MapperServiceMap& serviceMap) {
+            std::string errorInjectionObjPath = path;
+            errorInjectionObjPath += "/ErrorInjection";
             crow::connections::systemBus->async_method_call(
                 [aResp, fabricId2, switchId2,
-                 path](const boost::system::error_code ec4,
-                       const MapperServiceMap& serviceMap2) {
+                 path](const boost::system::error_code& ec4,
+                       const dbus::utility::MapperServiceMap& serviceMap2) {
                     if (ec4)
                     {
                         BMCWEB_LOG_DEBUG(
@@ -268,18 +279,21 @@ inline void populateErrorInjectionData(
                         }
                         aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                             "#NvidiaSwitch.v1_4_0.NvidiaSwitch";
+                        std::string errorInjectionPath = "/redfish/v1/Fabrics/";
+                        errorInjectionPath += fabricId2;
+                        errorInjectionPath += "/Switches/";
+                        errorInjectionPath += switchId2;
+                        errorInjectionPath += "/Oem/Nvidia/ErrorInjection";
                         aResp->res
                             .jsonValue["Oem"]["Nvidia"]["ErrorInjection"] = {
-                            {"@odata.id",
-                             "/redfish/v1/Fabrics/" + fabricId2 + "/Switches/" +
-                                 switchId2 + "/Oem/Nvidia/ErrorInjection"}};
+                            {"@odata.id", errorInjectionPath}};
                         return;
                     }
                 },
                 "xyz.openbmc_project.ObjectMapper",
                 "/xyz/openbmc_project/object_mapper",
                 "xyz.openbmc_project.ObjectMapper", "GetObject",
-                path + "/ErrorInjection", std::array<const char*, 0>());
+                errorInjectionObjPath, std::array<const char*, 0>());
         });
 }
 
@@ -294,7 +308,7 @@ inline void updateSwitchPowerModeData(
         boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
     // Get interface properties
     crow::connections::systemBus->async_method_call(
-        [asyncResp, objPath](const boost::system::error_code ec,
+        [asyncResp, objPath](const boost::system::error_code& ec,
                              const PropertiesMap& properties) {
             if (ec)
             {
@@ -436,7 +450,8 @@ inline void getSwitchPowerModeLink(
 inline void patchSwitchIsolationMode(
     const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& fabricId,
     const std::string& switchId, const std::string& propertyValue,
-    const std::string& objectPath, const MapperServiceMap& serviceMap)
+    const std::string& objectPath,
+    const dbus::utility::MapperServiceMap& serviceMap)
 {
     // Check that the property even exists by checking for the interface
     const std::string* inventoryService = nullptr;
@@ -504,7 +519,7 @@ inline void getSwitchIsolationMode(
     using PropertiesMap =
         boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const PropertiesMap& properties) {
             if (ec)
             {
@@ -544,7 +559,7 @@ inline void getFabricManagerState(
     using PropertiesMap =
         boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
     crow::connections::systemBus->async_method_call(
-        [asyncResp](const boost::system::error_code ec,
+        [asyncResp](const boost::system::error_code& ec,
                     const PropertiesMap& properties) {
             if (ec)
             {
@@ -624,7 +639,7 @@ inline void getSwitchHistogramLink(
     const std::string& switchURI, const std::string& objectPath)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp, switchURI](const boost::system::error_code ec,
+        [asyncResp, switchURI](const boost::system::error_code& ec,
                                std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
@@ -652,7 +667,6 @@ inline void getSwitchHistogramLink(
         "xyz.openbmc_project.ObjectMapper", objectPath + "/histograms",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
-    return;
 }
 
 } // namespace nvidia_fabric_utils

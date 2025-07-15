@@ -1,6 +1,9 @@
 #pragma once
+#include "async_resp.hpp"
+
 #include <utils/chassis_utils.hpp>
 #include <utils/nvidia_chassis_util.hpp>
+
 namespace redfish
 {
 namespace nvidia_sensor_utils
@@ -48,7 +51,7 @@ inline void populateRelatedNetworkAdapterData(
                 defaultSystemURI(asyncResp);
                 return;
             }
-            auto data = std::get_if<std::vector<std::string>>(&resp);
+            auto* data = std::get_if<std::vector<std::string>>(&resp);
             if (data == nullptr)
             {
                 return;
@@ -134,16 +137,37 @@ inline void getRelatedNetworkAdapterData(
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
 }
-inline std::string toImplementation(const std::string& implementation)
+
+inline const char* toImplementation(const std::string& implementation)
 {
-    // Convert implementation string to proper format
-    return implementation;
+    if (implementation ==
+        "xyz.openbmc_project.Sensor.Type.ImplementationType.PhysicalSensor")
+    {
+        return "PhysicalSensor";
+    }
+    if (implementation ==
+        "xyz.openbmc_project.Sensor.Type.ImplementationType.Synthesized")
+    {
+        return "Synthesized";
+    }
+    if (implementation ==
+        "xyz.openbmc_project.Sensor.Type.ImplementationType.Reported")
+    {
+        return "Reported";
+    }
+
+    return "";
 }
 
-inline std::string toReadingBasis(const std::string& readingBasis)
+inline const char* toReadingBasis(const std::string& readingBasis)
 {
-    // Convert reading basis string to proper format
-    return readingBasis;
+    if (readingBasis ==
+        "xyz.openbmc_project.Sensor.ReadingBasis.ReadingBasisType.Headroom")
+    {
+        return "Headroom";
+    }
+
+    return "";
 }
 
 } // namespace nvidia_sensor_utils

@@ -175,9 +175,9 @@ struct AsyncImageWriteSession :
             return;
         }
 
-        static constexpr std::size_t CHUNK_SIZE = 8192;
+        static constexpr std::size_t chunkSize = 8192;
         const std::size_t bytesToWrite =
-            std::min(CHUNK_SIZE, dataRef.size() - offset);
+            std::min(chunkSize, dataRef.size() - offset);
 
         std::string_view dataRefView{dataRef};
         std::string_view chunk = dataRefView.substr(offset, bytesToWrite);
@@ -1239,12 +1239,12 @@ inline bool preCheckMultipartUpdateServiceReq(
         if (asyncResp)
         {
             BMCWEB_LOG_ERROR("Large image size: {}", req.body().size());
-            std::string resolution =
-                "Firmware package size is greater than allowed "
-                "size. Make sure package size is less than "
-                "UpdateService.MaxImageSizeBytes property and "
-                "retry the firmware update operation.";
-            messages::payloadTooLarge(asyncResp->res, resolution);
+            // std::string resolution =
+            //     "Firmware package size is greater than allowed "
+            //     "size. Make sure package size is less than "
+            //     "UpdateService.MaxImageSizeBytes property and "
+            //     "retry the firmware update operation.";
+            messages::payloadTooLarge(asyncResp->res);
         }
         return false;
     }

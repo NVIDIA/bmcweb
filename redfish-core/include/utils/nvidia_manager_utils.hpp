@@ -14,13 +14,27 @@
 // limitations under the License.
 */
 #pragma once
+#include "app.hpp"
+#include "async_resp.hpp"
 #include "debug_token/erase_policy.hpp"
+#include "error_messages.hpp"
+#include "logging.hpp"
 #include "nsm_cmd_support.hpp"
+#include "query.hpp"
+#include "registries/privilege_registry.hpp"
+#include "utils/chassis_utils.hpp"
+#include "utils/json_utils.hpp"
 #include "utils/time_utils.hpp"
 
-#include <async_resp.hpp>
+#include <boost/system/error_code.hpp>
+#include <boost/url/format.hpp>
 #include <sdbusplus/asio/connection.hpp>
-#include <utils/chassis_utils.hpp>
+
+#include <memory>
+#include <string>
+#include <variant>
+#include <vector>
+
 namespace redfish
 {
 
@@ -316,7 +330,7 @@ inline void getFabricManagerInformation(
 
     crow::connections::systemBus->async_method_call(
         [aResp](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const std::vector<
                 std::pair<std::string, std::variant<std::string, uint64_t>>>&
                 propertiesList) {
@@ -417,15 +431,15 @@ inline void getFabricManagerInformation(
 }
 
 inline void getNSMRawCommandActions(
-    std::shared_ptr<bmcweb::AsyncResp> asyncResp)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     auto& oemNsmRawCommand =
         asyncResp->res
             .jsonValue["Actions"]["Oem"]["#NvidiaManager.NSMRawCommand"];
-    oemNsmRawCommand["target"] = boost::urls::format(
+    oemNsmRawCommand["target"] = boost_swap_impl::format(
         "/redfish/v1/Managers/{}/Actions/Oem/NvidiaManager.NSMRawCommand",
         std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
-    oemNsmRawCommand["@Redfish.ActionInfo"] = boost::urls::format(
+    oemNsmRawCommand["@Redfish.ActionInfo"] = boost_swap_impl::format(
         "/redfish/v1/Managers/{}/Oem/Nvidia/NSMRawCommandActionInfo",
         std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
 }
@@ -517,11 +531,12 @@ inline void debugTokenManagementGetHandler(
     }
     asyncResp->res.jsonValue["@odata.type"] =
         "#NvidiaDebugTokenManagement.v1_0_0.NvidiaDebugTokenManagement";
-    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+    asyncResp->res.jsonValue["@odata.id"] = boost_swap_impl::format(
         "/redfish/v1/Managers/{}/Oem/Nvidia/DebugTokenManagement", managerId);
     asyncResp->res.jsonValue["Id"] = "DebugTokenManagement";
-    asyncResp->res.jsonValue["Name"] =
-        managerId + " Oem Nvidia DebugTokenManagement";
+    std::string name = managerId;
+    name += " Oem Nvidia DebugTokenManagement";
+    asyncResp->res.jsonValue["Name"] = name;
     debug_token::getErasePolicy([asyncResp](std::optional<bool> erasePolicy) {
         if (!erasePolicy)
         {

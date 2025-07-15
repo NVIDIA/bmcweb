@@ -15,21 +15,29 @@
  * limitations under the License.
  */
 #pragma once
+#include "app.hpp"
+#include "async_resp.hpp"
+#include "dbus_singleton.hpp"
+#include "dbus_utility.hpp"
+#include "logging.hpp"
 
+#include <boost/asio.hpp>
+#include <boost/system/error_code.hpp>
+
+#include <algorithm>
+#include <array>
 #include <atomic>
 #include <cstdint>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
 namespace redfish
 {
 
 namespace nvidia_network_adapters_utils
 {
-// Map of service name to list of interfaces
-using MapperServiceMap =
-    std::vector<std::pair<std::string, std::vector<std::string>>>;
-
-// Map of object paths to MapperServiceMaps
-using MapperGetSubTreeResponse =
-    std::vector<std::pair<std::string, MapperServiceMap>>;
 
 /**
  * Populate the ErrorInjection path if interface exists. Do basic
@@ -46,9 +54,9 @@ inline void populateErrorInjectionLink(
     const std::string& networkAdapterPath)
 {
     crow::connections::systemBus->async_method_call(
-        [aResp, chassisId, networkAdapterId,
-         networkAdapterPath](const boost::system::error_code ec,
-                             const MapperServiceMap& serviceMap) {
+        [aResp, chassisId, networkAdapterId, networkAdapterPath](
+            const boost::system::error_code ec,
+            const dbus::utility::MapperServiceMap& serviceMap) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("ErrorInjection object not found in {}",
@@ -66,10 +74,13 @@ inline void populateErrorInjectionLink(
                 }
                 aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                     "#NvidiaNetworkAdapter.v1_0_0.NvidiaNetworkAdapter";
+                std::string odataId = "/redfish/v1/Chassis/";
+                odataId += chassisId;
+                odataId += "/NetworkAdapters/";
+                odataId += networkAdapterId;
+                odataId += "/Oem/Nvidia/ErrorInjection";
                 aResp->res.jsonValue["Oem"]["Nvidia"]["ErrorInjection"] = {
-                    {"@odata.id",
-                     "/redfish/v1/Chassis/" + chassisId + "/NetworkAdapters/" +
-                         networkAdapterId + "/Oem/Nvidia/ErrorInjection"}};
+                    {"@odata.id", odataId}};
                 return;
             }
         },

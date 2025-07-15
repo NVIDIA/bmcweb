@@ -30,6 +30,7 @@
 
 #include <memory>
 #include <tuple>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -55,6 +56,14 @@ using ResultCallback = std::function<void(const std::vector<Result>&)>;
 class Handler : public std::enable_shared_from_this<Handler>
 {
   public:
+    // Delete copy constructor and assignment operator
+    Handler(const Handler&) = delete;
+    Handler& operator=(const Handler&) = delete;
+
+    // Delete move constructor and assignment operator
+    Handler(Handler&&) = delete;
+    Handler& operator=(Handler&&) = delete;
+
     /**
      * @brief Start the VDM status query operation
      *
@@ -78,7 +87,7 @@ class Handler : public std::enable_shared_from_this<Handler>
 
   private:
     Handler(const std::vector<Eid>& eidsParam, ResultCallback cb) :
-        eids(eidsParam), callback(cb)
+        eids(eidsParam), callback(std::move(cb))
     {}
 
     ~Handler()
@@ -143,7 +152,7 @@ class Handler : public std::enable_shared_from_this<Handler>
      *
      * @param self The shared self pointer to the parent object (unused)
      */
-    void destroyTimer(const std::shared_ptr<Handler>&)
+    void destroyTimer(const std::shared_ptr<Handler>& /*unused*/)
     {
         operationTimer.reset(nullptr);
     }
@@ -169,9 +178,8 @@ class Handler : public std::enable_shared_from_this<Handler>
         {
             BMCWEB_LOG_ERROR("async_wait error: {}", ec.message());
         }
-        boost::asio::post(
-            crow::connections::systemBus->get_io_context(),
-            std::bind_front(&Handler::destroyTimer, this, std::move(self)));
+        boost::asio::post(crow::connections::systemBus->get_io_context(),
+                          std::bind_front(&Handler::destroyTimer, this, self));
     }
 
     /**
@@ -204,8 +212,8 @@ class Handler : public std::enable_shared_from_this<Handler>
             if (vdmStatus == outputMap.end())
             {
                 BMCWEB_LOG_ERROR("No status query data for EID {}", eid);
-                results.emplace_back(std::make_tuple(eid, EndpointState::Error,
-                                                     std::monostate()));
+                results.emplace_back(eid, EndpointState::Error,
+                                     std::monostate());
                 continue;
             }
             if (vdmStatus->second.responseStatus ==
@@ -214,28 +222,32 @@ class Handler : public std::enable_shared_from_this<Handler>
                     VdmResponseStatus::PROCESSING_ERROR)
             {
                 BMCWEB_LOG_ERROR("Invalid status query data for EID {}", eid);
-                results.emplace_back(std::make_tuple(eid, EndpointState::Error,
-                                                     std::monostate()));
+                results.emplace_back(eid, EndpointState::Error,
+                                     std::monostate());
                 continue;
             }
             if (vdmStatus->second.responseStatus == VdmResponseStatus::ERROR)
             {
-                BMCWEB_LOG_ERROR("Error code {} received for EID {}",
-                                 *vdmStatus->second.errorCode, eid);
-                results.emplace_back(std::make_tuple(eid, EndpointState::Error,
-                                                     vdmStatus->second));
+                const auto& errorCode = vdmStatus->second.errorCode;
+                if (errorCode.has_value())
+                {
+                    BMCWEB_LOG_ERROR("Error code {} received for EID {}",
+                                     *errorCode, eid);
+                }
+                results.emplace_back(eid, EndpointState::Error,
+                                     vdmStatus->second);
                 continue;
             }
             if (vdmStatus->second.tokenStatus ==
                 VdmTokenInstallationStatus::INVALID)
             {
                 BMCWEB_LOG_ERROR("Invalid token status for EID {}", eid);
-                results.emplace_back(std::make_tuple(eid, EndpointState::Error,
-                                                     vdmStatus->second));
+                results.emplace_back(eid, EndpointState::Error,
+                                     vdmStatus->second);
                 continue;
             }
-            results.emplace_back(std::make_tuple(
-                eid, EndpointState::StatusAcquired, vdmStatus->second));
+            results.emplace_back(eid, EndpointState::StatusAcquired,
+                                 vdmStatus->second);
         }
     }
 };

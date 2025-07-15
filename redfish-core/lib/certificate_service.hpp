@@ -493,15 +493,18 @@ inline void handleReplaceCertificateAction(
     std::string certificate;
     std::string certURI;
     std::optional<std::string> certificateType = "PEM";
-
-    if (!json_util::readJsonAction(req, asyncResp->res, "CertificateString",
-                                   certificate, "CertificateUri/@odata.id",
-                                   certURI, "CertificateType", certificateType))
+    // clang-format off
+    if (!json_util::readJsonAction(         //
+        req, asyncResp->res,                //
+        "CertificateString", certificate,   //
+        "CertificateType", certificateType, //
+        "CertificateUri/@odata.id", certURI //
+        ))
     {
         BMCWEB_LOG_ERROR("Required parameters are missing");
         return;
     }
-
+    // clang-format on
     if (!certificateType)
     {
         // should never happen, but it never hurts to be paranoid.

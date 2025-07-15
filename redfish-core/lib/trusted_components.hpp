@@ -44,7 +44,7 @@ static void isComponentEnabled(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const dbus::utility::MapperGetSubTreeResponse& subtree,
     const std::string& endpoint, const bool& isCollection,
-    std::function<void()> callback);
+    const std::function<void()>& callback);
 
 const std::array<std::string_view, 1> trustedComponentInterfaces = {
     "xyz.openbmc_project.Inventory.Item.Tpm"};
@@ -72,7 +72,7 @@ struct CertificateData
 static void getChassisAssociatedEndpoint(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisID,
-    std::function<void(const std::string&, bool)> callback)
+    const std::function<void(const std::string&, bool)>& callback)
 {
     std::string associatedChassisPath =
         "/xyz/openbmc_project/inventory/system/chassis/";
@@ -122,7 +122,7 @@ static bool validateComponentID(
     if (endpointComponent.starts_with(PLATFORMDEVICEPREFIX))
     {
         transformedComponent =
-            endpointComponent.substr(strlen(PLATFORMDEVICEPREFIX));
+            endpointComponent.substr(PLATFORMDEVICEPREFIX.size());
     }
 
     if (transformedComponent != componentID)
@@ -200,9 +200,16 @@ inline void handleTpmComponentsCollectionGet(
     const std::optional<std::string>& validChassisPath,
     nlohmann::json& memberArray)
 {
+    if (!validChassisPath.has_value())
+    {
+        BMCWEB_LOG_ERROR("validChassisPath is not set");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisID,
-         &memberArray](const boost::system::error_code ec,
+         &memberArray](const boost::system::error_code& ec,
                        const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -220,9 +227,11 @@ inline void handleTpmComponentsCollectionGet(
                     continue;
                 }
 
-                memberArray.push_back(
-                    {{"@odata.id", "/redfish/v1/Chassis/" + chassisID +
-                                       "/TrustedComponents/" + componentID}});
+                std::string odataId = "/redfish/v1/Chassis/";
+                odataId += chassisID;
+                odataId += "/TrustedComponents/";
+                odataId += componentID;
+                memberArray.push_back({{"@odata.id", odataId}});
                 asyncResp->res.jsonValue["Members@odata.count"] =
                     memberArray.size();
             }
@@ -246,9 +255,16 @@ inline void updateTPMCollection(
     const std::optional<std::string>& validChassisPath,
     nlohmann::json& memberArray)
 {
+    if (!validChassisPath.has_value())
+    {
+        BMCWEB_LOG_ERROR("validChassisPath is not set");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisID, validChassisPath,
-         &memberArray](const boost::system::error_code ec,
+         &memberArray](const boost::system::error_code& ec,
                        const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
@@ -266,10 +282,11 @@ inline void updateTPMCollection(
                         continue;
                     }
 
-                    memberArray.push_back(
-                        {{"@odata.id",
-                          "/redfish/v1/Chassis/" + chassisID +
-                              "/TrustedComponents/" + componentID}});
+                    std::string odataId = "/redfish/v1/Chassis/";
+                    odataId += chassisID;
+                    odataId += "/TrustedComponents/";
+                    odataId += componentID;
+                    memberArray.push_back({{"@odata.id", odataId}});
                     asyncResp->res.jsonValue["Members@odata.count"] =
                         memberArray.size();
                 }
@@ -317,13 +334,14 @@ inline void updateSPDMTrustedComponents(
                     if (componentID.starts_with(PLATFORMDEVICEPREFIX))
                     {
                         componentID =
-                            componentID.substr(strlen(PLATFORMDEVICEPREFIX));
+                            componentID.substr(PLATFORMDEVICEPREFIX.size());
                     }
 
-                    memberArray.push_back(
-                        {{"@odata.id",
-                          "/redfish/v1/Chassis/" + chassisID +
-                              "/TrustedComponents/" + componentID}});
+                    std::string odataId = "/redfish/v1/Chassis/";
+                    odataId += chassisID;
+                    odataId += "/TrustedComponents/";
+                    odataId += componentID;
+                    memberArray.push_back({{"@odata.id", odataId}});
                     asyncResp->res.jsonValue["Members@odata.count"] =
                         memberArray.size();
                 });
@@ -715,7 +733,7 @@ inline void handleTpmComponentGet(
             }
             crow::connections::systemBus->async_method_call(
                 [asyncResp, chassisID, componentID](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
                     if (ec)
                     {
@@ -800,7 +818,7 @@ static void constructCertificateResponse(
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, chassisID, componentID, certificateID, certPath,
          certData](
-            const boost::system::error_code ec,
+            const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, dbus::utility::DbusVariantType>& responderProps) {
             if (ec)
@@ -907,7 +925,7 @@ static void handleCertificateProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisID, const std::string& componentID,
     const std::string& certificateID, const std::string& certPath,
-    const boost::system::error_code ec,
+    const boost::system::error_code& ec,
     const boost::container::flat_map<std::string,
                                      dbus::utility::DbusVariantType>& certProps,
     CertificateData& certData)
@@ -930,7 +948,8 @@ static void handleCertificateProperties(
                                    certificateID);
         return;
     }
-    auto* certificateString = std::get_if<std::string>(&itCertString->second);
+    const auto* certificateString =
+        std::get_if<std::string>(&itCertString->second);
     if (certificateString == nullptr)
     {
         BMCWEB_LOG_ERROR(
@@ -944,7 +963,7 @@ static void handleCertificateProperties(
     auto itKeyUsage = certProps.find("KeyUsage");
     if (itKeyUsage != certProps.end())
     {
-        if (auto* value =
+        if (const auto* value =
                 std::get_if<std::vector<std::string>>(&itKeyUsage->second))
         {
             certData.keyUsage = *value;
@@ -954,7 +973,7 @@ static void handleCertificateProperties(
     auto itIssuer = certProps.find("Issuer");
     if (itIssuer != certProps.end())
     {
-        if (auto* value = std::get_if<std::string>(&itIssuer->second))
+        if (const auto* value = std::get_if<std::string>(&itIssuer->second))
         {
             certData.issuer = *value;
         }
@@ -963,7 +982,7 @@ static void handleCertificateProperties(
     auto itSubject = certProps.find("Subject");
     if (itSubject != certProps.end())
     {
-        if (auto* value = std::get_if<std::string>(&itSubject->second))
+        if (const auto* value = std::get_if<std::string>(&itSubject->second))
         {
             certData.subject = *value;
         }
@@ -972,7 +991,7 @@ static void handleCertificateProperties(
     auto itValidNotAfter = certProps.find("ValidNotAfter");
     if (itValidNotAfter != certProps.end())
     {
-        if (auto* value = std::get_if<uint64_t>(&itValidNotAfter->second))
+        if (const auto* value = std::get_if<uint64_t>(&itValidNotAfter->second))
         {
             certData.notAfter = *value;
         }
@@ -981,7 +1000,8 @@ static void handleCertificateProperties(
     auto itValidNotBefore = certProps.find("ValidNotBefore");
     if (itValidNotBefore != certProps.end())
     {
-        if (auto* value = std::get_if<uint64_t>(&itValidNotBefore->second))
+        if (const auto* value =
+                std::get_if<uint64_t>(&itValidNotBefore->second))
         {
             certData.notBefore = *value;
         }
@@ -1018,7 +1038,7 @@ inline void getTrustedComponentCertificate(
     CertificateData certData;
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, chassisID, componentID, certificateID, certPath,
-         certData](const boost::system::error_code ec,
+         certData](const boost::system::error_code& ec,
                    const boost::container::flat_map<
                        std::string, dbus::utility::DbusVariantType>&
                        certProps) mutable {
@@ -1042,7 +1062,7 @@ inline void getTrustedComponentCertificate(
 inline void isComponentEnabled(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const dbus::utility::GetSubTreeType& subtree, const std::string& endpoint,
-    const bool& isCollection, std::function<void()> callback)
+    const bool& isCollection, const std::function<void()>& callback)
 
 {
     if (subtree.empty())
@@ -1091,7 +1111,7 @@ inline void isComponentEnabled(
             *crow::connections::systemBus, services[0].first, path,
             "xyz.openbmc_project.Object.Enable", "Enabled",
             [asyncResp, endpointComponent, callback](
-                const boost::system::error_code ec, const bool& enabled) {
+                const boost::system::error_code& ec, const bool& enabled) {
                 if (ec)
                 {
                     BMCWEB_LOG_ERROR("Error reading Enabled property: {}", ec);
@@ -1168,7 +1188,7 @@ inline void handleTrustedComponentCertificateGet(
                 "/xyz/openbmc_project/SPDM", 0, interfaces,
                 [req, asyncResp, chassisID, componentID, certificateID,
                  endpoint, isCollection](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
                     if (ec)
                     {
@@ -1234,7 +1254,7 @@ inline void handleTrustedComponentCertificatesCollectionGet(
                 "/xyz/openbmc_project/SPDM", 0, interfaces,
                 [req, asyncResp, chassisID, componentID, endpoint,
                  isCollection](
-                    const boost::system::error_code ec,
+                    const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
                     if (ec)
                     {
@@ -1247,10 +1267,10 @@ inline void handleTrustedComponentCertificatesCollectionGet(
                         asyncResp, subtree, endpoint, isCollection,
                         [asyncResp, chassisID, componentID] {
                             std::string url = "/redfish/v1/Chassis/";
-                            url.append(chassisID)
-                                .append("/TrustedComponents/")
-                                .append(componentID)
-                                .append("/Certificates");
+                            url += chassisID;
+                            url += "/TrustedComponents/";
+                            url += componentID;
+                            url += "/Certificates";
                             asyncResp->res.jsonValue = {
                                 {"@odata.id", url},
                                 {"@odata.type",

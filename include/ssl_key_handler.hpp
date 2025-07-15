@@ -25,7 +25,6 @@ extern "C"
 #include <asn1.hpp>
 #include <boost/asio/ssl/context.hpp>
 #include <boost/system/error_code.hpp>
-#include <logging.hpp>
 #include <lsp.hpp>
 
 #include <filesystem>
@@ -133,7 +132,7 @@ inline std::string verifyOpensslKeyCert(const std::string& filepath,
     std::string fileContents;
     fileContents.resize(static_cast<size_t>(file.size(ec)), '\0');
     size_t readSize = file.read(fileContents.data(), fileContents.size(), ec);
-    if (ec || !readSize)
+    if (ec || readSize == 0)
     {
         BMCWEB_LOG_ERROR("Failed to read file");
         return "";
@@ -289,7 +288,7 @@ inline void writeCertificateToFile(const std::string& filepath,
         size_t writeBytes =
             file.write(certificate.data(), certificate.size(), ec);
 
-        if (!writeBytes)
+        if (writeBytes == 0)
         {
             BMCWEB_LOG_ERROR("Certificate Write failed");
         }
@@ -368,9 +367,10 @@ inline std::string generateSslCertificate(const std::string& cn,
             int pkeyRet = PEM_write_bio_PrivateKey(
                 bufio, pPrivKey,
                 pkeyPwd != nullptr ? EVP_aes_256_cbc() : nullptr,
-                pkeyPwd != nullptr ? static_cast<unsigned char*>(
-                                         static_cast<void*>(pkeyPwd->data()))
-                                   : nullptr,
+                pkeyPwd != nullptr
+                    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+                    ? reinterpret_cast<unsigned char*>(pkeyPwd->data())
+                    : nullptr,
                 pkeyPwd != nullptr ? static_cast<int>(pkeyPwd->size()) : 0,
                 nullptr, nullptr);
             if (pkeyRet <= 0)
@@ -487,21 +487,22 @@ void initOpenssl()
 inline void encryptCredentials(const std::string& filename,
                                std::vector<char>* pkeyPwd)
 {
-    auto fp = fopen(filename.c_str(), "r");
+    auto* fp = fopen(filename.c_str(), "r");
     if (fp == nullptr)
     {
         BMCWEB_LOG_ERROR("Cannot open filename for reading: {}", filename);
         return;
     }
-    auto pkey =
+    auto* pkey =
         PEM_read_PrivateKey(fp, nullptr, lsp::emptyPasswordCallback, nullptr);
     if (pkey == nullptr)
     {
         BMCWEB_LOG_ERROR("Could not read private key from file: {}", filename);
+        fclose(fp);
         return;
     }
     fseek(fp, 0, SEEK_SET);
-    auto x509 = PEM_read_X509(fp, nullptr, nullptr, nullptr);
+    auto* x509 = PEM_read_X509(fp, nullptr, nullptr, nullptr);
     fclose(fp);
 
     fp = fopen(filename.c_str(), "w");
@@ -513,7 +514,8 @@ inline void encryptCredentials(const std::string& filename,
     PEM_write_PrivateKey(
         fp, pkey, EVP_aes_256_cbc(),
         pkeyPwd != nullptr
-            ? static_cast<unsigned char*>(static_cast<void*>(pkeyPwd->data()))
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+            ? reinterpret_cast<unsigned char*>(pkeyPwd->data())
             : nullptr,
         pkeyPwd != nullptr ? static_cast<int>(pkeyPwd->size()) : 0, nullptr,
         nullptr);
@@ -536,7 +538,7 @@ inline std::string ensureOpensslKeyPresentEncryptedAndValid(
     std::string cert;
     bool pkeyIsEncrypted = false;
 
-    auto ret = asn1::pemPkeyIsEncrypted(filepath.c_str(), &pkeyIsEncrypted);
+    auto ret = asn1::pemPkeyIsEncrypted(filepath, &pkeyIsEncrypted);
     if (ret == -1)
     {
         BMCWEB_LOG_INFO("No private key file available.");
@@ -722,7 +724,8 @@ inline std::shared_ptr<boost::asio::ssl::context> getSslServerContext()
     return std::make_shared<boost::asio::ssl::context>(std::move(sslCtx));
 }
 
-inline std::optional<boost::asio::ssl::context> getSSLClientContext()
+inline std::optional<boost::asio::ssl::context> getSSLClientContext(
+    VerifyCertificate verifyCertificate)
 {
     namespace fs = std::filesystem;
 
@@ -749,8 +752,13 @@ inline std::optional<boost::asio::ssl::context> getSSLClientContext()
         return std::nullopt;
     }
 
+    int mode = boost::asio::ssl::verify_peer;
+    if (verifyCertificate == VerifyCertificate::NoVerify)
+    {
+        mode = boost::asio::ssl::verify_none;
+    }
     // Verify the remote server's certificate
-    sslCtx.set_verify_mode(boost::asio::ssl::verify_peer, ec);
+    sslCtx.set_verify_mode(mode, ec);
     if (ec)
     {
         BMCWEB_LOG_ERROR("SSL context set_verify_mode failed");

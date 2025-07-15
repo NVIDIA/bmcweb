@@ -16,6 +16,7 @@
  */
 
 #include "app.hpp"
+#include "registries/privilege_registry.hpp"
 #include "task.hpp"
 
 #include <boost/process.hpp>

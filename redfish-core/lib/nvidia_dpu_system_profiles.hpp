@@ -24,7 +24,6 @@
 #include <openssl/pem.h>
 #include <openssl/x509.h>
 
-#include <app.hpp>
 #include <dbus_utility.hpp>
 #include <nvidia_oem_dpu.hpp>
 #include <query.hpp>
@@ -178,7 +177,6 @@ inline std::string actionStatusToString(
             BMCWEB_LOG_ERROR("Invalid status to convert to string");
             return "Invalid";
     }
-    return "Invalid";
 }
 
 inline nvidia_system_profile::ActionStatus getStatusActionFromDbusStatus(
@@ -298,13 +296,11 @@ inline std::string dbusOwnerToString(std::string dbusOwner)
     {
         return "Nvidia";
     }
-    else if (dbusOwner ==
-             "xyz.openbmc_project.Profiles.Configurations.Owner.OEM")
+    if (dbusOwner == "xyz.openbmc_project.Profiles.Configurations.Owner.OEM")
     {
         return "Oem";
     }
-    else if (dbusOwner ==
-             "xyz.openbmc_project.Profiles.Configurations.Owner.User")
+    if (dbusOwner == "xyz.openbmc_project.Profiles.Configurations.Owner.User")
     {
         return "User";
     }
@@ -320,7 +316,8 @@ inline std::string dbusOwnerToString(std::string dbusOwner)
  * @return bool -if true - task is completed
  */
 inline bool finishProfileTask(const std::shared_ptr<task::TaskData>& taskData,
-                              std::string_view state, nlohmann::json messages)
+                              std::string_view state,
+                              const nlohmann::json& messages)
 {
     taskData->state = state;
     taskData->messages.emplace_back(messages);
@@ -351,14 +348,14 @@ inline bool handleTaskStatus(const std::shared_ptr<task::TaskData>& taskData,
         return finishProfileTask(taskData, "Invalid",
                                  messages::taskAborted(index));
     }
-    else if (actionStatus == nvidia_system_profile::ActionStatus::None ||
-             actionStatus == nvidia_system_profile::ActionStatus::Active)
+    if (actionStatus == nvidia_system_profile::ActionStatus::None ||
+        actionStatus == nvidia_system_profile::ActionStatus::Active)
     {
         taskData->percentComplete = 100;
         return finishProfileTask(taskData, "Completed",
                                  messages::taskCompletedOK(index));
     }
-    else if (actionStatus == nvidia_system_profile::ActionStatus::Failed)
+    if (actionStatus == nvidia_system_profile::ActionStatus::Failed)
     {
         return finishProfileTask(taskData, "Exception",
                                  messages::taskAborted(index));
@@ -428,22 +425,23 @@ inline bool updateTaskHandler(boost::system::error_code ec,
     if (activateProgress != nullptr)
     {
         taskData->percentComplete = static_cast<int>(*activateProgress);
-        taskData->messages.emplace_back(
-            messages::taskProgressChanged(std::to_string(taskData->index),
-                                          static_cast<int>(*activateProgress)));
+        taskData->messages.emplace_back(messages::taskProgressChanged(
+            std::to_string(taskData->index),
+            static_cast<uint64_t>(*activateProgress)));
     }
     else if (addProgress != nullptr)
     {
         taskData->percentComplete = static_cast<int>(*addProgress);
-        taskData->messages.emplace_back(messages::taskProgressChanged(
-            std::to_string(taskData->index), static_cast<int>(*addProgress)));
+        taskData->messages.emplace_back(
+            messages::taskProgressChanged(std::to_string(taskData->index),
+                                          static_cast<uint64_t>(*addProgress)));
     }
     else if (deleteProgress != nullptr)
     {
         taskData->percentComplete = static_cast<int>(*deleteProgress);
-        taskData->messages.emplace_back(
-            messages::taskProgressChanged(std::to_string(taskData->index),
-                                          static_cast<int>(*deleteProgress)));
+        taskData->messages.emplace_back(messages::taskProgressChanged(
+            std::to_string(taskData->index),
+            static_cast<uint64_t>(*deleteProgress)));
     }
     return !task::completed;
 }
@@ -527,18 +525,18 @@ inline void handleGetProfilesCollection(
             for (const auto& object : objects)
             {
                 sdbusplus::message::object_path path(object);
-                std::string profile_number = path.filename();
-                if (profile_number.empty())
+                std::string profileNumber = path.filename();
+                if (profileNumber.empty())
                 {
                     continue;
                 }
                 auto newPath = boost::urls::format(
                     "/redfish/v1/Systems/{}/Oem/Nvidia/SystemConfigProfile/Profiles/{}",
-                    BMCWEB_REDFISH_SYSTEM_URI_NAME, profile_number);
+                    BMCWEB_REDFISH_SYSTEM_URI_NAME, profileNumber);
                 nlohmann::json::object_t member;
                 member["@odata.id"] = std::move(newPath);
                 members.push_back(std::move(member));
-                BMCWEB_LOG_DEBUG("Profile: {}", profile_number);
+                BMCWEB_LOG_DEBUG("Profile: {}", profileNumber);
             }
             aResp->res.jsonValue["Members@odata.count"] = members.size();
         },
@@ -630,21 +628,17 @@ inline void populateProfileStatues(
         handlePatchSetProfileStatus(std::move(payload), isBiosUser, aResp,
                                     profileNumber, "ActivateProfile",
                                     *activateStatus);
+        return;
     }
     if (deleteStatus)
     {
         handlePatchSetProfileStatus(std::move(payload), isBiosUser, aResp,
                                     profileNumber, "DeleteProfile",
                                     *deleteStatus);
+        return;
     }
     if (addStatus)
     {
-        if (deleteStatus)
-        {
-            messages::actionParameterDuplicate(aResp->res, "AddProfile",
-                                               "DeleteProfile");
-            return;
-        }
         if (addStatus == "Start")
         {
             messages::actionParameterUnknown(aResp->res, "AddProfile", "Start");
@@ -652,6 +646,7 @@ inline void populateProfileStatues(
         }
         handlePatchSetProfileStatus(std::move(payload), isBiosUser, aResp,
                                     profileNumber, "AddProfile", *addStatus);
+        return;
     }
 }
 
@@ -1149,10 +1144,10 @@ inline void callbackProfileUpdate(
     if (ec)
     {
         const sd_bus_error* dbusError = msg.get_error();
-        if (dbusError && dbusError->name)
+        if (dbusError != nullptr && dbusError->name != nullptr)
         {
-            if (!strcmp(dbusError->name,
-                        "xyz.openbmc_project.Common.Error.NotAllowed"))
+            if (strcmp(dbusError->name,
+                       "xyz.openbmc_project.Common.Error.NotAllowed") == 0)
             {
                 messages::actionNotSupported(
                     aResp->res,
@@ -1192,7 +1187,7 @@ inline void callbackProfileUpdate(
 inline void handleProfileUpdateCall(
     task::Payload&& payload, const boost::system::error_code& ec,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, bool isBiosUser,
-    std::shared_ptr<MemoryFD> memFd)
+    const std::shared_ptr<MemoryFD>& memFd)
 {
     BMCWEB_LOG_DEBUG("Profile update Is bios: {}", isBiosUser);
     if (ec)
@@ -1295,7 +1290,7 @@ inline bool handleFactoryResetTask(
     {
         taskData->percentComplete = static_cast<int>(*progress);
         taskData->messages.emplace_back(messages::taskProgressChanged(
-            std::to_string(taskData->index), static_cast<int>(*progress)));
+            std::to_string(taskData->index), static_cast<uint64_t>(*progress)));
         return !task::completed;
     }
     return !task::completed;
@@ -1455,30 +1450,27 @@ inline void handleFactoryReset(crow::App& app, const crow::Request& req,
                                  statusPrefix + "Start", false);
 }
 
-inline std::string getConfigFlashType(std::string truststoreName)
+inline std::string getConfigFlashType(const std::string& truststoreName)
 {
     if (truststoreName == nvidiaProfileTruststore)
     {
         return "xyz.openbmc_project.Profiles.Configurations.Owner.Nvidia";
     }
-    else if (truststoreName == oemProfileTruststore)
+    if (truststoreName == oemProfileTruststore)
     {
         return "xyz.openbmc_project.Profiles.Configurations.Owner.OEM";
     }
-    else
-    {
-        BMCWEB_LOG_DEBUG("Error flash type name");
-        return "";
-    }
+    BMCWEB_LOG_DEBUG("Error flash type name");
+    return "";
 }
 
-inline std::string getProfileServiceName(std::string truststoreName)
+inline std::string getProfileServiceName(const std::string& truststoreName)
 {
     if (truststoreName == nvidiaProfileTruststore)
     {
         return nvidiaProfileTruststoreService;
     }
-    else if (truststoreName == oemProfileTruststore)
+    if (truststoreName == oemProfileTruststore)
     {
         return oemProfileTruststoreService;
     }
@@ -1487,13 +1479,13 @@ inline std::string getProfileServiceName(std::string truststoreName)
     return "";
 }
 
-inline std::string getProfileTruststorePath(std::string truststoreName)
+inline std::string getProfileTruststorePath(const std::string& truststoreName)
 {
     if (truststoreName == nvidiaProfileTruststore)
     {
         return nvidiaProfileTruststorePath;
     }
-    else if (truststoreName == oemProfileTruststore)
+    if (truststoreName == oemProfileTruststore)
     {
         return oemProfileTruststorePath;
     }
@@ -1504,8 +1496,8 @@ inline std::string getProfileTruststorePath(std::string truststoreName)
 
 inline bool isTruststoreSupported(const std::string& truststoreName)
 {
-    auto it = std::find(profileTruststores.begin(), profileTruststores.end(),
-                        truststoreName);
+    auto* it = std::find(profileTruststores.begin(), profileTruststores.end(),
+                         truststoreName);
     return it != profileTruststores.end();
 }
 
@@ -1553,7 +1545,7 @@ inline void handleGetProfileTruststoreCollection(
         return;
     }
     redfish::collection_util::getCollectionMembers(asyncResp, url, interfaces,
-                                                   path.c_str());
+                                                   path);
 }
 
 inline void handleGetProfileCaCertificate(
@@ -1679,14 +1671,14 @@ static ProfileOwner getCertOwner(const std::string& certStr)
 {
     BIO* bio =
         BIO_new_mem_buf(certStr.data(), static_cast<int>(certStr.size()));
-    if (!bio)
+    if (bio == nullptr)
     {
         BMCWEB_LOG_DEBUG("Error creating BIO ");
         return ProfileOwner::Invalid;
     }
     X509* cert = PEM_read_bio_X509(bio, nullptr, nullptr, nullptr);
 
-    if (!cert)
+    if (cert == nullptr)
     {
         BIO_free(bio);
         BMCWEB_LOG_ERROR("Error reading certificate from string ");
@@ -1694,20 +1686,20 @@ static ProfileOwner getCertOwner(const std::string& certStr)
     }
     BIO_free(bio);
     X509_NAME* issuerName = X509_get_issuer_name(cert);
-    if (!issuerName)
+    if (issuerName == nullptr)
     {
         X509_free(cert);
         BMCWEB_LOG_ERROR("Error getting issuer name from certificate");
         return ProfileOwner::Invalid;
     }
     static const int maxKeySize = 4096;
-    char issuerBuffer[maxKeySize] = {0};
+    std::array<char, maxKeySize> issuerBuffer{};
     BIO* issuerBio = BIO_new(BIO_s_mem());
     X509_NAME_print_ex(issuerBio, issuerName, 0, XN_FLAG_SEP_COMMA_PLUS);
-    BIO_read(issuerBio, issuerBuffer, maxKeySize);
+    BIO_read(issuerBio, issuerBuffer.data(), maxKeySize);
     X509_free(cert);
     BIO_free(issuerBio);
-    return getOwnerFromIssuer(std::string(issuerBuffer));
+    return getOwnerFromIssuer(std::string(issuerBuffer.data()));
 }
 
 inline void handlePostCertificateProfile(
@@ -1826,7 +1818,7 @@ inline void handleProfileCaCertificatePost(
  * @return None
  */
 inline void handleProfileActionRequest(
-    crow::App& app, std::string action, const crow::Request& req,
+    crow::App& app, const std::string& action, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const std::string& systemName, const std::string& profileNumber)
 {

@@ -22,13 +22,13 @@
 #include "task.hpp"
 #include "utils/certificate_utils.hpp"
 
-#include <errno.h>
-
 #include <app.hpp>
 #include <dbus_utility.hpp>
 #include <query.hpp>
 #include <registries/privilege_registry.hpp>
 #include <utils/privilege_utils.hpp>
+
+#include <cerrno>
 
 namespace redfish
 {
@@ -184,14 +184,14 @@ class DpuGetProperties : virtual public DpuCommonProperties
                 }
 
                 std::string var;
-                auto boolVar = std::get_if<bool>(&variant);
+                const auto* boolVar = std::get_if<bool>(&variant);
                 if (boolVar)
                 {
                     var = *boolVar ? "true" : "false";
                 }
                 else
                 {
-                    auto strVar = std::get_if<std::string>(&variant);
+                    const auto* strVar = std::get_if<std::string>(&variant);
                     // If property returned is not a string set var to empty
                     // string
                     var = strVar ? *strVar : "";
@@ -967,7 +967,7 @@ inline void handleTruststoreCertificatesCollectionPost(
         return;
     }
 
-    if (certString.size() == 0)
+    if (certString.empty())
     {
         messages::propertyValueIncorrect(asyncResp->res, "CertificateString",
                                          certString);
@@ -1003,7 +1003,7 @@ inline void handleTruststoreCertificatesCollectionPost(
 
             crow::connections::systemBus->async_method_call(
                 [asyncResp, owner,
-                 certFile](const boost::system::error_code ec2,
+                 certFile](const boost::system::error_code& ec2,
                            const std::string& objectPath) {
                     if (ec2)
                     {
@@ -1023,7 +1023,7 @@ inline void handleTruststoreCertificatesCollectionPost(
                     if (owner)
                     {
                         crow::connections::systemBus->async_method_call(
-                            [asyncResp](const boost::system::error_code ec3) {
+                            [asyncResp](const boost::system::error_code& ec3) {
                                 if (ec3)
                                 {
                                     messages::internalError(asyncResp->res);
