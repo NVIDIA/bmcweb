@@ -945,8 +945,7 @@ inline void getShmemMetricsDefinitionWildCard(
     }
     catch (const std::exception& e)
     {
-        BMCWEB_LOG_ERROR("Exception while getting MRD values: {}", e.what());
-        messages::resourceNotFound(asyncResp->res, "MetricReport", metricId);
+        BMCWEB_LOG_ERROR("Exception while getting MRD values for metricId {}: {}", metricId, e.what());
     }
 }
 
