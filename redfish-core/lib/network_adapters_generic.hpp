@@ -746,6 +746,44 @@ inline void
         "xyz.openbmc_project.Association", "endpoints");
 }
 
+inline void populateNDFURI(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& networkAdapterPath,
+                           const std::string& chassisId,
+                           const std::string& networkAdapterId)
+{
+    std::string ndfAssociationPath = networkAdapterPath +
+                                     "/network_device_functions";
+
+    dbus::utility::findAssociations(
+        ndfAssociationPath, [asyncResp, chassisId, networkAdapterId](
+                                const boost::system::error_code& ec,
+                                std::variant<std::vector<std::string>>& resp) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("DBUS response error");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        std::vector<std::string>* data =
+            std::get_if<std::vector<std::string>>(&resp);
+        if (data == nullptr)
+        {
+            BMCWEB_LOG_ERROR(
+                "populateNDFURI: No NDF association data found for adapter {}.",
+                networkAdapterId);
+            messages::resourceNotFound(asyncResp->res, "NetworkDeviceFunction",
+                                       networkAdapterId);
+            return;
+        }
+
+        asyncResp->res.jsonValue["NetworkDeviceFunctions"]
+                                ["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Chassis/{}/NetworkAdapters/{}/NetworkDeviceFunctions",
+            chassisId, networkAdapterId);
+    });
+}
+
 inline void doNetworkAdapterGeneric(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& networkAdapterId,
@@ -787,6 +825,8 @@ inline void doNetworkAdapterGeneric(
     asyncResp->res.jsonValue["Status"]["Conditions"] = nlohmann::json::array();
 #endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
 
+    populateNDFURI(asyncResp, *validNetworkAdapterPath, chassisId,
+                   networkAdapterId);
     getControllersData(asyncResp, *validNetworkAdapterPath, chassisId,
                        networkAdapterId);
     getAssetData(asyncResp, *validNetworkAdapterPath, networkAdapterId);
@@ -2130,6 +2170,410 @@ inline void handleNetworkAdapterResetGeneric(
     }
 }
 
+inline void
+    doNDFCollection(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                    const std::string& chassisId,
+                    const std::string& networkAdapterId,
+                    const std::optional<std::string>& validNetworkAdapterPath)
+{
+    if (!validNetworkAdapterPath)
+    {
+        BMCWEB_LOG_ERROR("doNDFCollection: Not a valid NetworkAdapter ID {}",
+                         networkAdapterId);
+        messages::resourceNotFound(asyncResp->res, "NetworkAdapter",
+                                   networkAdapterId);
+        return;
+    }
+
+    boost::urls::url collectionUrl = boost::urls::format(
+        "/redfish/v1/Chassis/{}/NetworkAdapters/{}/NetworkDeviceFunctions",
+        chassisId, networkAdapterId);
+    std::string collectionOdataId = collectionUrl.buffer();
+
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#NetworkDeviceFunctionCollection.NetworkDeviceFunctionCollection";
+    asyncResp->res.jsonValue["Name"] = chassisId + " NetworkAdapters " +
+                                       networkAdapterId +
+                                       " NetworkDeviceFunctions";
+    asyncResp->res.jsonValue["@odata.id"] = collectionOdataId;
+
+    std::string adapterDbusPath = *validNetworkAdapterPath;
+
+    BMCWEB_LOG_DEBUG("Get collection members by association for: {}",
+                     collectionOdataId);
+    std::string ndfAssociationPath = adapterDbusPath +
+                                     "/network_device_functions";
+    dbus::utility::findAssociations(
+        ndfAssociationPath, [asyncResp, collectionOdataId](
+                                const boost::system::error_code& e,
+                                std::variant<std::vector<std::string>>& resp) {
+        if (e)
+        {
+            asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
+            asyncResp->res.jsonValue["Members@odata.count"] = 0;
+            return;
+        }
+
+        std::vector<std::string>* data =
+            std::get_if<std::vector<std::string>>(&resp);
+        if (data == nullptr)
+        {
+            BMCWEB_LOG_ERROR(
+                "doNDFCollection: No NDF association data found for network adapter.");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        nlohmann::json& members = asyncResp->res.jsonValue["Members"];
+        members = nlohmann::json::array();
+        for (const std::string& sensorpath : *data)
+        {
+            sdbusplus::message::object_path ndfPath(sensorpath);
+            if (!ndfPath.filename().empty())
+            {
+                std::string dbusNDFId = ndfPath.filename();
+                size_t lastUnderscorePos = dbusNDFId.rfind('_');
+                BMCWEB_LOG_ERROR(
+                    "Testlog: dbusNDFId: {}, lastUnderscorePos: {}", dbusNDFId,
+                    lastUnderscorePos);
+                if (lastUnderscorePos != std::string::npos &&
+                    lastUnderscorePos < dbusNDFId.length() - 1)
+                {
+                    dbusNDFId = dbusNDFId.substr(lastUnderscorePos + 1);
+                    members.push_back(
+                        {{"@odata.id", collectionOdataId + "/" + dbusNDFId}});
+                }
+            }
+        }
+        asyncResp->res.jsonValue["Members@odata.count"] = members.size();
+    });
+}
+
+inline void doNDFCollectionWithValidChassisId(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId,
+    const std::vector<std::string>& chassisIntfList,
+    const std::optional<std::string>& validChassisPath)
+{
+    getValidNetworkAdapterPath(asyncResp, networkAdapterId, chassisIntfList,
+                               *validChassisPath,
+                               std::bind_front(doNDFCollection, asyncResp,
+                                               chassisId, networkAdapterId));
+}
+
+inline void handleNetworkDeviceFunctionsCollectionGetGeneric(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG(
+        "handleNetworkDeviceFunctionsCollectionGetGeneric: chassisId={}, adapterId={}",
+        chassisId, networkAdapterId);
+
+    redfish::chassis_utils::getValidChassisPathAndInterfaces(
+        asyncResp, chassisId,
+        std::bind_front(doNDFCollectionWithValidChassisId, asyncResp, chassisId,
+                        networkAdapterId));
+}
+
+inline void
+    getPortAddressData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       const std::string& service, const std::string& objPath)
+{
+    sdbusplus::asio::getAllProperties(
+        *crow::connections::systemBus, service, objPath, "",
+        [asyncResp,
+         objPath](const boost::system::error_code& e,
+                  const dbus::utility::DBusPropertiesMap& properties) {
+        if (e)
+        {
+            BMCWEB_LOG_ERROR(
+                "getPortAddressData: D-Bus error getting properties : {}",
+                e.message());
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        const std::string* permanentMACAddress = nullptr;
+        const std::string* nodeGUID = nullptr;
+
+        const bool success = sdbusplus::unpackPropertiesNoThrow(
+            dbus_utils::UnpackErrorPrinter(), properties, "MACAddress",
+            permanentMACAddress, "GUID", nodeGUID);
+
+        if (!success)
+        {
+            BMCWEB_LOG_ERROR("Failed to unpack properties");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        if (permanentMACAddress != nullptr)
+        {
+            asyncResp->res.jsonValue["Ethernet"]["PermanentMACAddress"] =
+                *permanentMACAddress;
+        }
+        if (nodeGUID != nullptr)
+        {
+            asyncResp->res.jsonValue["InfiniBand"]["PermanentNodeGUID"] =
+                *nodeGUID;
+        }
+    });
+}
+
+inline void getPortAddressDataByAssociation(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& connectionName, const std::string& sensorPath,
+    const std::string& associationName)
+{
+    dbus::utility::findAssociations(
+        sensorPath + "/" + associationName,
+        [asyncResp,
+         connectionName](const boost::system::error_code& e,
+                         std::variant<std::vector<std::string>>& resp) {
+        if (e)
+        {
+            return;
+        }
+        std::vector<std::string>* data =
+            std::get_if<std::vector<std::string>>(&resp);
+        if (data == nullptr)
+        {
+            BMCWEB_LOG_ERROR(
+                "getPortAddressDataByAssociation: No network device function association found");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+        for (const std::string& portAddressPath : *data)
+        {
+            getPortAddressData(asyncResp, connectionName, portAddressPath);
+        }
+    });
+}
+
+inline void getNDFData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       const std::string& sensorPath,
+                       const std::string& chassisId,
+                       const std::string& networkAdapterId,
+                       const std::string& ndfId)
+{
+    static const std::string linkTypeInterface{
+        "xyz.openbmc_project.Network.LinkType"};
+    dbus::utility::getDbusObject(
+        sensorPath, std::array<std::string_view, 1>{linkTypeInterface},
+        [asyncResp, sensorPath, chassisId, networkAdapterId, ndfId](
+            const boost::system::error_code ec,
+            const std::vector<std::pair<std::string, std::vector<std::string>>>&
+                object) {
+        if (ec)
+        {
+            BMCWEB_LOG_DEBUG("no LinkType interface on object path {}",
+                             sensorPath);
+            return;
+        }
+
+        asyncResp->res.jsonValue["@odata.type"] =
+            "#NetworkDeviceFunction.v1_10_0.NetworkDeviceFunction";
+        asyncResp->res.jsonValue["Id"] = ndfId;
+        asyncResp->res.jsonValue["Name"] = chassisId + " NetworkAdapters " +
+                                           networkAdapterId +
+                                           " NetworkDeviceFunctions " + ndfId;
+        asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Chassis/{}/NetworkAdapters/{}/NetworkDeviceFunctions/{}",
+            chassisId, networkAdapterId, ndfId);
+
+        sdbusplus::message::object_path path(sensorPath);
+        std::string PortId = path.filename();
+        nlohmann::json& assignablePhysicalNetworkPorts =
+            asyncResp->res.jsonValue["AssignablePhysicalNetworkPorts"];
+        assignablePhysicalNetworkPorts = nlohmann::json::array();
+        std::string assignablePhysicalNetworkPortsOdataId =
+            boost::urls::format(
+                "/redfish/v1/Chassis/{}/NetworkAdapters/{}/Ports/{}", chassisId,
+                networkAdapterId, PortId)
+                .buffer();
+        asyncResp->res.jsonValue["AssignablePhysicalNetworkPorts"].push_back(
+            {{"@odata.id", assignablePhysicalNetworkPortsOdataId}});
+
+        std::string connectionName = object.front().first;
+        sdbusplus::asio::getAllProperties(
+            *crow::connections::systemBus, connectionName, sensorPath, "",
+            [asyncResp, connectionName,
+             sensorPath](const boost::system::error_code& e,
+                         const dbus::utility::DBusPropertiesMap& properties) {
+            if (e)
+            {
+                BMCWEB_LOG_ERROR(
+                    "getNDFData: D-Bus error getting properties : {}",
+                    e.message());
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            const std::string* linkType = nullptr;
+            const std::string* portGUID = nullptr;
+
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), properties, "LinkType",
+                linkType, "GUID", portGUID);
+
+            if (!success)
+            {
+                BMCWEB_LOG_ERROR("Failed to unpack properties");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            std::string netDevFuncType;
+            if (linkType != nullptr)
+            {
+                netDevFuncType = port_utils::getLinkType(*linkType);
+                asyncResp->res.jsonValue["NetDevFuncType"] = netDevFuncType;
+            }
+            else
+            {
+                BMCWEB_LOG_ERROR("Null value returned for link type");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            if (netDevFuncType == "InfiniBand")
+            {
+                if (portGUID != nullptr)
+                {
+                    asyncResp->res.jsonValue["InfiniBand"]
+                                            ["PermanentPortGUID"] = *portGUID;
+                }
+                else
+                {
+                    BMCWEB_LOG_ERROR("Null value returned for port GUID");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                getPortAddressDataByAssociation(
+                    asyncResp, connectionName, sensorPath,
+                    "associated_infiniband_port_address");
+            }
+            else if (netDevFuncType == "Ethernet")
+            {
+                getPortAddressDataByAssociation(
+                    asyncResp, connectionName, sensorPath,
+                    "associated_ethernet_port_address");
+            }
+        });
+    });
+}
+
+inline void getNDFDataByAssociation(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& networkAdapterDbusPath, const std::string& chassisId,
+    const std::string& networkAdapterId, const std::string& ndfId)
+{
+    std::string ndfAssociationPath = networkAdapterDbusPath +
+                                     "/network_device_functions";
+
+    dbus::utility::findAssociations(
+        ndfAssociationPath,
+        [asyncResp, networkAdapterDbusPath, chassisId, networkAdapterId,
+         ndfId](const boost::system::error_code& ec,
+                std::variant<std::vector<std::string>>& resp) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("DBUS response error");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        std::vector<std::string>* data =
+            std::get_if<std::vector<std::string>>(&resp);
+        if (data == nullptr)
+        {
+            BMCWEB_LOG_ERROR(
+                "getNDFDataByAssociation: No NDF association data found for adapter {}.",
+                networkAdapterId);
+            messages::resourceNotFound(asyncResp->res, "NetworkDeviceFunction",
+                                       ndfId);
+            return;
+        }
+
+        for (const std::string& sensorPath : *data)
+        {
+            sdbusplus::message::object_path ndfPath(sensorPath);
+            if (!ndfPath.filename().empty())
+            {
+                std::string dbusNDFId = ndfPath.filename();
+                size_t lastUnderscorePos = dbusNDFId.rfind('_');
+
+                //  Dbus NDF IDs are formatted as "<portPrefix>_<ndfId>"
+                if (lastUnderscorePos != std::string::npos &&
+                    lastUnderscorePos < dbusNDFId.length() - 1 &&
+                    dbusNDFId.substr(lastUnderscorePos + 1) == ndfId)
+                {
+                    getNDFData(asyncResp, sensorPath, chassisId,
+                               networkAdapterId, ndfId);
+                    return;
+                }
+            }
+        }
+
+        BMCWEB_LOG_WARNING(
+            "getNDFDataByAssociation: NDF {} not found in associations for adapter {}",
+            ndfId, networkAdapterId);
+        messages::resourceNotFound(asyncResp->res, "NetworkDeviceFunction",
+                                   ndfId);
+    });
+}
+
+inline void
+    doNDFGeneric(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                 const std::string& chassisId,
+                 const std::string& networkAdapterId, const std::string& ndfId,
+                 const std::optional<std::string>& validNetworkAdapterPath)
+{
+    if (!validNetworkAdapterPath)
+    {
+        BMCWEB_LOG_ERROR("doNDFGeneric: Not a valid networkAdapter ID {}",
+                         networkAdapterId);
+        messages::resourceNotFound(asyncResp->res, "NetworkAdapter",
+                                   networkAdapterId);
+        return;
+    }
+
+    getNDFDataByAssociation(asyncResp, *validNetworkAdapterPath, chassisId,
+                            networkAdapterId, ndfId);
+}
+
+inline void doNDFWithValidChassisId(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId,
+    const std::string& ndfId, const std::vector<std::string>& chassisIntfList,
+    const std::optional<std::string>& validChassisPath)
+{
+    getValidNetworkAdapterPath(
+        asyncResp, networkAdapterId, chassisIntfList, *validChassisPath,
+        std::bind_front(doNDFGeneric, asyncResp, chassisId, networkAdapterId,
+                        ndfId));
+}
+
+inline void handleNetworkDeviceFunctionGetGeneric(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId,
+    const std::string& ndfId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    redfish::chassis_utils::getValidChassisPathAndInterfaces(
+        asyncResp, chassisId,
+        std::bind_front(doNDFWithValidChassisId, asyncResp, chassisId,
+                        networkAdapterId, ndfId));
+}
+
 inline void requestRoutesNetworkAdaptersGeneric(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/")
@@ -2146,6 +2590,18 @@ inline void requestRoutesNetworkAdaptersGeneric(App& app)
         .privileges(redfish::privileges::getNetworkAdapter)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleNetworkAdapterResetGeneric, std::ref(app)));
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/NetworkDeviceFunctions/")
+        .privileges(redfish::privileges::getNetworkDeviceFunctionCollection)
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            handleNetworkDeviceFunctionsCollectionGetGeneric, std::ref(app)));
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/NetworkDeviceFunctions/<str>/")
+        .privileges(redfish::privileges::getNetworkDeviceFunction)
+        .methods(boost::beast::http::verb::get)(std::bind_front(
+            handleNetworkDeviceFunctionGetGeneric, std::ref(app)));
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Ports/")
         .privileges(redfish::privileges::getPortCollection)
         .methods(boost::beast::http::verb::get)(
