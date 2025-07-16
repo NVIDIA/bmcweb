@@ -184,7 +184,7 @@ inline void getErrorInjectionPayloadData(
             aResp->res.jsonValue["ErrorInjectionCapabilities"][capability];
         aResp->res
             .jsonValue["Actions"]["#NvidiaErrorInjection.Activate"]["target"] =
-            "/redfish/v1/Systems/" +
+            "/redfish/v1/Chassis/" +
             baseUri.substr(baseUri.find_last_of('/') + 1) +
             "/Oem/Nvidia/ErrorInjection/Actions/" +
             "NvidiaErrorInjection.Activate";
@@ -239,7 +239,7 @@ inline void getErrorInjectionData(
         }
         nlohmann::json& json = aResp->res.jsonValue;
         json["@odata.type"] =
-            "#NvidiaErrorInjection.v1_0_0.NvidiaErrorInjection";
+            "#NvidiaErrorInjection.v1_1_0.NvidiaErrorInjection";
         json["@odata.id"] = baseUri + "/Oem/Nvidia/ErrorInjection";
         json["Id"] = "ErrorInjection";
         json["Name"] = baseUri.substr(baseUri.find_last_of('/') + 1) +

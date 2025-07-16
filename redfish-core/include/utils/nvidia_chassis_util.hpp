@@ -529,7 +529,7 @@ inline void populateErrorInjectionChassis(
                 continue;
             }
             aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaChassis.v1_0_0.NvidiaSMAChassis";
+                "#NvidiaChassis.v1_11_0.NvidiaSMAChassis";
             aResp->res
                 .jsonValue["Oem"]["Nvidia"]["ErrorInjection"]["@odata.id"] =
                 "/redfish/v1/Chassis/" + chassisId +
