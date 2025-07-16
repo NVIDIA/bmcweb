@@ -1791,6 +1791,12 @@ inline void
     {
         return;
     }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
     crow::connections::systemBus->async_method_call(
         [req,
          asyncResp](const boost::system::error_code ec,
@@ -1859,6 +1865,12 @@ inline void
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
         return;
     }
     asyncResp->res.jsonValue["@odata.id"] =
@@ -2000,6 +2012,12 @@ inline void
     {
         return;
     }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
     nlohmann::json pendingAttrJson;
     if (!redfish::json_util::readJsonAction(req, asyncResp->res, "Attributes",
                                             pendingAttrJson))
@@ -2022,6 +2040,12 @@ inline void
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
         return;
     }
     asyncResp->res.jsonValue["@odata.id"] =
@@ -2324,6 +2348,12 @@ inline void handleNvidiaBiosResetPost(
     {
         return;
     }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
 
     // set the ResetBiosToDefaultsPending
     bios::setResetBiosSettings(asyncResp, true);
@@ -2361,7 +2391,12 @@ inline void handleBiosChangePasswordPost(
     {
         return;
     }
-
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
     std::string passwordName;
     std::string oldPassword;
     std::string newPassword;
