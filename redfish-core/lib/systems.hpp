@@ -4466,6 +4466,11 @@ inline void dbusToRfAllowedHostTransitions(
         allowableValues.emplace_back(resource::ResetType::ForceOn);
     }
     else if (dbusAllowedHostTran ==
+             "xyz.openbmc_project.State.Host.Transition.ForceOff")
+    {
+        allowableValues.emplace_back(resource::ResetType::ForceOff);
+    }
+    else if (dbusAllowedHostTran ==
              "xyz.openbmc_project.State.Host.Transition.Off")
     {
         allowableValues.emplace_back(resource::ResetType::GracefulShutdown);
@@ -4494,7 +4499,6 @@ inline void afterGetAllowedHostTransitions(
     nlohmann::json::array_t allowableValues;
 
     // Supported on all systems currently
-    allowableValues.emplace_back(resource::ResetType::ForceOff);
     allowableValues.emplace_back(resource::ResetType::PowerCycle);
 
     if (ec)
@@ -4507,6 +4511,7 @@ inline void afterGetAllowedHostTransitions(
             BMCWEB_LOG_DEBUG("Property not available {}", ec);
             allowableValues.emplace_back(resource::ResetType::On);
             allowableValues.emplace_back(resource::ResetType::ForceOn);
+            allowableValues.emplace_back(resource::ResetType::ForceOff);
             allowableValues.emplace_back(resource::ResetType::ForceRestart);
             allowableValues.emplace_back(resource::ResetType::GracefulRestart);
             allowableValues.emplace_back(resource::ResetType::GracefulShutdown);

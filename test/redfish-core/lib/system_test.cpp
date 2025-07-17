@@ -49,10 +49,10 @@ TEST(GetAllowedHostTransition, NoPropOnDbus)
     parameter["Required"] = true;
     parameter["DataType"] = "String";
     nlohmann::json::array_t allowed;
-    allowed.emplace_back(resource::ResetType::ForceOff);
     allowed.emplace_back(resource::ResetType::PowerCycle);
     allowed.emplace_back(resource::ResetType::On);
     allowed.emplace_back(resource::ResetType::ForceOn);
+    allowed.emplace_back(resource::ResetType::ForceOff);
     allowed.emplace_back(resource::ResetType::ForceRestart);
     allowed.emplace_back(resource::ResetType::GracefulRestart);
     allowed.emplace_back(resource::ResetType::GracefulShutdown);
@@ -70,6 +70,7 @@ TEST(GetAllowedHostTransition, NoForceRestart)
     std::vector<std::string> allowedHostTransitions = {
         "xyz.openbmc_project.State.Host.Transition.On",
         "xyz.openbmc_project.State.Host.Transition.Off",
+        "xyz.openbmc_project.State.Host.Transition.ForceOff",
         "xyz.openbmc_project.State.Host.Transition.GracefulWarmReboot",
     };
 
@@ -81,11 +82,11 @@ TEST(GetAllowedHostTransition, NoForceRestart)
     parameter["Required"] = true;
     parameter["DataType"] = "String";
     nlohmann::json::array_t allowed;
-    allowed.emplace_back(resource::ResetType::ForceOff);
     allowed.emplace_back(resource::ResetType::PowerCycle);
     allowed.emplace_back(resource::ResetType::On);
     allowed.emplace_back(resource::ResetType::ForceOn);
     allowed.emplace_back(resource::ResetType::GracefulShutdown);
+    allowed.emplace_back(resource::ResetType::ForceOff);
     allowed.emplace_back(resource::ResetType::GracefulRestart);
     parameter["AllowableValues"] = std::move(allowed);
     parameters.emplace_back(std::move(parameter));
@@ -101,6 +102,7 @@ TEST(GetAllowedHostTransition, AllSupported)
     std::vector<std::string> allowedHostTransitions = {
         "xyz.openbmc_project.State.Host.Transition.On",
         "xyz.openbmc_project.State.Host.Transition.Off",
+        "xyz.openbmc_project.State.Host.Transition.ForceOff",
         "xyz.openbmc_project.State.Host.Transition.GracefulWarmReboot",
         "xyz.openbmc_project.State.Host.Transition.ForceWarmReboot",
     };
@@ -113,11 +115,11 @@ TEST(GetAllowedHostTransition, AllSupported)
     parameter["Required"] = true;
     parameter["DataType"] = "String";
     nlohmann::json::array_t allowed;
-    allowed.emplace_back(resource::ResetType::ForceOff);
     allowed.emplace_back(resource::ResetType::PowerCycle);
     allowed.emplace_back(resource::ResetType::On);
     allowed.emplace_back(resource::ResetType::ForceOn);
     allowed.emplace_back(resource::ResetType::GracefulShutdown);
+    allowed.emplace_back(resource::ResetType::ForceOff);
     allowed.emplace_back(resource::ResetType::GracefulRestart);
     allowed.emplace_back(resource::ResetType::ForceRestart);
     parameter["AllowableValues"] = std::move(allowed);
