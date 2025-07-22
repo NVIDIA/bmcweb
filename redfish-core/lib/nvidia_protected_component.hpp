@@ -435,7 +435,7 @@ inline void updateProtectedComponentLink(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            if (subtreePaths.empty())
+            if (!subtreePaths.empty())
             {
                 asyncResp->res
                     .jsonValue["Oem"]["Nvidia"]["RoTProtectedComponents"] = {
