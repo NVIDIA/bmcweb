@@ -1221,8 +1221,9 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                 return;
             }
             BMCWEB_LOG_DEBUG("Get available system processor resource");
-            std::array<std::string_view, 1> interfacesList = {
-                "xyz.openbmc_project.Inventory.Item.Port"};
+            std::array<std::string_view, 2> interfacesList = {
+                "xyz.openbmc_project.Inventory.Item.Cpu",
+                "xyz.openbmc_project.Inventory.Item.Accelerator"};
 
             dbus::utility::getSubTree(
                 "/xyz/openbmc_project/inventory", 0, interfacesList,
