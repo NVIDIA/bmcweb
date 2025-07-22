@@ -643,6 +643,8 @@ class EventServiceManager
         nlohmann::json::array_t logEntryArray;
         nlohmann::json& logEntryJson = logEntryArray.emplace_back();
 
+        logEntryJson["EventId"] = std::to_string(eventId);
+
         if (testEvent.eventGroupId)
         {
             logEntryJson["EventGroupId"] = *testEvent.eventGroupId;
@@ -788,6 +790,7 @@ class EventServiceManager
         {
             BMCWEB_LOG_ERROR("Failed to format the event log entry");
         }
+        logEntry["EventId"] = std::to_string(eventId);
         nlohmann::json eventsArray = nlohmann::json::array();
         eventsArray.push_back(logEntry);
         nlohmann::json::object_t msg;
