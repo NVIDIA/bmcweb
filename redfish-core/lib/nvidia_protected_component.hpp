@@ -200,7 +200,10 @@ inline void
             {
                 if (const std::string* value = std::get_if<std::string>(&val))
                 {
-                    asyncResp->res.jsonValue["Version"] = *value;
+                    if (!value->empty())
+                    {
+                        asyncResp->res.jsonValue["Version"] = *value;
+                    }
                 }
                 else
                 {
