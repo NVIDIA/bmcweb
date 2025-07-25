@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 /** @namespace phosphor
@@ -54,7 +55,7 @@ class evtEntry final :
     evtEntry(sdbusplus::bus::bus& bus, const std::string& path, uint32_t id,
              uint64_t timestamp, Level severity, std::string&& msg,
              std::string&& resolution,
-             std::vector<std::string>&& additionalData);
+             std::unordered_map<std::string, std::string>&& additionalData);
 
     /** @brief Destructor */
     ~evtEntry() override;

@@ -14,6 +14,7 @@
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "sensors.hpp"
+#include "str_utility.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
@@ -340,7 +341,10 @@ inline void getServiceRootManagedObjects(
                     connection, ec);
                 return;
             }
-            std::sort(resp.begin(), resp.end());
+            std::sort(resp.begin(), resp.end(),
+                      [](const auto& a, const auto& b) {
+                          return a.first.str < b.first.str;
+                      });
             processChassisSensors(asyncResp, resp, chassisPath, metricsType,
                                   sensingInterval, requestTimestamp);
         },
@@ -369,7 +373,10 @@ inline void getServiceManagedObjects(
                                              requestTimestamp);
                 return;
             }
-            std::sort(resp.begin(), resp.end());
+            std::sort(resp.begin(), resp.end(),
+                      [](const auto& a, const auto& b) {
+                          return a.first.str < b.first.str;
+                      });
             processChassisSensors(asyncResp, resp, chassisPath, metricsType,
                                   sensingInterval, requestTimestamp);
         },

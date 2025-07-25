@@ -60,7 +60,8 @@ inline void handleDeviceServiceConditions(
             const uint32_t* id = nullptr;
             const std::string* message = nullptr;
             const std::string* severity = nullptr;
-            const std::vector<std::string>* additionalDataRaw = nullptr;
+            const std::unordered_map<std::string, std::string>* additionalData =
+                nullptr;
             const std::string prefix =
                 "xyz.openbmc_project.Logging.Entry.Level.";
             const std::string criticalSev = prefix + "Critical";
@@ -69,7 +70,7 @@ inline void handleDeviceServiceConditions(
 
             for (const auto& objectPath : resp)
             {
-                additionalDataRaw = nullptr;
+                additionalData = nullptr;
                 for (const auto& interfaceMap : objectPath.second)
                 {
                     if (interfaceMap.first ==
@@ -93,9 +94,9 @@ inline void handleDeviceServiceConditions(
                             }
                             else if (propertyMap.first == "AdditionalData")
                             {
-                                additionalDataRaw =
-                                    std::get_if<std::vector<std::string>>(
-                                        &propertyMap.second);
+                                additionalData = std::get_if<std::unordered_map<
+                                    std::string, std::string>>(
+                                    &propertyMap.second);
                             }
                             else if (propertyMap.first == "Timestamp")
                             {
@@ -125,9 +126,9 @@ inline void handleDeviceServiceConditions(
                 std::string messageId;
                 std::string deviceName;
 
-                if (additionalDataRaw != nullptr)
+                if (additionalData != nullptr)
                 {
-                    AdditionalData additional(*additionalDataRaw);
+                    AdditionalData additional(*additionalData);
                     if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
                     {
                         originOfCondition =
@@ -181,7 +182,8 @@ inline void handleServiceConditionsURI(
             const uint32_t* id = nullptr;
             const std::string* message = nullptr;
             const std::string* severity = nullptr;
-            const std::vector<std::string>* additionalDataRaw = nullptr;
+            const std::unordered_map<std::string, std::string>* additionalData =
+                nullptr;
             const std::string prefix =
                 "xyz.openbmc_project.Logging.Entry.Level.";
             const std::string criticalSev = prefix + "Critical";
@@ -189,7 +191,7 @@ inline void handleServiceConditionsURI(
             std::time_t timestamp{};
             for (const auto& objectPath : resp)
             {
-                additionalDataRaw = nullptr;
+                additionalData = nullptr;
                 for (const auto& interfaceMap : objectPath.second)
                 {
                     if (interfaceMap.first ==
@@ -213,9 +215,9 @@ inline void handleServiceConditionsURI(
                             }
                             else if (propertyMap.first == "AdditionalData")
                             {
-                                additionalDataRaw =
-                                    std::get_if<std::vector<std::string>>(
-                                        &propertyMap.second);
+                                additionalData = std::get_if<std::unordered_map<
+                                    std::string, std::string>>(
+                                    &propertyMap.second);
                             }
                             else if (propertyMap.first == "Timestamp")
                             {
@@ -245,9 +247,9 @@ inline void handleServiceConditionsURI(
                 std::string messageId;
                 std::string deviceName;
 
-                if (additionalDataRaw != nullptr)
+                if (additionalData != nullptr)
                 {
-                    AdditionalData additional(*additionalDataRaw);
+                    AdditionalData additional(*additionalData);
                     if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
                     {
                         originOfCondition =

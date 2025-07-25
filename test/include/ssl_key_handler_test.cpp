@@ -15,8 +15,7 @@ TEST(SSLKeyHandler, GenerateVerifyRoundTrip)
     /* Verifies that we can generate a certificate, then read back in the
      * certificate that was read */
     TemporaryFileHandle myFile("");
-    std::vector<char> pkeyPwd;
-    std::string cert = generateSslCertificate("TestCommonName", &pkeyPwd);
+    std::string cert = generateSslCertificate("TestCommonName", nullptr);
 
     EXPECT_FALSE(cert.empty());
 

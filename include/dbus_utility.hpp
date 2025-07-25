@@ -23,6 +23,7 @@
 #include <string>
 #include <string_view>
 #include <tuple>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -69,8 +70,9 @@ using DbusVariantType = std::variant<
     std::vector<std::pair<sdbusplus::message::object_path, std::string>>,
     std::vector<std::tuple<std::string, uint64_t, std::string, double>>,
     std::vector<std::tuple<std::string, std::string, uint64_t, std::string>>,
-    std::vector<std::tuple<uint16_t, std::tuple<double, double, double>>>
- >;
+    std::vector<std::tuple<uint16_t, std::tuple<double, double, double>>>,
+    std::unordered_map<std::string, std::string>
+>;
 
 // clang-format on
 using DBusPropertiesMap = std::vector<std::pair<std::string, DbusVariantType>>;

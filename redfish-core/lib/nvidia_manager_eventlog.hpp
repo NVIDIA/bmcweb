@@ -119,9 +119,9 @@ inline void fillManagerEventLogLogEntryFromPropertyMap(
     bool isMessageRegistry = false;
     std::string messageId;
     std::string messageArgs;
-    if (entry.additionalDataRaw != nullptr)
+    if (!entry.AdditionalData.empty())
     {
-        AdditionalData additional(*entry.additionalDataRaw);
+        AdditionalData additional(entry.AdditionalData);
         if (additional.count("REDFISH_MESSAGE_ID") > 0)
         {
             isMessageRegistry = true;

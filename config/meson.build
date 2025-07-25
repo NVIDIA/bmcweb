@@ -100,6 +100,7 @@ feature_options = [
     'ntp',
     'nvidia-bootentryid',
     'nvidia-device-status-from-association',
+    'nvidia-redfish-event-support',
     'nvidia-oem-bf-properties',
     'nvidia-oem-bf3-properties',
     'nvidia-oem-common-properties',

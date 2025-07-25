@@ -129,7 +129,8 @@ class MctpEndpoint
 
     bool isEnabled() const
     {
-        return enabled.has_value() ? *enabled : false;
+        return connectivity.has_value() ? (*connectivity == "Available")
+                                        : false;
     }
 
   protected:
@@ -165,18 +166,18 @@ class MctpEndpoint
                             }
                             for (const auto& [key, val] : properties)
                             {
-                                if (key == "Enabled")
+                                if (key == "Connectivity")
                                 {
-                                    if (const bool* value =
-                                            std::get_if<bool>(&val))
+                                    if (const std::string* value =
+                                            std::get_if<std::string>(&val))
                                     {
-                                        enabled = *value;
+                                        connectivity = *value;
                                     }
                                     else
                                     {
                                         callback(
                                             false,
-                                            "Enabled property failure for " +
+                                            "Connectivity property failure for " +
                                                 mctpObj);
                                         return;
                                     }
@@ -198,7 +199,7 @@ class MctpEndpoint
                                         return;
                                     }
                                 }
-                                if (enabled.has_value() &&
+                                if (connectivity.has_value() &&
                                     mctpMessageTypes.has_value())
                                 {
                                     callback(true, mctpObj);
@@ -223,7 +224,7 @@ class MctpEndpoint
     std::string mctpObj;
     std::string spdmObj;
     int mctpEid{-1};
-    std::optional<bool> enabled;
+    std::optional<std::string> connectivity;
     std::optional<std::vector<uint8_t>> mctpMessageTypes;
 };
 

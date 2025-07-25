@@ -260,11 +260,8 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                             systemBus
                                                 ->async_method_call(
                                                     [asyncResp,
-                                                     chassisId(
-                                                         std::
-                                                             string(
-                                                                 chassisId))](const boost::system::error_code& ec2, const GetManagedObjectsType&
-                                                                                                                        resp) {
+                                                     chassisId(std::string(
+                                                         chassisId))](const boost::system::error_code& ec2, const GetManagedObjectsType& resp) {
                                                         if (ec2)
                                                         {
                                                             // TODO Handle for
@@ -297,10 +294,12 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                         const std::string*
                                                             resolution =
                                                                 nullptr;
-                                                        const std::vector<
-                                                            std::string>*
-                                                            additionalDataRaw =
-                                                                nullptr;
+                                                        const std::
+                                                            unordered_map<
+                                                                std::string,
+                                                                std::string>*
+                                                                additionalData =
+                                                                    nullptr;
 
                                                         nlohmann::json&
                                                             entriesArray =
@@ -440,8 +439,10 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                                                 .first ==
                                                                             "AdditionalData")
                                                                         {
-                                                                            additionalDataRaw = std::get_if<
-                                                                                std::vector<
+                                                                            additionalData = std::get_if<
+                                                                                std::unordered_map<
+                                                                                    std::
+                                                                                        string,
                                                                                     std::
                                                                                         string>>(
                                                                                 &propertyMap
@@ -499,12 +500,12 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                                         originOfCondition;
                                                                     std::string
                                                                         deviceName;
-                                                                    if (additionalDataRaw !=
+                                                                    if (additionalData !=
                                                                         nullptr)
                                                                     {
                                                                         AdditionalData
                                                                             additional(
-                                                                                *additionalDataRaw);
+                                                                                *additionalData);
                                                                         if (additional
                                                                                 .count(
                                                                                     "REDFISH_MESSAGE_ID") >

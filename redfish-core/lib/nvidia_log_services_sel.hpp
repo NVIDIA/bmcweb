@@ -78,17 +78,18 @@ inline void requestRoutesSELLogService(App& app)
             });
 }
 
-inline bool isSelEntry(const std::string* message,
-                       const std::vector<std::string>* additionalData)
+inline bool isSelEntry(
+    const std::string* message,
+    const std::unordered_map<std::string, std::string>& additionalData)
 {
     if ((message != nullptr) &&
         (*message == "xyz.openbmc_project.Logging.SEL.Error.Created"))
     {
         return true;
     }
-    if (additionalData != nullptr)
+    if (!additionalData.empty())
     {
-        AdditionalData additional(*additionalData);
+        AdditionalData additional(additionalData);
         if (additional.count("namespace") > 0 &&
             additional["namespace"] == "SEL")
         {
@@ -106,7 +107,7 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
     std::string* severity = nullptr;
     std::string* eventId = nullptr;
     std::string* message = nullptr;
-    std::vector<std::string>* additionalDataVectorString = nullptr;
+
     std::string generatorId;
     std::string messageId;
     bool resolved = false;
@@ -120,6 +121,8 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
     log_entry::SensorType sensorType = log_entry::SensorType::Invalid;
     log_entry::LogEntryCode entryCode = log_entry::LogEntryCode::Invalid;
     const std::string* resolution = nullptr;
+    const std::unordered_map<std::string, std::string>* additionalData =
+        nullptr;
 
     for (auto& propertyMap : resp)
     {
@@ -174,11 +177,12 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
         else if (propertyMap.first == "AdditionalData")
         {
             std::string recordType;
-            additionalDataVectorString =
-                std::get_if<std::vector<std::string>>(&propertyMap.second);
-            if (additionalDataVectorString != nullptr)
+            additionalData =
+                std::get_if<std::unordered_map<std::string, std::string>>(
+                    &propertyMap.second);
+            if (additionalData != nullptr)
             {
-                AdditionalData additional(*additionalDataVectorString);
+                AdditionalData additional(*additionalData);
                 if (additional.count("REDFISH_MESSAGE_ID") > 0)
                 {
                     isMessageRegistry = true;
@@ -277,7 +281,7 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
     {
         throw std::runtime_error("Invalid SEL Entry");
     }
-    if (!isSelEntry(message, additionalDataVectorString))
+    if (additionalData != nullptr && !isSelEntry(message, *additionalData))
     {
         return;
     }
@@ -495,7 +499,8 @@ inline void deleteDbusSELEntry(
             }
             uint32_t* id = nullptr;
             std::string* message = nullptr;
-            const std::vector<std::string>* additionalData = nullptr;
+            const std::unordered_map<std::string, std::string>* additionalData =
+                nullptr;
 
             for (auto& propertyMap : resp)
             {
@@ -510,7 +515,8 @@ inline void deleteDbusSELEntry(
                 }
                 else if (propertyMap.first == "AdditionalData")
                 {
-                    additionalData = std::get_if<std::vector<std::string>>(
+                    additionalData = std::get_if<
+                        std::unordered_map<std::string, std::string>>(
                         &propertyMap.second);
                 }
             }
@@ -519,7 +525,8 @@ inline void deleteDbusSELEntry(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            if (isSelEntry(message, additionalData))
+            if (additionalData != nullptr &&
+                isSelEntry(message, *additionalData))
             {
                 deleteDbusLogEntry(entryID, asyncResp);
                 return;
