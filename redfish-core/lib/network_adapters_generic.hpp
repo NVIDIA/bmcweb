@@ -787,8 +787,9 @@ inline void populateNDFURI(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                                                 resp) {
         if (ec)
         {
-            BMCWEB_LOG_ERROR("DBUS response error");
-            messages::internalError(asyncResp->res);
+            BMCWEB_LOG_DEBUG(
+                "network_device_functions association not found for network adapter {} : {}",
+                networkAdapterId, ec.message());
             return;
         }
 
