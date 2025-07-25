@@ -457,6 +457,30 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
     return !task::completed;
 }
 
+/**
+ * @brief Retrieve the task message in JSON format for a given task state and
+ * index.
+ *
+ * This function overrides the base function to handle firmware update state
+ * management. It is designed to manage the "Aborted" state and reset the global
+ * fwUpdateInProgress flag to false.
+ *
+ * @param state A string representing the task state
+ * @param index The index to identify the specific task message
+ *
+ * @return nlohmann::json The task message corresponding to the given state and
+ * index
+ */
+inline nlohmann::json getTaskMessage(const std::string_view state, size_t index)
+{
+    if (state == "Aborted")
+    {
+        fwUpdateInProgress = false;
+    }
+
+    return redfish::task::getMessage(state, index);
+}
+
 inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        task::Payload&& payload,
                        const sdbusplus::message::object_path& objPath)
@@ -465,11 +489,26 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         std::bind_front(handleCreateTask),
         "type='signal',interface='org.freedesktop.DBus.Properties',"
         "member='PropertiesChanged',path='" +
-            objPath.str + "'");
+            objPath.str + "'",
+        std::bind_front(getTaskMessage));
 
     task->startTimer(std::chrono::minutes(BMCWEB_UPDATE_SERVICE_TASK_TIMEOUT));
     task->populateResp(asyncResp->res);
     task->payload.emplace(std::move(payload));
+    loggingMatch = std::make_unique<sdbusplus::bus::match::match>(
+        *crow::connections::systemBus,
+        "interface='org.freedesktop.DBus.ObjectManager',type='signal',"
+        "member='InterfacesAdded',"
+        "path='/xyz/openbmc_project/logging'",
+        [task](sdbusplus::message_t& msgLog) {
+            loggingMatchCallback(task, msgLog);
+        });
+    if (preTaskMessages.size() > 0)
+    {
+        task->messages.insert(task->messages.end(), preTaskMessages.begin(),
+                              preTaskMessages.end());
+    }
+    preTaskMessages = {};
 }
 
 // Note that asyncResp can be either a valid pointer or nullptr. If nullptr
@@ -555,14 +594,15 @@ inline void softwareInterfaceAdded(
 
 inline void afterAvailbleTimerAsyncWait(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::system::error_code& ec)
+    const std::string& imagePath, const boost::system::error_code& ec)
 {
-    cleanUp();
+    fwUpdateMatcher = nullptr;
     if (ec == boost::asio::error::operation_aborted)
     {
         // expected, we were canceled before the timer completed.
         return;
     }
+    fwUpdateInProgress = false;
     BMCWEB_LOG_ERROR("Timed out waiting for firmware object being created");
     BMCWEB_LOG_ERROR("FW image may has already been uploaded to server");
     if (ec)
@@ -574,7 +614,13 @@ inline void afterAvailbleTimerAsyncWait(
     {
         redfish::messages::internalError(asyncResp->res);
     }
+    // remove update package to allow next update
+    if (!imagePath.empty())
+    {
+        std::filesystem::remove(imagePath);
+    }
 }
+
 
 inline void handleUpdateErrorType(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& url,
@@ -670,55 +716,45 @@ inline void afterUpdateErrorMatcher(
 
 // Note that asyncResp can be either a valid pointer or nullptr. If nullptr
 // then no asyncResp updates will occur
-inline void monitorForSoftwareAvailable(
+static void monitorForSoftwareAvailable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const crow::Request& req, const std::string& url,
-    int timeoutTimeSeconds = 25)
+    const crow::Request& req,
+    int timeoutTimeSeconds = fwObjectCreationDefaultTimeout,
+    const std::string& imagePath = {})
 {
-    // Only allow one FW update at a time
-    if (fwUpdateInProgress)
-    {
-        if (asyncResp)
-        {
-            messages::serviceTemporarilyUnavailable(asyncResp->res, "30");
-        }
-        return;
-    }
-
     if (req.ioService == nullptr)
     {
         messages::internalError(asyncResp->res);
         return;
     }
-
     fwAvailableTimer =
         std::make_unique<boost::asio::steady_timer>(*req.ioService);
 
     fwAvailableTimer->expires_after(std::chrono::seconds(timeoutTimeSeconds));
 
     fwAvailableTimer->async_wait(
-        std::bind_front(afterAvailbleTimerAsyncWait, asyncResp));
+        std::bind_front(afterAvailbleTimerAsyncWait, asyncResp, imagePath));
 
     task::Payload payload(req);
     auto callback = [asyncResp, payload](sdbusplus::message_t& m) mutable {
-        BMCWEB_LOG_ERROR("Match fired");
+        BMCWEB_LOG_DEBUG("Match fired");
         softwareInterfaceAdded(asyncResp, m, std::move(payload));
     };
 
     fwUpdateInProgress = true;
 
-    fwUpdateMatcher = std::make_unique<sdbusplus::bus::match_t>(
+    fwUpdateMatcher = std::make_unique<sdbusplus::bus::match::match>(
         *crow::connections::systemBus,
         "interface='org.freedesktop.DBus.ObjectManager',type='signal',"
         "member='InterfacesAdded',path='/'",
         callback);
 
-    fwUpdateErrorMatcher = std::make_unique<sdbusplus::bus::match_t>(
+    loggingMatch = std::make_unique<sdbusplus::bus::match::match>(
         *crow::connections::systemBus,
         "interface='org.freedesktop.DBus.ObjectManager',type='signal',"
         "member='InterfacesAdded',"
         "path='/xyz/openbmc_project/logging'",
-        std::bind_front(afterUpdateErrorMatcher, asyncResp, url));
+        preTaskLoggingHandler);
 }
 
 inline std::optional<boost::urls::url> parseSimpleUpdateUrl(
@@ -866,11 +902,11 @@ inline void handleUpdateServiceSimpleUpdateAction(
 inline void uploadImageFile(const std::shared_ptr<const crow::Request>& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    BMCWEB_LOG_ERROR("TRACE: uploadImageFile - entered");
-    std::filesystem::path filepath("/tmp/images/" +
-                                   bmcweb::getRandomUUID());
+    std::filesystem::path filepath(
+        std::string(BMCWEB_UPDATE_SERVICE_IMAGE_LOCATION) + bmcweb::getRandomUUID());
 
-    monitorForSoftwareAvailable(asyncResp, *req, filepath, fwObjectCreationDefaultTimeout);
+    monitorForSoftwareAvailable(asyncResp, *req, fwObjectCreationDefaultTimeout,
+                                filepath);
 
     BMCWEB_LOG_INFO("Writing file to {}", filepath.string());
 
@@ -899,380 +935,6 @@ inline void uploadImageFile(const std::shared_ptr<const crow::Request>& req,
     {
         BMCWEB_LOG_ERROR("File with firmware image is missing.");
         messages::propertyMissing(asyncResp->res, "UpdateFile");
-    }
-}
-
-
-inline void uploadImageFile(crow::Response& res, std::string_view body)
-{
-    std::filesystem::path filepath("/tmp/images/" + bmcweb::getRandomUUID());
-
-    BMCWEB_LOG_ERROR("Writing file to {}", filepath.string());
-    std::ofstream out(filepath, std::ofstream::out | std::ofstream::binary |
-                                    std::ofstream::trunc);
-    // set the permission of the file to 640
-    std::filesystem::perms permission =
-        std::filesystem::perms::owner_read | std::filesystem::perms::group_read;
-    std::filesystem::permissions(filepath, permission);
-    out << body;
-
-    if (out.bad())
-    {
-        messages::internalError(res);
-        cleanUp();
-    }
-}
-
-// Convert the Request Apply Time to the D-Bus value
-inline bool convertApplyTime(crow::Response& res, const std::string& applyTime,
-                             std::string& applyTimeNewVal)
-{
-    if (applyTime == "Immediate")
-    {
-        applyTimeNewVal =
-            "xyz.openbmc_project.Software.ApplyTime.RequestedApplyTimes.Immediate";
-    }
-    else if (applyTime == "OnReset")
-    {
-        applyTimeNewVal =
-            "xyz.openbmc_project.Software.ApplyTime.RequestedApplyTimes.OnReset";
-    }
-    else
-    {
-        BMCWEB_LOG_WARNING(
-            "ApplyTime value {} is not in the list of acceptable values",
-            applyTime);
-        messages::propertyValueNotInList(res, applyTime, "ApplyTime");
-        return false;
-    }
-    return true;
-}
-
-inline void setApplyTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::string& applyTime)
-{
-    std::string applyTimeNewVal;
-    if (!convertApplyTime(asyncResp->res, applyTime, applyTimeNewVal))
-    {
-        return;
-    }
-
-    setDbusProperty(asyncResp, "ApplyTime", "xyz.openbmc_project.Settings",
-                    sdbusplus::message::object_path(
-                        "/xyz/openbmc_project/software/apply_time"),
-                    "xyz.openbmc_project.Software.ApplyTime",
-                    "RequestedApplyTime", applyTimeNewVal);
-}
-
-struct MultiPartUpdateParameters
-{
-    std::optional<std::string> applyTime;
-    std::string uploadData;
-    std::vector<std::string> targets;
-};
-
-inline std::optional<std::string> processUrl(
-    boost::system::result<boost::urls::url_view>& url)
-{
-    if (!url)
-    {
-        return std::nullopt;
-    }
-    if (crow::utility::readUrlSegments(*url, "redfish", "v1", "Managers",
-                                       BMCWEB_REDFISH_MANAGER_URI_NAME))
-    {
-        return std::make_optional(std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
-    }
-    if constexpr (!BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
-    {
-        return std::nullopt;
-    }
-    std::string firmwareId;
-    if (!crow::utility::readUrlSegments(*url, "redfish", "v1", "UpdateService",
-                                        "FirmwareInventory",
-                                        std::ref(firmwareId)))
-    {
-        return std::nullopt;
-    }
-
-    return std::make_optional(firmwareId);
-}
-
-inline std::optional<MultiPartUpdateParameters>
-    extractMultipartUpdateParameters(
-        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-        MultipartParser parser)
-{
-    BMCWEB_LOG_ERROR("TRACE: extractMultipartUpdateParameters - entered");
-    MultiPartUpdateParameters multiRet;
-    for (FormPart& formpart : parser.mime_fields)
-    {
-        boost::beast::http::fields::const_iterator it =
-            formpart.fields.find("Content-Disposition");
-        if (it == formpart.fields.end())
-        {
-            BMCWEB_LOG_ERROR("Couldn't find Content-Disposition");
-            return std::nullopt;
-        }
-        BMCWEB_LOG_INFO("Parsing value {}", it->value());
-
-        // The construction parameters of param_list must start with `;`
-        size_t index = it->value().find(';');
-        if (index == std::string::npos)
-        {
-            continue;
-        }
-
-        for (const auto& param :
-             boost::beast::http::param_list{it->value().substr(index)})
-        {
-            if (param.first != "name" || param.second.empty())
-            {
-                continue;
-            }
-
-            if (param.second == "UpdateParameters")
-            {
-                std::vector<std::string> tempTargets;
-                nlohmann::json content =
-                    nlohmann::json::parse(formpart.content, nullptr, false);
-                if (content.is_discarded())
-                {
-                    return std::nullopt;
-                }
-                nlohmann::json::object_t* obj =
-                    content.get_ptr<nlohmann::json::object_t*>();
-                if (obj == nullptr)
-                {
-                    messages::propertyValueTypeError(
-                        asyncResp->res, formpart.content, "UpdateParameters");
-                    return std::nullopt;
-                }
-
-                if (!json_util::readJsonObject(                            //
-                        *obj, asyncResp->res,                              //
-                        "@Redfish.OperationApplyTime", multiRet.applyTime, //
-                        "Targets", tempTargets                             //
-                        ))
-                {
-                    return std::nullopt;
-                }
-
-                for (size_t urlIndex = 0; urlIndex < tempTargets.size();
-                     urlIndex++)
-                {
-                    const std::string& target = tempTargets[urlIndex];
-                    boost::system::result<boost::urls::url_view> url =
-                        boost::urls::parse_origin_form(target);
-                    auto res = processUrl(url);
-                    if (!res.has_value())
-                    {
-                        messages::propertyValueFormatError(
-                            asyncResp->res, target,
-                            std::format("Targets/{}", urlIndex));
-                        return std::nullopt;
-                    }
-                    multiRet.targets.emplace_back(res.value());
-                }
-                BMCWEB_LOG_ERROR("TRACE: extractMultipartUpdateParameters - checking targets size: {}", multiRet.targets.size());
-                if (multiRet.targets.size() != 1)
-                {
-                    BMCWEB_LOG_ERROR("TRACE: extractMultipartUpdateParameters - throwing PropertyValueFormatError for targets size {}", multiRet.targets.size());
-                    messages::propertyValueFormatError(
-                        asyncResp->res, multiRet.targets, "Targets");
-                    return std::nullopt;
-                }
-            }
-            else if (param.second == "UpdateFile")
-            {
-                multiRet.uploadData = std::move(formpart.content);
-            }
-        }
-    }
-
-    if (multiRet.uploadData.empty())
-    {
-        BMCWEB_LOG_ERROR("Upload data is NULL");
-        messages::propertyMissing(asyncResp->res, "UpdateFile");
-        return std::nullopt;
-    }
-    if (multiRet.targets.empty())
-    {
-        messages::propertyMissing(asyncResp->res, "Targets");
-        return std::nullopt;
-    }
-    return multiRet;
-}
-
-inline void handleStartUpdate(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, task::Payload payload,
-    const std::string& objectPath, const boost::system::error_code& ec,
-    const sdbusplus::message::object_path& retPath)
-{
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("error_code = {}", ec);
-        BMCWEB_LOG_ERROR("error msg = {}", ec.message());
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
-    BMCWEB_LOG_INFO("Call to StartUpdate on {} Success, retPath = {}",
-                    objectPath, retPath.str);
-    createTask(asyncResp, std::move(payload), retPath);
-}
-
-inline void startUpdate(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, task::Payload payload,
-    const MemoryFileDescriptor& memfd, const std::string& applyTime,
-    const std::string& objectPath, const std::string& serviceName)
-{
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, payload = std::move(payload),
-         objectPath](const boost::system::error_code& ec1,
-                     const sdbusplus::message::object_path& retPath) mutable {
-            handleStartUpdate(asyncResp, std::move(payload), objectPath, ec1,
-                              retPath);
-        },
-        serviceName, objectPath, "xyz.openbmc_project.Software.Update",
-        "StartUpdate", sdbusplus::message::unix_fd(memfd.fd), applyTime);
-}
-
-inline void getSwInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                      task::Payload payload, const MemoryFileDescriptor& memfd,
-                      const std::string& applyTime, const std::string& target,
-                      const boost::system::error_code& ec,
-                      const dbus::utility::MapperGetSubTreeResponse& subtree)
-{
-    using SwInfoMap = std::unordered_map<
-        std::string, std::pair<sdbusplus::message::object_path, std::string>>;
-    SwInfoMap swInfoMap;
-
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("error_code = {}", ec);
-        BMCWEB_LOG_ERROR("error msg = {}", ec.message());
-        messages::internalError(asyncResp->res);
-        return;
-    }
-    BMCWEB_LOG_ERROR("Found {} software version paths", subtree.size());
-
-    for (const auto& entry : subtree)
-    {
-        sdbusplus::message::object_path path(entry.first);
-        std::string swId = path.filename();
-        swInfoMap.emplace(swId, make_pair(path, entry.second[0].first));
-    }
-
-    auto swEntry = swInfoMap.find(target);
-    if (swEntry == swInfoMap.end())
-    {
-        BMCWEB_LOG_WARNING("No valid DBus path for Target URI {}", target);
-        messages::propertyValueFormatError(asyncResp->res, target, "Targets");
-        return;
-    }
-
-    BMCWEB_LOG_ERROR("Found software version path {} serviceName {}",
-                     swEntry->second.first.str, swEntry->second.second);
-
-    startUpdate(asyncResp, std::move(payload), memfd, applyTime,
-                swEntry->second.first.str, swEntry->second.second);
-}
-
-inline void handleBMCUpdate(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, task::Payload payload,
-    const MemoryFileDescriptor& memfd, const std::string& applyTime,
-    const boost::system::error_code& ec,
-    const dbus::utility::MapperEndPoints& functionalSoftware)
-{
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("error_code = {}", ec);
-        BMCWEB_LOG_ERROR("error msg = {}", ec.message());
-        messages::internalError(asyncResp->res);
-        return;
-    }
-    if (functionalSoftware.size() != 1)
-    {
-        BMCWEB_LOG_ERROR("Found {} functional software endpoints",
-                         functionalSoftware.size());
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
-    startUpdate(asyncResp, std::move(payload), memfd, applyTime,
-                functionalSoftware[0], "xyz.openbmc_project.Software.Manager");
-}
-
-inline void processUpdateRequest(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    task::Payload&& payload, std::string_view body,
-    const std::string& applyTime,
-    [[maybe_unused]] std::vector<std::string>& targets)
-{
-    MemoryFileDescriptor memfd("update-image");
-    if (memfd.fd == -1)
-    {
-        BMCWEB_LOG_ERROR("Failed to create image memfd");
-        messages::internalError(asyncResp->res);
-        return;
-    }
-    if (write(memfd.fd, body.data(), body.length()) !=
-        static_cast<ssize_t>(body.length()))
-    {
-        BMCWEB_LOG_ERROR("Failed to write to image memfd");
-        messages::internalError(asyncResp->res);
-        return;
-    }
-    if (!memfd.rewind())
-    {
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
-    startUpdate(asyncResp, std::move(payload), memfd, applyTime,
-                "/xyz/openbmc_project/software/manager",
-                "xyz.openbmc_project.Software.Update.Manager");
-}
-
-inline void updateMultipartContext(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const crow::Request& req, MultipartParser&& parser)
-{
-    std::optional<MultiPartUpdateParameters> multipart =
-        extractMultipartUpdateParameters(asyncResp, std::move(parser));
-    if (!multipart)
-    {
-        return;
-    }
-    if (!multipart->applyTime)
-    {
-        multipart->applyTime = "OnReset";
-    }
-
-    if constexpr (BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
-    {
-        std::string applyTimeNewVal;
-        if (!convertApplyTime(asyncResp->res, *multipart->applyTime,
-                              applyTimeNewVal))
-        {
-            return;
-        }
-        task::Payload payload(req);
-
-        processUpdateRequest(asyncResp, std::move(payload),
-                             multipart->uploadData, applyTimeNewVal,
-                             multipart->targets);
-    }
-    else
-    {
-        setApplyTime(asyncResp, *multipart->applyTime);
-
-        // Setup callback for when new software detected
-        monitorForSoftwareAvailable(asyncResp, req,
-                                    "/redfish/v1/UpdateService");
-
-        uploadImageFile(asyncResp->res, multipart->uploadData);
     }
 }
 
@@ -1363,48 +1025,48 @@ inline void setForceUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             const boost::system::error_code errorCode,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) mutable {
-        if (errorCode)
-        {
-            BMCWEB_LOG_ERROR("error_code = {}", errorCode);
-            BMCWEB_LOG_ERROR("error msg = {}", errorCode.message());
-            if (asyncResp)
+            if (errorCode)
             {
-                messages::internalError(asyncResp->res);
-            }
-            return;
-        }
-        // Check if only one service implements
-        // xyz.openbmc_project.Software.UpdatePolicy
-        if (objInfo.size() != 1)
-        {
-            BMCWEB_LOG_ERROR(
-                "Expected exactly one service implementing xyz.openbmc_project.Software.UpdatePolicy, but found {} services.",
-                objInfo.size());
-            if (asyncResp)
-            {
-                messages::internalError(asyncResp->res);
-            }
-            return;
-        }
-        crow::connections::systemBus->async_method_call(
-            [asyncResp,
-             callback](const boost::system::error_code errCodePolicy) {
-            if (errCodePolicy)
-            {
-                BMCWEB_LOG_ERROR("error_code = {}", errCodePolicy);
-                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR("error_code = {}", errorCode);
+                BMCWEB_LOG_ERROR("error msg = {}", errorCode.message());
+                if (asyncResp)
+                {
+                    messages::internalError(asyncResp->res);
+                }
                 return;
             }
-
-            if (callback)
+            // Check if only one service implements
+            // xyz.openbmc_project.Software.UpdatePolicy
+            if (objInfo.size() != 1)
             {
-                callback();
+                BMCWEB_LOG_ERROR(
+                    "Expected exactly one service implementing xyz.openbmc_project.Software.UpdatePolicy, but found {} services.",
+                    objInfo.size());
+                if (asyncResp)
+                {
+                    messages::internalError(asyncResp->res);
+                }
+                return;
             }
+            crow::connections::systemBus->async_method_call(
+                [asyncResp,
+                 callback](const boost::system::error_code errCodePolicy) {
+                    if (errCodePolicy)
+                    {
+                        BMCWEB_LOG_ERROR("error_code = {}", errCodePolicy);
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+
+                    if (callback)
+                    {
+                        callback();
+                    }
+                },
+                objInfo[0].first, objpath, "org.freedesktop.DBus.Properties",
+                "Set", "xyz.openbmc_project.Software.UpdatePolicy",
+                "ForceUpdate", dbus::utility::DbusVariantType(forceUpdate));
         },
-            objInfo[0].first, objpath, "org.freedesktop.DBus.Properties", "Set",
-            "xyz.openbmc_project.Software.UpdatePolicy", "ForceUpdate",
-            dbus::utility::DbusVariantType(forceUpdate));
-    },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject",
@@ -1468,8 +1130,8 @@ inline bool parseMultipartForm(
             if (param.second == "UpdateParameters")
             {
                 hasUpdateParameters = true;
-                nlohmann::json content = nlohmann::json::parse(formpart.content,
-                                                               nullptr, false);
+                nlohmann::json content =
+                    nlohmann::json::parse(formpart.content, nullptr, false);
                 if (content.is_discarded())
                 {
                     BMCWEB_LOG_INFO("UpdateParameters parse error:{}",
@@ -1481,29 +1143,33 @@ inline bool parseMultipartForm(
 
                 try
                 {
-#ifdef BMCWEB_ENABLE_NVIDIA_UPDATE_STAGING
-                    std::optional<nlohmann::json> oemObject;
-                    json_util::readJson(content, asyncResp->res, "Targets",
-                                        targets, "@Redfish.OperationApplyTime",
-                                        applyTime, "ForceUpdate", forceUpdate,
-                                        "Oem", oemObject);
-
-                    if (oemObject)
+                    if constexpr (BMCWEB_NVIDIA_OEM_FW_UPDATE_STAGING)
                     {
-                        std::optional<nlohmann::json> oemNvidiaObject;
-                        if (json_util::readJson(*oemObject, asyncResp->res,
-                                                "Nvidia", oemNvidiaObject))
+                        std::optional<nlohmann::json> oemObject;
+                        json_util::readJson(
+                            content, asyncResp->res, "Targets", targets,
+                            "@Redfish.OperationApplyTime", applyTime,
+                            "ForceUpdate", forceUpdate, "Oem", oemObject);
+
+                        if (oemObject)
                         {
-                            json_util::readJson(*oemNvidiaObject,
-                                                asyncResp->res, "UpdateOption",
-                                                oemUpdateOption);
+                            std::optional<nlohmann::json> oemNvidiaObject;
+                            if (json_util::readJson(*oemObject, asyncResp->res,
+                                                    "Nvidia", oemNvidiaObject))
+                            {
+                                json_util::readJson(
+                                    *oemNvidiaObject, asyncResp->res,
+                                    "UpdateOption", oemUpdateOption);
+                            }
                         }
                     }
-#else
-                    json_util::readJson(content, asyncResp->res, "Targets",
-                                        targets, "@Redfish.OperationApplyTime",
-                                        applyTime, "ForceUpdate", forceUpdate);
-#endif
+                    else
+                    {
+                        json_util::readJson(
+                            content, asyncResp->res, "Targets", targets,
+                            "@Redfish.OperationApplyTime", applyTime,
+                            "ForceUpdate", forceUpdate);
+                    }
                 }
                 catch (const std::exception& e)
                 {
@@ -1615,7 +1281,6 @@ inline bool validateUpdateFileFormData(
     return true;
 }
 
-
 /**
  * @brief Check if the list of targets contains invalid and unupdateable
  * targets. The function returns a list of valid targets in the parameter
@@ -1640,13 +1305,13 @@ inline bool areTargetsInvalidOrUnupdatable(
     {
         std::string componentName = std::filesystem::path(target).filename();
         bool validTarget = false;
-        std::string softwarePath = "/xyz/openbmc_project/software/" +
-                                   componentName;
+        std::string softwarePath =
+            "/xyz/openbmc_project/software/" + componentName;
 
         if (std::any_of(swInvPaths.begin(), swInvPaths.end(),
                         [&](const std::string& path) {
-            return path.find(softwarePath) != std::string::npos;
-        }))
+                            return path.find(softwarePath) != std::string::npos;
+                        }))
         {
             validTarget = true;
 
@@ -1680,71 +1345,73 @@ inline bool areTargetsInvalidOrUnupdatable(
  * @param oemUpdateOption The update option ("StageOnly" or "StageAndActivate").
  * @param callback Optional callback after setting the property.
  */
-inline void
-    setOemUpdateOption(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                       const std::string& oemUpdateOption,
-                       const std::function<void()>& callback = {})
+inline void setOemUpdateOption(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& oemUpdateOption,
+    const std::function<void()>& callback = {})
 {
-    BMCWEB_LOG_ERROR("TRACE: setOemUpdateOption - entered with oemUpdateOption={}", oemUpdateOption);
+    BMCWEB_LOG_ERROR(
+        "TRACE: setOemUpdateOption - entered with oemUpdateOption={}",
+        oemUpdateOption);
     crow::connections::systemBus->async_method_call(
         [asyncResp, oemUpdateOption, callback](
             const boost::system::error_code errorCode,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) mutable {
-        if (errorCode)
-        {
-            BMCWEB_LOG_ERROR("error_code = {}", errorCode);
-            BMCWEB_LOG_ERROR("error msg = {}", errorCode.message());
-            if (asyncResp)
+            if (errorCode)
             {
-                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR("error_code = {}", errorCode);
+                BMCWEB_LOG_ERROR("error msg = {}", errorCode.message());
+                if (asyncResp)
+                {
+                    messages::internalError(asyncResp->res);
+                }
+                return;
             }
-            return;
-        }
-        // Check if only one service implements
-        // xyz.openbmc_project.Software.UpdatePolicy
-        if (objInfo.size() != 1)
-        {
-            BMCWEB_LOG_ERROR(
-                "Expected exactly one service implementing UpdatePolicy interface, but found {} services.",
-                objInfo.size());
-            if (asyncResp)
+            // Check if only one service implements
+            // xyz.openbmc_project.Software.UpdatePolicy
+            if (objInfo.size() != 1)
             {
-                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR(
+                    "Expected exactly one service implementing UpdatePolicy interface, but found {} services.",
+                    objInfo.size());
+                if (asyncResp)
+                {
+                    messages::internalError(asyncResp->res);
+                }
+                return;
             }
-            return;
-        }
 
-        std::string oemUpdateOptionNewVal;
-        if (oemUpdateOption == "StageOnly")
-        {
-            oemUpdateOptionNewVal =
-                "xyz.openbmc_project.Software.UpdatePolicy.UpdateOptionSupport.StageOnly";
-        }
-        else if (oemUpdateOption == "StageAndActivate")
-        {
-            oemUpdateOptionNewVal =
-                "xyz.openbmc_project.Software.UpdatePolicy.UpdateOptionSupport.StageAndActivate";
-        }
-        sdbusplus::asio::setProperty(
-            *crow::connections::systemBus, objInfo[0].first,
-            "/xyz/openbmc_project/software",
-            "xyz.openbmc_project.Software.UpdatePolicy", "UpdateOption",
-            oemUpdateOptionNewVal,
-            [asyncResp, oemUpdateOption,
-             callback](const boost::system::error_code& ec) {
-            if (ec)
+            std::string oemUpdateOptionNewVal;
+            if (oemUpdateOption == "StageOnly")
             {
-                BMCWEB_LOG_ERROR("error_code = {}", ec);
-                BMCWEB_LOG_ERROR("error msg = {}", ec.message());
-                messages::internalError(asyncResp->res);
+                oemUpdateOptionNewVal =
+                    "xyz.openbmc_project.Software.UpdatePolicy.UpdateOptionSupport.StageOnly";
             }
-            if (callback)
+            else if (oemUpdateOption == "StageAndActivate")
             {
-                callback();
+                oemUpdateOptionNewVal =
+                    "xyz.openbmc_project.Software.UpdatePolicy.UpdateOptionSupport.StageAndActivate";
             }
-        });
-    },
+            sdbusplus::asio::setProperty(
+                *crow::connections::systemBus, objInfo[0].first,
+                "/xyz/openbmc_project/software",
+                "xyz.openbmc_project.Software.UpdatePolicy", "UpdateOption",
+                oemUpdateOptionNewVal,
+                [asyncResp, oemUpdateOption,
+                 callback](const boost::system::error_code& ec) {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR("error_code = {}", ec);
+                        BMCWEB_LOG_ERROR("error msg = {}", ec.message());
+                        messages::internalError(asyncResp->res);
+                    }
+                    if (callback)
+                    {
+                        callback();
+                    }
+                });
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject",
@@ -1773,7 +1440,9 @@ inline void validateUpdatePolicyCallback(
     const std::vector<sdbusplus::message::object_path>& targets,
     const std::optional<std::string>& oemUpdateOption)
 {
-    BMCWEB_LOG_ERROR("TRACE: validateUpdatePolicyCallback - entered with targets.size()={}", targets.size());
+    BMCWEB_LOG_ERROR(
+        "TRACE: validateUpdatePolicyCallback - entered with targets.size()={}",
+        targets.size());
     if (errorCode)
     {
         BMCWEB_LOG_ERROR("validateUpdatePolicyCallback:error_code = {}",
@@ -1802,19 +1471,21 @@ inline void validateUpdatePolicyCallback(
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, objInfo,
          oemUpdateOption](const boost::system::error_code ec) mutable {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("error_code = {}", ec);
-            messages::internalError(asyncResp->res);
-        }
-        BMCWEB_LOG_ERROR("TRACE: validateUpdatePolicyCallback - calling setOemUpdateOption");
-        setOemUpdateOption(
-            asyncResp, oemUpdateOption.value_or("StageAndActivate"),
-            [req, asyncResp]() {
-                BMCWEB_LOG_ERROR("TRACE: setOemUpdateOption callback - calling uploadImageFile");
-                uploadImageFile(req, asyncResp);
-            });
-    },
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("error_code = {}", ec);
+                messages::internalError(asyncResp->res);
+            }
+            BMCWEB_LOG_ERROR(
+                "TRACE: validateUpdatePolicyCallback - calling setOemUpdateOption");
+            setOemUpdateOption(
+                asyncResp, oemUpdateOption.value_or("StageAndActivate"),
+                [req, asyncResp]() {
+                    BMCWEB_LOG_ERROR(
+                        "TRACE: setOemUpdateOption callback - calling uploadImageFile");
+                    uploadImageFile(req, asyncResp);
+                });
+        },
         objInfo[0].first, "/xyz/openbmc_project/software",
         "org.freedesktop.DBus.Properties", "Set",
         "xyz.openbmc_project.Software.UpdatePolicy", "Targets",
@@ -1843,7 +1514,9 @@ inline void areTargetsUpdateableCallback(
     const std::vector<std::string>& swInvPaths,
     const std::optional<std::string>& oemUpdateOption)
 {
-    BMCWEB_LOG_ERROR("TRACE: areTargetsUpdateableCallback - entered with uriTargets.size()={}, objPaths.size()={}", uriTargets.size(), objPaths.size());
+    BMCWEB_LOG_ERROR(
+        "TRACE: areTargetsUpdateableCallback - entered with uriTargets.size()={}, objPaths.size()={}",
+        uriTargets.size(), objPaths.size());
     if (ec)
     {
         BMCWEB_LOG_ERROR("areTargetsUpdateableCallback:error_code = {}", ec);
@@ -1888,9 +1561,9 @@ inline void areTargetsUpdateableCallback(
         [req, asyncResp, targets, oemUpdateOption](
             const boost::system::error_code errorCode,
             const dbus::utility::MapperServiceMap& objInfo) mutable {
-        validateUpdatePolicyCallback(errorCode, objInfo, req, asyncResp,
-                                     targets, oemUpdateOption);
-    },
+            validateUpdatePolicyCallback(errorCode, objInfo, req, asyncResp,
+                                         targets, oemUpdateOption);
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject",
@@ -1909,43 +1582,45 @@ inline void areTargetsUpdateableCallback(
  *
  * @return None
  */
-inline void
-    areTargetsUpdateable(const std::shared_ptr<const crow::Request>& req,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                         const std::vector<std::string>& uriTargets,
-                         const std::optional<std::string>& oemUpdateOption)
+inline void areTargetsUpdateable(
+    const std::shared_ptr<const crow::Request>& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::vector<std::string>& uriTargets,
+    const std::optional<std::string>& oemUpdateOption)
 {
-    BMCWEB_LOG_ERROR("TRACE: areTargetsUpdateable - entered with uriTargets.size()={}", uriTargets.size());
+    BMCWEB_LOG_ERROR(
+        "TRACE: areTargetsUpdateable - entered with uriTargets.size()={}",
+        uriTargets.size());
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, uriTargets,
          oemUpdateOption](const boost::system::error_code ec,
                           const std::vector<std::string>& swInvPaths) {
-        if (ec)
-        {
-            BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-            messages::internalError(asyncResp->res);
-            return;
-        }
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
-        sdbusplus::asio::getProperty<std::vector<std::string>>(
-            *crow::connections::systemBus, "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/software/updateable",
-            "xyz.openbmc_project.Association", "endpoints",
-            [req, asyncResp, uriTargets, swInvPaths,
-             oemUpdateOption](const boost::system::error_code ec1,
-                              const std::vector<std::string>& objPaths) {
-            areTargetsUpdateableCallback(ec1, objPaths, req, asyncResp,
-                                         uriTargets, swInvPaths,
-                                         oemUpdateOption);
-        });
-    },
+            sdbusplus::asio::getProperty<std::vector<std::string>>(
+                *crow::connections::systemBus,
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/software/updateable",
+                "xyz.openbmc_project.Association", "endpoints",
+                [req, asyncResp, uriTargets, swInvPaths,
+                 oemUpdateOption](const boost::system::error_code ec1,
+                                  const std::vector<std::string>& objPaths) {
+                    areTargetsUpdateableCallback(ec1, objPaths, req, asyncResp,
+                                                 uriTargets, swInvPaths,
+                                                 oemUpdateOption);
+                });
+        },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
         "/xyz/openbmc_project/software/", static_cast<int32_t>(0),
         std::array<std::string, 1>{"xyz.openbmc_project.Software.Version"});
 }
-
 
 /**
  * @brief Process multipart form data
@@ -1957,7 +1632,8 @@ inline void
  * @return None
  */
 inline void processMultipartFormData(
-    const crow::Request& req, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const MultipartParser& parser)
 {
     BMCWEB_LOG_ERROR("TRACE: processMultipartFormData - entered");
@@ -1985,89 +1661,100 @@ inline void processMultipartFormData(
         return;
     }
 
-    BMCWEB_LOG_ERROR("TRACE: processMultipartFormData - targets.has_value()={}, targets->size()={}", targets.has_value(), targets.has_value() ? targets->size() : 0);
-    std::vector<std::string> uriTargets{*targets};
-#ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
-    bool updateAll = false;
-    uint8_t count = 0;
-    std::string rfaPrefix = redfishAggregationPrefix;
-    if (uriTargets.size() > 0)
+    std::vector<std::string> uriTargets;
+    if (targets.has_value())
     {
-        for (const auto& uri : uriTargets)
-        {
-            std::string file = std::filesystem::path(uri).filename();
-            std::string prefix = rfaPrefix + "_";
-            if (file.starts_with(prefix))
-            {
-                count++;
-            }
+        uriTargets = *targets;
+    }
 
-            auto parsed = boost::urls::parse_relative_ref(uri);
-            if (!parsed)
+    if constexpr (BMCWEB_REDFISH_AGGREGATION)
+    {
+        bool updateAll = false;
+        uint8_t count = 0;
+        std::string rfaPrefix = std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX);
+        if (uriTargets.size() > 0)
+        {
+            for (const auto& uri : uriTargets)
             {
-                BMCWEB_LOG_ERROR("Couldn't parse URI from resource ", uri);
+                std::string file = std::filesystem::path(uri).filename();
+                std::string prefix = rfaPrefix + "_";
+                if (file.starts_with(prefix))
+                {
+                    count++;
+                }
+
+                auto parsed = boost::urls::parse_relative_ref(uri);
+                if (!parsed)
+                {
+                    BMCWEB_LOG_ERROR("Couldn't parse URI from resource ", uri);
+                    return;
+                }
+
+                boost::urls::url_view thisUrl = *parsed;
+
+                // this is the Chassis resource from satellite BMC for all
+                // component firmware update.
+                if (crow::utility::readUrlSegments(thisUrl, "redfish", "v1",
+                                                   "Chassis",
+                                                   std::string(BMCWEB_RFA_HMC_UPDATE_TARGET)))
+                {
+                    updateAll = true;
+                }
+            }
+            // There is one URI at least for satellite BMC.
+            if (count > 0)
+            {
+                // further check if there is mixed targets and some are not
+                // for satellite BMC.
+                if (count != uriTargets.size())
+                {
+                    boost::urls::url_view targetURL("Target");
+                    messages::invalidObject(asyncResp->res, targetURL);
+                }
+                else
+                {
+                    // All URIs in Target has the prepended prefix
+                    BMCWEB_LOG_ERROR("forward image {}", uriTargets[0]);
+                    auto sharedReq =
+                        std::make_shared<crow::Request>(std::move(req));
+                    RedfishAggregator::getSatelliteConfigs(std::bind_front(
+                        forwardImage, sharedReq, updateAll, asyncResp));
+                }
                 return;
             }
-
-            boost::urls::url_view thisUrl = *parsed;
-
-            // this is the Chassis resource from satellite BMC for all component
-            // firmware update.
-            if (crow::utility::readUrlSegments(thisUrl, "redfish", "v1",
-                                               "Chassis", rfaHmcUpdateTarget))
-            {
-                updateAll = true;
-            }
         }
-        // There is one URI at least for satellite BMC.
-        if (count > 0)
+        // the update request is for BMC so only allow one FW update at a time
+        if (fwUpdateInProgress != false)
         {
-            // further check if there is mixed targets and some are not
-            // for satellite BMC.
-            if (count != uriTargets.size())
+            if (asyncResp)
             {
-                boost::urls::url_view targetURL("Target");
-                messages::invalidObject(asyncResp->res, targetURL);
-            }
-            else
-            {
-                // All URIs in Target has the prepended prefix
-                BMCWEB_LOG_ERROR("forward image {}", uriTargets[0]);
-                auto sharedReq =
-                    std::make_shared<crow::Request>(std::move(req));
-                RedfishAggregator::getSatelliteConfigs(std::bind_front(
-                    forwardImage, sharedReq, updateAll, asyncResp));
+                // don't copy the image, update already in progress.
+                std::string resolution =
+                    "Another update is in progress. Retry"
+                    " the update operation once it is complete.";
+                redfish::messages::updateInProgressMsg(asyncResp->res,
+                                                       resolution);
+                BMCWEB_LOG_ERROR("Update already in progress.");
             }
             return;
         }
     }
-    // the update request is for BMC so only allow one FW update at a time
-    if (fwUpdateInProgress != false)
-    {
-        if (asyncResp)
-        {
-            // don't copy the image, update already in progress.
-            std::string resolution =
-                "Another update is in progress. Retry"
-                " the update operation once it is complete.";
-            redfish::messages::updateInProgressMsg(asyncResp->res, resolution);
-            BMCWEB_LOG_ERROR("Update already in progress.");
-        }
-        return;
-    }
-#endif
 
     auto sharedReq = std::make_shared<const crow::Request>(std::move(req));
 
-    BMCWEB_LOG_ERROR("TRACE: processMultipartFormData - calling setForceUpdate with uriTargets.size()={}", uriTargets.size());
-    setForceUpdate(asyncResp, "/xyz/openbmc_project/software",
-                   forceUpdate.value_or(false),
-                   [sharedReq, asyncResp, uriTargets, oemUpdateOption]() {
-        BMCWEB_LOG_ERROR("TRACE: setForceUpdate callback - calling areTargetsUpdateable with uriTargets.size()={}", uriTargets.size());
-        areTargetsUpdateable(sharedReq, asyncResp, uriTargets, oemUpdateOption);
-    });
+    BMCWEB_LOG_ERROR(
+        "TRACE: processMultipartFormData - calling setForceUpdate with uriTargets.size()={}",
+        uriTargets.size());
+    setForceUpdate(
+        asyncResp, "/xyz/openbmc_project/software", forceUpdate.value_or(false),
+        [sharedReq, asyncResp, uriTargets, oemUpdateOption]() {
+            BMCWEB_LOG_ERROR(
+                "TRACE: setForceUpdate callback - calling areTargetsUpdateable with uriTargets.size()={}",
+                uriTargets.size());
+            areTargetsUpdateable(sharedReq, asyncResp, uriTargets,
+                                 oemUpdateOption);
+        });
 }
-
 
 /**
  * @brief POST handler for Multipart Update Service
@@ -2090,12 +1777,14 @@ inline void handleMultipartUpdateServicePost(
         "Execute HTTP POST method '/redfish/v1/UpdateService/update-multipart/'");
 
     bool enableFWInProgCheck = true;
-#ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
-    // This is the flag to check BMC firmware update.
-    // Parse the multipart payload and then learn satBMC or BMC firmware update
-    // So UpdateInProgress will be checking at the later stage.
-    enableFWInProgCheck = false;
-#endif
+    if constexpr (BMCWEB_REDFISH_AGGREGATION)
+    {
+        // This is the flag to check BMC firmware update.
+        // Parse the multipart payload and then learn satBMC or BMC firmware
+        // update So UpdateInProgress will be checking at the later stage.
+        enableFWInProgCheck = false;
+    }
+
     if (!preCheckMultipartUpdateServiceReq(req, asyncResp, enableFWInProgCheck))
     {
         return;
@@ -2296,29 +1985,28 @@ inline void handleUpdateServiceFirmwareInventoryGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& param)
 {
-        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-        {
-            return;
-        }
-        std::shared_ptr<std::string> swId =
-            std::make_shared<std::string>(param);
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    std::shared_ptr<std::string> swId = std::make_shared<std::string>(param);
 
-        asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-            "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId);
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId);
 
-        constexpr std::array<std::string_view, 4> interfaces = {
-            "xyz.openbmc_project.Software.Version",
-            "xyz.openbmc_project.Software.Settings",
-            "xyz.openbmc_project.State.Decorator.Health",
-            "xyz.openbmc_project.State.Decorator.OperationalStatus"};
-        dbus::utility::getSubTree(
-            "/xyz/openbmc_project/software/", 0, interfaces,
-            [asyncResp, swId](
-                const boost::system::error_code& ec,
-                const std::vector<std::pair<
-                    std::string, std::vector<std::pair<
-                                     std::string, std::vector<std::string>>>>>&
-                    subtree) {
+    constexpr std::array<std::string_view, 4> interfaces = {
+        "xyz.openbmc_project.Software.Version",
+        "xyz.openbmc_project.Software.Settings",
+        "xyz.openbmc_project.State.Decorator.Health",
+        "xyz.openbmc_project.State.Decorator.OperationalStatus"};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/software/", 0, interfaces,
+        [asyncResp, swId](
+            const boost::system::error_code& ec,
+            const std::vector<std::pair<
+                std::string,
+                std::vector<std::pair<std::string, std::vector<std::string>>>>>&
+                subtree) {
             BMCWEB_LOG_ERROR("doGet callback...");
             if (ec)
             {
@@ -2410,162 +2098,169 @@ inline void handleUpdateServiceFirmwareInventoryGet(
                                const boost::container::flat_map<
                                    std::string, dbus::utility::DbusVariantType>&
                                    propertiesList) {
-                        if (errorCode)
-                        {
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-                        boost::container::flat_map<
-                            std::string,
-                            dbus::utility::DbusVariantType>::const_iterator it =
-                            propertiesList.find("Purpose");
-                        if (it == propertiesList.end())
-                        {
-                            BMCWEB_LOG_ERROR(
-                                "Can't find property \"Version\"!");
-                            messages::propertyMissing(asyncResp->res,
-                                                      "Purpose");
-                            return;
-                        }
-                        const std::string* swInvPurpose =
-                            std::get_if<std::string>(&it->second);
-                        if (swInvPurpose == nullptr)
-                        {
-                            BMCWEB_LOG_ERROR(
-                                "wrong types for property\"Purpose\"!");
-                            messages::propertyValueTypeError(asyncResp->res, "",
-                                                             "Purpose");
-                            return;
-                        }
-
-                        BMCWEB_LOG_ERROR("swInvPurpose = {}", *swInvPurpose);
-                        it = propertiesList.find("Version");
-                        if (it == propertiesList.end())
-                        {
-                            BMCWEB_LOG_ERROR(
-                                "Can't find property \"Version\"!");
-                            messages::propertyMissing(asyncResp->res,
-                                                      "Version");
-                            return;
-                        }
-
-                        BMCWEB_LOG_ERROR("Version found!");
-
-                        const std::string* version =
-                            std::get_if<std::string>(&it->second);
-
-                        if (version == nullptr)
-                        {
-                            BMCWEB_LOG_ERROR(
-                                "Can't find property \"Version\"!");
-
-                            messages::propertyValueTypeError(asyncResp->res, "",
-                                                             "Version");
-                            return;
-                        }
-
-                        it = propertiesList.find("Manufacturer");
-                        if (it != propertiesList.end())
-                        {
-                            const std::string* manufacturer =
-                                std::get_if<std::string>(&it->second);
-
-                            if (manufacturer == nullptr)
+                            if (errorCode)
                             {
-                                BMCWEB_LOG_ERROR(
-                                    "Can't find property \"Manufacturer\"!");
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
-                            asyncResp->res.jsonValue["Manufacturer"] =
-                                *manufacturer;
-                        }
-
-                        it = propertiesList.find("SoftwareId");
-                        if (it != propertiesList.end())
-                        {
-                            const std::string* softwareId =
-                                std::get_if<std::string>(&it->second);
-
-                            if (softwareId == nullptr)
+                            boost::container::flat_map<
+                                std::string,
+                                dbus::utility::DbusVariantType>::const_iterator
+                                it = propertiesList.find("Purpose");
+                            if (it == propertiesList.end())
                             {
                                 BMCWEB_LOG_ERROR(
-                                    "Can't find property \"softwareId\"!");
+                                    "Can't find property \"Version\"!");
+                                messages::propertyMissing(asyncResp->res,
+                                                          "Purpose");
+                                return;
+                            }
+                            const std::string* swInvPurpose =
+                                std::get_if<std::string>(&it->second);
+                            if (swInvPurpose == nullptr)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "wrong types for property\"Purpose\"!");
+                                messages::propertyValueTypeError(asyncResp->res,
+                                                                 "", "Purpose");
+                                return;
+                            }
+
+                            BMCWEB_LOG_ERROR("swInvPurpose = {}",
+                                             *swInvPurpose);
+                            it = propertiesList.find("Version");
+                            if (it == propertiesList.end())
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Can't find property \"Version\"!");
+                                messages::propertyMissing(asyncResp->res,
+                                                          "Version");
+                                return;
+                            }
+
+                            BMCWEB_LOG_ERROR("Version found!");
+
+                            const std::string* version =
+                                std::get_if<std::string>(&it->second);
+
+                            if (version == nullptr)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Can't find property \"Version\"!");
+
+                                messages::propertyValueTypeError(asyncResp->res,
+                                                                 "", "Version");
+                                return;
+                            }
+
+                            it = propertiesList.find("Manufacturer");
+                            if (it != propertiesList.end())
+                            {
+                                const std::string* manufacturer =
+                                    std::get_if<std::string>(&it->second);
+
+                                if (manufacturer == nullptr)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "Can't find property \"Manufacturer\"!");
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                asyncResp->res.jsonValue["Manufacturer"] =
+                                    *manufacturer;
+                            }
+
+                            it = propertiesList.find("SoftwareId");
+                            if (it != propertiesList.end())
+                            {
+                                const std::string* softwareId =
+                                    std::get_if<std::string>(&it->second);
+
+                                if (softwareId == nullptr)
+                                {
+                                    BMCWEB_LOG_ERROR(
+                                        "Can't find property \"softwareId\"!");
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                if (!softwareId->empty())
+                                {
+                                    asyncResp->res.jsonValue["SoftwareId"] =
+                                        *softwareId;
+                                }
+                            }
+
+                            asyncResp->res.jsonValue["Version"] = *version;
+
+                            // swInvPurpose is of format:
+                            // xyz.openbmc_project.Software.Version.VersionPurpose.ABC
+                            // Translate this to "ABC image"
+                            size_t endDesc = swInvPurpose->rfind('.');
+                            if (endDesc == std::string::npos)
+                            {
                                 messages::internalError(asyncResp->res);
                                 return;
                             }
-                            if (!softwareId->empty())
+                            endDesc++;
+                            if (endDesc >= swInvPurpose->size())
                             {
-                                asyncResp->res.jsonValue["SoftwareId"] =
-                                    *softwareId;
+                                messages::internalError(asyncResp->res);
+                                return;
                             }
-                        }
 
-                        asyncResp->res.jsonValue["Version"] = *version;
+                            std::string formatDesc =
+                                swInvPurpose->substr(endDesc);
+                            it = propertiesList.find("Description");
+                            asyncResp->res.jsonValue["Description"] =
+                                formatDesc + " image";
 
-                        // swInvPurpose is of format:
-                        // xyz.openbmc_project.Software.Version.VersionPurpose.ABC
-                        // Translate this to "ABC image"
-                        size_t endDesc = swInvPurpose->rfind('.');
-                        if (endDesc == std::string::npos)
-                        {
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-                        endDesc++;
-                        if (endDesc >= swInvPurpose->size())
-                        {
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-
-                        std::string formatDesc = swInvPurpose->substr(endDesc);
-                        it = propertiesList.find("Description");
-                        asyncResp->res.jsonValue["Description"] = formatDesc +
-                                                                  " image";
-
-                        if (it != propertiesList.end())
-                        {
-                            const std::string* description =
-                                std::get_if<std::string>(&it->second);
-                            if (description != nullptr && !description->empty())
+                            if (it != propertiesList.end())
                             {
-                                asyncResp->res.jsonValue["Description"] =
-                                    *description;
+                                const std::string* description =
+                                    std::get_if<std::string>(&it->second);
+                                if (description != nullptr &&
+                                    !description->empty())
+                                {
+                                    asyncResp->res.jsonValue["Description"] =
+                                        *description;
+                                }
                             }
-                        }
-                        getRelatedItems(asyncResp, *swInvPurpose);
+                            getRelatedItems(asyncResp, *swInvPurpose);
 
-                        it = propertiesList.find("PrettyName");
-                        if (it != propertiesList.end())
-                        {
-                            const std::string* foundName =
-                                std::get_if<std::string>(&it->second);
-                            if (foundName != nullptr && !foundName->empty())
+                            it = propertiesList.find("PrettyName");
+                            if (it != propertiesList.end())
                             {
-                                asyncResp->res.jsonValue["Name"] = *foundName;
+                                const std::string* foundName =
+                                    std::get_if<std::string>(&it->second);
+                                if (foundName != nullptr && !foundName->empty())
+                                {
+                                    asyncResp->res.jsonValue["Name"] =
+                                        *foundName;
+                                }
                             }
-                        }
-                    },
+                        },
                         versionService, obj.first,
                         "org.freedesktop.DBus.Properties", "GetAll", "");
                 }
 
                 asyncResp->res.jsonValue["Status"]["Health"] = "OK";
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-                asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-#ifndef BMCWEB_DISABLE_CONDITIONS_ARRAY
-                asyncResp->res.jsonValue["Status"]["Conditions"] =
-                    nlohmann::json::array();
-#endif // BMCWEB_DISABLE_CONDITIONS_ARRAY
+                if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
+                {
+                    asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
+                }
+                if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+                {
+                    asyncResp->res.jsonValue["Status"]["Conditions"] =
+                        nlohmann::json::array();
+                }
 
                 if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                 {
-#ifdef BMCWEB_ENABLE_NVIDIA_UPDATE_STAGING
-                    redfish::fw_util::getFWSlotInformation(asyncResp,
-                                                           obj.first);
-#endif
+                    if constexpr (BMCWEB_NVIDIA_OEM_FW_UPDATE_STAGING)
+                    {
+                        redfish::fw_util::getFWSlotInformation(asyncResp,
+                                                               obj.first);
+                    }
                 }
                 if (!statusService.empty())
                 {
