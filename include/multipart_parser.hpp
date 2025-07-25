@@ -78,20 +78,20 @@ class MultipartParser
      *        If you pass a valid file path, you can do fileOut writes.
      */
     explicit MultipartParser(const std::filesystem::path& filePathIn) :
-        filePath(filePathIn)
+        skipFileContent(false), filePath(filePathIn)
     {}
 
     [[nodiscard]] ParserError parse(const crow::Request& req)
     {
         std::string_view contentType = req.getHeaderValue("content-type");
+        size_t contentTypeSize = 0;
 
-        const std::string boundaryFormat = "multipart/form-data; boundary=";
-        if (!contentType.starts_with(boundaryFormat))
+        if (!isValidContentType(contentType, contentTypeSize))
         {
             return ParserError::ERROR_BOUNDARY_FORMAT;
         }
 
-        std::string_view ctBoundary = contentType.substr(boundaryFormat.size());
+        std::string_view ctBoundary = contentType.substr(contentTypeSize);
 
         boundary = "\r\n--";
         boundary += ctBoundary;
@@ -314,7 +314,6 @@ class MultipartParser
             i += boundary.size();
         }
     }
-
     ParserError processPartData(const std::string& buffer, size_t& i, char c)
     {
         FormPart& current = mime_fields.back();
@@ -446,9 +445,38 @@ class MultipartParser
         return ParserError::PARSER_SUCCESS;
     }
 
-    std::string currentHeaderName;
+    /**
+     * @brief Validates if a given content type conforms to the expected pattern
+     * for a multipart/form-data content type. If the content type matches the
+     * pattern, the size of the matched substring is stored in the provided
+     * contentTypeSize reference. The function returns true if the content type
+     * is valid and false otherwise.
+     *
+     * @param[in] contentType The input content type as a std::string_view.
+     * @param[out] contentTypeSize Reference to a size_t variable to store the
+     * size of the matched substring.
+     *
+     * @return true if the content type is valid, false otherwise
+     */
+    bool isValidContentType(const std::string_view contentType,
+                            size_t& contentTypeSize)
+    {
+        std::regex pattern("multipart/form-data;\\s*boundary=");
+        std::string strContentType(contentType);
+        std::smatch match;
+
+        if (std::regex_search(strContentType, match, pattern))
+        {
+            contentTypeSize = match.str().size();
+            return true;
+        }
+
+        return false;
+    }
+
     bool skipFileContent = false;
     std::filesystem::path filePath;
+    std::string currentHeaderName;
 
     static constexpr char cr = '\r';
     static constexpr char lf = '\n';
