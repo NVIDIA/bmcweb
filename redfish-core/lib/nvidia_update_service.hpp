@@ -1365,116 +1365,99 @@ inline nlohmann::json extendedInfoSuccessMsg(const std::string& msg,
                           {"MessageArgs", {arg}}};
 }
 
-inline void requestRoutesUpdateServicePublicKeyExchange(App& app)
+inline void handlePublicKeyExchangePost(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.PublicKeyExchange/")
-        .privileges(redfish::privileges::postUpdateService)
-        .methods(
-            boost::beast::http::verb::
-                post)([&app](
-                          const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    std::string remoteServerIP;
+    std::string remoteServerKeyString; // "<type> <key>"
+
+    BMCWEB_LOG_DEBUG("Enter UpdateService.PublicKeyExchange doPost");
+
+    if (!json_util::readJsonAction(req, asyncResp->res, "RemoteServerIP",
+                                   remoteServerIP, "RemoteServerKeyString",
+                                   remoteServerKeyString) &&
+        (remoteServerIP.empty() || remoteServerKeyString.empty()))
+    {
+        std::string emptyprops;
+        if (remoteServerIP.empty())
+        {
+            emptyprops += "RemoteServerIP ";
+        }
+        if (remoteServerKeyString.empty())
+        {
+            emptyprops += "RemoteServerKeyString ";
+        }
+        messages::createFailedMissingReqProperties(asyncResp->res, emptyprops);
+        BMCWEB_LOG_DEBUG("Missing {}", emptyprops);
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG("RemoteServerIP: {} RemoteServerKeyString: {}",
+                     remoteServerIP, remoteServerKeyString);
+
+    // Verify remoteServerKeyString matches the pattern "<type> <key>"
+    std::string remoteServerKeyStringPattern = R"(\S+\s+\S+)";
+    std::regex pattern(remoteServerKeyStringPattern);
+    if (!std::regex_match(remoteServerKeyString, pattern))
+    {
+        // Invalid format, return an error message
+        messages::actionParameterValueTypeError(
+            asyncResp->res, remoteServerKeyString, "RemoteServerKeyString",
+            "UpdateService.PublicKeyExchange");
+        BMCWEB_LOG_DEBUG("Invalid RemoteServerKeyString format");
+        return;
+    }
+
+    // Call SCP service
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code& ec) {
+            if (ec)
             {
+                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR("error_code = {} error msg = {}", ec,
+                                 ec.message());
                 return;
             }
 
-            std::string remoteServerIP;
-            std::string remoteServerKeyString; // "<type> <key>"
-
-            BMCWEB_LOG_DEBUG("Enter UpdateService.PublicKeyExchange doPost");
-
-            if (!json_util::readJsonAction(
-                    req, asyncResp->res, "RemoteServerIP", remoteServerIP,
-                    "RemoteServerKeyString", remoteServerKeyString) &&
-                (remoteServerIP.empty() || remoteServerKeyString.empty()))
-            {
-                std::string emptyprops;
-                if (remoteServerIP.empty())
-                {
-                    emptyprops += "RemoteServerIP ";
-                }
-                if (remoteServerKeyString.empty())
-                {
-                    emptyprops += "RemoteServerKeyString ";
-                }
-                messages::createFailedMissingReqProperties(asyncResp->res,
-                                                           emptyprops);
-                BMCWEB_LOG_DEBUG("Missing {}", emptyprops);
-                return;
-            }
-
-            BMCWEB_LOG_DEBUG("RemoteServerIP: {} RemoteServerKeyString: {}",
-                             remoteServerIP, remoteServerKeyString);
-
-            // Verify remoteServerKeyString matches the pattern "<type> <key>"
-            std::string remoteServerKeyStringPattern = R"(\S+\s+\S+)";
-            std::regex pattern(remoteServerKeyStringPattern);
-            if (!std::regex_match(remoteServerKeyString, pattern))
-            {
-                // Invalid format, return an error message
-                messages::actionParameterValueTypeError(
-                    asyncResp->res, remoteServerKeyString,
-                    "RemoteServerKeyString", "UpdateService.PublicKeyExchange");
-                BMCWEB_LOG_DEBUG("Invalid RemoteServerKeyString format");
-                return;
-            }
-
-            // Call SCP service
             crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code& ec) {
-                    if (ec)
+                [asyncResp](const boost::system::error_code& ec2,
+                            const std::string& selfPublicKeyStr) {
+                    if (ec2 || selfPublicKeyStr.empty())
                     {
                         messages::internalError(asyncResp->res);
-                        BMCWEB_LOG_ERROR("error_code = {} error msg = {}", ec,
-                                         ec.message());
+                        BMCWEB_LOG_ERROR("error_code = {} error msg = {}", ec2,
+                                         ec2.message());
                         return;
                     }
 
-                    crow::connections::systemBus->async_method_call(
-                        [asyncResp](const boost::system::error_code& ec2,
-                                    const std::string& selfPublicKeyStr) {
-                            if (ec2 || selfPublicKeyStr.empty())
-                            {
-                                messages::internalError(asyncResp->res);
-                                BMCWEB_LOG_ERROR(
-                                    "error_code = {} error msg = {}", ec2,
-                                    ec2.message());
-                                return;
-                            }
+                    // Create a JSON object with the additional
+                    // information
+                    std::string keyMsg =
+                        "Please add the following public key info to "
+                        "~/.ssh/authorized_keys on the remote server";
+                    std::string keyInfo = selfPublicKeyStr + " root@dpu-bmc";
 
-                            // Create a JSON object with the additional
-                            // information
-                            std::string keyMsg =
-                                "Please add the following public key info to "
-                                "~/.ssh/authorized_keys on the remote server";
-                            std::string keyInfo =
-                                selfPublicKeyStr + " root@dpu-bmc";
-
-                            asyncResp->res
-                                .jsonValue[messages::messageAnnotation] =
-                                nlohmann::json::array();
-                            asyncResp->res
-                                .jsonValue[messages::messageAnnotation]
-                                .push_back(
-                                    extendedInfoSuccessMsg(keyMsg, keyInfo));
-                            messages::success(asyncResp->res);
-                            BMCWEB_LOG_DEBUG(
-                                "Call to PublicKeyExchange succeeded {}",
-                                selfPublicKeyStr);
-                        },
-                        "xyz.openbmc_project.Software.Download",
-                        "/xyz/openbmc_project/software",
-                        "xyz.openbmc_project.Common.SCP",
-                        "GenerateSelfKeyPair");
+                    asyncResp->res.jsonValue[messages::messageAnnotation] =
+                        nlohmann::json::array();
+                    asyncResp->res.jsonValue[messages::messageAnnotation]
+                        .push_back(extendedInfoSuccessMsg(keyMsg, keyInfo));
+                    messages::success(asyncResp->res);
+                    BMCWEB_LOG_DEBUG("Call to PublicKeyExchange succeeded {}",
+                                     selfPublicKeyStr);
                 },
                 "xyz.openbmc_project.Software.Download",
                 "/xyz/openbmc_project/software",
-                "xyz.openbmc_project.Common.SCP", "AddRemoteServerPublicKey",
-                remoteServerIP, remoteServerKeyString);
-        });
+                "xyz.openbmc_project.Common.SCP", "GenerateSelfKeyPair");
+        },
+        "xyz.openbmc_project.Software.Download",
+        "/xyz/openbmc_project/software", "xyz.openbmc_project.Common.SCP",
+        "AddRemoteServerPublicKey", remoteServerIP, remoteServerKeyString);
 }
 
 /**
@@ -1484,60 +1467,51 @@ inline void requestRoutesUpdateServicePublicKeyExchange(App& app)
  *
  * @return None
  */
-inline void requestRoutesUpdateServiceRevokeAllRemoteServerPublicKeys(App& app)
+inline void handleRevokeAllRemoteServerPublicKeysPost(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.RevokeAllRemoteServerPublicKeys/")
-        .privileges(redfish::privileges::postUpdateService)
-        .methods(
-            boost::beast::http::verb::
-                post)([&app](
-                          const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    std::string remoteServerIP;
+
+    BMCWEB_LOG_DEBUG(
+        "Enter UpdateService.RevokeAllRemoteServerPublicKeys doPost");
+
+    if (!json_util::readJsonAction(req, asyncResp->res, "RemoteServerIP",
+                                   remoteServerIP) &&
+        remoteServerIP.empty())
+    {
+        messages::createFailedMissingReqProperties(asyncResp->res,
+                                                   "RemoteServerIP");
+        BMCWEB_LOG_DEBUG("Missing RemoteServerIP");
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG("RemoteServerIP: {}", remoteServerIP);
+
+    // Call SCP service
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](const boost::system::error_code& ec) {
+            if (ec)
             {
-                return;
+                messages::internalError(asyncResp->res);
+                BMCWEB_LOG_ERROR("error_code = {} error msg = {}", ec,
+                                 ec.message());
             }
-
-            std::string remoteServerIP;
-
-            BMCWEB_LOG_DEBUG(
-                "Enter UpdateService.RevokeAllRemoteServerPublicKeys doPost");
-
-            if (!json_util::readJsonAction(req, asyncResp->res,
-                                           "RemoteServerIP", remoteServerIP) &&
-                remoteServerIP.empty())
+            else
             {
-                messages::createFailedMissingReqProperties(asyncResp->res,
-                                                           "RemoteServerIP");
-                BMCWEB_LOG_DEBUG("Missing RemoteServerIP");
-                return;
+                messages::success(asyncResp->res);
+                BMCWEB_LOG_DEBUG(
+                    "Call to RevokeAllRemoteServerPublicKeys succeeded");
             }
-
-            BMCWEB_LOG_DEBUG("RemoteServerIP: {}", remoteServerIP);
-
-            // Call SCP service
-            crow::connections::systemBus->async_method_call(
-                [asyncResp](const boost::system::error_code& ec) {
-                    if (ec)
-                    {
-                        messages::internalError(asyncResp->res);
-                        BMCWEB_LOG_ERROR("error_code = {} error msg = {}", ec,
-                                         ec.message());
-                    }
-                    else
-                    {
-                        messages::success(asyncResp->res);
-                        BMCWEB_LOG_DEBUG(
-                            "Call to RevokeAllRemoteServerPublicKeys succeeded");
-                    }
-                },
-                "xyz.openbmc_project.Software.Download",
-                "/xyz/openbmc_project/software",
-                "xyz.openbmc_project.Common.SCP",
-                "RevokeAllRemoteServerPublicKeys", remoteServerIP);
-        });
+        },
+        "xyz.openbmc_project.Software.Download",
+        "/xyz/openbmc_project/software", "xyz.openbmc_project.Common.SCP",
+        "RevokeAllRemoteServerPublicKeys", remoteServerIP);
 }
 
 /**
@@ -1828,6 +1802,184 @@ inline void getArrayObject(nlohmann::json::object_t* object,
 }
 
 /**
+ * @brief Forward firmware image to the satellite BMC
+ *
+ * @param[in] req  HTTP request.
+ * @param[in] asyncResp Pointer to object holding response data
+ * @param[in] ec the error code returned by Dbus call.
+ * @param[in] satelliteInfo the map containing the satellite controllers
+ *
+ * @return None
+ */
+inline void forwardImage(
+    std::shared_ptr<crow::Request> sharedReq, const bool updateAll,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
+{
+    // Something went wrong while querying dbus
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("Dbus query error for satellite BMC.");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+    const auto& sat =
+        satelliteInfo.find(std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX));
+    if (sat == satelliteInfo.end())
+    {
+        BMCWEB_LOG_ERROR("satellite BMC is not there.");
+        return;
+    }
+
+    crow::HttpClient client(
+        *sharedReq->ioService,
+        std::make_shared<crow::ConnectionPolicy>(getPostAggregationPolicy()));
+
+    std::function<void(crow::Response&)> cb =
+        std::bind_front(handleSatBMCResponse, asyncResp);
+
+    MultipartParser parser;
+    ParserError parserEc = parser.parse(*sharedReq);
+    if (parserEc != ParserError::PARSER_SUCCESS)
+    {
+        BMCWEB_LOG_ERROR("MIME parse failed, ec : {}",
+                         static_cast<int>(parserEc));
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    size_t originalRequestSize = sharedReq->body().size();
+    // clear up the body buffer of the request to save memory
+    sharedReq->clearBody();
+    bool hasUpdateFile = false;
+    std::string data;
+    data.reserve(originalRequestSize);
+    std::string_view boundary(parser.boundary);
+    for (FormPart& formpart : parser.mime_fields)
+    {
+        boost::beast::http::fields::const_iterator it =
+            formpart.fields.find("Content-Disposition");
+
+        size_t index = it->value().find(';');
+        if (index == std::string::npos)
+        {
+            continue;
+        }
+        // skip \r\n and get the boundary
+        data += boundary.substr(2);
+        data += "\r\n";
+        data += "Content-Disposition:";
+        data += formpart.fields.at("Content-Disposition");
+        data += "\r\n";
+
+        for (const auto& param :
+             boost::beast::http::param_list{it->value().substr(index)})
+        {
+            if (param.first != "name" || param.second.empty())
+            {
+                continue;
+            }
+
+            if (param.second == "UpdateFile")
+            {
+                data += "Content-Type: application/octet-stream\r\n\r\n";
+                data += std::move(formpart.content);
+                data += "\r\n";
+                hasUpdateFile = true;
+            }
+            else if (param.second == "UpdateParameters")
+            {
+                data += "Content-Type: application/json\r\n\r\n";
+                nlohmann::json content =
+                    nlohmann::json::parse(formpart.content, nullptr, false);
+                if (content.is_discarded())
+                {
+                    BMCWEB_LOG_INFO("UpdateParameters parse error:{}",
+                                    formpart.content);
+                    continue;
+                }
+                std::optional<std::vector<std::string>> targets;
+                std::optional<bool> forceUpdate;
+                std::optional<nlohmann::json> oemObject;
+
+                json_util::readJson(content, asyncResp->res, "Targets", targets,
+                                    "ForceUpdate", forceUpdate, "Oem",
+                                    oemObject);
+
+                nlohmann::json paramJson = nlohmann::json::object();
+
+                const std::string urlPrefix =
+                    std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX);
+                // individual components update
+                if (targets && updateAll == false)
+                {
+                    paramJson["Targets"] = nlohmann::json::array();
+
+                    for (auto& uri : *targets)
+                    {
+                        // the special handling for Gb200Nvl System.
+                        // we don't remove the prefix if the resource's prefix
+                        // from FirmwareInventory is the same with RFA prefix.
+                        if constexpr (BMCWEB_REDFISH_AGGREGATION_PREFIX_REMOVAL)
+                        {
+                            // remove prefix before the update request is
+                            // forwarded.
+                            std::string file =
+                                std::filesystem::path(uri).filename();
+                            size_t pos = uri.find(urlPrefix + "_");
+                            if (pos != std::string::npos)
+                            {
+                                uri.erase(pos, urlPrefix.size() + 1);
+                            }
+                        }
+
+                        BMCWEB_LOG_DEBUG("uri in Targets: {}", uri);
+                        paramJson["Targets"].push_back(uri);
+                    }
+                }
+                if (forceUpdate)
+                {
+                    paramJson["ForceUpdate"] = *forceUpdate;
+                }
+                if (oemObject)
+                {
+                    paramJson["Oem"] = *oemObject;
+                }
+                data += paramJson.dump();
+                data += "\r\n";
+                BMCWEB_LOG_DEBUG("form data: {}", data);
+            }
+        }
+    }
+
+    if (!hasUpdateFile)
+    {
+        BMCWEB_LOG_ERROR("File with firmware image is missing.");
+        messages::propertyMissing(asyncResp->res, "UpdateFile");
+    }
+    else
+    {
+        data += boundary.substr(2);
+        data += "--\r\n";
+
+        boost::urls::url url(sat->second);
+        url.set_path(sharedReq->url().path());
+        // Remove headers not handled for RFA firmware upgrade flow
+        if (!sharedReq->getHeaderValue("Expect").empty())
+        {
+            BMCWEB_LOG_INFO("Removed Expect header from the request");
+            sharedReq->clearHeader(boost::beast::http::field::expect);
+        }
+        BMCWEB_LOG_INFO("Expect header value {}",
+                        sharedReq->getHeaderValue("Expect"));
+        client.sendDataWithCallback(
+            std::move(data), url, ensuressl::VerifyCertificate::Verify,
+            sharedReq->fields(), boost::beast::http::verb::post, cb);
+    }
+}
+
+/**
  * @brief The response handler of CommitImageActionInfo from satBMC
  * aggregate the allowable values from the response of CommitImageActionInfo
  * if the response is successful.
@@ -1946,120 +2098,110 @@ inline void forwardCommitImageActionInfo(
         req.fields(), boost::beast::http::verb::get, cb);
 }
 
-/**
- * @brief Register Web Api endpoints for Commit Image functionality
- *
- * @return None
- */
-inline void requestRoutesUpdateServiceCommitImage(App& app)
+inline void handleCommitImageActionInfoGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo/")
-        .privileges(redfish::privileges::getSoftwareInventoryCollection)
-        .methods(
-            boost::beast::http::verb::
-                get)([](const crow::Request& req,
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#ActionInfo.v1_2_0.ActionInfo";
-            asyncResp->res.jsonValue["@odata.id"] =
-                "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo";
-            asyncResp->res.jsonValue["Name"] = "CommitImage Action Info";
-            asyncResp->res.jsonValue["Id"] = "CommitImageActionInfo";
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
 
-            crow::connections::systemBus->async_method_call(
-                [asyncResp{asyncResp}, req](
-                    const boost::system::error_code& ec,
-                    const std::vector<std::pair<
-                        std::string,
-                        std::vector<
-                            std::pair<std::string, std::vector<std::string>>>>>&
-                        subtree) {
-                    if (ec)
-                    {
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
+    asyncResp->res.jsonValue["@odata.type"] = "#ActionInfo.v1_2_0.ActionInfo";
+    asyncResp->res.jsonValue["@odata.id"] =
+        "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo";
+    asyncResp->res.jsonValue["Name"] = "CommitImage Action Info";
+    asyncResp->res.jsonValue["Id"] = "CommitImageActionInfo";
 
-                    updateParametersForCommitImageInfo(asyncResp, subtree);
-                    if constexpr (BMCWEB_REDFISH_AGGREGATION)
-                    {
-                        RedfishAggregator::getSatelliteConfigs(std::bind_front(
-                            forwardCommitImageActionInfo, req, asyncResp));
-                    }
-                },
-                // Note that only firmware levels associated with a device
-                // are stored under /xyz/openbmc_project/software therefore
-                // to ensure only real FirmwareInventory items are returned,
-                // this full object path must be used here as input to
-                // mapper
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                "/xyz/openbmc_project/software", static_cast<int32_t>(0),
-                std::array<const char*, 1>{
-                    "xyz.openbmc_project.Software.Version"});
-        });
-
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.CommitImage/")
-        .privileges(redfish::privileges::postUpdateService)
-        .methods(
-            boost::beast::http::verb::
-                post)([](const crow::Request& req,
-                         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-            BMCWEB_LOG_DEBUG("doPost...");
-
-            if constexpr (BMCWEB_REDFISH_AGGREGATION)
+    crow::connections::systemBus->async_method_call(
+        [asyncResp{asyncResp}, req](
+            const boost::system::error_code& ec,
+            const std::vector<std::pair<
+                std::string,
+                std::vector<std::pair<std::string, std::vector<std::string>>>>>&
+                subtree) {
+            if (ec)
             {
-                if (!handleSatBMCCommitImagePost(req, asyncResp))
-                {
-                    return;
-                }
-            }
-
-            if (fwUpdateInProgress)
-            {
-                redfish::messages::updateInProgressMsg(
-                    asyncResp->res,
-                    "Retry the operation once firmware update operation is complete.");
-
-                // don't copy the image, update already in progress.
-                BMCWEB_LOG_ERROR(
-                    "Cannot execute commit image. Update firmware is in progress.");
-
+                messages::internalError(asyncResp->res);
                 return;
             }
 
-            crow::connections::systemBus->async_method_call(
-                [req, asyncResp{asyncResp}](
-                    const boost::system::error_code& ec,
-                    const std::vector<std::pair<
-                        std::string,
-                        std::vector<
-                            std::pair<std::string, std::vector<std::string>>>>>&
-                        subtree) {
-                    if (ec)
-                    {
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
+            updateParametersForCommitImageInfo(asyncResp, subtree);
+            if constexpr (BMCWEB_REDFISH_AGGREGATION)
+            {
+                RedfishAggregator::getSatelliteConfigs(std::bind_front(
+                    forwardCommitImageActionInfo, req, asyncResp));
+            }
+        },
+        // Note that only firmware levels associated with a device
+        // are stored under /xyz/openbmc_project/software therefore
+        // to ensure only real FirmwareInventory items are returned,
+        // this full object path must be used here as input to
+        // mapper
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
+        "/xyz/openbmc_project/software", static_cast<int32_t>(0),
+        std::array<const char*, 1>{"xyz.openbmc_project.Software.Version"});
+}
 
-                    handleCommitImagePost(req, asyncResp, subtree);
-                },
-                // Note that only firmware levels associated with a device
-                // are stored under /xyz/openbmc_project/software therefore
-                // to ensure only real FirmwareInventory items are returned,
-                // this full object path must be used here as input to
-                // mapper
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-                "/xyz/openbmc_project/software", static_cast<int32_t>(0),
-                std::array<const char*, 1>{
-                    "xyz.openbmc_project.Software.Version"});
-        });
+inline void handleCommitImageActionInfoPost(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    BMCWEB_LOG_DEBUG("doPost...");
+
+    if constexpr (BMCWEB_REDFISH_AGGREGATION)
+    {
+        if (!handleSatBMCCommitImagePost(req, asyncResp))
+        {
+            return;
+        }
+    }
+
+    if (fwUpdateInProgress)
+    {
+        redfish::messages::updateInProgressMsg(
+            asyncResp->res,
+            "Retry the operation once firmware update operation is complete.");
+
+        // don't copy the image, update already in progress.
+        BMCWEB_LOG_ERROR(
+            "Cannot execute commit image. Update firmware is in progress.");
+
+        return;
+    }
+
+    crow::connections::systemBus->async_method_call(
+        [req, asyncResp{asyncResp}](
+            const boost::system::error_code& ec,
+            const std::vector<std::pair<
+                std::string,
+                std::vector<std::pair<std::string, std::vector<std::string>>>>>&
+                subtree) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            handleCommitImagePost(req, asyncResp, subtree);
+        },
+        // Note that only firmware levels associated with a device
+        // are stored under /xyz/openbmc_project/software therefore
+        // to ensure only real FirmwareInventory items are returned,
+        // this full object path must be used here as input to
+        // mapper
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
+        "/xyz/openbmc_project/software", static_cast<int32_t>(0),
+        std::array<const char*, 1>{"xyz.openbmc_project.Software.Version"});
 }
 
 /**
@@ -2067,52 +2209,42 @@ inline void requestRoutesUpdateServiceCommitImage(App& app)
  *
  * @param[in] app
  */
-inline void requestRoutesComputeDigestPost(App& app)
+inline void handleComputeDigestPost(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& param)
 {
-    BMCWEB_ROUTE(
-        app, "/redfish/v1/UpdateService/FirmwareInventory/<str>/Actions/Oem/"
-             "NvidiaSoftwareInventory.ComputeDigest")
-        .privileges(redfish::privileges::postUpdateService)
-        .methods(
-            boost::beast::http::verb::
-                post)([&app](
-                          const crow::Request& req,
-                          const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const std::string& param) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-            BMCWEB_LOG_DEBUG(
-                "Enter NvidiaSoftwareInventory.ComputeDigest doPost");
-            std::shared_ptr<std::string> swId =
-                std::make_shared<std::string>(param);
-            // skip input parameter validation
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    BMCWEB_LOG_DEBUG("Enter NvidiaSoftwareInventory.ComputeDigest doPost");
+    std::shared_ptr<std::string> swId = std::make_shared<std::string>(param);
+    // skip input parameter validation
 
-            // 1. Firmware update and retimer hash cannot run in parallel
-            if (fwUpdateInProgress)
-            {
-                redfish::messages::updateInProgressMsg(
-                    asyncResp->res,
-                    "Retry the operation once firmware update operation is complete.");
-                BMCWEB_LOG_ERROR(
-                    "Cannot execute ComputeDigest. Update firmware is in progress.");
+    // 1. Firmware update and retimer hash cannot run in parallel
+    if (fwUpdateInProgress)
+    {
+        redfish::messages::updateInProgressMsg(
+            asyncResp->res,
+            "Retry the operation once firmware update operation is complete.");
+        BMCWEB_LOG_ERROR(
+            "Cannot execute ComputeDigest. Update firmware is in progress.");
 
-                return;
-            }
-            // 2. Only one compute hash allowed at a time due to FPGA limitation
-            if (computeDigestInProgress)
-            {
-                redfish::messages::resourceErrorsDetectedFormatError(
-                    asyncResp->res, "NvidiaSoftwareInventory.ComputeDigest",
-                    "Another ComputeDigest operation is in progress");
-                BMCWEB_LOG_ERROR(
-                    "Cannot execute ComputeDigest. Another ComputeDigest is in progress.");
-                return;
-            }
-            handlePostComputeDigest(req, asyncResp, *swId);
-            BMCWEB_LOG_DEBUG("Exit NvidiaUpdateService.ComputeDigest doPost");
-        });
+        return;
+    }
+    // 2. Only one compute hash allowed at a time due to FPGA limitation
+    if (computeDigestInProgress)
+    {
+        redfish::messages::resourceErrorsDetectedFormatError(
+            asyncResp->res, "NvidiaSoftwareInventory.ComputeDigest",
+            "Another ComputeDigest operation is in progress");
+        BMCWEB_LOG_ERROR(
+            "Cannot execute ComputeDigest. Another ComputeDigest is in progress.");
+        return;
+    }
+    handlePostComputeDigest(req, asyncResp, *swId);
+    BMCWEB_LOG_DEBUG("Exit NvidiaUpdateService.ComputeDigest doPost");
 }
 
 inline void handleUpdateServiceSoftwareInventoryGet(
@@ -2573,5 +2705,40 @@ inline void requestRoutesNvidiaUpdateService(App& app)
         .privileges(redfish::privileges::patchUpdateService)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleUpdateServicePatch, std::ref(app)));
+
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo/")
+        .privileges(redfish::privileges::getSoftwareInventoryCollection)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleCommitImageActionInfoGet, std::ref(app)));
+
+    BMCWEB_ROUTE(app,
+                 "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo/")
+        .privileges(redfish::privileges::postUpdateService)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleCommitImageActionInfoPost, std::ref(app)));
+
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/UpdateService/FirmwareInventory/<str>/Actions/Oem/"
+             "NvidiaSoftwareInventory.ComputeDigest")
+        .privileges(redfish::privileges::postUpdateService)
+        .methods(boost::beast::http::verb::post)(
+            std::bind_front(handleComputeDigestPost, std::ref(app)));
+    if constexpr (BMCWEB_SCP_UPDATE)
+    {
+        BMCWEB_ROUTE(
+            app,
+            "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.RevokeAllRemoteServerPublicKeys/")
+            .privileges(redfish::privileges::postUpdateService)
+            .methods(boost::beast::http::verb::post)(std::bind_front(
+                handleRevokeAllRemoteServerPublicKeysPost, std::ref(app)));
+
+        BMCWEB_ROUTE(
+            app,
+            "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.PublicKeyExchange/")
+            .privileges(redfish::privileges::postUpdateService)
+            .methods(boost::beast::http::verb::post)(
+                std::bind_front(handlePublicKeyExchangePost, std::ref(app)));
+    }
 }
 } // namespace redfish

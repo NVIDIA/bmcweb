@@ -83,11 +83,6 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesEventLogDiagnosticDataEntry(app);
     }
 
-    if constexpr (BMCWEB_SCP_UPDATE)
-    {
-        requestRoutesUpdateServicePublicKeyExchange(app);
-        requestRoutesUpdateServiceRevokeAllRemoteServerPublicKeys(app);
-    }
     if constexpr (BMCWEB_DOT_SUPPORT)
     {
         requestRoutesEROTChassisDOT(app);
@@ -186,6 +181,8 @@ void requestRoutesNvidia(crow::App& app)
     requestRoutesDebugTokenServiceDiagnosticDataCollect(app);
     requestRoutesDebugTokenServiceDiagnosticDataEntryDownload(app);
 
+    requestRoutesNvidiaUpdateService(app);
+
     if constexpr (BMCWEB_REDFISH_FDR_LOG)
     {
         requestRoutesSystemFDRService(app);
@@ -207,12 +204,6 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesSystemFaultLogEntry(app);
         requestRoutesSystemFaultLogClear(app);
     }
-
-#if defined(BMCWEB_INSECURE_ENABLE_REDFISH_FW_TFTP_UPDATE) ||                  \
-    defined(BMCWEB_REDFISH_FW_SCP_UPDATE) ||                                   \
-    defined(BMCWEB_REDFISH_FW_HTTP_HTTPS_UPDATE)
-    requestRoutesUpdateServiceActionsSimpleUpdate(app);
-#endif
 
     if constexpr (BMCWEB_REDFISH_DUMP_LOG)
     {
@@ -273,7 +264,6 @@ void requestRoutesNvidia(crow::App& app)
     requestRoutesServiceConditions(app);
     requestRoutesChassisControls(app);
     requestRoutesChassisControlsCollection(app);
-    // requestRoutesUpdateServiceCommitImage(app);
     requestRoutesChassisControlsReset(app);
     requestRoutesTrustedComponents(app);
     requestRoutesNvidiaUpdateService(app);
