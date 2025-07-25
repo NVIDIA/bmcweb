@@ -1590,16 +1590,17 @@ inline void handleSatBMCResponse(
         }
 
         std::string rfaPrefix = std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX);
-        for (std::pair<const std::string, nlohmann::json>& prop : *object)
+        for (auto it = object->begin(); it != object->end(); ++it)
         {
             // only prefix fix-up on Task response.
-            std::string* strValue = prop.second.get_ptr<std::string*>();
+            std::string* strValue = it->second.get_ptr<std::string*>();
             if (strValue == nullptr)
             {
                 BMCWEB_LOG_CRITICAL("Item is not a string");
                 continue;
             }
-            if (prop.first == "@odata.id")
+
+            if (it->first == "@odata.id")
             {
                 std::string file = std::filesystem::path(*strValue).filename();
                 std::string path =
@@ -1611,19 +1612,13 @@ inline void handleSatBMCResponse(
                 file += temp;
                 path += "/";
                 // add prefix on odata.id property.
-                prop.second = path + file;
+                it->second = path + file;
             }
-            if (prop.first == "Id")
+            else if (it->first == "Id")
             {
                 std::string file = std::filesystem::path(*strValue).filename();
                 // add prefix on Id property.
-                prop.second = rfaPrefix;
-                prop.second += "_";
-                prop.second += file;
-            }
-            else
-            {
-                continue;
+                it->second = rfaPrefix + "_" + file;
             }
         }
         asyncResp->res.result(resp.result());
