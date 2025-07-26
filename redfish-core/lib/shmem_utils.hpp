@@ -180,6 +180,7 @@ constexpr const std::string_view sxm = "GPU_SXM_";
 constexpr const std::string_view sxmSma = "SXM_SMA_";
 constexpr const std::string_view cxSma = "ConnectX_SMA_";
 constexpr const std::string_view gpuTemp = "GPU_\\d+_TEMP_";
+constexpr const std::string_view hscc = "Chassis_0_HSCC_";
 
 // Add inline to prevent multiple definition errors
 inline const MetricsReplacement chassisPlatformEnvironmentMetrics(
@@ -231,6 +232,8 @@ inline const MetricsReplacement cxSmaPlatformEnvironmentMetrics(
     cxSma, "{CSMAWild}", "CSMAWild");
 inline const MetricsReplacement gpuTempPlatformEnvironmentMetrics(
     gpuTemp, "{GTWild}", "GTWild");
+inline const MetricsReplacement hsccPlatformEnvironmentMetrics(hscc, "{HCWild}",
+                                                               "HCWild");
 
 inline void replaceNumber(const std::string& input, const std::string& key,
                           const std::regex& pattern, const std::string& value,
@@ -1001,6 +1004,8 @@ inline void getShmemMetricsDefinitionWildCard(
                                   allowedWildcards);
             updateReplacementFlag(gpuTempPlatformEnvironmentMetrics,
                                   allowedWildcards);
+            updateReplacementFlag(hsccPlatformEnvironmentMetrics,
+                                  allowedWildcards);
 
             metricsReplacements(chassisPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
@@ -1050,6 +1055,8 @@ inline void getShmemMetricsDefinitionWildCard(
             metricsReplacements(cxSmaPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
             metricsReplacements(gpuTempPlatformEnvironmentMetrics, wildCards,
+                                inputMetricProperties);
+            metricsReplacements(hsccPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
         }
         else
