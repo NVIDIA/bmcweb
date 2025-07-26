@@ -1590,6 +1590,7 @@ inline void handleSatBMCResponse(
         }
 
         std::string rfaPrefix = std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX);
+        // NOLINTNEXTLINE(modernize-loop-convert) - modifying while iterating
         for (auto it = object->begin(); it != object->end(); ++it)
         {
             // only prefix fix-up on Task response.
@@ -1618,7 +1619,10 @@ inline void handleSatBMCResponse(
             {
                 std::string file = std::filesystem::path(*strValue).filename();
                 // add prefix on Id property.
-                it->second = rfaPrefix + "_" + file;
+                std::string prefixed = rfaPrefix;
+                prefixed += "_";
+                prefixed += file;
+                it->second = prefixed;
             }
         }
         asyncResp->res.result(resp.result());
@@ -1807,7 +1811,7 @@ inline void getArrayObject(nlohmann::json::object_t* object,
  * @return None
  */
 inline void forwardImage(
-    std::shared_ptr<crow::Request> sharedReq, const bool updateAll,
+    const std::shared_ptr<crow::Request>& sharedReq, const bool updateAll,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec,
     const std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
@@ -1879,7 +1883,7 @@ inline void forwardImage(
             if (param.second == "UpdateFile")
             {
                 data += "Content-Type: application/octet-stream\r\n\r\n";
-                data += std::move(formpart.content);
+                data += formpart.content;
                 data += "\r\n";
                 hasUpdateFile = true;
             }
@@ -1920,8 +1924,6 @@ inline void forwardImage(
                         {
                             // remove prefix before the update request is
                             // forwarded.
-                            std::string file =
-                                std::filesystem::path(uri).filename();
                             size_t pos = uri.find(urlPrefix + "_");
                             if (pos != std::string::npos)
                             {
@@ -2357,7 +2359,7 @@ inline void handleUpdateServiceSoftwareInventoryGet(
                             }
                         }
                         // getRelatedItemsOthers(asyncResp, *swId, searchPath);
-                        std::string mutablePath = searchPath;
+                        const std::string& mutablePath = searchPath;
                         fw_util::getFwUpdateableStatus(asyncResp, swId,
                                                        mutablePath);
                     },

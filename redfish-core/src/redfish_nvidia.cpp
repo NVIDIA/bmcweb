@@ -266,7 +266,7 @@ void requestRoutesNvidia(crow::App& app)
     requestRoutesChassisControlsCollection(app);
     requestRoutesChassisControlsReset(app);
     requestRoutesTrustedComponents(app);
-    requestRoutesNvidiaUpdateService(app);
+
     if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
     {
         requestRoutesLeakDetection(app);

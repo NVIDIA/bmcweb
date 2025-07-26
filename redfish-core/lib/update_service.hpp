@@ -503,7 +503,7 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         [task](sdbusplus::message_t& msgLog) {
             loggingMatchCallback(task, msgLog);
         });
-    if (preTaskMessages.size() > 0)
+    if (!preTaskMessages.empty())
     {
         task->messages.insert(task->messages.end(), preTaskMessages.begin(),
                               preTaskMessages.end());
@@ -620,7 +620,6 @@ inline void afterAvailbleTimerAsyncWait(
         std::filesystem::remove(imagePath);
     }
 }
-
 
 inline void handleUpdateErrorType(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& url,
@@ -903,7 +902,8 @@ inline void uploadImageFile(const std::shared_ptr<const crow::Request>& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     std::filesystem::path filepath(
-        std::string(BMCWEB_UPDATE_SERVICE_IMAGE_LOCATION) + bmcweb::getRandomUUID());
+        std::string(BMCWEB_UPDATE_SERVICE_IMAGE_LOCATION) +
+        bmcweb::getRandomUUID());
 
     monitorForSoftwareAvailable(asyncResp, *req, fwObjectCreationDefaultTimeout,
                                 filepath);
@@ -1318,8 +1318,7 @@ inline bool areTargetsInvalidOrUnupdatable(
             if (std::find(updateables.begin(), updateables.end(),
                           componentName) != updateables.end())
             {
-                validTargets.emplace_back(
-                    sdbusplus::message::object_path(softwarePath));
+                validTargets.emplace_back(softwarePath);
             }
             else
             {
@@ -1544,7 +1543,7 @@ inline void areTargetsUpdateableCallback(
 
     std::vector<sdbusplus::message::object_path> targets = {};
     // validate TargetUris if entries are present
-    if (uriTargets.size() != 0)
+    if (!uriTargets.empty())
     {
         if (areTargetsInvalidOrUnupdatable(uriTargets, updateableFw, swInvPaths,
                                            targets))
@@ -1672,7 +1671,7 @@ inline void processMultipartFormData(
         bool updateAll = false;
         uint8_t count = 0;
         std::string rfaPrefix = std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX);
-        if (uriTargets.size() > 0)
+        if (!uriTargets.empty())
         {
             for (const auto& uri : uriTargets)
             {
@@ -1690,13 +1689,13 @@ inline void processMultipartFormData(
                     return;
                 }
 
-                boost::urls::url_view thisUrl = *parsed;
+                const boost::urls::url_view& thisUrl = *parsed;
 
                 // this is the Chassis resource from satellite BMC for all
                 // component firmware update.
-                if (crow::utility::readUrlSegments(thisUrl, "redfish", "v1",
-                                                   "Chassis",
-                                                   std::string(BMCWEB_RFA_HMC_UPDATE_TARGET)))
+                if (crow::utility::readUrlSegments(
+                        thisUrl, "redfish", "v1", "Chassis",
+                        std::string(BMCWEB_RFA_HMC_UPDATE_TARGET)))
                 {
                     updateAll = true;
                 }
@@ -1715,8 +1714,7 @@ inline void processMultipartFormData(
                 {
                     // All URIs in Target has the prepended prefix
                     BMCWEB_LOG_ERROR("forward image {}", uriTargets[0]);
-                    auto sharedReq =
-                        std::make_shared<crow::Request>(std::move(req));
+                    auto sharedReq = std::make_shared<crow::Request>(req);
                     RedfishAggregator::getSatelliteConfigs(std::bind_front(
                         forwardImage, sharedReq, updateAll, asyncResp));
                 }
@@ -1740,7 +1738,7 @@ inline void processMultipartFormData(
         }
     }
 
-    auto sharedReq = std::make_shared<const crow::Request>(std::move(req));
+    auto sharedReq = std::make_shared<const crow::Request>(req);
 
     BMCWEB_LOG_ERROR(
         "TRACE: processMultipartFormData - calling setForceUpdate with uriTargets.size()={}",
@@ -2024,13 +2022,12 @@ inline void handleUpdateServiceFirmwareInventoryGet(
                      obj : subtree)
             {
                 sdbusplus::message::object_path objPath(obj.first);
-                std::string pathString(obj.first);
                 if (boost::equals(objPath.filename(), *swId) != true)
                 {
                     continue;
                 }
 
-                if (obj.second.size() < 1)
+                if (obj.second.empty())
                 {
                     continue;
                 }
@@ -2085,7 +2082,7 @@ inline void handleUpdateServiceFirmwareInventoryGet(
                 // and not implemented on all devices.
                 if (!settingService.empty())
                 {
-                    fw_util::getFwWriteProtectedStatus(asyncResp, swId,
+                    fw_util::getFwWriteProtectedStatus(asyncResp, *swId,
                                                        settingService);
                 }
                 asyncResp->res.jsonValue["Id"] = *swId;

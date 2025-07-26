@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <fstream>
 #include <ranges>
+#include <regex>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -78,7 +79,7 @@ class MultipartParser
      *        If you pass a valid file path, you can do fileOut writes.
      */
     explicit MultipartParser(const std::filesystem::path& filePathIn) :
-        skipFileContent(false), filePath(filePathIn)
+        filePath(filePathIn)
     {}
 
     [[nodiscard]] ParserError parse(const crow::Request& req)
