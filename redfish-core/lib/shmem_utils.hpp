@@ -93,7 +93,7 @@ inline void getShmemPlatformMetrics(
                 "#NvidiaMetricReport.v1_0_0.NvidiaMetricReport";
             asyncResp->res
                 .jsonValue["Oem"]["Nvidia"]["SensingIntervalMilliseconds"] =
-                pmSensingInterval;
+                BMCWEB_PLATFORM_METRICS_SENSING_INTERVAL;
             for (const auto& e : values)
             {
                 thisMetric["MetricValue"] = e.sensorValue;
@@ -106,7 +106,7 @@ inline void getShmemPlatformMetrics(
                 {
                     int64_t freshness =
                         static_cast<int64_t>(requestTimestamp - e.timestamp);
-                    if (freshness <= staleSensorUpperLimitms)
+                    if (freshness <= BMCWEB_STALESENSOR_UPPER_LIMIT_MILISECOND)
                     {
                         thisMetric["Oem"]["Nvidia"]["MetricValueStale"] = false;
                     }
