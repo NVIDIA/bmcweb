@@ -140,7 +140,6 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesClearPCIeAerErrorStatus(app);
         requestRoutesSwitchHistogramCollection(app);
         requestRoutesSwitchHistogram(app);
-        requestRoutesSwitchHistogramBucketCollection(app);
         requestRoutesSwitchHistogramBuckets(app);
     }
 
