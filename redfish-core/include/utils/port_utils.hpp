@@ -238,6 +238,21 @@ inline std::string getLinkStates(const std::string& linkState)
     return "";
 }
 
+inline std::string getLinkType(const std::string& linkType)
+{
+    if (linkType ==
+        "xyz.openbmc_project.Network.LinkType.PossibleLinks.Ethernet")
+    {
+        return "Ethernet";
+    }
+    if (linkType ==
+        "xyz.openbmc_project.Network.LinkType.PossibleLinks.InfiniBand")
+    {
+        return "InfiniBand";
+    }
+    return "";
+}
+
 inline std::string getPortType(const std::string& portType)
 {
     if (portType ==

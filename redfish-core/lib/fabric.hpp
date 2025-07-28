@@ -718,8 +718,13 @@ inline void updateSwitchData(
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        asyncResp->res.jsonValue["Oem"]["Nvidia"]["DeviceId"] =
-                            *value;
+
+                        if (!value->empty())
+                        {
+                            asyncResp->res
+                                .jsonValue["Oem"]["Nvidia"]["DeviceId"] =
+                                *value;
+                        }
                         asyncResp->res
                             .jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                             "#NvidiaSwitch.v1_4_0.NvidiaSwitch";
@@ -735,8 +740,12 @@ inline void updateSwitchData(
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        asyncResp->res.jsonValue["Oem"]["Nvidia"]["VendorId"] =
-                            *value;
+                        if (!value->empty())
+                        {
+                            asyncResp->res
+                                .jsonValue["Oem"]["Nvidia"]["VendorId"] =
+                                *value;
+                        }
                     }
                     else if (propertyName == "PCIeReferenceClockEnabled")
                     {

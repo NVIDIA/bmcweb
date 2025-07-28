@@ -3,7 +3,7 @@
 conf_data = configuration_data()
 
 if get_option('firmware-image-limit') > get_option('http-body-limit')
-  error('Firmware image size limit should be lesser than http body limit.')
+    error('Firmware image size limit should be lesser than http body limit.')
 endif
 
 conf_data.set_quoted(
@@ -30,18 +30,12 @@ conf_data.set_quoted(
     'PLATFORM_SYSTEM_DESCRIPTION',
     get_option('platform-system-description'),
 )
-conf_data.set_quoted(
-    'PLATFORM_METRICS_ID',
-    get_option('platform-metrics-id'),
-)
+conf_data.set_quoted('PLATFORM_METRICS_ID', get_option('platform-metrics-id'))
 conf_data.set_quoted(
     'PLATFORM_NETWORK_ADAPTER',
     get_option('platform-network-adapter'),
 )
-conf_data.set_quoted(
-    'HOST_IFACE_CHANNEL',
-    get_option('host-iface-channel'),
-)
+conf_data.set_quoted('HOST_IFACE_CHANNEL', get_option('host-iface-channel'))
 conf_data.set_quoted(
     'FW_UUID_MAPPING_JSON',
     join_paths(package_datadir, 'fw_uuid_mapping.json'),
@@ -108,6 +102,7 @@ feature_options = [
     'nvidia-oem-fw-update-staging',
     'nvidia-oem-gb200nvl-properties',
     'nvidia-oem-logservices',
+    'nvidia-manager-ready-csm',
     'nvidia-oem-openocd',
     'nvidia-oem-pmc',
     'nvidia-oem-properties',
@@ -247,7 +242,7 @@ conf_data.set('MESON_INSTALL_PREFIX', get_option('prefix'))
 loglvlopt = get_option('bmcweb-logging')
 if get_option('buildtype').startswith('debug') and loglvlopt == 'disabled'
     # Override logging level as 'debug' if 'bmcweb-logging' is set as 'disabled'
-   loglvlopt = 'debug'
+    loglvlopt = 'debug'
 endif
 loglvlopt = loglvlopt.to_upper()
 string_options_string += 'constexpr std::string_view  BMCWEB_LOGGING_LEVEL' + ' = "' + loglvlopt + '";\n'
@@ -260,10 +255,16 @@ conf_data.set(
     string_options_string + int_options_string + feature_options_string + array_options_string,
 )
 
-conf_data.set_quoted('FW_MCTP_MAPPING_JSON', join_paths(package_datadir, 'fw_mctp_mapping.json'))
-conf_data.set_quoted('ROT_CHASSIS_ALLOWLIST_JSON',join_paths(package_datadir, 'rot_chassis_properties_allowlist.json'))
+conf_data.set_quoted(
+    'FW_MCTP_MAPPING_JSON',
+    join_paths(package_datadir, 'fw_mctp_mapping.json'),
+)
+conf_data.set_quoted(
+    'ROT_CHASSIS_ALLOWLIST_JSON',
+    join_paths(package_datadir, 'rot_chassis_properties_allowlist.json'),
+)
 
-conf_data.set('BMCWEB_TLS_CACERT_PATH', get_option('tls-cacert-path') )
+conf_data.set('BMCWEB_TLS_CACERT_PATH', get_option('tls-cacert-path'))
 
 conf_h_dep = declare_dependency(
     include_directories: include_directories('.'),
@@ -277,27 +278,23 @@ conf_h_dep = declare_dependency(
 # Configure and install systemd unit files
 configure_file(
     input: 'bmcweb.socket.in',
-               output : 'bmcweb.socket',
-               install_dir: systemd_system_unit_dir,
+    output: 'bmcweb.socket',
+    install_dir: systemd_system_unit_dir,
     install: true,
-    configuration: configuration_data({
-        'BMCWEB_HTTPS_PORT': get_option('https_port'),
-    }),
+    configuration: configuration_data(
+        {'BMCWEB_HTTPS_PORT': get_option('https_port')},
+    ),
 )
 
 configure_file(
     input: 'bmcweb.service.in',
-               output : 'bmcweb.service',
-               install_dir: systemd_system_unit_dir,
+    output: 'bmcweb.service',
+    install_dir: systemd_system_unit_dir,
     install: true,
-    configuration: configuration_data({
-        'MESON_INSTALL_PREFIX': get_option('prefix'),
-    }),
+    configuration: configuration_data(
+        {'MESON_INSTALL_PREFIX': get_option('prefix')},
+    ),
 )
 
 # Copy pam-webserver to etc/pam.d
-install_data(
-  'pam-webserver',
-  install_dir: '/etc/pam.d/',
-  rename: 'webserver',
-)
+install_data('pam-webserver', install_dir: '/etc/pam.d/', rename: 'webserver')

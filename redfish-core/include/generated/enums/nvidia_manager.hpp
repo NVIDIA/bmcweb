@@ -55,6 +55,14 @@ enum class SWEIJRequestType{
     Injection,
 };
 
+enum class RestrictionMode{
+    Invalid,
+    None,
+    Allowlist,
+    ProvisionedHostAllowlist,
+    ProvisionedHostDisabled,
+};
+
 NLOHMANN_JSON_SERIALIZE_ENUM(FirmwareBuildType, {
     {FirmwareBuildType::Invalid, "Invalid"},
     {FirmwareBuildType::ProvisioningDebug, "ProvisioningDebug"},
@@ -101,6 +109,14 @@ NLOHMANN_JSON_SERIALIZE_ENUM(SWEIJRequestType, {
     {SWEIJRequestType::Setup, "Setup"},
     {SWEIJRequestType::Cleanup, "Cleanup"},
     {SWEIJRequestType::Injection, "Injection"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(RestrictionMode, {
+    {RestrictionMode::Invalid, "Invalid"},
+    {RestrictionMode::None, "None"},
+    {RestrictionMode::Allowlist, "Allowlist"},
+    {RestrictionMode::ProvisionedHostAllowlist, "ProvisionedHostAllowlist"},
+    {RestrictionMode::ProvisionedHostDisabled, "ProvisionedHostDisabled"},
 });
 
 }

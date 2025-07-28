@@ -16,9 +16,12 @@
  */
 
 #include "app.hpp"
+#include "message_registries.hpp"
 #include "nvidia_log_services_sel.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/log_services_util.hpp"
+#include "utils/origin_utils.hpp"
 #include "utils/time_utils.hpp"
 namespace redfish
 {

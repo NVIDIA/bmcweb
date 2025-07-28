@@ -10,6 +10,7 @@ import generate_schema_enums
 
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
+
 def updates_are_staged():
     out = subprocess.check_output(
         [
@@ -22,8 +23,11 @@ def updates_are_staged():
     )
     return out != b""
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Update nvidia schemas to latest")
+    parser = argparse.ArgumentParser(
+        description="Update nvidia schemas to latest"
+    )
 
     parser.add_argument(
         "-i",
@@ -70,17 +74,23 @@ def main():
             ]
         )
         latest = output.decode().strip()
-        with open(os.path.join(SCRIPT_DIR, "nvidia_schema_version"), "r") as version:
+        with open(
+            os.path.join(SCRIPT_DIR, "nvidia_schema_version"), "r"
+        ) as version:
             sha1 = version.read().strip()
 
         on_develop = latest == sha1
         if not on_develop:
-            print(f"Commit {sha1 } is not latest {latest} is latest on develop.")
+            print(
+                f"Commit {sha1 } is not latest {latest} is latest on develop."
+            )
             if not args.ignore_branch:
                 print(f"Write {latest} into nvidia_schema_version to continue")
                 return
 
-        subprocess.check_call(["git", "-C", repo_dir_str, "reset", "--hard", sha1])
+        subprocess.check_call(
+            ["git", "-C", repo_dir_str, "reset", "--hard", sha1]
+        )
 
         repo_csdl_dir = repo_dir + "/metadata/nvidia-baseboard-csdl/"
         for filename in os.listdir(repo_csdl_dir):
@@ -90,7 +100,9 @@ def main():
                 content = read_file.read()
             content = content.replace("\r\n", "\n")
 
-            content = content.replace('Uri="/schemas/v1', 'Uri="/redfish/v1/schema')
+            content = content.replace(
+                'Uri="/schemas/v1', 'Uri="/redfish/v1/schema'
+            )
             with open(dest, "w") as write_file:
                 write_file.write(content)
 

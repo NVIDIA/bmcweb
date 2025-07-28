@@ -99,9 +99,7 @@ def write_enum_list(redfish_defs_file, enum_list, snake_case_namespace):
                 enum_value = f"{element.name}{value}"
             else:
                 enum_value = re.sub(r"[^0-9_a-zA-Z]", "", value)
-            redfish_defs_file.write(
-                "    {},\n".format(enum_value)
-            )
+            redfish_defs_file.write("    {},\n".format(enum_value))
 
         redfish_defs_file.write("};\n\n")
 

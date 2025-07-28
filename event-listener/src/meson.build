@@ -1,4 +1,10 @@
-listener_incs = include_directories('../include', '../../redfish-core/include', '../../redfish-core/lib', '../../include', '../../http')
+listener_incs = include_directories(
+    '../include',
+    '../../redfish-core/include',
+    '../../redfish-core/lib',
+    '../../include',
+    '../../http',
+)
 listener_root_inc = include_directories('../../', is_system: true)
 
 listener_srcs = files('elog_entry.cpp', 'listener.cpp')
@@ -18,7 +24,7 @@ boost_srcs = files(
 executable(
     'listener',
     sources: listener_srcs,
-    include_directories: [listener_incs , listener_root_inc],
+    include_directories: [listener_incs, listener_root_inc],
     dependencies: listener_deps,
     implicit_include_directories: false,
     link_args: '-Wl,--gc-sections',

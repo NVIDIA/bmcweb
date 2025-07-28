@@ -106,7 +106,10 @@ inline void updateAssemblies(
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    assemblyRes[propertyName] = *value;
+                    if (!value->empty())
+                    {
+                        assemblyRes[propertyName] = *value;
+                    }
                 }
                 else if (propertyName == "Manufacturer")
                 {

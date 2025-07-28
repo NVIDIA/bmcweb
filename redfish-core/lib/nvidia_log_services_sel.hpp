@@ -18,8 +18,12 @@
 
 #include "app.hpp"
 #include "generated/enums/log_entry.hpp"
-#include "log_services.hpp"
+#include "nvidia_log_services.hpp"
+#include "query.hpp"
+#include "registries/privilege_registry.hpp"
+#include "utils/dbus_log_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/time_utils.hpp"
 
 namespace redfish
 {
@@ -98,6 +102,7 @@ inline bool isSelEntry(
     }
     return false;
 }
+
 inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
                                     nlohmann::json& thisEntry)
 {
@@ -537,6 +542,138 @@ inline void deleteDbusSELEntry(
         "xyz.openbmc_project.Logging",
         "/xyz/openbmc_project/logging/entry/" + entryID,
         "org.freedesktop.DBus.Properties", "GetAll", "");
+}
+
+inline std::string getEntryIdFromSelId(
+    const dbus::utility::DBusPropertiesMap& resp, uint32_t selRecordId)
+{
+    const uint32_t* entryIdPtr = nullptr;
+    const std::vector<std::string>* additionalDataVectorString = nullptr;
+
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), resp, "Id", entryIdPtr,
+        "AdditionalData", additionalDataVectorString);
+    if (!success)
+    {
+        return "";
+    }
+    if (entryIdPtr != nullptr && additionalDataVectorString != nullptr)
+    {
+        AdditionalData additional(*additionalDataVectorString);
+        if (additional.count("SEL_RECORD_ID") > 0)
+        {
+            if (std::to_string(selRecordId) == additional["SEL_RECORD_ID"])
+            {
+                return std::to_string(*entryIdPtr);
+            }
+        }
+    }
+
+    return "";
+}
+
+inline void handleSelEntryDeletion(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& selRecordId)
+{
+    dbus::utility::getManagedObjects(
+        "xyz.openbmc_project.Logging",
+        sdbusplus::message::object_path("/xyz/openbmc_project/logging"),
+        [asyncResp, selRecordId](const boost::system::error_code ec,
+                                 const dbus::utility::ManagedObjectType& resp) {
+            std::string entryId;
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Failed to retrieve log entries from D-Bus: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            for (const auto& objectPath : resp)
+            {
+                for (const auto& interfaceMap : objectPath.second)
+                {
+                    if (interfaceMap.first ==
+                        "xyz.openbmc_project.Logging.Entry")
+                    {
+                        try
+                        {
+                            entryId = getEntryIdFromSelId(
+                                interfaceMap.second,
+                                static_cast<uint32_t>(std::stoul(selRecordId)));
+                            deleteDbusSELEntry(entryId, asyncResp);
+                        }
+                        catch ([[maybe_unused]] const std::runtime_error& e)
+                        {
+                            messages::internalError(asyncResp->res);
+                            continue;
+                        }
+                    }
+                }
+                if (!entryId.empty())
+                {
+                    break;
+                }
+            }
+        });
+}
+
+inline void handleSelEntryRetrieval(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& selRecordId)
+{
+    dbus::utility::getManagedObjects(
+        "xyz.openbmc_project.Logging",
+        sdbusplus::message::object_path("/xyz/openbmc_project/logging"),
+        [asyncResp, selRecordId](const boost::system::error_code ec,
+                                 const dbus::utility::ManagedObjectType& resp) {
+            std::string entryId;
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR(
+                    "Failed to retrieve log entries from D-Bus: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            nlohmann::json& thisEntry = asyncResp->res.jsonValue;
+            for (const auto& objectPath : resp)
+            {
+                thisEntry = nlohmann::json::object();
+                for (const auto& interfaceMap : objectPath.second)
+                {
+                    if (interfaceMap.first ==
+                        "xyz.openbmc_project.Logging.Entry")
+                    {
+                        try
+                        {
+                            entryId = getEntryIdFromSelId(
+                                interfaceMap.second,
+                                static_cast<uint32_t>(std::stoul(selRecordId)));
+                            if (entryId.empty())
+                            {
+                                continue;
+                            }
+                            GetManagedPropertyType props;
+                            for (const auto& property : interfaceMap.second)
+                            {
+                                props[property.first] = property.second;
+                            }
+                            populateRedfishSELEntry(props, thisEntry);
+                            break;
+                        }
+                        catch ([[maybe_unused]] const std::runtime_error& e)
+                        {
+                            messages::internalError(asyncResp->res);
+                            continue;
+                        }
+                    }
+                }
+                if (!entryId.empty())
+                {
+                    break;
+                }
+            }
+        });
 }
 
 inline void requestRoutesDBusSELLogEntry(App& app)

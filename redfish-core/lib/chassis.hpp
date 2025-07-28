@@ -864,6 +864,16 @@ inline void handleChassisGetSubTree(
                     [[maybe_unused]] const boost::system::error_code& ec3,
                     const dbus::utility::DBusPropertiesMap& propertiesList) {
                     handleChassisProperties(asyncResp, propertiesList);
+                    redfish::nvidia_chassis_utils::
+                        handleChassisGetAllProperties(
+                            asyncResp, chassisId, path, propertiesList,
+                            connectionName, interfaces2);
+                    getChassisStateWrapper(asyncResp, propertiesList,
+                                           connectionName, path);
+                    getStorageLink(asyncResp, path);
+                    redfish::nvidia_chassis_utils::
+                        populateErrorInjectionChassis(asyncResp, path,
+                                                      chassisId);
                 });
 
             for (const auto& interface : interfaces2)
@@ -908,9 +918,6 @@ inline void handleChassisGetSubTree(
                 redfish::nvidia_chassis_utils::getOemBaseboardChassisAssert(
                     asyncResp, objPath);
             }
-            redfish::nvidia_chassis_utils::populateErrorInjectionChassis(
-                asyncResp, objPath, chassisId);
-
             // Links association to underneath chassis
             redfish::nvidia_chassis_utils::getChassisLinksContains(
                 asyncResp, objPath);

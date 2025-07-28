@@ -25,13 +25,6 @@ namespace redfish
 
 namespace nvidia_histogram_utils
 {
-// Map of service name to list of interfaces
-using MapperServiceMap =
-    std::vector<std::pair<std::string, std::vector<std::string>>>;
-
-// Map of object paths to MapperServiceMaps
-using MapperGetSubTreeResponse =
-    std::vector<std::pair<std::string, MapperServiceMap>>;
 
 inline std::string getBucketUnit(const std::string& unit)
 {

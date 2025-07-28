@@ -141,6 +141,9 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesSwitchHistogramCollection(app);
         requestRoutesSwitchHistogram(app);
         requestRoutesSwitchHistogramBuckets(app);
+        requestRoutesSwitchPortHistogramCollection(app);
+        requestRoutesSwitchPortHistogram(app);
+        requestRoutesSwitchPortHistogramBuckets(app);
     }
 
     if constexpr (BMCWEB_NETWORK_ADAPTERS)

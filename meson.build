@@ -223,9 +223,9 @@ endif
 bmcweb_dependencies += [openssl]
 
 if get_option('shmem-platform-metrics').enabled()
-  nvtal = dependency('nvidia-tal', required : true)
-  add_project_arguments('-DNVIDIA_HAVE_TAL', language: 'cpp')
-  bmcweb_dependencies += nvtal
+    nvtal = dependency('nvidia-tal', required: true)
+    add_project_arguments('-DNVIDIA_HAVE_TAL', language: 'cpp')
+    bmcweb_dependencies += nvtal
 endif
 
 nghttp2 = dependency('libnghttp2', version: '>=1.52.0', required: false)
@@ -375,21 +375,22 @@ srcfiles_bmcweb = files(
     'redfish-core/src/dbus_log_watcher.cpp',
     'redfish-core/src/error_message_utils.cpp',
     'redfish-core/src/error_messages.cpp',
-    'redfish-core/src/nvidia_error_messages.cpp',
     'redfish-core/src/event_log.cpp',
     'redfish-core/src/filesystem_log_watcher.cpp',
     'redfish-core/src/filter_expr_executor.cpp',
     'redfish-core/src/filter_expr_printer.cpp',
     'redfish-core/src/heartbeat_messages.cpp',
+    'redfish-core/src/nvidia_error_messages.cpp',
     'redfish-core/src/redfish.cpp',
+    'redfish-core/src/redfish_nvidia.cpp',
     'redfish-core/src/registries.cpp',
     'redfish-core/src/resource_messages.cpp',
     'redfish-core/src/subscription.cpp',
     'redfish-core/src/task_messages.cpp',
     'redfish-core/src/utils/dbus_utils.cpp',
     'redfish-core/src/utils/json_utils.cpp',
-    'redfish-core/src/utils/time_utils.cpp',
     'redfish-core/src/utils/nsm_cmd_support.cpp',
+    'redfish-core/src/utils/time_utils.cpp',
     'src/boost_asio.cpp',
     'src/boost_asio_ssl.cpp',
     'src/boost_beast.cpp',
@@ -399,7 +400,6 @@ srcfiles_bmcweb = files(
     'src/nvidia_ssl_key_handler.cpp',
     'src/ossl_random.cpp',
     'src/webserver_run.cpp',
-    'redfish-core/src/redfish_nvidia.cpp',
 )
 
 bmcweblib = static_library(
@@ -455,9 +455,9 @@ srcfiles_unittest = files(
     'test/include/multipart_test.cpp',
     'test/include/openbmc_dbus_rest_test.cpp',
     'test/include/ossl_random.cpp',
-    'test/include/str_utility_test.cpp',
-    #'test/redfish-core/include/dbus_log_watcher_test.cpp',
     'test/include/ssl_key_handler_test.cpp',
+    #'test/redfish-core/include/dbus_log_watcher_test.cpp',
+    'test/include/str_utility_test.cpp',
     'test/redfish-core/include/event_log_test.cpp',
     'test/redfish-core/include/event_matches_filter_test.cpp',
     'test/redfish-core/include/filter_expr_executor_test.cpp',

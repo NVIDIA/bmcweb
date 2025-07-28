@@ -711,8 +711,8 @@ inline void getDumpEntryCollection(
                 if (!originatorId.empty())
                 {
                     thisEntry["Originator"] = originatorId;
-                    thisEntry["OriginatorType"] = originatorType;
                 }
+                thisEntry["OriginatorType"] = originatorType;
 
                 if (dumpType == "BMC")
                 {
@@ -941,9 +941,8 @@ inline void getDumpEntryById(
                 if (!originatorId.empty())
                 {
                     asyncResp->res.jsonValue["Originator"] = originatorId;
-                    asyncResp->res.jsonValue["OriginatorType"] = originatorType;
                 }
-
+                asyncResp->res.jsonValue["OriginatorType"] = originatorType;
                 asyncResp->res.jsonValue["AdditionalDataSizeBytes"] = size;
                 asyncResp->res.jsonValue["Created"] =
                     redfish::time_utils::getDateTimeUintUs(timestampUs);

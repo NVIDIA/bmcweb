@@ -1915,6 +1915,7 @@ inline void parseInterfaceData(
             ethData.linkUp ? ethernet_interface::LinkStatus::LinkUp
                            : ethernet_interface::LinkStatus::LinkDown;
         jsonResponse["Status"]["State"] = resource::State::Enabled;
+        jsonResponse["Status"]["Health"] = resource::Health::OK;
     }
     else
     {

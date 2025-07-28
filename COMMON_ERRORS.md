@@ -371,7 +371,7 @@ See also the
 for generalized guidelines on when lambdas are appropriate. The above
 recommendation is aligned with the C++ Core Guidelines.
 
-## 15. Directly calling dbus async method calls 
+## 15. Directly calling dbus async method calls
 
 ```cpp
 crow::connections::systemBus->async_method_call(
@@ -381,16 +381,20 @@ crow::connections::systemBus->async_method_call(
     "/xyz/openbmc_project/inventory", 0, interfaces);
 ```
 
-It's required to use dbus utility functions provided in the file redfish-core/include/utils/dbus_utils.hpp instead of invoking them directly. Using the exiting util functions will help to reduce the compilation time. 
+It's required to use dbus utility functions provided in the file
+redfish-core/include/utils/dbus_utils.hpp instead of invoking them directly.
+Using the exiting util functions will help to reduce the compilation time.
 
-## 16. using strings for DMTF schema Enums 
+## 16. using strings for DMTF schema Enums
 
 ```cpp
 sensorJson["ReadingType"] = "Frequency";
 
 ```
 
-Schema Enums and types are auto generated using scripts/generate_schema_enums.py. It's recommended to add and enhance the new schema support here and use the generated header file and types as shows below. 
+Schema Enums and types are auto generated using
+scripts/generate_schema_enums.py. It's recommended to add and enhance the new
+schema support here and use the generated header file and types as shows below.
 
 ```cpp
 #include "generated/enums/sensor.hpp"

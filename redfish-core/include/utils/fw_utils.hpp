@@ -830,7 +830,7 @@ inline void patchFwWriteProtectedStatus(
  */
 inline void getFwUpdateableStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::shared_ptr<std::string>& fwId, std::string inventoryPath ="")
+    const std::shared_ptr<std::string>& fwId, std::string inventoryPath = "")
 {
     if (inventoryPath.empty())
     {

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaSwitchPowerMode   v1.0.0                                  -->
+<!--# Redfish OEM Schema:  NvidiaSwitchPowerMode   v1.1.0                                  -->
 <!--#                                                                                      -->
-<!--# Copyright 2021-2024 NVIDIA.                                                          -->
+<!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
 <!--################################################################################       -->
 <!---->
@@ -57,16 +57,43 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="Indicates whether L1 hardware mode is enabled."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate whether L1 hardware mode is enabled.  If `true`, the hardware moves PHY to L1 state."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated."/>
+              </Record>
+            </Collection>
+          </Annotation>
         </Property>
         <Property Name="L1HWThresholdBytes" Type="Edm.Int64">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="The maximum number of bytes in a queue that is considered as an empty queue."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the maximum number of bytes in a queue that is considered as an empty queue."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated."/>
+              </Record>
+            </Collection>
+          </Annotation>
         </Property>
         <Property Name="L1FWThermalThrottlingModeEnabled" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="Indicate whether L1 firmware thermal throttling mode is enabled."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate whether L1 firmware thermal throttling mode is enabled."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated."/>
+              </Record>
+            </Collection>
+          </Annotation>
         </Property>
         <Property Name="L1PredictionModeEnabled" Type="Edm.Boolean">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
@@ -77,18 +104,50 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="The maximal time (in steps of 50µsec) that a port can remain in L1 state due to no traffic inactivity."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the maximal time (in steps of 50µsec) that a port can remain in L1 state due to no traffic inactivity."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated."/>
+              </Record>
+            </Collection>
+          </Annotation>
         </Property>
         <Property Name="L1HWInactiveTimeMicroseconds" Type="Edm.Int64">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="The maximal time (in steps of 50µsec) that a port can exit L1 state due to no traffic inactivity."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the maximal time (in steps of 50µsec) that a port can exit L1 state due to no traffic inactivity."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated."/>
+              </Record>
+            </Collection>
+          </Annotation>
         </Property>
         <Property Name="L1PredictionInactiveTimeMicroseconds" Type="Edm.Int64">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="The maximal time (in steps of 100µsec) that a port can exit L1 state with no traffic activity, after which the prediction is wrong."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the maximal time (in steps of 100µsec) that a port can exit L1 state with no traffic activity, after which the prediction is wrong."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated."/>
+              </Record>
+            </Collection>
+          </Annotation>
         </Property>
       </EntityType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSwitchPowerMode.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to deprecate L1HWModeEnabled, L1HWThresholdBytes, L1FWThermalThrottlingModeEnabled, L1HWActiveTimeMicroseconds, L1HWInactiveTimeMicroseconds and L1PredictionInactiveTimeMicroseconds properties."/>
+      <EntityType Name="NvidiaSwitchPowerMode" BaseType="NvidiaSwitchPowerMode.v1_0_0.NvidiaSwitchPowerMode"/>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

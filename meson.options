@@ -69,7 +69,7 @@ option(
     'vm-nbdproxy',
     type: 'feature',
     value: 'disabled',
-    description: 'Enable the Virtual Media WebSocket.'
+    description: 'Enable the Virtual Media WebSocket.',
 )
 
 option(
@@ -165,7 +165,7 @@ option(
     value: 'disabled',
     description: '''Enable NetIR debug dumps collection through Redfish.
                    Current devices supporting this feature are:
-		   NVSwitch and NVLinkManagementNIC''', 
+		   NVSwitch and NVLinkManagementNIC''',
 )
 
 # BMCWEB_REDFISH_DBUS_LOG
@@ -518,7 +518,7 @@ option(
     'redfish-aggregation-prefix-removal',
     type: 'feature',
     value: 'disabled',
-    description: 'Remove the prefix if the resources prefix from FirmwareInventory is the same with RFA prefix.'
+    description: 'Remove the prefix if the resources prefix from FirmwareInventory is the same with RFA prefix.',
 )
 
 # BMCWEB_HYPERVISOR_COMPUTER_SYSTEM
@@ -545,6 +545,14 @@ option(
     value: 'disabled',
     description: '''Enable SWEINJ Actions through Redfish. The Schema definition reference is
                     /schemas/v1/JsonSchemas/NvidiaManager.v1_4_0.json#/definitions/SWErrorInjection''',
+)
+
+option(
+    'nvidia-manager-ready-csm',
+    type: 'feature',
+    value: 'disabled',
+    description: '''Enable checking for Configurable state manager in addition to systemd service
+                    state when checking the starting state.''',
 )
 
 option(
@@ -641,9 +649,9 @@ option(
 )
 option(
     'nvidia-oem-pmc',
-    type : 'feature',
-    value : 'disabled',
-    description : 'Enable Nvidia Power Compliance Managers',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable Nvidia Power Compliance Managers',
 )
 option(
     'nvidia-retimer-debugmode',
@@ -898,7 +906,7 @@ option(
     'profiles-feature',
     type: 'feature',
     value: 'disabled',
-    description: '''Enable profiles feature.''',
+    description: 'Enable profiles feature.',
 )
 
 option(
