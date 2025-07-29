@@ -1596,8 +1596,7 @@ inline void requestRoutesSwitch(App& app)
                                             {
                                                 redfish::nvidia_fabric_utils::
                                                     getSwitchPowerModeLink(
-                                                        asyncResp,
-                                                        object2.front().second,
+                                                        asyncResp, path,
                                                         switchURI);
                                                 if (std::find(
                                                         object2.front()
@@ -4738,92 +4737,35 @@ inline void requestRoutesSwitchPowerMode(App& app)
                     return;
                 }
 
-                std::vector<
-                    std::tuple<std::string, std::variant<bool, uint32_t>>>
-                    properties;
-
-                // Define the mapping between JSON property names and D-Bus
-                // property names
-                const std::map<std::string, std::string> propertyNameMap = {
-                    {"L1HWModeEnabled", "HWModeControl"},
-                    {"L1FWThermalThrottlingModeEnabled", "FWThrottlingMode"},
-                    {"L1PredictionModeEnabled", "PredictionMode"},
-                    {"L1HWThresholdBytes", "HWThreshold"},
-                    {"L1HWActiveTimeMicroseconds", "HWActiveTime"},
-                    {"L1HWInactiveTimeMicroseconds", "HWInactiveTime"},
-                    {"L1PredictionInactiveTimeMicroseconds",
-                     "HWPredictionInactiveTime"}};
-
-                // Parse JSON body and extract properties
-                nlohmann::json requestJson;
-                if (!redfish::json_util::processJsonFromRequest(
-                        asyncResp->res, req, requestJson))
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
                 }
-
-                bool propertyFound = false;
-                std::string propertyName;
-                for (const auto& [jsonProperty, dbusProperty] : propertyNameMap)
+                std::optional<bool> l1PredictionModeEnabled;
+                if (!redfish::json_util::readJsonAction(
+                        req, asyncResp->res, "L1PredictionModeEnabled",
+                        l1PredictionModeEnabled))
                 {
-                    auto it = requestJson.find(jsonProperty);
-                    if (it == requestJson.end())
-                    {
-                        continue;
-                    }
-
-                    propertyFound = true;
-
-                    try
-                    {
-                        if (jsonProperty == "L1HWThresholdBytes" ||
-                            jsonProperty == "L1HWActiveTimeMicroseconds" ||
-                            jsonProperty == "L1HWInactiveTimeMicroseconds" ||
-                            jsonProperty ==
-                                "L1PredictionInactiveTimeMicroseconds")
-                        {
-                            uint32_t value = it->get<uint32_t>();
-                            properties.emplace_back(
-                                dbusProperty,
-                                std::variant<bool, uint32_t>(value));
-                        }
-                        else
-                        {
-                            bool value = it->get<bool>();
-                            properties.emplace_back(
-                                dbusProperty,
-                                std::variant<bool, uint32_t>(value));
-                        }
-                        propertyName = dbusProperty;
-                    }
-                    catch (const std::exception& e)
-                    {
-                        messages::propertyValueTypeError(
-                            asyncResp->res, jsonProperty, e.what());
-                        return;
-                    }
-                }
-
-                if (!propertyFound)
-                {
-                    messages::propertyMissing(asyncResp->res, "PowerMode");
                     return;
                 }
-
-                // Get switch object and update properties
-                redfish::nvidia_fabric_utils::getSwitchObject(
-                    asyncResp, fabricId, switchId,
-                    [properties, propertyName](
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
-                        const std::string& fabricId1,
-                        const std::string& switchId1,
-                        const std::string& objectPath,
-                        [[maybe_unused]] const dbus::utility::MapperServiceMap&
-                            serviceMap) {
-                        redfish::nvidia_fabric_utils::patchL1PowerMode(
-                            asyncResp1, fabricId1, switchId1, properties,
-                            propertyName, objectPath, serviceMap);
-                    });
+                if (l1PredictionModeEnabled)
+                {
+                    // Get switch object and update properties
+                    redfish::nvidia_fabric_utils::getSwitchObject(
+                        asyncResp, fabricId, switchId,
+                        [l1PredictionModeEnabled](
+                            const std::shared_ptr<bmcweb::AsyncResp>&
+                                asyncResp1,
+                            [[maybe_unused]] const std::string& fabricId1,
+                            [[maybe_unused]] const std::string& switchId1,
+                            const std::string& objectPath,
+                            [[maybe_unused]] const dbus::utility::
+                                MapperServiceMap& serviceMap) {
+                            redfish::nvidia_fabric_utils::patchL1PowerMode(
+                                asyncResp1, *l1PredictionModeEnabled,
+                                objectPath, serviceMap);
+                        });
+                }
             });
 }
 
