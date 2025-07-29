@@ -1300,7 +1300,7 @@ inline void getProcessorPerformanceData(
                         std::get_if<std::string>(&property.second);
                     if (state == nullptr)
                     {
-                        BMCWEB_LOG_DEBUG(
+                        BMCWEB_LOG_ERROR(
                             "Get Performance Value property failed");
                         messages::internalError(aResp->res);
                         return;
@@ -1344,7 +1344,7 @@ inline void getProcessorPerformanceData(
                         std::get_if<uint64_t>(&property.second);
                     if (val == nullptr)
                     {
-                        BMCWEB_LOG_DEBUG(
+                        BMCWEB_LOG_ERROR(
                             "Get  power/thermal duration property failed");
                         messages::internalError(aResp->res);
                         return;
@@ -1367,7 +1367,7 @@ inline void getProcessorPerformanceData(
                         std::get_if<uint64_t>(&property.second);
                     if (val == nullptr)
                     {
-                        BMCWEB_LOG_DEBUG("Get  duraiton property failed");
+                        BMCWEB_LOG_ERROR("Get  duraiton property failed");
                         messages::internalError(aResp->res);
                         return;
                     }
@@ -1389,7 +1389,7 @@ inline void getProcessorPerformanceData(
                         std::get_if<uint64_t>(&property.second);
                     if (val == nullptr)
                     {
-                        BMCWEB_LOG_DEBUG("Get  acc duraiton property failed");
+                        BMCWEB_LOG_ERROR("Get  acc duraiton property failed");
                         messages::internalError(aResp->res);
                         return;
                     }
@@ -1406,11 +1406,11 @@ inline void getProcessorPerformanceData(
                     (property.first == "PCIeRXBytes"))
                 {
                     auto propName = property.first;
-                    const uint32_t* val =
-                        std::get_if<uint32_t>(&property.second);
+                    const uint64_t* val =
+                        std::get_if<uint64_t>(&property.second);
                     if (val == nullptr)
                     {
-                        BMCWEB_LOG_DEBUG("Get  pcie bytes property failed");
+                        BMCWEB_LOG_ERROR("Get  pcie bytes property failed");
                         messages::internalError(aResp->res);
                         return;
                     }
