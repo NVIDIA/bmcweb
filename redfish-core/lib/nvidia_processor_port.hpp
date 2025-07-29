@@ -684,7 +684,7 @@ inline void getProcessorPortMetricsData(
                 if ((property.first == "TXBytes") ||
                     (property.first == "RXBytes"))
                 {
-                    const size_t* value = std::get_if<size_t>(&property.second);
+                    const auto* value = std::get_if<uint64_t>(&property.second);
                     if (value == nullptr)
                     {
                         BMCWEB_LOG_ERROR("Null value returned "
