@@ -625,8 +625,11 @@ inline void checkForQuiesced(
             asyncResp->res.jsonValue["Status"]["State"] =
                 resource::State::Enabled;
             // Nvidia override for State property
-            nvidia_manager_util::getOemReadyState(
-                asyncResp, std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
+            if (BMCWEB_NVIDIA_MANAGER_READY_CSM)
+            {
+                nvidia_manager_util::getOemReadyState(
+                    asyncResp, std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
+            }
         });
 }
 
