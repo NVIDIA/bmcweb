@@ -463,7 +463,7 @@ inline void requestRouteNSMRawCommand(App& app)
                 if (bmcId != BMCWEB_REDFISH_MANAGER_URI_NAME)
                 {
                     messages::resourceNotFound(
-                        asyncResp->res, "#Manager.v1_11_0.Manager", bmcId);
+                        asyncResp->res, "#Manager.v1_15_0.Manager", bmcId);
                     return;
                 }
 
@@ -503,7 +503,7 @@ inline void requestRouteNSMRawCommandActionInfo(App& app)
                 if (bmcId != BMCWEB_REDFISH_MANAGER_URI_NAME)
                 {
                     messages::resourceNotFound(
-                        asyncResp->res, "#Manager.v1_11_0.Manager", bmcId);
+                        asyncResp->res, "#Manager.v1_15_0.Manager", bmcId);
                     return;
                 }
 
@@ -525,7 +525,7 @@ inline void debugTokenManagementGetHandler(
     }
     if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
     {
-        messages::resourceNotFound(asyncResp->res, "#Manager.v1_11_0.Manager",
+        messages::resourceNotFound(asyncResp->res, "#Manager.v1_15_0.Manager",
                                    managerId);
         return;
     }
@@ -561,7 +561,7 @@ inline void debugTokenManagementPatchHandler(
     }
     if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
     {
-        messages::resourceNotFound(asyncResp->res, "#Manager.v1_11_0.Manager",
+        messages::resourceNotFound(asyncResp->res, "#Manager.v1_15_0.Manager",
                                    managerId);
         return;
     }

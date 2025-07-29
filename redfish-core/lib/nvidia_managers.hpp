@@ -418,7 +418,7 @@ inline void getDbusSelCapacity(
         if (ec.value() == EBADR)
         {
             messages::resourceNotFound(asyncResp->res,
-                                       "#Manager.v1_11_0.Manager", "Capacity");
+                                       "#Manager.v1_15_0.Manager", "Capacity");
             return;
         }
         if (ec)
@@ -449,7 +449,7 @@ inline void setDbusSelCapacity(
         if (ec.value() == EBADR)
         {
             messages::resourceNotFound(asyncResp->res,
-                                       "#Manager.v1_11_0.Manager", "Capacity");
+                                       "#Manager.v1_15_0.Manager", "Capacity");
             return;
         }
         if (ec)
@@ -959,7 +959,7 @@ inline void requestRoutesNvidiaSyncOOBRawCommandActionInfo(App& app)
                 if (bmcId != BMCWEB_REDFISH_MANAGER_URI_NAME)
                 {
                     messages::resourceNotFound(
-                        asyncResp->res, "#Manager.v1_11_0.Manager", bmcId);
+                        asyncResp->res, "#Manager.v1_15_0.Manager", bmcId);
                     return;
                 }
                 asyncResp->res.jsonValue = {
@@ -1022,7 +1022,7 @@ inline void requestRoutesNvidiaAsyncOOBRawCommandActionInfo(App& app)
                 if (bmcId != BMCWEB_REDFISH_MANAGER_URI_NAME)
                 {
                     messages::resourceNotFound(
-                        asyncResp->res, "#Manager.v1_11_0.Manager", bmcId);
+                        asyncResp->res, "#Manager.v1_15_0.Manager", bmcId);
                     return;
                 }
 
@@ -1315,7 +1315,7 @@ inline void handleGenericManager(
                 asyncResp->res.jsonValue["@odata.id"] =
                     "/redfish/v1/Managers/" + managerId;
                 asyncResp->res.jsonValue["@odata.type"] =
-                    "#Manager.v1_13_0.Manager";
+                    "#Manager.v1_15_0.Manager";
                 asyncResp->res.jsonValue["Id"] = managerId;
                 asyncResp->res.jsonValue["Name"] = "OpenBmc Manager Service";
                 asyncResp->res.jsonValue["Description"] =
@@ -1369,7 +1369,7 @@ inline void handleGenericManager(
                 return;
             }
             messages::resourceNotFound(asyncResp->res,
-                                       "#Manager.v1_11_0.Manager", managerId);
+                                       "#Manager.v1_15_0.Manager", managerId);
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
