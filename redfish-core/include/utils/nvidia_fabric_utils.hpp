@@ -36,73 +36,89 @@ using MapperGetSubTreeResponse =
  * validation of the input data, and then update using async way.
  *
  * @param[in,out]   resp            Async HTTP response.
- * @param[in]       fabricId        Fabric's Id.
- * @param[in]       switchId        Switch's Id.
- * @param[in]       propertyValue   New property value to apply.
- * @param[in]       propertyName    Property name for new value
- * @param[in]       ObjectPath      Path of object to modify.
+ * @param[in]       l1PredictionModeEnabled   New property value to apply.
+ * @param[in]       objectPath      Path of object to modify.
  * @param[in]       serviceMap      Service map for CPU object.
  */
 inline void patchL1PowerMode(
-    const std::shared_ptr<bmcweb::AsyncResp>& resp, const std::string& fabricId,
-    const std::string& switchId,
-    const std::vector<std::tuple<std::string, std::variant<bool, uint32_t>>>&
-        properties,
-    const std::string& propertyName, const std::string& objectPath,
-    const MapperServiceMap& serviceMap)
+    const std::shared_ptr<bmcweb::AsyncResp>& resp,
+    const bool& l1PredictionModeEnabled, const std::string& objectPath,
+    [[maybe_unused]] const dbus::utility::MapperServiceMap& serviceMap)
 {
-    // Check that the property even exists by checking for the interface
-    const std::string* inventoryService = nullptr;
-    for (const auto& [serviceName, interfaceList] : serviceMap)
-    {
-        if (std::find(interfaceList.begin(), interfaceList.end(),
-                      "com.nvidia.PowerMode") != interfaceList.end())
+    crow::connections::systemBus->async_method_call(
+        [resp, l1PredictionModeEnabled,
+         objectPath](const boost::system::error_code& ec,
+                     std::variant<std::vector<std::string>>& respData) {
+        if (ec)
         {
-            inventoryService = &serviceName;
-            break;
+            // no associated histograms = no failure
+            BMCWEB_LOG_DEBUG("No associated L1 Prediction Mode on {}",
+                             objectPath);
+            return;
         }
-    }
-    if (inventoryService == nullptr)
-    {
-        BMCWEB_LOG_ERROR(" L1PowerMode interface not found while {} patch",
-                         propertyName);
-        messages::internalError(resp->res);
-        return;
-    }
-
-    dbus::utility::getDbusObject(
-        objectPath,
-        std::array<std::string_view, 1>{
-            nvidia_async_operation_utils::setAsyncInterfaceName},
-        [resp, properties, propertyName, fabricId, switchId, objectPath,
-         service = *inventoryService](
-            const boost::system::error_code& ec,
-            const dbus::utility::MapperGetObject& object) {
-        if (!ec)
+        std::vector<std::string>* data =
+            std::get_if<std::vector<std::string>>(&respData);
+        if (data == nullptr)
         {
-            for (const auto& [serv, _] : object)
-            {
-                if (serv != service)
+            BMCWEB_LOG_ERROR(
+                "Null data error while getting L1 Prediction Mode");
+            messages::internalError(resp->res);
+            return;
+        }
+
+        for (const auto& path : *data)
+        {
+            dbus::utility::getDbusObject(
+                path,
+                std::array<std::string_view, 1>{
+                    nvidia_async_operation_utils::setAsyncInterfaceName},
+                [resp, l1PredictionModeEnabled,
+                 path](const boost::system::error_code& ec1,
+                       const dbus::utility::MapperGetObject& object) {
+                if (!ec1)
                 {
-                    continue;
+                    std::string serviceName = "";
+                    for (const auto& [serv, interfaceList] : object)
+                    {
+                        if (std::find(interfaceList.begin(),
+                                      interfaceList.end(),
+                                      "xyz.openbmc_project.Object.Enable") !=
+                            interfaceList.end())
+                        {
+                            serviceName = serv;
+                            break;
+                        }
+                    }
+
+                    if (serviceName.empty())
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "L1 Prediction Mode interface not found on {}",
+                            path);
+                        messages::internalError(resp->res);
+                        return;
+                    }
+
+                    BMCWEB_LOG_DEBUG(
+                        "Performing Patch using Set Async Method Call for {}",
+                        path);
+
+                    nvidia_async_operation_utils::
+                        doGenericSetAsyncAndGatherResult(
+                            resp, std::chrono::seconds(60), serviceName, path,
+                            "xyz.openbmc_project.Object.Enable", "Enabled",
+                            std::variant<bool>(l1PredictionModeEnabled),
+                            nvidia_async_operation_utils::
+                                PatchL1PredictionModeCallback{resp});
+
+                    return;
                 }
-
-                BMCWEB_LOG_DEBUG(
-                    "Performing Patch using Set Async Method Call for {}",
-                    propertyName);
-
-                nvidia_async_operation_utils::doGenericSetAsyncAndGatherResult(
-                    resp, std::chrono::seconds(60), service, objectPath,
-                    "com.nvidia.PowerMode", propertyName,
-                    std::variant<std::vector<
-                        std::tuple<std::string, std::variant<bool, uint32_t>>>>(
-                        properties),
-                    nvidia_async_operation_utils::PatchPowerModeCallback{resp});
-
-                return;
-            }
+            });
         }
-    });
+    },
+        "xyz.openbmc_project.ObjectMapper", objectPath + "/l1_prediction_mode",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
 }
 
 /**
@@ -277,132 +293,102 @@ inline void updateSwitchPowerModeData(
     const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Switch Power mode Data");
-    // using PropertyType = std::variant<bool, uint8_t, uint16_t, uint32_t,
-    // size_t>;
-    using PropertiesMap =
-        boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
-    // Get interface properties
     crow::connections::systemBus->async_method_call(
-        [asyncResp, objPath](const boost::system::error_code ec,
-                             const PropertiesMap& properties) {
+        [asyncResp, service,
+         objPath](const boost::system::error_code& ec,
+                  std::variant<std::vector<std::string>>& resp) {
         if (ec)
         {
+            // no associated histograms = no failure
+            BMCWEB_LOG_DEBUG("No associated L1 Prediction Mode on {}", objPath);
+            return;
+        }
+        std::vector<std::string>* data =
+            std::get_if<std::vector<std::string>>(&resp);
+        if (data == nullptr)
+        {
+            BMCWEB_LOG_ERROR(
+                "Null data error while getting L1 Prediction Mode");
             messages::internalError(asyncResp->res);
             return;
         }
 
-        for (const auto& property : properties)
+        for (const auto& path : *data)
         {
-            const std::string& propertyName = property.first;
-            if (propertyName == "HWModeControl")
-            {
-                const bool* value = std::get_if<bool>(&property.second);
-                if (value == nullptr)
+            sdbusplus::asio::getAllProperties(
+                *crow::connections::systemBus, service, path,
+                "xyz.openbmc_project.Object.Enable",
+                [path, asyncResp{std::move(asyncResp)}](
+                    const boost::system::error_code& ec1,
+                    const dbus::utility::DBusPropertiesMap& properties) {
+                if (ec1)
                 {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for L1 HW Mode Control");
+                    BMCWEB_LOG_ERROR(
+                        "DBUS response error for updateSwitchPowerModeData()");
                     messages::internalError(asyncResp->res);
                     return;
                 }
-                asyncResp->res.jsonValue["L1HWModeEnabled"] = *value;
-            }
-            if (propertyName == "FWThrottlingMode")
-            {
-                const bool* value = std::get_if<bool>(&property.second);
-                if (value == nullptr)
+
+                for (const auto& [propertyName, propertyValue] : properties)
                 {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for L1 FW Throttling Mode");
-                    messages::internalError(asyncResp->res);
-                    return;
+                    if (propertyName == "Enabled")
+                    {
+                        const bool* value = std::get_if<bool>(&propertyValue);
+                        if (value == nullptr)
+                        {
+                            BMCWEB_LOG_ERROR("Null value returned "
+                                             "for L1 Prediction Mode");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        asyncResp->res.jsonValue["L1PredictionModeEnabled"] =
+                            *value;
+                    }
                 }
-                asyncResp->res.jsonValue["L1FWThermalThrottlingModeEnabled"] =
-                    *value;
-            }
-            if (propertyName == "PredictionMode")
-            {
-                const bool* value = std::get_if<bool>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for L1 Prediction Mode");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["L1PredictionModeEnabled"] = *value;
-            }
-            else if (propertyName == "HWThreshold")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for L1 HW Threshold Bytes");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["L1HWThresholdBytes"] = *value;
-            }
-            else if (propertyName == "HWActiveTime")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for L1 HW Active Time");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["L1HWActiveTimeMicroseconds"] = *value;
-            }
-            else if (propertyName == "HWInactiveTime")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for L1 HW Inctive Time");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res.jsonValue["L1HWInactiveTimeMicroseconds"] =
-                    *value;
-            }
-            else if (propertyName == "HWPredictionInactiveTime")
-            {
-                const uint64_t* value = std::get_if<uint64_t>(&property.second);
-                if (value == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("Null value returned "
-                                     "for L1 HW Prediction Inactive Time");
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
-                asyncResp->res
-                    .jsonValue["L1PredictionInactiveTimeMicroseconds"] = *value;
-            }
+            });
         }
     },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
+        "xyz.openbmc_project.ObjectMapper", objPath + "/l1_prediction_mode",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
 }
 
 inline void
     getSwitchPowerModeLink(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::vector<std::string>& interfaces,
+                           const std::string& objectPath,
                            const std::string& switchURI)
 {
-    const std::string powerModeInterface = "com.nvidia.PowerMode";
-    if (std::find(interfaces.begin(), interfaces.end(), powerModeInterface) !=
-        interfaces.end())
-    {
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, objectPath,
+         switchURI](const boost::system::error_code& ec,
+                    std::variant<std::vector<std::string>>& resp) {
+        if (ec)
+        {
+            // no associated histograms = no failure
+            BMCWEB_LOG_DEBUG("No associated L1 Prediction Mode on {}",
+                             switchURI);
+            return;
+        }
+        std::vector<std::string>* data =
+            std::get_if<std::vector<std::string>>(&resp);
+        if (data == nullptr)
+        {
+            BMCWEB_LOG_ERROR(
+                "Null data error while getting L1 Prediction Mode");
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
         std::string switchPowerModeURI = switchURI;
         switchPowerModeURI += "/Oem/Nvidia/PowerMode";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             "#NvidiaSwitch.v1_4_0.NvidiaSwitch";
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["PowerMode"]["@odata.id"] =
             switchPowerModeURI;
-        return;
-    }
+    },
+        "xyz.openbmc_project.ObjectMapper", objectPath + "/l1_prediction_mode",
+        "org.freedesktop.DBus.Properties", "Get",
+        "xyz.openbmc_project.Association", "endpoints");
 }
 
 /**
