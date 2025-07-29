@@ -55,10 +55,7 @@ static const std::unordered_map<MctpBinding, Priority> bindingPriority = {
     {"xyz.openbmc_project.MCTP.Binding.BindingTypes.Serial", 4},
     {"xyz.openbmc_project.MCTP.Binding.BindingTypes.SMBus", 5}};
 
-constexpr const char* mctpObjectPath =
-    "/au/com/codeconstruct/mctp1/networks/1/endpoints/";
-constexpr const char* mctpStateServiceReadyIntf =
-    "xyz.openbmc_project.State.ServiceReady";
+constexpr const char* mctpObjectPath = "/au/com/codeconstruct/mctp1";
 constexpr const char* mctpCommonUUIDIntf = "xyz.openbmc_project.Common.UUID";
 constexpr const char* mctpMCTPEndpointIntf =
     "xyz.openbmc_project.MCTP.Endpoint";
@@ -92,7 +89,7 @@ inline std::vector<CommitImageValueEntry> getAllowableValues()
         return allowableValues;
     }
 
-    std::string configPath("BMCWEB_FW_MCTP_MAPPING_JSON");
+    std::string configPath(BMCWEB_FW_UUID_MAPPING_JSON);
 
     if (!fs::exists(configPath))
     {
@@ -270,8 +267,8 @@ inline void retrieveEidFromMctpServiceProperties(
                         {
                             if (propertyMap.first == "EID")
                             {
-                                if (const uint32_t* eidPtr =
-                                        std::get_if<uint32_t>(
+                                if (const uint8_t* eidPtr =
+                                        std::get_if<uint8_t>(
                                             &propertyMap.second))
                                 {
                                     eid = *eidPtr;
@@ -380,35 +377,7 @@ inline void retrieveEidFromMctpServices(const UuidToUriMap& uuidToUriMap,
                                         const ResultCallback& resultCallback,
                                         const ErrorCallback& errorCallback)
 {
-    constexpr std::array<std::string_view, 1> interfaces = {
-        mctpStateServiceReadyIntf};
-    dbus::utility::getSubTree(
-        mctpObjectPath, 0, interfaces,
-        [uuidToUriMap, resultCallback, errorCallback](
-            const boost::system::error_code& ec,
-            const std::vector<std::pair<
-                std::string,
-                std::vector<std::pair<std::string, std::vector<std::string>>>>>&
-                subtree) {
-            if (ec)
-            {
-                const std::string errorDesc =
-                    "Failed to retrieveEidFromMctpServices";
-                errorCallback(errorDesc, ec.message());
-
-                return;
-            }
-
-            std::vector<std::string> serviceNames;
-            for (const auto& obj : subtree)
-            {
-                for (const auto& service : obj.second)
-                {
-                    serviceNames.push_back(service.first);
-                }
-            }
-
-            retrieveEidFromMctpServiceProperties(serviceNames, uuidToUriMap,
-                                                 resultCallback, errorCallback);
-        });
+    std::vector<std::string> serviceNames = {"au.com.codeconstruct.MCTP1"};
+    retrieveEidFromMctpServiceProperties(serviceNames, uuidToUriMap,
+                                         resultCallback, errorCallback);
 }

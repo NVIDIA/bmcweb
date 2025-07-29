@@ -226,7 +226,7 @@ inline void cleanUp()
 inline void activateImage(const std::string& objPath,
                           const std::string& service)
 {
-    BMCWEB_LOG_ERROR("Activate image for {} {}", objPath, service);
+    BMCWEB_LOG_DEBUG("Activate image for {} {}", objPath, service);
     sdbusplus::asio::setProperty(
         *crow::connections::systemBus, service, objPath,
         "xyz.openbmc_project.Software.Activation", "RequestedActivation",
@@ -301,7 +301,7 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
             if (additionalData == nullptr || messageNamespace != "FWUpdate")
             {
                 // something is invalid
-                BMCWEB_LOG_ERROR("Got invalid log message");
+                BMCWEB_LOG_DEBUG("Got invalid log message");
             }
             else
             {
@@ -523,10 +523,10 @@ inline void softwareInterfaceAdded(
 
     m.read(objPath, interfacesProperties);
 
-    BMCWEB_LOG_ERROR("obj path = {}", objPath.str);
+    BMCWEB_LOG_DEBUG("obj path = {}", objPath.str);
     for (const auto& interface : interfacesProperties)
     {
-        BMCWEB_LOG_ERROR("interface = {}", interface.first);
+        BMCWEB_LOG_DEBUG("interface = {}", interface.first);
 
         if (interface.first == "xyz.openbmc_project.Software.Activation")
         {
@@ -1349,9 +1349,6 @@ inline void setOemUpdateOption(
     const std::string& oemUpdateOption,
     const std::function<void()>& callback = {})
 {
-    BMCWEB_LOG_ERROR(
-        "TRACE: setOemUpdateOption - entered with oemUpdateOption={}",
-        oemUpdateOption);
     crow::connections::systemBus->async_method_call(
         [asyncResp, oemUpdateOption, callback](
             const boost::system::error_code errorCode,
@@ -1439,9 +1436,6 @@ inline void validateUpdatePolicyCallback(
     const std::vector<sdbusplus::message::object_path>& targets,
     const std::optional<std::string>& oemUpdateOption)
 {
-    BMCWEB_LOG_ERROR(
-        "TRACE: validateUpdatePolicyCallback - entered with targets.size()={}",
-        targets.size());
     if (errorCode)
     {
         BMCWEB_LOG_ERROR("validateUpdatePolicyCallback:error_code = {}",
@@ -1475,15 +1469,9 @@ inline void validateUpdatePolicyCallback(
                 BMCWEB_LOG_ERROR("error_code = {}", ec);
                 messages::internalError(asyncResp->res);
             }
-            BMCWEB_LOG_ERROR(
-                "TRACE: validateUpdatePolicyCallback - calling setOemUpdateOption");
             setOemUpdateOption(
                 asyncResp, oemUpdateOption.value_or("StageAndActivate"),
-                [req, asyncResp]() {
-                    BMCWEB_LOG_ERROR(
-                        "TRACE: setOemUpdateOption callback - calling uploadImageFile");
-                    uploadImageFile(req, asyncResp);
-                });
+                [req, asyncResp]() { uploadImageFile(req, asyncResp); });
         },
         objInfo[0].first, "/xyz/openbmc_project/software",
         "org.freedesktop.DBus.Properties", "Set",
@@ -1513,9 +1501,6 @@ inline void areTargetsUpdateableCallback(
     const std::vector<std::string>& swInvPaths,
     const std::optional<std::string>& oemUpdateOption)
 {
-    BMCWEB_LOG_ERROR(
-        "TRACE: areTargetsUpdateableCallback - entered with uriTargets.size()={}, objPaths.size()={}",
-        uriTargets.size(), objPaths.size());
     if (ec)
     {
         BMCWEB_LOG_ERROR("areTargetsUpdateableCallback:error_code = {}", ec);
@@ -1587,9 +1572,6 @@ inline void areTargetsUpdateable(
     const std::vector<std::string>& uriTargets,
     const std::optional<std::string>& oemUpdateOption)
 {
-    BMCWEB_LOG_ERROR(
-        "TRACE: areTargetsUpdateable - entered with uriTargets.size()={}",
-        uriTargets.size());
     crow::connections::systemBus->async_method_call(
         [req, asyncResp, uriTargets,
          oemUpdateOption](const boost::system::error_code ec,
@@ -1635,7 +1617,6 @@ inline void processMultipartFormData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const MultipartParser& parser)
 {
-    BMCWEB_LOG_ERROR("TRACE: processMultipartFormData - entered");
     std::optional<std::string> applyTime;
     std::optional<bool> forceUpdate;
     std::optional<std::vector<std::string>> targets;
@@ -1740,18 +1721,12 @@ inline void processMultipartFormData(
 
     auto sharedReq = std::make_shared<const crow::Request>(req);
 
-    BMCWEB_LOG_ERROR(
-        "TRACE: processMultipartFormData - calling setForceUpdate with uriTargets.size()={}",
-        uriTargets.size());
-    setForceUpdate(
-        asyncResp, "/xyz/openbmc_project/software", forceUpdate.value_or(false),
-        [sharedReq, asyncResp, uriTargets, oemUpdateOption]() {
-            BMCWEB_LOG_ERROR(
-                "TRACE: setForceUpdate callback - calling areTargetsUpdateable with uriTargets.size()={}",
-                uriTargets.size());
-            areTargetsUpdateable(sharedReq, asyncResp, uriTargets,
-                                 oemUpdateOption);
-        });
+    setForceUpdate(asyncResp, "/xyz/openbmc_project/software",
+                   forceUpdate.value_or(false),
+                   [sharedReq, asyncResp, uriTargets, oemUpdateOption]() {
+                       areTargetsUpdateable(sharedReq, asyncResp, uriTargets,
+                                            oemUpdateOption);
+                   });
 }
 
 /**
@@ -1771,7 +1746,7 @@ inline void handleMultipartUpdateServicePost(
     {
         return;
     }
-    BMCWEB_LOG_CRITICAL(
+    BMCWEB_LOG_DEBUG(
         "Execute HTTP POST method '/redfish/v1/UpdateService/update-multipart/'");
 
     bool enableFWInProgCheck = true;
@@ -2005,7 +1980,7 @@ inline void handleUpdateServiceFirmwareInventoryGet(
                 std::string,
                 std::vector<std::pair<std::string, std::vector<std::string>>>>>&
                 subtree) {
-            BMCWEB_LOG_ERROR("doGet callback...");
+            BMCWEB_LOG_DEBUG("doGet callback...");
             if (ec)
             {
                 messages::internalError(asyncResp->res);
@@ -2082,7 +2057,7 @@ inline void handleUpdateServiceFirmwareInventoryGet(
                 // and not implemented on all devices.
                 if (!settingService.empty())
                 {
-                    fw_util::getFwWriteProtectedStatus(asyncResp, *swId,
+                    fw_util::getFwWriteProtectedStatus(asyncResp, obj.first,
                                                        settingService);
                 }
                 asyncResp->res.jsonValue["Id"] = *swId;
@@ -2123,7 +2098,7 @@ inline void handleUpdateServiceFirmwareInventoryGet(
                                 return;
                             }
 
-                            BMCWEB_LOG_ERROR("swInvPurpose = {}",
+                            BMCWEB_LOG_DEBUG("swInvPurpose = {}",
                                              *swInvPurpose);
                             it = propertiesList.find("Version");
                             if (it == propertiesList.end())
@@ -2135,7 +2110,7 @@ inline void handleUpdateServiceFirmwareInventoryGet(
                                 return;
                             }
 
-                            BMCWEB_LOG_ERROR("Version found!");
+                            BMCWEB_LOG_DEBUG("Version found!");
 
                             const std::string* version =
                                 std::get_if<std::string>(&it->second);
@@ -2272,7 +2247,7 @@ inline void handleUpdateServiceFirmwareInventoryGet(
 
             if (!foundVersionObject and !foundStatusObject)
             {
-                BMCWEB_LOG_ERROR("Input swID {} not found!", *swId);
+                BMCWEB_LOG_DEBUG("Input swID {} not found!", *swId);
                 messages::resourceMissingAtURI(
                     asyncResp->res,
                     boost::urls::format(

@@ -666,9 +666,6 @@ inline void extendUpdateServiceGet(
     {
         asyncResp->res.jsonValue["Oem"]["Nvidia"] = {
             {"@odata.type", "#NvidiaUpdateService.v1_2_0.NvidiaUpdateService"},
-            {"PersistentStorage",
-             {{"@odata.id",
-               "/redfish/v1/UpdateService/Oem/Nvidia/PersistentStorage"}}},
             {"MultipartHttpPushUriOptions",
              {{"UpdateOptionSupport", [&]() {
                    if constexpr (BMCWEB_NVIDIA_OEM_FW_UPDATE_STAGING)
@@ -2709,8 +2706,9 @@ inline void requestRoutesNvidiaUpdateService(App& app)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleCommitImageActionInfoGet, std::ref(app)));
 
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/UpdateService/Oem/Nvidia/CommitImageActionInfo/")
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.CommitImage/")
         .privileges(redfish::privileges::postUpdateService)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleCommitImageActionInfoPost, std::ref(app)));

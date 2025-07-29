@@ -680,7 +680,7 @@ inline void handleMctpInBandActions(
         "org.freedesktop.DBus.ObjectManager"};
 
     dbus::utility::getDbusObject(
-        "/xyz/openbmc_project/mctp", interfaces,
+        "/au/com/codeconstruct/mctp1", interfaces,
         [req, asyncResp, chassisId, chassisUUID, option,
          enabled](const boost::system::error_code& ec,
                   const dbus::utility::MapperGetObject& resp) mutable {
@@ -713,7 +713,7 @@ inline void handleMctpInBandActions(
                             return;
                         }
 
-                        const uint32_t* eid = nullptr;
+                        const uint8_t* eid = nullptr;
                         const std::string* uuid = nullptr;
                         const std::vector<uint8_t>* supportedMsgTypes = nullptr;
                         bool foundEID = false;
@@ -746,7 +746,7 @@ inline void handleMctpInBandActions(
                                     {
                                         if (propertyMap.first == "EID")
                                         {
-                                            eid = std::get_if<uint32_t>(
+                                            eid = std::get_if<uint8_t>(
                                                 &propertyMap.second);
                                         }
                                         else if (propertyMap.first ==
@@ -771,7 +771,6 @@ inline void handleMctpInBandActions(
                             {
                                 BMCWEB_LOG_DEBUG(
                                     "handleMctpInBandActions: EID not found");
-                                messages::internalError(asyncResp->res);
                                 continue;
                             }
                             if (uuid && (*uuid) == chassisUUID &&
@@ -912,7 +911,7 @@ inline void handleMctpInBandActions(
                             }
                         }
                     },
-                    serviceName, "/xyz/openbmc_project/mctp",
+                    serviceName, "/au/com/codeconstruct/mctp1",
                     "org.freedesktop.DBus.ObjectManager", "GetManagedObjects");
             }
         });

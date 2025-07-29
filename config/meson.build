@@ -256,10 +256,6 @@ conf_data.set(
 )
 
 conf_data.set_quoted(
-    'FW_MCTP_MAPPING_JSON',
-    join_paths(package_datadir, 'fw_mctp_mapping.json'),
-)
-conf_data.set_quoted(
     'ROT_CHASSIS_ALLOWLIST_JSON',
     join_paths(package_datadir, 'rot_chassis_properties_allowlist.json'),
 )
