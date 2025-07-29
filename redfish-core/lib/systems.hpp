@@ -4161,8 +4161,6 @@ inline void handleComputerSystemPatch(
         return;
     }
 
-    asyncResp->res.result(boost::beast::http::status::no_content);
-
     if constexpr (BMCWEB_ENABLE_IST_MODE)
     {
         // Update istMode
