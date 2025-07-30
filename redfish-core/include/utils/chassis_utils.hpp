@@ -1411,9 +1411,12 @@ inline void getRedfishURL(const std::filesystem::path& invObjPath,
                            - "xyz.openbmc_project.GpuMgr" ...
                            - "xyz.openbmc_project.ObjectMapper" ...
                         */
-                        urlStr = std::string("/redfish/v1/Systems/") +
-                                 std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                                 invObjPath.filename().string();
+                        urlStr =
+                            std::string(
+                                "/redfish/v1/Systems/" +
+                                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                                "/Processors/") +
+                            invObjPath.filename().string();
                         BMCWEB_LOG_DEBUG("{} {} => URL: {}", service, interface,
                                          urlStr);
                         callback(true, urlStr);
