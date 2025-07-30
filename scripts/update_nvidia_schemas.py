@@ -82,7 +82,7 @@ def main():
         on_develop = latest == sha1
         if not on_develop:
             print(
-                f"Commit {sha1 } is not latest {latest} is latest on develop."
+                f"Commit {sha1} is not latest {latest} is latest on develop."
             )
             if not args.ignore_branch:
                 print(f"Write {latest} into nvidia_schema_version to continue")
