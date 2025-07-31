@@ -3162,7 +3162,15 @@ inline void handleLogServicesDumpCollectDiagnosticDataComputerSystemPost(
                                    systemName);
         return;
     }
-    createDump(asyncResp, req, "System");
+
+    if constexpr (BMCWEB_CHECK_OEM_DIAGNOSTIC_TYPE)
+    {
+        precheckOemDiagDataTypeAndCreateDump(asyncResp, req, "System");
+    }
+    else
+    {
+        createDump(asyncResp, req, "System");
+    }
 }
 
 inline void handleLogServicesDumpClearLogPost(

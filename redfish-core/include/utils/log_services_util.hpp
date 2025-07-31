@@ -23,10 +23,9 @@
 #include "bmcweb_config.h"
 
 #include "async_resp.hpp"
-#ifdef BMCWEB_NVIDIA_DUMP_SUPPORT
 #include "com/nvidia/Dump/AllowableValues/server.hpp"
-#endif
 #include "dbus_singleton.hpp"
+#include "dbus_utility.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
 
@@ -41,13 +40,9 @@
 namespace redfish
 {
 
-#ifdef BMCWEB_NVIDIA_DUMP_SUPPORT
 using AllowableValuesIface = sdbusplus::server::object::object<
     sdbusplus::com::nvidia::Dump::server::AllowableValues>;
 using DumpType = AllowableValuesIface::DumpType;
-#else
-using DumpType = int; // Placeholder when NVIDIA dump support is disabled
-#endif
 
 inline static std::string getLogEntryDataId(const std::string& id)
 {
@@ -90,12 +85,11 @@ inline void populateBootEntryId(crow::Response& resp)
     resp.jsonValue["Oem"]["Nvidia"]["BootEntryID"] = bootEntryId;
 }
 
-#ifdef BMCWEB_NVIDIA_DUMP_SUPPORT
 template <typename Callback>
 inline void getOEMDiagnosticAllowableValues(const std::string& dumpType,
                                             Callback&& callback)
 {
-    sdbusplus::asio::getProperty<std::map<DumpType, std::vector<std::string>>>(
+    dbus::utility::getProperty<std::map<DumpType, std::vector<std::string>>>(
         *crow::connections::systemBus, "xyz.openbmc_project.Dump.Manager",
         "/xyz/openbmc_project/dump/oem_allowable_values",
         "com.nvidia.Dump.AllowableValues", "OEMDataTypeAllowableValues",
@@ -129,14 +123,5 @@ inline void getOEMDiagnosticAllowableValues(const std::string& dumpType,
             callback(std::vector<std::string>());
         });
 }
-#else
-template <typename Callback>
-inline void getOEMDiagnosticAllowableValues(const std::string& /*dumpType*/,
-                                            Callback&& callback)
-{
-    // When NVIDIA dump support is not enabled, return empty vector
-    callback(std::vector<std::string>());
-}
-#endif
 
 } // namespace redfish
