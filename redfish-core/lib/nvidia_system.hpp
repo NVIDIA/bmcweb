@@ -44,7 +44,7 @@ inline void getSystemsOemNvidiaProperties(
         return;
     }
 
-    std::array<std::string_view, 1> interfaces{"com.nvidia.SPI.SPI"};
+    std::array<std::string_view, 1> interfaces{"com.nvidia.GraceSPI"};
     dbus::utility::getSubTreePaths(
         "/xyz/openbmc_project/inventory", 0, interfaces,
         std::bind_front(&afterSystemSpiInterfacesFound, asyncResp, systemId));
