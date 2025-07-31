@@ -20,6 +20,7 @@
 #include "server_sent_event.hpp"
 #include "subscription.hpp"
 #include "utils/nvidia_utils.hpp"
+#include "utils/origin_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <boost/circular_buffer.hpp>
@@ -833,8 +834,8 @@ class EventServiceManager
      * @param path  orginal path that came from Phosphor Logging
      * @param event  the event to be sent out
      */
-    inline void eventServiceOOC(const std::string& path,
-                                const std::string& devName, NvEvent& event)
+    void eventServiceOOC(const std::string& path, const std::string& devName,
+                         NvEvent& event)
     {
         if constexpr (BMCWEB_REDFISH_AGGREGATION)
         {
@@ -851,15 +852,15 @@ class EventServiceManager
         std::string deviceName = objPath.filename();
         if (false == deviceName.empty())
         {
-            for (auto& it : dBusToRedfishURI)
+            for (auto& it : origin_utils::dBusToRedfishURI)
             {
                 if (path.find(it.first) != std::string::npos)
                 {
                     std::string newPath;
-                    if (it.first == sensorSubTree)
+                    if (it.first == origin_utils::sensorSubTree)
                     {
-                        std::string chassisName =
-                            PLATFORMDEVICEPREFIX + devName;
+                        std::string chassisName(PLATFORMDEVICEPREFIX);
+                        chassisName += devName;
                         std::string sensorName;
                         dbus::utility::getNthStringFromPath(path, 4,
                                                             sensorName);

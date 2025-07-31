@@ -262,6 +262,11 @@ inline void handleFDRServiceGet(
         {"target",
          "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
              "/LogServices/FDR/Actions/LogService.ClearLog"}};
+    asyncResp->res
+        .jsonValue["Actions"]["Oem"]["#NvidiaLogService.GenerateBirthCert"] = {
+        {"target",
+         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+             "/LogServices/FDR/Actions/Oem/NvidiaLogService.GenerateBirthCert"}};
     asyncResp->res.jsonValue["Actions"]["#LogService.CollectDiagnosticData"] = {
         {"target",
          "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
