@@ -228,10 +228,8 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["TelemetryService"]["@odata.id"] =
         "/redfish/v1/TelemetryService";
 
-    if constexpr (BMCWEB_HOST_OS_FEATURES)
-    {
-        asyncResp->res.jsonValue["Cables"]["@odata.id"] = "/redfish/v1/Cables";
-    }
+    asyncResp->res.jsonValue["Cables"]["@odata.id"] = "/redfish/v1/Cables";
+
     asyncResp->res.jsonValue["Links"]["ManagerProvidingService"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Managers/{}",
                             BMCWEB_REDFISH_MANAGER_URI_NAME);
