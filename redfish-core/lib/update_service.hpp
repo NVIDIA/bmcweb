@@ -1853,18 +1853,13 @@ inline void handleUpdateServiceFirmwareInventoryCollectionGet(
 }
 
 /* Fill related item links (i.e. bmc, bios) in for inventory */
-inline void getRelatedItems(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& purpose)
+inline static void getRelatedItems(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& swId, const std::string& purpose)
 {
-    if (purpose == sw_util::bmcPurpose)
+    if (purpose == sw_util::otherPurpose || purpose == sw_util::bmcPurpose)
     {
-        nlohmann::json& relatedItem = asyncResp->res.jsonValue["RelatedItem"];
-        nlohmann::json::object_t item;
-        item["@odata.id"] = boost::urls::format(
-            "/redfish/v1/Managers/{}", BMCWEB_REDFISH_MANAGER_URI_NAME);
-        relatedItem.emplace_back(std::move(item));
-        asyncResp->res.jsonValue["RelatedItem@odata.count"] =
-            relatedItem.size();
+        getRelatedItemsOthers(asyncResp, swId);
     }
     else if (purpose == sw_util::biosPurpose)
     {
@@ -1949,7 +1944,7 @@ inline void getSoftwareVersion(
 
             std::string formatDesc = swInvPurpose->substr(endDesc);
             asyncResp->res.jsonValue["Description"] = formatDesc + " image";
-            getRelatedItems(asyncResp, *swInvPurpose);
+            getRelatedItems(asyncResp, swId, *swInvPurpose);
         });
 }
 
@@ -2197,7 +2192,7 @@ inline void handleUpdateServiceFirmwareInventoryGet(
                                         *description;
                                 }
                             }
-                            getRelatedItems(asyncResp, *swInvPurpose);
+                            getRelatedItems(asyncResp, *swId, *swInvPurpose);
 
                             it = propertiesList.find("PrettyName");
                             if (it != propertiesList.end())

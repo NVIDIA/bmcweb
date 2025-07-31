@@ -42,6 +42,10 @@ constexpr const char* biosPurpose =
 constexpr const char* bmcPurpose =
     "xyz.openbmc_project.Software.Version.VersionPurpose.BMC";
 
+/* @brief String that indicates other firmware instance */
+constexpr const char* otherPurpose =
+    "xyz.openbmc_project.Software.Version.VersionPurpose.Other";
+
 inline std::optional<sdbusplus::message::object_path> getFunctionalSoftwarePath(
     const std::string& swType)
 {
