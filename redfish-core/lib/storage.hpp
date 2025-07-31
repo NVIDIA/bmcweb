@@ -1862,7 +1862,13 @@ inline void matchAndFillDrive(
                 const dbus::utility::MapperGetSubTreeResponse& subtree) {
                 buildDrive(asyncResp, chassisId, driveName, ec, subtree);
             });
+
+        return;
     }
+
+    // No drive matched
+    messages::resourceNotFound(asyncResp->res, "#Drive.v1_18_0.Drive",
+                               driveName);
 }
 
 inline void handleChassisDriveGet(
