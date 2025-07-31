@@ -16,8 +16,10 @@
 #pragma once
 #include "app.hpp"
 #include "async_resp.hpp"
+#include "dbus_utility.hpp"
 #include "debug_token/erase_policy.hpp"
 #include "error_messages.hpp"
+#include "generated/enums/nvidia_manager.hpp"
 #include "logging.hpp"
 #include "nsm_cmd_support.hpp"
 #include "query.hpp"
@@ -30,6 +32,7 @@
 #include <boost/url/format.hpp>
 #include <sdbusplus/asio/connection.hpp>
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <variant>
@@ -40,6 +43,15 @@ namespace redfish
 
 namespace nvidia_manager_util
 {
+
+static constexpr auto restrictionModePath =
+    "/xyz/openbmc_project/control/host0/restriction_mode";
+static constexpr auto restrictionModeInterface =
+    "xyz.openbmc_project.Control.Security.RestrictionMode";
+static constexpr auto restrictionModeProperty = "RestrictionMode";
+static constexpr std::array<std::string_view, 1> restrictionModeInterfaceArray =
+    {restrictionModeInterface};
+
 /**
  * @brief Retrieves telemetry ready state data over DBus
  *
@@ -587,6 +599,191 @@ inline void requestRoutesDebugTokenManagement(App& app)
         .privileges(redfish::privileges::patchManager)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(debugTokenManagementPatchHandler, std::ref(app)));
+}
+
+/**
+ * @brief Converts Redfish restriction mode to D-Bus restriction mode.
+ *
+ * @param[in] mode The Redfish restriction mode to convert.
+ *
+ * @return The D-Bus restriction mode.
+ */
+inline std::string dbusRestrictionModeFromRedfish(const std::string& mode)
+{
+    if (mode == "None")
+    {
+        return "xyz.openbmc_project.Control.Security.RestrictionMode.Modes.None";
+    }
+    if (mode == "Allowlist")
+    {
+        return "xyz.openbmc_project.Control.Security.RestrictionMode.Modes.Allowlist";
+    }
+    if (mode == "ProvisionedHostAllowlist")
+    {
+        return "xyz.openbmc_project.Control.Security.RestrictionMode.Modes.ProvisionedHostAllowlist";
+    }
+    if (mode == "ProvisionedHostDisabled")
+    {
+        return "xyz.openbmc_project.Control.Security.RestrictionMode.Modes.ProvisionedHostDisabled";
+    }
+    return "";
+}
+
+/**
+ * @brief Converts D-Bus restriction mode to Redfish restriction mode.
+ *
+ * @param[in] value The D-Bus restriction mode to convert.
+ *
+ * @return The Redfish restriction mode.
+ */
+inline nvidia_manager::RestrictionMode restrictionModeFromDbus(
+    const std::string& value)
+{
+    if (value ==
+        "xyz.openbmc_project.Control.Security.RestrictionMode.Modes.None")
+    {
+        return nvidia_manager::RestrictionMode::None;
+    }
+    if (value ==
+        "xyz.openbmc_project.Control.Security.RestrictionMode.Modes.Allowlist")
+    {
+        return nvidia_manager::RestrictionMode::Allowlist;
+    }
+    if (value ==
+        "xyz.openbmc_project.Control.Security.RestrictionMode.Modes.ProvisionedHostAllowlist")
+    {
+        return nvidia_manager::RestrictionMode::ProvisionedHostAllowlist;
+    }
+    if (value ==
+        "xyz.openbmc_project.Control.Security.RestrictionMode.Modes.ProvisionedHostDisabled")
+    {
+        return nvidia_manager::RestrictionMode::ProvisionedHostDisabled;
+    }
+    return nvidia_manager::RestrictionMode::Invalid;
+}
+
+/**
+ * @brief Populates the restriction mode data.
+ *
+ * @param[in] asyncResp   Shared pointer for generating response message.
+ * @param[in] ec          The error code.
+ * @param[in] modeStr     The D-Bus restriction mode string.
+ */
+inline void populateRestrictionModeData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, const std::string& modeStr)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS getProperty error: {}", ec);
+        return;
+    }
+    nvidia_manager::RestrictionMode mode = restrictionModeFromDbus(modeStr);
+    if (mode == nvidia_manager::RestrictionMode::Invalid)
+    {
+        BMCWEB_LOG_ERROR("Invalid restriction mode: {}", modeStr);
+        return;
+    }
+    nlohmann::json& ipmi = asyncResp->res.jsonValue["Oem"]["Nvidia"]["IPMI"];
+    ipmi["RestrictionMode"] = mode;
+}
+
+/**
+ * @brief Handles getting the restriction mode property from D-Bus.
+ *
+ * @param[in] asyncResp   Shared pointer for generating response message.
+ * @param[in] path        The path of the restriction mode.
+ * @param[in] interface   The interface of the restriction mode.
+ * @param[in] property    The property of the restriction mode.
+ * @param[in] ec          The error code from D-Bus call.
+ * @param[in] object      The MapperGetObject result from D-Bus.
+ */
+inline void getRestrictionModeHandler(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& path, const std::string& interface,
+    const std::string& property, const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec || object.empty())
+    {
+        BMCWEB_LOG_ERROR("Error getting service name: {}", ec);
+        return;
+    }
+    const std::string& service = object.begin()->first;
+    sdbusplus::asio::getProperty<std::string>(
+        *crow::connections::systemBus, service, path, interface, property,
+        std::bind_front(populateRestrictionModeData, asyncResp));
+}
+
+/**
+ * @brief Gets the restriction mode.
+ *
+ * @param[in] asyncResp   Shared pointer for generating response message.
+ */
+inline void getRestrictionMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    dbus::utility::getDbusObject(
+        restrictionModePath, restrictionModeInterfaceArray,
+        std::bind_front(getRestrictionModeHandler, asyncResp,
+                        restrictionModePath, restrictionModeInterface,
+                        restrictionModeProperty));
+}
+
+/**
+ * @brief Handles setting the restriction mode property on D-Bus.
+ *
+ * @param[in] asyncResp   Shared pointer for generating response message.
+ * @param[in] path        The path of the restriction mode.
+ * @param[in] interface   The interface of the restriction mode.
+ * @param[in] property    The property of the restriction mode.
+ * @param[in] dbusMode    The D-Bus restriction mode.
+ * @param[in] ec          The error code from D-Bus call.
+ * @param[in] object      The MapperGetObject result from D-Bus.
+ */
+inline void setRestrictionModeHandler(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& path, const std::string& interface,
+    const std::string& property, const std::string& dbusMode,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec || object.empty())
+    {
+        BMCWEB_LOG_ERROR("Error getting service name: {}", ec);
+        messages::resourceNotFound(asyncResp->res, "RestrictionMode", path);
+        return;
+    }
+    const std::string& service = object.begin()->first;
+    setDbusProperty(asyncResp, property, service,
+                    sdbusplus::message::object_path(path), interface, property,
+                    dbusMode);
+}
+
+/**
+ * @brief Sets the restriction mode.
+ *
+ * @param[in] asyncResp   Shared pointer for generating response message.
+ * @param[in] mode        The restriction mode to set.
+ */
+inline void setRestrictionMode(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& mode)
+{
+    std::string dbusMode = dbusRestrictionModeFromRedfish(mode);
+    if (dbusMode.empty())
+    {
+        BMCWEB_LOG_ERROR("Invalid restriction mode: {}", mode);
+        messages::propertyValueNotInList(asyncResp->res, mode,
+                                         "RestrictionMode");
+        return;
+    }
+
+    dbus::utility::getDbusObject(
+        restrictionModePath, restrictionModeInterfaceArray,
+        std::bind_front(setRestrictionModeHandler, asyncResp,
+                        restrictionModePath, restrictionModeInterface,
+                        restrictionModeProperty, dbusMode));
 }
 
 } // namespace nvidia_manager_util

@@ -982,22 +982,24 @@ inline void requestRoutesManager(App& app)
                 std::optional<std::string> privilege;
                 std::optional<bool> tlsAuth;
                 std::optional<bool> openocdValue;
+                std::optional<std::string> restrictionMode;
 
-                if (!json_util::readJsonPatch(                            //
-                        req, asyncResp->res,                              //
-                        "DateTime", datetime,                             //
+                if (!json_util::readJsonPatch(                             //
+                        req, asyncResp->res,                               //
+                        "DateTime", datetime,                              //
                         "Links/ActiveSoftwareImage/@odata.id",
-                        activeSoftwareImageOdataId,                       //
-                        "Oem/OpenBmc/Fan/FanControllers", fanControllers, //
-                        "Oem/OpenBmc/Fan/FanZones", fanZones,             //
-                        "Oem/OpenBmc/Fan/PidControllers", pidControllers, //
-                        "Oem/OpenBmc/Fan/Profile", profile,               //
+                        activeSoftwareImageOdataId,                        //
+                        "Oem/OpenBmc/Fan/FanControllers", fanControllers,  //
+                        "Oem/OpenBmc/Fan/FanZones", fanZones,              //
+                        "Oem/OpenBmc/Fan/PidControllers", pidControllers,  //
+                        "Oem/OpenBmc/Fan/Profile", profile,                //
                         "Oem/OpenBmc/Fan/StepwiseControllers",
-                        stepwiseControllers,                              //
-                        "ServiceIdentification", serviceIdentification,   //
-                        "Oem/Nvidia/SMBPBIFencingPrivilege", privilege,   //
-                        "Oem/Nvidia/AuthenticationTLSRequired", tlsAuth,  //
-                        "Oem/Nvidia/OpenOCD/Enable", openocdValue         //
+                        stepwiseControllers,                               //
+                        "ServiceIdentification", serviceIdentification,    //
+                        "Oem/Nvidia/SMBPBIFencingPrivilege", privilege,    //
+                        "Oem/Nvidia/AuthenticationTLSRequired", tlsAuth,   //
+                        "Oem/Nvidia/OpenOCD/Enable", openocdValue,         //
+                        "Oem/Nvidia/IPMI/RestrictionMode", restrictionMode //
                         ))
                 {
                     return;
@@ -1019,6 +1021,13 @@ inline void requestRoutesManager(App& app)
                     setServiceIdentification(asyncResp,
                                              std::move(*serviceIdentification));
                 }
+
+                if (restrictionMode)
+                {
+                    redfish::nvidia_manager_util::setRestrictionMode(
+                        asyncResp, *restrictionMode);
+                }
+
                 RedfishService::getInstance(app).handleSubRoute(req, asyncResp);
             });
 }

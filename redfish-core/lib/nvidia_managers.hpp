@@ -1629,7 +1629,7 @@ inline void extendManagerOEM(
 {
     // default oem data
     nlohmann::json& oemNvidia = asyncResp->res.jsonValue;
-    oemNvidia["@odata.type"] = "#NvidiaManager.v1_6_0.NvidiaManager";
+    oemNvidia["@odata.type"] = "#NvidiaManager.v1_7_0.NvidiaManager";
     oemNvidia["DebugTokenManagement"]["@odata.id"] = std::format(
         "/redfish/v1/Managers/{}/Oem/Nvidia/DebugTokenManagement", managerId);
 
@@ -1749,6 +1749,7 @@ inline void extendManagerOEM(
     }
 
     populatePersistentStorageSettingStatus(asyncResp);
+    nvidia_manager_util::getRestrictionMode(asyncResp);
 }
 
 inline void extendManagerOEMActions(
