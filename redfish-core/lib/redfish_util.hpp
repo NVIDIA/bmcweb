@@ -417,7 +417,8 @@ inline void getComponentFirmwareVersion(
                                                                [asyncResp,
                                                                 firstElement](const boost::system::error_code& ec1, const std::
                                                                                                                         vector<
-                                                                                                                            std::string>& objPaths) {
+                                                                                                                            std::
+                                                                                                                                string>& objPaths) {
                                                                    if (ec1)
                                                                    {
                                                                        BMCWEB_LOG_ERROR(
@@ -543,7 +544,7 @@ inline void getComponentFirmwareVersion(
                                                                                "/xyz/openbmc_project/object_mapper",
                                                                                "xyz.openbmc_project.ObjectMapper",
                                                                                "GetObject",
-                                                                               firstElement,
+                                                                               innerFirstElement,
                                                                                std::array<
                                                                                    const char*,
                                                                                    0>());
