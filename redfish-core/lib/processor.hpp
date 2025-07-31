@@ -588,7 +588,7 @@ inline void getAcceleratorDataByService(
                 if (accType != nullptr && !accType->empty())
                 {
                     asyncResp->res.jsonValue["ProcessorType"] =
-                        processor::ProcessorType::Accelerator;
+                        redfish::nvidia_processor::getProcessorType(*accType);
                 }
                 if (operationalState != nullptr && !operationalState->empty())
                 {
