@@ -1015,6 +1015,9 @@ inline void requestRoutesChassisControls(App& app)
                                     "Power";
                                 asyncResp->res.jsonValue["Status"]["Health"] =
                                     "OK";
+                                asyncResp->res
+                                    .jsonValue["Status"]["HealthRollup"] = "OK";
+
                                 getChassisPower(asyncResp, object,
                                                 *validChassisPath);
                                 getTotalPower(asyncResp, chassisID);
