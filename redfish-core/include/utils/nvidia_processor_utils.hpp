@@ -771,10 +771,6 @@ inline void getReconfigPermissionsData(
             }
             for (const auto& [objectPath, serviceMap] : subtree)
             {
-                if (!objectPath.ends_with(cpuId))
-                {
-                    continue;
-                }
                 for (const auto& [serviceName, interfaceList] : serviceMap)
                 {
                     getReconfigPermissionsData(aResp, cpuId, serviceName,
