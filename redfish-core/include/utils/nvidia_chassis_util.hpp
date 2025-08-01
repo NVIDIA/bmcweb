@@ -754,34 +754,42 @@ inline void getHealthByAssociation(
                                         asyncResp->res
                                             .jsonValue["Status"]["State"] =
                                             "Enabled";
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-                                        asyncResp->res
-                                            .jsonValue["Status"]
-                                                      ["HealthRollup"] = "OK";
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-       // update health
-#ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
-                                        std::shared_ptr<HealthRollup> health =
-                                            std::make_shared<HealthRollup>(
-                                                sensorPath,
-                                                [asyncResp](const std::string&
-                                                                rootHealth,
-                                                            const std::string&
-                                                                healthRollup) {
-                                                    asyncResp->res
-                                                        .jsonValue["Status"]
-                                                                  ["Health"] =
-                                                        rootHealth;
-#ifndef BMCWEB_DISABLE_HEALTH_ROLLUP
-                                                    asyncResp->res.jsonValue
-                                                        ["Status"]
-                                                        ["HealthRollup"] =
-                                                        healthRollup;
-#endif // BMCWEB_DISABLE_HEALTH_ROLLUP
-                                                });
-                                        health->start();
-
-#endif // ifdef BMCWEB_ENABLE_HEALTH_ROLLUP_ALTERNATIVE
+                                        if constexpr (
+                                            !BMCWEB_DISABLE_HEALTH_ROLLUP)
+                                        {
+                                            asyncResp->res
+                                                .jsonValue["Status"]
+                                                          ["HealthRollup"] =
+                                                "OK";
+                                        }
+                                        // update health
+                                        if constexpr (
+                                            BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
+                                        {
+                                            std::shared_ptr<HealthRollup>
+                                                health = std::make_shared<
+                                                    HealthRollup>(
+                                                    sensorPath,
+                                                    [asyncResp](
+                                                        const std::string&
+                                                            rootHealth,
+                                                        const std::string&
+                                                            healthRollup) {
+                                                        asyncResp->res.jsonValue
+                                                            ["Status"]
+                                                            ["Health"] =
+                                                            rootHealth;
+                                                        if constexpr (
+                                                            !BMCWEB_DISABLE_HEALTH_ROLLUP)
+                                                        {
+                                                            asyncResp->res.jsonValue
+                                                                ["Status"]
+                                                                ["HealthRollup"] =
+                                                                healthRollup;
+                                                        }
+                                                    });
+                                            health->start();
+                                        }
                                         if (*value ==
                                             "xyz.openbmc_project.State.Decorator.Health.HealthType.OK")
                                         {
@@ -2279,35 +2287,38 @@ inline void handleChassisGetAllProperties(
                 *pCIeReferenceClockCount;
         }
 
-#ifdef BMCWEB_ENABLE_REDFISH_LEAK_DETECT
-        // Policy Collection
-        getValidLeakDetectionPath(
-            asyncResp, chassisId,
-            std::bind_front(doLeakDetectionPolicyGet, asyncResp, chassisId));
-#endif
+        if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
+        {
+            // Policy Collection
+            getValidLeakDetectionPath(asyncResp, chassisId,
+                                      std::bind_front(doLeakDetectionPolicyGet,
+                                                      asyncResp, chassisId));
+        }
     }
     asyncResp->res.jsonValue["Name"] = chassisId;
     asyncResp->res.jsonValue["Id"] = chassisId;
-#ifdef BMCWEB_ALLOW_DEPRECATED_POWER_THERMAL
-#ifdef BMCWEB_ENABLE_HOST_OS_FEATURE
-    asyncResp->res.jsonValue["Thermal"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/Thermal", chassisId);
+    if constexpr (BMCWEB_REDFISH_ALLOW_DEPRECATED_POWER_THERMAL &&
+                  BMCWEB_HOST_OS_FEATURES)
+    {
+        asyncResp->res.jsonValue["Thermal"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Chassis/{}/Thermal", chassisId);
 
-    // Power object
-    asyncResp->res.jsonValue["Power"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
-#endif
-#endif
-#ifdef BMCWEB_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM
-    asyncResp->res.jsonValue["ThermalSubsystem"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/ThermalSubsystem",
-                            chassisId);
-    asyncResp->res.jsonValue["PowerSubsystem"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/PowerSubsystem", chassisId);
-    asyncResp->res.jsonValue["EnvironmentMetrics"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/EnvironmentMetrics",
-                            chassisId);
-#endif
+        // Power object
+        asyncResp->res.jsonValue["Power"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Chassis/{}/Power", chassisId);
+    }
+    if constexpr (BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM)
+    {
+        asyncResp->res.jsonValue["ThermalSubsystem"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Chassis/{}/ThermalSubsystem",
+                                chassisId);
+        asyncResp->res.jsonValue["PowerSubsystem"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Chassis/{}/PowerSubsystem",
+                                chassisId);
+        asyncResp->res.jsonValue["EnvironmentMetrics"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Chassis/{}/EnvironmentMetrics",
+                                chassisId);
+    }
     // SensorCollection
     asyncResp->res.jsonValue["Sensors"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Sensors", chassisId);
@@ -2317,12 +2328,13 @@ inline void handleChassisGetAllProperties(
     asyncResp->res.jsonValue["Assembly"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/Assembly", chassisId);
 
-#ifdef BMCWEB_ENABLE_NETWORK_ADAPTERS
-    // NetworkAdapters collection
-    asyncResp->res.jsonValue["NetworkAdapters"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters",
-                            chassisId);
-#endif
+    if constexpr (BMCWEB_NETWORK_ADAPTERS)
+    {
+        // NetworkAdapters collection
+        asyncResp->res.jsonValue["NetworkAdapters"]["@odata.id"] =
+            boost::urls::format("/redfish/v1/Chassis/{}/NetworkAdapters",
+                                chassisId);
+    }
     // PCIeSlots collection
     asyncResp->res.jsonValue["PCIeSlots"]["@odata.id"] =
         boost::urls::format("/redfish/v1/Chassis/{}/PCIeSlots", chassisId);

@@ -673,9 +673,7 @@ inline void handleEROTChassisPatch(
 
     std::optional<bool> backgroundCopyEnabled;
     std::optional<bool> inBandEnabled;
-#ifdef BMCWEB_ENABLE_MANUAL_BOOT_MODE
     std::optional<bool> manualBootModeEnabled;
-#endif
 
     if (!oemNvidiaObject.has_value())
     {
@@ -683,28 +681,27 @@ inline void handleEROTChassisPatch(
     }
 
     if (!json_util::readJson(
-            *oemNvidiaObject, asyncResp->res,
-#ifdef BMCWEB_ENABLE_MANUAL_BOOT_MODE
-            "ManualBootModeEnabled", manualBootModeEnabled,
-#endif
-            "AutomaticBackgroundCopyEnabled", backgroundCopyEnabled,
-            "InbandUpdatePolicyEnabled", inBandEnabled))
+            *oemNvidiaObject, asyncResp->res, "ManualBootModeEnabled",
+            manualBootModeEnabled, "AutomaticBackgroundCopyEnabled",
+            backgroundCopyEnabled, "InbandUpdatePolicyEnabled", inBandEnabled))
     {
         return;
     }
-#ifdef BMCWEB_ENABLE_MANUAL_BOOT_MODE
-    if (manualBootModeEnabled.has_value())
+
+    if constexpr (BMCWEB_MANUAL_BOOT_MODE_SUPPORT)
     {
-        if (isCpuEROT == false)
+        if (manualBootModeEnabled.has_value())
         {
-            messages::actionNotSupported(asyncResp->res,
-                                         "ERoT manualBootModeEnabled");
-            return;
+            if (isCpuEROT == false)
+            {
+                messages::actionNotSupported(asyncResp->res,
+                                             "ERoT manualBootModeEnabled");
+                return;
+            }
+            manual_boot::bootModeSet(req, asyncResp, chassisId,
+                                     *manualBootModeEnabled);
         }
-        manual_boot::bootModeSet(req, asyncResp, chassisId,
-                                 *manualBootModeEnabled);
     }
-#endif // BMCWEB_ENABLE_MANUAL_BOOT_MODE
 
     if (!backgroundCopyEnabled.has_value() && !inBandEnabled.has_value())
     {
