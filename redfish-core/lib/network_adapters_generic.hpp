@@ -2141,7 +2141,7 @@ inline void getPortMetricsData(
                 if (addNvidiaType)
                 {
                     asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                        "#NvidiaPortMetrics.v1_6_0.NvidiaNVLinkPortMetrics";
+                        "#NvidiaPortMetrics.v1_7_0.NvidiaNVLinkPortMetrics";
                 }
             }
         },

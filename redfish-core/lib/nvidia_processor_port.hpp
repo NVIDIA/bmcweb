@@ -986,7 +986,7 @@ inline void getProcessorPortMetricsData(
                         }
                         asyncResp->res
                             .jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                            "#NvidiaPortMetrics.v1_3_0.NvidiaNVLinkPortMetrics";
+                            "#NvidiaPortMetrics.v1_7_0.NvidiaNVLinkPortMetrics";
                         asyncResp->res
                             .jsonValue["Oem"]["Nvidia"]["RXNoProtocolBytes"] =
                             *value;
@@ -1199,7 +1199,7 @@ inline void getProcessorPortMetricsData(
                     {
                         asyncResp->res
                             .jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                            "#NvidiaPortMetrics.v1_4_0.NvidiaPortMetrics";
+                            "#NvidiaPortMetrics.v1_7_0.NvidiaPortMetrics";
 
                         const std::vector<uint32_t>* value =
                             std::get_if<std::vector<uint32_t>>(
