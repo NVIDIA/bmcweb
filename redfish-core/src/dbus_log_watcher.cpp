@@ -357,8 +357,8 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
             }
         }
         event.resourceType = resourceType;
-        EventServiceManager::getInstance().sendEventWithOOC(originOfCondition,
-                                                            event);
+        EventServiceManager::getInstance().eventServiceOOC(originOfCondition,
+                                                           deviceName, event);
     }
     else
     {

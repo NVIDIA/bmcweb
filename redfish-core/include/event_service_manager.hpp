@@ -152,7 +152,7 @@ class EventServiceManager
             if (getNumberOfSubscriptions() > 0)
             {
                 // start RF event listener and subscribe HMC eventService.
-                // initRedfishEventListener(getIoContext());
+                initRedfishEventListener(getIoContext());
             }
         }
     }
@@ -825,6 +825,62 @@ class EventServiceManager
     {
         event.originOfCondition = ooc;
         sendEvent(event);
+    }
+
+    /**
+     * @brief Finds the right OriginOfCondition for @a path and sends the Event
+     *        The map @a dBusToRedfishURI is used for that purpose
+     * @param path  orginal path that came from Phosphor Logging
+     * @param event  the event to be sent out
+     */
+    inline void eventServiceOOC(const std::string& path,
+                                const std::string& devName, NvEvent& event)
+    {
+        if constexpr (BMCWEB_REDFISH_AGGREGATION)
+        {
+            // OOC Path in HMC events is already converted to Redfish path.
+            if (path.starts_with("/redfish/v1/"))
+            {
+                std::string oocPath(path);
+                addPrefixToStringItem(oocPath, redfishAggregationPrefix);
+                sendEventWithOOC(oocPath, event);
+                return;
+            }
+        }
+        sdbusplus::message::object_path objPath(path);
+        std::string deviceName = objPath.filename();
+        if (false == deviceName.empty())
+        {
+            for (auto& it : dBusToRedfishURI)
+            {
+                if (path.find(it.first) != std::string::npos)
+                {
+                    std::string newPath;
+                    if (it.first == sensorSubTree)
+                    {
+                        std::string chassisName =
+                            PLATFORMDEVICEPREFIX + devName;
+                        std::string sensorName;
+                        dbus::utility::getNthStringFromPath(path, 4,
+                                                            sensorName);
+                        newPath = chassisName + "/Sensors/";
+                        newPath += sensorName;
+                    }
+                    else
+                    {
+                        newPath = path.substr(it.first.length(), path.length());
+                    }
+                    sendEventWithOOC(it.second + newPath, event);
+                    return;
+                }
+            }
+        }
+
+        BMCWEB_LOG_WARNING(
+            "No Matching prefix found for OriginOfCondition Object Path: '{}' sending empty OriginOfCondition",
+            path);
+
+        sendEventWithOOC(std::string{""}, event);
     }
 };
 
