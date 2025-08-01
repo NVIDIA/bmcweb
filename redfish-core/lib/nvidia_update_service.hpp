@@ -665,7 +665,7 @@ inline void extendUpdateServiceGet(
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
         asyncResp->res.jsonValue["Oem"]["Nvidia"] = {
-            {"@odata.type", "#NvidiaUpdateService.v1_2_0.NvidiaUpdateService"},
+            {"@odata.type", "#NvidiaUpdateService.v1_3_0.NvidiaUpdateService"},
             {"MultipartHttpPushUriOptions",
              {{"UpdateOptionSupport", [&]() {
                    if constexpr (BMCWEB_NVIDIA_OEM_FW_UPDATE_STAGING)
