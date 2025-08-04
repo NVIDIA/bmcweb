@@ -69,7 +69,7 @@ struct CertificateData
  * @param callback Function to call with the endpoint if found and a boolean
  * indicating existence
  */
-static void getChassisAssociatedEndpoint(
+inline void getChassisAssociatedEndpoint(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisID,
     const std::function<void(const std::string&, bool)>& callback)
@@ -96,6 +96,40 @@ static void getChassisAssociatedEndpoint(
 }
 
 /**
+ * @brief Helper function to check if TPM components exist and add
+ * TrustedComponents link
+ * @param asyncResp Response object
+ * @param chassisID ID of the chassis
+ * @param validChassisPath Valid chassis path for TPM discovery
+ */
+inline void checkTPMComponentsAndAddLink(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        return;
+    }
+
+    crow::connections::systemBus->async_method_call(
+        [asyncResp,
+         chassisID](const boost::system::error_code& ec,
+                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
+            if (!ec && !subtree.empty())
+            {
+                asyncResp->res.jsonValue["TrustedComponents"]["@odata.id"] =
+                    boost::urls::format(
+                        "/redfish/v1/Chassis/{}/TrustedComponents", chassisID);
+            }
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTree", *validChassisPath,
+        static_cast<int32_t>(0), trustedComponentInterfaces);
+}
+
+/**
  * @brief Validates if a component ID follows the required format and matches
  * the endpoint
  * @param componentID The component ID to validate
@@ -118,7 +152,7 @@ static bool validateComponentID(
         return false;
     }
 
-    std::string transformedComponent;
+    std::string transformedComponent = endpointComponent;
     if (endpointComponent.starts_with(PLATFORMDEVICEPREFIX))
     {
         transformedComponent =
@@ -270,26 +304,34 @@ inline void updateTPMCollection(
             {
                 BMCWEB_LOG_INFO("Failed to get TPM components: {}",
                                 ec.message());
+                return;
             }
-            else
+            bool foundComponents = false;
+            for (const auto& [path, services] : subtree)
             {
-                for (const auto& [path, services] : subtree)
+                sdbusplus::message::object_path objPath(path);
+                const std::string componentID = objPath.filename();
+                if (componentID.empty())
                 {
-                    sdbusplus::message::object_path objPath(path);
-                    const std::string componentID = objPath.filename();
-                    if (componentID.empty())
-                    {
-                        continue;
-                    }
-
-                    std::string odataId = "/redfish/v1/Chassis/";
-                    odataId += chassisID;
-                    odataId += "/TrustedComponents/";
-                    odataId += componentID;
-                    memberArray.push_back({{"@odata.id", odataId}});
-                    asyncResp->res.jsonValue["Members@odata.count"] =
-                        memberArray.size();
+                    continue;
                 }
+
+                foundComponents = true;
+                std::string odataId = "/redfish/v1/Chassis/";
+                odataId += chassisID;
+                odataId += "/TrustedComponents/";
+                odataId += componentID;
+                memberArray.push_back({{"@odata.id", odataId}});
+                asyncResp->res.jsonValue["Members@odata.count"] =
+                    memberArray.size();
+            }
+
+            if (!foundComponents)
+            {
+                // No TPM components found, return 404
+                asyncResp->res.jsonValue.clear();
+                messages::resourceNotFound(asyncResp->res, "TrustedComponent",
+                                           chassisID);
             }
         },
         "xyz.openbmc_project.ObjectMapper",
@@ -384,36 +426,41 @@ inline void handleTrustedComponentsCollectionGet(
         return;
     }
 
-    redfish::chassis_utils::getValidChassisPath(
-        asyncResp, chassisID,
-        [asyncResp,
-         chassisID](const std::optional<std::string>& validChassisPath) {
-            if (!validChassisPath)
-            {
-                BMCWEB_LOG_ERROR("Cannot get validChassisPath");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            setupTrustedComponentsResponse(asyncResp, chassisID);
-            nlohmann::json& memberArray = asyncResp->res.jsonValue["Members"];
-
-            updateTPMCollection(asyncResp, chassisID, validChassisPath,
-                                memberArray);
-        });
-
     getChassisAssociatedEndpoint(
         asyncResp, chassisID,
         [asyncResp, chassisID](const std::string& endpoint, bool exists) {
-            if (!exists)
+            if (exists)
             {
-                return;
-            }
-            setupTrustedComponentsResponse(asyncResp, chassisID);
-            nlohmann::json& memberArray = asyncResp->res.jsonValue["Members"];
+                setupTrustedComponentsResponse(asyncResp, chassisID);
+                nlohmann::json& memberArray =
+                    asyncResp->res.jsonValue["Members"];
 
-            updateSPDMTrustedComponents(asyncResp, chassisID, endpoint,
-                                        memberArray);
+                updateSPDMTrustedComponents(asyncResp, chassisID, endpoint,
+                                            memberArray);
+            }
+            else
+            {
+                redfish::chassis_utils::getValidChassisPath(
+                    asyncResp, chassisID,
+                    [asyncResp, chassisID](
+                        const std::optional<std::string>& validChassisPath) {
+                        if (validChassisPath)
+                        {
+                            setupTrustedComponentsResponse(asyncResp,
+                                                           chassisID);
+                            nlohmann::json& memberArray =
+                                asyncResp->res.jsonValue["Members"];
+
+                            updateTPMCollection(asyncResp, chassisID,
+                                                validChassisPath, memberArray);
+                        }
+                        else
+                        {
+                            messages::resourceNotFound(asyncResp->res,
+                                                       "Chassis", chassisID);
+                        }
+                    });
+            }
         });
 }
 

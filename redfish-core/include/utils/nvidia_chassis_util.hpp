@@ -18,6 +18,7 @@
 
 #include "async_resp.hpp"
 #include "openbmc_dbus_rest.hpp"
+#include "trusted_components.hpp"
 #include "utils/chassis_utils.hpp"
 
 #include <boost/container/flat_set.hpp>
@@ -2340,9 +2341,28 @@ inline void handleChassisGetAllProperties(
         boost::urls::format("/redfish/v1/Chassis/{}/PCIeSlots", chassisId);
 
     // TrustedComponent collection
-    asyncResp->res.jsonValue["TrustedComponents"]["@odata.id"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/TrustedComponents",
-                            chassisId);
+    getChassisAssociatedEndpoint(
+        asyncResp, chassisId,
+        [asyncResp,
+         chassisId]([[maybe_unused]] const std::string& endpoint, bool exists) {
+            if (exists)
+            {
+                // SPDM endpoint exists, add TrustedComponents link
+                asyncResp->res.jsonValue["TrustedComponents"]["@odata.id"] =
+                    boost::urls::format(
+                        "/redfish/v1/Chassis/{}/TrustedComponents", chassisId);
+            }
+            else
+            {
+                redfish::chassis_utils::getValidChassisPath(
+                    asyncResp, chassisId,
+                    [asyncResp, chassisId](
+                        const std::optional<std::string>& validChassisPath) {
+                        checkTPMComponentsAndAddLink(asyncResp, chassisId,
+                                                     validChassisPath);
+                    });
+            }
+        });
 
     // Controls Collection
     asyncResp->res.jsonValue["Controls"] = {

@@ -25,6 +25,7 @@
 #include "manual_boot.hpp"
 #include "nvidia_protected_component.hpp"
 #include "query.hpp"
+#include "trusted_components.hpp"
 
 #include <openssl/bio.h>
 #include <openssl/ec.h>
@@ -405,6 +406,34 @@ inline void getEROTChassis(const crow::Request& req,
                     {{"@odata.id",
                       "/redfish/v1/Systems/" +
                           std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME)}}};
+
+                // Only add TrustedComponents link for valid chassis
+                getChassisAssociatedEndpoint(
+                    asyncResp, chassisId,
+                    [asyncResp,
+                     chassisId]([[maybe_unused]] const std::string& endpoint,
+                                bool exists) {
+                        if (exists)
+                        {
+                            // SPDM endpoint exists, add TrustedComponents link
+                            asyncResp->res
+                                .jsonValue["TrustedComponents"]["@odata.id"] =
+                                boost::urls::format(
+                                    "/redfish/v1/Chassis/{}/TrustedComponents",
+                                    chassisId);
+                        }
+                        else
+                        {
+                            redfish::chassis_utils::getValidChassisPath(
+                                asyncResp, chassisId,
+                                [asyncResp, chassisId](
+                                    const std::optional<std::string>&
+                                        validChassisPath) {
+                                    checkTPMComponentsAndAddLink(
+                                        asyncResp, chassisId, validChassisPath);
+                                });
+                        }
+                    });
 
                 firmware_info::updateProtectedComponentLink(asyncResp,
                                                             chassisId);
