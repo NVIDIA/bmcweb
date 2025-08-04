@@ -259,6 +259,10 @@ inline sensor::ReadingType toReadingType(std::string_view sensorType)
     {
         return sensor::ReadingType::EnergyJoules;
     }
+    if (sensorType == "frequency")
+    {
+        return sensor::ReadingType::Frequency;
+    }
     return sensor::ReadingType::Invalid;
 }
 
