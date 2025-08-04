@@ -633,8 +633,8 @@ inline void extendUpdateServiceGet(
 {
     asyncResp->res.jsonValue["SoftwareInventory"] = {
         {"@odata.id", "/redfish/v1/UpdateService/SoftwareInventory"}};
-    asyncResp->res.jsonValue["Actions"]["Oem"]["Nvidia"]
-                            ["#NvidiaUpdateService.CommitImage"] = {
+    asyncResp->res
+        .jsonValue["Actions"]["Oem"]["#NvidiaUpdateService.CommitImage"] = {
         {"target",
          "/redfish/v1/UpdateService/Actions/Oem/NvidiaUpdateService.CommitImage"},
         {"@Redfish.ActionInfo",
