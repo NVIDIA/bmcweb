@@ -30,7 +30,7 @@ namespace redfish
 namespace mctp_utils
 {
 
-constexpr const std::string_view mctpBusPrefix = "xyz.openbmc_project.MCTP";
+constexpr const std::string_view mctpBusPrefix = "au.com.codeconstruct.MCTP1";
 constexpr const std::string_view mctpObjectPrefix =
     "/au/com/codeconstruct/mctp1/networks/1/endpoints/";
 constexpr const uint8_t mctpMessageTypeVdm = 127;

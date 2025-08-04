@@ -171,42 +171,25 @@ class StatusQueryHandler : public OperationHandler
                             std::vector<std::unique_ptr<DebugTokenEndpoint>>>();
                         endpoints->reserve(mctpEndpoints->size());
                     }
-                    for (auto& ep : *mctpEndpoints)
+                    for (auto& endpoint : *mctpEndpoints)
                     {
-                        if (!ep.isEnabled())
+                        if (!endpoint.isEnabled())
                         {
-                            BMCWEB_LOG_ERROR("{}: {}", desc,
-                                             "no endpoints found");
-                            finalize();
-                            return;
+                            continue;
                         }
-                        if (!endpoints)
+                        // ignore satmc (CPU debug token) endpoint
+                        if (endpoint.getSpdmObject() == cpuPath)
                         {
-                            endpoints = std::make_shared<std::vector<
-                                std::unique_ptr<DebugTokenEndpoint>>>();
-                            endpoints->reserve(mctpEndpoints->size());
+                            continue;
                         }
-                        for (auto& endpoint : *mctpEndpoints)
+                        const auto& msgTypes = endpoint.getMctpMessageTypes();
+                        if (std::find(msgTypes.begin(), msgTypes.end(),
+                                      mctp_utils::mctpMessageTypeVdm) !=
+                            msgTypes.end())
                         {
-                            if (!endpoint.isEnabled())
-                            {
-                                continue;
-                            }
-                            // ignore satmc (CPU debug token) endpoint
-                            if (endpoint.getSpdmObject() == cpuPath)
-                            {
-                                continue;
-                            }
-                            const auto& msgTypes =
-                                endpoint.getMctpMessageTypes();
-                            if (std::find(msgTypes.begin(), msgTypes.end(),
-                                          mctp_utils::mctpMessageTypeVdm) !=
-                                msgTypes.end())
-                            {
-                                endpoints->emplace_back(
-                                    std::make_unique<DebugTokenSpdmEndpoint>(
-                                        endpoint));
-                            }
+                            endpoints->emplace_back(
+                                std::make_unique<DebugTokenSpdmEndpoint>(
+                                    endpoint));
                         }
                     }
                     endpoints->shrink_to_fit();
