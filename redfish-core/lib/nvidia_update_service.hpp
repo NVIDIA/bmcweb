@@ -2355,7 +2355,7 @@ inline void handleUpdateServiceSoftwareInventoryGet(
                                 }
                             }
                         }
-                        // getRelatedItemsOthers(asyncResp, *swId, searchPath);
+                        getRelatedItemsOthers(asyncResp, *swId, searchPath);
                         const std::string& mutablePath = searchPath;
                         fw_util::getFwUpdateableStatus(asyncResp, swId,
                                                        mutablePath);
