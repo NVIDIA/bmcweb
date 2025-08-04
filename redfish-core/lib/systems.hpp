@@ -3906,13 +3906,6 @@ inline void handleComputerSystemGet(
     redfish::conditions_utils::populateServiceConditions(
         asyncResp, std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME));
 
-    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-    {
-        asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.id"] =
-            "/redfish/v1/Systems/" +
-            std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Oem/Nvidia";
-    }
-
     if constexpr (BMCWEB_NVIDIA_OEM_COMMON_PROPERTIES)
     {
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.id"] =
