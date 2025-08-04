@@ -135,18 +135,23 @@ static void generateMessageRegistry(
         }
     }
 
-    logEntry = {{"@odata.id", odataId + id},
-                {"@odata.type", "#LogEntry." + odataTypeVer + ".LogEntry"},
-                {"Id", id},
-                {"Name", name},
-                {"EntryType", "Event"},
-                {"Severity", sev},
-                {"Created", timestamp},
-                {"Message", message},
-                {"MessageId", messageId},
-                {"MessageArgs", msgArgs},
-                {"Resolution", res},
-                {"Resolved", resolved}};
+    // Create the new JSON object with message registry format
+    nlohmann::json newLogEntry = {
+        {"@odata.id", odataId + id},
+        {"@odata.type", "#LogEntry." + odataTypeVer + ".LogEntry"},
+        {"Id", id},
+        {"Name", name},
+        {"EntryType", "Event"},
+        {"Severity", sev},
+        {"Created", timestamp},
+        {"Message", message},
+        {"MessageId", messageId},
+        {"MessageArgs", msgArgs},
+        {"Resolution", res},
+        {"Resolved", resolved}};
+
+    // Update the existing logEntry with new fields, preserving existing ones
+    logEntry.update(newLogEntry);
 }
 
 } // namespace message_registries
@@ -567,7 +572,7 @@ inline void dBusEventLogEntryGetAdditionalInfo(
 
     if (deviceEventData && (entry.Path != nullptr) && (entry.Id != 0U))
     {
-        asyncResp->res.jsonValue["AdditionalDataURI"] =
+        objectToFillOut["AdditionalDataURI"] =
             getLogEntryAdditionalDataURI(std::to_string(entry.Id));
     }
 

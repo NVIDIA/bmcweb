@@ -287,12 +287,6 @@ inline void oocUtil(
     }
     if (!ooc.empty())
     {
-        if (!asyncResp->res.jsonValue.contains("Members"))
-        {
-            asyncResp->res
-                .jsonValue["Links"]["OriginOfCondition"]["@odata.id"] = ooc;
-            return;
-        }
         logEntry["Links"]["OriginOfCondition"]["@odata.id"] = ooc;
     }
 }

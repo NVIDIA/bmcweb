@@ -2246,12 +2246,6 @@ inline void fillEventLogLogEntryFromPropertyMap(
         redfish::time_utils::getDateTimeUintMs(entry.Timestamp);
     objectToFillOut["Modified"] =
         redfish::time_utils::getDateTimeUintMs(entry.UpdateTimestamp);
-    if (entry.Path != nullptr)
-    {
-        objectToFillOut["AdditionalDataURI"] = boost::urls::format(
-            "/redfish/v1/Systems/{}/LogServices/EventLog/Entries/{}/attachment",
-            BMCWEB_REDFISH_SYSTEM_URI_NAME, std::to_string(entry.Id));
-    }
 
     // Nvidia Extension for RF log
     dBusEventLogEntryGetAdditionalInfo(asyncResp, entry, objectToFillOut);
