@@ -196,10 +196,10 @@ class StatusQueryHandler : public OperationHandler
                     getVdmStatus();
                     finalize();
                 },
-                [this, &errorCallback](bool, const std::string& desc,
-                                       const std::string& error) {
+                [this](bool, const std::string& desc,
+                       const std::string& error) {
                     spdmPending = false;
-                    errorCallback(false, desc, error);
+                    errCallback(false, desc, error);
                     finalize();
                 },
                 endpointFilter,
@@ -437,9 +437,9 @@ class RequestHandler : public OperationHandler
                 }
                 getSpdmRequest();
             },
-            [&errorCallback](bool critical, const std::string& desc,
-                             const std::string& error) {
-                errorCallback(critical, desc, error);
+            [this](bool critical, const std::string& desc,
+                   const std::string& error) {
+                errCallback(critical, desc, error);
             },
             endpointFilter, this->type == RequestType::DebugTokenRequest);
     }

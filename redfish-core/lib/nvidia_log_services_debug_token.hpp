@@ -457,6 +457,7 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
             {
                 op = std::make_unique<debug_token::StatusQueryHandler>(
                     resultHandler, errorHandler);
+                return;
             }
             if (type == debug_token::RequestType::DebugTokenRequest)
             {
