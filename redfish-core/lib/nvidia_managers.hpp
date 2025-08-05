@@ -1633,7 +1633,7 @@ inline void extendManagerOEM(
 
     if constexpr (BMCWEB_HOST_OS_FEATURES)
     {
-        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+        if constexpr (BMCWEB_NVIDIA_OEM_COMMON_PROPERTIES)
         {
             oemNvidia["@odata.id"] =
                 "/redfish/v1/Managers/" +
