@@ -98,7 +98,7 @@ class NvEvent
     const registries::Message* registryMsg;
 
   public:
-    NvEvent(const std::string& msgId) :
+    explicit NvEvent(const std::string& msgId) :
         messageId(msgId),
         registryMsg(redfish::registries::getMessage(messageId))
     {
