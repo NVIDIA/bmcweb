@@ -28,8 +28,6 @@
 namespace redfish
 {
 
-namespace fs = std::filesystem;
-
 using GetManagedPropertyType =
     boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
 
