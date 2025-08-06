@@ -51,9 +51,9 @@ inline void afterGetPowerStateGroupProperties(
 
     std::string name;
     std::string pscId;
-    uint64_t generatedWatts;
-    uint64_t numOfPscs;
-    uint64_t numOfPsus;
+    uint64_t generatedWatts = 0;
+    uint64_t numOfPscs = 0;
+    uint64_t numOfPsus = 0;
     sdbusplus::message::object_path pscsDbusPath;
     sdbusplus::message::object_path psusDbusPath;
 

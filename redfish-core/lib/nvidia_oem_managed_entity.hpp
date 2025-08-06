@@ -52,7 +52,7 @@ inline void afterGetManagedEntityProperties(
     std::string protocol;
     std::string ipv4Address;
     std::string ipv6Address;
-    uint64_t port;
+    uint64_t port = 0;
 
     // clang-format off
     bool success = sdbusplus::unpackPropertiesNoThrow(

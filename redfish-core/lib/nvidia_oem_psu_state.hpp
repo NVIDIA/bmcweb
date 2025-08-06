@@ -48,9 +48,9 @@ inline void afterGetPsuStateProperties(
 
     std::string name;
     std::string psuId;
-    bool presence;
-    bool input1Active;
-    bool input2Active;
+    bool presence = false;
+    bool input1Active = false;
+    bool input2Active = false;
 
     // clang-format off
     bool success = sdbusplus::unpackPropertiesNoThrow(

@@ -998,7 +998,7 @@ inline void getOemCBCChassisAsset(
                 return;
             }
 
-            std::array<uint8_t, trayTopologyByteLength> byteArray;
+            std::array<uint8_t, trayTopologyByteLength> byteArray{};
             for (size_t i = 0; i < trayTopologyByteLength; i++)
             {
                 byteArray[i] = static_cast<uint8_t>(

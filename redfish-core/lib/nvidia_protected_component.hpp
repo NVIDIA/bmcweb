@@ -97,7 +97,7 @@ static inline bool stringToInt(const std::string& str, int& number)
 {
     try
     {
-        size_t pos;
+        size_t pos = 0;
         number = std::stoi(str, &pos);
         if (pos != str.size())
         {
@@ -318,7 +318,7 @@ inline void handleNvidiaRoTImageSlot(
         return;
     }
 
-    int slotNum;
+    int slotNum = 0;
     if (!stringToInt(slotNumStr, slotNum) || (slotNum > 1))
     {
         messages::resourceNotFound(asyncResp->res, "SlotNumber", slotNumStr);
@@ -1669,7 +1669,7 @@ inline void handleSetIrreversibleConfigAction(
     {
         return;
     }
-    bool state;
+    bool state = false;
     if (requestType == "Enable")
     {
         state = true;
@@ -1898,7 +1898,7 @@ inline void handleUpdateMinSecVersionAction(
     {
         return;
     }
-    uint64_t nonce;
+    uint64_t nonce = 0;
     try
     {
         nonce = std::stoull(nonceStr, nullptr, 16);
@@ -1911,7 +1911,7 @@ inline void handleUpdateMinSecVersionAction(
         return;
     }
     std::string requestType;
-    uint16_t reqMinSecVersion;
+    uint16_t reqMinSecVersion = 0;
     if (minSecVersion)
     {
         requestType = std::format("{}.RequestTypes.SpecifiedValue",
@@ -2134,7 +2134,7 @@ inline void handleRevokeKeysAction(
     {
         return;
     }
-    uint64_t nonce;
+    uint64_t nonce = 0;
     try
     {
         nonce = std::stoull(nonceStr, nullptr, 16);

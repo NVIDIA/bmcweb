@@ -50,9 +50,9 @@ inline void afterGetPscStateProperties(
 
     std::string name;
     std::string pscId;
-    uint64_t numOfOperationalPsus;
-    bool powerBrakeAssert;
-    uint64_t msSinceLastHeartbeat;
+    uint64_t numOfOperationalPsus = 0;
+    bool powerBrakeAssert = false;
+    uint64_t msSinceLastHeartbeat = 0;
     std::string status;
 
     // clang-format off

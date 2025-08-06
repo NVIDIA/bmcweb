@@ -170,7 +170,7 @@ enum class VdmTokenProcessingStatus
  */
 static VdmTokenInstallationStatus getTokenInstallationStatus(uint8_t arg)
 {
-    VdmTokenInstallationStatus ret;
+    VdmTokenInstallationStatus ret = VdmTokenInstallationStatus::INVALID;
     if (arg == static_cast<uint8_t>(VdmTokenInstallationStatus::NOT_INSTALLED))
     {
         ret = VdmTokenInstallationStatus::NOT_INSTALLED;
@@ -206,20 +206,15 @@ static void tokenInstallationStatusToJson(const VdmTokenInstallationStatus& arg,
  */
 static VdmTokenFuseType getTokenFuseType(uint8_t arg)
 {
-    VdmTokenFuseType ret;
     if (arg == static_cast<uint8_t>(VdmTokenFuseType::DEBUG))
     {
-        ret = VdmTokenFuseType::DEBUG;
+        return VdmTokenFuseType::DEBUG;
     }
-    else if (arg == static_cast<uint8_t>(VdmTokenFuseType::PRODUCTION))
+    if (arg == static_cast<uint8_t>(VdmTokenFuseType::PRODUCTION))
     {
-        ret = VdmTokenFuseType::PRODUCTION;
+        return VdmTokenFuseType::PRODUCTION;
     }
-    else
-    {
-        ret = VdmTokenFuseType::INVALID;
-    }
-    return ret;
+    return VdmTokenFuseType::INVALID;
 }
 
 /**
@@ -253,7 +248,7 @@ static void tokenFuseTypeToJson(const VdmTokenFuseType& type,
  */
 static VdmDeviceType getDeviceType(uint16_t arg)
 {
-    VdmDeviceType ret;
+    VdmDeviceType ret = VdmDeviceType::INVALID;
     if (arg == static_cast<uint16_t>(VdmDeviceType::EROT))
     {
         ret = VdmDeviceType::EROT;
@@ -389,7 +384,7 @@ static void mcuTokenTypeToJson(const uint32_t& type, nlohmann::json& jsonObj)
  */
 static VdmTokenLifecycle getTokenLifecycle(uint16_t tokenConfig)
 {
-    VdmTokenLifecycle ret;
+    VdmTokenLifecycle ret = VdmTokenLifecycle::INVALID;
     if ((tokenConfig & static_cast<uint16_t>(VdmTokenLifecycle::TEMPORAL)) != 0)
     {
         ret = VdmTokenLifecycle::TEMPORAL;
@@ -422,16 +417,11 @@ static void tokenLifecycleToJson(const VdmTokenLifecycle& arg,
  */
 static VdmTokenActivation getTokenActivation(uint16_t tokenConfig)
 {
-    VdmTokenActivation ret;
     if ((tokenConfig & static_cast<uint16_t>(VdmTokenActivation::MANUAL)) != 0)
     {
-        ret = VdmTokenActivation::MANUAL;
+        return VdmTokenActivation::MANUAL;
     }
-    else
-    {
-        ret = VdmTokenActivation::ON_BOOT;
-    }
-    return ret;
+    return VdmTokenActivation::ON_BOOT;
 }
 
 /**
@@ -455,17 +445,12 @@ static void tokenActivationToJson(const VdmTokenActivation& arg,
  */
 static VdmTokenRevocation getTokenRevocation(uint16_t tokenConfig)
 {
-    VdmTokenRevocation ret;
     if ((tokenConfig & static_cast<uint16_t>(VdmTokenRevocation::AUTOMATIC)) !=
         0)
     {
-        ret = VdmTokenRevocation::AUTOMATIC;
+        return VdmTokenRevocation::AUTOMATIC;
     }
-    else
-    {
-        ret = VdmTokenRevocation::MANUAL;
-    }
-    return ret;
+    return VdmTokenRevocation::MANUAL;
 }
 
 /**
@@ -489,17 +474,12 @@ static void tokenRevocationToJson(const VdmTokenRevocation& arg,
  */
 static VdmTokenDevIdStatus getTokenDevIdStatus(uint16_t tokenConfig)
 {
-    VdmTokenDevIdStatus ret;
     if ((tokenConfig & static_cast<uint16_t>(VdmTokenDevIdStatus::ENABLED)) !=
         0)
     {
-        ret = VdmTokenDevIdStatus::ENABLED;
+        return VdmTokenDevIdStatus::ENABLED;
     }
-    else
-    {
-        ret = VdmTokenDevIdStatus::DISABLED;
-    }
-    return ret;
+    return VdmTokenDevIdStatus::DISABLED;
 }
 
 /**
@@ -523,17 +503,12 @@ static void tokenDevIdStatusToJson(const VdmTokenDevIdStatus& arg,
  */
 static VdmTokenAntiReplay getTokenAntiReplay(uint16_t tokenConfig)
 {
-    VdmTokenAntiReplay ret;
     if ((tokenConfig &
          static_cast<uint16_t>(VdmTokenAntiReplay::NONCE_ENABLED)) != 0)
     {
-        ret = VdmTokenAntiReplay::NONCE_ENABLED;
+        return VdmTokenAntiReplay::NONCE_ENABLED;
     }
-    else
-    {
-        ret = VdmTokenAntiReplay::NONCE_DISABLED;
-    }
-    return ret;
+    return VdmTokenAntiReplay::NONCE_DISABLED;
 }
 
 /**
@@ -558,17 +533,12 @@ static void tokenAntiReplayToJson(const VdmTokenAntiReplay& arg,
  */
 static VdmTokenResetPostInstall getTokenResetPostInstall(uint16_t tokenConfig)
 {
-    VdmTokenResetPostInstall ret;
     if ((tokenConfig &
          static_cast<uint16_t>(VdmTokenResetPostInstall::MANDATED)) != 0)
     {
-        ret = VdmTokenResetPostInstall::MANDATED;
+        return VdmTokenResetPostInstall::MANDATED;
     }
-    else
-    {
-        ret = VdmTokenResetPostInstall::NOT_MANDATED;
-    }
-    return ret;
+    return VdmTokenResetPostInstall::NOT_MANDATED;
 }
 
 /**
@@ -592,30 +562,24 @@ static void tokenResetPostInstallToJson(const VdmTokenResetPostInstall& arg,
  */
 static VdmTokenProcessingStatus getTokenProcessingStatus(uint16_t arg)
 {
-    VdmTokenProcessingStatus ret;
     if (arg == static_cast<uint16_t>(VdmTokenProcessingStatus::NOT_PROCESSED))
     {
-        ret = VdmTokenProcessingStatus::NOT_PROCESSED;
+        return VdmTokenProcessingStatus::NOT_PROCESSED;
     }
-    else if (arg == static_cast<uint16_t>(VdmTokenProcessingStatus::PROCESSED))
+    if (arg == static_cast<uint16_t>(VdmTokenProcessingStatus::PROCESSED))
     {
-        ret = VdmTokenProcessingStatus::PROCESSED;
+        return VdmTokenProcessingStatus::PROCESSED;
     }
-    else if (arg == static_cast<uint16_t>(
-                        VdmTokenProcessingStatus::VERIFICATION_FAILURE))
+    if (arg ==
+        static_cast<uint16_t>(VdmTokenProcessingStatus::VERIFICATION_FAILURE))
     {
-        ret = VdmTokenProcessingStatus::VERIFICATION_FAILURE;
+        return VdmTokenProcessingStatus::VERIFICATION_FAILURE;
     }
-    else if (arg ==
-             static_cast<uint16_t>(VdmTokenProcessingStatus::RUNTIME_ERROR))
+    if (arg == static_cast<uint16_t>(VdmTokenProcessingStatus::RUNTIME_ERROR))
     {
-        ret = VdmTokenProcessingStatus::RUNTIME_ERROR;
+        return VdmTokenProcessingStatus::RUNTIME_ERROR;
     }
-    else
-    {
-        ret = VdmTokenProcessingStatus::INVALID;
-    }
-    return ret;
+    return VdmTokenProcessingStatus::INVALID;
 }
 
 /**
@@ -911,8 +875,8 @@ inline std::map<int, VdmTokenStatus> parseVdmUtilWrapperOutput(
             BMCWEB_LOG_ERROR("Invalid data: ", line);
             continue;
         }
-        int eid;
-        int version;
+        int eid = 0;
+        int version = 0;
         try
         {
             eid = std::stoi(lineElements[vdmUtilWrapperOutputEidIndex]);

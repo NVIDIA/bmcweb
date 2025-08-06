@@ -477,7 +477,7 @@ class RequestHandler : public OperationHandler
 
     bool nsmPending{true};
 
-    uint8_t typeToMeasurementIndex(RequestType reqType)
+    static uint8_t typeToMeasurementIndex(RequestType reqType)
     {
         static const std::map<RequestType, uint8_t> indexMap{
             {RequestType::DebugTokenRequest, 50},
@@ -489,7 +489,7 @@ class RequestHandler : public OperationHandler
         return indexMap.at(reqType);
     }
 
-    bool isEndpointRequestPending(EndpointState state)
+    static bool isEndpointRequestPending(EndpointState state)
     {
         return state == EndpointState::StatusAcquired ||
                state == EndpointState::TokenInstalled;
