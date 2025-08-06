@@ -142,7 +142,8 @@ static inline void getSubTreeHandler(
     const boost::system::error_code& ec,
     const dbus::utility::MapperGetSubTreeResponse& subtree)
 {
-    std::string path, service;
+    std::string path;
+    std::string service;
     if (ec)
     {
         BMCWEB_LOG_ERROR("getSubTree error: {}", ec.message());

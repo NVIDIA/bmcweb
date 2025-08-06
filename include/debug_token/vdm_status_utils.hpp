@@ -910,7 +910,8 @@ inline std::map<int, VdmTokenStatus> parseVdmUtilWrapperOutput(
             BMCWEB_LOG_ERROR("Invalid data: ", line);
             continue;
         }
-        int eid, version;
+        int eid;
+        int version;
         try
         {
             eid = std::stoi(lineElements[vdmUtilWrapperOutputEidIndex]);

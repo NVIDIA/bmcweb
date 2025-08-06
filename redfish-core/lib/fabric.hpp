@@ -3039,7 +3039,10 @@ inline void getProcessorPCIeDeviceData(
             }
             // Get the device data from single function
             const std::string& function = "0";
-            std::string deviceId, vendorId, subsystemId, subsystemVendorId;
+            std::string deviceId;
+            std::string vendorId;
+            std::string subsystemId;
+            std::string subsystemVendorId;
             for (const auto& property : pcieDevProperties)
             {
                 const std::string& propertyName = property.first;

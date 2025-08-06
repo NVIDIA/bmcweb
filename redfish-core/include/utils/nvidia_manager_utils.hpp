@@ -472,8 +472,11 @@ inline void requestRouteNSMRawCommand(App& app)
                     return;
                 }
 
-                uint8_t deviceIdentificationId = 0, deviceRoleId = 0,
-                        deviceInstanceId = 0, messageType = 0, commandCode = 0;
+                uint8_t deviceIdentificationId = 0;
+                uint8_t deviceRoleId = 0;
+                uint8_t deviceInstanceId = 0;
+                uint8_t messageType = 0;
+                uint8_t commandCode = 0;
                 uint16_t dataSizeInBytes = 0;
                 bool isLongRunning = false;
                 std::vector<uint8_t> data;
