@@ -850,7 +850,7 @@ class EventServiceManager
         }
         sdbusplus::message::object_path objPath(path);
         std::string deviceName = objPath.filename();
-        if (false == deviceName.empty())
+        if (!deviceName.empty())
         {
             for (auto& it : origin_utils::dBusToRedfishURI)
             {

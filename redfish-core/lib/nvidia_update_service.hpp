@@ -1908,7 +1908,7 @@ inline void forwardImage(
                 const std::string urlPrefix =
                     std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX);
                 // individual components update
-                if (targets && updateAll == false)
+                if (targets && !updateAll)
                 {
                     paramJson["Targets"] = nlohmann::json::array();
 

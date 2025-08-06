@@ -3581,7 +3581,7 @@ inline void handleComputerSystemResetActionPost(
     {
         redfish::nvidia_systems_utils::getChassisNMIStatus(
             [asyncResp, resetType](bool isEnabledNmi) {
-                if (isEnabledNmi == true)
+                if (isEnabledNmi)
                 {
                     doNMI(asyncResp);
                 }
@@ -4598,7 +4598,7 @@ inline void handleSystemCollectionResetActionGet(
             // Check Nmi support status
             redfish::nvidia_systems_utils::getChassisNMIStatus(
                 [asyncResp](bool isEnabledNmi) {
-                    if (isEnabledNmi == true)
+                    if (isEnabledNmi)
                     {
                         // Add 'Nmi' into AllowableValues if it's enabled
                         auto& parameters =

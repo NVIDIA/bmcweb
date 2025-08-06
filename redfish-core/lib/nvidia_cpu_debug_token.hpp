@@ -88,8 +88,7 @@ inline void getCpuObjectPath(
                     }
                 }
                 if (enabled != nullptr && capabilities != nullptr &&
-                    *enabled == false &&
-                    (*capabilities & spdmCertCapability) == 0)
+                    !*enabled && (*capabilities & spdmCertCapability) == 0)
                 {
                     callback(ec, objectPath.str);
                     return;

@@ -85,7 +85,7 @@ inline void isRedfishHostInterfaceUser(const std::string& username,
             auto found = std::find_if(
                 userGroupPtr->begin(), userGroupPtr->end(),
                 [](const auto& group) {
-                    return (group == "redfish-hostiface") ? true : false;
+                    return static_cast<bool>(group == "redfish-hostiface");
                 });
             if (found == userGroupPtr->end())
             {

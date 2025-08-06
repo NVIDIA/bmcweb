@@ -1956,7 +1956,7 @@ inline void getMNNVLinkTopologyInfo(
                     *traySerialNumber;
             }
 
-            if (systemGUID != nullptr && systemGUID->empty() == false)
+            if (systemGUID != nullptr && !systemGUID->empty())
             {
                 json["Oem"]["Nvidia"]["MNNVLinkTopology"]["SystemGUID"] =
                     *systemGUID;

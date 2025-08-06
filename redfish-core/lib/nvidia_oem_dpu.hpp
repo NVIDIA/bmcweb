@@ -992,7 +992,7 @@ inline void handleTruststoreCertificatesCollectionPost(
                 return;
             }
 
-            if (isBios == false)
+            if (!isBios)
             {
                 createPendingRequest(std::move(payload), asyncResp);
                 return;

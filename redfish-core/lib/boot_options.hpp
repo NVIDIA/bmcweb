@@ -252,7 +252,7 @@ inline void handleBootOptionCollectionPost(
         [newBootOptionReference, newBootOptionEnabled, optBootOptionDescription,
          optBootOptionDisplayName, optBootOptionUefiDevicePath,
          aResp](const boost::system::error_code ec, const bool isBios) {
-            if (ec || isBios == false)
+            if (ec || !isBios)
             {
                 messages::insufficientPrivilege(aResp->res);
                 return;
@@ -439,7 +439,7 @@ inline void handleBootOptionPatch(
         req.session->username,
         [newBootOptionEnabled, aResp, bootOptionName](
             const boost::system::error_code ec, const bool isBios) {
-            if (ec || isBios == false)
+            if (ec || !isBios)
             {
                 messages::insufficientPrivilege(aResp->res);
                 return;
@@ -480,7 +480,7 @@ inline void handleBootOptionDelete(
         req.session->username,
         [aResp, bootOptionName](const boost::system::error_code& ec,
                                 const bool isBios) {
-            if (ec || isBios == false)
+            if (ec || !isBios)
             {
                 messages::insufficientPrivilege(aResp->res);
                 return;

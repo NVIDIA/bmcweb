@@ -721,7 +721,7 @@ inline void handleEROTChassisPatch(
     {
         if (manualBootModeEnabled.has_value())
         {
-            if (isCpuEROT == false)
+            if (!isCpuEROT)
             {
                 messages::actionNotSupported(asyncResp->res,
                                              "ERoT manualBootModeEnabled");
@@ -1284,7 +1284,7 @@ inline void handleEROTChassisResetAction(
             }
 
             /* Couldn't find an object with that name. Return an error */
-            if (chassisIdFound == false)
+            if (!chassisIdFound)
             {
                 messages::resourceNotFound(
                     asyncResp->res, "#Chassis.v1_17_0.Chassis", chassisId);

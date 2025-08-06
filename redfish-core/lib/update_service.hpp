@@ -1703,7 +1703,7 @@ inline void processMultipartFormData(
             }
         }
         // the update request is for BMC so only allow one FW update at a time
-        if (fwUpdateInProgress != false)
+        if (fwUpdateInProgress)
         {
             if (asyncResp)
             {
@@ -1992,7 +1992,7 @@ inline void handleUpdateServiceFirmwareInventoryGet(
                      obj : subtree)
             {
                 sdbusplus::message::object_path objPath(obj.first);
-                if (boost::equals(objPath.filename(), *swId) != true)
+                if (!boost::equals(objPath.filename(), *swId))
                 {
                     continue;
                 }

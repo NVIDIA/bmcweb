@@ -816,7 +816,7 @@ inline void handleChassisGetSubTree(
                     redfish::nvidia_chassis_utils::checkIndicatorChassis(
                         connectionName, path,
                         [asyncResp](bool indicatorChassis) {
-                            if (indicatorChassis == true)
+                            if (indicatorChassis)
                             {
                                 getIndicatorLedState(asyncResp);
                                 getSystemLocationIndicatorActive(asyncResp);

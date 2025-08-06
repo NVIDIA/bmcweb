@@ -56,11 +56,11 @@ inline nvidia_network_protocol::ClientStatus dbusToClientStatus(
 
 inline nvidia_network_protocol::TLSStatus dbusToTLSStatus(const bool& tlsState)
 {
-    if (tlsState == true)
+    if (tlsState)
     {
         return nvidia_network_protocol::TLSStatus::Enabled;
     }
-    if (tlsState == false)
+    if (!tlsState)
     {
         return nvidia_network_protocol::TLSStatus::Disabled;
     }

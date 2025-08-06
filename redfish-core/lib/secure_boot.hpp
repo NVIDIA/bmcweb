@@ -168,7 +168,7 @@ inline void handleSecureBootPatch(
                                                                             ec,
                                                                 const bool
                                                                     isBios) {
-        if (ec || isBios == false)
+        if (ec || !isBios)
         {
             if (secureBootMode || secureBootCurrentBoot)
             {

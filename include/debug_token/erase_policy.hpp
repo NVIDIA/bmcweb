@@ -56,7 +56,7 @@ static inline void dbusGetHandler(
         return;
     }
     std::string policyStr = policy.substr(policy.find_last_of('.') + 1);
-    bool automatic = policyStr == "Automatic" ? true : false;
+    bool automatic = policyStr == "Automatic";
     callback(automatic);
 }
 

@@ -3126,7 +3126,7 @@ inline void getProcessorEndpointHealth(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    if (*isPresent == false)
+                    if (!*isPresent)
                     {
                         aResp->res.jsonValue["Status"]["State"] = "Absent";
                     }
@@ -3140,7 +3140,7 @@ inline void getProcessorEndpointHealth(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    if (*isFunctional == false)
+                    if (!*isFunctional)
                     {
                         aResp->res.jsonValue["Status"]["Health"] = "Critical";
                     }

@@ -211,7 +211,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                                 path, std::array<const char*, 0>());
                             isFoundSwitchObject = true;
                         }
-                        if (isFoundSwitchObject == false)
+                        if (!isFoundSwitchObject)
                         {
                             messages::resourceNotFound(resp->res, "Switch",
                                                        switchId);
@@ -224,7 +224,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
                 isFoundFabricObject = true;
             }
-            if (isFoundFabricObject == false)
+            if (!isFoundFabricObject)
             {
                 messages::resourceNotFound(resp->res, "Fabric", fabricId);
             }
