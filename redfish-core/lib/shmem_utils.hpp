@@ -45,8 +45,8 @@ struct MetricsReplacement
     // clang-format off
     MetricsReplacement(std::string_view search, std::string_view pattern,
                        std::string_view name, bool enabled = false) :
-        searchPattern(search), wildcardPattern(pattern),
-        wildcardName(name), isEnabled(enabled)
+        searchPattern(std::move(search)), wildcardPattern(std::move(pattern)),
+        wildcardName(std::move(name)), isEnabled(enabled)
     {}
     // clang-format on
 };
@@ -135,49 +135,49 @@ inline void getShmemPlatformMetrics(
     }
 }
 
-constexpr const char* metricReportDefinitionUri =
+constexpr const std::string_view metricReportDefinitionUri =
     "/redfish/v1/TelemetryService/MetricReportDefinitions";
 
-constexpr const char* metricReportUri =
+constexpr const std::string_view metricReportUri =
     "/redfish/v1/TelemetryService/MetricReports";
 
-constexpr const char* gpuPrefix(platformGpuNamePrefix);
-constexpr const char* platformDevicePrefix(PLATFORMDEVICEPREFIX);
-constexpr const char* platformChassisName(PLATFORMCHASSISNAME);
-constexpr const char* chassisName = platformDevicePrefix + "Chassis_";
-constexpr const char* fpgaChassiName = platformDevicePrefix + "FPGA_";
-constexpr const char* gpuName = platformDevicePrefix + gpuPrefix;
-constexpr const char* nvSwitch = "NVSwitch_";
-constexpr const char* pcieRetimer = platformDevicePrefix + "PCIeRetimer_";
-constexpr const char* pcieSwtich = platformDevicePrefix + "PCIeSwitch_";
-constexpr const char* processorModule =
+const static std::string gpuPrefix(platformGpuNamePrefix);
+constexpr const std::string_view platformChassisName(PLATFORMCHASSISNAME);
+const static std::string platformDevicePrefix(PLATFORMDEVICEPREFIX);
+const static std::string chassisName = platformDevicePrefix + "Chassis_";
+const static std::string fpgaChassiName = platformDevicePrefix + "FPGA_";
+const static std::string gpuName = platformDevicePrefix + gpuPrefix;
+const static std::string nvSwitch = platformDevicePrefix + "NVSwitch_";
+const static std::string pcieRetimer = platformDevicePrefix + "PCIeRetimer_";
+const static std::string pcieSwtich = platformDevicePrefix + "PCIeSwitch_";
+const static std::string processorModule =
     platformDevicePrefix + "ProcessorModule_";
-constexpr const char* cpu = platformDevicePrefix + "CPU_";
-constexpr const char* nvLink = "NVLink_";
-constexpr const char* cpuProcessor = "CPU_";
-constexpr const char* processor = "ProcessorModule_";
-constexpr const char* pcieLink = "PCIeLink_";
-constexpr const char* cpuCore = "CoreUtil_";
-constexpr const char* networkAdapter(NETWORKADAPTERPREFIX);
-constexpr const char* networkAdapterLink(NETWORKADAPTERLINKPREFIX);
-constexpr const char* gpmInstances = "UtilizationPercent/";
-constexpr const char* nvLinkManagementNIC = "NIC_";
-constexpr const char* nvLinkManagementNICPort = "Port_";
-constexpr const char* retimer = "PCIeRetimer_";
-constexpr const char* ioBoard = "IO_Board_";
-constexpr const char* pdb = "PDB_";
-constexpr const char* blueField = "Riser_Slot";
-constexpr const char* blueFieldSensor = "BF3_Slot_";
-constexpr const char* storageBP = "StorageBackplane_";
-constexpr const char* storageDevice = "SSD_";
-constexpr const char* networkAdapterConnectX = "ConnectX_";
-constexpr const char* inlet = "Chassis_0_Inlet_";
-constexpr const char* pcb = "Chassis_0_PCB_";
-constexpr const char* hsc = "Chassis_0_HSC_";
-constexpr const char* sxm = "GPU_SXM_";
-constexpr const char* sxmSma = "SXM_SMA_";
-constexpr const char* cxSma = "ConnectX_SMA_";
-constexpr const char* gpuTemp = "GPU_\\d+_TEMP_";
+const static std::string cpu = platformDevicePrefix + "CPU_";
+constexpr const std::string_view nvLink = "NVLink_";
+constexpr const std::string_view cpuProcessor = "CPU_";
+constexpr const std::string_view processor = "ProcessorModule_";
+constexpr const std::string_view pcieLink = "PCIeLink_";
+constexpr const std::string_view cpuCore = "CoreUtil_";
+constexpr const std::string_view networkAdapter(NETWORKADAPTERPREFIX);
+constexpr const std::string_view networkAdapterLink(NETWORKADAPTERLINKPREFIX);
+constexpr const std::string_view gpmInstances = "UtilizationPercent/";
+constexpr const std::string_view nvLinkManagementNIC = "NIC_";
+constexpr const std::string_view nvLinkManagementNICPort = "Port_";
+constexpr const std::string_view retimer = "PCIeRetimer_";
+constexpr const std::string_view ioBoard = "IO_Board_";
+constexpr const std::string_view pdb = "PDB_";
+constexpr const std::string_view blueField = "Riser_Slot";
+constexpr const std::string_view blueFieldSensor = "BF3_Slot_";
+constexpr const std::string_view storageBP = "StorageBackplane_";
+constexpr const std::string_view storageDevice = "SSD_";
+constexpr const std::string_view networkAdapterConnectX = "ConnectX_";
+constexpr const std::string_view inlet = "Chassis_0_Inlet_";
+constexpr const std::string_view pcb = "Chassis_0_PCB_";
+constexpr const std::string_view hsc = "Chassis_0_HSC_";
+constexpr const std::string_view sxm = "GPU_SXM_";
+constexpr const std::string_view sxmSma = "SXM_SMA_";
+constexpr const std::string_view cxSma = "ConnectX_SMA_";
+constexpr const std::string_view gpuTemp = "GPU_\\d+_TEMP_";
 
 // Add inline to prevent multiple definition errors
 inline const MetricsReplacement chassisPlatformEnvironmentMetrics(
@@ -322,7 +322,7 @@ inline void metricsReplacementsNonPlatformMetrics(
         {
             if (allowNVSwitchId)
             {
-                std::regex switchPattern(nvSwitch + "(\\d+)");
+                std::regex switchPattern(std::string(nvSwitch) + "(\\d+)");
                 if (std::regex_search(property, match, switchPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -331,7 +331,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             }
             if (allowNvlinkId)
             {
-                std::regex nvLinkPattern(nvLink + "(\\d+)");
+                std::regex nvLinkPattern(std::string(nvLink) + "(\\d+)");
                 if (std::regex_search(property, match, nvLinkPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -343,7 +343,7 @@ inline void metricsReplacementsNonPlatformMetrics(
         {
             if (allowNVSwitchId)
             {
-                std::regex switchPattern(nvSwitch + "(\\d+)");
+                std::regex switchPattern(std::string(nvSwitch) + "(\\d+)");
                 if (std::regex_search(property, match, switchPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -355,7 +355,7 @@ inline void metricsReplacementsNonPlatformMetrics(
         {
             if (allowRetimerId)
             {
-                std::regex retimerPattern(retimer + "(\\d+)");
+                std::regex retimerPattern(std::string(retimer) + "(\\d+)");
                 if (std::regex_search(property, match, retimerPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -371,7 +371,7 @@ inline void metricsReplacementsNonPlatformMetrics(
         {
             if (allowGpuId)
             {
-                std::regex gpuPattern(gpuPrefix + "(\\d+)");
+                std::regex gpuPattern(std::string(gpuPrefix) + "(\\d+)");
                 if (std::regex_search(property, match, gpuPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -383,7 +383,8 @@ inline void metricsReplacementsNonPlatformMetrics(
         {
             if (allowInstanceId)
             {
-                std::regex gpmInstancePattern(gpmInstances + "(\\d+)");
+                std::regex gpmInstancePattern(
+                    std::string(gpmInstances) + "(\\d+)");
                 if (std::regex_search(property, match, gpmInstancePattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -396,7 +397,7 @@ inline void metricsReplacementsNonPlatformMetrics(
         {
             if (allowNvlinkId)
             {
-                std::regex nvLinkPattern(nvLink + "(\\d+)");
+                std::regex nvLinkPattern(std::string(nvLink) + "(\\d+)");
                 if (std::regex_search(property, match, nvLinkPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -408,7 +409,8 @@ inline void metricsReplacementsNonPlatformMetrics(
         {
             if (allowNetworkAdapterNId)
             {
-                std::regex networkAdapterPattern(networkAdapter + "(\\d+)");
+                std::regex networkAdapterPattern(
+                    std::string(networkAdapter) + "(\\d+)");
                 if (std::regex_search(property, match, networkAdapterPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -418,7 +420,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowNvlinkId)
             {
                 std::regex nvLinkManagementPattern(
-                    networkAdapterLink + "(\\d+)");
+                    std::string(networkAdapterLink) + "(\\d+)");
                 if (std::regex_search(property, match, nvLinkManagementPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -428,7 +430,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             if (allowNetworkAdapterCXId)
             {
                 std::regex networkAdapterPattern(
-                    networkAdapterConnectX + "(\\d+)");
+                    std::string(networkAdapterConnectX) + "(\\d+)");
                 if (std::regex_search(property, match, networkAdapterPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -440,7 +442,7 @@ inline void metricsReplacementsNonPlatformMetrics(
         {
             if (allowRetimerId)
             {
-                std::regex pcieRetimerPattern(retimer + "(\\d+)");
+                std::regex pcieRetimerPattern(std::string(retimer) + "(\\d+)");
                 if (std::regex_search(property, match, pcieRetimerPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -465,7 +467,8 @@ inline void metricsReplacementsNonPlatformMetrics(
         {
             if (allowCpuId)
             {
-                std::regex cpuProcessorPattern(cpuProcessor + "(\\d+)");
+                std::regex cpuProcessorPattern(
+                    std::string(cpuProcessor) + "(\\d+)");
                 if (std::regex_search(property, match, cpuProcessorPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -474,7 +477,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             }
             if (allowProcessorId)
             {
-                std::regex processorPattern(processor + "(\\d+)");
+                std::regex processorPattern(std::string(processor) + "(\\d+)");
                 if (std::regex_search(property, match, processorPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -483,7 +486,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             }
             if (allowCoreId)
             {
-                std::regex cpuCorePattern(cpuCore + "(\\d+)");
+                std::regex cpuCorePattern(std::string(cpuCore) + "(\\d+)");
                 if (std::regex_search(property, match, cpuCorePattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -492,7 +495,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             }
             if (allowNvlinkId)
             {
-                std::regex nvLinkPattern(nvLink + "(\\d+)");
+                std::regex nvLinkPattern(std::string(nvLink) + "(\\d+)");
                 if (std::regex_search(property, match, nvLinkPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -501,7 +504,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             }
             if (allowPCIeLinkId)
             {
-                std::regex pcieLinkPattern(pcieLink + "(\\d+)");
+                std::regex pcieLinkPattern(std::string(pcieLink) + "(\\d+)");
                 if (std::regex_search(property, match, pcieLinkPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -513,7 +516,8 @@ inline void metricsReplacementsNonPlatformMetrics(
         {
             if (allowCpuId)
             {
-                std::regex cpuProcessorPattern(cpuProcessor + "(\\d+)");
+                std::regex cpuProcessorPattern(
+                    std::string(cpuProcessor) + "(\\d+)");
                 if (std::regex_search(property, match, cpuProcessorPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -522,7 +526,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             }
             if (allowGpuId)
             {
-                std::regex gpuPattern(gpuPrefix + "(\\d+)");
+                std::regex gpuPattern(std::string(gpuPrefix) + "(\\d+)");
                 if (std::regex_search(property, match, gpuPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -531,7 +535,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             }
             if (allowRetimerId)
             {
-                std::regex pcieRetimerPattern(retimer + "(\\d+)");
+                std::regex pcieRetimerPattern(std::string(retimer) + "(\\d+)");
                 if (std::regex_search(property, match, pcieRetimerPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -540,7 +544,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             }
             if (allowNVSwitchId)
             {
-                std::regex switchPattern(nvSwitch + "(\\d+)");
+                std::regex switchPattern(std::string(nvSwitch) + "(\\d+)");
                 if (std::regex_search(property, match, switchPattern))
                 {
                     int number = std::stoi(match[1].str());

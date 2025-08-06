@@ -93,9 +93,10 @@ inline void getOEMDiagnosticAllowableValues(const std::string& dumpType,
         *crow::connections::systemBus, "xyz.openbmc_project.Dump.Manager",
         "/xyz/openbmc_project/dump/oem_allowable_values",
         "com.nvidia.Dump.AllowableValues", "OEMDataTypeAllowableValues",
-        [dumpType, callback](const boost::system::error_code& ec,
-                             const std::map<DumpType, std::vector<std::string>>&
-                                 oemAllowableValuesMap) {
+        [dumpType,
+         callback](const boost::system::error_code& ec,
+                   const std::map<std::string, std::vector<std::string>>&
+                       oemAllowableValuesMap) {
             if (ec)
             {
                 callback(std::vector<std::string>());
@@ -104,11 +105,8 @@ inline void getOEMDiagnosticAllowableValues(const std::string& dumpType,
 
             for (const auto& [type, oemAllowableValues] : oemAllowableValuesMap)
             {
-                std::string typeStr =
-                    AllowableValuesIface::convertDumpTypeToString(type);
-                std::string typeName = typeStr;
-                std::size_t pos = typeStr.rfind('.');
-                if (pos != std::string::npos)
+                std::string typeStr = convertDumpTypeToString(type);
+                if (typeStr.empty())
                 {
                     typeName = typeStr.substr(pos + 1);
                 }

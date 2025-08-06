@@ -79,7 +79,8 @@ enum class VdmTokenType
 enum class VdmTokenLifecycle
 {
     PERSISTENT = 0,
-    TEMPORAL = (1 << 0)
+    TEMPORAL = (1 << 0),
+    INVALID
 };
 
 enum class VdmTokenActivation
