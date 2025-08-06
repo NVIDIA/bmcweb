@@ -23,7 +23,6 @@
 #include "bmcweb_config.h"
 
 #include "async_resp.hpp"
-#include "com/nvidia/Dump/AllowableValues/server.hpp"
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "http_response.hpp"
@@ -39,10 +38,6 @@
 
 namespace redfish
 {
-
-using AllowableValuesIface = sdbusplus::server::object::object<
-    sdbusplus::com::nvidia::Dump::server::AllowableValues>;
-using DumpType = AllowableValuesIface::DumpType;
 
 inline static std::string getLogEntryDataId(const std::string& id)
 {
@@ -85,11 +80,28 @@ inline void populateBootEntryId(crow::Response& resp)
     resp.jsonValue["Oem"]["Nvidia"]["BootEntryID"] = bootEntryId;
 }
 
+inline std::string convertDumpTypeToString(std::string_view dumpType)
+{
+    if (dumpType == "com.nvidia.Dump.AllowableValues.DumpType.Manager")
+    {
+        return "Manager";
+    }
+    if (dumpType == "com.nvidia.Dump.AllowableValues.DumpType.System")
+    {
+        return "System";
+    }
+    if (dumpType == "com.nvidia.Dump.AllowableValues.DumpType.FDR")
+    {
+        return "FDR";
+    }
+    return "";
+}
+
 template <typename Callback>
 inline void getOEMDiagnosticAllowableValues(const std::string& dumpType,
                                             Callback&& callback)
 {
-    dbus::utility::getProperty<std::map<DumpType, std::vector<std::string>>>(
+    dbus::utility::getProperty<std::map<std::string, std::vector<std::string>>>(
         *crow::connections::systemBus, "xyz.openbmc_project.Dump.Manager",
         "/xyz/openbmc_project/dump/oem_allowable_values",
         "com.nvidia.Dump.AllowableValues", "OEMDataTypeAllowableValues",
@@ -108,10 +120,10 @@ inline void getOEMDiagnosticAllowableValues(const std::string& dumpType,
                 std::string typeStr = convertDumpTypeToString(type);
                 if (typeStr.empty())
                 {
-                    typeName = typeStr.substr(pos + 1);
+                    continue;
                 }
 
-                if (typeName == dumpType && !oemAllowableValues.empty())
+                if (typeStr == dumpType && !oemAllowableValues.empty())
                 {
                     callback(oemAllowableValues);
                     return;
