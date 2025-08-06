@@ -36,7 +36,7 @@ struct NsmTokenStatus
      *
      * @param dbusStatus D-Bus token status
      */
-    NsmTokenStatus(const NsmDbusTokenStatus& dbusStatus)
+    explicit NsmTokenStatus(const NsmDbusTokenStatus& dbusStatus)
     {
         // NOLINTNEXTLINE(bugprone-unused-local-non-trivial-variable)
         auto dbusTokenType = std::get<0>(dbusStatus);
