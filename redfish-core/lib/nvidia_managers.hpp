@@ -1625,11 +1625,13 @@ inline void extendManagerGet(
 inline void extendManagerOEM(
     const SubRequest& /*req*/,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& /*managerId*/)
+    const std::string& managerId)
 {
     // default oem data
     nlohmann::json& oemNvidia = asyncResp->res.jsonValue;
-    oemNvidia["@odata.type"] = "#NvidiaManager.v1_4_0.NvidiaManager";
+    oemNvidia["@odata.type"] = "#NvidiaManager.v1_6_0.NvidiaManager";
+    oemNvidia["DebugTokenManagement"]["@odata.id"] = std::format(
+        "/redfish/v1/Managers/{}/Oem/Nvidia/DebugTokenManagement", managerId);
 
     if constexpr (BMCWEB_HOST_OS_FEATURES)
     {
