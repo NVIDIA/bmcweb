@@ -58,7 +58,8 @@ enum class Operation
     DisableTokens,
     GenerateTokenRequest,
     GetTokenStatus,
-    InstallToken
+    InstallToken,
+    Invalid
 };
 
 using Argument =

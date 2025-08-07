@@ -158,7 +158,7 @@ class Handler : public std::enable_shared_from_this<Handler>
     void run(const std::vector<std::pair<std::string, std::string>>&
                  objects) /*unused*/
     {
-        single_op::Operation opType;
+        single_op::Operation opType = single_op::Operation::Invalid;
         if (op == Operation::GenerateTokenRequest)
         {
             opType = single_op::Operation::GenerateTokenRequest;
