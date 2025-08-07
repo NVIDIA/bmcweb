@@ -58,7 +58,7 @@ class evtEntry final :
              std::unordered_map<std::string, std::string>&& additionalData);
 
     /** @brief Destructor */
-    ~evtEntry();
+    ~evtEntry() override;
 
     // Delete copy and move operations
     evtEntry(const evtEntry&) = delete;
@@ -75,7 +75,7 @@ class evtEntry final :
      *       file descriptor handling. The base implementation returns 0
      *       to indicate an invalid/uninitialized file descriptor.
      */
-    auto getEntry() -> sdbusplus::message::unix_fd
+    auto getEntry() -> sdbusplus::message::unix_fd override
     {
         return 0;
     }

@@ -101,8 +101,9 @@ inline void getCpuObjectPath(
 inline void getCpuEid(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       std::function<void(uint32_t)>&& callback)
 {
-    getCpuObjectPath([asyncResp, callback](const boost::system::error_code& ec,
-                                           const std::string& path) {
+    getCpuObjectPath([asyncResp, callback = std::move(callback)](
+                         const boost::system::error_code& ec,
+                         const std::string& path) {
         if (ec || path.empty())
         {
             BMCWEB_LOG_DEBUG("Failed to find CPU object path: {}",

@@ -147,9 +147,9 @@ class StatusQueryHandler : public OperationHandler
                        bool useNsm = true)
     {
         BMCWEB_LOG_DEBUG("StatusQueryHandler constructor");
-        resCallback = resultCallback;
+        resCallback = std::move(resultCallback);
         errCallback = errorCallback;
-        getCpuObjectPath([this, errorCallback,
+        getCpuObjectPath([this, errorCallback = std::move(errorCallback),
                           endpointFilter](const boost::system::error_code&,
                                           const std::string& cpuPath) {
             mctp_utils::enumerateMctpEndpoints(
@@ -415,8 +415,8 @@ class RequestHandler : public OperationHandler
                        std::vector<std::string>()) : type(reqType)
     {
         BMCWEB_LOG_DEBUG("RequestHandler constructor");
-        resCallback = resultCallback;
-        errCallback = errorCallback;
+        resCallback = std::move(resultCallback);
+        errCallback = std::move(errorCallback);
         statusHandler = std::make_unique<StatusQueryHandler>(
             [this](const std::shared_ptr<
                    std::vector<std::unique_ptr<DebugTokenEndpoint>>>& epList) {

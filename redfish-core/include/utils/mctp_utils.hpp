@@ -242,8 +242,8 @@ inline void enumerateMctpEndpoints(
     uint64_t timeoutUs = 0)
 {
     crow::connections::systemBus->async_method_call_timed(
-        [endpointCallback{std::forward<EndpointCallback>(endpointCallback)},
-         errorCallback{std::forward<ErrorCallback>(errorCallback)},
+        [endpointCallback{std::move(endpointCallback)},
+         errorCallback{std::move(errorCallback)},
          spdmObjectFilter](const boost::system::error_code& ec,
                            const dbus::utility::GetSubTreeType& subtree) {
             const std::string desc = "SPDM / MCTP endpoint enumeration";
@@ -322,9 +322,8 @@ inline void enumerateMctpEndpoints(
     {
         filterVector.emplace_back(spdmObjectFilter);
     }
-    enumerateMctpEndpoints(std::forward<EndpointCallback>(endpointCallback),
-                           std::forward<ErrorCallback>(errorCallback),
-                           filterVector, timeoutUs);
+    enumerateMctpEndpoints(std::move(endpointCallback),
+                           std::move(errorCallback), filterVector, timeoutUs);
 }
 
 } // namespace mctp_utils

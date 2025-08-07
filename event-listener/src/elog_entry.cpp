@@ -19,7 +19,7 @@ evtEntry::evtEntry(
     severity(severityErr, true);
     timestamp(timestampErr, true);
     updateTimestamp(timestampErr, true);
-    sdbusplus::message::message(std::move(msg), true);
+    message(std::move(msg), true);
     resolution(std::move(resolutionErr), true);
     redfish::AdditionalData additional(additionalDataErr);
     std::map<std::string, std::string> dataMap;
@@ -27,7 +27,7 @@ evtEntry::evtEntry(
     {
         dataMap[key] = value;
     }
-    redfish::AdditionalData(dataMap, true);
+    additionalData(dataMap, true);
 
     EntryIfaces::emit_object_added();
 };
