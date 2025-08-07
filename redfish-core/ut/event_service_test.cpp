@@ -109,10 +109,6 @@ TEST_F(EventServiceInternalImplTest, ClassEventNegaTest)
     EXPECT_NE(event2.setCustomMsg(event2LogEntry["Message"],
                                   event2LogEntry["MessageArgs"]),
               0);
-
-    // event constructed with invalid MessageId
-    Event event3("aaa");
-    EXPECT_FALSE(event3.isValid());
 }
 
 } // namespace redfish

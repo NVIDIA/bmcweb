@@ -291,7 +291,6 @@ class NvEvent
 
   private:
     const registries::Message* registryMsg;
-    bool valid;
 
   public:
     NvEvent(const std::string& messageId) : messageId(messageId)
@@ -302,10 +301,8 @@ class NvEvent
         {
             BMCWEB_LOG_ERROR("{}", "Message not found in registry with ID: " +
                                        messageId);
-            valid = false;
             return;
         }
-        valid = true;
         messageSeverity = registryMsg->messageSeverity;
         if (registryMsg->resolution != nullptr)
         {
@@ -313,19 +310,9 @@ class NvEvent
         }
     }
 
-    bool isValid()
-    {
-        return valid;
-    }
-
     int setRegistryMsg(const std::vector<std::string>& messageArgs =
                            std::vector<std::string>{})
     {
-        if (!valid)
-        {
-            BMCWEB_LOG_ERROR("Invalid Event instance.");
-            return redfishInvalidEvent;
-        }
         if (messageArgs.size() != registryMsg->numberOfArgs)
         {
             BMCWEB_LOG_ERROR("Message argument number mismatched.");
@@ -358,11 +345,6 @@ class NvEvent
         int i = 1;
         std::string argStr;
 
-        if (!valid)
-        {
-            BMCWEB_LOG_ERROR("Invalid Event instance.");
-            return redfishInvalidEvent;
-        }
         // Fill the MessageArgs into the Message
         for (const std::string& messageArg : messageArgs)
         {
@@ -398,11 +380,6 @@ class NvEvent
     int formatEventLogEntry(nlohmann::json::object_t& eventLogEntry,
                             bool includeOriginOfCondition = true)
     {
-        if (!valid)
-        {
-            BMCWEB_LOG_ERROR("Invalid Event instance.");
-            return redfishInvalidEvent;
-        }
         eventLogEntry["MessageId"] = messageId;
         eventLogEntry["EventType"] = "Event";
         if (!actions.empty())
@@ -734,60 +711,6 @@ class Subscription : public persistent_data::UserSubscription
                                  registry);
                 BMCWEB_LOG_DEBUG("registryMsgIds has {} entries",
                                  registryMsgIds.size());
-                return false;
-            }
-        }
-
-        if (!originResources.empty())
-        {
-            auto eventJson = eventMessage.find("OriginOfCondition");
-            if (eventJson == eventMessage.end())
-            {
-                return false;
-            }
-
-            const std::string* originOfCondition =
-                eventJson->second.get_ptr<const std::string*>();
-            if (originOfCondition == nullptr)
-            {
-                BMCWEB_LOG_ERROR("EventType wasn't a string???");
-                return false;
-            }
-
-            auto obj = std::ranges::find(originResources, *originOfCondition);
-
-            if (obj == originResources.end())
-            {
-                return false;
-            }
-        }
-
-        // If registryMsgIds list is empty, assume all
-        if (!registryMsgIds.empty())
-        {
-            auto eventJson = eventMessage.find("MessageId");
-            if (eventJson == eventMessage.end())
-            {
-                return false;
-            }
-
-            const std::string* messageId =
-                eventJson->second.get_ptr<const std::string*>();
-            if (messageId == nullptr)
-            {
-                BMCWEB_LOG_ERROR("EventType wasn't a string???");
-                return false;
-            }
-
-            std::string registry;
-            std::string messageKey;
-            event_log::getRegistryAndMessageKey(*messageId, registry,
-                                                messageKey);
-
-            auto obj = std::ranges::find(
-                registryMsgIds, std::format("{}.{}", registry, messageKey));
-            if (obj == registryMsgIds.end())
-            {
                 return false;
             }
         }
@@ -2355,69 +2278,70 @@ class EventServiceManager
                         return;
                     }
                 }
+                else if (key == "Message")
+                {
+                    const std::string* messagePtr;
+
+                    messagePtr = std::get_if<std::string>(&val);
+                    if (messagePtr != nullptr)
+                    {
+                        message = *messagePtr;
+                    }
+                }
                 else
                 {
                     continue;
                 }
             }
 
+            NvEvent event(messageId);
+            event.messageSeverity = translateSeverityDbusToRedfish(severity);
+            event.eventTimestamp = timestamp;
             if (messageId == "")
             {
-                // it happens when removing entries
-                BMCWEB_LOG_DEBUG("Invalid Dbus log entry.");
-                return;
+                event.message = message;
             }
             else
             {
-                NvEvent event(messageId);
-                if (!event.isValid())
-                {
-                    return;
-                }
-                event.messageSeverity =
-                    translateSeverityDbusToRedfish(severity);
-                event.eventTimestamp = timestamp;
                 event.setRegistryMsg(messageArgs);
                 event.messageArgs = messageArgs;
-                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+            }
+            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+            {
+                event.oem = {
+                    {"Oem",
+                     {{"Nvidia",
+                       {{"@odata.type", "#NvidiaEvent.v1_0_0.EventRecord"},
+                        {"Device", deviceName},
+                        {"ErrorId", eventId}}}}}};
+            }
+            if (!cper.empty())
+            {
+                event.cper = cper;
+            }
+            event.eventResolution = resolution;
+            event.logEntryId = logEntryId;
+            event.satBMCLogEntryUrl = satBMCLogEntryUrl;
+            if (!originOfCondition.empty())
+            {
+                for (auto& it : dBusToResourceType)
                 {
-                    event.oem = {
-                        {"Oem",
-                         {{"Nvidia",
-                           {{"@odata.type", "#NvidiaEvent.v1_0_0.EventRecord"},
-                            {"Device", deviceName},
-                            {"ErrorId", eventId}}}}}};
-                }
-                if (!cper.empty())
-                {
-                    event.cper = cper;
-                }
-                event.eventResolution = resolution;
-                event.logEntryId = logEntryId;
-                event.satBMCLogEntryUrl = satBMCLogEntryUrl;
-                if (!originOfCondition.empty())
-                {
-                    for (auto& it : dBusToResourceType)
+                    if (originOfCondition.find(it.first) != std::string::npos)
                     {
-                        if (originOfCondition.find(it.first) !=
-                            std::string::npos)
-                        {
-                            resourceType = it.second;
-                            break;
-                        }
+                        resourceType = it.second;
+                        break;
                     }
-                    // resourceType empty error case not handled because it will
-                    // impact existing resourceErrordetected error messages
-                    event.resourceType = resourceType;
-                    eventServiceOOC(originOfCondition, deviceName, event);
                 }
-                else
-                {
-                    BMCWEB_LOG_WARNING(
-                        "no OriginOfCondition in event log. MsgId: {}",
-                        messageId);
-                    sendEventWithOOC(std::string{""}, event);
-                }
+                // resourceType empty error case not handled because it will
+                // impact existing resourceErrordetected error messages
+                event.resourceType = resourceType;
+                eventServiceOOC(originOfCondition, deviceName, event);
+            }
+            else
+            {
+                BMCWEB_LOG_WARNING(
+                    "no OriginOfCondition in event log. MsgId: {}", messageId);
+                sendEventWithOOC(std::string{""}, event);
             }
         };
 
