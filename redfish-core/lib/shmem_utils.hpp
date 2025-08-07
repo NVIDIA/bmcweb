@@ -45,8 +45,8 @@ struct MetricsReplacement
     // clang-format off
     MetricsReplacement(std::string_view search, std::string_view pattern,
                        std::string_view name, bool enabled = false) :
-        searchPattern(std::move(search)), wildcardPattern(std::move(pattern)),
-        wildcardName(std::move(name)), isEnabled(enabled)
+        searchPattern(search), wildcardPattern(pattern),
+        wildcardName(name), isEnabled(enabled)
     {}
     // clang-format on
 };
