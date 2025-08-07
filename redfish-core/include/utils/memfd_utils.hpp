@@ -38,8 +38,7 @@ struct MemoryFD
     {
         if (fd == -1)
         {
-            throw std::runtime_error("MemoryFD - memfd_create failed: " +
-                                     std::string(strerror(errno)));
+            throw std::runtime_error("MemoryFD - memfd_create failed");
         }
     }
 
@@ -73,14 +72,12 @@ struct MemoryFD
     {
         if (!rewind())
         {
-            throw std::runtime_error(
-                "MemoryFD - lseek failed: " + std::string(strerror(errno)));
+            throw std::runtime_error("MemoryFD - lseek failed");
         }
         ssize_t bytesWritten = ::write(fd, data.data(), data.size());
         if (bytesWritten < 0)
         {
-            throw std::runtime_error(
-                "MemoryFD - write failed: " + std::string(strerror(errno)));
+            throw std::runtime_error("MemoryFD - write failed");
         }
         if (static_cast<size_t>(bytesWritten) != data.size())
         {
@@ -92,14 +89,12 @@ struct MemoryFD
     {
         if (!rewind())
         {
-            throw std::runtime_error(
-                "MemoryFD - lseek failed: " + std::string(strerror(errno)));
+            throw std::runtime_error("MemoryFD - lseek failed");
         }
         struct stat fileStat{};
         if (fstat(fd, &fileStat) < 0)
         {
-            throw std::runtime_error(
-                "MemoryFD - fstat failed: " + std::string(strerror(errno)));
+            throw std::runtime_error("MemoryFD - fstat failed");
         }
         if (fileStat.st_size < 0)
         {
@@ -109,8 +104,7 @@ struct MemoryFD
         ssize_t bytesRead = ::read(fd, data.data(), data.size());
         if (bytesRead < 0)
         {
-            throw std::runtime_error(
-                "MemoryFD - read failed: " + std::string(strerror(errno)));
+            throw std::runtime_error("MemoryFD - read failed");
         }
         if (static_cast<size_t>(bytesRead) != data.size())
         {
