@@ -459,8 +459,8 @@ class MultipartParser
      *
      * @return true if the content type is valid, false otherwise
      */
-    bool isValidContentType(const std::string_view contentType,
-                            size_t& contentTypeSize)
+    static bool isValidContentType(const std::string_view contentType,
+                                   size_t& contentTypeSize)
     {
         std::regex pattern("multipart/form-data;\\s*boundary=");
         std::string strContentType(contentType);

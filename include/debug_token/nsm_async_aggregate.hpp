@@ -193,6 +193,7 @@ class Handler : public std::enable_shared_from_this<Handler>
      * @param aggregateResult The aggregate result entry to be updated
      * @param result The result of the NSM operation
      */
+    // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
     void resultHandler(const std::shared_ptr<Handler>& /*unused*/,
                        Result& aggregateResult, const single_op::Result& result)
     {
