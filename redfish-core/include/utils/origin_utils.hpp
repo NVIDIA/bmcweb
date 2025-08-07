@@ -265,7 +265,7 @@ inline void convertDbusObjectToOriginOfCondition(
     }
     oocUtil(asyncResp, logEntry, id, std::string(""), severity, messageArgs,
             timestamp, messageId);
-    BMCWEB_LOG_ERROR(
+    BMCWEB_LOG_DEBUG(
         "No Matching prefix found for OriginOfCondition DBus object Path: {}",
         path);
     return;

@@ -224,7 +224,7 @@ inline void afterLogEntriesGetManagedObjects(
         {
             for (const auto& propertyMap : interfaceMap.second)
             {
-                BMCWEB_LOG_ERROR("propertyMap.first: {}", propertyMap.first);
+                BMCWEB_LOG_DEBUG("propertyMap.first: {}", propertyMap.first);
                 propsFlattened.emplace_back(propertyMap.first,
                                             propertyMap.second);
             }

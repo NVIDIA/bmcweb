@@ -950,7 +950,7 @@ inline void getShmemMetricsReportCollection(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& reportType)
 {
-    BMCWEB_LOG_ERROR("Exception while getShmemMetricsReportDefinition");
+    BMCWEB_LOG_DEBUG("Exception while getShmemMetricsReportDefinition");
     try
     {
         const auto& values = tal::TelemetryAggregator::getMrdNamespaces();
