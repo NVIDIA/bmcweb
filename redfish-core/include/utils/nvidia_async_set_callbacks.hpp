@@ -97,6 +97,7 @@ using PatchEdppSetPointCallback = PatchGenericCallback;
 using PatchCCModeCallback = PatchGenericCallback;
 using PatchEgmModeCallback = PatchGenericCallback;
 using PatchErrorInjectionPayloadCallback = PatchGenericCallback;
+using PatchPCIeEqualizationCallback = PatchGenericCallback;
 class PatchSpeedConfigCallback
 {
   public:

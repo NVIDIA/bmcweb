@@ -58,6 +58,7 @@
 #include "secure_boot_database.hpp"
 #include "sensors.hpp"
 #include "service_conditions.hpp"
+#include "switch_port_pcie_equalization.hpp"
 #include "system_host_eth.hpp"
 #include "trusted_components.hpp"
 #include "update_service.hpp"
@@ -252,6 +253,7 @@ void requestRoutesNvidia(crow::App& app)
     requestRoutesSwitch(app);
     requestRoutesNVSwitchReset(app);
     requestRoutesSwitchMetrics(app);
+    requestRoutesPCIeEqualization(app);
     requestRoutesPortCollection(app);
     requestRoutesPort(app);
     requestRoutesPortMetrics(app);

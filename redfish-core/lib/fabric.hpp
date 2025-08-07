@@ -483,6 +483,53 @@ inline void updateSwitchPortLinks(
 }
 
 /**
+ * @brief Get PCIe Equalization info by requesting data
+ * from the given D-Bus object.
+ *
+ * @param[in,out]   aResp   Async HTTP response.
+ * @param[in]       objPath     D-Bus object to query.
+ * @param[in]       fabricId    fabric id for redfish URI.
+ * @param[in]       switchId    switch id for redfish URI.
+ * @param[in]       portId      port id for redfish URI.
+ */
+inline void updatePCIeEqualization(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath,
+    const std::string& fabricId, const std::string& switchId,
+    const std::string& portId)
+{
+    BMCWEB_LOG_DEBUG("Get PCIe Equalization");
+    crow::connections::systemBus->async_method_call(
+        [aResp, objPath, fabricId, switchId, portId](
+            const boost::system::error_code& ec,
+            const std::vector<std::pair<std::string, std::vector<std::string>>>&
+                object) {
+            if (ec || object.empty())
+            {
+                BMCWEB_LOG_DEBUG("No PCIe Equalization found {}", objPath);
+                return;
+            }
+
+            std::string portEqualizationURI = "/redfish/v1/Fabrics/";
+            portEqualizationURI += fabricId;
+            portEqualizationURI += "/Switches/";
+            portEqualizationURI += switchId;
+            portEqualizationURI += "/Ports/";
+            portEqualizationURI += portId;
+            portEqualizationURI += "/Oem/Nvidia/PCIeEqualization";
+            aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaPort.v1_3_0.NvidiaPCIePort";
+            aResp->res
+                .jsonValue["Oem"]["Nvidia"]["PCIeEqualization"]["@odata.id"] =
+                portEqualizationURI;
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
+        std::array<std::string, 1>(
+            {"xyz.openbmc_project.PCIe.PCIePortConfigurationInfo"}));
+}
+
+/**
  * @brief Get all switch info by requesting data
  * from the given D-Bus object.
  *
@@ -2511,14 +2558,12 @@ inline void requestRoutesPort(App& app)
                                                                     systemBus
                                                                         ->async_method_call(
                                                                             [asyncResp,
-                                                                             fabricId, switchId, portId](const boost::
-                                                                                                             system::error_code
-                                                                                                                 ec4,
-                                                                                                         std::
-                                                                                                             variant<std::vector<
-                                                                                                                 std::
-                                                                                                                     string>>&
-                                                                                                                 resp4) {
+                                                                             fabricId,
+                                                                             switchId,
+                                                                             portId](const boost::
+                                                                                         system::error_code
+                                                                                             ec4,
+                                                                                     std::variant<std::vector<std::string>>& resp4) {
                                                                                 if (ec4)
                                                                                 {
                                                                                     BMCWEB_LOG_ERROR(
@@ -2552,7 +2597,8 @@ inline void requestRoutesPort(App& app)
                                                                                             portPath :
                                                                                     *data4)
                                                                                 {
-                                                                                    // Get the portId object
+                                                                                    // Get the portId
+                                                                                    // object
                                                                                     sdbusplus::
                                                                                         message::object_path
                                                                                             pPath(
@@ -2618,11 +2664,13 @@ inline void requestRoutesPort(App& app)
                                                                                                             const boost::
                                                                                                                 system::error_code
                                                                                                                     ec6,
-                                                                                                            const std::vector<std::pair<
-                                                                                                                std::
-                                                                                                                    string,
-                                                                                                                std::vector<
-                                                                                                                    std::string>>>& object) {
+                                                                                                            const std::vector<
+                                                                                                                std::pair<
+                                                                                                                    std::
+                                                                                                                        string,
+                                                                                                                    std::vector<
+                                                                                                                        std::
+                                                                                                                            string>>>& object) {
                                                                                                             if (ec6)
                                                                                                             {
                                                                                                                 // the path does not
@@ -2687,7 +2735,7 @@ inline void requestRoutesPort(App& app)
                                                                                                                         asyncResp,
                                                                                                                         portURI,
                                                                                                                         portPath,
-                                                                                                                        "#NvidiaPort.v1_2_0.NvidiaNVLinkPort");
+                                                                                                                        "#NvidiaPort.v1_3_0.NvidiaPCIePort");
                                                                                                             }
 
                                                                                                             redfish::port_utils::getPortData(
@@ -2719,6 +2767,12 @@ inline void requestRoutesPort(App& app)
                                                                                                     asyncResp,
                                                                                                     portPath,
                                                                                                     fabricId);
+                                                                                                updatePCIeEqualization(
+                                                                                                    asyncResp,
+                                                                                                    portPath,
+                                                                                                    fabricId,
+                                                                                                    switchId,
+                                                                                                    portId);
                                                                                             },
                                                                                             "xyz.openbmc_project.ObjectMapper",
                                                                                             portPath +
@@ -2729,7 +2783,8 @@ inline void requestRoutesPort(App& app)
                                                                                             "endpoints");
                                                                                     return;
                                                                                 }
-                                                                                // Couldn't find an object with that
+                                                                                // Couldn't find an
+                                                                                // object with that
                                                                                 // name. Return an error
                                                                                 messages::resourceNotFound(
                                                                                     asyncResp
