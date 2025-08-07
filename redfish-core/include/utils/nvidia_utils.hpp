@@ -142,7 +142,7 @@ constexpr std::string_view biosPassword = "NewPassword";
 constexpr std::string_view hostPowerStateDbus = "RequestedHostTransition";
 constexpr std::string_view hostPowerState = "ResetType";
 
-inline std::unordered_map<std::string_view, std::string_view>
+static const inline std::unordered_map<std::string_view, std::string_view>
     dBusToRedfishProperty = {
         {minpasswordLengthDbus, minpasswordLength},
         {accountUnlockTimeoutDbus, accountLockoutDuration},
@@ -189,7 +189,12 @@ inline void convertDbusToRedfishProperty(AdditionalData& additional,
             dBusToRedfishProperty.end())
         {
             std::string oldArg = messageArgsDbus[0];
-            messageArgsDbus[0] = dBusToRedfishProperty[messageArgsDbus[0]];
+            auto it = dBusToRedfishProperty.find(messageArgsDbus[0]);
+            if (it == dBusToRedfishProperty.end())
+            {
+                return;
+            }
+            messageArgsDbus[0] = it->second;
             BMCWEB_LOG_DEBUG("Mapped property: {} -> {}", oldArg,
                              messageArgsDbus[0]);
             messageArgs = boost::algorithm::join(messageArgsDbus, ", ");
@@ -220,12 +225,12 @@ struct CompareKeys
 /**
  * @brief Map dbuspath  to resourceType
  */
-inline std::map<std::string, std::string, CompareKeys> dBusToResourceType = {
-    {certificateDbusPrefix, "CertificateService"},
-    {systemsDbusPrefix, "Systems"},
-    {accountServiceDbusPrefix, "AccountService"},
-    {managerAccountDbusPrefix, "ManagerAccount"},
-    {virtualMediaDbusPrefix, "VirtualMedia"}};
+inline const static std::map<std::string, std::string, CompareKeys>
+    dBusToResourceType = {{certificateDbusPrefix, "CertificateService"},
+                          {systemsDbusPrefix, "Systems"},
+                          {accountServiceDbusPrefix, "AccountService"},
+                          {managerAccountDbusPrefix, "ManagerAccount"},
+                          {virtualMediaDbusPrefix, "VirtualMedia"}};
 
 // Add a helper function to log resource type mapping
 inline std::string getResourceType(const std::string& dbusPath)

@@ -852,7 +852,7 @@ class EventServiceManager
         std::string deviceName = objPath.filename();
         if (!deviceName.empty())
         {
-            for (auto& it : origin_utils::dBusToRedfishURI)
+            for (const auto& it : origin_utils::dBusToRedfishURI)
             {
                 if (path.find(it.first) != std::string::npos)
                 {

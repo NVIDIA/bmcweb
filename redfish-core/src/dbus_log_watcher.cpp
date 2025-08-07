@@ -242,7 +242,12 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
                         dBusToRedfishProperty.end())
                     {
                         std::string oldArg = messageArgs[0];
-                        messageArgs[0] = dBusToRedfishProperty[messageArgs[0]];
+                        auto it = dBusToRedfishProperty.find(messageArgs[0]);
+                        if (it == dBusToRedfishProperty.end())
+                        {
+                            return false;
+                        }
+                        messageArgs[0] = it->second;
                         BMCWEB_LOG_DEBUG("Mapped property: {} -> {}", oldArg,
                                          messageArgs[0]);
                     }

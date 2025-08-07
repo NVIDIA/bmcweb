@@ -27,7 +27,7 @@ namespace redfish
 namespace nvidia_control_utils
 {
 
-static std::map<std::string, std::string> clockLimitModes = {
+static const std::map<std::string, std::string> clockLimitModes = {
     {"com.nvidia.ClockMode.Mode.MaximumPerformance", "Automatic"},
     {"com.nvidia.ClockMode.Mode.OEM", "Override"},
     {"com.nvidia.ClockMode.Mode.PowerSaving", "Manual"},

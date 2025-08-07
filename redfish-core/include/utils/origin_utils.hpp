@@ -178,28 +178,29 @@ const std::string chassisResetPrefix =
 /**
  *  @brief Table used to find OriginOfCondition
  */
-inline std::unordered_map<std::string, std::string> dBusToRedfishURI = {
-    {chassisPrefixDbus, chassisPrefix},
-    {fabricsPrefixDbus, fabricsPrefix},
-    {processorPrefixDbus, processorPrefix},
-    {memoryPrefixDbus, memoryPrefix},
-    {softwarePrefixDbus, firmwarePrefix},
-    {sensorSubTree, chassisPrefix},
-    {systemsPrefixDbus, systemsPrefixRedfish},
-    {userPrefixDbus, userPrefix},
-    {virtualMediaLegacyUSB1PrefixDbus, virtualMediaUSB1Prefix},
-    {virtualMediaLegacyUSB2PrefixDbus, virtualMediaUSB2Prefix},
-    {accountPolicyPrefixDbus, accountPolicyPrefix},
-    {networkPrefixDbus, networkPrefix},
-    {ldapCertificateDbusPrefix, ldapCertificatePrefix},
-    {authorityCertificateDbusPrefix, authorityCertificatePrefix},
-    {httpsCertificateDbusPrefix, httpsCertificatePrefix},
-    {updateServiceDbusPrefix, updateServicePrefix},
-    {managerResetDbusPrefix, managerResetPrefix},
-    {ledGroupsDbusPrefix, ledPrefix},
-    {biosSettingsDbusPrefix, biosSettingsPrefix},
-    {biosPwdPathDbusPrefix, biosPwdPrefix},
-    {chassisResetDbusPrefix, chassisResetPrefix}};
+inline static const std::unordered_map<std::string, std::string>
+    dBusToRedfishURI = {
+        {chassisPrefixDbus, chassisPrefix},
+        {fabricsPrefixDbus, fabricsPrefix},
+        {processorPrefixDbus, processorPrefix},
+        {memoryPrefixDbus, memoryPrefix},
+        {softwarePrefixDbus, firmwarePrefix},
+        {sensorSubTree, chassisPrefix},
+        {systemsPrefixDbus, systemsPrefixRedfish},
+        {userPrefixDbus, userPrefix},
+        {virtualMediaLegacyUSB1PrefixDbus, virtualMediaUSB1Prefix},
+        {virtualMediaLegacyUSB2PrefixDbus, virtualMediaUSB2Prefix},
+        {accountPolicyPrefixDbus, accountPolicyPrefix},
+        {networkPrefixDbus, networkPrefix},
+        {ldapCertificateDbusPrefix, ldapCertificatePrefix},
+        {authorityCertificateDbusPrefix, authorityCertificatePrefix},
+        {httpsCertificateDbusPrefix, httpsCertificatePrefix},
+        {updateServiceDbusPrefix, updateServicePrefix},
+        {managerResetDbusPrefix, managerResetPrefix},
+        {ledGroupsDbusPrefix, ledPrefix},
+        {biosSettingsDbusPrefix, biosSettingsPrefix},
+        {biosPwdPathDbusPrefix, biosPwdPrefix},
+        {chassisResetDbusPrefix, chassisResetPrefix}};
 
 /**
  * Utility function for populating async response with
