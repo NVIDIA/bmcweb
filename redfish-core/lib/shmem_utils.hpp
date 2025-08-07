@@ -1044,9 +1044,8 @@ inline void getShmemMetricsReportCollection(
     [[maybe_unused]] const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     [[maybe_unused]] const std::string& reportType)
 {
-    BMCWEB_LOG_ERROR("Exception while getShmemMetricsReportDefinition");
-    BMCWEB_LOG_ERROR("getShmemMetricsReportCollection: {}", reportType);
-
+    BMCWEB_LOG_DEBUG("Exception while getShmemMetricsReportDefinition");
+    BMCWEB_LOG_DEBUG("getShmemMetricsReportCollection: {}", reportType);
     try
     {
 #ifndef NVIDIA_HAVE_TAL
