@@ -444,7 +444,9 @@ inline void objectPropertiesToJson(
     {
         if (chassisSubNode == ChassisSubNode::sensorsNode)
         {
-            std::string subNodeEscaped = getSensorId(sensorName, sensorType);
+            std::string subNodeEscaped =
+                redfish::nvidia_sensor_utils::getSensorId(sensorName,
+                                                          sensorType);
             // For sensors in SensorCollection we set Id instead of MemberId,
             // including power sensors.
             sensorJson["Id"] = std::move(subNodeEscaped);
@@ -841,9 +843,9 @@ inline bool objectExcerptToJson(
     }
 
     // Sensor excerpts use DataSourceUri to reference full sensor Redfish path
-    sensorJson["DataSourceUri"] =
-        boost::urls::format("/redfish/v1/Chassis/{}/Sensors/{}", chassisId,
-                            getSensorId(sensorName, sensorType));
+    sensorJson["DataSourceUri"] = boost::urls::format(
+        "/redfish/v1/Chassis/{}/Sensors/{}", chassisId,
+        redfish::nvidia_sensor_utils::getSensorId(sensorName, sensorType));
 
     // Fill in sensor excerpt properties
     objectPropertiesToJson(sensorName, sensorType, chassisSubNode,

@@ -1893,8 +1893,7 @@ inline void getPortMetricsData(
                 }
                 else if (property.first == "TXUnicastPkts")
                 {
-                    const auto* value =
-                        std::get_if<std::vector<uint64_t>>(&property.second);
+                    const auto* value = std::get_if<uint64_t>(&property.second);
                     if (value == nullptr)
                     {
                         BMCWEB_LOG_ERROR("Null value returned "
