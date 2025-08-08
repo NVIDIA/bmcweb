@@ -59,13 +59,14 @@ static constexpr std::array<std::string_view, 6> propertyInterfaces = {
 static const std::string chassisDbusPath =
     "/xyz/openbmc_project/inventory/system/chassis/";
 
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables)
 static std::unique_ptr<sdbusplus::bus::match_t> updateIrreversibleConfigMatch;
 static std::unique_ptr<boost::asio::steady_timer> irreversibleConfigTimer;
 static std::unique_ptr<sdbusplus::bus::match_t> updateMinSecVersionMatch;
 static std::unique_ptr<boost::asio::steady_timer> updateMinSecVersionTimer;
 static std::unique_ptr<sdbusplus::bus::match_t> revokeKeysMatch;
 static std::unique_ptr<boost::asio::steady_timer> revokeKeysTimer;
-
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 static constexpr auto timeoutTimeSeconds = 10;
 
 static inline void clearSecVersion()

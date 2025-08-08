@@ -1668,8 +1668,8 @@ inline void extendManagerOEM(
 
     // build type
     nlohmann::json& buildType = oemNvidia["FirmwareBuildType"];
-    std::ifstream buildDescriptionFile(
-        BMCWEB_BUILD_DESCRIPTION_FILE_PATH.data());
+    std::string buildPath(BMCWEB_BUILD_DESCRIPTION_FILE_PATH);
+    std::ifstream buildDescriptionFile(buildPath.c_str());
     if (buildDescriptionFile.good())
     {
         std::string line;
@@ -1715,8 +1715,8 @@ inline void extendManagerOEM(
 
     // OTP provisioning status
     nlohmann::json& otpProvisioned = oemNvidia["OTPProvisioned"];
-    std::ifstream otpStatusFile(
-        BMCWEB_OTP_PROVISIONING_STATUS_FILE_PATH.data());
+    std::string otpPath(BMCWEB_OTP_PROVISIONING_STATUS_FILE_PATH);
+    std::ifstream otpStatusFile(otpPath.c_str());
     if (otpStatusFile.good())
     {
         std::string statusLine;

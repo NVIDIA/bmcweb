@@ -612,6 +612,7 @@ inline DpuActionSetAndGetProp mode(
        .required = true}}},
     modeTarget);
 
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 inline DpuActionSetAndGetProp lfwp(
     {{"LFWP",
       {.service = "xyz.openbmc_project.Software.DPU.Version",

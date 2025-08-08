@@ -421,9 +421,10 @@ inline void handleCpuDisableToken(
             });
     });
 }
-
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables)
 static std::unique_ptr<sdbusplus::bus::match_t> match;
 static std::unique_ptr<boost::asio::steady_timer> timer;
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 inline void handleCpuGenerateToken(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

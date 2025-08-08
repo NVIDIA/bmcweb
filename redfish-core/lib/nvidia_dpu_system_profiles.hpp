@@ -70,25 +70,25 @@ enum ProfileOwner
     Invalid,
 };
 
-const std::string defaultProfileTruststorePath =
+constexpr std::string_view defaultProfileTruststorePath =
     "/xyz/openbmc_project/certs/authority/profileDefault";
-const std::string defaultProfileTruststoreService =
+constexpr std::string_view defaultProfileTruststoreService =
     "xyz.openbmc_project.Certs.Manager.Authority.ProfileDefault";
-const std::string defaultProfileTruststore = "Default";
+constexpr std::string_view defaultProfileTruststore = "Default";
 
-const std::string nvidiaProfileTruststore = "NvidiaCertificates";
-const std::string nvidiaProfileTruststoreService =
+constexpr std::string_view nvidiaProfileTruststore = "NvidiaCertificates";
+constexpr std::string_view nvidiaProfileTruststoreService =
     "xyz.openbmc_project.Certs.Manager.Authority.ProfileNvidia";
-const std::string nvidiaProfileTruststorePath =
+constexpr std::string_view nvidiaProfileTruststorePath =
     "/xyz/openbmc_project/certs/authority/profileNvidia";
 
-const std::string oemProfileTruststore = "OemCertificates";
-const std::string oemProfileTruststoreService =
+constexpr std::string_view oemProfileTruststore = "OemCertificates";
+constexpr std::string_view oemProfileTruststoreService =
     "xyz.openbmc_project.Certs.Manager.Authority.ProfileOem";
-const std::string oemProfileTruststorePath =
+constexpr std::string_view oemProfileTruststorePath =
     "/xyz/openbmc_project/certs/authority/profileOem";
 
-inline std::array<std::string, 2> profileTruststores = {
+constexpr std::array<std::string_view, 2> profileTruststores = {
     nvidiaProfileTruststore, oemProfileTruststore};
 
 inline nvidia_system_profile::ActionStatus toActionStatus(
@@ -1468,11 +1468,11 @@ inline std::string getProfileServiceName(const std::string& truststoreName)
 {
     if (truststoreName == nvidiaProfileTruststore)
     {
-        return nvidiaProfileTruststoreService;
+        return std::string{nvidiaProfileTruststoreService};
     }
     if (truststoreName == oemProfileTruststore)
     {
-        return oemProfileTruststoreService;
+        return std::string{oemProfileTruststoreService};
     }
 
     BMCWEB_LOG_ERROR("Get service: Error truststore name");
@@ -1483,11 +1483,11 @@ inline std::string getProfileTruststorePath(const std::string& truststoreName)
 {
     if (truststoreName == nvidiaProfileTruststore)
     {
-        return nvidiaProfileTruststorePath;
+        return std::string{nvidiaProfileTruststorePath};
     }
     if (truststoreName == oemProfileTruststore)
     {
-        return oemProfileTruststorePath;
+        return std::string{oemProfileTruststorePath};
     }
 
     BMCWEB_LOG_ERROR("Get Path: Error truststore name");
@@ -1496,8 +1496,8 @@ inline std::string getProfileTruststorePath(const std::string& truststoreName)
 
 inline bool isTruststoreSupported(const std::string& truststoreName)
 {
-    auto* it = std::find(profileTruststores.begin(), profileTruststores.end(),
-                         truststoreName);
+    const auto* it = std::find(profileTruststores.begin(),
+                               profileTruststores.end(), truststoreName);
     return it != profileTruststores.end();
 }
 
