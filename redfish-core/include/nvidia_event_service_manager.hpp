@@ -96,7 +96,6 @@ class NvEvent
 
   private:
     const registries::Message* registryMsg;
-    bool valid;
 
   public:
     NvEvent(const std::string& msgId) :
@@ -109,10 +108,8 @@ class NvEvent
         {
             BMCWEB_LOG_ERROR("{}", "Message not found in registry with ID: " +
                                        messageId);
-            valid = false;
             return;
         }
-        valid = true;
         messageSeverity = registryMsg->messageSeverity;
         if (registryMsg->resolution != nullptr)
         {
@@ -120,15 +117,10 @@ class NvEvent
         }
     }
 
-    bool isValid() const
-    {
-        return valid;
-    }
-
     int setRegistryMsg(
         const std::vector<std::string>& args = std::vector<std::string>{})
     {
-        if (!valid)
+        if (registryMsg == nullptr)
         {
             BMCWEB_LOG_ERROR("Invalid Event instance.");
             return redfishInvalidEvent;
@@ -165,11 +157,6 @@ class NvEvent
         int i = 1;
         std::string argStr;
 
-        if (!valid)
-        {
-            BMCWEB_LOG_ERROR("Invalid Event instance.");
-            return redfishInvalidEvent;
-        }
         // Fill the MessageArgs into the Message
         for (const std::string& messageArg : args)
         {
@@ -205,11 +192,6 @@ class NvEvent
     int formatEventLogEntry(nlohmann::json::object_t& eventLogEntry,
                             bool includeOriginOfCondition = true)
     {
-        if (!valid)
-        {
-            BMCWEB_LOG_ERROR("Invalid Event instance.");
-            return redfishInvalidEvent;
-        }
         eventLogEntry["MessageId"] = messageId;
         eventLogEntry["EventType"] = "Event";
         if (!actions.empty())

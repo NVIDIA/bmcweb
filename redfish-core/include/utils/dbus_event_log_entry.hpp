@@ -22,6 +22,7 @@ struct DbusEventLogEntry
     std::string Message;
     const std::string* Path = nullptr;
     const std::string* Resolution = nullptr;
+    const std::string* EventId = nullptr;
     bool Resolved = false;
     std::string ServiceProviderNotify;
     std::string Severity;

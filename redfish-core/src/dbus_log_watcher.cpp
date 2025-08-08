@@ -194,6 +194,7 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
     std::string logEntryId;
     std::string satBMCLogEntryUrl;
     std::string resolution;
+    std::string message;
     std::vector<std::string> messageArgs = {};
     nlohmann::json::object_t cper;
 
@@ -281,7 +282,12 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
     // Extract other fields from entry
     if (!entry.Message.empty())
     {
-        eventId = entry.Message;
+        message = entry.Message;
+    }
+
+    if (entry.EventId != nullptr)
+    {
+        eventId = *entry.EventId;
     }
 
     if (entry.Id != 0)
@@ -305,24 +311,20 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
             redfish::time_utils::getTimestamp(entry.Timestamp));
     }
 
-    if (messageId.empty())
-    {
-        BMCWEB_LOG_DEBUG("Skipping invalid Dbus log entry - empty messageId");
-        return false;
-    }
-
-    BMCWEB_LOG_DEBUG("Creating event for messageId: {}", messageId);
     NvEvent event(messageId);
-    if (!event.isValid())
-    {
-        BMCWEB_LOG_ERROR("Failed to create valid event for messageId: {}",
-                         messageId);
-        return false;
-    }
     event.messageSeverity = translateSeverityDbusToRedfish(severity);
     event.eventTimestamp = timestamp;
-    event.setRegistryMsg(messageArgs);
-    event.messageArgs = messageArgs;
+    if (messageId.empty())
+    {
+        BMCWEB_LOG_DEBUG("Creating event for message: {}", message);
+        event.message = message;
+    }
+    else
+    {
+        BMCWEB_LOG_DEBUG("Creating event for messageId: {}", messageId);
+        event.setRegistryMsg(messageArgs);
+        event.messageArgs = messageArgs;
+    }
 
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
