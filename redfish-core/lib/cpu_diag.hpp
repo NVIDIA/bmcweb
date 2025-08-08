@@ -325,8 +325,8 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     if (propStr == "Enable"s)
     {
         val = true;
-        // Suppress warning about system() call
-        // NOLINTNEXTLINE(cert-env33-c)
+        // Suppress warning about system() call.  Should be moved to dbus
+        // NOLINTNEXTLINE(cert-env33-c, concurrency-mt-unsafe)
         auto r = system(startupDiagTimerString.c_str());
         if (r != 0)
         {
@@ -339,8 +339,8 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         val = false;
         clearDiagResult(aResp);
         initDiagStatus(aResp);
-        // Suppress warning about system() call
-        // NOLINTNEXTLINE(cert-env33-c)
+        // Suppress warning about system() call.  Should be moved to dbus
+        // NOLINTNEXTLINE(cert-env33-c, concurrency-mt-unsafe)
         auto r = system(stopDiagTimerString.c_str());
         if (r != 0)
         {
