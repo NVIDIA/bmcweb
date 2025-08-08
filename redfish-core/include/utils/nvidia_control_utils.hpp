@@ -190,7 +190,7 @@ inline void getChassisClockLimit(
                                                 &property.second);
                                         std::map<std::string,
                                                  std::string>::iterator itr;
-                                        for (auto& itr1 : clockLimitModes)
+                                        for (const auto& itr1 : clockLimitModes)
                                         {
                                             if (*mode == itr1.first)
                                             {

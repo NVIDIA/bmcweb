@@ -352,7 +352,7 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
     {
         BMCWEB_LOG_DEBUG("Processing event with originOfCondition: {}",
                          originOfCondition);
-        for (auto& it : dBusToResourceType)
+        for (const auto& it : dBusToResourceType)
         {
             if (originOfCondition.find(it.first) != std::string::npos)
             {
