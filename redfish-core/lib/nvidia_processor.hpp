@@ -52,7 +52,7 @@ inline void requestRoutesProcessorPortHistogramBuckets(App& app)
      * Functions triggers appropriate requests on DBus
      */
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
-                      "Ports/<str>/Oem/Nvidia/Histograms/<str>/Buckets")
+                      "Ports/<str>/Oem/Nvidia/Histograms/<str>/Buckets/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -213,7 +213,7 @@ inline void requestRoutesProcessorPortHistogram(App& app)
      * Functions triggers appropriate requests on DBus
      */
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
-                      "Ports/<str>/Oem/Nvidia/Histograms/<str>")
+                      "Ports/<str>/Oem/Nvidia/Histograms/<str>/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -338,7 +338,7 @@ inline void requestRoutesProcessorPortHistogramCollection(App& app)
      * Functions triggers appropriate requests on DBus
      */
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
-                      "Ports/<str>/Oem/Nvidia/Histograms")
+                      "Ports/<str>/Oem/Nvidia/Histograms/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,

@@ -694,7 +694,7 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/Actions/NvidiaWorkloadPower.EnableProfiles")
+            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/Actions/NvidiaWorkloadPower.EnableProfiles/")
         .privileges(redfish::privileges::postProcessor)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
@@ -733,7 +733,7 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/EnableProfilesActionInfo")
+            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/EnableProfilesActionInfo/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -767,7 +767,7 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/Actions/NvidiaWorkloadPower.DisableProfiles")
+            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/Actions/NvidiaWorkloadPower.DisableProfiles/")
         .privileges(redfish::privileges::postProcessor)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
@@ -806,7 +806,7 @@ inline void requestRoutesProcessorWorkloadPower(App& app)
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/DisableProfilesActionInfo")
+            "/Processors/<str>/Oem/Nvidia/WorkloadPowerProfile/DisableProfilesActionInfo/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,

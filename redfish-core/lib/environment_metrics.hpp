@@ -161,7 +161,7 @@ inline void requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(App& app)
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/<str>/Processors/<str>/"
-        "EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ClearOOBSetPoint")
+        "EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ClearOOBSetPoint/")
 
         .privileges({{"ConfigureComponents"}})
         .methods(boost::beast::http::verb::post)(
@@ -535,7 +535,7 @@ inline void requestRoutesEnvironmentMetrics(App& app)
 inline void requestRoutesProcessorEnvironmentMetrics(App& app)
 {
     BMCWEB_ROUTE(
-        app, "/redfish/v1/Systems/<str>/Processors/<str>/EnvironmentMetrics")
+        app, "/redfish/v1/Systems/<str>/Processors/<str>/EnvironmentMetrics/")
         .privileges(redfish::privileges::getProcessor)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -562,7 +562,7 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
     });
 
     BMCWEB_ROUTE(
-        app, "/redfish/v1/Systems/<str>/Processors/<str>/EnvironmentMetrics")
+        app, "/redfish/v1/Systems/<str>/Processors/<str>/EnvironmentMetrics/")
         .privileges(redfish::privileges::patchProcessor)
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,
@@ -770,7 +770,7 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
 inline void requestRoutesMemoryEnvironmentMetrics(App& app)
 {
     BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/<str>/Memory/<str>/EnvironmentMetrics")
+                 "/redfish/v1/Systems/<str>/Memory/<str>/EnvironmentMetrics/")
         .privileges({{"Login"}})
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -805,7 +805,7 @@ inline void requestRoutesEdppReset(App& app)
         app,
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
             "/Processors/<str>/"
-            "EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ResetEDPp")
+            "EnvironmentMetrics/Actions/Oem/NvidiaEnvironmentMetrics.ResetEDPp/")
         .privileges({{"Login"}})
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,

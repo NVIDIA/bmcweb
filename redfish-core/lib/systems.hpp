@@ -5063,7 +5063,7 @@ inline void requestRoutesSystems(App& app)
 
 #ifdef BMCWEB_ENABLE_CPU_DIAG_FEATURE
     BMCWEB_ROUTE(
-        app, "/redfish/v1/Systems/<str>/Oem/Nvidia/ProcessorDiagCapabilities")
+        app, "/redfish/v1/Systems/<str>/Oem/Nvidia/ProcessorDiagCapabilities/")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleProcessorDiagActionPost, std::ref(app)));
@@ -5076,7 +5076,7 @@ inline void requestRoutesSystems(App& app)
             handleSystemProcessorDiagCapabilitiesActionGet, std::ref(app)));
 
     BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/<str>/Oem/Nvidia/ProcessorDiagSysConfig")
+                 "/redfish/v1/Systems/<str>/Oem/Nvidia/ProcessorDiagSysConfig/")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             handleProcessorDiagSysConfigActionPost, std::ref(app)));

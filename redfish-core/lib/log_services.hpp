@@ -6343,7 +6343,7 @@ inline void requestRoutesEventLogDiagnosticDataEntry(App& app)
 {
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/LogServices/EventLog/DiagnosticData/<str>/attachment")
+        "/redfish/v1/Systems/<str>/LogServices/EventLog/DiagnosticData/<str>/attachment/")
         .privileges(redfish::privileges::getLogEntry)
         .methods(boost::beast::http::verb::get)(
             [](const crow::Request&,
@@ -7792,7 +7792,7 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
 {
     BMCWEB_ROUTE(
         app,
-        "/redfish/v1/Systems/<str>/LogServices/DebugTokenService/LogService.CollectDiagnosticData")
+        "/redfish/v1/Systems/<str>/LogServices/DebugTokenService/LogService.CollectDiagnosticData/")
         .privileges(redfish::privileges::postLogService)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,

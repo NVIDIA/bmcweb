@@ -4422,7 +4422,7 @@ inline void requestRoutesSwitchPowerMode(App& app)
      */
 
     BMCWEB_ROUTE(
-        app, "/redfish/v1/Fabrics/<str>/Switches/<str>/Oem/Nvidia/PowerMode")
+        app, "/redfish/v1/Fabrics/<str>/Switches/<str>/Oem/Nvidia/PowerMode/")
         .privileges(redfish::privileges::getSwitch)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
@@ -4540,7 +4540,7 @@ inline void requestRoutesSwitchPowerMode(App& app)
     });
 
     BMCWEB_ROUTE(
-        app, "/redfish/v1/Fabrics/<str>/Switches/<str>/Oem/Nvidia/PowerMode")
+        app, "/redfish/v1/Fabrics/<str>/Switches/<str>/Oem/Nvidia/PowerMode/")
         .privileges(redfish::privileges::patchSwitch)
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,

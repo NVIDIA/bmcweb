@@ -800,7 +800,7 @@ inline void requestRoutesProfiles(App& app)
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-            "/Oem/Nvidia/SystemConfigurationProfile/List/<str>/ProfileJson")
+            "/Oem/Nvidia/SystemConfigurationProfile/List/<str>/ProfileJson/")
         .privileges(redfish::privileges::getComputerSystem)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(profiles::handleGetProfile, std::ref(app)));

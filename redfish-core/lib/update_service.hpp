@@ -3997,7 +3997,7 @@ inline void requestRoutesComputeDigestPost(App& app)
 {
     BMCWEB_ROUTE(
         app, "/redfish/v1/UpdateService/FirmwareInventory/<str>/Actions/Oem/"
-             "NvidiaSoftwareInventory.ComputeDigest")
+             "NvidiaSoftwareInventory.ComputeDigest/")
         .privileges(redfish::privileges::postUpdateService)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
