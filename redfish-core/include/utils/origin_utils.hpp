@@ -121,18 +121,18 @@ const std::string accountPolicyPrefix = "/redfish/v1/AccountService";
 const std::string virtualMediaLegacyUSB1PrefixDbus =
     "/xyz/openbmc_project/VirtualMedia/Legacy/USB1";
 const std::string virtualMediaUSB1Prefix =
-    "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-    "/VirtualMedia/USB1/Actions/VirtualMedia.";
+    std::format("/redfish/v1/Managers/{}/VirtualMedia/USB1",
+                BMCWEB_REDFISH_MANAGER_URI_NAME);
 const std::string virtualMediaLegacyUSB2PrefixDbus =
     "/xyz/openbmc_project/VirtualMedia/Legacy/USB2";
 const std::string virtualMediaUSB2Prefix =
-    "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-    "/VirtualMedia/USB2/Actions/VirtualMedia.";
+    std::format("/redfish/v1/Managers/{}/VirtualMedia/USB2",
+                BMCWEB_REDFISH_MANAGER_URI_NAME);
 const std::string sessionServiceServicePrefix = "/redfish/v1/";
 const std::string networkPrefixDbus = "/xyz/openbmc_project/network/";
 const std::string networkPrefix =
-    "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-    "/EthernetInterfaces/";
+    std::format("/redfish/v1/Managers/{}/EthernetInterfaces/",
+                BMCWEB_REDFISH_MANAGER_URI_NAME);
 const std::string ldapCertificateDbusPrefix =
     "/xyz/openbmc_project/certs/client/ldap/";
 const std::string ldapCertificatePrefix =
@@ -140,41 +140,37 @@ const std::string ldapCertificatePrefix =
 const std::string authorityCertificateDbusPrefix =
     "/xyz/openbmc_project/certs/authority/ldap/";
 const std::string authorityCertificatePrefix =
-    "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-    "/Truststore/Certificates/";
+    std::format("/redfish/v1/Managers/{}/Truststore/Certificates/",
+                BMCWEB_REDFISH_MANAGER_URI_NAME);
 const std::string httpsCertificateDbusPrefix =
     "/xyz/openbmc_project/certs/server/https/";
 const std::string httpsCertificatePrefix =
-    "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-    "/NetworkProtocol/HTTPS/Certificates/";
+    std::format("/redfish/v1/Managers/{}/NetworkProtocol/HTTPS/Certificates/",
+                BMCWEB_REDFISH_MANAGER_URI_NAME);
 const std::string updateServiceDbusPrefix = "/xyz/openbmc_project/software/";
 const std::string updateServicePrefix = "/redfish/v1/UpdateService/";
-const std::string managerResetDbusPrefix = "/xyz/openbmc_project/state/bmc0/";
+const std::string managerResetDbusPrefix = "/xyz/openbmc_project/state/bmc0";
 const std::string managerResetPrefix =
-    "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-    "/Actions/";
+    std::format("/redfish/v1/Managers/{}", BMCWEB_REDFISH_MANAGER_URI_NAME);
 const std::string ledGroupsDbusPrefix =
     "/xyz/openbmc_project/led/groups/enclosure_identify";
 const std::string ledPrefix =
-    "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    std::format("/redfish/v1/Systems/{}", BMCWEB_REDFISH_SYSTEM_URI_NAME);
 const std::string biosPwdPathDbusPrefix =
     "/xyz/openbmc_project/bios_config/password";
 const std::string biosPwdPrefix =
-    std::format("/redfish/v1/Systems/{}/Bios/Actions/Bios.ChangePassword",
-                BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    std::format("/redfish/v1/Systems/{}/Bios", BMCWEB_REDFISH_SYSTEM_URI_NAME);
 const std::string biosConfigDbusPrefix =
     "/xyz/openbmc_project/bios_config/manager";
 const std::string biosConfigPrefix = std::format(
-    "/redfish/v1/Systems/{}/secureboot", BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    "/redfish/v1/Systems/{}/SecureBoot", BMCWEB_REDFISH_SYSTEM_URI_NAME);
 const std::string biosSettingsDbusPrefix =
-    "/xyz/openbmc_project/bios_config/manager/bios/settings";
+    "/xyz/openbmc_project/bios_config/manager";
 const std::string biosSettingsPrefix =
-    std::format("/redfish/v1/Systems/{}/Bios/Actions/Bios.ResetBios",
-                BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    std::format("/redfish/v1/Systems/{}/Bios", BMCWEB_REDFISH_SYSTEM_URI_NAME);
 const std::string chassisResetDbusPrefix = "/xyz/openbmc_project/state/host0";
 const std::string chassisResetPrefix =
-    std::format("/redfish/v1/Chassis/{}/Actions/Chassis.Reset",
-                BMCWEB_REDFISH_SYSTEM_URI_NAME);
+    std::format("/redfish/v1/Chassis/{}", BMCWEB_PLATFORM_CHASSIS_NAME);
 /**
  *  @brief Table used to find OriginOfCondition
  */
