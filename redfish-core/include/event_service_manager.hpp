@@ -313,6 +313,11 @@ class NvEvent
     int setRegistryMsg(const std::vector<std::string>& messageArgs =
                            std::vector<std::string>{})
     {
+        if (registryMsg == nullptr)
+        {
+            BMCWEB_LOG_ERROR("Invalid Event instance.");
+            return redfishInvalidEvent;
+        }
         if (messageArgs.size() != registryMsg->numberOfArgs)
         {
             BMCWEB_LOG_ERROR("Message argument number mismatched.");
