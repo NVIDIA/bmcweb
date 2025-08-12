@@ -21,6 +21,7 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "logging.hpp"
+#include "utils/nvidia_memory.hpp"
 
 #include <boost/container/flat_map.hpp>
 #include <sdbusplus/message.hpp>
@@ -456,6 +457,7 @@ inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                             redfish::nvidia_memory::getMemoryRowRemappings(
                                 aResp, service, path);
                         }
+                        getStateSensors(aResp, path);
                     }
                 }
                 return;
