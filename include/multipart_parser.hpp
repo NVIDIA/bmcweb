@@ -192,9 +192,13 @@ class MultipartParser
                         std::string_view value(&buffer[headerValueMark],
                                                i - headerValueMark);
                         mime_fields.back().fields.set(currentHeaderName, value);
+                        using boost::beast::http::field;
+                        using boost::beast::http::string_to_field;
+                        field currentHeader =
+                            string_to_field(currentHeaderName);
 
                         // If it's Content-Disposition with name="UpdateFile"
-                        if (currentHeaderName == "Content-Disposition" &&
+                        if (currentHeader == field::content_disposition &&
                             value.find("name=\"UpdateFile\"") !=
                                 std::string::npos)
                         {
