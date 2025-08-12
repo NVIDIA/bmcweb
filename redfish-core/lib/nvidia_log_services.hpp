@@ -588,7 +588,7 @@ inline void dBusEventLogEntryGetAdditionalInfo(
             redfish::time_utils::getDateTimeStdtime(
                 redfish::time_utils::getTimestamp(entry.Timestamp)),
             messageId, messageArgs, *entry.Resolution, entry.Resolved,
-            deviceName, entry.Severity);
+            std::to_string(entry.Id), deviceName, entry.Severity);
 
         if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
         {
