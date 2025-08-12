@@ -2733,13 +2733,5 @@ inline void requestRoutesBiosAttrRegistryService(App& app)
         .privileges(redfish::privileges::putBios)
         .methods(boost::beast::http::verb::put)(
             std::bind_front(handleBiosAttrRegistryPut, std::ref(app)));
-    if constexpr (BMCWEB_DPU_BIOS)
-    {
-        BMCWEB_ROUTE(app, "/redfish/v1/Registries/"
-                          "BiosAttributeRegistry/BiosAttributeRegistry/")
-            .privileges(redfish::privileges::putBios)
-            .methods(boost::beast::http::verb::put)(
-                std::bind_front(handleBiosAttrRegistryPut, std::ref(app)));
-    }
 }
 } // namespace redfish
