@@ -3,6 +3,7 @@
 #pragma once
 #include "registries.hpp"
 #include "registries/base_message_registry.hpp"
+#include "registries/bios_attribute_registry.hpp"
 #include "registries/heartbeat_event_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
 #include "registries/platform_message_registry.hpp"
@@ -23,7 +24,7 @@ struct HeaderAndUrl
     const Header& header;
     const char* url;
 };
-// TODO:Rohit to add support for bios reg and diff with upstream
+
 inline std::optional<registries::HeaderAndUrl>
     getRegistryHeaderAndUrlFromPrefix(std::string_view registryName)
 {
@@ -58,6 +59,10 @@ inline std::optional<registries::HeaderAndUrl>
     if (update::header.registryPrefix == registryName)
     {
         return HeaderAndUrl{update::header, update::url};
+    }
+    if (bios::header.registryPrefix == registryName)
+    {
+        return HeaderAndUrl{bios::header, bios::url};
     }
     return std::nullopt;
 }
@@ -100,6 +105,10 @@ inline std::span<const MessageEntry> getRegistryFromPrefix(
     if (sensor_event::header.registryPrefix == registryName)
     {
         return {sensor_event::registry};
+    }
+    if (bios::header.registryPrefix == registryName)
+    {
+        return {bios::registry};
     }
 
     return {openbmc::registry};
