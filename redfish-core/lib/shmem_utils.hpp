@@ -299,6 +299,7 @@ inline void metricsReplacementsNonPlatformMetrics(
     bool allowNetworkAdapterCXId =
         (wildcardSet.find("CXId") != wildcardSet.end());
 
+    std::string nvSwitchValue = "NVSwitch_";
     std::smatch match;
     std::set<int> nvSwitchIdType1;
     std::set<int> nvlinkIdType1;
@@ -322,7 +323,7 @@ inline void metricsReplacementsNonPlatformMetrics(
         {
             if (allowNVSwitchId)
             {
-                std::regex switchPattern(std::string(nvSwitch) + "(\\d+)");
+                std::regex switchPattern(std::string(nvSwitchValue) + "(\\d+)");
                 if (std::regex_search(property, match, switchPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -343,7 +344,7 @@ inline void metricsReplacementsNonPlatformMetrics(
         {
             if (allowNVSwitchId)
             {
-                std::regex switchPattern(std::string(nvSwitch) + "(\\d+)");
+                std::regex switchPattern(std::string(nvSwitchValue) + "(\\d+)");
                 if (std::regex_search(property, match, switchPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -544,7 +545,7 @@ inline void metricsReplacementsNonPlatformMetrics(
             }
             if (allowNVSwitchId)
             {
-                std::regex switchPattern(std::string(nvSwitch) + "(\\d+)");
+                std::regex switchPattern(std::string(nvSwitchValue) + "(\\d+)");
                 if (std::regex_search(property, match, switchPattern))
                 {
                     int number = std::stoi(match[1].str());
@@ -978,8 +979,6 @@ inline void getShmemMetricsDefinitionWildCard(
                                   allowedWildcards);
             updateReplacementFlag(gpuTempPlatformEnvironmentMetrics,
                                   allowedWildcards);
-
-            nvSwitch = platformDevicePrefix + "NVSwitch_";
             metricsReplacements(chassisPlatformEnvironmentMetrics, asyncResp,
                                 inputMetricProperties);
             metricsReplacements(processorPlatformEnvironmentMetrics, asyncResp,
@@ -1032,7 +1031,6 @@ inline void getShmemMetricsDefinitionWildCard(
         }
         else
         {
-            nvSwitch = "NVSwitch_";
             metricsReplacementsNonPlatformMetrics(
                 asyncResp, inputMetricProperties, deviceType, allowedWildcards);
         }
