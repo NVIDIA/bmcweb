@@ -7,9 +7,7 @@
 
 #include "logging.hpp"
 
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/exception/diagnostic_information.hpp>
-#include <boost/interprocess/exceptions.hpp>
+#include <boost/exception/all.hpp>
 #include <boost/interprocess/sync/file_lock.hpp>
 #include <nlohmann/json.hpp>
 

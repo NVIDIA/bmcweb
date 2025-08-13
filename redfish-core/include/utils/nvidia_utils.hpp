@@ -19,7 +19,6 @@
 #include "str_utility.hpp"
 #include "utils/dbus_log_utils.hpp"
 
-#include <boost/algorithm/string.hpp>
 #include <nlohmann/json.hpp>
 
 #include <cmath>
@@ -170,17 +169,49 @@ static const inline std::unordered_map<std::string_view, std::string_view>
         {secureCurrentBootDbus, secureCurrentBoot},
         {hostPowerStateDbus, hostPowerState}};
 
+inline std::string trim(const std::string& str)
+{
+    // Find the first non-whitespace character
+    size_t first = str.find_first_not_of(" \t\n\r\f\v");
+    if (std::string::npos == first)
+    {
+        // String contains only whitespace or is empty
+        return "";
+    }
+
+    // Find the last non-whitespace character
+    size_t last = str.find_last_not_of(" \t\n\r\f\v");
+
+    // Extract the substring between the first and last non-whitespace
+    // characters
+    return str.substr(first, (last - first + 1));
+}
+
+inline std::string join(const std::vector<std::string>& values,
+                        std::string_view delimiter)
+{
+    return std::ranges::fold_left(
+        values, std::string(),
+        [delimiter](const std::string& ss, const std::string& s) {
+            if (ss.empty())
+            {
+                return s;
+            }
+            return std::format("{}{}{}", ss, delimiter, s);
+        });
+}
+
 inline void convertDbusToRedfishProperty(AdditionalData& additional,
                                          std::string& messageArgs)
 {
     BMCWEB_LOG_DEBUG("Converting DBus property to Redfish property");
-    std::vector<std::string> messageArgsDbus = {};
+    std::vector<std::string> messageArgsDbus;
     std::string args = additional["REDFISH_MESSAGE_ARGS"];
     BMCWEB_LOG_DEBUG("Original message args: {}", args);
     bmcweb::split(messageArgsDbus, args, ',');
     for (auto& msgArg : messageArgsDbus)
     {
-        boost::trim(msgArg);
+        msgArg = trim(msgArg);
     }
     if (!messageArgsDbus.empty() && !messageArgsDbus[0].empty())
     {
@@ -197,7 +228,7 @@ inline void convertDbusToRedfishProperty(AdditionalData& additional,
             messageArgsDbus[0] = it->second;
             BMCWEB_LOG_DEBUG("Mapped property: {} -> {}", oldArg,
                              messageArgsDbus[0]);
-            messageArgs = boost::algorithm::join(messageArgsDbus, ", ");
+            messageArgs = join(messageArgsDbus, ", ");
         }
         else
         {

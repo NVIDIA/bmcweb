@@ -40,8 +40,6 @@
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
 #include <http_client.hpp>
 #include <http_connection.hpp>
 #include <sdbusplus/asio/property.hpp>

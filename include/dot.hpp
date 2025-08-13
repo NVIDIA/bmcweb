@@ -19,13 +19,13 @@
 #include "nvidia_error_messages.hpp"
 #include "nvidia_messages.hpp"
 #include "utils/mctp_utils.hpp"
+#include "utils/nvidia_utils.hpp"
 
 #include <openssl/bio.h>
 #include <openssl/core_names.h>
 #include <openssl/evp.h>
 #include <openssl/params.h>
 
-#include <boost/algorithm/string/join.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
@@ -226,7 +226,7 @@ class DotCommandHandler
                << std::setfill('0') << static_cast<int>(byte);
             args.emplace_back(ss.str());
         }
-        BMCWEB_LOG_DEBUG("mctp-vdm-util {}", boost::algorithm::join(args, " "));
+        BMCWEB_LOG_DEBUG("mctp-vdm-util {}", join(args, " "));
         try
         {
             size_t hexDataSize = data.size() * 3; // hex representation + space

@@ -28,7 +28,6 @@
 #include <tinyxml2.h>
 #include <unistd.h>
 
-#include <boost/beast/http.hpp>
 #include <boost/beast/http/verb.hpp>
 #include <boost/container/flat_map.hpp>
 #include <boost/process.hpp>

@@ -4,6 +4,11 @@
 #include "utils/dbus_log_utils.hpp"
 #include "utils/json_utils.hpp"
 
+#include <boost/asio/dispatch.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/socket_base.hpp>
+#include <boost/beast/core/tcp_stream.hpp>
 #include <boost/beast/http/message.hpp>
 #include <boost/beast/http/message_generator.hpp>
 #include <boost/beast/http/parser.hpp>

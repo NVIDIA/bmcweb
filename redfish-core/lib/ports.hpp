@@ -19,11 +19,9 @@
 #include "ethernet.hpp"
 #include "lldptool_util.hpp"
 #include "nvidia_error_messages.hpp"
+#include "utils/nvidia_utils.hpp"
 
 #include <app.hpp>
-#include <boost/algorithm/string.hpp>
-
-#include <sstream>
 
 namespace redfish
 {
@@ -274,7 +272,7 @@ inline void setLldpTlvProperty(
         std::string cap;
         while (std::getline(ss, cap, ','))
         {
-            boost::trim(cap);
+            trim(cap);
             size_t lastDot = cap.find_last_of('.');
             if (lastDot != std::string::npos)
             {

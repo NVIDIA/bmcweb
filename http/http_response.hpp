@@ -11,7 +11,6 @@
 #include <boost/beast/core/error.hpp>
 #include <boost/beast/core/file_base.hpp>
 #include <boost/beast/core/flat_static_buffer.hpp>
-#include <boost/beast/http/basic_dynamic_body.hpp>
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/fields.hpp>
 #include <boost/beast/http/message.hpp>
