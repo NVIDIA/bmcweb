@@ -1,5 +1,6 @@
 #include "registries.hpp"
 
+#include "registries/oem/nvidia_message_registry.hpp"
 #include "registries/base_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
 #include "registries/platform_message_registry.hpp"
@@ -96,6 +97,11 @@ const Message* getMessage(std::string_view messageID)
     {
         return getMessageFromRegistry(
             messageKey, std::span<const MessageEntry>(sensor_event::registry));
+    }
+    if (std::string(nvidia::header.registryPrefix) == registryName)
+    {
+        return getMessageFromRegistry(
+            messageKey, std::span<const MessageEntry>(nvidia::registry));
     }
 
     return nullptr;
