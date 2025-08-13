@@ -203,7 +203,7 @@ inline void asyncGetSPDMMeasurementData(const std::string& objectPath,
  */
 inline void getCertificateURI(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisURI, const std::string& endpoint)
+    const boost::urls::url& chassisURI, const std::string& endpoint)
 {
     const std::string& inventoryEndpoint = endpoint + "/inventory_chassis";
 
@@ -225,9 +225,8 @@ inline void getCertificateURI(
         try
         {
             sdbusplus::message::object_path endpointPath(ep);
-            const std::string& endpointName = endpointPath.filename();
-            sdbusplus::message::object_path chassisPath(chassisURI);
-            const std::string& chassisName = chassisPath.filename();
+            std::string endpointName = endpointPath.filename();
+            std::string chassisName = chassisURI.segments().back();
             std::string componentID = chassisName;
             if (componentID.starts_with(PLATFORMDEVICEPREFIX))
             {
@@ -585,11 +584,10 @@ inline void requestRoutesComponentIntegrity(App& app)
                             endpoint);
                         const std::string& objName =
                             erotInvObjectPath.filename();
-                        std::string chassisURI =
-                            (boost::format("/redfish/v1/Chassis/%s") % objName)
-                                .str();
-                        std::string certificateURI =
-                            chassisURI + "/Certificates/CertChain";
+                        boost::urls::url chassisURI = boost::urls::format(
+                            "/redfish/v1/Chassis/{}", objName);
+                        boost::urls::url certificateURI = boost::urls::format(
+                            "/redfish/v1/Chassis/{}/Certificates/CertChain");
                         asyncResp->res.jsonValue["TargetComponentURI"] =
                             chassisURI;
                         asyncResp->res

@@ -24,7 +24,6 @@
 #include "utils/pcie_util.hpp"
 
 #include <app.hpp>
-#include <boost/format.hpp>
 #include <utils/collection.hpp>
 #include <utils/conditions_utils.hpp>
 #include <utils/nvidia_async_set_utils.hpp>
@@ -3439,12 +3438,9 @@ inline void getConnectedPortsLinks(
                     sdbusplus::message::object_path portObjPath(portPath);
                     const std::string& portId = portObjPath.filename();
                     {
-                        std::string portURI =
-                            (boost::format(
-                                 "/redfish/v1/Fabrics/%s/Switches/%s/Ports/"
-                                 "%s") %
-                             fabricId % switchId % portId)
-                                .str();
+                        boost::urls::url portURI = boost::urls::format(
+                            "/redfish/v1/Fabrics/{}/Switches/{}/Ports/{}",
+                            fabricId, switchId, portId);
                         linksConnectedPortsArray.push_back(
                             {{"@odata.id", portURI}});
                     }
@@ -3926,11 +3922,9 @@ inline void getFabricsPortMetricsData(
 {
     BMCWEB_LOG_DEBUG("Access port metrics data");
 
-    std::string portMetricsURI =
-        (boost::format("/redfish/v1/Fabrics/%s/Switches/%s/Ports/"
-                       "%s/Metrics") %
-         fabricId % switchId % portId)
-            .str();
+    boost::urls::url portMetricsURI = boost::urls::format(
+        "/redfish/v1/Fabrics/{}/Switches/{}/Ports/{}/Metrics", fabricId,
+        switchId, portId);
     asyncResp->res.jsonValue = {
         {"@odata.type", "#PortMetrics.v1_3_0.PortMetrics"},
         {"@odata.id", portMetricsURI},
@@ -4520,13 +4514,13 @@ inline void requestRoutesPortMetrics(App& app)
                                                                 portPath);
                                                             return;
                                                         }
-                                                        std::string portMetricsURI =
-                                                            (boost::format(
-                                                                 "/redfish/v1/Fabrics/%s/Switches/%s/Ports/"
-                                                                 "%s/Metrics") %
-                                                             fabricId %
-                                                             switchId % portId)
-                                                                .str();
+                                                        boost::urls::url
+                                                            portMetricsURI = boost::
+                                                                urls::format(
+                                                                    "/redfish/v1/Fabrics/{}/Switches/{}/Ports/{}/Metrics",
+                                                                    fabricId,
+                                                                    switchId,
+                                                                    portId);
                                                         asyncResp->res
                                                             .jsonValue = {
                                                             {"@odata.type",
