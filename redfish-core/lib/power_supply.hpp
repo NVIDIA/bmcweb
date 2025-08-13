@@ -541,7 +541,7 @@ inline void doPowerSupplyMetricsGet(
 
     // Get the correct Path and Service that match the input parameters
     getValidPowerSupplyPath(
-        asyncResp, *validChassisPath, powerSupplyId,
+        asyncResp, chassisId, powerSupplyId,
         [asyncResp, chassisId,
          powerSupplyId](const std::string& powerSupplyPath,
                         const std::string& /*service*/) {
