@@ -22,7 +22,7 @@
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/beast/core.hpp> // For lowest_layer_type
+#include <boost/beast/core/stream_traits.hpp> // For lowest_layer_type
 
 #include <chrono>
 #include <csignal>

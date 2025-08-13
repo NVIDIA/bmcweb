@@ -4,7 +4,6 @@
 #include "utils/dbus_log_utils.hpp"
 #include "utils/json_utils.hpp"
 
-#include <boost/beast/core.hpp>
 #include <boost/beast/http/message.hpp>
 #include <boost/beast/http/message_generator.hpp>
 #include <boost/beast/http/parser.hpp>

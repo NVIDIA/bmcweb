@@ -26,7 +26,10 @@
 #include <openssl/params.h>
 
 #include <boost/algorithm/string/join.hpp>
-#include <boost/asio.hpp>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/post.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/interprocess/streams/bufferstream.hpp>
 #include <boost/process.hpp>
 #include <boost/process/async.hpp>
