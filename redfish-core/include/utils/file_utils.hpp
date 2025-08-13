@@ -43,23 +43,11 @@ inline int readFile2Json(const std::string& filePath, nlohmann::json& j)
         }
 
         boost::interprocess::file_lock fileLock(filePath.c_str());
-        auto start = std::chrono::steady_clock::now();
-        auto timeout = boost::posix_time::milliseconds(flockTimeout);
-
-        while (!fileLock.timed_lock(
-            boost::posix_time::microsec_clock::universal_time() + timeout))
+        std::chrono::milliseconds timeout(flockTimeout);
+        if (!fileLock.try_lock_for(timeout))
         {
-            auto now = std::chrono::steady_clock::now();
-            auto elapsed =
-                std::chrono::duration_cast<std::chrono::milliseconds>(
-                    now - start)
-                    .count();
-
-            if (elapsed >= flockTimeout)
-            {
-                BMCWEB_LOG_ERROR("Get flock of {} timeout!", filePath);
-                return -1;
-            }
+            BMCWEB_LOG_ERROR("Get flock of {} timeout!", filePath);
+            return -1;
         }
 
         std::ifstream ifs(filePath);
@@ -91,10 +79,9 @@ inline int readFile2Json(const std::string& filePath, nlohmann::json& j)
         BMCWEB_LOG_ERROR("An std::exception error occurred: {}", ex.what());
         return -3;
     }
-    catch (const boost::exception& ex)
+    catch (const boost::exception& /*ex*/)
     {
-        BMCWEB_LOG_ERROR("A boost::exception error occurred: {}",
-                         boost::diagnostic_information(ex));
+        BMCWEB_LOG_ERROR("A boost::exception error occurred");
         return -4;
     }
     catch (...)
