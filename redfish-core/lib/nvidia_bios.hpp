@@ -187,6 +187,12 @@ inline void handleClearSecureStateSubtree(
                 }
             }
 
+            if (closestSecurePath.empty())
+            {
+                // skip 2082_17/SystemReset_0_0 effector
+                continue;
+            }
+
             crow::connections::systemBus->async_method_call(
                 [aResp, secure, requestToClear, clearService,
                  clearPath](const boost::system::error_code& ec,
