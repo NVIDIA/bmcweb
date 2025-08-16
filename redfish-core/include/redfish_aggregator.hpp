@@ -21,7 +21,7 @@ constexpr std::array prefixURLTable{
     "/TaskService/Tasks",
 };
 
-constexpr unsigned int aggregatorReadBodyLimit = 50 * 1024 * 1024; // 50MB
+constexpr unsigned int aggregatorReadBodyLimit = 68 * 1024 * 1024; // 68MB
 
 enum class Result
 {
