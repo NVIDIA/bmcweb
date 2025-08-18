@@ -765,14 +765,13 @@ inline void extendUpdateServiceGet(
                 },
                 objInfo[0].first, "/xyz/openbmc_project/software",
                 "org.freedesktop.DBus.Properties", "GetAll",
-                "xyz.openbmc_project.Software.UpdatePolicy");
+                "xyz.openbmc_project.Software.Update");
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject",
         "/xyz/openbmc_project/software",
-        std::array<const char*, 1>{
-            "xyz.openbmc_project.Software.UpdatePolicy"});
+        std::array<const char*, 1>{"xyz.openbmc_project.Software.Update"});
 
     crow::connections::systemBus->async_method_call(
         [getUpdateStatus](
