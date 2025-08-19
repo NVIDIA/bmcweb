@@ -7,11 +7,11 @@
 
 #include "app.hpp"
 #include "async_resp.hpp"
-#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/resource.hpp"
 #include "http_request.hpp"
+#include "identity.hpp"
 #include "logging.hpp"
 #include "nvidia_rsyslog_utils.hpp"
 #include "privileges.hpp"
@@ -21,8 +21,6 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/stl_utils.hpp"
-
-#include <unistd.h>
 
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/status.hpp>
@@ -47,7 +45,6 @@ namespace redfish
 {
 
 void getNTPProtocolEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
-std::string getHostName();
 
 static constexpr std::string_view sshServiceName = "dropbear";
 static constexpr std::string_view httpsServiceName = "bmcweb";
@@ -316,8 +313,8 @@ inline void handleNTPProtocolEnabled(
     auto callback = [asyncResp](const boost::system::error_code& ec) {
         afterSetNTP(asyncResp, ec);
     };
-    crow::connections::systemBus->async_method_call(
-        std::move(callback), "org.freedesktop.timedate1",
+    dbus::utility::async_method_call(
+        asyncResp, std::move(callback), "org.freedesktop.timedate1",
         "/org/freedesktop/timedate1", "org.freedesktop.timedate1", "SetNTP",
         ntpEnabled, interactive);
 }
@@ -468,18 +465,6 @@ inline void handleProtocolEnabled(
                 }
             }
         });
-}
-
-inline std::string getHostName()
-{
-    std::string hostName;
-
-    std::array<char, HOST_NAME_MAX> hostNameCStr{};
-    if (gethostname(hostNameCStr.data(), hostNameCStr.size()) == 0)
-    {
-        hostName = hostNameCStr.data();
-    }
-    return hostName;
 }
 
 inline void getNTPProtocolEnabled(

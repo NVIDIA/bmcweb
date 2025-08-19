@@ -16,6 +16,7 @@
 #include <boost/beast/http/fields.hpp>
 #include <boost/beast/http/message.hpp>
 #include <boost/beast/http/status.hpp>
+#include <boost/url/url_view.hpp>
 #include <nlohmann/json.hpp>
 
 #include <cstddef>
@@ -93,7 +94,7 @@ struct Response
     Response() = default;
     Response(Response&& res) noexcept :
         response(std::move(res.response)), jsonValue(std::move(res.jsonValue)),
-        completed(res.completed)
+        expectedHash(std::move(res.expectedHash)), completed(res.completed)
     {
         // See note in operator= move handler for why this is needed.
         if (!res.completed)
@@ -203,10 +204,14 @@ struct Response
         return response.body().payloadSize();
     }
 
+<<<<<<< HEAD
     void preparePayload(ForceChunking chunked = ForceChunking::Disabled)
+||||||| 80d2ef31c
+    void preparePayload()
+=======
+    void preparePayload(const boost::urls::url_view& urlView)
+>>>>>>> origin/master
     {
-        // This code is a throw-free equivalent to
-        // beast::http::message::prepare_payload
         std::optional<uint64_t> pSize = response.body().payloadSize();
 
         using http::status;
@@ -229,13 +234,25 @@ struct Response
             response.content_length(*pSize);
         }
 
-        if (is1XXReturn || result() == status::no_content ||
-            result() == status::not_modified)
+        if ((*pSize > 0) && (is1XXReturn || result() == status::no_content ||
+                             result() == status::not_modified))
         {
+<<<<<<< HEAD
             BMCWEB_LOG_DEBUG("{} Response content provided but code was "
                              "no-content or not_modified, which aren't "
                              "allowed to have a body",
                              logPtr(this));
+||||||| 80d2ef31c
+            BMCWEB_LOG_CRITICAL("{} Response content provided but code was "
+                                "no-content or not_modified, which aren't "
+                                "allowed to have a body",
+                                logPtr(this));
+=======
+            BMCWEB_LOG_CRITICAL("{} Response content provided but code was "
+                                "no-content or not_modified, which aren't "
+                                "allowed to have a body for url : \"{}\"",
+                                logPtr(this), urlView.path());
+>>>>>>> origin/master
             response.content_length(0);
             return;
         }
@@ -335,12 +352,15 @@ struct Response
         expectedHash = hash;
     }
 
-    OpenCode openFile(const std::filesystem::path& path,
-                      bmcweb::EncodingType enc = bmcweb::EncodingType::Raw)
+    OpenCode openFile(
+        const std::filesystem::path& path,
+        bmcweb::EncodingType enc = bmcweb::EncodingType::Raw,
+        bmcweb::CompressionType comp = bmcweb::CompressionType::Raw)
     {
         boost::beast::error_code ec;
         response.body().open(path.c_str(), boost::beast::file_mode::read, ec);
         response.body().encodingType = enc;
+        response.body().compressionType = comp;
         if (ec)
         {
             BMCWEB_LOG_ERROR("Failed to open file {}, ec={}", path.c_str(),

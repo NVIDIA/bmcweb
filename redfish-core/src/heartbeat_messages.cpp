@@ -31,16 +31,17 @@ namespace redfish
 namespace messages
 {
 
-static nlohmann::json getLog(redfish::registries::heartbeat_event::Index name,
-                             std::span<const std::string_view> args)
+static nlohmann::json::object_t getLog(
+    redfish::registries::HeartbeatEvent::Index name,
+    std::span<const std::string_view> args)
 {
     size_t index = static_cast<size_t>(name);
-    if (index >= redfish::registries::heartbeat_event::registry.size())
+    if (index >= redfish::registries::HeartbeatEvent::registry.size())
     {
         return {};
     }
-    return getLogFromRegistry(redfish::registries::heartbeat_event::header,
-                              redfish::registries::heartbeat_event::registry,
+    return getLogFromRegistry(redfish::registries::HeartbeatEvent::header,
+                              redfish::registries::HeartbeatEvent::registry,
                               index, args);
 }
 
@@ -51,10 +52,10 @@ static nlohmann::json getLog(redfish::registries::heartbeat_event::Index name,
  * See header file for more information
  * @endinternal
  */
-nlohmann::json redfishServiceFunctional()
+nlohmann::json::object_t redfishServiceFunctional()
 {
     return getLog(
-        redfish::registries::heartbeat_event::Index::redfishServiceFunctional,
+        redfish::registries::HeartbeatEvent::Index::redfishServiceFunctional,
         {});
 }
 

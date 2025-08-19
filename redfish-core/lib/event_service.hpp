@@ -4,7 +4,6 @@
 #pragma once
 #include "app.hpp"
 #include "async_resp.hpp"
-#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "event_service_manager.hpp"
@@ -17,7 +16,6 @@
 #include "query.hpp"
 #include "registries.hpp"
 #include "registries/privilege_registry.hpp"
-#include "registries_selector.hpp"
 #include "snmp_trap_event_clients.hpp"
 #include "subscription.hpp"
 #include "utils/json_utils.hpp"
@@ -42,7 +40,6 @@
 #include <memory>
 #include <optional>
 #include <ranges>
-#include <span>
 #include <string>
 #include <utility>
 #include <vector>
@@ -310,7 +307,8 @@ inline void requestRoutesEventDestinationCollection(App& app)
                         "/redfish/v1/EventService/Subscriptions/{}" + id);
                     memberArray.emplace_back(std::move(member));
                 }
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
+                    asyncResp,
                     [asyncResp](const boost::system::error_code& ec,
                                 const dbus::utility::ManagedObjectType& resp) {
                         doSubscriptionCollection(ec, asyncResp, resp);
@@ -664,9 +662,9 @@ inline void requestRoutesEventDestinationCollection(App& app)
                     // Check for Message ID in each of the selected Registry
                     for (const std::string& it : registryPrefix)
                     {
-                        const std::span<const redfish::registries::MessageEntry>
-                            registry =
-                                redfish::registries::getRegistryFromPrefix(it);
+                        const registries::MessageEntries registry =
+                            redfish::registries::getRegistryMessagesFromPrefix(
+                                it);
 
                         if (std::ranges::any_of(
                                 registry,

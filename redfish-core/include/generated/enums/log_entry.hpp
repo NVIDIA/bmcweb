@@ -142,6 +142,7 @@ enum class LogDiagnosticDataTypes{
     OEM,
     CPER,
     CPERSection,
+    Device,
 };
 
 enum class OriginatorTypes{
@@ -295,6 +296,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(LogDiagnosticDataTypes, {
     {LogDiagnosticDataTypes::OEM, "OEM"},
     {LogDiagnosticDataTypes::CPER, "CPER"},
     {LogDiagnosticDataTypes::CPERSection, "CPERSection"},
+    {LogDiagnosticDataTypes::Device, "Device"},
 });
 
 NLOHMANN_JSON_SERIALIZE_ENUM(OriginatorTypes, {

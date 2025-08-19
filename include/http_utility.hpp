@@ -48,7 +48,6 @@ inline ContentType getContentType(std::string_view contentTypeHeader)
     using boost::spirit::x3::parse;
     using boost::spirit::x3::space;
     using boost::spirit::x3::symbols;
-    using boost::spirit::x3::uint_;
 
     const symbols<ContentType> knownMimeType{
         {"application/cbor", ContentType::CBOR},
@@ -87,7 +86,6 @@ inline ContentType getPreferredContentType(
     using boost::spirit::x3::parse;
     using boost::spirit::x3::space;
     using boost::spirit::x3::symbols;
-    using boost::spirit::x3::uint_;
 
     const symbols<ContentType> knownMimeType{
         {"application/cbor", ContentType::CBOR},

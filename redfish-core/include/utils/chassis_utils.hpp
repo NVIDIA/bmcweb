@@ -2,7 +2,12 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include "async_resp.hpp"
+<<<<<<< HEAD
 #include "background_copy.hpp"
+||||||| 80d2ef31c
+=======
+#include "boost_formatters.hpp"
+>>>>>>> origin/master
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "in_band.hpp"
@@ -23,6 +28,10 @@
 
 namespace redfish
 {
+
+static constexpr std::array<std::string_view, 2> chassisInterfaces = {
+    "xyz.openbmc_project.Inventory.Item.Board",
+    "xyz.openbmc_project.Inventory.Item.Chassis"};
 
 namespace chassis_utils
 {
@@ -319,13 +328,10 @@ void getValidChassisPath(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const std::string& chassisId, Callback&& callback)
 {
     BMCWEB_LOG_DEBUG("checkChassisId enter");
-    constexpr std::array<std::string_view, 2> interfaces = {
-        "xyz.openbmc_project.Inventory.Item.Board",
-        "xyz.openbmc_project.Inventory.Item.Chassis"};
 
     // Get the Chassis Collection
     dbus::utility::getSubTreePaths(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
+        "/xyz/openbmc_project/inventory", 0, chassisInterfaces,
         [callback = std::forward<Callback>(callback), asyncResp,
          chassisId](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreePathsResponse&

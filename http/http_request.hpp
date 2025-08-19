@@ -5,7 +5,6 @@
 #include "http_body.hpp"
 #include "sessions.hpp"
 
-#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address.hpp>
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/fields.hpp>
@@ -33,14 +32,15 @@ struct Request
   private:
     boost::urls::url urlBase;
 
+    Request(const Request& other) = default;
+
   public:
-    boost::asio::io_context* ioService = nullptr;
     boost::asio::ip::address ipAddress;
 
     std::shared_ptr<persistent_data::UserSession> session;
 
     std::string userRole;
-    Request(Body reqIn, std::error_code& ec) : req(std::move(reqIn))
+    Request(Body&& reqIn, std::error_code& ec) : req(std::move(reqIn))
     {
         if (!setUrlInfo())
         {
@@ -53,12 +53,16 @@ struct Request
 
     Request() = default;
 
-    Request(const Request& other) = default;
     Request(Request&& other) = default;
 
-    Request& operator=(const Request&) = default;
+    Request& operator=(const Request&) = delete;
     Request& operator=(Request&&) = default;
     ~Request() = default;
+
+    Request copy() const
+    {
+        return {*this};
+    }
 
     void addHeader(std::string_view key, std::string_view value)
     {
@@ -74,7 +78,6 @@ struct Request
     {
         req.clear();
         urlBase.clear();
-        ioService = nullptr;
         ipAddress = boost::asio::ip::address();
         session = nullptr;
         userRole = "";

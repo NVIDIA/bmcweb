@@ -2,10 +2,13 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 
-#include "bmcweb_config.h"
-
 #include "async_resp.hpp"
+<<<<<<< HEAD
 #include "http_connection.hpp"
+||||||| 80d2ef31c
+=======
+#include "http_connect_types.hpp"
+>>>>>>> origin/master
 #include "http_request.hpp"
 #include "http_server.hpp"
 #include "io_context_singleton.hpp"
@@ -13,20 +16,20 @@
 #include "nvidia_persistent_data.hpp"
 #include "routing.hpp"
 #include "routing/dynamicrule.hpp"
+#include "str_utility.hpp"
 
 #include <sys/socket.h>
 #include <systemd/sd-daemon.h>
 
-#include <boost/asio/ip/address.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/ssl/context.hpp>
-#include <boost/asio/ssl/stream.hpp>
 
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
-#include <type_traits>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -39,11 +42,19 @@ namespace crow
 class App
 {
   public:
-    using ssl_socket_t = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
     using raw_socket_t = boost::asio::ip::tcp::socket;
+<<<<<<< HEAD
 
     using raw_server_type = Server<App, raw_socket_t>;
     using ssl_server_type = Server<App, ssl_socket_t>;
+||||||| 80d2ef31c
+
+    using socket_type = std::conditional_t<BMCWEB_INSECURE_DISABLE_SSL,
+                                           raw_socket_t, ssl_socket_t>;
+    using server_type = Server<App, socket_type>;
+=======
+    using server_type = Server<App, raw_socket_t>;
+>>>>>>> origin/master
 
     template <typename Adaptor>
     void handleUpgrade(const std::shared_ptr<Request>& req,
@@ -90,36 +101,89 @@ class App
         }
     }
 
-    static std::optional<boost::asio::ip::tcp::acceptor> setupSocket()
+    static HttpType getHttpType(std::string_view socketTypeString)
     {
-        constexpr int defaultPort = 18080;
-        if (sd_listen_fds(0) == 1)
+        if (socketTypeString == "http")
         {
-            BMCWEB_LOG_INFO("attempting systemd socket activation");
-            if (sd_is_socket_inet(SD_LISTEN_FDS_START, AF_UNSPEC, SOCK_STREAM,
-                                  1, 0) != 0)
+            BMCWEB_LOG_DEBUG("Got http socket");
+            return HttpType::HTTP;
+        }
+        if (socketTypeString == "https")
+        {
+            BMCWEB_LOG_DEBUG("Got https socket");
+            return HttpType::HTTPS;
+        }
+        if (socketTypeString == "both")
+        {
+            BMCWEB_LOG_DEBUG("Got hybrid socket");
+            return HttpType::BOTH;
+        }
+
+        // all other types https
+        BMCWEB_LOG_ERROR("Unknown http type={} assuming HTTPS only",
+                         socketTypeString);
+        return HttpType::HTTPS;
+    }
+
+    static std::vector<Acceptor> setupSocket()
+    {
+        std::vector<Acceptor> acceptors;
+        char** names = nullptr;
+        int listenFdCount = sd_listen_fds_with_names(0, &names);
+        BMCWEB_LOG_DEBUG("Got {} sockets to open", listenFdCount);
+
+        if (listenFdCount < 0)
+        {
+            BMCWEB_LOG_CRITICAL("Failed to read socket files");
+            return acceptors;
+        }
+        int socketIndex = 0;
+        for (char* name :
+             std::span<char*>(names, static_cast<size_t>(listenFdCount)))
+        {
+            if (name == nullptr)
+            {
+                continue;
+            }
+            // name looks like bmcweb_443_https_auth
+            // Assume HTTPS as default
+            std::string socketName(name);
+
+            std::vector<std::string> socknameComponents;
+            bmcweb::split(socknameComponents, socketName, '_');
+            HttpType httpType = getHttpType(socknameComponents[2]);
+
+            int listenFd = socketIndex + SD_LISTEN_FDS_START;
+            if (sd_is_socket_inet(listenFd, AF_UNSPEC, SOCK_STREAM, 1, 0) > 0)
             {
                 BMCWEB_LOG_INFO("Starting webserver on socket handle {}",
-                                SD_LISTEN_FDS_START);
-                return boost::asio::ip::tcp::acceptor(
-                    getIoContext(), boost::asio::ip::tcp::v6(),
-                    SD_LISTEN_FDS_START);
+                                listenFd);
+                acceptors.emplace_back(Acceptor{
+                    boost::asio::ip::tcp::acceptor(
+                        getIoContext(), boost::asio::ip::tcp::v6(), listenFd),
+                    httpType});
             }
-            BMCWEB_LOG_ERROR(
-                "bad incoming socket, starting webserver on port {}",
-                defaultPort);
+            socketIndex++;
         }
-        BMCWEB_LOG_INFO("Starting webserver on port {}", defaultPort);
-        return boost::asio::ip::tcp::acceptor(
-            getIoContext(),
-            boost::asio::ip::tcp::endpoint(
-                boost::asio::ip::make_address("0.0.0.0"), defaultPort));
+
+        if (acceptors.empty())
+        {
+            constexpr int defaultPort = 18080;
+            BMCWEB_LOG_INFO("Starting webserver on port {}", defaultPort);
+            using boost::asio::ip::tcp;
+            tcp::endpoint end(tcp::v6(), defaultPort);
+            tcp::acceptor acc(getIoContext(), end);
+            acceptors.emplace_back(std::move(acc), HttpType::HTTPS);
+        }
+
+        return acceptors;
     }
 
     void run()
     {
         validate();
 
+<<<<<<< HEAD
         std::optional<boost::asio::ip::tcp::acceptor> acceptor = setupSocket();
         if (!acceptor)
         {
@@ -150,6 +214,21 @@ class App
                               getIoContext());
             rawServer->run();
         }
+||||||| 80d2ef31c
+        std::optional<boost::asio::ip::tcp::acceptor> acceptor = setupSocket();
+        if (!acceptor)
+        {
+            BMCWEB_LOG_CRITICAL("Couldn't start server");
+            return;
+        }
+        server.emplace(this, std::move(*acceptor), sslContext, getIoContext());
+        server->run();
+=======
+        std::vector<Acceptor> acceptors = setupSocket();
+
+        server.emplace(this, std::move(acceptors));
+        server->run();
+>>>>>>> origin/master
     }
 
     void debugPrint()
@@ -168,6 +247,7 @@ class App
         return router.getRoutes(parent);
     }
 
+<<<<<<< HEAD
     App& ssl(std::shared_ptr<boost::asio::ssl::context>&& ctx)
     {
         sslContext = std::move(ctx);
@@ -178,6 +258,23 @@ class App
 
     std::shared_ptr<boost::asio::ssl::context> sslContext = nullptr;
 
+||||||| 80d2ef31c
+    App& ssl(std::shared_ptr<boost::asio::ssl::context>&& ctx)
+    {
+        sslContext = std::move(ctx);
+        BMCWEB_LOG_INFO("app::ssl context use_count={}",
+                        sslContext.use_count());
+        return *this;
+    }
+
+    std::shared_ptr<boost::asio::ssl::context> sslContext = nullptr;
+
+    std::optional<server_type> server;
+
+=======
+    std::optional<server_type> server;
+
+>>>>>>> origin/master
     Router router;
     std::optional<ssl_server_type> sslServer;
     std::optional<raw_server_type> rawServer;

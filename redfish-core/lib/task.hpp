@@ -238,8 +238,17 @@ struct TaskData : std::enable_shared_from_this<TaskData>
 
         if (tasks.size() >= maxTaskCount)
         {
+<<<<<<< HEAD
             auto taskToRemove = getTaskToRemove();
+||||||| 80d2ef31c
+            const auto& last = tasks.front();
+
+=======
+            const auto last = getTaskToRemove();
+
+>>>>>>> origin/master
             // destroy all references
+<<<<<<< HEAD
             (*taskToRemove)
                 ->messages.emplace_back(
                     (*taskToRemove)
@@ -247,6 +256,15 @@ struct TaskData : std::enable_shared_from_this<TaskData>
             (*taskToRemove)->timer.cancel();
             (*taskToRemove)->match.reset();
             tasks.erase(taskToRemove);
+||||||| 80d2ef31c
+            last->timer.cancel();
+            last->match.reset();
+            tasks.pop_front();
+=======
+            (*last)->timer.cancel();
+            (*last)->match.reset();
+            tasks.erase(last);
+>>>>>>> origin/master
         }
 
         return tasks.emplace_back(std::make_shared<MakeSharedHelper>(
@@ -299,6 +317,24 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         }
     }
 
+    /**
+     * @brief Get the first completed/aborted task or oldest running task to
+     * remove
+     */
+    static std::deque<std::shared_ptr<TaskData>>::iterator getTaskToRemove()
+    {
+        static constexpr std::array<std::string_view, 5> activeStates = {
+            "Running", "Pending", "Starting", "Suspended", "Interrupted"};
+
+        auto it =
+            std::find_if(tasks.begin(), tasks.end(), [](const auto& task) {
+                return std::ranges::find(activeStates, task->state) ==
+                       activeStates.end();
+            });
+
+        return (it != tasks.end()) ? it : tasks.begin();
+    }
+
     void populateResp(crow::Response& res, size_t retryAfterSeconds = 30)
     {
         if (!endTime)
@@ -321,6 +357,27 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                           taskMonitor.buffer());
             res.addHeader(boost::beast::http::field::retry_after,
                           std::to_string(retryAfterSeconds));
+            res.jsonValue["Name"] = "Task " + strIdx;
+            res.jsonValue["StartTime"] =
+                redfish::time_utils::getDateTimeStdtime(startTime);
+            res.jsonValue["Messages"] = messages;
+            res.jsonValue["TaskMonitor"] = taskMonitor;
+            res.jsonValue["HidePayload"] = !payload;
+            if (payload)
+            {
+                const task::Payload& p = *payload;
+                nlohmann::json::object_t payloadObj;
+                payloadObj["TargetUri"] = p.targetUri;
+                payloadObj["HttpOperation"] = p.httpOperation;
+                payloadObj["HttpHeaders"] = p.httpHeaders;
+                if (p.jsonBody.is_object())
+                {
+                    payloadObj["JsonBody"] = p.jsonBody.dump(
+                        2, ' ', true, nlohmann::json::error_handler_t::replace);
+                }
+                res.jsonValue["Payload"] = std::move(payloadObj);
+            }
+            res.jsonValue["PercentComplete"] = percentComplete;
         }
         else if (!gave204)
         {
@@ -376,7 +433,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         // "Killed" = taskRemoved
         // "Exception" = taskCompletedWarning
         // "Cancelled" = taskCancelled
-        nlohmann::json event;
+        nlohmann::json::object_t event;
         std::string indexStr = std::to_string(index);
         if (state == "Starting")
         {

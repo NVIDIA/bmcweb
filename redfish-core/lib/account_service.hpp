@@ -9,7 +9,6 @@
 #include "async_resp.hpp"
 #include "boost_formatters.hpp"
 #include "certificate_service.hpp"
-#include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/account_service.hpp"
@@ -334,7 +333,10 @@ inline void parseLDAPConfigData(nlohmann::json& jsonResponse,
     nlohmann::json::object_t ldap;
     ldap["ServiceEnabled"] = confData.serviceEnabled;
     nlohmann::json::array_t serviceAddresses;
-    serviceAddresses.emplace_back(confData.uri);
+    if (!confData.uri.empty())
+    {
+        serviceAddresses.emplace_back(confData.uri);
+    }
     ldap["ServiceAddresses"] = std::move(serviceAddresses);
 
     nlohmann::json::object_t authentication;
@@ -347,7 +349,10 @@ inline void parseLDAPConfigData(nlohmann::json& jsonResponse,
     nlohmann::json::object_t ldapService;
     nlohmann::json::object_t searchSettings;
     nlohmann::json::array_t baseDistinguishedNames;
-    baseDistinguishedNames.emplace_back(confData.baseDN);
+    if (!confData.baseDN.empty())
+    {
+        baseDistinguishedNames.emplace_back(confData.baseDN);
+    }
 
     searchSettings["BaseDistinguishedNames"] =
         std::move(baseDistinguishedNames);
@@ -394,7 +399,8 @@ inline void handleRoleMapPatch(
             // delete the existing object
             if (index < roleMapObjData.size())
             {
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
+                    asyncResp,
                     [asyncResp, roleMapObjData, serverType,
                      index](const boost::system::error_code& ec) {
                         if (ec)
@@ -508,7 +514,8 @@ inline void handleRoleMapPatch(
                 BMCWEB_LOG_DEBUG("Remote Group={},LocalRole={}", *remoteGroup,
                                  *localRole);
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
+                    asyncResp,
                     [asyncResp, serverType, localRole,
                      remoteGroup](const boost::system::error_code& ec) {
                         if (ec)
@@ -1310,6 +1317,7 @@ inline void handleAccountServiceClientCertificatesGet(
     {
         return;
     }
+<<<<<<< HEAD
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates";
     asyncResp->res.jsonValue["@odata.type"] =
@@ -1318,6 +1326,16 @@ inline void handleAccountServiceClientCertificatesGet(
         "MultiFactorAuth Certificates Collection";
     asyncResp->res.jsonValue["Description"] =
         "A Collection of MultiFactorAuth Certificate Instances";
+||||||| 80d2ef31c
+=======
+
+    nlohmann::json& json = asyncResp->res.jsonValue;
+    json["@odata.id"] =
+        "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates";
+    json["@odata.type"] = "#CertificateCollection.CertificateCollection";
+    json["Name"] = "Certificates Collection";
+    json["Description"] = "Multi-factor Authentication Client Certificates";
+>>>>>>> origin/master
     getClientCertificates(asyncResp, "/Members"_json_pointer);
 }
 
@@ -1340,6 +1358,7 @@ inline CertificateMappingAttribute getCertificateMapping(
         {
             return CertificateMappingAttribute::UserPrincipalName;
         }
+<<<<<<< HEAD
 
         case MTLSCommonNameParseMode::Meta:
         {
@@ -1349,6 +1368,20 @@ inline CertificateMappingAttribute getCertificateMapping(
             }
         }
         break;
+||||||| 80d2ef31c
+        break;
+
+        case MTLSCommonNameParseMode::Meta:
+        {
+            if constexpr (BMCWEB_META_TLS_COMMON_NAME_PARSING)
+            {
+                return CertificateMappingAttribute::CommonName;
+            }
+        }
+        break;
+=======
+        break;
+>>>>>>> origin/master
         default:
         {
             return CertificateMappingAttribute::Invalid;
@@ -1827,7 +1860,8 @@ inline void processAfterCreateUser(
         tempObjPath /= username;
         const std::string userPath(tempObjPath);
 
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
+            asyncResp,
             [asyncResp, password](const boost::system::error_code& ec3) {
                 if (ec3)
                 {
@@ -1919,7 +1953,8 @@ inline void processAfterGetAllGroups(
         messages::internalError(asyncResp->res);
         return;
     }
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
+        asyncResp,
         [asyncResp, username, password](const boost::system::error_code& ec2,
                                         sdbusplus::message_t& m) {
             processAfterCreateUser(asyncResp, username, password, ec2, m);
@@ -2198,9 +2233,18 @@ inline void handleAccountDelete(
     tempObjPath /= username;
     const std::string userPath(tempObjPath);
 
+<<<<<<< HEAD
     crow::connections::systemBus->async_method_call(
         [asyncResp, username](const boost::system::error_code& ec,
                               sdbusplus::message::message& m) {
+||||||| 80d2ef31c
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, username](const boost::system::error_code& ec) {
+=======
+    dbus::utility::async_method_call(
+        asyncResp,
+        [asyncResp, username](const boost::system::error_code& ec) {
+>>>>>>> origin/master
             if (ec)
             {
                 handleNvidiaDeleteError(asyncResp, username, m);
@@ -2292,10 +2336,12 @@ inline void handleAccountPatch(
                              locked, accountTypes, userSelf, req.session);
         return;
     }
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
+        asyncResp,
         [asyncResp, username, password(std::move(password)),
          roleId(std::move(roleId)), enabled, newUser{std::string(*newUserName)},
-         locked, userSelf, req, accountTypes(std::move(accountTypes))](
+         locked, userSelf, session = req.session,
+         accountTypes(std::move(accountTypes))](
             const boost::system::error_code& ec, sdbusplus::message_t& m) {
             if (ec)
             {
@@ -2305,7 +2351,7 @@ inline void handleAccountPatch(
             }
 
             updateUserProperties(asyncResp, newUser, password, enabled, roleId,
-                                 locked, accountTypes, userSelf, req.session);
+                                 locked, accountTypes, userSelf, session);
         },
         "xyz.openbmc_project.User.Manager", "/xyz/openbmc_project/user",
         "xyz.openbmc_project.User.Manager", "RenameUser", username,

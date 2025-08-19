@@ -12,14 +12,15 @@ The webserver implements a few distinct interfaces:
   to dbus and the objects it represents.
 - Serial: A serial websocket for interacting with the host serial console
   through websockets.
-- Redfish: A protocol compliant, [DBus to Redfish translator](Redfish.md).
+- Redfish: A protocol compliant, [DBus to Redfish translator](docs/Redfish.md).
 - KVM: A websocket based implementation of the RFB (VNC) frame buffer protocol
   intended to mate to webui-vue to provide a complete KVM implementation.
 
 ## Protocols
 
 bmcweb at a protocol level supports http and https. TLS is supported through
-OpenSSL.
+OpenSSL. Http1 and http2 are supported using ALPN registration for TLS
+connections and h2c upgrade header for http connections.
 
 ## AuthX
 
@@ -75,8 +76,14 @@ When SSL support is enabled and a usable certificate is not found, bmcweb will
 generate a self-signed a certificate before launching the server. Please see the
 bmcweb source code for details on the parameters this certificate is built with.
 
+## Compression
+
+bmcweb supports various forms of http compression, including zstd and gzip.
+Client headers are observed to determine whether compressed payloads are
+supported.
+
 ## Redfish Aggregation
 
 bmcweb is capable of aggregating resources from satellite BMCs. Refer to
-[AGGREGATION.md](https://github.com/openbmc/bmcweb/blob/master/AGGREGATION.md)
+[AGGREGATION.md](https://github.com/openbmc/bmcweb/blob/master/docs/AGGREGATION.md)
 for more information on how to enable and use this feature.

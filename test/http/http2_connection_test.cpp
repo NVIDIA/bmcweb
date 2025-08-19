@@ -4,16 +4,19 @@
 #include "http/http2_connection.hpp"
 #include "http/http_request.hpp"
 #include "http/http_response.hpp"
+#include "http_connect_types.hpp"
 #include "nghttp2_adapters.hpp"
+#include "test_stream.hpp"
 
 #include <nghttp2/nghttp2.h>
 #include <unistd.h>
 
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/io_context.hpp>
+#include <boost/asio/ssl/context.hpp>
+#include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/write.hpp>
-#include <boost/beast/_experimental/test/stream.hpp>
 #include <boost/beast/http/field.hpp>
 
 #include <bit>
@@ -96,8 +99,8 @@ TEST(http_connection, RequestPropogates)
 {
     using namespace std::literals;
     boost::asio::io_context io;
-    boost::beast::test::stream stream(io);
-    boost::beast::test::stream out(io);
+    TestStream stream(io);
+    TestStream out(io);
     stream.connect(out);
     // This is a binary pre-encrypted stream captured from curl for a request to
     // curl https://localhost:18080/redfish/v1/
@@ -124,9 +127,10 @@ TEST(http_connection, RequestPropogates)
     FakeHandler handler;
     boost::asio::steady_timer timer(io);
     std::function<std::string()> date(getDateStr);
-    auto conn = std::make_shared<
-        HTTP2Connection<boost::beast::test::stream, FakeHandler>>(
-        std::move(stream), &handler, date);
+    boost::asio::ssl::context sslCtx(boost::asio::ssl::context::tls_server);
+    auto conn = std::make_shared<HTTP2Connection<TestStream, FakeHandler>>(
+        boost::asio::ssl::stream<TestStream>(std::move(stream), sslCtx),
+        &handler, date, HttpType::HTTP, nullptr);
     conn->start();
 
     std::string_view expectedPrefix =

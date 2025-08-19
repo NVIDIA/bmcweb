@@ -523,11 +523,20 @@ class RedfishAggregator
                         return;
                     }
 
+<<<<<<< HEAD
                     // For now assume there will only be one satellite config.
                     // Assign it the name/prefix
                     addSatelliteConfig(
                         std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX),
                         interface.second, satelliteInfo);
+||||||| 80d2ef31c
+                    // For now assume there will only be one satellite config.
+                    // Assign it the name/prefix "5B247A"
+                    addSatelliteConfig("5B247A", interface.second,
+                                       satelliteInfo);
+=======
+                    addSatelliteConfig(interface.second, satelliteInfo);
+>>>>>>> origin/master
                 }
             }
         }
@@ -536,11 +545,11 @@ class RedfishAggregator
     // Parse the properties of a satellite config object and add the
     // configuration if the properties are valid
     static void addSatelliteConfig(
-        const std::string& name,
         const dbus::utility::DBusPropertiesMap& properties,
         std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
     {
         boost::urls::url url;
+        std::string prefix;
 
         for (const auto& prop : properties)
         {
@@ -594,29 +603,46 @@ class RedfishAggregator
                 }
                 url.set_scheme("http");
             }
+            else if (prop.first == "Name")
+            {
+                const std::string* propVal =
+                    std::get_if<std::string>(&prop.second);
+                if (propVal != nullptr && !propVal->empty())
+                {
+                    prefix = *propVal;
+                    BMCWEB_LOG_DEBUG("Using Name property {} as prefix",
+                                     prefix);
+                }
+                else
+                {
+                    BMCWEB_LOG_DEBUG(
+                        "Invalid or empty Name property, invalid satellite config");
+                    return;
+                }
+            }
         } // Finished reading properties
 
         // Make sure all required config information was made available
         if (url.host().empty())
         {
-            BMCWEB_LOG_ERROR("Satellite config {} missing Host", name);
+            BMCWEB_LOG_ERROR("Satellite config {} missing Host", prefix);
             return;
         }
 
         if (!url.has_port())
         {
-            BMCWEB_LOG_ERROR("Satellite config {} missing Port", name);
+            BMCWEB_LOG_ERROR("Satellite config {} missing Port", prefix);
             return;
         }
 
         if (!url.has_scheme())
         {
-            BMCWEB_LOG_ERROR("Satellite config {} missing AuthType", name);
+            BMCWEB_LOG_ERROR("Satellite config {} missing AuthType", prefix);
             return;
         }
 
         std::string resultString;
-        auto result = satelliteInfo.insert_or_assign(name, std::move(url));
+        auto result = satelliteInfo.insert_or_assign(prefix, std::move(url));
         if (result.second)
         {
             resultString = "Added new satellite config ";
@@ -626,7 +652,7 @@ class RedfishAggregator
             resultString = "Updated existing satellite config ";
         }
 
-        BMCWEB_LOG_DEBUG("{}{} at {}://{}", resultString, name,
+        BMCWEB_LOG_DEBUG("{}{} at {}://{}", resultString, prefix,
                          result.first->second.scheme(),
                          result.first->second.encoded_host_and_port());
     }
@@ -661,7 +687,7 @@ class RedfishAggregator
 
         // Create a copy of thisReq so we we can still locally process the req
         std::error_code ec;
-        auto localReq = std::make_shared<crow::Request>(thisReq.req, ec);
+        auto localReq = std::make_shared<crow::Request>(thisReq.copy());
         if (ec)
         {
             BMCWEB_LOG_ERROR("Failed to create copy of request");

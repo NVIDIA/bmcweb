@@ -1,18 +1,6 @@
-/*
-Copyright (c) 2020 Intel Corporation
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-      http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+// SPDX-FileCopyrightText: Copyright 2020 Intel Corporation
 #include "subscription.hpp"
 
 #include "dbus_singleton.hpp"
@@ -76,7 +64,8 @@ Subscription::Subscription(crow::sse_socket::Connection& connIn) :
 {}
 
 // callback for subscription sendData
-void Subscription::resHandler(const crow::Response& res)
+void Subscription::resHandler(const std::shared_ptr<Subscription>& /*self*/,
+                              const crow::Response& res)
 {
     BMCWEB_LOG_DEBUG("Response handled with return code: {}", res.resultInt());
 
@@ -199,7 +188,8 @@ bool Subscription::sendEventToSubscriber(uint64_t eventId, std::string&& msg)
             static_cast<ensuressl::VerifyCertificate>(
                 userSub->verifyCertificate),
             httpHeadersCopy, boost::beast::http::verb::post,
-            std::bind_front(&Subscription::resHandler, this));
+            std::bind_front(&Subscription::resHandler, this,
+                            shared_from_this()));
         return true;
     }
 

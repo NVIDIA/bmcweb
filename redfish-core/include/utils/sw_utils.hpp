@@ -4,6 +4,7 @@
 #include "bmcweb_config.h"
 
 #include "async_resp.hpp"
+#include "boost_formatters.hpp"
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
@@ -92,18 +93,16 @@ inline void afterGetProperties(
 {
     if (ec)
     {
-        BMCWEB_LOG_ERROR("error_code = {}", ec);
-        BMCWEB_LOG_ERROR("error msg = {}", ec.message());
         // Have seen the code update app delete the
         // D-Bus object, during code update, between
         // the call to mapper and here. Just leave
         // these properties off if resource not
         // found.
-        if (ec.value() == EBADR)
+        if (ec.value() != EBADR)
         {
-            return;
+            BMCWEB_LOG_ERROR("error_code = {}", ec);
+            messages::internalError(asyncResp->res);
         }
-        messages::internalError(asyncResp->res);
         return;
     }
     // example propertiesList
@@ -124,7 +123,7 @@ inline void afterGetProperties(
         return;
     }
 
-    if (version == nullptr || version->empty())
+    if (version == nullptr)
     {
         messages::internalError(asyncResp->res);
         return;
@@ -165,6 +164,11 @@ inline void afterGetProperties(
     }
     if (!activeVersionPropName.empty() && runningImage)
     {
+        if (version->empty())
+        {
+            BMCWEB_LOG_INFO("Version is empty for swId: {}", swId);
+            return;
+        }
         asyncResp->res.jsonValue[activeVersionPropName] = *version;
     }
 }
@@ -179,9 +183,11 @@ inline void afterGetSubtree(
 {
     if (ec)
     {
-        BMCWEB_LOG_ERROR("error_code = {}", ec);
-        BMCWEB_LOG_ERROR("error msg = {}", ec.message());
-        messages::internalError(asyncResp->res);
+        if (ec.value() != EBADR)
+        {
+            BMCWEB_LOG_ERROR("error_code = {}", ec);
+            messages::internalError(asyncResp->res);
+        }
         return;
     }
 
@@ -239,7 +245,6 @@ inline void afterAssociatedEndpoints(
     if (ec)
     {
         BMCWEB_LOG_DEBUG("error_code = {}", ec);
-        BMCWEB_LOG_DEBUG("error msg = {}", ec.message());
         // No functional software for this swVersionPurpose, so just
         return;
     }
@@ -372,6 +377,46 @@ inline std::string getRedfishSwHealth(const std::string& swState)
     }
     BMCWEB_LOG_DEBUG("Sw state {} to Warning", swState);
     return "Warning";
+}
+
+/**
+ * @brief Put LowestSupportedVersion of input swId into json response
+ *
+ * This function will put the MinimumVersion from D-Bus of the input
+ * software id to ["LowestSupportedVersion"].
+ *
+ * @param[i,o] asyncResp    Async response object
+ * @param[i] swId The software ID to get Minimum Version for
+ * @param[i]   dbusSvc  The dbus service implementing the software object
+ *
+ * @return void
+ */
+inline void getSwMinimumVersion(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::shared_ptr<std::string>& swId, const std::string& dbusSvc)
+{
+    BMCWEB_LOG_DEBUG("getSwMinimumVersion: svc {}, swId {}", dbusSvc, *swId);
+
+    sdbusplus::message::object_path path("/xyz/openbmc_project/software");
+    path /= *swId;
+
+    dbus::utility::getProperty<std::string>(
+        dbusSvc, path, "xyz.openbmc_project.Software.MinimumVersion",
+        "MinimumVersion",
+        [asyncResp](const boost::system::error_code& ec,
+                    const std::string& swMinimumVersion) {
+            if (ec)
+            {
+                // not all software has this interface and it is not critical
+                return;
+            }
+
+            BMCWEB_LOG_DEBUG("getSwMinimumVersion: MinimumVersion {}",
+                             swMinimumVersion);
+
+            asyncResp->res.jsonValue["LowestSupportedVersion"] =
+                swMinimumVersion;
+        });
 }
 
 /**

@@ -8,6 +8,7 @@
 #include "complete_response_fields.hpp"
 #include "forward_unauthorized.hpp"
 #include "http_body.hpp"
+#include "http_connect_types.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
 #include "logging.hpp"
@@ -19,7 +20,6 @@
 #include <unistd.h>
 
 #include <boost/asio/buffer.hpp>
-#include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/beast/core/error.hpp>
 #include <boost/beast/http/field.hpp>
@@ -28,6 +28,7 @@
 #include <boost/beast/http/verb.hpp>
 #include <boost/optional/optional.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/url/url_view.hpp>
 
 #include <array>
 #include <bit>
@@ -40,6 +41,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -51,6 +53,7 @@ struct Http2StreamData
     std::shared_ptr<Request> req = std::make_shared<Request>();
     std::optional<bmcweb::HttpBody::reader> reqReader;
     std::string accept;
+    std::string acceptEnc;
     Response res;
     std::optional<bmcweb::HttpBody::writer> writer;
 };
@@ -62,14 +65,37 @@ class HTTP2Connection :
     using self_type = HTTP2Connection<Adaptor, Handler>;
 
   public:
-    HTTP2Connection(Adaptor&& adaptorIn, Handler* handlerIn,
-                    std::function<std::string()>& getCachedDateStrF) :
-        adaptor(std::move(adaptorIn)), ngSession(initializeNghttp2Session()),
-        handler(handlerIn), getCachedDateStr(getCachedDateStrF)
+    HTTP2Connection(
+        boost::asio::ssl::stream<Adaptor>&& adaptorIn, Handler* handlerIn,
+        std::function<std::string()>& getCachedDateStrF, HttpType httpTypeIn,
+        const std::shared_ptr<persistent_data::UserSession>& mtlsSessionIn) :
+        httpType(httpTypeIn), adaptor(std::move(adaptorIn)),
+        ngSession(initializeNghttp2Session()), handler(handlerIn),
+        getCachedDateStr(getCachedDateStrF), mtlsSession(mtlsSessionIn)
     {}
 
     void start()
     {
+        // Create the control stream
+        streams[0];
+
+        if (sendServerConnectionHeader() != 0)
+        {
+            BMCWEB_LOG_ERROR("send_server_connection_header failed");
+            return;
+        }
+        doRead();
+    }
+
+    void startFromSettings(std::string_view http2UpgradeSettings)
+    {
+        int ret = ngSession.sessionUpgrade2(http2UpgradeSettings,
+                                            false /*head_request*/);
+        if (ret != 0)
+        {
+            BMCWEB_LOG_ERROR("Failed to load upgrade header");
+            return;
+        }
         // Create the control stream
         streams[0];
 
@@ -181,9 +207,14 @@ class HTTP2Connection :
         Response& res = stream.res;
         res = std::move(completedRes);
 
-        completeResponseFields(stream.accept, res);
+        completeResponseFields(stream.accept, stream.acceptEnc, res);
         res.addHeader(boost::beast::http::field::date, getCachedDateStr());
-        res.preparePayload();
+        boost::urls::url_view urlView;
+        if (stream.req != nullptr)
+        {
+            urlView = stream.req->url();
+        }
+        res.preparePayload(urlView);
 
         boost::beast::http::fields& fields = res.fields();
         std::string code = std::to_string(res.resultInt());
@@ -253,10 +284,9 @@ class HTTP2Connection :
             }
         }
         crow::Request& thisReq = *it->second.req;
-        thisReq.ioService = static_cast<decltype(thisReq.ioService)>(
-            &adaptor.get_executor().context());
-
-        it->second.accept = thisReq.getHeaderValue("Accept");
+        using boost::beast::http::field;
+        it->second.accept = thisReq.getHeaderValue(field::accept);
+        it->second.acceptEnc = thisReq.getHeaderValue(field::accept_encoding);
 
         BMCWEB_LOG_DEBUG("Handling {} \"{}\"", logPtr(&thisReq),
                          thisReq.url().encoded_path());
@@ -277,7 +307,7 @@ class HTTP2Connection :
         if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
         {
             thisReq.session = crow::authentication::authenticate(
-                {}, asyncResp->res, thisReq.method(), thisReq.req, nullptr);
+                {}, asyncResp->res, thisReq.method(), thisReq.req, mtlsSession);
             if (!crow::authentication::isOnAllowlist(thisReq.url().path(),
                                                      thisReq.method()) &&
                 thisReq.session == nullptr)
@@ -499,7 +529,7 @@ class HTTP2Connection :
         {
             BMCWEB_LOG_DEBUG("create stream for id {}", frame.hd.stream_id);
 
-            streams.emplace(frame.hd.stream_id, Http2StreamData());
+            streams[frame.hd.stream_id];
         }
         return 0;
     }
@@ -548,23 +578,24 @@ class HTTP2Connection :
             return;
         }
         isWriting = true;
-        boost::asio::async_write(
-            adaptor, boost::asio::const_buffer(data.data(), data.size()),
-            std::bind_front(afterWriteBuffer, shared_from_this()));
+        if (httpType == HttpType::HTTPS)
+        {
+            boost::asio::async_write(
+                adaptor, boost::asio::const_buffer(data.data(), data.size()),
+                std::bind_front(afterWriteBuffer, shared_from_this()));
+        }
+        else if (httpType == HttpType::HTTP)
+        {
+            boost::asio::async_write(
+                adaptor.next_layer(),
+                boost::asio::const_buffer(data.data(), data.size()),
+                std::bind_front(afterWriteBuffer, shared_from_this()));
+        }
     }
 
     void close()
     {
-        if constexpr (std::is_same_v<Adaptor,
-                                     boost::asio::ssl::stream<
-                                         boost::asio::ip::tcp::socket>>)
-        {
-            adaptor.next_layer().close();
-        }
-        else
-        {
-            adaptor.close();
-        }
+        adaptor.next_layer().close();
     }
 
     void afterDoRead(const std::shared_ptr<self_type>& /*self*/,
@@ -599,9 +630,19 @@ class HTTP2Connection :
     void doRead()
     {
         BMCWEB_LOG_DEBUG("{} doRead", logPtr(this));
-        adaptor.async_read_some(
-            boost::asio::buffer(inBuffer),
-            std::bind_front(&self_type::afterDoRead, this, shared_from_this()));
+        if (httpType == HttpType::HTTPS)
+        {
+            adaptor.async_read_some(boost::asio::buffer(inBuffer),
+                                    std::bind_front(&self_type::afterDoRead,
+                                                    this, shared_from_this()));
+        }
+        else if (httpType == HttpType::HTTP)
+        {
+            adaptor.next_layer().async_read_some(
+                boost::asio::buffer(inBuffer),
+                std::bind_front(&self_type::afterDoRead, this,
+                                shared_from_this()));
+        }
     }
 
     // A mapping from http2 stream ID to Stream Data
@@ -609,13 +650,16 @@ class HTTP2Connection :
 
     std::array<uint8_t, 8192> inBuffer{};
 
-    Adaptor adaptor;
+    HttpType httpType = HttpType::BOTH;
+    boost::asio::ssl::stream<Adaptor> adaptor;
     bool isWriting = false;
 
     nghttp2_session ngSession;
 
     Handler* handler;
     std::function<std::string()>& getCachedDateStr;
+
+    std::shared_ptr<persistent_data::UserSession> mtlsSession;
 
     using std::enable_shared_from_this<
         HTTP2Connection<Adaptor, Handler>>::shared_from_this;

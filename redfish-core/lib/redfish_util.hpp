@@ -6,18 +6,23 @@
 // #include <dbus_utility.hpp>
 // #include <error_messages.hpp>
 #include "async_resp.hpp"
+#include "boost_formatters.hpp"
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "logging.hpp"
+<<<<<<< HEAD
 #include "persistent_data.hpp"
+||||||| 80d2ef31c
+=======
+#include "utils/chassis_utils.hpp"
+>>>>>>> origin/master
 
 #include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
 #include <sdbusplus/message/native_types.hpp>
 
 #include <algorithm>
-#include <array>
 #include <charconv>
 #include <cstddef>
 #include <cstdint>
@@ -70,11 +75,8 @@ void getMainChassisId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       CallbackFunc&& callback)
 {
     // Find managed chassis
-    constexpr std::array<std::string_view, 2> interfaces = {
-        "xyz.openbmc_project.Inventory.Item.Board",
-        "xyz.openbmc_project.Inventory.Item.Chassis"};
     dbus::utility::getSubTree(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
+        "/xyz/openbmc_project/inventory", 0, chassisInterfaces,
         [callback = std::forward<CallbackFunc>(callback),
          asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -110,7 +112,7 @@ void getPortStatusAndPath(
         protocolToDBus,
     CallbackFunc&& callback)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [protocolToDBus, callback = std::forward<CallbackFunc>(callback)](
             const boost::system::error_code& ec,
             const std::vector<UnitStruct>& r) {

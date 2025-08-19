@@ -9,9 +9,9 @@
 #include "dbus_singleton.hpp"
 #include "dump_aggregation.hpp"
 #include "event_service_manager.hpp"
-#include "google/google_service_root.hpp"
+#include "google_service_root.hpp"
 #include "hostname_monitor.hpp"
-#include "ibm/management_console_rest.hpp"
+#include "ibm_management_console_rest.hpp"
 #include "image_upload.hpp"
 #include "io_context_singleton.hpp"
 #include "kvm_websocket.hpp"
@@ -24,6 +24,7 @@
 #include "redfish_aggregator.hpp"
 #include "user_monitor.hpp"
 #include "vm_websocket.hpp"
+#include "watchdog.hpp"
 #include "webassets.hpp"
 
 #include <boost/asio/io_context.hpp>
@@ -68,9 +69,16 @@ int run()
 
     iface->initialize();
 
+<<<<<<< HEAD
     // Enable SystemD service watchdog kicking. Service file has timeout of 60s.
     crow::watchdog::ServiceWD watchdog(30, io);
 
+||||||| 80d2ef31c
+=======
+    // Load the peristent data
+    persistent_data::getConfig();
+
+>>>>>>> origin/master
     // Static assets need to be initialized before Authorization, because auth
     // needs to build the whitelist from the static routes
 
@@ -148,6 +156,8 @@ int run()
     }
 
     bmcweb::registerUserRemovedSignal();
+
+    bmcweb::ServiceWatchdog watchdog;
 
     app.run();
 

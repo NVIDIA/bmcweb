@@ -340,21 +340,9 @@ option(
 option(
     'mutual-tls-common-name-parsing-default',
     type: 'combo',
-    choices: ['CommonName', 'Whole', 'UserPrincipalName', 'Meta'],
-    description: '''
-        Parses the Subject CN in the format used by
-                                Meta Inc (see mutual_tls_meta.cpp for details)
-                    ''',
-)
-
-# BMCWEB_META_TLS_COMMON_NAME_PARSING
-option(
-    'meta-tls-common-name-parsing',
-    type: 'feature',
-    description: '''
-        Allows parsing the Subject CN TLS certificate in the format used by
-                                Meta Inc (see mutual_tls_meta.cpp for details)
-    ''',
+    choices: ['CommonName', 'Whole', 'UserPrincipalName'],
+    description: '''Default MTLS parse mode to get username from the
+                    client's x509 certificate''',
 )
 
 # BMCWEB_IBM_MANAGEMENT_CONSOLE
@@ -385,6 +373,7 @@ option(
     description: 'Specifies the http request body length limit',
 )
 
+<<<<<<< HEAD
 # BMCWEB_FIRMWARE_IMAGE_LIMIT
 option(
     'firmware-image-limit',
@@ -395,6 +384,17 @@ option(
     description: 'Specifies the firmware image size limit',
 )
 
+||||||| 80d2ef31c
+=======
+# BMCWEB_HTTP_ZSTD
+option(
+    'http-zstd',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Allows compression/decompression using zstd',
+)
+
+>>>>>>> origin/master
 # BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM
 option(
     'redfish-new-powersubsystem-thermalsubsystem',
@@ -443,10 +443,6 @@ option(
     description: '''Enables xyz.openbmc_project.Software.Update D-Bus interface
                     to propagate UpdateService requests to the corresponding
                     updater daemons instead of moving files to /tmp/images dir.
-                    This option is temporary, should not be enabled on any
-                    production systems. The code will be moved to the normal
-                    code update flow and the option will be removed at the end
-                    of Q3 2024.
                 ''',
 )
 
@@ -461,7 +457,6 @@ option(
 )
 
 
-# BMCWEB_HTTPS_PORT
 option(
     'redfish-health-populate',
     type: 'feature',
@@ -473,11 +468,61 @@ option(
 option(
     'https_port',
     type: 'integer',
-    min: 1,
+    min: -1,
     max: 65535,
     value: 443,
-    description: 'HTTPS Port number.',
+    description: '''HTTPS default port number.  Set to -1 to disable and rely
+                    only on additional_ports''',
 )
+
+
+# Additional ports
+# This series of options below allows setting up non-trivial deployments of
+# bmcweb, binding specific ports, authentication profiles, and device binds to
+# multiple ports.
+# Setting these options incorrectly can have severe security consequences and
+# should be reserved for platform experts familiar with their particular
+# platforms security requirements.
+
+option(
+    'additional-ports',
+    type: 'array',
+    value: [],
+    description: '''Additional ports to listen to.  Allows bmcweb to listen to
+                    multiple ports at a given protocol''',
+)
+
+option(
+    'additional-protocol',
+    type: 'array',
+    value: [],
+    description: '''Allows specifying a specific protocol type for a given
+                    additional-ports index.  Allows setting http, https, or both
+                    to each socket index.  If not provided for a given
+                    additional-ports index, assumes https.''',
+)
+
+option(
+    'additional-bind-to-device',
+    type: 'array',
+    value: [],
+    description: '''Allows specifying an SO_BINDTODEVICE or BindToDevice systemd
+                    directive for each additional socket file.  If not provided
+                    for a given additional-ports index, assumes bind to all
+                    devices''',
+)
+
+option(
+    'additional-auth',
+    type: 'array',
+    value: [],
+    description: '''Allows specifying an authentication profile for each socket
+                    created with additional-ports.  Allows auth or noauth, and
+                    defaults to auth if not provided.  If noauth is provided,
+                    authentication will not be performed for a given socket/port
+                    index.''',
+)
+# end additional ports
 
 # BMCWEB_DNS_RESOLVER
 option(
@@ -836,18 +881,27 @@ option(
     value: 'disabled',
     description: '''This is a temporary option flag for staging the
     ComputerSystemCollection transition to multi-host.  It, as well as the code
-    still beneath it will be removed on 3/1/2025.  Do not enable in a
+    still beneath it will be removed on 1/1/2026.  Do not enable in a
     production environment, or where API stability is required.''',
 )
 
-# BMCWEB_EXPERIMENTAL_HTTP2
+# BMCWEB_HTTP2
 option(
-    'experimental-http2',
+    'http2',
     type: 'feature',
-    value: 'disabled',
-    description: '''Enable HTTP/2 protocol support using nghttp2.  Do not rely
-                    on this option for any production systems.  It may have
-                    behavior changes or be removed at any time.''',
+    value: 'enabled',
+    description: 'Enable HTTP/2 protocol support using nghttp2.',
+)
+
+# BMCWEB_WATCHDOG_TIMEOUT
+option(
+    'watchdog-timeout-seconds',
+    type: 'integer',
+    min: 0,
+    max: 600,
+    value: 120,
+    description: '''Specifies the systemd watchdog timeout interval in seconds.
+                    Set to 0 to disable the watchdog.''',
 )
 option(
     'manual-boot-mode-support',

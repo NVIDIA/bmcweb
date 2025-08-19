@@ -31,6 +31,7 @@
 #include "utils/json_utils.hpp"
 #include "utils/pcie_util.hpp"
 #include "utils/sw_utils.hpp"
+#include "utils/systems_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <asm-generic/errno.h>
@@ -1154,12 +1155,14 @@ inline void getBootOverrideSource(
                     const std::string& bootSourceStr) {
             if (ec)
             {
-                if (ec.value() == boost::asio::error::host_unreachable)
+                // Service not available, no error, just don't return
+                // Boot Override Source information
+                if (ec.value() != EBADR &&
+                    ec.value() != boost::asio::error::host_unreachable)
                 {
-                    return;
+                    BMCWEB_LOG_ERROR("D-Bus response error: {}", ec);
+                    messages::internalError(asyncResp->res);
                 }
-                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-                messages::internalError(asyncResp->res);
                 return;
             }
 
@@ -1245,12 +1248,14 @@ inline void getBootOverrideEnable(
                     const bool bootOverrideEnable) {
             if (ec)
             {
-                if (ec.value() == boost::asio::error::host_unreachable)
+                // Service not available, no error, just don't return
+                // Boot Override Enable information
+                if (ec.value() != EBADR &&
+                    ec.value() != boost::asio::error::host_unreachable)
                 {
-                    return;
+                    BMCWEB_LOG_ERROR("D-Bus response error: {}", ec);
+                    messages::internalError(asyncResp->res);
                 }
-                BMCWEB_LOG_ERROR("DBUS response error {}", ec);
-                messages::internalError(asyncResp->res);
                 return;
             }
 
@@ -1425,12 +1430,27 @@ inline void getAutomaticRebootAttempts(
             const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
+<<<<<<< HEAD
                 BMCWEB_LOG_ERROR("DBUS response error {}, {}", ec.value(),
                                  ec.message());
                 // handle the error while BMC is booting
                 if (ec.value() != EBADR &&
                     ec.value() != boost::system::errc::host_unreachable)
+||||||| 80d2ef31c
+                if (ec.value() != EBADR)
+=======
+                if (ec.value() != EBADR &&
+                    ec.value() != boost::asio::error::host_unreachable)
+>>>>>>> origin/master
                 {
+<<<<<<< HEAD
+||||||| 80d2ef31c
+                    BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+=======
+                    // Service not available, no error, just don't return
+                    // RebootAttempts information
+                    BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
+>>>>>>> origin/master
                     messages::internalError(asyncResp->res);
                 }
                 return;
@@ -1485,7 +1505,10 @@ inline void getAutomaticRetryPolicy(
                                    bool autoRebootEnabled) {
             if (ec)
             {
-                if (ec.value() != EBADR)
+                // Service not available, no error, just don't return
+                // AutoReboot information
+                if (ec.value() != EBADR &&
+                    ec.value() != boost::asio::error::host_unreachable)
                 {
                     BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
                     messages::internalError(asyncResp->res);
@@ -1708,7 +1731,10 @@ inline void getStopBootOnFault(
         [asyncResp](const boost::system::error_code& ec, bool value) {
             if (ec)
             {
-                if (ec.value() != EBADR)
+                // Service not available, no error, just don't return
+                // StopBootOnFault information
+                if (ec.value() != EBADR ||
+                    ec.value() != boost::asio::error::host_unreachable)
                 {
                     BMCWEB_LOG_ERROR("DBUS response error {}", ec);
                     messages::internalError(asyncResp->res);
@@ -3368,29 +3394,7 @@ inline void handleComputerSystemCollectionGet(
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Systems";
     asyncResp->res.jsonValue["Name"] = "Computer System Collection";
 
-    nlohmann::json& ifaceArray = asyncResp->res.jsonValue["Members"];
-    ifaceArray = nlohmann::json::array();
-    if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
-    {
-        asyncResp->res.jsonValue["Members@odata.count"] = 0;
-        // Option currently returns no systems.  TBD
-        return;
-    }
-    asyncResp->res.jsonValue["Members@odata.count"] = 1;
-    nlohmann::json::object_t system;
-    system["@odata.id"] = boost::urls::format("/redfish/v1/Systems/{}",
-                                              BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    ifaceArray.emplace_back(std::move(system));
-
-    if constexpr (BMCWEB_HYPERVISOR_COMPUTER_SYSTEM)
-    {
-        BMCWEB_LOG_DEBUG("Hypervisor is available");
-        asyncResp->res.jsonValue["Members@odata.count"] = 2;
-
-        nlohmann::json::object_t hypervisor;
-        hypervisor["@odata.id"] = "/redfish/v1/Systems/hypervisor";
-        ifaceArray.emplace_back(std::move(hypervisor));
-    }
+    getSystemCollectionMembers(asyncResp);
 }
 
 /**
@@ -3404,7 +3408,8 @@ inline void doNMI(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
         "xyz.openbmc_project.Control.Host.NMI";
     constexpr const char* method = "NMI";
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
+        asyncResp,
         [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -4258,6 +4263,7 @@ inline void handleComputerSystemPatch(
         return;
     }
 
+<<<<<<< HEAD
     asyncResp->res.result(boost::beast::http::status::no_content);
 
     if constexpr (BMCWEB_ENABLE_IST_MODE)
@@ -4269,6 +4275,11 @@ inline void handleComputerSystemPatch(
         }
     }
 
+||||||| 80d2ef31c
+    asyncResp->res.result(boost::beast::http::status::no_content);
+
+=======
+>>>>>>> origin/master
     if (assetTag)
     {
         setAssetTag(asyncResp, *assetTag);

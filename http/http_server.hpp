@@ -4,25 +4,41 @@
 
 #include "bmcweb_config.h"
 
+<<<<<<< HEAD
 #include "asn1.hpp"
 #include "file_watcher.hpp"
+||||||| 80d2ef31c
+=======
+#include "http_connect_types.hpp"
+>>>>>>> origin/master
 #include "http_connection.hpp"
+#include "io_context_singleton.hpp"
 #include "logging.hpp"
 #include "lsp.hpp"
 #include "nvidia_ssl_key_handler.hpp"
 #include "ssl_key_handler.hpp"
 
+<<<<<<< HEAD
 #include <openssl/pem.h> // For PEM_read_PrivateKey
 #include <sys/inotify.h> // For IN_CLOSE_WRITE
 
 #include <boost/asio/io_context.hpp>
+||||||| 80d2ef31c
+#include <boost/asio/io_context.hpp>
+=======
+>>>>>>> origin/master
 #include <boost/asio/ip/address.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
+<<<<<<< HEAD
 #include <boost/beast/core.hpp> // For lowest_layer_type
+||||||| 80d2ef31c
+#include <boost/beast/core/stream_traits.hpp>
+=======
+>>>>>>> origin/master
 
 #include <chrono>
 #include <csignal>
@@ -32,12 +48,17 @@
 #include <functional>
 #include <memory>
 #include <string>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 namespace crow
 {
+
+struct Acceptor
+{
+    boost::asio::ip::tcp::acceptor acceptor;
+    HttpType httpType;
+};
 
 template <typename Handler, typename Adaptor = boost::asio::ip::tcp::socket>
 class Server
@@ -45,13 +66,19 @@ class Server
     using self_t = Server<Handler, Adaptor>;
 
   public:
-    Server(Handler* handlerIn, boost::asio::ip::tcp::acceptor&& acceptorIn,
-           std::shared_ptr<boost::asio::ssl::context> adaptorCtxIn,
-           boost::asio::io_context& io) :
-        ioService(io), acceptor(std::move(acceptorIn)),
+    Server(Handler* handlerIn, std::vector<Acceptor>&& acceptorsIn) :
+        acceptors(std::move(acceptorsIn)),
+
         // NOLINTNEXTLINE(misc-include-cleaner)
+<<<<<<< HEAD
         signals(ioService, SIGINT, SIGTERM, SIGHUP), handler(handlerIn),
         adaptorCtx(std::move(adaptorCtxIn)), fileWatcher(io)
+||||||| 80d2ef31c
+        signals(ioService, SIGINT, SIGTERM, SIGHUP), handler(handlerIn),
+        adaptorCtx(std::move(adaptorCtxIn))
+=======
+        signals(getIoContext(), SIGINT, SIGTERM, SIGHUP), handler(handlerIn)
+>>>>>>> origin/master
     {}
 
     void updateDateStr()
@@ -86,8 +113,12 @@ class Server
             return dateStr;
         };
 
-        BMCWEB_LOG_INFO("bmcweb server is running, local endpoint {}",
-                        acceptor.local_endpoint().address().to_string());
+        for (const Acceptor& accept : acceptors)
+        {
+            BMCWEB_LOG_INFO(
+                "bmcweb server is running, local endpoint {}",
+                accept.acceptor.local_endpoint().address().to_string());
+        }
         startAsyncWaitForSignal();
         doAccept();
     }
@@ -104,6 +135,7 @@ class Server
         {
             auto sslContext = ensuressl::getSslServerContext();
 
+<<<<<<< HEAD
             adaptorCtx = sslContext;
             handler->ssl(std::move(sslContext));
         }
@@ -148,6 +180,14 @@ class Server
                 }
             }
         });
+||||||| 80d2ef31c
+        auto sslContext = ensuressl::getSslServerContext();
+
+        adaptorCtx = sslContext;
+        handler->ssl(std::move(sslContext));
+=======
+        adaptorCtx = ensuressl::getSslServerContext();
+>>>>>>> origin/master
     }
 
     void startAsyncWaitForSignal()
@@ -168,20 +208,16 @@ class Server
                     }
                     else
                     {
-                        stop();
+                        getIoContext().stop();
                     }
                 }
             });
     }
 
-    void stop()
-    {
-        ioService.stop();
-    }
-    using Socket = boost::beast::lowest_layer_type<Adaptor>;
-    using SocketPtr = std::unique_ptr<Socket>;
+    using SocketPtr = std::unique_ptr<Adaptor>;
 
-    void afterAccept(SocketPtr socket, const boost::system::error_code& ec)
+    void afterAccept(SocketPtr socket, HttpType httpType,
+                     const boost::system::error_code& ec)
     {
         if (ec)
         {
@@ -189,51 +225,44 @@ class Server
             return;
         }
 
-        boost::asio::steady_timer timer(ioService);
-        std::shared_ptr<Connection<Adaptor, Handler>> connection;
-
-        if constexpr (std::is_same<Adaptor,
-                                   boost::asio::ssl::stream<
-                                       boost::asio::ip::tcp::socket>>::value)
+        boost::asio::steady_timer timer(getIoContext());
+        if (adaptorCtx == nullptr)
         {
-            if (adaptorCtx == nullptr)
-            {
-                BMCWEB_LOG_CRITICAL(
-                    "Asked to launch TLS socket but no context available");
-                return;
-            }
-            connection = std::make_shared<Connection<Adaptor, Handler>>(
-                handler, std::move(timer), getCachedDateStr,
-                Adaptor(std::move(*socket), *adaptorCtx));
-        }
-        else
-        {
-            connection = std::make_shared<Connection<Adaptor, Handler>>(
-                handler, std::move(timer), getCachedDateStr,
-                Adaptor(std::move(*socket)));
+            adaptorCtx = std::make_shared<boost::asio::ssl::context>(
+                boost::asio::ssl::context::tls_server);
         }
 
-        boost::asio::post(ioService, [connection] { connection->start(); });
+        boost::asio::ssl::stream<Adaptor> stream(std::move(*socket),
+                                                 *adaptorCtx);
+        using ConnectionType = Connection<Adaptor, Handler>;
+        auto connection = std::make_shared<ConnectionType>(
+            handler, httpType, std::move(timer), getCachedDateStr,
+            std::move(stream));
+
+        boost::asio::post(getIoContext(),
+                          [connection] { connection->start(); });
 
         doAccept();
     }
 
     void doAccept()
     {
-        SocketPtr socket = std::make_unique<Socket>(ioService);
+        SocketPtr socket = std::make_unique<Adaptor>(getIoContext());
         // Keep a raw pointer so when the socket is moved, the pointer is still
         // valid
-        Socket* socketPtr = socket.get();
-
-        acceptor.async_accept(
-            *socketPtr,
-            std::bind_front(&self_t::afterAccept, this, std::move(socket)));
+        Adaptor* socketPtr = socket.get();
+        for (Acceptor& accept : acceptors)
+        {
+            accept.acceptor.async_accept(
+                *socketPtr,
+                std::bind_front(&self_t::afterAccept, this, std::move(socket),
+                                accept.httpType));
+        }
     }
 
   private:
-    boost::asio::io_context& ioService;
     std::function<std::string()> getCachedDateStr;
-    boost::asio::ip::tcp::acceptor acceptor;
+    std::vector<Acceptor> acceptors;
     boost::asio::signal_set signals;
     std::string dateStr;
 

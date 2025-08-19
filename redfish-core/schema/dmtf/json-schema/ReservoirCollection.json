@@ -2,7 +2,7 @@
     "$id": "http://redfish.dmtf.org/schemas/v1/ReservoirCollection.json",
     "$ref": "#/definitions/ReservoirCollection",
     "$schema": "http://redfish.dmtf.org/schemas/v1/redfish-schema-v1.json",
-    "copyright": "Copyright 2014-2024 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
+    "copyright": "Copyright 2014-2025 DMTF. For the full DMTF copyright policy, see http://www.dmtf.org/about/policies/copyright",
     "definitions": {
         "ReservoirCollection": {
             "anyOf": [
@@ -92,7 +92,8 @@
             "uris": [
                 "/redfish/v1/ThermalEquipment/CDUs/{CoolingUnitId}/Reservoirs",
                 "/redfish/v1/ThermalEquipment/ImmersionUnits/{CoolingUnitId}/Reservoirs",
-                "/redfish/v1/ThermalEquipment/HeatExchangers/{CoolingUnitId}/Reservoirs"
+                "/redfish/v1/ThermalEquipment/HeatExchangers/{CoolingUnitId}/Reservoirs",
+                "/redfish/v1/ThermalEquipment/RPUs/{CoolingUnitId}/Reservoirs"
             ]
         }
     },

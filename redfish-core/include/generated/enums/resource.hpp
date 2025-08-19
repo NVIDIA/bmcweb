@@ -131,6 +131,7 @@ enum class Orientation{
     RightToLeft,
 };
 
+<<<<<<< HEAD
 NLOHMANN_JSON_SERIALIZE_ENUM(Id, {
     {Id::Invalid, "Invalid"},
 });
@@ -147,6 +148,32 @@ NLOHMANN_JSON_SERIALIZE_ENUM(UUID, {
     {UUID::Invalid, "Invalid"},
 });
 
+||||||| 80d2ef31c
+=======
+enum class ConditionType{
+    Invalid,
+    Alert,
+    Informational,
+    Subsystem,
+};
+
+NLOHMANN_JSON_SERIALIZE_ENUM(Id, {
+    {Id::Invalid, "Invalid"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(Description, {
+    {Description::Invalid, "Invalid"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(Name, {
+    {Name::Invalid, "Invalid"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(UUID, {
+    {UUID::Invalid, "Invalid"},
+});
+
+>>>>>>> origin/master
 NLOHMANN_JSON_SERIALIZE_ENUM(State, {
     {State::Invalid, "Invalid"},
     {State::Enabled, "Enabled"},
@@ -253,6 +280,13 @@ NLOHMANN_JSON_SERIALIZE_ENUM(Orientation, {
     {Orientation::BottomToTop, "BottomToTop"},
     {Orientation::LeftToRight, "LeftToRight"},
     {Orientation::RightToLeft, "RightToLeft"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(ConditionType, {
+    {ConditionType::Invalid, "Invalid"},
+    {ConditionType::Alert, "Alert"},
+    {ConditionType::Informational, "Informational"},
+    {ConditionType::Subsystem, "Subsystem"},
 });
 
 }

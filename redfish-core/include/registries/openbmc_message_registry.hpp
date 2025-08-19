@@ -17,9 +17,11 @@
 
 // clang-format off
 
-namespace redfish::registries::openbmc
+namespace redfish::registries
 {
-const Header header = {
+struct Openbmc
+{
+static constexpr Header header = {
     "Copyright 2022 OpenBMC. All rights reserved.",
     "#MessageRegistry.v1_4_0.MessageRegistry",
     0,
@@ -31,10 +33,11 @@ const Header header = {
     "OpenBMC",
     "OpenBMC",
 };
-constexpr const char* url =
+
+static constexpr const char* url =
     "https://raw.githubusercontent.com/openbmc/bmcweb/refs/heads/master/redfish-core/include/registries/openbmc.json";
 
-constexpr std::array registry =
+static constexpr std::array registry =
 {
     MessageEntry{
         "ADDDCCorrectable",
@@ -2811,4 +2814,9 @@ enum class Index
     triggerNumericWarning = 208,
     voltageRegulatorOverheated = 209,
 };
-} // namespace redfish::registries::openbmc
+}; // struct openbmc
+
+[[gnu::constructor]] inline void registerOpenbmc()
+{ registerRegistry<Openbmc>(); }
+
+} // namespace redfish::registries

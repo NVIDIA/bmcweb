@@ -12,6 +12,7 @@
 #include "http/parsing.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
+#include "io_context_singleton.hpp"
 #include "logging.hpp"
 #include "nvidia_error_messages.hpp"
 #include "privileges.hpp"
@@ -359,7 +360,8 @@ inline void deleteCertificate(
     const std::string& service,
     const sdbusplus::message::object_path& objectPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
+        asyncResp,
         [asyncResp,
          id{objectPath.filename()}](const boost::system::error_code& ec) {
             if (ec)
@@ -570,7 +572,8 @@ inline void handleReplaceCertificateAction(
 
     std::shared_ptr<CertificateFile> certFile =
         std::make_shared<CertificateFile>(certificate);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
+        asyncResp,
         [asyncResp, certFile, objectPath, service, url{*parsedUrl}, id, name,
          certificate](const boost::system::error_code& ec,
                       sdbusplus::message::message& m) {
@@ -618,7 +621,8 @@ inline void getCSR(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     BMCWEB_LOG_DEBUG("getCSR CertObjectPath{} CSRObjectPath={} service={}",
                      certObjPath, csrObjPath, service);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
+        asyncResp,
         [asyncResp,
          certURI](const boost::system::error_code& ec, const std::string& csr) {
             if (ec)
@@ -808,14 +812,8 @@ inline void handleGenerateCSRAction(
         return;
     }
 
-    if (req.ioService == nullptr)
-    {
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
     // Make this static so it survives outside this method
-    static boost::asio::steady_timer timeout(*req.ioService);
+    static boost::asio::steady_timer timeout(getIoContext());
     timeout.expires_after(std::chrono::seconds(timeOut));
     timeout.async_wait([asyncResp](const boost::system::error_code& ec) {
         csrMatcher = nullptr;
@@ -867,7 +865,8 @@ inline void handleGenerateCSRAction(
                 }
             }
         });
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
+        asyncResp,
         [asyncResp](const boost::system::error_code& ec, const std::string&) {
             if (ec)
             {
@@ -974,10 +973,21 @@ inline void handleHTTPSCertificateCollectionPost(
     std::shared_ptr<CertificateFile> certFile =
         std::make_shared<CertificateFile>(certHttpBody);
 
+<<<<<<< HEAD
     crow::connections::systemBus->async_method_call(
         [asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
                                             sdbusplus::message::message& m,
                                             const std::string& objectPath) {
+||||||| 80d2ef31c
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, certFile](const boost::system::error_code& ec,
+                              const std::string& objectPath) {
+=======
+    dbus::utility::async_method_call(
+        asyncResp,
+        [asyncResp, certFile](const boost::system::error_code& ec,
+                              const std::string& objectPath) {
+>>>>>>> origin/master
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
@@ -1100,10 +1110,21 @@ inline void handleLDAPCertificateCollectionPost(
     std::shared_ptr<CertificateFile> certFile =
         std::make_shared<CertificateFile>(certHttpBody);
 
+<<<<<<< HEAD
     crow::connections::systemBus->async_method_call(
         [asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
                                             sdbusplus::message::message& m,
                                             const std::string& objectPath) {
+||||||| 80d2ef31c
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, certFile](const boost::system::error_code& ec,
+                              const std::string& objectPath) {
+=======
+    dbus::utility::async_method_call(
+        asyncResp,
+        [asyncResp, certFile](const boost::system::error_code& ec,
+                              const std::string& objectPath) {
+>>>>>>> origin/master
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
@@ -1248,10 +1269,21 @@ inline void handleTrustStoreCertificateCollectionPost(
 
     std::shared_ptr<CertificateFile> certFile =
         std::make_shared<CertificateFile>(certHttpBody);
+<<<<<<< HEAD
     crow::connections::systemBus->async_method_call(
         [asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
                                             sdbusplus::message::message& m,
                                             const std::string& objectPath) {
+||||||| 80d2ef31c
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, certFile](const boost::system::error_code& ec,
+                              const std::string& objectPath) {
+=======
+    dbus::utility::async_method_call(
+        asyncResp,
+        [asyncResp, certFile](const boost::system::error_code& ec,
+                              const std::string& objectPath) {
+>>>>>>> origin/master
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: {}", ec);

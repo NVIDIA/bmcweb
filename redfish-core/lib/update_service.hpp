@@ -14,6 +14,7 @@
 #include "generated/enums/update_service.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
+#include "io_context_singleton.hpp"
 #include "logging.hpp"
 #include "multipart_parser.hpp"
 #include "nvidia_update_service.hpp"
@@ -489,12 +490,22 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         std::bind_front(handleCreateTask),
         "type='signal',interface='org.freedesktop.DBus.Properties',"
         "member='PropertiesChanged',path='" +
+<<<<<<< HEAD
             objPath.str + "'",
         std::bind_front(getTaskMessage));
 
     task->startTimer(std::chrono::minutes(BMCWEB_UPDATE_SERVICE_TASK_TIMEOUT));
     task->populateResp(asyncResp->res);
+||||||| 80d2ef31c
+            objPath.str + "'");
+    task->startTimer(std::chrono::minutes(5));
+    task->populateResp(asyncResp->res);
+=======
+            objPath.str + "'");
+    task->startTimer(std::chrono::minutes(5));
+>>>>>>> origin/master
     task->payload.emplace(std::move(payload));
+<<<<<<< HEAD
     loggingMatch = std::make_unique<sdbusplus::bus::match::match>(
         *crow::connections::systemBus,
         "interface='org.freedesktop.DBus.ObjectManager',type='signal',"
@@ -509,6 +520,10 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                               preTaskMessages.end());
     }
     preTaskMessages = {};
+||||||| 80d2ef31c
+=======
+    task->populateResp(asyncResp->res);
+>>>>>>> origin/master
 }
 
 // Note that asyncResp can be either a valid pointer or nullptr. If nullptr
@@ -717,17 +732,55 @@ inline void afterUpdateErrorMatcher(
 // then no asyncResp updates will occur
 static void monitorForSoftwareAvailable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+<<<<<<< HEAD
     const crow::Request& req,
     int timeoutTimeSeconds = fwObjectCreationDefaultTimeout,
     const std::string& imagePath = {})
+||||||| 80d2ef31c
+    const crow::Request& req, const std::string& url,
+    int timeoutTimeSeconds = 25)
+=======
+    const crow::Request& req, const std::string& url,
+    int timeoutTimeSeconds = 50)
+>>>>>>> origin/master
 {
+<<<<<<< HEAD
     if (req.ioService == nullptr)
     {
         messages::internalError(asyncResp->res);
         return;
     }
+||||||| 80d2ef31c
+    // Only allow one FW update at a time
+    if (fwUpdateInProgress)
+    {
+        if (asyncResp)
+        {
+            messages::serviceTemporarilyUnavailable(asyncResp->res, "30");
+        }
+        return;
+    }
+
+    if (req.ioService == nullptr)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+
+=======
+    // Only allow one FW update at a time
+    if (fwUpdateInProgress)
+    {
+        if (asyncResp)
+        {
+            messages::serviceTemporarilyUnavailable(asyncResp->res, "30");
+        }
+        return;
+    }
+
+>>>>>>> origin/master
     fwAvailableTimer =
-        std::make_unique<boost::asio::steady_timer>(*req.ioService);
+        std::make_unique<boost::asio::steady_timer>(getIoContext());
 
     fwAvailableTimer->expires_after(std::chrono::seconds(timeoutTimeSeconds));
 
@@ -938,6 +991,7 @@ inline void uploadImageFile(const std::shared_ptr<const crow::Request>& req,
     }
 }
 
+<<<<<<< HEAD
 /**
  * @brief Check whether an update can be processed.
  *
@@ -950,6 +1004,30 @@ inline bool preCheckMultipartUpdateServiceReq(
     const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     bool enableFWInProgCheck)
+||||||| 80d2ef31c
+struct MultiPartUpdateParameters
+{
+    std::optional<std::string> applyTime;
+    std::string uploadData;
+    std::vector<std::string> targets;
+};
+
+inline std::optional<std::string> processUrl(
+    boost::system::result<boost::urls::url_view>& url)
+=======
+struct MultiPartUpdate
+{
+    std::string uploadData;
+    struct UpdateParameters
+    {
+        std::optional<std::string> applyTime;
+        std::vector<std::string> targets;
+    } params;
+};
+
+inline std::optional<std::string> processUrl(
+    boost::system::result<boost::urls::url_view>& url)
+>>>>>>> origin/master
 {
     if (req.body().size() > (firmwareImageLimitBytes))
     {
@@ -1001,6 +1079,7 @@ inline bool preCheckMultipartUpdateServiceReq(
     return true;
 }
 
+<<<<<<< HEAD
 /**
  * @brief Sets the ForceUpdate flag in the update policy.
  *
@@ -1019,7 +1098,89 @@ inline bool preCheckMultipartUpdateServiceReq(
 inline void setForceUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& objpath, const bool forceUpdate,
                            const std::function<void()>& callback = {})
+||||||| 80d2ef31c
+inline std::optional<MultiPartUpdateParameters>
+    extractMultipartUpdateParameters(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        MultipartParser parser)
+=======
+inline std::optional<std::string> parseFormPartName(
+    const boost::beast::http::fields::const_iterator& contentDisposition)
 {
+    size_t semicolonPos = contentDisposition->value().find(';');
+    if (semicolonPos == std::string::npos)
+    {
+        return std::nullopt;
+    }
+
+    for (const auto& param : boost::beast::http::param_list{
+             contentDisposition->value().substr(semicolonPos)})
+    {
+        if (param.first == "name" && !param.second.empty())
+        {
+            return std::string(param.second);
+        }
+    }
+    return std::nullopt;
+}
+
+inline std::optional<MultiPartUpdate::UpdateParameters> processUpdateParameters(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    std::string_view content)
+{
+    MultiPartUpdate::UpdateParameters multiRet;
+    nlohmann::json jsonContent = nlohmann::json::parse(content, nullptr, false);
+    if (jsonContent.is_discarded())
+    {
+        return std::nullopt;
+    }
+    nlohmann::json::object_t* obj =
+        jsonContent.get_ptr<nlohmann::json::object_t*>();
+    if (obj == nullptr)
+    {
+        messages::propertyValueTypeError(asyncResp->res, content,
+                                         "UpdateParameters");
+        return std::nullopt;
+    }
+
+    std::vector<std::string> tempTargets;
+    if (!json_util::readJsonObject(                            //
+            *obj, asyncResp->res,                              //
+            "@Redfish.OperationApplyTime", multiRet.applyTime, //
+            "Targets", tempTargets                             //
+            ))
+    {
+        return std::nullopt;
+    }
+
+    for (size_t urlIndex = 0; urlIndex < tempTargets.size(); urlIndex++)
+    {
+        const std::string& target = tempTargets[urlIndex];
+        boost::system::result<boost::urls::url_view> url =
+            boost::urls::parse_origin_form(target);
+        auto res = processUrl(url);
+        if (!res.has_value())
+        {
+            messages::propertyValueFormatError(
+                asyncResp->res, target, std::format("Targets/{}", urlIndex));
+            return std::nullopt;
+        }
+        multiRet.targets.emplace_back(res.value());
+    }
+    if (multiRet.targets.size() != 1)
+    {
+        messages::propertyValueFormatError(asyncResp->res, multiRet.targets,
+                                           "Targets");
+        return std::nullopt;
+    }
+    return multiRet;
+}
+
+inline std::optional<MultiPartUpdate> extractMultipartUpdateParameters(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, MultipartParser parser)
+>>>>>>> origin/master
+{
+<<<<<<< HEAD
     crow::connections::systemBus->async_method_call(
         [asyncResp, forceUpdate, objpath, callback](
             const boost::system::error_code errorCode,
@@ -1101,6 +1262,13 @@ inline bool parseMultipartForm(
     hasUpdateParameters = false;
     hasFile = false;
     for (const FormPart& formpart : parser.mime_fields)
+||||||| 80d2ef31c
+    MultiPartUpdateParameters multiRet;
+    for (FormPart& formpart : parser.mime_fields)
+=======
+    MultiPartUpdate multiRet;
+    for (FormPart& formpart : parser.mime_fields)
+>>>>>>> origin/master
     {
         boost::beast::http::fields::const_iterator it =
             formpart.fields.find("Content-Disposition");
@@ -1112,13 +1280,13 @@ inline bool parseMultipartForm(
         }
         BMCWEB_LOG_INFO("Parsing value {}", it->value());
 
-        // The construction parameters of param_list must start with `;`
-        size_t index = it->value().find(';');
-        if (index == std::string::npos)
+        auto formFieldNameOpt = parseFormPartName(it);
+        if (!formFieldNameOpt.has_value())
         {
             continue;
         }
 
+<<<<<<< HEAD
         for (const auto& param :
              boost::beast::http::param_list{it->value().substr(index)})
         {
@@ -1140,7 +1308,46 @@ inline bool parseMultipartForm(
 
                     return false;
                 }
+||||||| 80d2ef31c
+        for (const auto& param :
+             boost::beast::http::param_list{it->value().substr(index)})
+        {
+            if (param.first != "name" || param.second.empty())
+            {
+                continue;
+            }
 
+            if (param.second == "UpdateParameters")
+            {
+                std::vector<std::string> tempTargets;
+                nlohmann::json content =
+                    nlohmann::json::parse(formpart.content, nullptr, false);
+                if (content.is_discarded())
+                {
+                    return std::nullopt;
+                }
+                nlohmann::json::object_t* obj =
+                    content.get_ptr<nlohmann::json::object_t*>();
+                if (obj == nullptr)
+                {
+                    messages::propertyValueTypeError(
+                        asyncResp->res, formpart.content, "UpdateParameters");
+                    return std::nullopt;
+                }
+
+                if (!json_util::readJsonObject(                            //
+                        *obj, asyncResp->res,                              //
+                        "@Redfish.OperationApplyTime", multiRet.applyTime, //
+                        "Targets", tempTargets                             //
+                        ))
+                {
+                    return std::nullopt;
+                }
+=======
+        const std::string& formFieldName = formFieldNameOpt.value();
+>>>>>>> origin/master
+
+<<<<<<< HEAD
                 try
                 {
                     if constexpr (BMCWEB_NVIDIA_OEM_FW_UPDATE_STAGING)
@@ -1182,7 +1389,40 @@ inline bool parseMultipartForm(
                 }
             }
             else if (param.second == "UpdateFile")
+||||||| 80d2ef31c
+                for (size_t urlIndex = 0; urlIndex < tempTargets.size();
+                     urlIndex++)
+                {
+                    const std::string& target = tempTargets[urlIndex];
+                    boost::system::result<boost::urls::url_view> url =
+                        boost::urls::parse_origin_form(target);
+                    auto res = processUrl(url);
+                    if (!res.has_value())
+                    {
+                        messages::propertyValueFormatError(
+                            asyncResp->res, target,
+                            std::format("Targets/{}", urlIndex));
+                        return std::nullopt;
+                    }
+                    multiRet.targets.emplace_back(res.value());
+                }
+                if (multiRet.targets.size() != 1)
+                {
+                    messages::propertyValueFormatError(
+                        asyncResp->res, multiRet.targets, "Targets");
+                    return std::nullopt;
+                }
+            }
+            else if (param.second == "UpdateFile")
+=======
+        if (formFieldName == "UpdateParameters")
+        {
+            std::optional<MultiPartUpdate::UpdateParameters> params =
+                processUpdateParameters(asyncResp, formpart.content);
+            if (!params)
+>>>>>>> origin/master
             {
+<<<<<<< HEAD
                 boost::beast::http::fields::const_iterator contentTypeIt =
                     formpart.fields.find("Content-Type");
                 if (contentTypeIt == formpart.fields.end() ||
@@ -1194,7 +1434,17 @@ inline bool parseMultipartForm(
                     return false;
                 }
                 hasFile = true;
+||||||| 80d2ef31c
+                multiRet.uploadData = std::move(formpart.content);
+=======
+                return std::nullopt;
+>>>>>>> origin/master
             }
+            multiRet.params = std::move(*params);
+        }
+        else if (formFieldName == "UpdateFile")
+        {
+            multiRet.uploadData = std::move(formpart.content);
         }
     }
 
@@ -1227,8 +1477,14 @@ inline bool validateUpdateParametersFormData(
 
         return false;
     }
+<<<<<<< HEAD
 
     if (applyTime)
+||||||| 80d2ef31c
+    if (multiRet.targets.empty())
+=======
+    if (multiRet.params.targets.empty())
+>>>>>>> origin/master
     {
         std::string allowedApplyTime = "Immediate";
         if (allowedApplyTime != *applyTime)
@@ -1349,6 +1605,7 @@ inline void setOemUpdateOption(
     const std::string& oemUpdateOption,
     const std::function<void()>& callback = {})
 {
+<<<<<<< HEAD
     crow::connections::systemBus->async_method_call(
         [asyncResp, oemUpdateOption, callback](
             const boost::system::error_code errorCode,
@@ -1407,6 +1664,22 @@ inline void setOemUpdateOption(
                         callback();
                     }
                 });
+||||||| 80d2ef31c
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, payload = std::move(payload),
+         objectPath](const boost::system::error_code& ec1,
+                     const sdbusplus::message::object_path& retPath) mutable {
+            handleStartUpdate(asyncResp, std::move(payload), objectPath, ec1,
+                              retPath);
+=======
+    dbus::utility::async_method_call(
+        asyncResp,
+        [asyncResp, payload = std::move(payload),
+         objectPath](const boost::system::error_code& ec1,
+                     const sdbusplus::message::object_path& retPath) mutable {
+            handleStartUpdate(asyncResp, std::move(payload), objectPath, ec1,
+                              retPath);
+>>>>>>> origin/master
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -1636,23 +1909,63 @@ inline void processMultipartFormData(
         return;
     }
 
+<<<<<<< HEAD
     if (!validateUpdateFileFormData(asyncResp, hasFile))
+||||||| 80d2ef31c
+inline void updateMultipartContext(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req, MultipartParser&& parser)
+{
+    std::optional<MultiPartUpdateParameters> multipart =
+        extractMultipartUpdateParameters(asyncResp, std::move(parser));
+    if (!multipart)
+=======
+inline void updateMultipartContext(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const crow::Request& req, MultipartParser&& parser)
+{
+    std::optional<MultiPartUpdate> multipart =
+        extractMultipartUpdateParameters(asyncResp, std::move(parser));
+    if (!multipart)
+>>>>>>> origin/master
     {
         return;
     }
+<<<<<<< HEAD
 
     std::vector<std::string> uriTargets;
     if (targets.has_value())
+||||||| 80d2ef31c
+    if (!multipart->applyTime)
+=======
+    if (!multipart->params.applyTime)
+>>>>>>> origin/master
     {
+<<<<<<< HEAD
         uriTargets = *targets;
+||||||| 80d2ef31c
+        multipart->applyTime = "OnReset";
+=======
+        multipart->params.applyTime = "OnReset";
+>>>>>>> origin/master
     }
 
     if constexpr (BMCWEB_REDFISH_AGGREGATION)
     {
+<<<<<<< HEAD
         bool updateAll = false;
         uint8_t count = 0;
         std::string rfaPrefix = std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX);
         if (!uriTargets.empty())
+||||||| 80d2ef31c
+        std::string applyTimeNewVal;
+        if (!convertApplyTime(asyncResp->res, *multipart->applyTime,
+                              applyTimeNewVal))
+=======
+        std::string applyTimeNewVal;
+        if (!convertApplyTime(asyncResp->res, *multipart->params.applyTime,
+                              applyTimeNewVal))
+>>>>>>> origin/master
         {
             for (const auto& uri : uriTargets)
             {
@@ -1663,12 +1976,30 @@ inline void processMultipartFormData(
                     count++;
                 }
 
+<<<<<<< HEAD
                 auto parsed = boost::urls::parse_relative_ref(uri);
                 if (!parsed)
                 {
                     BMCWEB_LOG_ERROR("Couldn't parse URI from resource ", uri);
                     return;
                 }
+||||||| 80d2ef31c
+        processUpdateRequest(asyncResp, std::move(payload),
+                             multipart->uploadData, applyTimeNewVal,
+                             multipart->targets);
+    }
+    else
+    {
+        setApplyTime(asyncResp, *multipart->applyTime);
+=======
+        processUpdateRequest(asyncResp, std::move(payload),
+                             multipart->uploadData, applyTimeNewVal,
+                             multipart->params.targets);
+    }
+    else
+    {
+        setApplyTime(asyncResp, *multipart->params.applyTime);
+>>>>>>> origin/master
 
                 const boost::urls::url_view& thisUrl = *parsed;
 
@@ -1749,16 +2080,53 @@ inline void handleMultipartUpdateServicePost(
     BMCWEB_LOG_DEBUG(
         "Execute HTTP POST method '/redfish/v1/UpdateService/update-multipart/'");
 
+<<<<<<< HEAD
     bool enableFWInProgCheck = true;
     if constexpr (BMCWEB_REDFISH_AGGREGATION)
+||||||| 80d2ef31c
+    BMCWEB_LOG_DEBUG("doPost: contentType={}", contentType);
+
+    // Make sure that content type is application/octet-stream or
+    // multipart/form-data
+    if (bmcweb::asciiIEquals(contentType, "application/octet-stream"))
+=======
+    BMCWEB_LOG_DEBUG("doPost: contentType={}", contentType);
+
+    // Make sure that content type is application/octet-stream
+    if (bmcweb::asciiIEquals(contentType, "application/octet-stream"))
+>>>>>>> origin/master
     {
         // This is the flag to check BMC firmware update.
         // Parse the multipart payload and then learn satBMC or BMC firmware
         // update So UpdateInProgress will be checking at the later stage.
         enableFWInProgCheck = false;
     }
+<<<<<<< HEAD
 
     if (!preCheckMultipartUpdateServiceReq(req, asyncResp, enableFWInProgCheck))
+||||||| 80d2ef31c
+    else if (contentType.starts_with("multipart/form-data"))
+=======
+    else
+    {
+        BMCWEB_LOG_DEBUG("Bad content type specified:{}", contentType);
+        asyncResp->res.result(boost::beast::http::status::bad_request);
+    }
+}
+
+inline void handleUpdateServiceMultipartUpdatePost(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    std::string_view contentType = req.getHeaderValue("Content-Type");
+    // Make sure that content type is multipart/form-data
+    if (contentType.starts_with("multipart/form-data"))
+>>>>>>> origin/master
     {
         return;
     }
@@ -1877,6 +2245,61 @@ inline static void getRelatedItems(
     }
 }
 
+inline void getSoftwareVersionCallback(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& swId, const boost::system::error_code& ec,
+    const dbus::utility::DBusPropertiesMap& propertiesList)
+{
+    if (ec)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    const std::string* swInvPurpose = nullptr;
+    const std::string* version = nullptr;
+    const bool success = sdbusplus::unpackPropertiesNoThrow(
+        dbus_utils::UnpackErrorPrinter(), propertiesList, "Purpose",
+        swInvPurpose, "Version", version);
+    if (!success)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    if (swInvPurpose == nullptr)
+    {
+        BMCWEB_LOG_DEBUG("Can't find property \"Purpose\"!");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    BMCWEB_LOG_DEBUG("swInvPurpose = {}", *swInvPurpose);
+    if (version == nullptr)
+    {
+        BMCWEB_LOG_DEBUG("Can't find property \"Version\"!");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    asyncResp->res.jsonValue["Version"] = *version;
+    asyncResp->res.jsonValue["Id"] = swId;
+    // swInvPurpose is of format:
+    // xyz.openbmc_project.Software.Version.VersionPurpose.ABC
+    // Translate this to "ABC image"
+    size_t endDesc = swInvPurpose->rfind('.');
+    if (endDesc == std::string::npos)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    endDesc++;
+    if (endDesc >= swInvPurpose->size())
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    std::string formatDesc = swInvPurpose->substr(endDesc);
+    asyncResp->res.jsonValue["Description"] = formatDesc + " image";
+    getRelatedItems(asyncResp, *swInvPurpose);
+}
+
 inline void getSoftwareVersion(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& service, const std::string& path,
@@ -1884,6 +2307,7 @@ inline void getSoftwareVersion(
 {
     dbus::utility::getAllProperties(
         service, path, "xyz.openbmc_project.Software.Version",
+<<<<<<< HEAD
         [asyncResp,
          swId](const boost::system::error_code& ec,
                const dbus::utility::DBusPropertiesMap& propertiesList) {
@@ -1941,11 +2365,137 @@ inline void getSoftwareVersion(
                 messages::internalError(asyncResp->res);
                 return;
             }
+||||||| 80d2ef31c
+        [asyncResp,
+         swId](const boost::system::error_code& ec,
+               const dbus::utility::DBusPropertiesMap& propertiesList) {
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
 
+            const std::string* swInvPurpose = nullptr;
+            const std::string* version = nullptr;
+
+            const bool success = sdbusplus::unpackPropertiesNoThrow(
+                dbus_utils::UnpackErrorPrinter(), propertiesList, "Purpose",
+                swInvPurpose, "Version", version);
+
+            if (!success)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            if (swInvPurpose == nullptr)
+            {
+                BMCWEB_LOG_DEBUG("Can't find property \"Purpose\"!");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            BMCWEB_LOG_DEBUG("swInvPurpose = {}", *swInvPurpose);
+
+            if (version == nullptr)
+            {
+                BMCWEB_LOG_DEBUG("Can't find property \"Version\"!");
+
+                messages::internalError(asyncResp->res);
+
+                return;
+            }
+            asyncResp->res.jsonValue["Version"] = *version;
+            asyncResp->res.jsonValue["Id"] = swId;
+
+            // swInvPurpose is of format:
+            // xyz.openbmc_project.Software.Version.VersionPurpose.ABC
+            // Translate this to "ABC image"
+            size_t endDesc = swInvPurpose->rfind('.');
+            if (endDesc == std::string::npos)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            endDesc++;
+            if (endDesc >= swInvPurpose->size())
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+=======
+        std::bind_front(getSoftwareVersionCallback, asyncResp, swId));
+}
+>>>>>>> origin/master
+
+<<<<<<< HEAD
             std::string formatDesc = swInvPurpose->substr(endDesc);
             asyncResp->res.jsonValue["Description"] = formatDesc + " image";
             getRelatedItems(asyncResp, swId, *swInvPurpose);
         });
+||||||| 80d2ef31c
+            std::string formatDesc = swInvPurpose->substr(endDesc);
+            asyncResp->res.jsonValue["Description"] = formatDesc + " image";
+            getRelatedItems(asyncResp, *swInvPurpose);
+        });
+=======
+inline void handleUpdateServiceFirmwareInventoryGetCallback(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::shared_ptr<std::string>& swId,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
+{
+    BMCWEB_LOG_DEBUG("doGet callback...");
+    if (ec)
+    {
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    // Ensure we find our input swId, otherwise return an error
+    bool found = false;
+    for (const std::pair<
+             std::string,
+             std::vector<std::pair<std::string, std::vector<std::string>>>>&
+             obj : subtree)
+    {
+        sdbusplus::message::object_path path(obj.first);
+        std::string id = path.filename();
+        if (id.empty())
+        {
+            BMCWEB_LOG_DEBUG("Failed to find software id in {}", obj.first);
+            continue;
+        }
+        if (id != *swId)
+        {
+            continue;
+        }
+        if (obj.second.empty())
+        {
+            continue;
+        }
+        found = true;
+        sw_util::getSwStatus(asyncResp, swId, obj.second[0].first);
+        sw_util::getSwMinimumVersion(asyncResp, swId, obj.second[0].first);
+        getSoftwareVersion(asyncResp, obj.second[0].first, obj.first, *swId);
+    }
+    if (!found)
+    {
+        BMCWEB_LOG_WARNING("Input swID {} not found!", *swId);
+        messages::resourceMissingAtURI(
+            asyncResp->res,
+            boost::urls::format(
+                "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId));
+        return;
+    }
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId);
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#SoftwareInventory.v1_1_0.SoftwareInventory";
+    asyncResp->res.jsonValue["Name"] = "Software Inventory";
+    asyncResp->res.jsonValue["Status"]["HealthRollup"] = resource::Health::OK;
+    asyncResp->res.jsonValue["Updateable"] = false;
+    sw_util::getSwUpdatableStatus(asyncResp, swId);
+>>>>>>> origin/master
 }
 
 inline void handleUpdateServiceFirmwareInventoryGet(
@@ -1959,6 +2509,7 @@ inline void handleUpdateServiceFirmwareInventoryGet(
     }
     std::shared_ptr<std::string> swId = std::make_shared<std::string>(param);
 
+<<<<<<< HEAD
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId);
 
@@ -1967,7 +2518,18 @@ inline void handleUpdateServiceFirmwareInventoryGet(
         "xyz.openbmc_project.Software.Settings",
         "xyz.openbmc_project.State.Decorator.Health",
         "xyz.openbmc_project.State.Decorator.OperationalStatus"};
+||||||| 80d2ef31c
+    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+        "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId);
+
+    constexpr std::array<std::string_view, 1> interfaces = {
+        "xyz.openbmc_project.Software.Version"};
+=======
+    constexpr std::array<std::string_view, 1> interfaces = {
+        "xyz.openbmc_project.Software.Version"};
+>>>>>>> origin/master
     dbus::utility::getSubTree(
+<<<<<<< HEAD
         "/xyz/openbmc_project/software/", 0, interfaces,
         [asyncResp, swId](
             const boost::system::error_code& ec,
@@ -2266,6 +2828,64 @@ inline void handleUpdateServiceFirmwareInventoryGet(
                 updateOemActionComputeDigest(asyncResp, *swId);
             }
         });
+||||||| 80d2ef31c
+        "/", 0, interfaces,
+        [asyncResp,
+         swId](const boost::system::error_code& ec,
+               const dbus::utility::MapperGetSubTreeResponse& subtree) {
+            BMCWEB_LOG_DEBUG("doGet callback...");
+            if (ec)
+            {
+                messages::internalError(asyncResp->res);
+                return;
+            }
+
+            // Ensure we find our input swId, otherwise return an error
+            bool found = false;
+            for (const std::pair<std::string,
+                                 std::vector<std::pair<
+                                     std::string, std::vector<std::string>>>>&
+                     obj : subtree)
+            {
+                if (!obj.first.ends_with(*swId))
+                {
+                    continue;
+                }
+
+                if (obj.second.empty())
+                {
+                    continue;
+                }
+
+                found = true;
+                sw_util::getSwStatus(asyncResp, swId, obj.second[0].first);
+                getSoftwareVersion(asyncResp, obj.second[0].first, obj.first,
+                                   *swId);
+            }
+            if (!found)
+            {
+                BMCWEB_LOG_WARNING("Input swID {} not found!", *swId);
+                messages::resourceMissingAtURI(
+                    asyncResp->res,
+                    boost::urls::format(
+                        "/redfish/v1/UpdateService/FirmwareInventory/{}",
+                        *swId));
+                return;
+            }
+            asyncResp->res.jsonValue["@odata.type"] =
+                "#SoftwareInventory.v1_1_0.SoftwareInventory";
+            asyncResp->res.jsonValue["Name"] = "Software Inventory";
+            asyncResp->res.jsonValue["Status"]["HealthRollup"] =
+                resource::Health::OK;
+
+            asyncResp->res.jsonValue["Updateable"] = false;
+            sw_util::getSwUpdatableStatus(asyncResp, swId);
+        });
+=======
+        "/xyz/openbmc_project/software/", 0, interfaces,
+        std::bind_front(handleUpdateServiceFirmwareInventoryGetCallback,
+                        asyncResp, swId));
+>>>>>>> origin/master
 }
 
 inline void requestRoutesUpdateService(App& app)
@@ -2293,6 +2913,11 @@ inline void requestRoutesUpdateService(App& app)
         .privileges(redfish::privileges::postUpdateService)
         .methods(boost::beast::http::verb::post)(
             std::bind_front(handleMultipartUpdateServicePost, std::ref(app)));
+
+    BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/update-multipart/")
+        .privileges(redfish::privileges::postUpdateService)
+        .methods(boost::beast::http::verb::post)(std::bind_front(
+            handleUpdateServiceMultipartUpdatePost, std::ref(app)));
 
     BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/FirmwareInventory/")
         .privileges(redfish::privileges::getSoftwareInventoryCollection)

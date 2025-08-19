@@ -33,7 +33,6 @@
 #include <boost/url/url.hpp>
 #include <boost/url/url_view.hpp>
 #include <nlohmann/json.hpp>
-#include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 
@@ -888,39 +887,50 @@ inline bool fillTrigger(nlohmann::json& json, const std::string& id,
         json["Links"]["MetricReportDefinitions"] = *linkedReports;
     }
 
-    if (discreteThresholds != nullptr)
+    if (discreteThresholds == nullptr || numericThresholds == nullptr)
     {
-        std::optional<nlohmann::json::array_t> discreteTriggers =
-            getDiscreteTriggers(*discreteThresholds);
-
-        if (!discreteTriggers)
-        {
-            BMCWEB_LOG_ERROR("Property Thresholds is invalid for discrete "
-                             "triggers in Trigger: {}",
-                             id);
-            return false;
-        }
-
-        json["DiscreteTriggers"] = *discreteTriggers;
-        json["DiscreteTriggerCondition"] =
-            discreteTriggers->empty() ? "Changed" : "Specified";
-        json["MetricType"] = metric_definition::MetricType::Discrete;
+        // Current design of telemetry's Trigger interface shouldn't allow that
+        // to happen. If the code goes here, then this is an internal error to
+        // investigate.
+        return false;
     }
-    if (numericThresholds != nullptr)
+
+    if (discrete != nullptr)
     {
-        std::optional<nlohmann::json::object_t> jnumericThresholds =
-            getNumericThresholds(*numericThresholds);
-
-        if (!jnumericThresholds)
+        if (*discrete)
         {
-            BMCWEB_LOG_ERROR("Property Thresholds is invalid for numeric "
-                             "thresholds in Trigger: {}",
-                             id);
-            return false;
-        }
+            std::optional<nlohmann::json::array_t> discreteTriggers =
+                getDiscreteTriggers(*discreteThresholds);
 
-        json["NumericThresholds"] = *jnumericThresholds;
-        json["MetricType"] = metric_definition::MetricType::Numeric;
+            if (!discreteTriggers)
+            {
+                BMCWEB_LOG_ERROR("Property Thresholds is invalid for discrete "
+                                 "triggers in Trigger: {}",
+                                 id);
+                return false;
+            }
+
+            json["DiscreteTriggers"] = *discreteTriggers;
+            json["DiscreteTriggerCondition"] =
+                discreteTriggers->empty() ? "Changed" : "Specified";
+            json["MetricType"] = metric_definition::MetricType::Discrete;
+        }
+        else
+        {
+            std::optional<nlohmann::json::object_t> jnumericThresholds =
+                getNumericThresholds(*numericThresholds);
+
+            if (!jnumericThresholds)
+            {
+                BMCWEB_LOG_ERROR("Property Thresholds is invalid for numeric "
+                                 "thresholds in Trigger: {}",
+                                 id);
+                return false;
+            }
+
+            json["NumericThresholds"] = *jnumericThresholds;
+            json["MetricType"] = metric_definition::MetricType::Numeric;
+        }
     }
 
     if (name != nullptr)
@@ -956,7 +966,8 @@ inline void handleTriggerCollectionPost(
         return;
     }
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
+        asyncResp,
         [asyncResp, id = ctx.id](const boost::system::error_code& ec,
                                  const std::string& dbusPath) {
             afterCreateTrigger(ec, dbusPath, asyncResp, id);
@@ -1012,7 +1023,7 @@ inline void requestRoutesTrigger(App& app)
                 {
                     return;
                 }
-                sdbusplus::asio::getAllProperties(
+                dbus::utility::getAllProperties(
                     *crow::connections::systemBus, telemetry::service,
                     telemetry::getDbusTriggerPath(id),
                     telemetry::triggerInterface,
@@ -1054,7 +1065,8 @@ inline void requestRoutesTrigger(App& app)
                 const std::string triggerPath =
                     telemetry::getDbusTriggerPath(id);
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
+                    asyncResp,
                     [asyncResp, id](const boost::system::error_code& ec) {
                         if (ec.value() == EBADR)
                         {

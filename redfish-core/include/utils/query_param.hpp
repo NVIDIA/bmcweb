@@ -15,9 +15,14 @@
 #include "http_response.hpp"
 #include "json_formatters.hpp"
 #include "logging.hpp"
+<<<<<<< HEAD
 #include "nvidia_persistent_data.hpp"
 #include "redfish_aggregator.hpp"
 #include "redfishoemrule.hpp"
+||||||| 80d2ef31c
+=======
+#include "redfishoemrule.hpp"
+>>>>>>> origin/master
 #include "str_utility.hpp"
 #include "sub_request.hpp"
 #include "utils/json_utils.hpp"
@@ -790,18 +795,27 @@ class MultiAsyncResp : public std::enable_shared_from_this<MultiAsyncResp>
     {
         BMCWEB_LOG_DEBUG("placeResult for {}", locationToPlace);
         propogateError(finalRes->res, res);
-        if (!res.jsonValue.is_object() || res.jsonValue.empty())
+        nlohmann::json::object_t* obj =
+            res.jsonValue.get_ptr<nlohmann::json::object_t*>();
+        if (obj == nullptr || res.jsonValue.empty())
         {
             return;
         }
         nlohmann::json& finalObj = finalRes->res.jsonValue[locationToPlace];
-        finalObj = std::move(res.jsonValue);
+        finalObj = std::move(*obj);
     }
 
     // Handles the very first level of Expand, and starts a chain of sub-queries
     // for deeper levels.
+<<<<<<< HEAD
     void startQuery(const Query& query, const Query& delegated,
                     const std::shared_ptr<crow::Request>& req)
+||||||| 80d2ef31c
+    void startQuery(const Query& query, const Query& delegated)
+=======
+    void startQuery(const Query& query, const Query& delegated,
+                    const crow::Request& req)
+>>>>>>> origin/master
     {
         std::vector<ExpandNode> nodes = findNavigationReferences(
             query.expandType, query.expandLevel, delegated.expandLevel,
@@ -836,6 +850,15 @@ class MultiAsyncResp : public std::enable_shared_from_this<MultiAsyncResp>
                 return;
             }
             newReq->session = req->session;
+
+            if (req.session == nullptr)
+            {
+                BMCWEB_LOG_ERROR("Session is null");
+                messages::internalError(finalRes->res);
+                return;
+            }
+            // Share the session from the original request
+            newReq->session = req.session;
 
             auto asyncResp = std::make_shared<bmcweb::AsyncResp>();
             BMCWEB_LOG_DEBUG("setting completion handler on {}",
@@ -955,19 +978,19 @@ inline void recursiveSelect(nlohmann::json& currRoot,
     if (object != nullptr)
     {
         BMCWEB_LOG_DEBUG("Current JSON is an object");
-        auto it = currRoot.begin();
-        while (it != currRoot.end())
+        auto it = object->begin();
+        while (it != object->end())
         {
             auto nextIt = std::next(it);
-            BMCWEB_LOG_DEBUG("key={}", it.key());
-            const SelectTrieNode* nextNode = currNode.find(it.key());
+            BMCWEB_LOG_DEBUG("key={}", it->first);
+            const SelectTrieNode* nextNode = currNode.find(it->first);
             // Per the Redfish spec section 7.3.3, the service shall select
             // certain properties as if $select was omitted. This applies to
             // every TrieNode that contains leaves and the root.
             constexpr std::array<std::string_view, 5> reservedProperties = {
                 "@odata.id", "@odata.type", "@odata.context", "@odata.etag",
                 "error"};
-            bool reserved = std::ranges::find(reservedProperties, it.key()) !=
+            bool reserved = std::ranges::find(reservedProperties, it->first) !=
                             reservedProperties.end();
             if (reserved || (nextNode != nullptr && nextNode->isSelected()))
             {
@@ -976,13 +999,13 @@ inline void recursiveSelect(nlohmann::json& currRoot,
             }
             if (nextNode != nullptr)
             {
-                BMCWEB_LOG_DEBUG("Recursively select: {}", it.key());
-                recursiveSelect(*it, *nextNode);
+                BMCWEB_LOG_DEBUG("Recursively select: {}", it->first);
+                recursiveSelect(it->second, *nextNode);
                 it = nextIt;
                 continue;
             }
-            BMCWEB_LOG_DEBUG("{} is getting removed!", it.key());
-            it = currRoot.erase(it);
+            BMCWEB_LOG_DEBUG("{} is getting removed!", it->first);
+            it = object->erase(it);
         }
     }
     nlohmann::json::array_t* array =
@@ -1014,8 +1037,14 @@ inline void processSelect(crow::Response& intermediateResponse,
 inline void processAllParams(
     crow::App& app, const Query& query, const Query& delegated,
     std::function<void(crow::Response&)>& completionHandler,
+<<<<<<< HEAD
     crow::Response& intermediateResponse,
     const std::shared_ptr<crow::Request>& req)
+||||||| 80d2ef31c
+    crow::Response& intermediateResponse)
+=======
+    crow::Response& intermediateResponse, const crow::Request& req)
+>>>>>>> origin/master
 {
     if (!completionHandler)
     {

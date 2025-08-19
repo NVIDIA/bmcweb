@@ -63,21 +63,20 @@ if (get_option('optimization') == '0')
 endif
 
 # Include Directories
+incdir = [
+    include_directories(
+        'include',
+        'redfish-core/include',
+        'redfish-core/lib',
+        'http',
+    ),
+]
 
-incdir = include_directories(
-    'include',
-    'redfish-core/include',
-    'redfish-core/lib',
-    'http',
-)
 incdir_cli = include_directories('http', 'include')
 
-if (get_option('tests').allowed())
-    summary('unittest', 'NA', section: 'Features')
-endif
-
 # Add compiler arguments
-
+boost_flags = ['-Wno-unused-parameter']
+nghttp2_flags = []
 if (cxx.get_id() == 'clang')
     if (cxx.version().version_compare('<17.0'))
         error('This project requires clang-17 or higher')
@@ -85,28 +84,54 @@ if (cxx.get_id() == 'clang')
     add_project_arguments(
         '-Weverything',
         '-Wformat=2',
-        '-Wno-c++98-compat-pedantic',
-        '-Wno-c++98-compat',
+        # https://github.com/llvm/llvm-project/issues/101614
+        '-fno-builtin-std-forward_like',
         '-Wno-c++20-extensions',
-        '-Wno-documentation-unknown-command',
+        '-Wno-c++26-extensions',
+        '-Wno-c++98-compat',
+        '-Wno-c++98-compat-pedantic',
+        '-Wno-covered-switch-default',
+        '-Wno-disabled-macro-expansion',
         '-Wno-documentation',
+        '-Wno-documentation-unknown-command',
         '-Wno-exit-time-destructors',
         '-Wno-global-constructors',
+        '-Wno-missing-include-dirs',
         '-Wno-newline-eof',
         '-Wno-padded',
         '-Wno-shadow',
-        '-Wno-used-but-marked-unused',
-        '-Wno-weak-vtables',
         '-Wno-switch-enum',
+<<<<<<< HEAD
         '-Wno-unused-macros',
         '-Wno-covered-switch-default',
         '-Wno-attributes',
         '-Wno-comment',
         '-Wno-disabled-macro-expansion',
+||||||| 80d2ef31c
+        '-Wno-unused-macros',
+        '-Wno-covered-switch-default',
+        '-Wno-disabled-macro-expansion',
+=======
+>>>>>>> origin/master
         '-Wno-unneeded-internal-declaration',
         '-Wno-unsafe-buffer-usage-in-container',
+        '-Wno-unsafe-buffer-usage-in-libc-call',
+        '-Wno-unused-macros',
+        '-Wno-used-but-marked-unused',
+        '-Wno-weak-vtables',
         language: 'cpp',
     )
+    if (cxx.version().version_compare('>=21.0'))
+        # TODO(Ed) These warnings look valid and need cleaned up.
+        add_project_arguments(
+            '-Wno-unique-object-duplication',
+            '-Wno-nrvo',
+            language: 'cpp',
+        )
+    endif
+
+    boost_flags += ['-Wno-strict-prototypes', '-Wno-unused-but-set-variable']
+    nghttp2_flags += ['-Wno-extra-semi']
 endif
 
 if (cxx.get_id() == 'gcc')
@@ -194,6 +219,7 @@ add_project_arguments(
             '-DBOOST_URL_NO_SOURCE_LOCATION',
             '-DBOOST_SPIRIT_X3_NO_RTTI',
             '-DJSON_NOEXCEPTION',
+            '-DJSON_USE_IMPLICIT_CONVERSIONS=0',
             '-DOPENSSL_NO_FILENAMES',
             '-DSDBUSPLUS_DISABLE_BOOST_COROUTINES',
         ],
@@ -211,7 +237,7 @@ atomic = cxx.find_library('atomic', required: true)
 bmcweb_dependencies += [pam, atomic]
 
 openssl = dependency('openssl', required: false, version: '>=3.0.0')
-if not openssl.found() or get_option('b_sanitize') != 'none'
+if not openssl.found()
     openssl_proj = subproject(
         'openssl',
         required: true,
@@ -222,30 +248,39 @@ if not openssl.found() or get_option('b_sanitize') != 'none'
 endif
 bmcweb_dependencies += [openssl]
 
+<<<<<<< HEAD
 if get_option('shmem-platform-metrics').enabled()
     nvtal = dependency('nvidia-tal', required: true)
     add_project_arguments('-DNVIDIA_HAVE_TAL', language: 'cpp')
     bmcweb_dependencies += nvtal
 endif
 
+||||||| 80d2ef31c
+=======
+zstd = dependency('libzstd', required: get_option('http-zstd').allowed())
+if zstd.found()
+    add_project_arguments('-DHAVE_ZSTD', language: 'cpp')
+    bmcweb_dependencies += [zstd]
+endif
+>>>>>>> origin/master
 nghttp2 = dependency('libnghttp2', version: '>=1.52.0', required: false)
 if not nghttp2.found()
     cmake = import('cmake')
     opt_var = cmake.subproject_options()
     opt_var.add_cmake_defines(
-        {'ENABLE_LIB_ONLY': true, 'ENABLE_STATIC_LIB': true},
+        {
+            'CMAKE_C_FLAGS': ' '.join(nghttp2_flags),
+            'CMAKE_CXX_FLAGS': ' '.join(nghttp2_flags),
+            'ENABLE_LIB_ONLY': true,
+            'ENABLE_STATIC_LIB': true,
+        },
     )
     nghttp2_ex = cmake.subproject('nghttp2', options: opt_var)
     nghttp2 = nghttp2_ex.dependency('nghttp2')
 endif
 bmcweb_dependencies += nghttp2
 
-sdbusplus = dependency('sdbusplus', required: false, include_type: 'system')
-if not sdbusplus.found()
-    sdbusplus_proj = subproject('sdbusplus', required: true)
-    sdbusplus = sdbusplus_proj.get_variable('sdbusplus_dep')
-    sdbusplus = sdbusplus.as_system('system')
-endif
+sdbusplus = dependency('sdbusplus')
 bmcweb_dependencies += sdbusplus
 bmcweb_cli_dependencies += sdbusplus
 
@@ -330,8 +365,8 @@ else
     ]
     opt.add_cmake_defines(
         {
-            # 1.86.0 fails this.  Hopefully fixed in 1.86.1
-            'CMAKE_CXX_FLAGS': '-Wno-unused-parameter',
+            'CMAKE_CXX_FLAGS': ' '.join(boost_flags),
+            'CMAKE_C_FLAGS': ' '.join(boost_flags),
             'BOOST_INCLUDE_LIBRARIES': ';'.join(boost_libs),
             'BUILD_SHARED_LIBS': 'OFF',
         },
@@ -345,7 +380,7 @@ else
     endforeach
 endif
 
-systemd_system_unit_dir = systemd.get_variable('systemdsystemunitdir')
+systemd_system_unit_dir = systemd.get_variable('systemd_system_unit_dir')
 
 bindir = get_option('prefix') + '/' + get_option('bindir')
 libexec = get_option('prefix') + '/' + get_option('libexecdir')
@@ -367,11 +402,17 @@ subdir('config')
 bmcweb_dependencies += conf_h_dep
 bmcweb_cli_dependencies += conf_h_dep
 
+test_sources = []
+subdir('features')
+
 # Source files
 fs = import('fs')
 
 srcfiles_bmcweb = files(
     'http/mutual_tls.cpp',
+    'http/routing/sserule.cpp',
+    'http/routing/websocketrule.cpp',
+    'http/zstd_decompressor.cpp',
     'redfish-core/src/dbus_log_watcher.cpp',
     'redfish-core/src/error_message_utils.cpp',
     'redfish-core/src/error_messages.cpp',
@@ -387,6 +428,7 @@ srcfiles_bmcweb = files(
     'redfish-core/src/resource_messages.cpp',
     'redfish-core/src/subscription.cpp',
     'redfish-core/src/task_messages.cpp',
+    'redfish-core/src/update_messages.cpp',
     'redfish-core/src/utils/dbus_utils.cpp',
     'redfish-core/src/utils/json_utils.cpp',
     'redfish-core/src/utils/nsm_cmd_support.cpp',
@@ -395,6 +437,7 @@ srcfiles_bmcweb = files(
     'src/boost_asio_ssl.cpp',
     'src/boost_beast.cpp',
     'src/dbus_singleton.cpp',
+    'src/dbus_utility.cpp',
     'src/json_html_serializer.cpp',
     'src/nvidia_persistent_data.cpp',
     'src/nvidia_ssl_key_handler.cpp',
@@ -431,6 +474,7 @@ executable(
     install_dir: bindir,
 )
 
+<<<<<<< HEAD
 srcfiles_unittest = files(
     'test/http/crow_getroutes_test.cpp',
     'test/http/http2_connection_test.cpp',
@@ -524,3 +568,94 @@ endif
 if (get_option('redfish-aggregation').enabled())
     subdir('event-listener')
 endif
+||||||| 80d2ef31c
+srcfiles_unittest = files(
+    'test/http/crow_getroutes_test.cpp',
+    'test/http/http2_connection_test.cpp',
+    'test/http/http_body_test.cpp',
+    'test/http/http_connection_test.cpp',
+    'test/http/http_response_test.cpp',
+    'test/http/mutual_tls.cpp',
+    'test/http/mutual_tls_meta.cpp',
+    'test/http/parsing_test.cpp',
+    'test/http/router_test.cpp',
+    'test/http/server_sent_event_test.cpp',
+    'test/http/utility_test.cpp',
+    'test/http/verb_test.cpp',
+    'test/include/async_resolve_test.cpp',
+    'test/include/credential_pipe_test.cpp',
+    'test/include/dbus_utility_test.cpp',
+    'test/include/google/google_service_root_test.cpp',
+    'test/include/http_utility_test.cpp',
+    'test/include/human_sort_test.cpp',
+    'test/include/ibm/configfile_test.cpp',
+    'test/include/json_html_serializer.cpp',
+    'test/include/multipart_test.cpp',
+    'test/include/openbmc_dbus_rest_test.cpp',
+    'test/include/ossl_random.cpp',
+    'test/include/ssl_key_handler_test.cpp',
+    'test/include/str_utility_test.cpp',
+    'test/redfish-core/include/dbus_log_watcher_test.cpp',
+    'test/redfish-core/include/event_log_test.cpp',
+    'test/redfish-core/include/event_matches_filter_test.cpp',
+    'test/redfish-core/include/filter_expr_executor_test.cpp',
+    'test/redfish-core/include/filter_expr_parser_test.cpp',
+    'test/redfish-core/include/privileges_test.cpp',
+    'test/redfish-core/include/redfish_aggregator_test.cpp',
+    'test/redfish-core/include/redfish_test.cpp',
+    'test/redfish-core/include/registries_test.cpp',
+    'test/redfish-core/include/submit_test_event_test.cpp',
+    'test/redfish-core/include/utils/dbus_utils.cpp',
+    'test/redfish-core/include/utils/error_code_test.cpp',
+    'test/redfish-core/include/utils/hex_utils_test.cpp',
+    'test/redfish-core/include/utils/ip_utils_test.cpp',
+    'test/redfish-core/include/utils/json_utils_test.cpp',
+    'test/redfish-core/include/utils/query_param_test.cpp',
+    'test/redfish-core/include/utils/sensor_utils_test.cpp',
+    'test/redfish-core/include/utils/stl_utils_test.cpp',
+    'test/redfish-core/include/utils/time_utils_test.cpp',
+    'test/redfish-core/lib/chassis_test.cpp',
+    'test/redfish-core/lib/ethernet_test.cpp',
+    'test/redfish-core/lib/log_services_dump_test.cpp',
+    'test/redfish-core/lib/manager_diagnostic_data_test.cpp',
+    'test/redfish-core/lib/metadata_test.cpp',
+    'test/redfish-core/lib/power_subsystem_test.cpp',
+    'test/redfish-core/lib/service_root_test.cpp',
+    'test/redfish-core/lib/system_test.cpp',
+    'test/redfish-core/lib/systems_logservices_postcode.cpp',
+    'test/redfish-core/lib/thermal_subsystem_test.cpp',
+    'test/redfish-core/lib/update_service_test.cpp',
+)
+
+if (get_option('tests').allowed())
+    gtest = dependency(
+        'gtest_main',
+        main: true,
+        version: '>=1.15.0',
+        required: true,
+    )
+    gmock = dependency('gmock', required: true)
+    gtestlib = static_library('gtestlib', dependencies: [gtest, gmock])
+    gtestdep = declare_dependency(
+        link_with: gtestlib,
+        dependencies: [
+            gtest.partial_dependency(includes: true),
+            gmock.partial_dependency(includes: true),
+        ],
+    )
+    # generate the test executable
+    foreach test_src : srcfiles_unittest
+        test_bin = executable(
+            fs.stem(test_src),
+            test_src,
+            link_with: bmcweblib,
+            include_directories: incdir,
+            install_dir: bindir,
+            dependencies: bmcweb_dependencies + [gtestdep],
+        )
+        test(fs.stem(test_src), test_bin, protocol: 'gtest')
+    endforeach
+endif
+=======
+subdir('test')
+>>>>>>> origin/master

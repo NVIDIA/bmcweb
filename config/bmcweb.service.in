@@ -11,8 +11,14 @@ ExecReload=kill -s HUP $MAINPID
 ExecStart=@MESON_INSTALL_PREFIX@/libexec/bmcwebd
 Type=simple
 WorkingDirectory=/home/root
+<<<<<<< HEAD
 StateDirectory=bmcweb
 WatchdogSec=120s
+||||||| 80d2ef31c
+=======
+SyslogLevelPrefix=true
+WatchdogSec=@BMCWEB_WATCHDOG_TIMEOUT_SECONDS@s
+>>>>>>> origin/master
 
 [Install]
 WantedBy=network.target

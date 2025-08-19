@@ -61,6 +61,28 @@ enum class PinOut{
     Cisco,
     Cyclades,
     Digi,
+    Modbus2Wire,
+    Modbus4Wire,
+    ModbusRs232,
+};
+
+enum class ConnectorType{
+    Invalid,
+    RJ45,
+    RJ11,
+    DB9Female,
+    DB9Male,
+    DB25Female,
+    DB25Male,
+    USB,
+    mUSB,
+    uUSB,
+};
+
+enum class Role{
+    Invalid,
+    Client,
+    Server,
 };
 
 enum class ConnectorType{
@@ -130,6 +152,28 @@ NLOHMANN_JSON_SERIALIZE_ENUM(PinOut, {
     {PinOut::Cisco, "Cisco"},
     {PinOut::Cyclades, "Cyclades"},
     {PinOut::Digi, "Digi"},
+    {PinOut::Modbus2Wire, "Modbus2Wire"},
+    {PinOut::Modbus4Wire, "Modbus4Wire"},
+    {PinOut::ModbusRs232, "ModbusRs232"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(ConnectorType, {
+    {ConnectorType::Invalid, "Invalid"},
+    {ConnectorType::RJ45, "RJ45"},
+    {ConnectorType::RJ11, "RJ11"},
+    {ConnectorType::DB9Female, "DB9 Female"},
+    {ConnectorType::DB9Male, "DB9 Male"},
+    {ConnectorType::DB25Female, "DB25 Female"},
+    {ConnectorType::DB25Male, "DB25 Male"},
+    {ConnectorType::USB, "USB"},
+    {ConnectorType::mUSB, "mUSB"},
+    {ConnectorType::uUSB, "uUSB"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(Role, {
+    {Role::Invalid, "Invalid"},
+    {Role::Client, "Client"},
+    {Role::Server, "Server"},
 });
 
 NLOHMANN_JSON_SERIALIZE_ENUM(ConnectorType, {

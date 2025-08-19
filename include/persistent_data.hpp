@@ -108,18 +108,40 @@ class ConfigFile
                             systemUuid = *jSystemUuid;
                         }
                     }
+                    else if (item.first == "service_identification")
+                    {
+                        const std::string* jServiceIdentification =
+                            item.second.get_ptr<const std::string*>();
+                        if (jServiceIdentification != nullptr)
+                        {
+                            serviceIdentification = *jServiceIdentification;
+                        }
+                    }
                     else if (item.first == "auth_config")
                     {
+                        const nlohmann::json::object_t* jObj =
+                            item.second
+                                .get_ptr<const nlohmann::json::object_t*>();
+                        if (jObj == nullptr)
+                        {
+                            continue;
+                        }
                         SessionStore::getInstance()
                             .getAuthMethodsConfig()
-                            .fromJson(item.second);
+                            .fromJson(*jObj);
                     }
                     else if (item.first == "sessions")
                     {
                         for (const auto& elem : item.second)
                         {
+                            const nlohmann::json::object_t* jObj =
+                                elem.get_ptr<const nlohmann::json::object_t*>();
+                            if (jObj == nullptr)
+                            {
+                                continue;
+                            }
                             std::shared_ptr<UserSession> newSession =
-                                UserSession::fromJson(elem);
+                                UserSession::fromJson(*jObj);
 
                             if (newSession == nullptr)
                             {
@@ -172,24 +194,31 @@ class ConfigFile
                     {
                         for (const auto& elem : item.second)
                         {
-                            std::optional<UserSubscription> newSub =
-                                UserSubscription::fromJson(elem);
-
-                            if (!newSub)
+                            const nlohmann::json::object_t* subobj =
+                                elem.get_ptr<const nlohmann::json::object_t*>();
+                            if (subobj == nullptr)
                             {
-                                BMCWEB_LOG_ERROR("Problem reading subscription "
-                                                 "from persistent store");
                                 continue;
                             }
 
-                            BMCWEB_LOG_DEBUG("Restored subscription: {} {}",
-                                             newSub->id, newSub->customText);
+                            std::optional<UserSubscription> newSub =
+                                UserSubscription::fromJson(*subobj);
+
+                            if (!newSub)
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "Problem reading subscription from persistent store");
+                                continue;
+                            }
+
+                            std::string id = newSub->id;
+                            BMCWEB_LOG_DEBUG("Restored subscription: {} {}", id,
+                                             newSub->customText);
 
                             EventServiceStore::getInstance()
                                 .subscriptionsConfigMap.emplace(
-                                    newSub->id,
-                                    std::make_shared<UserSubscription>(
-                                        std::move(*newSub)));
+                                    id, std::make_shared<UserSubscription>(
+                                            std::move(*newSub)));
                         }
                     }
                     else
@@ -272,7 +301,7 @@ class ConfigFile
         authConfig["BasicAuth"] = c.basic;
         authConfig["TLS"] = c.tls;
         authConfig["TLSStrict"] = c.tlsStrict;
-        authConfig["TLSCommonNameParseMode"] =
+        authConfig["MTLSCommonNameParseMode"] =
             static_cast<int>(c.mTLSCommonNameParsingMode);
 
         nlohmann::json& eventserviceConfig = data["eventservice_config"];
@@ -283,6 +312,7 @@ class ConfigFile
             eventServiceConfig.retryTimeoutInterval;
 
         data["system_uuid"] = systemUuid;
+        data["service_identification"] = serviceIdentification;
         data["revision"] = jsonRevision;
         data["timeout"] = SessionStore::getInstance().getTimeoutInSeconds();
 
@@ -369,6 +399,7 @@ class ConfigFile
     }
 
     std::string systemUuid;
+    std::string serviceIdentification;
 };
 
 inline ConfigFile& getConfig()

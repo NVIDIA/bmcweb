@@ -17,6 +17,7 @@
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "str_utility.hpp"
+#include "utils/chassis_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/query_param.hpp"
@@ -87,8 +88,16 @@ constexpr auto getSensorPaths(){
         "/xyz/openbmc_project/sensors/fan_pwm",
         "/xyz/openbmc_project/sensors/altitude",
         "/xyz/openbmc_project/sensors/energy",
+<<<<<<< HEAD
         "/xyz/openbmc_project/sensors/utilization",
         "/xyz/openbmc_project/sensors/frequency"});
+||||||| 80d2ef31c
+        "/xyz/openbmc_project/sensors/utilization"});
+=======
+        "/xyz/openbmc_project/sensors/liquidflow",
+        "/xyz/openbmc_project/sensors/pressure",
+        "/xyz/openbmc_project/sensors/utilization"});
+>>>>>>> origin/master
     } else {
       return  std::to_array<std::string_view>({"/xyz/openbmc_project/sensors/power",
         "/xyz/openbmc_project/sensors/current",
@@ -208,11 +217,31 @@ class SensorsAsyncResp
     void addMetadata(const nlohmann::json& sensorObject,
                      const std::string& dbusPath)
     {
-        if (metadata)
+        if (!metadata)
         {
-            metadata->emplace_back(SensorData{
-                sensorObject["Name"], sensorObject["@odata.id"], dbusPath});
+            return;
         }
+        const auto nameIt = sensorObject.find("Name");
+        if (nameIt == sensorObject.end())
+        {
+            return;
+        }
+        const auto idIt = sensorObject.find("@odata.id");
+        if (idIt == sensorObject.end())
+        {
+            return;
+        }
+        const std::string* name = nameIt->get_ptr<const std::string*>();
+        if (name == nullptr)
+        {
+            return;
+        }
+        const std::string* id = idIt->get_ptr<const std::string*>();
+        if (id == nullptr)
+        {
+            return;
+        }
+        metadata->emplace_back(SensorData{*name, *id, dbusPath});
     }
 
     void updateUri(const std::string& name, const std::string& uri)
@@ -293,7 +322,7 @@ void getObjectsWithConnection(
                                      std::string, std::vector<std::string>>>>&
                      object : subtree)
             {
-                if (sensorNames->find(object.first) != sensorNames->end())
+                if (sensorNames->contains(object.first))
                 {
                     for (const std::pair<std::string, std::vector<std::string>>&
                              objData : object.second)
@@ -420,13 +449,10 @@ void getChassis(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 Callback&& callback)
 {
     BMCWEB_LOG_DEBUG("getChassis enter");
-    constexpr std::array<std::string_view, 2> interfaces = {
-        "xyz.openbmc_project.Inventory.Item.Board",
-        "xyz.openbmc_project.Inventory.Item.Chassis"};
 
     // Get the Chassis Collection
     dbus::utility::getSubTreePaths(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
+        "/xyz/openbmc_project/inventory", 0, chassisInterfaces,
         [callback = std::forward<Callback>(callback), asyncResp,
          chassisIdStr{std::string(chassisId)},
          chassisSubNode{std::string(chassisSubNode)},
@@ -747,14 +773,25 @@ inline void sortJSONResponse(
             {
                 continue;
             }
-            std::string* value = odata->get_ptr<std::string*>();
-            if (value != nullptr)
+            const auto nameIt = sensorJson.find("Name");
+            if (nameIt == sensorJson.end())
             {
-                *value += "/" + std::to_string(count);
-                sensorJson["MemberId"] = std::to_string(count);
-                count++;
-                sensorsAsyncResp->updateUri(sensorJson["Name"], *value);
+                continue;
             }
+            std::string* value = odata->get_ptr<std::string*>();
+            if (value == nullptr)
+            {
+                continue;
+            }
+            const std::string* name = nameIt->get_ptr<const std::string*>();
+            if (name == nullptr)
+            {
+                continue;
+            }
+            *value += "/" + std::to_string(count);
+            sensorJson["MemberId"] = std::to_string(count);
+            count++;
+            sensorsAsyncResp->updateUri(*name, *value);
         }
     }
 }
@@ -1903,7 +1940,7 @@ inline void getSensorData(
                     const std::string& sensorName = split[5];
                     BMCWEB_LOG_DEBUG("sensorName {} sensorType {}", sensorName,
                                      sensorType);
-                    if (sensorNames->find(objPath) == sensorNames->end())
+                    if (!sensorNames->contains(objPath))
                     {
                         BMCWEB_LOG_DEBUG("{} not in sensor list ", sensorName);
                         continue;

@@ -2,11 +2,14 @@
 import argparse
 import json
 import os
+import typing as t
 from collections import OrderedDict
 
 import requests
 
-PRAGMA_ONCE = """#pragma once
+PRAGMA_ONCE: t.Final[
+    str
+] = """#pragma once
 """
 
 WARNING = """/****************************************************************
@@ -20,7 +23,9 @@ WARNING = """/****************************************************************
  * github organization.
  ***************************************************************/"""
 
-COPYRIGHT = """// SPDX-License-Identifier: Apache-2.0
+COPYRIGHT: t.Final[
+    str
+] = """// SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 """
 
@@ -31,31 +36,39 @@ INCLUDES = """
 
 // clang-format off
 
-namespace redfish::registries::{}
+namespace redfish::registries
+{{
+struct {}
 {{
 """
 
-REGISTRY_HEADER = f"{COPYRIGHT}{PRAGMA_ONCE}{WARNING}{INCLUDES}"
+REGISTRY_HEADER: t.Final[str] = f"{COPYRIGHT}{PRAGMA_ONCE}{WARNING}{INCLUDES}"
 
-SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+SCRIPT_DIR: t.Final[str] = os.path.dirname(os.path.realpath(__file__))
 
-include_path = os.path.realpath(
+INCLUDE_PATH: t.Final[str] = os.path.realpath(
     os.path.join(SCRIPT_DIR, "..", "redfish-core", "include", "registries")
 )
 
-proxies = {"https": os.environ.get("https_proxy", None)}
+PROXIES: t.Final[t.Dict[str, str]] = {
+    "https": os.environ.get("https_proxy", "")
+}
+
+RegistryInfo: t.TypeAlias = t.Tuple[str, t.Dict[str, t.Any], str, str]
 
 
-def make_getter(dmtf_name, header_name, type_name):
+def make_getter(
+    dmtf_name: str, header_name: str, type_name: str
+) -> RegistryInfo:
     url = "https://redfish.dmtf.org/registries/{}".format(dmtf_name)
-    dmtf = requests.get(url, proxies=proxies)
+    dmtf = requests.get(url, proxies=PROXIES)
     dmtf.raise_for_status()
     json_file = json.loads(dmtf.text, object_pairs_hook=OrderedDict)
-    path = os.path.join(include_path, header_name)
+    path = os.path.join(INCLUDE_PATH, header_name)
     return (path, json_file, type_name, url)
 
 
-def openbmc_local_getter():
+def openbmc_local_getter() -> RegistryInfo:
     url = "https://raw.githubusercontent.com/openbmc/bmcweb/refs/heads/master/redfish-core/include/registries/openbmc.json"
     with open(
         os.path.join(
@@ -67,13 +80,14 @@ def openbmc_local_getter():
             "openbmc.json",
         ),
         "rb",
-    ) as json_file:
-        json_file = json.load(json_file)
+    ) as json_file_fd:
+        json_file = json.load(json_file_fd)
 
-    path = os.path.join(include_path, "openbmc_message_registry.hpp")
+    path = os.path.join(INCLUDE_PATH, "openbmc_message_registry.hpp")
     return (path, json_file, "openbmc", url)
 
 
+<<<<<<< HEAD
 def nvidia_local_getter():
     url = ""
     with open(
@@ -95,6 +109,11 @@ def nvidia_local_getter():
 
 
 def update_registries(files):
+||||||| 80d2ef31c
+def update_registries(files):
+=======
+def update_registries(files: t.List[RegistryInfo]) -> None:
+>>>>>>> origin/master
     # Remove the old files
     for file, json_dict, namespace, url in files:
         try:
@@ -103,13 +122,14 @@ def update_registries(files):
             print("{} not found".format(file))
 
         with open(file, "w") as registry:
-
             version_split = json_dict["RegistryVersion"].split(".")
 
-            registry.write(REGISTRY_HEADER.format(namespace))
+            struct_name = to_pascal_case(namespace)
+            registry.write(REGISTRY_HEADER.format(struct_name))
             # Parse the Registry header info
+            description = json_dict.get("Description", "")
             registry.write(
-                "const Header header = {{\n"
+                "static constexpr Header header = {{\n"
                 '    "{json_dict[@Redfish.Copyright]}",\n'
                 '    "{json_dict[@odata.type]}",\n'
                 "    {version_split[0]},\n"
@@ -117,18 +137,20 @@ def update_registries(files):
                 "    {version_split[2]},\n"
                 '    "{json_dict[Name]}",\n'
                 '    "{json_dict[Language]}",\n'
-                '    "{json_dict[Description]}",\n'
+                '    "{description}",\n'
                 '    "{json_dict[RegistryPrefix]}",\n'
                 '    "{json_dict[OwningEntity]}",\n'
                 "}};\n"
-                "constexpr const char* url =\n"
+                "\n"
+                "static constexpr const char* url =\n"
                 '    "{url}";\n'
                 "\n"
-                "constexpr std::array registry =\n"
+                "static constexpr std::array registry =\n"
                 "{{\n".format(
                     json_dict=json_dict,
                     url=url,
                     version_split=version_split,
+                    description=description,
                 )
             )
 
@@ -156,33 +178,48 @@ def update_registries(files):
                 else:
                     registry.write("},\n")
                 registry.write(
-                    '            "{message[Resolution]}",\n'
-                    "        }}}},\n".format(message=message)
+                    '            "{message[Resolution]}",\n        }}}},\n'.format(
+                        message=message
+                    )
                 )
 
             registry.write("\n};\n\nenum class Index\n{\n")
             for index, (messageId, message) in enumerate(messages_sorted):
                 messageId = messageId[0].lower() + messageId[1:]
                 registry.write("    {} = {},\n".format(messageId, index))
+            registry.write("};\n")
+            registry.write("}}; // struct {}\n".format(namespace))
+            registry.write("\n")
             registry.write(
-                "}};\n}} // namespace redfish::registries::{}\n".format(
-                    namespace
+                "[[gnu::constructor]] inline void register{}()\n".format(
+                    to_pascal_case(namespace)
                 )
             )
+            registry.write(
+                "{{ registerRegistry<{}>(); }}\n".format(
+                    to_pascal_case(namespace)
+                )
+            )
+            registry.write("\n")
+            registry.write("} // namespace redfish::registries\n")
 
 
-def get_privilege_string_from_list(privilege_list):
+def get_privilege_string_from_list(
+    privilege_list: t.List[t.Dict[str, t.Any]],
+) -> str:
     privilege_string = "{{\n"
     for privilege_json in privilege_list:
         privileges = privilege_json["Privilege"]
         privilege_string += "    {"
+        last_privelege = ""
         for privilege in privileges:
+            last_privelege = privilege
             if privilege == "NoAuth":
                 continue
             privilege_string += '"'
             privilege_string += privilege
             privilege_string += '",\n'
-        if privilege != "NoAuth":
+        if last_privelege != "NoAuth":
             privilege_string = privilege_string[:-2]
         privilege_string += "}"
         privilege_string += ",\n"
@@ -191,7 +228,9 @@ def get_privilege_string_from_list(privilege_list):
     return privilege_string
 
 
-def get_variable_name_for_privilege_set(privilege_list):
+def get_variable_name_for_privilege_set(
+    privilege_list: t.List[t.Dict[str, t.Any]],
+) -> str:
     names = []
     for privilege_json in privilege_list:
         privileges = privilege_json["Privilege"]
@@ -216,57 +255,59 @@ namespace redfish::privileges
 )
 
 
-def get_response_code(entry_id, entry):
+def get_response_code(entry_id: str) -> str | None:
     codes = {
-        "InternalError": "internal_server_error",
-        "OperationTimeout": "internal_server_error",
-        "PropertyValueResourceConflict": "conflict",
-        "ResourceInUse": "service_unavailable",
-        "ServiceTemporarilyUnavailable": "service_unavailable",
-        "ResourceCannotBeDeleted": "method_not_allowed",
-        "PropertyValueModified": "ok",
-        "InsufficientPrivilege": "forbidden",
+        "AccessDenied": "forbidden",
         "AccountForSessionNoLongerExists": "forbidden",
+        "AccountModified": "ok",
+        "AccountRemoved": "ok",
+        "CouldNotEstablishConnection": "not_found",
+        "Created": "created",
+        "EventSubscriptionLimitExceeded": "service_unavailable",
+        "GeneralError": "internal_server_error",
+        "GenerateSecretKeyRequired": "forbidden",
+        "InsufficientPrivilege": "forbidden",
+        "InsufficientStorage": "insufficient_storage",
+        "InternalError": "internal_server_error",
+        "MaximumErrorsExceeded": "internal_server_error",
+        "NoValidSession": "forbidden",
+        "OperationFailed": "bad_gateway",
+        "OperationNotAllowed": "method_not_allowed",
+        "OperationTimeout": "internal_server_error",
+        "PasswordChangeRequired": None,
+        "PreconditionFailed": "precondition_failed",
+        "PropertyNotWritable": "method_not_allowed",
+        "PropertyValueExternalConflict": "conflict",
+        "PropertyValueModified": "ok",
+        "PropertyValueResourceConflict": "conflict",
+        "ResourceAtUriUnauthorized": "unauthorized",
+        "ResourceCannotBeDeleted": "method_not_allowed",
+        "ResourceExhaustion": "service_unavailable",
+        "ResourceInStandby": "service_unavailable",
+        "ResourceInUse": "service_unavailable",
+        "ResourceNotFound": "not_found",
+        "RestrictedRole": "forbidden",
         "ServiceDisabled": "service_unavailable",
         "ServiceInUnknownState": "service_unavailable",
-        "EventSubscriptionLimitExceeded": "service_unavailable",
-        "ResourceAtUriUnauthorized": "unauthorized",
+        "ServiceShuttingDown": "service_unavailable",
+        "ServiceTemporarilyUnavailable": "service_unavailable",
+        "SessionLimitExceeded": "service_unavailable",
         "SessionTerminated": "ok",
         "SubscriptionTerminated": "ok",
-        "PropertyNotWritable": "forbidden",
-        "MaximumErrorsExceeded": "internal_server_error",
-        "GeneralError": "internal_server_error",
-        "PreconditionFailed": "precondition_failed",
-        "OperationFailed": "bad_gateway",
-        "ServiceShuttingDown": "service_unavailable",
-        "AccountRemoved": "ok",
-        "PropertyValueExternalConflict": "conflict",
-        "InsufficientStorage": "insufficient_storage",
-        "OperationNotAllowed": "method_not_allowed",
-        "ResourceNotFound": "not_found",
-        "CouldNotEstablishConnection": "not_found",
-        "AccessDenied": "forbidden",
         "Success": None,
-        "Created": "created",
-        "NoValidSession": "forbidden",
-        "SessionLimitExceeded": "service_unavailable",
-        "ResourceExhaustion": "service_unavailable",
-        "AccountModified": "ok",
-        "PasswordChangeRequired": None,
-        "ResourceInStandby": "service_unavailable",
-        "GenerateSecretKeyRequired": "forbidden",
     }
 
-    code = codes.get(entry_id, "NOCODE")
-    if code != "NOCODE":
-        return code
-
-    return "bad_request"
+    return codes.get(entry_id, "bad_request")
 
 
 def make_error_function(
-    entry_id, entry, is_header, registry_name, namespace_name
-):
+    entry_id: str,
+    entry: t.Dict[str, t.Any],
+    is_header: bool,
+    registry_name: str,
+    namespace_name: str,
+) -> str:
+    struct_name = to_pascal_case(namespace_name)
     arg_nonstring_types = {
         "const boost::urls::url_view_base&": {
             "AccessDenied": [1],
@@ -319,13 +360,14 @@ def make_error_function(
         args.append(f"{typename} arg{arg_index}")
     function_name = entry_id[0].lower() + entry_id[1:]
     arg = ", ".join(args)
-    out += f"nlohmann::json {function_name}({arg})"
+    out += f"nlohmann::json::object_t {function_name}({arg})"
 
     if is_header:
         out += ";\n\n"
     else:
         out += "\n{\n"
         to_array_type = ""
+        arg_param = "{}"
         if argtypes:
             outargs = []
             for index, typename in enumerate(argtypes):
@@ -349,12 +391,8 @@ def make_error_function(
                 else:
                     outargs.append(f"arg{index}")
             argstring = ", ".join(outargs)
-
-        if argtypes:
             arg_param = f"std::to_array{to_array_type}({{{argstring}}})"
-        else:
-            arg_param = "{}"
-        out += f"    return getLog(redfish::registries::{namespace_name}::Index::{function_name}, {arg_param});"
+        out += f"    return getLog(redfish::registries::{struct_name}::Index::{function_name}, {arg_param});"
         out += "\n}\n\n"
     if registry_name == "Base":
         args.insert(0, "crow::Response& res")
@@ -379,10 +417,10 @@ def make_error_function(
             if entry_id == "ServiceTemporarilyUnavailable":
                 out += "res.addHeader(boost::beast::http::field::retry_after, arg1);"
 
-            res = get_response_code(entry_id, entry)
+            res = get_response_code(entry_id)
             if res:
                 out += f"    res.result(boost::beast::http::status::{res});\n"
-            args_out = ", ".join([f"arg{x+1}" for x in range(len(argtypes))])
+            args_out = ", ".join([f"arg{x + 1}" for x in range(len(argtypes))])
 
             addMessageToJson = {
                 "PropertyDuplicate": 1,
@@ -418,10 +456,14 @@ def make_error_function(
 
 
 def create_error_registry(
-    entry, registry_version, registry_name, namespace_name, filename
-):
-    file, json_dict, namespace, url = entry
+    registry_info: RegistryInfo,
+    registry_name: str,
+    namespace_name: str,
+    filename: str,
+) -> None:
+    file, json_dict, namespace, url = registry_info
     base_filename = filename + "_messages"
+    struct_name = to_pascal_case(namespace_name)
 
     error_messages_hpp = os.path.join(
         SCRIPT_DIR, "..", "redfish-core", "include", f"{base_filename}.hpp"
@@ -541,20 +583,20 @@ namespace messages
         )
         out.write(
             """
-static nlohmann::json getLog(redfish::registries::{namespace_name}::Index name,
+static nlohmann::json::object_t getLog(redfish::registries::{struct_name}::Index name,
                              std::span<const std::string_view> args)
 {{
     size_t index = static_cast<size_t>(name);
-    if (index >= redfish::registries::{namespace_name}::registry.size())
+    if (index >= redfish::registries::{struct_name}::registry.size())
     {{
         return {{}};
     }}
-    return getLogFromRegistry(redfish::registries::{namespace_name}::header,
-                              redfish::registries::{namespace_name}::registry, index, args);
+    return getLogFromRegistry(redfish::registries::{struct_name}::header,
+                              redfish::registries::{struct_name}::registry, index, args);
 }}
 
 """.format(
-                namespace_name=namespace_name
+                struct_name=struct_name
             )
         )
         for entry_id, entry in messages.items():
@@ -580,7 +622,7 @@ static nlohmann::json getLog(redfish::registries::{namespace_name}::Index name,
     os.system(f"clang-format -i {error_messages_hpp} {error_messages_cpp}")
 
 
-def make_privilege_registry():
+def make_privilege_registry() -> None:
     path, json_file, type_name, url = make_getter(
         "Redfish_1.5.0_PrivilegeRegistry.json",
         "privilege_registry.hpp",
@@ -589,15 +631,29 @@ def make_privilege_registry():
     with open(path, "w") as registry:
         registry.write(PRIVILEGE_HEADER)
 
-        privilege_dict = {}
+        privilege_dict: t.Dict[str, t.Tuple[t.Any, str | None]] = {}
         for mapping in json_file["Mappings"]:
             # first pass, identify all the unique privilege sets
             for operation, privilege_list in mapping["OperationMap"].items():
                 privilege_dict[
                     get_privilege_string_from_list(privilege_list)
-                ] = (privilege_list,)
+                ] = (
+                    privilege_list,
+                    None,
+                )
+            if "SubordinateOverrides" in mapping:
+                for subordinateOverride in mapping["SubordinateOverrides"]:
+                    for operation, privilege_list in subordinateOverride[
+                        "OperationMap"
+                    ].items():
+                        privilege_dict[
+                            get_privilege_string_from_list(privilege_list)
+                        ] = (
+                            privilege_list,
+                            None,
+                        )
         for index, key in enumerate(privilege_dict):
-            (privilege_list,) = privilege_dict[key]
+            (privilege_list, _) = privilege_dict[key]
             name = get_variable_name_for_privilege_set(privilege_list)
             registry.write(
                 "const std::array<Privileges, {length}> "
@@ -622,25 +678,51 @@ def make_privilege_registry():
                     )
                 )
             registry.write("\n")
+            if "SubordinateOverrides" in mapping:
+                for subordinateOverrides in mapping["SubordinateOverrides"]:
+                    target_list_list = subordinateOverrides["Targets"]
+                    registry.write("// Subordinate override for ")
+                    concateVarName = ""
+                    for target in target_list_list:
+                        registry.write(target + " -> ")
+                        concateVarName += target
+                    registry.write(entity)
+                    registry.write("\n")
+                    for operation, privilege_list in subordinateOverrides[
+                        "OperationMap"
+                    ].items():
+                        privilege_string = get_privilege_string_from_list(
+                            privilege_list
+                        )
+                        operation = operation.lower()
+                        registry.write(
+                            "const static auto& {}{}SubOver{} = privilegeSet{};\n".format(
+                                operation,
+                                entity,
+                                concateVarName,
+                                privilege_dict[privilege_string][1],
+                            )
+                        )
+                    registry.write("\n")
         registry.write(
             "} // namespace redfish::privileges\n// clang-format on\n"
         )
 
 
-def to_pascal_case(text):
+def to_pascal_case(text: str) -> str:
     s = text.replace("_", " ")
-    s = s.split()
+    s1 = s.split()
     if len(text) == 0:
         return text
-    return "".join(i.capitalize() for i in s[0:])
+    return "".join(i.capitalize() for i in s1[0:])
 
 
-def main():
+def main() -> None:
     dmtf_registries = OrderedDict(
         [
             ("base", "1.19.0"),
             ("composition", "1.1.2"),
-            ("environmental", "1.0.1"),
+            ("environmental", "1.1.0"),
             ("ethernet_fabric", "1.0.1"),
             ("fabric", "1.0.2"),
             ("heartbeat_event", "1.0.1"),
@@ -655,7 +737,7 @@ def main():
             ("storage_device", "1.2.1"),
             ("task_event", "1.0.3"),
             ("telemetry", "1.0.0"),
-            ("update", "1.0.2"),
+            ("update", "1.2.0"),
         ]
     )
 
@@ -671,30 +753,41 @@ def main():
     args = parser.parse_args()
 
     registries = set(args.registries.split(","))
-    files = []
-    registries_map = OrderedDict()
+    registries_map: t.OrderedDict[str, RegistryInfo] = OrderedDict()
 
     for registry, version in dmtf_registries.items():
         if registry in registries:
             registry_pascal_case = to_pascal_case(registry)
-            files.append(
-                make_getter(
-                    f"{registry_pascal_case}.{version}.json",
-                    f"{registry}_message_registry.hpp",
-                    registry,
-                )
+            registries_map[registry] = make_getter(
+                f"{registry_pascal_case}.{version}.json",
+                f"{registry}_message_registry.hpp",
+                registry,
             )
+<<<<<<< HEAD
             registries_map[registry] = files[-1]
     if "nvidia" in registries:
         files.append(nvidia_local_getter())
+||||||| 80d2ef31c
+            registries_map[registry] = files[-1]
+=======
+>>>>>>> origin/master
     if "openbmc" in registries:
+<<<<<<< HEAD
         files.append(openbmc_local_getter())
     update_registries(files)
+||||||| 80d2ef31c
+        files.append(openbmc_local_getter())
+
+    update_registries(files)
+=======
+        registries_map["openbmc"] = openbmc_local_getter()
+
+    update_registries(list(registries_map.values()))
+>>>>>>> origin/master
 
     if "base" in registries_map:
         create_error_registry(
             registries_map["base"],
-            dmtf_registries["base"],
             "Base",
             "base",
             "error",
@@ -702,7 +795,6 @@ def main():
     if "heartbeat_event" in registries_map:
         create_error_registry(
             registries_map["heartbeat_event"],
-            dmtf_registries["heartbeat_event"],
             "HeartbeatEvent",
             "heartbeat_event",
             "heartbeat",
@@ -710,7 +802,6 @@ def main():
     if "resource_event" in registries_map:
         create_error_registry(
             registries_map["resource_event"],
-            dmtf_registries["resource_event"],
             "ResourceEvent",
             "resource_event",
             "resource",
@@ -718,10 +809,16 @@ def main():
     if "task_event" in registries_map:
         create_error_registry(
             registries_map["task_event"],
-            dmtf_registries["task_event"],
             "TaskEvent",
             "task_event",
             "task",
+        )
+    if "update" in registries_map:
+        create_error_registry(
+            registries_map["update"],
+            "Update",
+            "update",
+            "update",
         )
 
     if "privilege" in registries:

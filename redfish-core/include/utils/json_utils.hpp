@@ -95,8 +95,7 @@ enum class UnpackErrorCode
 };
 
 template <typename ToType, typename FromType>
-bool checkRange(const FromType& from [[maybe_unused]],
-                std::string_view key [[maybe_unused]])
+bool checkRange(const FromType& from, std::string_view key)
 {
     if constexpr (std::is_floating_point_v<ToType>)
     {
@@ -105,21 +104,19 @@ bool checkRange(const FromType& from [[maybe_unused]],
             BMCWEB_LOG_DEBUG("Value for key {} was NAN", key);
             return false;
         }
+        // Assume for the moment that all floats can represent the full range
+        // of any int/uint in a cast.  This is close enough to true for the
+        // precision of this json parser.
     }
-    if constexpr (std::numeric_limits<ToType>::max() <
-                  std::numeric_limits<FromType>::max())
+    else
     {
-        if (from > std::numeric_limits<ToType>::max())
+        if (std::cmp_greater(from, std::numeric_limits<ToType>::max()))
         {
             BMCWEB_LOG_DEBUG("Value for key {} was greater than max {}", key,
                              std::numeric_limits<FromType>::max());
             return false;
         }
-    }
-    if constexpr (std::numeric_limits<ToType>::lowest() >
-                  std::numeric_limits<FromType>::lowest())
-    {
-        if (from < std::numeric_limits<ToType>::lowest())
+        if (std::cmp_less(from, std::numeric_limits<ToType>::lowest()))
         {
             BMCWEB_LOG_DEBUG("Value for key {} was less than min {}", key,
                              std::numeric_limits<FromType>::lowest());
@@ -189,13 +186,26 @@ UnpackErrorCode unpackValueWithErrorCode(nlohmann::json& jsonValue,
         int64_t* jsonPtr = jsonValue.get_ptr<int64_t*>();
         if (jsonPtr == nullptr)
         {
-            return UnpackErrorCode::invalidType;
+            // Value wasn't int, check uint
+            uint64_t* uJsonPtr = jsonValue.get_ptr<uint64_t*>();
+            if (uJsonPtr == nullptr)
+            {
+                return UnpackErrorCode::invalidType;
+            }
+            if (!checkRange<Type>(*uJsonPtr, key))
+            {
+                return UnpackErrorCode::outOfRange;
+            }
+            value = static_cast<Type>(*uJsonPtr);
         }
-        if (!checkRange<Type>(*jsonPtr, key))
+        else
         {
-            return UnpackErrorCode::outOfRange;
+            if (!checkRange<Type>(*jsonPtr, key))
+            {
+                return UnpackErrorCode::outOfRange;
+            }
+            value = static_cast<Type>(*jsonPtr);
         }
-        value = static_cast<Type>(*jsonPtr);
     }
 
     else if constexpr ((std::is_unsigned_v<Type>) &&
@@ -204,13 +214,25 @@ UnpackErrorCode unpackValueWithErrorCode(nlohmann::json& jsonValue,
         uint64_t* jsonPtr = jsonValue.get_ptr<uint64_t*>();
         if (jsonPtr == nullptr)
         {
-            return UnpackErrorCode::invalidType;
+            int64_t* ijsonPtr = jsonValue.get_ptr<int64_t*>();
+            if (ijsonPtr == nullptr)
+            {
+                return UnpackErrorCode::invalidType;
+            }
+            if (!checkRange<Type>(*ijsonPtr, key))
+            {
+                return UnpackErrorCode::outOfRange;
+            }
+            value = static_cast<Type>(*ijsonPtr);
         }
-        if (!checkRange<Type>(*jsonPtr, key))
+        else
         {
-            return UnpackErrorCode::outOfRange;
+            if (!checkRange<Type>(*jsonPtr, key))
+            {
+                return UnpackErrorCode::outOfRange;
+            }
+            value = static_cast<Type>(*jsonPtr);
         }
-        value = static_cast<Type>(*jsonPtr);
     }
 
     else if constexpr (std::is_same_v<nlohmann::json, Type>)
@@ -491,6 +513,7 @@ struct PerUnpack
     bool complete = false;
 };
 
+<<<<<<< HEAD
 inline bool readJsonHelper(nlohmann::json& jsonRequest, crow::Response& res,
                            std::span<PerUnpack> toUnpack,
                            bool allowUnknownKeys);
@@ -498,6 +521,18 @@ inline bool readJsonHelper(nlohmann::json& jsonRequest, crow::Response& res,
 inline bool readJsonHelperObject(
     nlohmann::json::object_t& obj, crow::Response& res,
     std::span<PerUnpack> toUnpack, bool allowUnknownKeys = false)
+||||||| 80d2ef31c
+inline bool readJsonHelper(nlohmann::json& jsonRequest, crow::Response& res,
+                           std::span<PerUnpack> toUnpack);
+
+inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
+                                 crow::Response& res,
+                                 std::span<PerUnpack> toUnpack)
+=======
+inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
+                                 crow::Response& res,
+                                 std::span<PerUnpack> toUnpack)
+>>>>>>> origin/master
 {
     bool result = true;
     for (auto& item : obj)
@@ -525,9 +560,9 @@ inline bool readJsonHelperObject(
             {
                 // Include the slash in the key so we can compare later
                 key = unpackSpec.key.substr(0, keysplitIndex + 1);
-                nlohmann::json j;
-                result = details::unpackValue<nlohmann::json>(item.second, key,
-                                                              res, j) &&
+                nlohmann::json::object_t j;
+                result = details::unpackValue<nlohmann::json::object_t>(
+                             item.second, key, res, j) &&
                          result;
                 if (!result)
                 {
@@ -546,8 +581,14 @@ inline bool readJsonHelperObject(
                     p.complete = true;
                 }
 
+<<<<<<< HEAD
                 result = readJsonHelper(j, res, nextLevel, allowUnknownKeys) &&
                          result;
+||||||| 80d2ef31c
+                result = readJsonHelper(j, res, nextLevel) && result;
+=======
+                result = readJsonHelperObject(j, res, nextLevel) && result;
+>>>>>>> origin/master
                 break;
             }
 
@@ -595,6 +636,7 @@ inline bool readJsonHelperObject(
     return result;
 }
 
+<<<<<<< HEAD
 inline bool readJsonHelper(nlohmann::json& jsonRequest, crow::Response& res,
                            std::span<PerUnpack> toUnpack,
                            bool allowUnknownKeys = false)
@@ -610,6 +652,23 @@ inline bool readJsonHelper(nlohmann::json& jsonRequest, crow::Response& res,
     return readJsonHelperObject(*obj, res, toUnpack, allowUnknownKeys);
 }
 
+||||||| 80d2ef31c
+inline bool readJsonHelper(nlohmann::json& jsonRequest, crow::Response& res,
+                           std::span<PerUnpack> toUnpack)
+{
+    nlohmann::json::object_t* obj =
+        jsonRequest.get_ptr<nlohmann::json::object_t*>();
+    if (obj == nullptr)
+    {
+        BMCWEB_LOG_DEBUG("Json value is not an object");
+        messages::unrecognizedRequestBody(res);
+        return false;
+    }
+    return readJsonHelperObject(*obj, res, toUnpack);
+}
+
+=======
+>>>>>>> origin/master
 inline void packVariant(std::span<PerUnpack> /*toPack*/) {}
 
 template <typename FirstType, typename... UnpackTypes>
