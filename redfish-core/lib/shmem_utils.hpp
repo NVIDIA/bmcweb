@@ -154,6 +154,8 @@ const static std::string processorModule =
     platformDevicePrefix + "ProcessorModule_";
 const static std::string cpu = platformDevicePrefix + "CPU_";
 constexpr const std::string_view nvLink = "NVLink_";
+constexpr const std::string_view nvLinkType =
+    "(NVLink|InterswitchPort|NVLinkManagement)_";
 constexpr const std::string_view cpuProcessor = "CPU_";
 constexpr const std::string_view processor = "ProcessorModule_";
 constexpr const std::string_view pcieLink = "PCIeLink_";
@@ -279,6 +281,7 @@ inline void metricsReplacementsNonPlatformMetrics(
     // "MetricProperties"
     bool allowNVSwitchId =
         (wildcardSet.find("NVSwitchId") != wildcardSet.end());
+    bool allowLinkType = (wildcardSet.find("LinkType") != wildcardSet.end());
     bool allowNvlinkId = (wildcardSet.find("NvlinkId") != wildcardSet.end());
     bool allowGpuId = (wildcardSet.find("GpuId") != wildcardSet.end());
     bool allowCpuId = (wildcardSet.find("CpuId") != wildcardSet.end());
@@ -301,6 +304,7 @@ inline void metricsReplacementsNonPlatformMetrics(
     std::smatch match;
     std::set<int> nvSwitchIdType1;
     std::set<int> nvlinkIdType1;
+    std::set<std::string> nvlinkType1;
     std::set<int> gpuId;
     std::set<int> gpmInstance;
     std::set<int> networkAdapterNId;
@@ -328,13 +332,21 @@ inline void metricsReplacementsNonPlatformMetrics(
                     nvSwitchIdType1.insert(number);
                 }
             }
-            if (allowNvlinkId)
+            if (allowLinkType || allowNvlinkId)
             {
-                std::regex nvLinkPattern(std::string(nvLink) + "(\\d+)");
-                if (std::regex_search(property, match, nvLinkPattern))
+                std::regex nvLinkPattern(std::string(nvLinkType) + "(\\d+)");
+                if (std::regex_search(property, match, nvLinkPattern) &&
+                    match.size() > 2)
                 {
-                    int number = std::stoi(match[1].str());
-                    nvlinkIdType1.insert(number);
+                    if (allowLinkType)
+                    {
+                        nvlinkType1.insert(match[1].str());
+                    }
+                    if (allowNvlinkId)
+                    {
+                        int number = std::stoi(match[2].str());
+                        nvlinkIdType1.insert(number);
+                    }
                 }
             }
         }
@@ -564,6 +576,18 @@ inline void metricsReplacementsNonPlatformMetrics(
             wildCards.push_back({
                 {"Name", "NVSwitchId"},
                 {"Values", devCountSwitchType1},
+            });
+        }
+        if (allowLinkType)
+        {
+            nlohmann::json devNVlinkType1 = nlohmann::json::array();
+            for (const auto& item : nvlinkType1)
+            {
+                devNVlinkType1.push_back(item);
+            }
+            wildCards.push_back({
+                {"Name", "LinkType"},
+                {"Values", devNVlinkType1},
             });
         }
         if (allowNvlinkId)
