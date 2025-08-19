@@ -71,6 +71,9 @@ static const char* const oemFruObj = "/xyz/openbmc_project/oem_fru";
 static const char* const oemFruIntf = "xyz.openbmc_project.OemFruDevice";
 static const char* const rshimSystemdObjBf =
     "/org/freedesktop/systemd1/unit/rshim_2eservice";
+static const char* const rshimServiceBf = "com.Nvidia.Software.Rshim";
+static const char* const rshimServiceIntfBf = "com.nvidia.BF.Rshim";
+static const char* const rshimObjBf = "/com/nvidia/software/rshim";
 
 struct PropertyInfo
 {
@@ -409,8 +412,8 @@ const PropertyInfo nicTristateAttributeInfo = {
         {"Disabled",
          "xyz.openbmc_project.Control.NcSi.OEM.Nvidia.NicTristateAttribute.Modes.Disabled"}}};
 const PropertyInfo lfwpInfo = {
-    .intf = "xyz.openbmc_project.Object.Enable",
-    .prop = "Enabled",
+    .intf = "com.nvidia.BF.Rshim",
+    .prop = "LfwpEnabled",
     .dbusToRedfish = {{"true", "Enabled"}, {"false", "Disabled"}},
     .redfishToDbus = {{"Enabled", "true"}, {"Disabled", "false"}},
     .isPropBool = true};
@@ -613,13 +616,12 @@ inline DpuActionSetAndGetProp mode(
     modeTarget);
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-inline DpuActionSetAndGetProp lfwp(
-    {{"LFWP",
-      {.service = "xyz.openbmc_project.Software.DPU.Version",
-       .obj = "/xyz/openbmc_project/control/lfwp",
-       .propertyInfo = lfwpInfo,
-       .required = true}}},
-    lfwpTarget);
+inline DpuActionSetAndGetProp lfwp({{"LFWP",
+                                     {.service = "com.Nvidia.Software.Rshim",
+                                      .obj = "/com/nvidia/software/rshim",
+                                      .propertyInfo = lfwpInfo,
+                                      .required = true}}},
+                                   lfwpTarget);
 
 inline void getIsOemNvidiaRshimEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -653,13 +655,23 @@ inline void getIsOemNvidiaRshimEnable(
 
 inline void requestOemNvidiaRshim(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const bool& bmcRshimEnabled)
+    const std::optional<bool>& bmcRshimEnabled,
+    const std::optional<bool>& force)
 {
-    // Use the global constants directly instead of redefining
-    std::string method = bmcRshimEnabled ? "Start" : "Stop";
-
-    BMCWEB_LOG_DEBUG("requestOemNvidiaRshim: {} rshim interface",
-                     method.c_str());
+    std::variant<std::string> state = "com.nvidia.BF.Rshim.State.Disabled";
+    if (force.has_value() && force.value() && bmcRshimEnabled.has_value() &&
+        bmcRshimEnabled.value())
+    {
+        state = "com.nvidia.BF.Rshim.State.Forced";
+    }
+    else if (bmcRshimEnabled.has_value() && bmcRshimEnabled.value())
+    {
+        state = "com.nvidia.BF.Rshim.State.Enabled";
+    }
+    else if (bmcRshimEnabled.has_value() && !bmcRshimEnabled.value())
+    {
+        state = "com.nvidia.BF.Rshim.State.Disabled";
+    }
 
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& errorCode) {
@@ -671,8 +683,8 @@ inline void requestOemNvidiaRshim(
                 return;
             }
         },
-        systemdServiceBf, rshimSystemdObjBf, systemdUnitIntfBf, method,
-        "replace");
+        rshimServiceBf, rshimObjBf, dbusPropertyInterface, "Set",
+        rshimServiceIntfBf, "State", state);
 
     messages::success(asyncResp->res);
 }
@@ -1626,9 +1638,10 @@ inline void requestRoutesNvidiaOemBf(App& app)
                 if (bmcRshim)
                 {
                     std::optional<bool> bmcRshimEnabled;
-                    if (!redfish::json_util::readJson(*bmcRshim, asyncResp->res,
-                                                      "BmcRShimEnabled",
-                                                      bmcRshimEnabled))
+                    std::optional<bool> force;
+                    if (!redfish::json_util::readJson(
+                            *bmcRshim, asyncResp->res, "BmcRShimEnabled",
+                            bmcRshimEnabled, "Force", force))
                     {
                         BMCWEB_LOG_ERROR(
                             "Illegal Property {}",
@@ -1638,8 +1651,8 @@ inline void requestRoutesNvidiaOemBf(App& app)
                         return;
                     }
 
-                    bluefield::requestOemNvidiaRshim(asyncResp,
-                                                     *bmcRshimEnabled);
+                    bluefield::requestOemNvidiaRshim(asyncResp, bmcRshimEnabled,
+                                                     force);
                 }
             });
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/Switch")
