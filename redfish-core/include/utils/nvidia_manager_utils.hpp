@@ -687,7 +687,7 @@ inline void populateRestrictionModeData(
         BMCWEB_LOG_ERROR("Invalid restriction mode: {}", modeStr);
         return;
     }
-    nlohmann::json& ipmi = asyncResp->res.jsonValue["Oem"]["Nvidia"]["IPMI"];
+    nlohmann::json& ipmi = asyncResp->res.jsonValue["IPMI"];
     ipmi["RestrictionMode"] = mode;
 }
 
