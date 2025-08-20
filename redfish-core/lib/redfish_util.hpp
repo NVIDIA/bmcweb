@@ -11,12 +11,7 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "logging.hpp"
-<<<<<<< HEAD
-#include "persistent_data.hpp"
-||||||| 80d2ef31c
-=======
 #include "utils/chassis_utils.hpp"
->>>>>>> origin/master
 
 #include <boost/system/errc.hpp>
 #include <boost/system/error_code.hpp>
