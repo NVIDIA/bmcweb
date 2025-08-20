@@ -1545,15 +1545,8 @@ inline void createDumpTaskCallback(
 
             // The task timer is set to max time limit within which the
             // requested dump will be collected.
-<<<<<<< HEAD
             task->startTimer(std::chrono::minutes(45));
             task->populateResp(asyncResp->res);
-||||||| 80d2ef31c
-            task->startTimer(std::chrono::minutes(6));
-            task->populateResp(asyncResp->res);
-=======
-            task->startTimer(std::chrono::minutes(6));
->>>>>>> origin/master
             task->payload.emplace(payload);
             task->populateResp(asyncResp->res);
         },
@@ -1679,27 +1672,12 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             "xyz.openbmc_project.Common.OriginatedBy.OriginatorTypes.Client");
     }
 
-<<<<<<< HEAD
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, payload(task::Payload(req)), dumpPath,
-         oemDiagnosticDataType](
-            const boost::system::error_code ec,
-            const sdbusplus::message::message& msg,
-            const sdbusplus::message::object_path& objPath) mutable {
-||||||| 80d2ef31c
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, payload(task::Payload(req)),
-         dumpPath](const boost::system::error_code& ec,
-                   const sdbusplus::message_t& msg,
-                   const sdbusplus::message::object_path& objPath) mutable {
-=======
     dbus::utility::async_method_call(
         asyncResp,
         [asyncResp, payload(task::Payload(req)),
          dumpPath](const boost::system::error_code& ec,
                    const sdbusplus::message_t& msg,
                    const sdbusplus::message::object_path& objPath) mutable {
->>>>>>> origin/master
             if (ec)
             {
                 BMCWEB_LOG_ERROR("CreateDump resp_handler got error {}", ec);
@@ -3380,106 +3358,11 @@ inline void requestRoutesSystemDumpService(App& app)
         .privileges(redfish::privileges::getLogService)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleLogServicesDumpServiceComputerSystemGet, std::ref(app)));
-<<<<<<< HEAD
+
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/Dump/")
         .privileges(redfish::privileges::patchLogService)
         .methods(boost::beast::http::verb::patch)(std::bind_front(
             handleLogServicesDumpServiceComputerSystemPatch, std::ref(app)));
-||||||| 80d2ef31c
-}
-
-inline void requestRoutesSystemDumpEntryCollection(App& app)
-{
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/")
-        .privileges(redfish::privileges::getLogEntryCollection)
-        .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleLogServicesDumpEntriesCollectionComputerSystemGet,
-            std::ref(app)));
-}
-
-inline void requestRoutesSystemDumpEntry(App& app)
-{
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/<str>/")
-        .privileges(redfish::privileges::getLogEntry)
-        .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleLogServicesDumpEntryComputerSystemGet, std::ref(app)));
-
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/<str>/")
-        .privileges(redfish::privileges::deleteLogEntry)
-        .methods(boost::beast::http::verb::delete_)(std::bind_front(
-            handleLogServicesDumpEntryComputerSystemDelete, std::ref(app)));
-}
-
-inline void requestRoutesSystemDumpCreate(App& app)
-{
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Systems/<str>/LogServices/Dump/Actions/LogService.CollectDiagnosticData/")
-        .privileges(redfish::privileges::postLogService)
-        .methods(boost::beast::http::verb::post)(std::bind_front(
-            handleLogServicesDumpCollectDiagnosticDataComputerSystemPost,
-            std::ref(app)));
-}
-
-inline void requestRoutesSystemDumpClear(App& app)
-{
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Systems/<str>/LogServices/Dump/Actions/LogService.ClearLog/")
-        .privileges(redfish::privileges::postLogService)
-        .methods(boost::beast::http::verb::post)(std::bind_front(
-            handleLogServicesDumpClearLogComputerSystemPost, std::ref(app)));
-=======
-}
-
-inline void requestRoutesSystemDumpEntryCollection(App& app)
-{
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/")
-        .privileges(redfish::privileges::getLogEntryCollection)
-        .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleLogServicesDumpEntriesCollectionComputerSystemGet,
-            std::ref(app)));
-}
-
-inline void requestRoutesSystemDumpEntry(App& app)
-{
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/<str>/")
-        .privileges(redfish::privileges::getLogEntry)
-        .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleLogServicesDumpEntryComputerSystemGet, std::ref(app)));
-
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/<str>/")
-        .privileges(redfish::privileges::deleteLogEntry)
-        .methods(boost::beast::http::verb::delete_)(std::bind_front(
-            handleLogServicesDumpEntryComputerSystemDelete, std::ref(app)));
-}
-
-inline void requestRoutesSystemDumpCreate(App& app)
-{
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Systems/<str>/LogServices/Dump/Actions/LogService.CollectDiagnosticData/")
-        .privileges(redfish::privileges::
-                        postLogServiceSubOverComputerSystemLogServiceCollection)
-        .methods(boost::beast::http::verb::post)(std::bind_front(
-            handleLogServicesDumpCollectDiagnosticDataComputerSystemPost,
-            std::ref(app)));
-}
-
-inline void requestRoutesSystemDumpClear(App& app)
-{
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Systems/<str>/LogServices/Dump/Actions/LogService.ClearLog/")
-        .privileges(redfish::privileges::
-                        postLogServiceSubOverComputerSystemLogServiceCollection)
-        .methods(boost::beast::http::verb::post)(std::bind_front(
-            handleLogServicesDumpClearLogComputerSystemPost, std::ref(app)));
->>>>>>> origin/master
 }
 
 inline void requestRoutesCrashdumpService(App& app)

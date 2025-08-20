@@ -15,14 +15,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
-<<<<<<< HEAD
 #include <map>
 #include <regex>
-||||||| 80d2ef31c
-#include <regex>
-=======
 #include <memory>
->>>>>>> origin/master
 #include <span>
 #include <string>
 #include <string_view>
@@ -108,7 +103,6 @@ using MapperGetSubTreePathsResponse = std::vector<std::string>;
 
 using MapperEndPoints = std::vector<std::string>;
 
-<<<<<<< HEAD
 using GetSubTreeType = std::vector<
     std::pair<std::string,
               std::vector<std::pair<std::string, std::vector<std::string>>>>>;
@@ -118,15 +112,6 @@ inline void escapePathForDbus(std::string& path)
     const static std::regex reg("[^A-Za-z0-9_/]");
     std::regex_replace(path.begin(), path.begin(), path.end(), reg, "_");
 }
-||||||| 80d2ef31c
-inline void escapePathForDbus(std::string& path)
-{
-    const static std::regex reg("[^A-Za-z0-9_/]");
-    std::regex_replace(path.begin(), path.begin(), path.end(), reg, "_");
-}
-=======
-void escapePathForDbus(std::string& path);
->>>>>>> origin/master
 
 void logError(const boost::system::error_code& ec);
 
@@ -249,7 +234,6 @@ void getAssociationEndPoints(
 void getManagedObjects(
     const std::string& service, const sdbusplus::message::object_path& path,
     std::function<void(const boost::system::error_code&,
-<<<<<<< HEAD
                        const ManagedObjectType&)>&& callback)
 {
     crow::connections::systemBus->async_method_call(
@@ -312,20 +296,5 @@ inline void systemdRestartUnit(const std::string_view unit, const char* mode)
     crow::connections::systemBus->call_noreply(method);
 }
 
-||||||| 80d2ef31c
-                       const ManagedObjectType&)>&& callback)
-{
-    crow::connections::systemBus->async_method_call(
-        [callback{std::move(callback)}](const boost::system::error_code& ec,
-                                        const ManagedObjectType& objects) {
-            callback(ec, objects);
-        },
-        service, path, "org.freedesktop.DBus.ObjectManager",
-        "GetManagedObjects");
-}
-
-=======
-                       const ManagedObjectType&)>&& callback);
->>>>>>> origin/master
 } // namespace utility
 } // namespace dbus
