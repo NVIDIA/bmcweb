@@ -3,17 +3,11 @@
 #pragma once
 
 #include "async_resp.hpp"
-<<<<<<< HEAD
-#include "http_connection.hpp"
-||||||| 80d2ef31c
-=======
 #include "http_connect_types.hpp"
->>>>>>> origin/master
 #include "http_request.hpp"
 #include "http_server.hpp"
 #include "io_context_singleton.hpp"
 #include "logging.hpp"
-#include "nvidia_persistent_data.hpp"
 #include "routing.hpp"
 #include "routing/dynamicrule.hpp"
 #include "str_utility.hpp"
@@ -43,18 +37,7 @@ class App
 {
   public:
     using raw_socket_t = boost::asio::ip::tcp::socket;
-<<<<<<< HEAD
-
-    using raw_server_type = Server<App, raw_socket_t>;
-    using ssl_server_type = Server<App, ssl_socket_t>;
-||||||| 80d2ef31c
-
-    using socket_type = std::conditional_t<BMCWEB_INSECURE_DISABLE_SSL,
-                                           raw_socket_t, ssl_socket_t>;
-    using server_type = Server<App, socket_type>;
-=======
     using server_type = Server<App, raw_socket_t>;
->>>>>>> origin/master
 
     template <typename Adaptor>
     void handleUpgrade(const std::shared_ptr<Request>& req,
@@ -88,17 +71,12 @@ class App
 
     void loadCertificate()
     {
-        if constexpr (!BMCWEB_INSECURE_DISABLE_SSL)
+        BMCWEB_LOG_DEBUG("Loading certificate");
+        if (!server)
         {
-            if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
-            {
-                if (!sslServer)
-                {
-                    return;
-                }
-                sslServer->loadCertificate();
-            }
+            return;
         }
+        server->loadCertificate();
     }
 
     static HttpType getHttpType(std::string_view socketTypeString)
@@ -183,52 +161,10 @@ class App
     {
         validate();
 
-<<<<<<< HEAD
-        std::optional<boost::asio::ip::tcp::acceptor> acceptor = setupSocket();
-        if (!acceptor)
-        {
-            BMCWEB_LOG_CRITICAL("Couldn't start server");
-            return;
-        }
-        if constexpr (!BMCWEB_INSECURE_DISABLE_SSL)
-        {
-            if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
-            {
-                BMCWEB_LOG_INFO("TLS RUN");
-                sslServer.emplace(this, std::move(*acceptor), sslContext,
-                                  getIoContext());
-                sslServer->run();
-            }
-            else
-            {
-                BMCWEB_LOG_INFO("NON TLS RUN");
-                rawServer.emplace(this, std::move(*acceptor), sslContext,
-                                  getIoContext());
-                rawServer->run();
-            }
-        }
-        else
-        {
-            BMCWEB_LOG_INFO("NON TLS RUN");
-            rawServer.emplace(this, std::move(*acceptor), sslContext,
-                              getIoContext());
-            rawServer->run();
-        }
-||||||| 80d2ef31c
-        std::optional<boost::asio::ip::tcp::acceptor> acceptor = setupSocket();
-        if (!acceptor)
-        {
-            BMCWEB_LOG_CRITICAL("Couldn't start server");
-            return;
-        }
-        server.emplace(this, std::move(*acceptor), sslContext, getIoContext());
-        server->run();
-=======
         std::vector<Acceptor> acceptors = setupSocket();
 
         server.emplace(this, std::move(acceptors));
         server->run();
->>>>>>> origin/master
     }
 
     void debugPrint()
@@ -247,37 +183,9 @@ class App
         return router.getRoutes(parent);
     }
 
-<<<<<<< HEAD
-    App& ssl(std::shared_ptr<boost::asio::ssl::context>&& ctx)
-    {
-        sslContext = std::move(ctx);
-        BMCWEB_LOG_INFO("app::ssl context use_count={}",
-                        sslContext.use_count());
-        return *this;
-    }
-
-    std::shared_ptr<boost::asio::ssl::context> sslContext = nullptr;
-
-||||||| 80d2ef31c
-    App& ssl(std::shared_ptr<boost::asio::ssl::context>&& ctx)
-    {
-        sslContext = std::move(ctx);
-        BMCWEB_LOG_INFO("app::ssl context use_count={}",
-                        sslContext.use_count());
-        return *this;
-    }
-
-    std::shared_ptr<boost::asio::ssl::context> sslContext = nullptr;
-
     std::optional<server_type> server;
 
-=======
-    std::optional<server_type> server;
-
->>>>>>> origin/master
     Router router;
-    std::optional<ssl_server_type> sslServer;
-    std::optional<raw_server_type> rawServer;
 };
 } // namespace crow
 using App = crow::App;

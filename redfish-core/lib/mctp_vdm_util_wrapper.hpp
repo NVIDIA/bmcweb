@@ -21,7 +21,14 @@
 #include "dbus_singleton.hpp"
 #include "logging.hpp"
 
-#include <boost/process.hpp>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/readable_pipe.hpp>
+#include <boost/asio/writable_pipe.hpp>
+#include <boost/asio/write.hpp>
+#include <boost/process/v2/execute.hpp>
+#include <boost/process/v2/process.hpp>
+#include <boost/process/v2/stdio.hpp>
 
 #include <chrono>
 #include <functional>
@@ -190,35 +197,74 @@ struct MctpVdmUtil
              ResponseCallback responseCallback) const
     {
         translateOperationToCommand(mctpVdmUtilcommand, std::move(data));
-        auto dataOut = std::make_shared<boost::process::ipstream>();
-        auto dataErr = std::make_shared<boost::process::ipstream>();
-        auto exitCallback =
-            [req, asyncResp, dataOut, dataErr,
+        namespace bpv2 = boost::process::v2;
+        auto& io = crow::connections::systemBus->get_io_context();
+
+        // Create pipes for stdout/stderr
+        auto outPipe = std::make_shared<boost::asio::readable_pipe>(io);
+        auto errPipe = std::make_shared<boost::asio::readable_pipe>(io);
+
+        // Buffers and accumulators
+        auto outBuf = std::make_shared<std::array<char, 4096>>();
+        auto errBuf = std::make_shared<std::array<char, 4096>>();
+        auto stdOutStr = std::make_shared<std::string>();
+        auto stdErrStr = std::make_shared<std::string>();
+
+        // Setup stdio redirection
+        bpv2::process_stdio stdio{
+            nullptr,  // stdin closed
+            *outPipe, // stdout
+            *errPipe  // stderr
+        };
+
+        // Launch process
+        auto proc = std::make_shared<bpv2::process>(
+            io, "/bin/sh", std::vector<std::string>{"-c", this->command},
+            stdio);
+
+        // Async readers
+        auto readOut = [outPipe, outBuf, stdOutStr](auto&& self) -> void {
+            outPipe->async_read_some(
+                boost::asio::buffer(*outBuf),
+                [outPipe, outBuf, stdOutStr,
+                 self](const boost::system::error_code& ec,
+                       std::size_t n) mutable {
+                    if (!ec && n > 0)
+                    {
+                        stdOutStr->append(outBuf->data(), n);
+                        self(self); // continue reading
+                    }
+                });
+        };
+        auto readErr = [errPipe, errBuf, stdErrStr](auto&& self) -> void {
+            errPipe->async_read_some(
+                boost::asio::buffer(*errBuf),
+                [errPipe, errBuf, stdErrStr,
+                 self](const boost::system::error_code& ec,
+                       std::size_t n) mutable {
+                    if (!ec && n > 0)
+                    {
+                        stdErrStr->append(errBuf->data(), n);
+                        self(self); // continue reading
+                    }
+                });
+        };
+
+        readOut(readOut);
+        readErr(readErr);
+
+        // Completion callback
+        proc->async_wait(
+            [&req, asyncResp, proc, outPipe, errPipe, stdOutStr, stdErrStr,
              respCallback = std::move(responseCallback),
              endpointId = this->endpointId, command = this->command](
-                const boost::system::error_code& ec, int errorCode) mutable {
-                std::string stdOut;
-                while (*dataOut)
-                {
-                    std::string line;
-                    std::getline(*dataOut, line);
-                    stdOut += line + "\n";
-                }
-                dataOut->close();
-                std::string stdErr;
-                while (*dataErr)
-                {
-                    std::string line;
-                    std::getline(*dataErr, line);
-                    stdErr += line + "\n";
-                }
-                dataErr->close();
-                if (ec || errorCode != 0)
+                const boost::system::error_code& ec, int exitCode) mutable {
+                if (ec || exitCode != 0)
                 {
                     BMCWEB_LOG_ERROR(
                         "Error while executing command: {} Error Code: {}",
-                        command, errorCode);
-                    BMCWEB_LOG_ERROR("MCTP VDM Error Response: {}", stdErr);
+                        command, exitCode);
+                    BMCWEB_LOG_ERROR("MCTP VDM Error Response: {}", *stdErrStr);
                     if (ec)
                     {
                         BMCWEB_LOG_ERROR(
@@ -226,14 +272,8 @@ struct MctpVdmUtil
                             command, ec.message());
                     }
                 }
-                respCallback(req, asyncResp, endpointId, stdOut, stdErr, ec,
-                             errorCode);
-                return;
-            };
-        boost::process::async_system(
-            crow::connections::systemBus->get_io_context(),
-            std::move(exitCallback), command, boost::process::std_in.close(),
-            boost::process::std_out > *dataOut,
-            boost::process::std_err > *dataErr);
+                respCallback(req, asyncResp, endpointId, *stdOutStr, *stdErrStr,
+                             ec, exitCode);
+            });
     }
 };

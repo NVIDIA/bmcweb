@@ -23,6 +23,9 @@
 #include "utils/certificate_utils.hpp"
 
 #include <app.hpp>
+#include <boost/asio/readable_pipe.hpp>
+#include <boost/process/v2/process.hpp>
+#include <boost/process/v2/stdio.hpp>
 #include <dbus_utility.hpp>
 #include <query.hpp>
 #include <registries/privilege_registry.hpp>
@@ -71,6 +74,9 @@ static const char* const oemFruObj = "/xyz/openbmc_project/oem_fru";
 static const char* const oemFruIntf = "xyz.openbmc_project.OemFruDevice";
 static const char* const rshimSystemdObjBf =
     "/org/freedesktop/systemd1/unit/rshim_2eservice";
+static const char* const rshimServiceBf = "com.Nvidia.Software.Rshim";
+static const char* const rshimServiceIntfBf = "com.nvidia.BF.Rshim";
+static const char* const rshimObjBf = "/com/nvidia/software/rshim";
 
 struct PropertyInfo
 {
@@ -409,8 +415,8 @@ const PropertyInfo nicTristateAttributeInfo = {
         {"Disabled",
          "xyz.openbmc_project.Control.NcSi.OEM.Nvidia.NicTristateAttribute.Modes.Disabled"}}};
 const PropertyInfo lfwpInfo = {
-    .intf = "xyz.openbmc_project.Object.Enable",
-    .prop = "Enabled",
+    .intf = "com.nvidia.BF.Rshim",
+    .prop = "LfwpEnabled",
     .dbusToRedfish = {{"true", "Enabled"}, {"false", "Disabled"}},
     .redfishToDbus = {{"Enabled", "true"}, {"Disabled", "false"}},
     .isPropBool = true};
@@ -613,13 +619,12 @@ inline DpuActionSetAndGetProp mode(
     modeTarget);
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-inline DpuActionSetAndGetProp lfwp(
-    {{"LFWP",
-      {.service = "xyz.openbmc_project.Software.DPU.Version",
-       .obj = "/xyz/openbmc_project/control/lfwp",
-       .propertyInfo = lfwpInfo,
-       .required = true}}},
-    lfwpTarget);
+inline DpuActionSetAndGetProp lfwp({{"LFWP",
+                                     {.service = "com.Nvidia.Software.Rshim",
+                                      .obj = "/com/nvidia/software/rshim",
+                                      .propertyInfo = lfwpInfo,
+                                      .required = true}}},
+                                   lfwpTarget);
 
 inline void getIsOemNvidiaRshimEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
@@ -653,13 +658,21 @@ inline void getIsOemNvidiaRshimEnable(
 
 inline void requestOemNvidiaRshim(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const bool& bmcRshimEnabled)
+    const bool& bmcRshimEnabled, const bool& force)
 {
-    // Use the global constants directly instead of redefining
-    std::string method = bmcRshimEnabled ? "Start" : "Stop";
-
-    BMCWEB_LOG_DEBUG("requestOemNvidiaRshim: {} rshim interface",
-                     method.c_str());
+    std::variant<std::string> state = "com.nvidia.BF.Rshim.State.Disabled";
+    if (force && bmcRshimEnabled)
+    {
+        state = "com.nvidia.BF.Rshim.State.Forced";
+    }
+    else if (bmcRshimEnabled)
+    {
+        state = "com.nvidia.BF.Rshim.State.Enabled";
+    }
+    else if (!bmcRshimEnabled)
+    {
+        state = "com.nvidia.BF.Rshim.State.Disabled";
+    }
 
     crow::connections::systemBus->async_method_call(
         [asyncResp](const boost::system::error_code& errorCode) {
@@ -671,8 +684,8 @@ inline void requestOemNvidiaRshim(
                 return;
             }
         },
-        systemdServiceBf, rshimSystemdObjBf, systemdUnitIntfBf, method,
-        "replace");
+        rshimServiceBf, rshimObjBf, dbusPropertyInterface, "Set",
+        rshimServiceIntfBf, "State", state);
 
     messages::success(asyncResp->res);
 }
@@ -683,18 +696,20 @@ inline void getOemNvidiaSwitchLinkStatus(
 {
     std::string command =
         std::string(ctl3PortSwitchLinkStatusTool) + " " + portIndex;
+    namespace bpv2 = boost::process::v2;
+    auto& io = crow::connections::systemBus->get_io_context();
 
     auto callback = [asyncResp, portName](const boost::system::error_code& ec,
                                           int exitCode) mutable {
+        port::LinkStatus status = port::LinkStatus::Invalid;
+
         if (ec)
         {
-            BMCWEB_LOG_ERROR("Failed to execute command with error: {}",
-                             ec.message());
+            BMCWEB_LOG_ERROR("Failed to execute command: {}", ec.message());
             messages::internalError(asyncResp->res);
             return;
         }
-        port::LinkStatus status =
-            port::LinkStatus::Invalid; // Initialize with default value
+        // Map exit code to LinkStatus
         if (exitCode == static_cast<int>(port::LinkStatus::LinkUp))
         {
             status = port::LinkStatus::LinkUp;
@@ -712,10 +727,15 @@ inline void getOemNvidiaSwitchLinkStatus(
         asyncResp->res.jsonValue["LinkStatus"][portName] = status;
     };
 
-    boost::process::async_system(
-        crow::connections::systemBus->get_io_context(), std::move(callback),
-        command, boost::process::std_in.close(),
-        boost::process::std_out > boost::process::null);
+    // Launch the command asynchronously with stdin/stdout/stderr disconnected
+    auto proc = std::make_shared<bpv2::process>(
+        io, "/bin/sh", std::vector<std::string>{"-c", command},
+        bpv2::process_stdio{.in = nullptr, .out = nullptr, .err = nullptr});
+
+    // Async wait for process completion
+    proc->async_wait([proc, cb = std::move(callback)](
+                         const boost::system::error_code& ec,
+                         int exitCode) mutable { cb(ec, exitCode); });
 }
 
 /**
@@ -876,8 +896,9 @@ inline void resetTorSwitch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     try
     {
-        boost::process::child execProg("/usr/sbin/mlnx_bf_reset_control",
-                                       "do_tor_eswitch_reset");
+        boost::process::v2::process execProg(
+            crow::connections::systemBus->get_io_context(),
+            "/usr/sbin/mlnx_bf_reset_control", {"do_tor_eswitch_reset"});
         execProg.wait();
         if (execProg.exit_code() == 0)
         {
@@ -951,13 +972,18 @@ inline void createPendingRequest(
 inline void handleTruststoreCertificatesCollectionPost(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::string& systemName)
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
     std::string certString;
     std::string certType;
     std::optional<std::string> owner;
@@ -1123,10 +1149,16 @@ inline void populateTruststoreCertificateInfo(
 inline void handleTruststoreCertificatesGet(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::string& systemName, const std::string& certId)
+    const std::string& systemName, const std::string& certId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
         return;
     }
     asyncResp->res.jsonValue["@odata.id"] =
@@ -1150,13 +1182,18 @@ inline void handleTruststoreCertificatesGet(
 inline void handleTruststoreCertificatesDelete(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::string& systemName, const std::string& certId)
+    const std::string& systemName, const std::string& certId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
     task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
         req.session->username,
@@ -1196,20 +1233,25 @@ inline void handleTruststoreCertificatesDelete(
 inline void handleTruststoreCertificatesResetKeys(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::string& systemName)
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
     std::string resetKeysType;
     if (!json_util::readJsonAction(req, asyncResp->res, "ResetKeysType",
                                    resetKeysType))
     {
         return;
     }
-
+    crow::Request reqFixedTar(req.copy());
     if (resetKeysType != "DeleteAllKeys")
     {
         messages::propertyValueNotInList(asyncResp->res, resetKeysType,
@@ -1217,8 +1259,7 @@ inline void handleTruststoreCertificatesResetKeys(
         return;
     }
 
-    crow::Request reqFixedTar(req);
-    privilege_utils::isBiosPrivilege(req.session->username, [reqFixedTar,
+    privilege_utils::isBiosPrivilege(req.session->username, [&reqFixedTar,
                                                              asyncResp](
                                                                 const boost::
                                                                     system::
@@ -1255,7 +1296,6 @@ inline void handleTruststoreCertificatesResetKeys(
 }
 
 inline void handleGetOemFru([[maybe_unused]] crow::App& app,
-                            const crow::Request& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     // Check if the OEM FRU is enabled
@@ -1264,7 +1304,7 @@ inline void handleGetOemFru([[maybe_unused]] crow::App& app,
         *crow::connections::systemBus, "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/control/oem_fru",
         "xyz.openbmc_project.Object.Enable", "Enabled",
-        [req, asyncResp](const boost::system::error_code& ec, bool enabled) {
+        [asyncResp](const boost::system::error_code& ec, bool enabled) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -1626,9 +1666,10 @@ inline void requestRoutesNvidiaOemBf(App& app)
                 if (bmcRshim)
                 {
                     std::optional<bool> bmcRshimEnabled;
-                    if (!redfish::json_util::readJson(*bmcRshim, asyncResp->res,
-                                                      "BmcRShimEnabled",
-                                                      bmcRshimEnabled))
+                    std::optional<bool> force;
+                    if (!redfish::json_util::readJson(
+                            *bmcRshim, asyncResp->res, "BmcRShimEnabled",
+                            bmcRshimEnabled, "Force", force))
                     {
                         BMCWEB_LOG_ERROR(
                             "Illegal Property {}",
@@ -1639,17 +1680,68 @@ inline void requestRoutesNvidiaOemBf(App& app)
                     }
 
                     bluefield::requestOemNvidiaRshim(asyncResp,
-                                                     *bmcRshimEnabled);
+                                                     *bmcRshimEnabled, *force);
                 }
+            });
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Managers/<str>/Actions/Oem/NvidiaManager.SetRshim")
+        .privileges(redfish::privileges::postManager)
+        .methods(boost::beast::http::verb::post)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   [[maybe_unused]] const std::string& managerName) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                std::string rshim;
+                if (!redfish::json_util::readJsonAction(req, asyncResp->res,
+                                                        "Rshim", rshim))
+                {
+                    BMCWEB_LOG_ERROR(
+                        "Illegal Property {}",
+                        asyncResp->res.jsonValue.dump(
+                            2, ' ', true,
+                            nlohmann::json::error_handler_t::replace));
+                    return;
+                }
+                bool bmcRshimEnabled = false;
+                bool force = false;
+                if (rshim == "Enabled")
+                {
+                    bmcRshimEnabled = true;
+                }
+                else if (rshim == "Disabled")
+                {
+                    bmcRshimEnabled = false;
+                }
+                else if (rshim == "Forced")
+                {
+                    bmcRshimEnabled = true;
+                    force = true;
+                }
+                else
+                {
+                    BMCWEB_LOG_ERROR("Invalid Rshim");
+                    return;
+                }
+                bluefield::requestOemNvidiaRshim(asyncResp, bmcRshimEnabled,
+                                                 force);
             });
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/Switch")
         .privileges(redfish::privileges::getSwitch)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName) {
+                   const std::string& systemName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 bluefield::getOemNvidiaSwitchStatus(asyncResp);
@@ -1659,9 +1751,15 @@ inline void requestRoutesNvidiaOemBf(App& app)
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName) {
+                   const std::string& systemName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 std::optional<nlohmann::json> torSwitchMode;
@@ -1699,9 +1797,15 @@ inline void requestRoutesNvidiaOemBf(App& app)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName) {
+                   const std::string& systemName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 bluefield::resetTorSwitch(asyncResp);
@@ -1749,16 +1853,32 @@ inline void requestRoutesNvidiaOemBf(App& app)
                 post)([&app](
                           const crow::Request& req,
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          [[maybe_unused]] const std::string& systemName) {
+                          const std::string& systemName) {
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
                 return;
             }
-            auto dataOut = std::make_shared<boost::process::ipstream>();
-            auto dataErr = std::make_shared<boost::process::ipstream>();
-            auto callback = [asyncResp, dataOut,
-                             dataErr](const boost::system::error_code& ec,
-                                      int errorCode) mutable {
+            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                           systemName);
+                return;
+            }
+            auto dataOut = std::make_shared<boost::asio::readable_pipe>(
+                crow::connections::systemBus->get_io_context());
+            auto dataErr = std::make_shared<boost::asio::readable_pipe>(
+                crow::connections::systemBus->get_io_context());
+            std::shared_ptr<boost::process::v2::process> p =
+                std::make_shared<boost::process::v2::process>(
+                    boost::process::v2::process(
+                        crow::connections::systemBus->get_io_context(),
+                        "/usr/sbin/mlnx_bf_reset_control",
+                        {"soc_hard_reset_ignore_host"},
+                        boost::process::v2::process_stdio{
+                            .in = nullptr, .out = *dataOut, .err = *dataErr}));
+            auto callback = [asyncResp, dataOut, dataErr,
+                             p](const boost::system::error_code& ec,
+                                int errorCode) mutable {
                 if (ec)
                 {
                     BMCWEB_LOG_ERROR(
@@ -1771,13 +1891,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
                 messages::success(asyncResp->res);
             };
 
-            std::string command =
-                "/usr/sbin/mlnx_bf_reset_control soc_hard_reset_ignore_host";
-            boost::process::async_system(
-                crow::connections::systemBus->get_io_context(),
-                std::move(callback), command, boost::process::std_in.close(),
-                boost::process::std_out > *dataOut,
-                boost::process::std_err > *dataErr);
+            p->async_wait(std::move(callback));
         });
 
     if constexpr (BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)
@@ -1821,9 +1935,15 @@ inline void requestRoutesNvidiaOemBf(App& app)
         .methods(boost::beast::http::verb::put)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName) {
+                   const std::string& systemName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 bluefield::handleSetOemFru(app, req, asyncResp);
@@ -1833,9 +1953,15 @@ inline void requestRoutesNvidiaOemBf(App& app)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName) {
+                   const std::string& systemName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 asyncResp->res.jsonValue["@odata.id"] =
@@ -1879,7 +2005,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
                                "DeleteAllKeys"};
                 }
                 socForceReset["target"] = bluefield::socForceResetTraget;
-                bluefield::handleGetOemFru(app, req, asyncResp);
+                bluefield::handleGetOemFru(app, asyncResp);
                 sdbusplus::asio::getAllProperties(
                     *crow::connections::systemBus, bluefield::dpuFruObj,
                     bluefield::dpuFruPath,

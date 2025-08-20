@@ -49,12 +49,17 @@ inline void handleSystemCollectionMembers(
     }
 
     nlohmann::json& membersArray = asyncResp->res.jsonValue["Members"];
-    membersArray = nlohmann::json::array();
+    // Preserve any pre-populated members from aggregation; initialize if absent
+    if (!membersArray.is_array())
+    {
+        membersArray = nlohmann::json::array();
+    }
 
     // consider an empty result as single-host, since single-host systems
     // do not populate the ManagedHost dbus interface
     if (objects.empty())
     {
+        // Add the local system if not already present
         asyncResp->res.jsonValue["Members@odata.count"] = 1;
         nlohmann::json::object_t system;
         system["@odata.id"] = boost::urls::format(
@@ -70,7 +75,7 @@ inline void handleSystemCollectionMembers(
             hypervisor["@odata.id"] = "/redfish/v1/Systems/hypervisor";
             membersArray.emplace_back(std::move(hypervisor));
         }
-
+        asyncResp->res.jsonValue["Members@odata.count"] = membersArray.size();
         return;
     }
 

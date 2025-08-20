@@ -23,10 +23,11 @@
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/error.hpp>
 #include <boost/asio/post.hpp>
+#include <boost/asio/read.hpp>
+#include <boost/asio/readable_pipe.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/process.hpp>
-#include <boost/process/async.hpp>
-#include <boost/process/child.hpp>
+#include <boost/process/v2/process.hpp>
+#include <boost/process/v2/stdio.hpp>
 
 #include <memory>
 #include <tuple>
@@ -87,7 +88,8 @@ class Handler : public std::enable_shared_from_this<Handler>
 
   private:
     Handler(const std::vector<Eid>& eidsParam, ResultCallback cb) :
-        eids(eidsParam), callback(std::move(cb))
+        eids(eidsParam), callback(std::move(cb)),
+        subprocessOutput(crow::connections::systemBus->get_io_context())
     {}
 
     ~Handler()
@@ -103,8 +105,8 @@ class Handler : public std::enable_shared_from_this<Handler>
     ResultCallback callback;
 
     std::unique_ptr<boost::asio::steady_timer> operationTimer;
-    std::unique_ptr<boost::process::child> subprocess;
-    std::vector<char> subprocessOutput;
+    std::unique_ptr<boost::process::v2::process> subprocess;
+    boost::asio::readable_pipe subprocessOutput;
 
     /**
      * @brief Run the VDM status query operation
@@ -123,14 +125,17 @@ class Handler : public std::enable_shared_from_this<Handler>
         {
             args.emplace_back(std::to_string(eid));
         }
-        subprocessOutput.resize(vdmTokenStatusQueryOutputSize * eids.size());
-        subprocess = std::make_unique<boost::process::child>(
-            "/usr/bin/mctp-vdm-util-token-status-query-wrapper.sh", args,
-            boost::process::std_err > boost::process::null,
-            boost::process::std_out > boost::asio::buffer(subprocessOutput),
+        subprocess = std::make_unique<boost::process::v2::process>(
             crow::connections::systemBus->get_io_context(),
-            boost::process::on_exit = std::bind_front(
-                &Handler::subprocessExitHandler, this, shared_from_this()));
+            "/usr/bin/mctp-vdm-util-token-status-query-wrapper.sh", args,
+            boost::process::v2::process_stdio{
+                .in = nullptr, .out = subprocessOutput, .err = nullptr});
+        subprocess->async_wait(
+            [this, self(shared_from_this())](
+                const boost::system::error_code& ec, int errorCode) {
+                subprocessExitHandler(shared_from_this(), errorCode, ec);
+            });
+        // TODO hook up return code.
     }
 
     /**
@@ -154,7 +159,7 @@ class Handler : public std::enable_shared_from_this<Handler>
      */
     void destroyTimer(const std::shared_ptr<Handler>& /*unused*/)
     {
-        operationTimer.reset(nullptr);
+        operationTimer.reset();
     }
 
     /**
@@ -168,7 +173,7 @@ class Handler : public std::enable_shared_from_this<Handler>
     void timerHandler(const std::shared_ptr<Handler>& self,
                       const boost::system::error_code& ec)
     {
-        subprocess.reset(nullptr);
+        subprocess.reset();
         if (!ec)
         {
             BMCWEB_LOG_ERROR("VDM operation timeout");
@@ -204,8 +209,10 @@ class Handler : public std::enable_shared_from_this<Handler>
             BMCWEB_LOG_ERROR("VDM status query subprocess exit code: {}",
                              exitCode);
         }
+        boost::asio::streambuf buf;
+        boost::asio::read(subprocessOutput, buf, boost::asio::transfer_all());
         std::map<int, VdmTokenStatus> outputMap =
-            parseVdmUtilWrapperOutput(subprocessOutput);
+            parseVdmUtilWrapperOutput(buf);
         for (const auto& eid : eids)
         {
             const auto vdmStatus = outputMap.find(eid);

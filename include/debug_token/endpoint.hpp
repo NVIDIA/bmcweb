@@ -109,10 +109,16 @@ class DebugTokenNsmEndpoint : public DebugTokenEndpoint
 
     void setRequest(const std::vector<uint8_t>& r) override
     {
-        const NsmDebugTokenRequest* nsmReq =
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-            reinterpret_cast<const NsmDebugTokenRequest*>(r.data());
-        switch (nsmReq->status)
+        if (r.size() < sizeof(NsmDebugTokenRequest))
+        {
+            BMCWEB_LOG_ERROR("NSM token request buffer too small: {}",
+                             r.size());
+            state = EndpointState::Error;
+            return;
+        }
+        NsmDebugTokenRequest nsmReq{};
+        std::memcpy(&nsmReq, r.data(), sizeof(NsmDebugTokenRequest));
+        switch (nsmReq.status)
         {
             case NsmDebugTokenChallengeQueryStatus::OK:
                 state = EndpointState::RequestAcquired;
@@ -127,7 +133,7 @@ class DebugTokenNsmEndpoint : public DebugTokenEndpoint
                 return;
             default:
                 BMCWEB_LOG_ERROR("NSM token request - object: {} status: {}",
-                                 objectPath, nsmReq->status);
+                                 objectPath, nsmReq.status);
                 state = EndpointState::Error;
                 return;
         }

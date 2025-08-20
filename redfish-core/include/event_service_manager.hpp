@@ -19,6 +19,7 @@
 #include "persistent_data.hpp"
 #include "server_sent_event.hpp"
 #include "subscription.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/nvidia_utils.hpp"
 #include "utils/origin_utils.hpp"
 #include "utils/time_utils.hpp"
@@ -26,7 +27,6 @@
 #include <boost/circular_buffer.hpp>
 #include <boost/circular_buffer/base.hpp>
 #include <boost/container/flat_map.hpp>
-#include <boost/format.hpp>
 #include <boost/system/result.hpp>
 #include <boost/url/parse.hpp>
 #include <boost/url/url_view_base.hpp>
@@ -52,15 +52,6 @@ namespace redfish
 static constexpr const char* eventFormatType = "Event";
 static constexpr const char* metricReportFormatType = "MetricReport";
 
-<<<<<<< HEAD
-static constexpr const char* eventServiceFile =
-    "/var/lib/bmcweb/eventservice_config.json";
-||||||| 80d2ef31c
-static constexpr const char* eventServiceFile =
-    "/var/lib/bmcweb/eventservice_config.json";
-
-=======
->>>>>>> origin/master
 class EventServiceManager
 {
   private:
@@ -544,9 +535,7 @@ class EventServiceManager
 
     bool sendTestEventLog(TestEvent& testEvent)
     {
-        nlohmann::json::array_t logEntryArray;
-        nlohmann::json& logEntryJson =
-            logEntryArray.emplace_back(nlohmann::json::object());
+        nlohmann::json::object_t logEntryJson;
 
         logEntryJson["EventId"] = std::to_string(eventId);
 
@@ -594,32 +583,17 @@ class EventServiceManager
         // MemberId is 0 : since we are sending one event record.
         logEntryJson["MemberId"] = "0";
 
-<<<<<<< HEAD
-        nlohmann::json::object_t msg;
-        msg["@odata.type"] = "#Event.v1_9_0.Event";
-||||||| 80d2ef31c
-        nlohmann::json msg;
-        msg["@odata.type"] = "#Event.v1_4_0.Event";
-        msg["Id"] = std::to_string(eventId);
-=======
+        nlohmann::json::array_t logEntryArray;
+        logEntryArray.emplace_back(logEntryJson);
+
         nlohmann::json::object_t msg;
         msg["@odata.type"] = "#Event.v1_4_0.Event";
         msg["Id"] = std::to_string(eventId);
->>>>>>> origin/master
         msg["Name"] = "Event Log";
         msg["Events"] = logEntryArray;
-<<<<<<< HEAD
-||||||| 80d2ef31c
 
-        std::string strMsg =
-            msg.dump(2, ' ', true, nlohmann::json::error_handler_t::replace);
+        // Prepare and send events to matching subscribers below
 
-=======
-
-        std::string strMsg = nlohmann::json(msg).dump(
-            2, ' ', true, nlohmann::json::error_handler_t::replace);
-
->>>>>>> origin/master
         messages.push_back(Event(eventId, msg));
         msg["Id"] = std::to_string(eventId);
 
@@ -631,9 +605,9 @@ class EventServiceManager
                 BMCWEB_LOG_DEBUG("Filter didn't match");
                 continue;
             }
-            std::string strMsg = nlohmann::json(msg).dump(
+            std::string strMsg2 = nlohmann::json(msg).dump(
                 2, ' ', true, nlohmann::json::error_handler_t::replace);
-            entry->sendEventToSubscriber(eventId, std::move(strMsg));
+            entry->sendEventToSubscriber(eventId, std::move(strMsg2));
         }
 
         return true;

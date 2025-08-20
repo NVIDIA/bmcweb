@@ -513,26 +513,10 @@ struct PerUnpack
     bool complete = false;
 };
 
-<<<<<<< HEAD
-inline bool readJsonHelper(nlohmann::json& jsonRequest, crow::Response& res,
-                           std::span<PerUnpack> toUnpack,
-                           bool allowUnknownKeys);
-
+// Nvidia code argument extention allowUnknownKeys
 inline bool readJsonHelperObject(
     nlohmann::json::object_t& obj, crow::Response& res,
     std::span<PerUnpack> toUnpack, bool allowUnknownKeys = false)
-||||||| 80d2ef31c
-inline bool readJsonHelper(nlohmann::json& jsonRequest, crow::Response& res,
-                           std::span<PerUnpack> toUnpack);
-
-inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
-                                 crow::Response& res,
-                                 std::span<PerUnpack> toUnpack)
-=======
-inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
-                                 crow::Response& res,
-                                 std::span<PerUnpack> toUnpack)
->>>>>>> origin/master
 {
     bool result = true;
     for (auto& item : obj)
@@ -581,14 +565,11 @@ inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
                     p.complete = true;
                 }
 
-<<<<<<< HEAD
-                result = readJsonHelper(j, res, nextLevel, allowUnknownKeys) &&
-                         result;
-||||||| 80d2ef31c
-                result = readJsonHelper(j, res, nextLevel) && result;
-=======
-                result = readJsonHelperObject(j, res, nextLevel) && result;
->>>>>>> origin/master
+                // Nvidia code starts here
+                result =
+                    readJsonHelperObject(j, res, nextLevel, allowUnknownKeys) &&
+                    result;
+                // Nvidia code ends here
                 break;
             }
 
@@ -607,11 +588,13 @@ inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
             break;
         }
 
+        // Nvidia code starts here
         if (unpackIndex == toUnpack.size() && !allowUnknownKeys)
         {
             messages::propertyUnknown(res, item.first);
             result = false;
         }
+        // Nvidia code ends here
     }
 
     for (PerUnpack& perUnpack : toUnpack)
@@ -636,43 +619,9 @@ inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
     return result;
 }
 
-<<<<<<< HEAD
-inline bool readJsonHelper(nlohmann::json& jsonRequest, crow::Response& res,
-                           std::span<PerUnpack> toUnpack,
-                           bool allowUnknownKeys = false)
-{
-    nlohmann::json::object_t* obj =
-        jsonRequest.get_ptr<nlohmann::json::object_t*>();
-    if (obj == nullptr)
-    {
-        BMCWEB_LOG_DEBUG("Json value is not an object");
-        messages::unrecognizedRequestBody(res);
-        return false;
-    }
-    return readJsonHelperObject(*obj, res, toUnpack, allowUnknownKeys);
-}
-
-||||||| 80d2ef31c
-inline bool readJsonHelper(nlohmann::json& jsonRequest, crow::Response& res,
-                           std::span<PerUnpack> toUnpack)
-{
-    nlohmann::json::object_t* obj =
-        jsonRequest.get_ptr<nlohmann::json::object_t*>();
-    if (obj == nullptr)
-    {
-        BMCWEB_LOG_DEBUG("Json value is not an object");
-        messages::unrecognizedRequestBody(res);
-        return false;
-    }
-    return readJsonHelperObject(*obj, res, toUnpack);
-}
-
-=======
->>>>>>> origin/master
 inline void packVariant(std::span<PerUnpack> /*toPack*/) {}
 
 template <typename FirstType, typename... UnpackTypes>
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 void packVariant(std::span<PerUnpack> toPack, std::string_view key,
                  FirstType&& first, UnpackTypes&&... in)
 {
@@ -773,6 +722,7 @@ inline const nlohmann::json* findNestedKey(std::string_view key,
         }
         return findNestedKey(leftover, it.value());
     }
+
     it = value.find(key);
     if (it == value.end())
     {
@@ -796,6 +746,7 @@ bool readJsonPatch(const crow::Request& req, crow::Response& res,
         messages::emptyJSON(res);
         return false;
     }
+
     return readJsonObject(*jsonRequest, res, key,
                           std::forward<UnpackTypes&&>(in)...);
 }
@@ -835,20 +786,6 @@ bool readJsonAction(const crow::Request& req, crow::Response& res,
     }
     return readJsonObject(*object, res, key,
                           std::forward<UnpackTypes&&>(in)...);
-}
-
-template <typename Type>
-bool getValueFromJsonObject(nlohmann::json& jsonData, const std::string& key,
-                            Type& value)
-{
-    nlohmann::json::iterator it = jsonData.find(key);
-    if (it == jsonData.end())
-    {
-        BMCWEB_LOG_DEBUG("Key {} not exist", key);
-        return false;
-    }
-
-    return details::unpackValue(*it, key, value);
 }
 
 // Determines if two json objects are less, based on the presence of the
@@ -954,8 +891,7 @@ inline int objectKeyCmp(std::string_view key, const nlohmann::json& a,
         segmentsAIt++;
         segmentsBIt++;
     }
-    // NOLINTNEXTLINE(clang-diagnostic-unreachable-code-return)
-    // return 0;
+    return 0;
 };
 
 // kept for backward compatibility
@@ -1007,35 +943,6 @@ inline void sortJsonArrayByOData(nlohmann::json::array_t& array)
 //  4. bytes: len(bytes) characters
 //  5. null: 4 characters (null)
 uint64_t getEstimatedJsonSize(const nlohmann::json& root);
-
-template <typename FirstType, typename... UnpackTypes>
-bool readJsonSubObject(nlohmann::json::object_t& jsonRequest,
-                       crow::Response& res, std::string_view key,
-                       FirstType&& first, UnpackTypes&&... in)
-{
-    const std::size_t n = sizeof...(UnpackTypes) + 2;
-    std::array<PerUnpack, n / 2> toUnpack2;
-    packVariant(toUnpack2, key, std::forward<FirstType>(first),
-                std::forward<UnpackTypes&&>(in)...);
-    // Only validate the keys we care about, ignore extra keys
-    return readJsonHelperObject(jsonRequest, res, toUnpack2, true);
-}
-
-template <typename FirstType, typename... UnpackTypes>
-bool readJsonSub(nlohmann::json& jsonRequest, crow::Response& res,
-                 std::string_view key, FirstType&& first, UnpackTypes&&... in)
-{
-    nlohmann::json::object_t* obj =
-        jsonRequest.get_ptr<nlohmann::json::object_t*>();
-    if (obj == nullptr)
-    {
-        BMCWEB_LOG_DEBUG("Json value is not an object");
-        messages::unrecognizedRequestBody(res);
-        return false;
-    }
-    return readJsonSubObject(*obj, res, key, std::forward<FirstType>(first),
-                             std::forward<UnpackTypes&&>(in)...);
-}
 
 } // namespace json_util
 } // namespace redfish

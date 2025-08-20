@@ -503,8 +503,10 @@ inline void parseInterfaceData(nlohmann::json& jsonResponse,
 inline void setDHCPEnabled(const std::string& ifaceId, bool ipv4DHCPEnabled,
                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    // Nvidia code starts here
     const std::string dhcp =
         getDhcpEnabledEnumeration(ipv4DHCPEnabled, false, false);
+    // Nvidia code ends here
 
     setDbusProperty(
         asyncResp, "DHCPv4/DHCPEnabled", "xyz.openbmc_project.Settings",

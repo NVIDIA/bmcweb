@@ -25,6 +25,7 @@
 #include "logging.hpp"
 #include "utils/dbus_log_utils.hpp"
 #include "utils/file_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/origin_utils.hpp"
 #include "utils/registry_utils.hpp"
 #include "utils/time_utils.hpp"
@@ -128,21 +129,21 @@ inline void handleDeviceServiceConditions(
 
                 if (additionalData != nullptr)
                 {
-                    AdditionalData additional(*additionalData);
-                    if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
+                    redfish::AdditionalData additional(*additionalData);
+                    if (additional.contains("REDFISH_ORIGIN_OF_CONDITION"))
                     {
                         originOfCondition =
                             additional["REDFISH_ORIGIN_OF_CONDITION"];
                     }
-                    if (additional.count("REDFISH_MESSAGE_ARGS") > 0)
+                    if (additional.contains("REDFISH_MESSAGE_ARGS"))
                     {
                         messageArgs = additional["REDFISH_MESSAGE_ARGS"];
                     }
-                    if (additional.count("REDFISH_MESSAGE_ID") > 0)
+                    if (additional.contains("REDFISH_MESSAGE_ID"))
                     {
                         messageId = additional["REDFISH_MESSAGE_ID"];
                     }
-                    if (additional.count("DEVICE_NAME") > 0)
+                    if (additional.contains("DEVICE_NAME"))
                     {
                         deviceName = additional["DEVICE_NAME"];
                     }
@@ -249,21 +250,21 @@ inline void handleServiceConditionsURI(
 
                 if (additionalData != nullptr)
                 {
-                    AdditionalData additional(*additionalData);
-                    if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
+                    redfish::AdditionalData additional(*additionalData);
+                    if (additional.contains("REDFISH_ORIGIN_OF_CONDITION"))
                     {
                         originOfCondition =
                             additional["REDFISH_ORIGIN_OF_CONDITION"];
                     }
-                    if (additional.count("REDFISH_MESSAGE_ARGS") > 0)
+                    if (additional.contains("REDFISH_MESSAGE_ARGS"))
                     {
                         messageArgs = additional["REDFISH_MESSAGE_ARGS"];
                     }
-                    if (additional.count("REDFISH_MESSAGE_ID") > 0)
+                    if (additional.contains("REDFISH_MESSAGE_ID"))
                     {
                         messageId = additional["REDFISH_MESSAGE_ID"];
                     }
-                    if (additional.count("DEVICE_NAME") > 0)
+                    if (additional.contains("DEVICE_NAME"))
                     {
                         deviceName = additional["DEVICE_NAME"];
                     }
@@ -278,7 +279,8 @@ inline void handleServiceConditionsURI(
 
                         std::string sev = (*severity).substr(prefix.length());
                         std::string currSev =
-                            asyncResp->res.jsonValue["HealthRollup"];
+                            asyncResp->res.jsonValue.at("HealthRollup")
+                                .get<std::string>();
 
                         if (severityMap.at(sev) > severityMap.at(currSev))
                         {
@@ -347,9 +349,9 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
         if (jMsgId != j.end() && jMsgArgs != j.end())
         {
             // MessageRegistry Format
-            std::string messageId = *jMsgId;
+            std::string messageId = jMsgId->get<std::string>();
             std::string message =
-                message_registries::composeMessage(*jMsgId, *jMsgArgs);
+                message_registries::composeMessage(messageId, *jMsgArgs);
 
             conditionResp["MessageId"] = messageId;
             conditionResp["MessageArgs"] = *jMsgArgs;
@@ -368,7 +370,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
         auto jOOC = j.find("OriginOfCondition");
         if (jOOC != j.end())
         {
-            std::string ooc = *jOOC;
+            std::string ooc = jOOC->get<std::string>();
             std::string originOfCondition =
                 origin_utils::getDeviceRedfishURI(ooc);
 
@@ -390,14 +392,14 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
             auto jDevice = j.find("Device");
             if (jDevice != j.end())
             {
-                std::string device = *jDevice;
+                std::string device = jDevice->get<std::string>();
                 conditionResp["Oem"]["Nvidia"]["Device"] = device;
             }
 
             auto jErrorId = j.find("ErrorId");
             if (jErrorId != j.end())
             {
-                std::string errorId = *jErrorId;
+                std::string errorId = jErrorId->get<std::string>();
                 conditionResp["Oem"]["Nvidia"]["ErrorId"] = errorId;
             }
 
@@ -412,7 +414,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
         auto jResolution = j.find("Resolution");
         if (jResolution != j.end())
         {
-            std::string resolution = *jResolution;
+            std::string resolution = jResolution->get<std::string>();
             if (resolution.empty())
             {
                 BMCWEB_LOG_WARNING("Get {} Resolution failed!", deviceId);
@@ -427,7 +429,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
         auto jSeverity = j.find("Severity");
         if (jSeverity != j.end())
         {
-            std::string severity = *jSeverity;
+            std::string severity = jSeverity->get<std::string>();
             if (severity.empty())
             {
                 BMCWEB_LOG_WARNING("Get {} Severity failed!", deviceId);
@@ -442,7 +444,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
         auto jTimestamp = j.find("Timestamp");
         if (jTimestamp != j.end())
         {
-            std::string timestamp = *jTimestamp;
+            std::string timestamp = jTimestamp->get<std::string>();
             if (timestamp.empty())
             {
                 BMCWEB_LOG_WARNING("Get {} Timestamp failed!", deviceId);
@@ -478,11 +480,23 @@ inline void populateServiceConditions(
     const std::string& chassisId)
 {
     BMCWEB_LOG_DEBUG("Populating service conditions for device {}", chassisId);
-    std::string redfishUri = asyncResp->res.jsonValue["@odata.id"];
+    if (!asyncResp->res.jsonValue.contains("@odata.id"))
+    {
+        BMCWEB_LOG_DEBUG("Service conditions not found for device {}",
+                         chassisId);
+        return;
+    }
+    std::string redfishUri =
+        asyncResp->res.jsonValue.at("@odata.id").get<std::string>();
+    if (redfishUri.empty())
+    {
+        BMCWEB_LOG_DEBUG("Service conditions not found for device {}",
+                         chassisId);
+        return;
+    }
     BMCWEB_LOG_DEBUG("ON REDFISH URI {}", redfishUri);
     BMCWEB_LOG_DEBUG("PLATFORM DEVICE PREFIX IS {}",
                      BMCWEB_PLATFORM_DEVICE_PREFIX);
-
     std::string chasId = chassisId;
     if (!BMCWEB_PLATFORM_DEVICE_PREFIX.empty())
     {

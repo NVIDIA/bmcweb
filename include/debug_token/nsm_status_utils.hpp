@@ -86,7 +86,7 @@ inline std::string getNsmTokenStatus(const std::string& tokenStatus)
             {"InstallationTimeout", "TimeoutBeforeTokenInstalled"},
             {"TokenTimeout", "ActiveTokenTimeout"},
         };
-    if (nsmTokenStatusMapping.find(tokenStatus) != nsmTokenStatusMapping.end())
+    if (nsmTokenStatusMapping.contains(tokenStatus))
     {
         return nsmTokenStatusMapping.at(tokenStatus);
     }
@@ -110,8 +110,7 @@ inline std::string getNsmTokenAdditionalInfo(const std::string& additionalInfo)
             {"DebugSessionQueryDisallowed", "QueryDebugSessionFailed"},
             {"DebugSessionActive", "DebugSessionActive"},
         };
-    if (nsmTokenadditionalInfoMapping.find(additionalInfo) !=
-        nsmTokenadditionalInfoMapping.end())
+    if (nsmTokenadditionalInfoMapping.contains(additionalInfo))
     {
         return nsmTokenadditionalInfoMapping.at(additionalInfo);
     }

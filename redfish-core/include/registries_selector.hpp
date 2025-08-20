@@ -5,27 +5,19 @@
 #include "registries.hpp"
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "registries/base_message_registry.hpp"
-// NOLINTNEXTLINE(misc-include-cleaner)
+#include "registries/bios_attribute_registry.hpp"
 #include "registries/heartbeat_event_message_registry.hpp"
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "registries/openbmc_message_registry.hpp"
-<<<<<<< HEAD
 #include "registries/platform_message_registry.hpp"
-||||||| 80d2ef31c
-=======
 // NOLINTNEXTLINE(misc-include-cleaner)
->>>>>>> origin/master
 #include "registries/resource_event_message_registry.hpp"
-<<<<<<< HEAD
 #include "registries/sensor_event_message_registry.hpp"
-||||||| 80d2ef31c
-=======
 // NOLINTNEXTLINE(misc-include-cleaner)
->>>>>>> origin/master
 #include "registries/task_event_message_registry.hpp"
 // NOLINTNEXTLINE(misc-include-cleaner)
+#include "registries/bios_attribute_registry.hpp"
 #include "registries/telemetry_message_registry.hpp"
-<<<<<<< HEAD
 #include "registries/update_message_registry.hpp"
 
 #include <optional>
@@ -39,128 +31,50 @@ struct HeaderAndUrl
     const Header& header;
     const char* url;
 };
+// Nvidia code starts here
 // TODO:Rohit to add support for bios reg and diff with upstream
 inline std::optional<registries::HeaderAndUrl>
     getRegistryHeaderAndUrlFromPrefix(std::string_view registryName)
 {
-    if (base::header.registryPrefix == registryName)
+    if (Base::header.registryPrefix == registryName)
     {
-        return HeaderAndUrl{base::header, base::url};
+        return HeaderAndUrl{Base::header, Base::url};
     }
-    if (heartbeat_event::header.registryPrefix == registryName)
+    if (HeartbeatEvent::header.registryPrefix == registryName)
     {
-        return HeaderAndUrl{heartbeat_event::header, heartbeat_event::url};
+        return HeaderAndUrl{HeartbeatEvent::header, HeartbeatEvent::url};
     }
-    if (openbmc::header.registryPrefix == registryName)
+    if (Openbmc::header.registryPrefix == registryName)
     {
-        return HeaderAndUrl{openbmc::header, openbmc::url};
+        return HeaderAndUrl{Openbmc::header, Openbmc::url};
     }
-    if (resource_event::header.registryPrefix == registryName)
+    if (ResourceEvent::header.registryPrefix == registryName)
     {
-        return HeaderAndUrl{resource_event::header, resource_event::url};
+        return HeaderAndUrl{ResourceEvent::header, ResourceEvent::url};
     }
-    if (task_event::header.registryPrefix == registryName)
+    if (TaskEvent::header.registryPrefix == registryName)
     {
-        return HeaderAndUrl{task_event::header, task_event::url};
+        return HeaderAndUrl{TaskEvent::header, TaskEvent::url};
     }
-    if (telemetry::header.registryPrefix == registryName)
+    if (Telemetry::header.registryPrefix == registryName)
     {
-        return HeaderAndUrl{telemetry::header, telemetry::url};
+        return HeaderAndUrl{Telemetry::header, Telemetry::url};
     }
-    if (platform::header.registryPrefix == registryName)
+    if (Platform::header.registryPrefix == registryName)
     {
-        return HeaderAndUrl{platform::header, platform::url};
+        return HeaderAndUrl{Platform::header, Platform::url};
     }
-    if (update::header.registryPrefix == registryName)
+    if (Update::header.registryPrefix == registryName)
     {
-        return HeaderAndUrl{update::header, update::url};
+        return HeaderAndUrl{Update::header, Update::url};
     }
-    return std::nullopt;
-}
-
-inline std::span<const MessageEntry> getRegistryFromPrefix(
-    std::string_view registryName)
-{
-    if (base::header.registryPrefix == registryName)
+    if (bios::header.registryPrefix == registryName)
     {
-        return {base::registry};
+        return HeaderAndUrl{bios::header, bios::url};
     }
-    if (heartbeat_event::header.registryPrefix == registryName)
+    if (bios::header.registryPrefix == registryName)
     {
-        return {heartbeat_event::registry};
-    }
-    if (openbmc::header.registryPrefix == registryName)
-    {
-        return {openbmc::registry};
-    }
-    if (resource_event::header.registryPrefix == registryName)
-    {
-        return {resource_event::registry};
-    }
-    if (task_event::header.registryPrefix == registryName)
-    {
-        return {task_event::registry};
-    }
-    if (telemetry::header.registryPrefix == registryName)
-    {
-        return {telemetry::registry};
-    }
-    if (update::header.registryPrefix == registryName)
-    {
-        return {update::registry};
-    }
-    if (platform::header.registryPrefix == registryName)
-    {
-        return {platform::registry};
-    }
-    if (sensor_event::header.registryPrefix == registryName)
-    {
-        return {sensor_event::registry};
-    }
-
-    return {openbmc::registry};
-}
-} // namespace redfish::registries
-||||||| 80d2ef31c
-
-#include <optional>
-#include <span>
-#include <string_view>
-
-namespace redfish::registries
-{
-struct HeaderAndUrl
-{
-    const Header& header;
-    const char* url;
-};
-
-inline std::optional<registries::HeaderAndUrl>
-    getRegistryHeaderAndUrlFromPrefix(std::string_view registryName)
-{
-    if (base::header.registryPrefix == registryName)
-    {
-        return HeaderAndUrl{base::header, base::url};
-    }
-    if (heartbeat_event::header.registryPrefix == registryName)
-    {
-        return HeaderAndUrl{heartbeat_event::header, heartbeat_event::url};
-    }
-    if (openbmc::header.registryPrefix == registryName)
-    {
-        return HeaderAndUrl{openbmc::header, openbmc::url};
-    }
-    if (resource_event::header.registryPrefix == registryName)
-    {
-        return HeaderAndUrl{resource_event::header, resource_event::url};
-    }
-    if (task_event::header.registryPrefix == registryName)
-    {
-        return HeaderAndUrl{task_event::header, task_event::url};
-    }
-    if (telemetry::header.registryPrefix == registryName)
-    {
-        return HeaderAndUrl{telemetry::header, telemetry::url};
+        return HeaderAndUrl{bios::header, bios::url};
     }
     return std::nullopt;
 }
@@ -168,32 +82,52 @@ inline std::optional<registries::HeaderAndUrl>
 inline std::span<const MessageEntry> getRegistryFromPrefix(
     std::string_view registryName)
 {
-    if (base::header.registryPrefix == registryName)
+    if (Base::header.registryPrefix == registryName)
     {
-        return {base::registry};
+        return {Base::registry};
     }
-    if (heartbeat_event::header.registryPrefix == registryName)
+    if (HeartbeatEvent::header.registryPrefix == registryName)
     {
-        return {heartbeat_event::registry};
+        return {HeartbeatEvent::registry};
     }
-    if (openbmc::header.registryPrefix == registryName)
+    if (Openbmc::header.registryPrefix == registryName)
     {
-        return {openbmc::registry};
+        return {Openbmc::registry};
     }
-    if (resource_event::header.registryPrefix == registryName)
+    if (ResourceEvent::header.registryPrefix == registryName)
     {
-        return {resource_event::registry};
+        return {ResourceEvent::registry};
     }
-    if (task_event::header.registryPrefix == registryName)
+    if (TaskEvent::header.registryPrefix == registryName)
     {
-        return {task_event::registry};
+        return {TaskEvent::registry};
     }
-    if (telemetry::header.registryPrefix == registryName)
+    if (Telemetry::header.registryPrefix == registryName)
     {
-        return {telemetry::registry};
+        return {Telemetry::registry};
     }
-    return {openbmc::registry};
+    if (Update::header.registryPrefix == registryName)
+    {
+        return {Update::registry};
+    }
+    if (Platform::header.registryPrefix == registryName)
+    {
+        return {Platform::registry};
+    }
+    if (SensorEvent::header.registryPrefix == registryName)
+    {
+        return {SensorEvent::registry};
+    }
+    if (bios::header.registryPrefix == registryName)
+    {
+        return {bios::registry};
+    }
+    if (bios::header.registryPrefix == registryName)
+    {
+        return {bios::registry};
+    }
+
+    return {Openbmc::registry};
 }
+// Nvidia code ends here
 } // namespace redfish::registries
-=======
->>>>>>> origin/master

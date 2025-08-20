@@ -23,6 +23,7 @@
 #include "registries/privilege_registry.hpp"
 #include "task.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <boost/asio/io_context.hpp>

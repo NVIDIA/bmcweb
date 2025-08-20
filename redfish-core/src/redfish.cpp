@@ -34,6 +34,7 @@
 #include "network_adapters.hpp"
 #include "network_adapters_generic.hpp"
 #include "network_protocol.hpp"
+#include "nvidia_bios.hpp"
 #include "nvidia_debug_token.hpp"
 #include "nvidia_dpu_system_profiles.hpp"
 #include "nvidia_error_injection.hpp"
@@ -79,7 +80,6 @@
 #include "trusted_components.hpp"
 #include "update_service.hpp"
 #include "virtual_media.hpp"
-
 namespace redfish
 {
 
@@ -219,9 +219,10 @@ RedfishService::RedfishService(App& app)
     if constexpr (BMCWEB_BIOS)
     {
         requestRoutesBiosService(app);
-        requestRoutesBiosSettings(app);
         requestRoutesBiosReset(app);
     }
+
+    requestRoutesOemBiosResetService(app);
 
     if constexpr (BMCWEB_VM_NBDPROXY)
     {
@@ -296,20 +297,12 @@ RedfishService::RedfishService(App& app)
     requestRoutesNvidia(app);
     // Note, this must be the last route registered
     requestRoutesRedfish(app);
-<<<<<<< HEAD
 
     requestRoutesOpenBmcManager(*this);
     // Nvidia OEM routes
     requestRoutesNvidiaManager(*this);
 
     validate();
-||||||| 80d2ef31c
-=======
-
-    requestRoutesOpenBmcManager(*this);
-
-    validate();
->>>>>>> origin/master
 }
 
 } // namespace redfish

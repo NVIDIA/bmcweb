@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 #pragma once
+
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <utils/chassis_utils.hpp>
@@ -785,3 +787,631 @@ inline std::string getKeyNameonTimeStampIface(const std::string& ifaceName)
     std::string iface = ifaceName.substr(pos);
     return iface;
 }
+
+namespace redfish
+{
+namespace telemetry
+{
+
+constexpr const char* metricReportDefinitionUriStr =
+    "/redfish/v1/TelemetryService/MetricReportDefinitions";
+constexpr const char* metricReportUri =
+    "/redfish/v1/TelemetryService/MetricReports";
+
+inline void addMetricReportMembers(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    crow::connections::systemBus->async_method_call(
+        [asyncResp](boost::system::error_code& ec,
+                    const std::vector<std::string>& metricPaths) mutable {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            nlohmann::json& addMembers = asyncResp->res.jsonValue["Members"];
+
+            for (const std::string& object : metricPaths)
+            {
+                // Get the metric object
+                std::string metricReportUriPath =
+                    "/redfish/v1/TelemetryService/MetricReports/";
+                if (object.ends_with("platformmetrics"))
+                {
+                    std::string uripath = metricReportUriPath;
+                    uripath += BMCWEB_PLATFORM_METRICS_ID;
+                    if (!containsJsonObject(addMembers, "@odata.id", uripath))
+                    {
+                        addMembers.push_back({{"@odata.id", uripath}});
+                    }
+                }
+                else if (object.ends_with("memory"))
+                {
+                    std::string memoryMetricId = std::format(
+                        "{}MemoryMetrics", BMCWEB_PLATFORM_DEVICE_PREFIX);
+                    memoryMetricId += "_0";
+                    std::string uripath = metricReportUriPath + memoryMetricId;
+                    addMembers.push_back({{"@odata.id", uripath}});
+                }
+                else if (object.ends_with("processors"))
+                {
+                    std::string processorMetricId =
+                        std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) +
+                        +"ProcessorMetrics";
+                    processorMetricId += "_0";
+                    std::string uripath =
+                        metricReportUriPath + processorMetricId;
+                    addMembers.push_back({{"@odata.id", uripath}});
+
+                    std::string processorGpmMetricId =
+                        std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) +
+                        +"ProcessorGPMMetrics";
+                    processorGpmMetricId += "_0";
+                    std::string uripathGpm =
+                        metricReportUriPath + processorGpmMetricId;
+                    addMembers.push_back({{"@odata.id", uripathGpm}});
+
+                    std::string processorPortMetricId =
+                        std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) +
+                        +"ProcessorPortMetrics";
+                    processorPortMetricId += "_0";
+                    uripath = metricReportUriPath + processorPortMetricId;
+                    addMembers.push_back({{"@odata.id", uripath}});
+
+                    std::string processorPortGpmMetricId =
+                        std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) +
+                        +"ProcessorPortGPMMetrics";
+                    processorPortGpmMetricId += "_0";
+                    uripath = metricReportUriPath + processorPortGpmMetricId;
+                    addMembers.push_back({{"@odata.id", uripath}});
+                }
+                else if (object.ends_with("Switches"))
+                {
+                    std::string switchMetricId =
+                        std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) +
+                        +"NVSwitchMetrics";
+                    switchMetricId += "_0";
+                    std::string uripath = metricReportUriPath + switchMetricId;
+                    addMembers.push_back({{"@odata.id", uripath}});
+
+                    std::string switchPortMetricId =
+                        std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) +
+                        +"NVSwitchPortMetrics";
+                    switchPortMetricId += "_0";
+                    uripath = metricReportUriPath + switchPortMetricId;
+                    addMembers.push_back({{"@odata.id", uripath}});
+                }
+            }
+            asyncResp->res.jsonValue["Members@odata.count"] = addMembers.size();
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<const char*, 1>{"xyz.openbmc_project.Sensor.Aggregation"});
+}
+
+inline void getSensorMap(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& serviceName, const std::string& objectPath,
+    const uint32_t& staleSensorUpperLimit, const uint64_t& requestTimestamp)
+{
+    using sensorMap = std::map<
+        std::string,
+        std::tuple<std::variant<std::string, int, int16_t, int64_t, uint16_t,
+                                uint32_t, uint64_t, double, bool>,
+                   uint64_t, sdbusplus::message::object_path>>;
+
+    sdbusplus::asio::getProperty<sensorMap>(
+        *crow::connections::systemBus, serviceName, objectPath,
+        "xyz.openbmc_project.Sensor.Aggregation", "SensorMetrics",
+        [asyncResp, staleSensorUpperLimit,
+         requestTimestamp](const boost::system::error_code& ec,
+                           const sensorMap& sensorMetrics) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            nlohmann::json& resArray = asyncResp->res.jsonValue["MetricValues"];
+
+            for (const auto& i : sensorMetrics)
+            {
+                nlohmann::json thisMetric = nlohmann::json::object();
+                std::string sensorName = i.first;
+                auto data = i.second;
+                auto var = std::get<0>(data);
+                const double* reading = std::get_if<double>(&var);
+                thisMetric["MetricValue"] = std::to_string(*reading);
+                // sensorUpdatetimeSteadyClock is in ms
+                const uint64_t sensorUpdatetimeSteadyClock = std::get<1>(data);
+                /*
+                the complex code here converts sensorUpdatetimeSteadyClock
+                from std::chrono::steady_clock to std::chrono::system_clock
+                */
+                const uint64_t sensorUpdatetimeSystemClock =
+                    static_cast<uint64_t>(
+                        std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::system_clock::now().time_since_epoch())
+                            .count()) -
+                    static_cast<uint64_t>(
+                        std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::steady_clock::now().time_since_epoch())
+                            .count()) +
+                    sensorUpdatetimeSteadyClock;
+                thisMetric["Timestamp"] =
+                    redfish::time_utils::getDateTimeUintMs(
+                        sensorUpdatetimeSystemClock);
+                sdbusplus::message::object_path chassisPath = std::get<2>(data);
+                std::string sensorUri = "/redfish/v1/Chassis/";
+                sensorUri += chassisPath.filename();
+                sensorUri += "/Sensors/";
+                sensorUri += sensorName;
+                thisMetric["MetricProperty"] = sensorUri;
+                thisMetric["Oem"]["Nvidia"]["@odata.type"] =
+                    "#NvidiaMetricReport.v1_0_0.NvidiaMetricReport";
+                thisMetric["Oem"]["Nvidia"]["MetricValueStale"] = true;
+                if (requestTimestamp != 0 && thisMetric["MetricValue"] != "nan")
+                {
+                    // Note: requestTimestamp, sensorUpdatetimeSteadyClock uses
+                    // steadyclock to calculate time
+                    int64_t freshness = static_cast<int64_t>(
+                        requestTimestamp - sensorUpdatetimeSteadyClock);
+
+                    if (freshness <= staleSensorUpperLimit)
+                    {
+                        thisMetric["Oem"]["Nvidia"]["MetricValueStale"] = false;
+                    }
+                }
+                resArray.push_back(thisMetric);
+            }
+        });
+}
+
+inline void getPlatforMetricsFromSensorMap(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath, const std::string& serviceName,
+    const std::string& metricId, const uint64_t& requestTimestamp = 0)
+{
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#MetricReport.v1_4_2.MetricReport";
+    std::string metricUri = "/redfish/v1/TelemetryService/MetricReports/";
+    metricUri += metricId;
+    asyncResp->res.jsonValue["@odata.id"] = metricUri;
+    asyncResp->res.jsonValue["Id"] = metricId;
+    asyncResp->res.jsonValue["Name"] = metricId;
+    std::string metricDefinitionUri = telemetry::metricReportDefinitionUriStr;
+    metricDefinitionUri += "/";
+    metricDefinitionUri += metricId;
+
+    asyncResp->res.jsonValue["MetricReportDefinition"]["@odata.id"] =
+        metricDefinitionUri;
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+        "#NvidiaMetricReport.v1_0_0.NvidiaMetricReport";
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["SensingIntervalMilliseconds"] =
+        BMCWEB_PLATFORM_METRICS_SENSING_INTERVAL;
+    asyncResp->res.jsonValue["MetricValues"] = nlohmann::json::array();
+    sdbusplus::asio::getProperty<uint32_t>(
+        *crow::connections::systemBus, serviceName, objectPath,
+        "xyz.openbmc_project.Sensor.Aggregation",
+        "BMCWEB_STALESENSOR_UPPER_LIMIT_MILISECOND",
+        [asyncResp, objectPath, serviceName,
+         requestTimestamp](const boost::system::error_code& ec,
+                           const uint32_t& staleSensorUpperLimit) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            getSensorMap(asyncResp, serviceName, objectPath,
+                         staleSensorUpperLimit, requestTimestamp);
+        });
+}
+
+inline void getPlatformMetrics(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const uint64_t& requestTimestamp = 0)
+{
+    const std::array<const char*, 1> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Chassis"};
+    auto respHandler = [asyncResp, requestTimestamp, chassisId](
+                           const boost::system::error_code& ec,
+                           const std::vector<std::string>& chassisPaths) {
+        if (ec)
+        {
+            BMCWEB_LOG_ERROR("getPlatformMetrics respHandler DBUS error: {}",
+                             ec);
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        for (const std::string& chassisPath : chassisPaths)
+        {
+            sdbusplus::message::object_path path(chassisPath);
+            const std::string& chassisName = path.filename();
+            if (chassisName.empty())
+            {
+                BMCWEB_LOG_ERROR("Failed to find '/' in {}", chassisPath);
+                continue;
+            }
+            if (chassisName != chassisId)
+            {
+                continue;
+            }
+            asyncResp->res.jsonValue["@odata.type"] =
+                "#MetricReport.v1_4_2.MetricReport";
+            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+                "/redfish/v1/TelemetryService/MetricReports/{}",
+                BMCWEB_PLATFORM_METRICS_ID);
+            asyncResp->res.jsonValue["Id"] = BMCWEB_PLATFORM_METRICS_ID;
+            asyncResp->res.jsonValue["Name"] = BMCWEB_PLATFORM_METRICS_ID;
+            asyncResp->res.jsonValue["MetricReportDefinition"]["@odata.id"] =
+                std::format("{}/{}", telemetry::metricReportDefinitionUriStr,
+                            BMCWEB_PLATFORM_METRICS_ID);
+            asyncResp->res.jsonValue["MetricValues"] = nlohmann::json::array();
+            // Identify sensor services for sensor readings
+            redfish::nvidia_thermal_metrics_utils::processSensorServices(
+                asyncResp, chassisPath, "all",
+                BMCWEB_PLATFORM_METRICS_SENSING_INTERVAL, requestTimestamp);
+            return;
+        }
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+    };
+    // Get the Chassis Collection
+    crow::connections::systemBus->async_method_call(
+        respHandler, "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
+        "/xyz/openbmc_project/inventory", 0, interfaces);
+}
+
+// This function populate the metric report for devices but not excludes the
+// subdevices. Eg : All metric for gpu memory or processor
+inline void getAggregatedDeviceMetrics(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& deviceType, const std::string& deviceName,
+    const std::string& devicePath,
+    const dbus::utility::DBusInterfacesMap& portInterfacesProperties)
+{
+    if (deviceType != "MemoryMetrics" && deviceType != "ProcessorMetrics" &&
+        deviceType != "NVSwitchMetrics" && deviceType != "ProcessorGpmMetrics")
+    {
+        return;
+    }
+
+    nlohmann::json& resArray = asyncResp->res.jsonValue["MetricValues"];
+    auto timestampIterator = std::find_if(
+        portInterfacesProperties.begin(), portInterfacesProperties.end(),
+        [](const auto& i) { return i.first == "oem.nvidia.Timestamp"; });
+    if (timestampIterator != portInterfacesProperties.end())
+    {
+        for (const auto& interface : portInterfacesProperties)
+        {
+            std::string ifaceName = std::string(interface.first);
+            std::string keyName = getKeyNameonTimeStampIface(ifaceName);
+            // GPM Processor Metrics Hosted on GPM Metrics Inerface
+            if (((deviceType == "ProcessorGpmMetrics") &&
+                 ((keyName != "GPMMetrics") && (keyName != "NVLinkMetrics"))) ||
+                ((deviceType != "ProcessorGpmMetrics") &&
+                 ((keyName == "GPMMetrics") || (keyName == "NVLinkMetrics"))))
+            {
+                continue;
+            }
+            std::string subDeviceName;
+            auto timeStampMap = timestampIterator->second;
+            auto timestampPropertiesIterator = std::find_if(
+                timeStampMap.begin(), timeStampMap.end(),
+                [keyName](const auto& i) { return i.first == keyName; });
+            if (timestampPropertiesIterator != timeStampMap.end())
+            {
+                for (const auto& property : interface.second)
+                {
+                    auto timeStampPropertyValue =
+                        timestampPropertiesIterator->second;
+                    std::string propName = std::string(property.first);
+                    std::map<std::string, uint64_t>* a =
+                        std::get_if<std::map<std::string, uint64_t>>(
+                            &timeStampPropertyValue);
+                    if (a != nullptr)
+                    {
+                        auto value = property.second;
+                        auto t = (*a)[propName];
+                        getMetricValue(deviceType, deviceName, subDeviceName,
+                                       devicePath, propName, ifaceName, value,
+                                       t, resArray);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// This function populate the metric report for sub devices. Eg All nvlinks
+// of all processors or switches
+inline void getAggregatedSubDeviceMetrics(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& deviceType, const std::string& deviceName,
+    const std::string& subDeviceName, const std::string& devicePath,
+    const dbus::utility::DBusInterfacesMap& portInterfacesProperties)
+{
+    if (deviceType != "ProcessorPortMetrics" &&
+        deviceType != "NVSwitchPortMetrics" &&
+        deviceType != "ProcessorPortGpmMetrics")
+    {
+        return;
+    }
+    nlohmann::json& resArray = asyncResp->res.jsonValue["MetricValues"];
+    auto timestampIterator = std::find_if(
+        portInterfacesProperties.begin(), portInterfacesProperties.end(),
+        [](const auto& i) { return i.first == "oem.nvidia.Timestamp"; });
+    if (timestampIterator != portInterfacesProperties.end())
+    {
+        for (const auto& interface : portInterfacesProperties)
+        {
+            std::string ifaceName = std::string(interface.first);
+            std::string keyName = getKeyNameonTimeStampIface(ifaceName);
+
+            // GPM Processor Metrics Hosted on GPM Metrics Inerface
+            if (((deviceType == "ProcessorPortGpmMetrics") &&
+                 (keyName != "NVLinkMetrics")) ||
+                ((deviceType != "ProcessorPortGpmMetrics") &&
+                 (keyName == "NVLinkMetrics")))
+            {
+                continue;
+            }
+
+            auto timeStampMap = timestampIterator->second;
+            auto timestampPropertiesIterator = std::find_if(
+                timeStampMap.begin(), timeStampMap.end(),
+                [keyName](const auto& i) { return i.first == keyName; });
+            if (timestampPropertiesIterator != timeStampMap.end())
+            {
+                for (const auto& property : interface.second)
+                {
+                    auto timeStampPropertyValue =
+                        timestampPropertiesIterator->second;
+                    std::string propName = std::string(property.first);
+                    std::map<std::string, uint64_t>* a =
+                        std::get_if<std::map<std::string, uint64_t>>(
+                            &timeStampPropertyValue);
+                    if (a != nullptr)
+                    {
+                        auto value = property.second;
+                        auto t = (*a)[propName];
+                        getMetricValue(deviceType, deviceName, subDeviceName,
+                                       devicePath, propName, ifaceName, value,
+                                       t, resArray);
+                    }
+                }
+            }
+        }
+    }
+}
+
+inline void getManagedObjectForMetrics(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objPath, const std::string& serviceName,
+    const std::string& metricId, const std::string& metricfname,
+    std::vector<std::string>& supportedMetricIds)
+{
+    BMCWEB_LOG_DEBUG("{}", metricId);
+    std::string deviceType;
+
+    std::string memoryMetrics =
+        std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) + +"MemoryMetrics";
+    memoryMetrics += "_0";
+
+    std::string processorMetrics =
+        std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) + +"ProcessorMetrics";
+    processorMetrics += "_0";
+
+    std::string processorGpmMetrics =
+        std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) + +"ProcessorGPMMetrics";
+    processorGpmMetrics += "_0";
+
+    std::string processorPortMetrics =
+        std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) + +"ProcessorPortMetrics";
+    processorPortMetrics += "_0";
+
+    std::string processorPortGpmMetrics =
+        std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) + +"ProcessorPortGPMMetrics";
+    processorPortGpmMetrics += "_0";
+
+    std::string nvswitchMetrics =
+        std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) + +"NVSwitchMetrics";
+    nvswitchMetrics += "_0";
+
+    std::string nvswitchPortMetrics =
+        std::string(BMCWEB_PLATFORM_DEVICE_PREFIX) + +"NVSwitchPortMetrics";
+    nvswitchPortMetrics += "_0";
+
+    if (metricId == memoryMetrics && metricfname == "memory")
+    {
+        deviceType = "MemoryMetrics";
+    }
+    else if (metricId == processorPortMetrics && metricfname == "processors")
+    {
+        deviceType = "ProcessorPortMetrics";
+    }
+    else if (metricId == processorMetrics && metricfname == "processors")
+    {
+        deviceType = "ProcessorMetrics";
+    }
+    else if (metricId == nvswitchPortMetrics && metricfname == "Switches")
+    {
+        deviceType = "NVSwitchPortMetrics";
+    }
+    else if (metricId == nvswitchMetrics && metricfname == "Switches")
+    {
+        deviceType = "NVSwitchMetrics";
+    }
+    else if (metricId == processorGpmMetrics && metricfname == "processors")
+    {
+        deviceType = "ProcessorGpmMetrics";
+    }
+    else if (metricId == processorPortGpmMetrics && metricfname == "processors")
+    {
+        deviceType = "ProcessorPortGpmMetrics";
+    }
+    else
+    {
+        return;
+    }
+    supportedMetricIds.emplace_back(metricId);
+    asyncResp->res.jsonValue["@odata.type"] =
+        "#MetricReport.v1_4_2.MetricReport";
+    std::string metricUri = "/redfish/v1/TelemetryService/MetricReports/";
+    metricUri += metricId;
+    asyncResp->res.jsonValue["@odata.id"] = metricUri;
+    asyncResp->res.jsonValue["Id"] = metricId;
+    asyncResp->res.jsonValue["Name"] = metricId;
+    std::string metricDefinitionUri = telemetry::metricReportDefinitionUriStr;
+    metricDefinitionUri += "/";
+    metricDefinitionUri += metricId;
+
+    asyncResp->res.jsonValue["MetricReportDefinition"]["@odata.id"] =
+        metricDefinitionUri;
+    crow::connections::systemBus->async_method_call(
+        [asyncResp,
+         deviceType](const boost::system::error_code& ec,
+                     const dbus::utility::ManagedObjectType& objects) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            if (deviceType == "MemoryMetrics" ||
+                deviceType == "NVSwitchMetrics" ||
+                deviceType == "ProcessorMetrics" ||
+                deviceType == "ProcessorGpmMetrics")
+            {
+                for (const auto& object : objects)
+                {
+                    const std::string parentName =
+                        object.first.parent_path().filename();
+                    const std::string devicePath = std::string(object.first);
+                    if (parentName == "processors" || parentName == "memory" ||
+                        parentName == "Switches")
+                    {
+                        const std::string deviceName =
+                            std::string(object.first.filename());
+                        getAggregatedDeviceMetrics(asyncResp, deviceType,
+                                                   deviceName, devicePath,
+                                                   object.second);
+                    }
+                }
+            }
+            else if (deviceType == "NVSwitchPortMetrics" ||
+                     deviceType == "ProcessorPortMetrics" ||
+                     deviceType == "ProcessorPortGpmMetrics")
+            {
+                for (const auto& object : objects)
+                {
+                    const std::string parentName =
+                        object.first.parent_path().filename();
+                    const std::string devicePath = std::string(object.first);
+                    if (parentName == "Ports")
+                    {
+                        const std::string subDeviceName =
+                            std::string(object.first.filename());
+                        const std::string deviceName =
+                            object.first.parent_path().parent_path().filename();
+                        getAggregatedSubDeviceMetrics(
+                            asyncResp, deviceType, deviceName, subDeviceName,
+                            devicePath, object.second);
+                    }
+                }
+            }
+            else
+            {
+                return;
+            }
+        },
+        serviceName, objPath, "org.freedesktop.DBus.ObjectManager",
+        "GetManagedObjects");
+}
+
+inline bool isMetricIdSupported(
+    const std::string& requestedMetricId,
+    const std::vector<std::string>& supportedMetricIds)
+{
+    bool supported = true;
+    // If metricId not found in supportedMetricId list
+    if (std::find(supportedMetricIds.begin(), supportedMetricIds.end(),
+                  requestedMetricId) == supportedMetricIds.end())
+    {
+        supported = false;
+    }
+    return supported;
+}
+
+inline void getPlatforMetrics(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& metricId, const uint64_t& requestTimestamp = 0)
+{
+    using MapperServiceMapType =
+        std::vector<std::pair<std::string, std::vector<std::string>>>;
+
+    // Map of object paths to MapperServiceMaps
+    using MapperGetSubTreeResponse =
+        std::vector<std::pair<std::string, MapperServiceMapType>>;
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, metricId,
+         requestTimestamp](boost::system::error_code& ec,
+                           const MapperGetSubTreeResponse& subtree) mutable {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("DBUS response error: {}", ec);
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            // list of metric Ids supported
+            std::vector<std::string> supportedMetricIds;
+            for (const auto& [path, serviceMap] : subtree)
+            {
+                const std::string objectPath = path;
+                sdbusplus::message::object_path objPath(objectPath);
+                const std::string metricfname = objPath.filename();
+                for (const auto& [conName, interfaceList] : serviceMap)
+                {
+                    const std::string serviceName = conName;
+                    if (metricId == BMCWEB_PLATFORM_METRICS_ID)
+                    {
+                        if (metricfname == "platformmetrics")
+                        {
+                            supportedMetricIds.emplace_back(
+                                BMCWEB_PLATFORM_METRICS_ID);
+                            getPlatforMetricsFromSensorMap(
+                                asyncResp, objectPath, serviceName, metricId,
+                                requestTimestamp);
+                        }
+                    }
+                    else if (metricfname == "memory" ||
+                             metricfname == "processors" ||
+                             metricfname == "Switches")
+                    {
+                        getManagedObjectForMetrics(
+                            asyncResp, objectPath, serviceName, metricId,
+                            metricfname, supportedMetricIds);
+                    }
+                }
+            }
+            if (!isMetricIdSupported(metricId, supportedMetricIds))
+            {
+                messages::resourceNotFound(asyncResp->res, "MetricReport",
+                                           metricId);
+            }
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<const char*, 1>{"xyz.openbmc_project.Sensor.Aggregation"});
+}
+
+} // namespace telemetry
+} // namespace redfish

@@ -1317,17 +1317,6 @@ inline void handleAccountServiceClientCertificatesGet(
     {
         return;
     }
-<<<<<<< HEAD
-    asyncResp->res.jsonValue["@odata.id"] =
-        "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates";
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#CertificateCollection.CertificateCollection";
-    asyncResp->res.jsonValue["Name"] =
-        "MultiFactorAuth Certificates Collection";
-    asyncResp->res.jsonValue["Description"] =
-        "A Collection of MultiFactorAuth Certificate Instances";
-||||||| 80d2ef31c
-=======
 
     nlohmann::json& json = asyncResp->res.jsonValue;
     json["@odata.id"] =
@@ -1335,7 +1324,6 @@ inline void handleAccountServiceClientCertificatesGet(
     json["@odata.type"] = "#CertificateCollection.CertificateCollection";
     json["Name"] = "Certificates Collection";
     json["Description"] = "Multi-factor Authentication Client Certificates";
->>>>>>> origin/master
     getClientCertificates(asyncResp, "/Members"_json_pointer);
 }
 
@@ -1350,42 +1338,22 @@ inline CertificateMappingAttribute getCertificateMapping(
         {
             return CertificateMappingAttribute::CommonName;
         }
+        break;
         case MTLSCommonNameParseMode::Whole:
         {
             return CertificateMappingAttribute::Whole;
         }
+        break;
         case MTLSCommonNameParseMode::UserPrincipalName:
         {
             return CertificateMappingAttribute::UserPrincipalName;
         }
-<<<<<<< HEAD
-
-        case MTLSCommonNameParseMode::Meta:
-        {
-            if constexpr (BMCWEB_META_TLS_COMMON_NAME_PARSING)
-            {
-                return CertificateMappingAttribute::CommonName;
-            }
-        }
         break;
-||||||| 80d2ef31c
-        break;
-
-        case MTLSCommonNameParseMode::Meta:
-        {
-            if constexpr (BMCWEB_META_TLS_COMMON_NAME_PARSING)
-            {
-                return CertificateMappingAttribute::CommonName;
-            }
-        }
-        break;
-=======
-        break;
->>>>>>> origin/master
         default:
         {
             return CertificateMappingAttribute::Invalid;
         }
+        break;
     }
 }
 
@@ -1804,11 +1772,12 @@ inline void handleAccountCollectionGet(
             for (const auto& userpath : users)
             {
                 std::string user = userpath.first.filename();
-                // Need to find the usecase for this.
+                // Nvidia code starts here.
                 if (user == "service")
                 {
                     continue;
                 }
+                // Nvidia code End here
                 if (user.empty())
                 {
                     messages::internalError(asyncResp->res);
@@ -1847,10 +1816,7 @@ inline void processAfterCreateUser(
         return;
     }
 
-    int retval = pamUpdatePassword(username, password);
-    BMCWEB_LOG_DEBUG("pamUpdatePassword retval={}", retval);
-
-    if (retval != PAM_SUCCESS)
+    if (pamUpdatePassword(username, password) != PAM_SUCCESS)
     {
         // At this point we have a user that's been
         // created, but the password set
@@ -2233,21 +2199,15 @@ inline void handleAccountDelete(
     tempObjPath /= username;
     const std::string userPath(tempObjPath);
 
-<<<<<<< HEAD
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, username](const boost::system::error_code& ec,
-                              sdbusplus::message::message& m) {
-||||||| 80d2ef31c
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, username](const boost::system::error_code& ec) {
-=======
     dbus::utility::async_method_call(
         asyncResp,
-        [asyncResp, username](const boost::system::error_code& ec) {
->>>>>>> origin/master
+        // Nvidia code start here
+        [asyncResp, username](const boost::system::error_code& ec,
+                              sdbusplus::message::message& m) {
             if (ec)
             {
                 handleNvidiaDeleteError(asyncResp, username, m);
+                // Nvidia code End here
                 return;
             }
 

@@ -313,7 +313,8 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
                     return op == nullptr ? task::completed : !task::completed;
                 },
                 "0");
-            task->payload.emplace(req);
+            task::Payload payload(req);
+            task->payload.emplace(std::move(payload));
             task->populateResp(asyncResp->res);
             task->startTimer(std::chrono::seconds(debugTokenTaskTimeoutSec));
 

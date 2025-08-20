@@ -36,7 +36,7 @@
 #include <utils/dbus_log_utils.hpp>
 #include <utils/dbus_utils.hpp>
 #include <utils/fw_utils.hpp>
-#include <utils/json_utils.hpp>
+#include <utils/nvidia_json_utils.hpp>
 #include <utils/sw_utils.hpp>
 
 #include <functional>

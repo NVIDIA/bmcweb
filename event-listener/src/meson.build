@@ -4,6 +4,7 @@ listener_incs = include_directories(
     '../../redfish-core/lib',
     '../../include',
     '../../http',
+    '../../features/openbmc_rest',
 )
 listener_root_inc = include_directories('../../', is_system: true)
 

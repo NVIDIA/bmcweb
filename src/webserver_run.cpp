@@ -30,7 +30,6 @@
 #include <boost/asio/io_context.hpp>
 #include <sdbusplus/asio/connection.hpp>
 #include <sdbusplus/asio/object_server.hpp>
-#include <watchdog.hpp>
 
 #include <algorithm>
 #include <memory>
@@ -69,22 +68,14 @@ int run()
 
     iface->initialize();
 
-<<<<<<< HEAD
     // Enable SystemD service watchdog kicking. Service file has timeout of 60s.
     crow::watchdog::ServiceWD watchdog(30, io);
 
-||||||| 80d2ef31c
-=======
     // Load the peristent data
     persistent_data::getConfig();
 
->>>>>>> origin/master
     // Static assets need to be initialized before Authorization, because auth
     // needs to build the whitelist from the static routes
-
-    // TODO : This is temporary solution to ensure the persistent data is
-    // initialized before the routes are requested.
-    persistent_data::getConfig();
 
     if constexpr (BMCWEB_STATIC_HOSTING)
     {

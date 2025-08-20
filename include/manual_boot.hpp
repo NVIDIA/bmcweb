@@ -16,7 +16,7 @@ inline void bootModeQuery(const crow::Request& req,
                           const std::string& chassisId)
 {
     mctp_utils::enumerateMctpEndpoints(
-        [req, asyncResp, chassisId](
+        [&req, asyncResp, chassisId](
             const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
                 endpoints) {
             if (!endpoints || endpoints->empty())
@@ -93,7 +93,7 @@ inline void bootModeSet(const crow::Request& req,
                         const std::string& chassisId, bool enabled)
 {
     mctp_utils::enumerateMctpEndpoints(
-        [req, asyncResp, chassisId,
+        [&req, asyncResp, chassisId,
          enabled](const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
                       endpoints) {
             if (!endpoints || endpoints->empty())
@@ -163,7 +163,7 @@ inline void bootAp(const crow::Request& req,
                    const std::string& chassisId)
 {
     mctp_utils::enumerateMctpEndpoints(
-        [req, asyncResp, chassisId](
+        [&req, asyncResp, chassisId](
             const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
                 endpoints) {
             if (!endpoints || endpoints->empty())

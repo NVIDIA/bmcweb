@@ -21,8 +21,6 @@
 #include "redfish_aggregator.hpp"
 
 #include <boost/asio/steady_timer.hpp>
-#include <boost/beast/core.hpp>
-#include <boost/beast/core/string.hpp>
 #include <boost/beast/http/status.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/url.hpp>

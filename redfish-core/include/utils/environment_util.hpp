@@ -1613,9 +1613,9 @@ inline void getCpuEnvironmentMetricsDataByService(
                     std::variant<std::vector<std::string>>& sensorResp) {
                     if (e)
                     {
-                        BMCWEB_LOG_ERROR("Failed to get all sensors: {}",
-                                         e.message());
-                        messages::internalError(aResp->res);
+                        // No sensors are expected when Host is off
+                        BMCWEB_LOG_DEBUG("No sensors attached for {}",
+                                         chassisId);
                         return;
                     }
                     std::vector<std::string>* sensorData =
@@ -2056,6 +2056,304 @@ inline void postEdppReset(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                 },
                 conName, cpuObjectPath, "com.nvidia.Edpp", "Reset");
         });
+}
+
+inline void getfanSpeedsPercent(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisID)
+{
+    BMCWEB_LOG_DEBUG("Get properties for getFan associated to chassis = {}",
+                     chassisID);
+    const std::array<std::string, 1> sensorInterfaces = {
+        "xyz.openbmc_project.Sensor.Value"};
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, chassisID](
+            const boost::system::error_code& ec,
+            const std::vector<std::pair<
+                std::string,
+                std::vector<std::pair<std::string, std::vector<std::string>>>>>&
+                sensorsubtree) {
+            if (ec)
+            {
+                BMCWEB_LOG_DEBUG("D-Bus response error on GetSubTree {}", ec);
+                if (ec.value() == boost::system::errc::io_error)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Chassis",
+                                               chassisID);
+                    return;
+                }
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            nlohmann::json& fanList =
+                asyncResp->res.jsonValue["FanSpeedsPercent"];
+            fanList = nlohmann::json::array();
+
+            for (const auto& [objectPath, serviceName] : sensorsubtree)
+            {
+                if (objectPath.empty() || serviceName.size() != 1)
+                {
+                    BMCWEB_LOG_DEBUG("Error getting D-Bus object!");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                const std::string& validPath = objectPath;
+                const std::string& connectionName = serviceName[0].first;
+                std::vector<std::string> split;
+                // Reserve space for
+                // /xyz/openbmc_project/sensors/<name>/<subname>
+                split.reserve(6);
+                bmcweb::split(split, validPath, '/');
+                if (split.size() < 6)
+                {
+                    BMCWEB_LOG_ERROR("Got path that isn't long enough {}",
+                                     validPath);
+                    continue;
+                }
+                // These indexes aren't intuitive, as boost::split puts an empty
+                // string at the beginning
+                const std::string& sensorType = split[4];
+                const std::string& sensorName = split[5];
+                BMCWEB_LOG_DEBUG("sensorName {} sensorType {}", sensorName,
+                                 sensorType);
+                if (sensorType == "fan" || sensorType == "fan_tach" ||
+                    sensorType == "fan_pwm")
+                {
+                    // if the sensor does not belong to the same chassis will
+                    // discard it
+                    dbus::utility::findAssociations(
+                        validPath + "/chassis",
+                        [asyncResp, chassisID, &fanList, sensorName, validPath,
+                         connectionName](const boost::system::error_code& ec1,
+                                         std::variant<std::vector<std::string>>&
+                                             association) {
+                            if (ec1)
+                            {
+                                BMCWEB_LOG_ERROR("{} : {}", validPath,
+                                                 ec1.message());
+                                return;
+                            }
+                            std::vector<std::string>* data =
+                                std::get_if<std::vector<std::string>>(
+                                    &association);
+                            if (data == nullptr || data->empty())
+                            {
+                                BMCWEB_LOG_ERROR(
+                                    "{} : No chassis association found",
+                                    validPath);
+                                return;
+                            }
+                            std::filesystem::path chassisPath(data->front());
+                            std::string sensorChassisID =
+                                chassisPath.filename();
+                            if (sensorChassisID == chassisID)
+                            {
+                                crow::connections::systemBus->async_method_call(
+                                    [asyncResp, chassisID, &fanList,
+                                     sensorName](
+                                        const boost::system::error_code& ec2,
+                                        const std::variant<double>& value) {
+                                        if (ec2)
+                                        {
+                                            BMCWEB_LOG_DEBUG(
+                                                "Can't get Fan speed!");
+                                            messages::internalError(
+                                                asyncResp->res);
+                                            return;
+                                        }
+
+                                        const double* attributeValue =
+                                            std::get_if<double>(&value);
+                                        if (attributeValue == nullptr)
+                                        {
+                                            // illegal property
+                                            messages::internalError(
+                                                asyncResp->res);
+                                            return;
+                                        }
+                                        std::string tempPath =
+                                            "/redfish/v1/Chassis/" + chassisID +
+                                            "/Sensors/";
+                                        fanList.push_back(
+                                            {{"DeviceName",
+                                              "Chassis Fan #" + sensorName},
+                                             {"SpeedRPM", *attributeValue},
+                                             {"DataSourceUri",
+                                              tempPath + sensorName},
+                                             {"@odata.id",
+                                              tempPath + sensorName}});
+                                    },
+                                    connectionName, validPath,
+                                    "org.freedesktop.DBus.Properties", "Get",
+                                    "xyz.openbmc_project.Sensor.Value",
+                                    "Value");
+                            }
+                        });
+                }
+                else
+                {
+                    BMCWEB_LOG_DEBUG(
+                        "This is not a fan-related sensor,sensortype = {}",
+                        sensorType);
+                    continue;
+                }
+            }
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
+        "/xyz/openbmc_project/sensors", 0, sensorInterfaces);
+}
+
+inline void handleEnvironmentMetricsPatchBody(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
+{
+    std::optional<nlohmann::json> powerLimit;
+    std::optional<nlohmann::json> oem;
+
+    // Read json request
+    if (!json_util::readJsonAction(req, asyncResp->res, "PowerLimitWatts",
+                                   powerLimit, "Oem", oem))
+    {
+        return;
+    }
+
+    // Update power limit
+    if (powerLimit)
+    {
+        std::optional<int> setPoint;
+        if (json_util::readJson(*powerLimit, asyncResp->res, "SetPoint",
+                                setPoint))
+        {
+            const std::array<const char*, 1> interfacesList = {
+                "xyz.openbmc_project.Inventory.Item.Chassis"};
+
+            crow::connections::systemBus->async_method_call(
+                [asyncResp, chassisId,
+                 setPoint](const boost::system::error_code& ec,
+                           const dbus::utility::GetSubTreeType& subtree) {
+                    if (ec)
+                    {
+                        messages::internalError(asyncResp->res);
+                        return;
+                    }
+
+                    // Iterate over all retrieved ObjectPaths.
+                    for (const std::pair<
+                             std::string,
+                             std::vector<std::pair<std::string,
+                                                   std::vector<std::string>>>>&
+                             object : subtree)
+                    {
+                        const std::string& path = object.first;
+                        const std::vector<
+                            std::pair<std::string, std::vector<std::string>>>&
+                            connectionNames = object.second;
+
+                        sdbusplus::message::object_path objPath(path);
+                        if (objPath.filename() != chassisId)
+                        {
+                            continue;
+                        }
+
+                        if (connectionNames.empty())
+                        {
+                            BMCWEB_LOG_ERROR("Got 0 Connection names");
+                            continue;
+                        }
+
+                        const std::string& connectionName =
+                            connectionNames[0].first;
+                        (void)connectionName;
+
+                        crow::connections::systemBus->async_method_call(
+                            [asyncResp, chassisId, setPoint](
+                                const boost::system::error_code& ec1,
+                                std::variant<std::vector<std::string>>& resp) {
+                                if (ec1)
+                                {
+                                    messages::internalError(asyncResp->res);
+                                    return;
+                                }
+                                std::vector<std::string>* data =
+                                    std::get_if<std::vector<std::string>>(
+                                        &resp);
+                                if (data == nullptr)
+                                {
+                                    return;
+                                }
+                                for (const std::string& ctrlPath : *data)
+                                {
+                                    std::string resourceType = "Chassis";
+                                    redfish::nvidia_env_utils::patchPowerLimit(
+                                        asyncResp, chassisId, *setPoint,
+                                        ctrlPath, resourceType);
+                                }
+                            },
+                            "xyz.openbmc_project.ObjectMapper",
+                            path + "/power_controls",
+                            "org.freedesktop.DBus.Properties", "Get",
+                            "xyz.openbmc_project.Association", "endpoints");
+
+                        return;
+                    }
+
+                    messages::resourceNotFound(
+                        asyncResp->res, "#Chassis.v1_15_0.Chassis", chassisId);
+                },
+                "xyz.openbmc_project.ObjectMapper",
+                "/xyz/openbmc_project/object_mapper",
+                "xyz.openbmc_project.ObjectMapper", "GetSubTree",
+                "/xyz/openbmc_project/inventory", 0, interfacesList);
+        }
+    }
+
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        if (oem)
+        {
+            std::optional<nlohmann::json> nvidiaObj;
+            if (!redfish::json_util::readJson(*oem, asyncResp->res, "Nvidia",
+                                              nvidiaObj))
+            {
+                return;
+            }
+            if (nvidiaObj)
+            {
+                std::optional<std::string> powerMode;
+                if (!redfish::json_util::readJson(*nvidiaObj, asyncResp->res,
+                                                  "PowerMode", powerMode))
+                {
+                    return;
+                }
+                if (powerMode)
+                {
+                    messages::propertyNotWritable(asyncResp->res, "PowerMode");
+                }
+            }
+        }
+    }
+}
+
+inline void populateEnvironmentMetricsOemAndData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& validChassisPath)
+{
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+            "#NvidiaEnvironmentMetrics.v1_2_0.NvidiaEnvironmentMetrics";
+    }
+
+    getfanSpeedsPercent(asyncResp, chassisId);
+    getPowerWattsEnergyJoules(asyncResp, chassisId, validChassisPath);
+
+    const std::array<std::string_view, 2> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Board",
+        "xyz.openbmc_project.Inventory.Item.Chassis"};
+    getPowerAndControlData(asyncResp, chassisId, interfaces);
 }
 
 } // namespace nvidia_env_utils

@@ -12,7 +12,7 @@
 #include "event_service_manager.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
-#include "nvidia_event_service_manager.hpp"
+#include "nvidia_event_service.hpp"
 #include "pam_authenticate.hpp"
 #include "privileges.hpp"
 #include "query.hpp"
@@ -143,14 +143,7 @@ inline void handleSessionDelete(
 
     persistent_data::SessionStore::getInstance().removeSession(session);
     messages::success(asyncResp->res);
-    if constexpr (BMCWEB_REDFISH_DBUS_LOG)
-    {
-        // Send an event for session deletion
-        NvEvent event =
-            redfish::EventUtil::createEventResourceRemoved("SessionService");
-        redfish::EventServiceManager::getInstance().sendEventWithOOC(
-            std::string(req.target()), event);
-    }
+    sendResourceDeletedEvent(req.target(), "SessionService");
 }
 
 inline nlohmann::json getSessionCollectionMembers()
@@ -290,7 +283,8 @@ inline void handleSessionCollectionPost(
     bool isConfigureSelfOnly = pamrc == PAM_NEW_AUTHTOK_REQD;
     if ((pamrc != PAM_SUCCESS) && !isConfigureSelfOnly)
     {
-        handleAccountLocked(username, asyncResp, req);
+        messages::resourceAtUriUnauthorized(asyncResp->res, req.url(),
+                                            "Invalid username or password");
         return;
     }
 
@@ -305,15 +299,7 @@ inline void handleSessionCollectionPost(
         return;
     }
     processAfterSessionCreation(asyncResp, req, username, session);
-
-    if constexpr (BMCWEB_REDFISH_DBUS_LOG)
-    {
-        // Send an event for session creation
-        NvEvent event =
-            redfish::EventUtil::createEventResourceCreated("SessionService");
-        redfish::EventServiceManager::getInstance().sendEventWithOOC(
-            std::string(req.target()), event);
-    }
+    sendResourceCreatedEvent(req.target(), "SessionService");
 }
 
 inline void handleSessionServiceHead(
@@ -386,19 +372,13 @@ inline void handleSessionServicePatch(
                 sessionTimeoutInseconds);
             messages::propertyValueModified(asyncResp->res, "SessionTimeOut",
                                             std::to_string(*sessionTimeout));
-            // update the message severity
+            // update the message severity  // Nvidia code starts here
             redfish::message_registries::updateMessageSeverity(
                 asyncResp, "SessionTimeOut", "OK");
-            if constexpr (BMCWEB_REDFISH_DBUS_LOG)
-            {
-                // send redfish event for property change
-                NvEvent event = redfish::EventUtil::createEventPropertyModified(
-                    "SessionTimeOut",
-                    std::to_string(sessionTimeoutInseconds.count()),
-                    "SessionService");
-                redfish::EventServiceManager::getInstance().sendEventWithOOC(
-                    std::string(req.target()), event);
-            }
+            sendPropertyModifiedEvent(
+                req.target(), "SessionService", "SessionTimeOut",
+                std::to_string(sessionTimeoutInseconds.count()));
+            // Nvidia code starts here
         }
         else
         {

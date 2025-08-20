@@ -94,12 +94,13 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                        const crow::Request& req, const bool& reqIstModeEnabled)
 {
     std::string istIface = "xyz.openbmc_project.Control.Mode";
+    auto reqPayload = std::make_shared<task::Payload>(req);
 
     // Async method call to get phosphor settings dbus object path and service
     crow::connections::systemBus->async_method_call(
-        [aResp, req, reqIstModeEnabled,
-         istIface](const boost::system::error_code& ec,
-                   const dbus::utility::MapperGetSubTreeResponse& subtree) {
+        [aResp, reqIstModeEnabled, istIface,
+         reqPayload](const boost::system::error_code& ec,
+                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("D-Bus response error on GetSubTree {}", ec);
@@ -128,9 +129,9 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 
             // Async method call to get Current ISTmode
             crow::connections::systemBus->async_method_call(
-                [aResp, req, reqIstModeEnabled, istIface, path,
-                 service](const boost::system::error_code& ec1,
-                          const std::variant<std::string>& istMode) {
+                [aResp, reqIstModeEnabled, istIface, path, service,
+                 reqPayload](const boost::system::error_code& ec1,
+                             const std::variant<std::string>& istMode) {
                     if (ec1)
                     {
                         BMCWEB_LOG_ERROR("DBUS response error for "
@@ -166,9 +167,9 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 
                     // Async method call to get current Status
                     crow::connections::systemBus->async_method_call(
-                        [aResp, reqIstModeEnabled,
-                         req](const boost::system::error_code& ec2,
-                              const std::variant<std::string>& istStatus) {
+                        [aResp, reqIstModeEnabled, reqPayload](
+                            const boost::system::error_code& ec2,
+                            const std::variant<std::string>& istStatus) {
                             if (ec2)
                             {
                                 BMCWEB_LOG_DEBUG(
@@ -208,8 +209,8 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 
                             // Async method call setISTMode
                             crow::connections::systemBus->async_method_call(
-                                [aResp, req, reqIstModeEnabled](
-                                    boost::system::error_code& ec3) {
+                                [aResp, reqIstModeEnabled,
+                                 reqPayload](boost::system::error_code& ec3) {
                                     if (ec3)
                                     {
                                         BMCWEB_LOG_ERROR(
@@ -310,7 +311,8 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                             istMgrPath + "'");
                                     task->startTimer(std::chrono::seconds(150));
                                     task->populateResp(aResp->res);
-                                    task->payload.emplace(req);
+                                    task->payload.emplace(
+                                        std::move(*reqPayload));
                                 },
                                 istMgrServ, istMgrPath, istMgrIface,
                                 "setISTMode", setParam);

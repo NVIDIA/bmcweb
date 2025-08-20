@@ -2,17 +2,14 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include "async_resp.hpp"
-<<<<<<< HEAD
 #include "background_copy.hpp"
-||||||| 80d2ef31c
-=======
 #include "boost_formatters.hpp"
->>>>>>> origin/master
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "in_band.hpp"
 #include "logging.hpp"
 #include "nvidia_async_call_utils.hpp"
+#include "nvidia_dbus_utility.hpp"
 #include "utils/dbus_utils.hpp"
 
 #include <boost/container/flat_map.hpp>
@@ -28,7 +25,6 @@
 
 namespace redfish
 {
-
 static constexpr std::array<std::string_view, 2> chassisInterfaces = {
     "xyz.openbmc_project.Inventory.Item.Board",
     "xyz.openbmc_project.Inventory.Item.Chassis"};
@@ -233,7 +229,8 @@ inline std::string getFeatureReadyStateType(const std::string& stateType)
 
 /**
  * @brief Convert state of EstimatePowerMethod PDI
- * @param state   stateOfEstimatePowerMEthod property of static power hint PDI
+ * @param state   stateOfEstimatePowerMEthod property of static power hint
+ * PDI
  */
 inline std::string getStateOfEstimatePowerMethod(const std::string& state)
 {
@@ -651,7 +648,7 @@ inline bool isChassisIdInAllowList(const std::string& chassisId,
                                    const std::string& property)
 {
     const auto& allowListMap = getRoTChassisAllowListMap();
-    if (allowListMap.find(property) == allowListMap.end())
+    if (!allowListMap.contains(property))
     {
         return false;
     }
@@ -687,7 +684,7 @@ inline void handleMctpInBandActions(
 
     dbus::utility::getDbusObject(
         "/au/com/codeconstruct/mctp1", interfaces,
-        [req, asyncResp, chassisId, chassisUUID, option,
+        [&req, asyncResp, chassisId, chassisUUID, option,
          enabled](const boost::system::error_code& ec,
                   const dbus::utility::MapperGetObject& resp) mutable {
             if (ec || resp.empty())
@@ -706,7 +703,7 @@ inline void handleMctpInBandActions(
                 }
                 std::string serviceName = it.first;
                 crow::connections::systemBus->async_method_call(
-                    [req, asyncResp, chassisUUID, serviceName, option, enabled,
+                    [&req, asyncResp, chassisUUID, serviceName, option, enabled,
                      chassisId,
                      chassisProcessed](const boost::system::error_code& ec2,
                                        const dbus::utility::ManagedObjectType&
@@ -766,7 +763,8 @@ inline void handleMctpInBandActions(
                                 }
                             }
 
-                            // only check EID and UUID if it's a MCTP endpoint
+                            // only check EID and UUID if it's a MCTP
+                            // endpoint
                             if (!isMctpEp)
                             {
                                 continue;
@@ -793,7 +791,7 @@ inline void handleMctpInBandActions(
                             }
                         }
 
-                        if (foundEID and not*chassisProcessed)
+                        if (foundEID and not *chassisProcessed)
                         {
                             *chassisProcessed = true;
                             switch (option)
@@ -812,18 +810,19 @@ inline void handleMctpInBandActions(
                                     // updateInBandEnabled,
                                     // updateBackgroundCopyEnabled, and
                                     // updateBackgroundCopyStatus
-                                    // asynchronously, may cause unpredictable
-                                    // behavior. These methods use
-                                    // 'mctp-vdm-util', which is not designed to
-                                    // handle more than one request at the same
-                                    // time. Running more than one command
-                                    // simultaneously may result in output from
-                                    // a previous (or another) request. The fix
-                                    // addresses this issue by changing the way
-                                    // the functions are called, simulating
-                                    // synchronous execution by invoking each
-                                    // command sequentially instead of
-                                    // simultaneously.
+                                    // asynchronously, may cause
+                                    // unpredictable behavior. These methods
+                                    // use 'mctp-vdm-util', which is not
+                                    // designed to handle more than one
+                                    // request at the same time. Running
+                                    // more than one command simultaneously
+                                    // may result in output from a previous
+                                    // (or another) request. The fix
+                                    // addresses this issue by changing the
+                                    // way the functions are called,
+                                    // simulating synchronous execution by
+                                    // invoking each command sequentially
+                                    // instead of simultaneously.
 
                                     uint32_t endpointId = *eid;
                                     if (allowListMap.empty())
@@ -836,25 +835,22 @@ inline void handleMctpInBandActions(
                                         automaticBackgroundCopyAllowList{};
                                     std::vector<std::string>
                                         backgroundCopyStatusAllowList{};
-                                    if (allowListMap.find(
-                                            "InbandUpdatePolicyEnabled") !=
-                                        allowListMap.end())
+                                    if (allowListMap.contains(
+                                            "InbandUpdatePolicyEnabled"))
                                     {
                                         inbandUpdatePolicyAllowList =
                                             allowListMap.at(
                                                 "InbandUpdatePolicyEnabled");
                                     }
-                                    if (allowListMap.find(
-                                            "AutomaticBackgroundCopyEnabled") !=
-                                        allowListMap.end())
+                                    if (allowListMap.contains(
+                                            "AutomaticBackgroundCopyEnabled"))
                                     {
                                         automaticBackgroundCopyAllowList =
                                             allowListMap.at(
                                                 "AutomaticBackgroundCopyEnabled");
                                     }
-                                    if (allowListMap.find(
-                                            "BackgroundCopyStatus") !=
-                                        allowListMap.end())
+                                    if (allowListMap.contains(
+                                            "BackgroundCopyStatus"))
                                     {
                                         backgroundCopyStatusAllowList =
                                             allowListMap.at(
@@ -863,7 +859,7 @@ inline void handleMctpInBandActions(
                                     updateInBandEnabled(
                                         req, asyncResp, endpointId,
                                         inbandUpdatePolicyAllowList, chassisId,
-                                        [req, asyncResp, endpointId,
+                                        [&req, asyncResp, endpointId,
                                          automaticBackgroundCopyAllowList,
                                          backgroundCopyStatusAllowList,
                                          chassisId]() {
@@ -871,7 +867,7 @@ inline void handleMctpInBandActions(
                                                 req, asyncResp, endpointId,
                                                 automaticBackgroundCopyAllowList,
                                                 chassisId,
-                                                [req, asyncResp, endpointId,
+                                                [&req, asyncResp, endpointId,
                                                  backgroundCopyStatusAllowList,
                                                  chassisId]() {
                                                     updateBackgroundCopyStatus(
@@ -1090,8 +1086,8 @@ inline void getChassisUUID(const crow::Request& req,
     sdbusplus::asio::getProperty<std::string>(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Common.UUID", "UUID",
-        [req, asyncResp, isERoT, path](const boost::system::error_code& ec,
-                                       const std::string& chassisUUID) {
+        [&req, asyncResp, isERoT, path](const boost::system::error_code& ec,
+                                        const std::string& chassisUUID) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for UUID");
@@ -1213,113 +1209,6 @@ inline void getChassisSerialNumber(
 }
 
 template <typename CallbackFunc>
-inline void isEROTChassis(const std::string& chassisID, CallbackFunc&& callback)
-{
-    const std::array<const char*, 1> interfaces = {
-        "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
-
-    crow::connections::systemBus->async_method_call(
-        [chassisID, callback](const boost::system::error_code& ec,
-                              const dbus::utility::GetSubTreeType& subtree) {
-            if (ec)
-            {
-                callback(false, false);
-                return;
-            }
-            const auto objIt = std::find_if(
-                subtree.begin(), subtree.end(),
-                [chassisID](
-                    const std::pair<
-                        std::string,
-                        std::vector<std::pair<
-                            std::string, std::vector<std::string>>>>& object) {
-                    return chassisID ==
-                           sdbusplus::message::object_path(object.first)
-                               .filename();
-                });
-            if (objIt == subtree.end())
-            {
-                BMCWEB_LOG_DEBUG("Dbus Object not found:{}", chassisID);
-                callback(false, false);
-                return;
-            }
-            std::string serviceName;
-            for (const auto& service : objIt->second)
-            {
-                if (!serviceName.empty())
-                {
-                    break;
-                }
-                for (const auto& interface : service.second)
-                {
-                    if (interface ==
-                        "xyz.openbmc_project.Association.Definitions")
-                    {
-                        serviceName = service.first;
-                        break;
-                    }
-                }
-            }
-            if (serviceName.empty())
-            {
-                callback(false, false);
-                return;
-            }
-            sdbusplus::asio::getProperty<Associations>(
-                *crow::connections::systemBus, serviceName, objIt->first,
-                "xyz.openbmc_project.Association.Definitions", "Associations",
-                [chassisID, callback](const boost::system::error_code& ec1,
-                                      const Associations& associations) {
-                    if (ec1)
-                    {
-                        callback(false, false);
-                        return;
-                    }
-                    for (const auto& assoc : associations)
-                    {
-                        if (std::get<1>(assoc) == "associated_ROT")
-                        {
-                            // check if it is CPU ERoT
-                            std::string path = std::get<2>(assoc);
-                            size_t rotNamePos = path.rfind('/');
-                            if (rotNamePos == std::string::npos ||
-                                rotNamePos == (path.size() - 1))
-                            {
-                                callback(true, false);
-                                return;
-                            }
-
-                            constexpr std::array<std::string_view, 1>
-                                cpuInterface = {
-                                    "xyz.openbmc_project.Inventory.Item.Cpu"};
-
-                            dbus::utility::getSubTreePaths(
-                                path.substr(0, rotNamePos), 0, cpuInterface,
-                                [callback](const boost::system::error_code& ec2,
-                                           const dbus::utility::
-                                               MapperGetSubTreePathsResponse&
-                                                   subtreePaths) {
-                                    if ((ec2) || (subtreePaths.empty()))
-                                    {
-                                        callback(true, false);
-                                        return;
-                                    }
-                                    // It's CPU ERoT for DOT actions
-                                    callback(true, true);
-                                });
-                            return;
-                        }
-                    }
-                    callback(false, false);
-                });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/inventory", 0, interfaces);
-}
-
-template <typename CallbackFunc>
 inline void getAssociationEndpoint(const std::string& objPath,
                                    CallbackFunc&& callback)
 {
@@ -1347,9 +1236,9 @@ inline void getAssociationEndpoint(const std::string& objPath,
                     dbus_utils::propertyInterface,
                     dbus_utils::associationInterface);
                 /*
-                                Object must have associated inventory object.
-                                Exemplary test on hardware:
-                                    busctl call xyz.openbmc_project.ObjectMapper
+                                Object must have associated inventory
+                   object. Exemplary test on hardware: busctl call
+                   xyz.openbmc_project.ObjectMapper
                    \
                                     /xyz/openbmc_project/inventory/system/chassis/HGX_ERoT_FPGA_0/inventory
                    \

@@ -1571,7 +1571,6 @@ inline void handleIrreversibleConfigResponse(
 }
 
 inline void setIrreversibleConfig(
-    const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, bool state)
 {
@@ -1580,7 +1579,7 @@ inline void setIrreversibleConfig(
     auto chassisCfgPath = std::format("{}{}", chassisDbusPath, chassisId);
     dbus::utility::getDbusObject(
         chassisCfgPath, cfgIntf,
-        [req, asyncResp, chassisId, chassisCfgPath,
+        [asyncResp, chassisId, chassisCfgPath,
          state](const boost::system::error_code& ec,
                 const ::dbus::utility::MapperGetObject& mapperResponse) {
             if (ec)
@@ -1603,7 +1602,7 @@ inline void setIrreversibleConfig(
             const auto& valueIface = *mapperResponse.begin();
             const std::string& service = valueIface.first;
             irreversibleConfigTimer =
-                std::make_unique<boost::asio::steady_timer>(*req.ioService);
+                std::make_unique<boost::asio::steady_timer>(getIoContext());
             irreversibleConfigTimer->expires_after(
                 std::chrono::seconds(timeoutTimeSeconds));
             irreversibleConfigTimer->async_wait(
@@ -1687,7 +1686,7 @@ inline void handleSetIrreversibleConfigAction(
                                               "requestType");
         return;
     }
-    setIrreversibleConfig(req, asyncResp, chassisId, state);
+    setIrreversibleConfig(asyncResp, chassisId, state);
 }
 
 inline void handleUpdateMinSecVersionActionInfo(
@@ -1788,7 +1787,6 @@ inline void handleupdateMinSecVersionResponse(
 }
 
 inline void updateMinSecurityVersion(
-    const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& componentId,
     const std::string& requestType, const uint16_t reqMinSecVersion,
@@ -1807,8 +1805,8 @@ inline void updateMinSecurityVersion(
     }
     dbus::utility::getDbusObject(
         securityPath, minSecIntf,
-        [req, asyncResp, chassisId, securityPath, componentId, requestType,
-         nonce, reqMinSecVersion](
+        [asyncResp, chassisId, securityPath, componentId, requestType, nonce,
+         reqMinSecVersion](
             const boost::system::error_code& ec,
             const ::dbus::utility::MapperGetObject& mapperResponse) {
             if (ec)
@@ -1831,7 +1829,7 @@ inline void updateMinSecurityVersion(
             const auto& valueIface = *mapperResponse.begin();
             const std::string& service = valueIface.first;
             updateMinSecVersionTimer =
-                std::make_unique<boost::asio::steady_timer>(*req.ioService);
+                std::make_unique<boost::asio::steady_timer>(getIoContext());
             updateMinSecVersionTimer->expires_after(
                 std::chrono::seconds(timeoutTimeSeconds));
             updateMinSecVersionTimer->async_wait(
@@ -1925,8 +1923,8 @@ inline void handleUpdateMinSecVersionAction(
                                   softwareSecurityCommonInterface);
         reqMinSecVersion = 0;
     }
-    updateMinSecurityVersion(req, asyncResp, chassisId, componentId,
-                             requestType, reqMinSecVersion, nonce);
+    updateMinSecurityVersion(asyncResp, chassisId, componentId, requestType,
+                             reqMinSecVersion, nonce);
 }
 
 inline void handleRevokeKeysActionInfo(
@@ -2027,8 +2025,7 @@ inline void handleRevokeKeysResponse(
     }
 }
 
-inline void revokeKeys(const crow::Request& req,
-                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+inline void revokeKeys(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const std::string& chassisId,
                        const std::string& componentId,
                        const std::string& requestType, uint64_t nonce,
@@ -2047,9 +2044,9 @@ inline void revokeKeys(const crow::Request& req,
     }
     dbus::utility::getDbusObject(
         securityPath, signingConfigIntf,
-        [req, asyncResp, chassisId, securityPath, componentId, requestType,
-         keys, nonce](const boost::system::error_code& ec,
-                      const ::dbus::utility::MapperGetObject& mapperResponse) {
+        [asyncResp, chassisId, securityPath, componentId, requestType, keys,
+         nonce](const boost::system::error_code& ec,
+                const ::dbus::utility::MapperGetObject& mapperResponse) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("SigningConfig interface not found : {}, {}",
@@ -2069,7 +2066,7 @@ inline void revokeKeys(const crow::Request& req,
             const auto& valueIface = *mapperResponse.begin();
             const std::string& service = valueIface.first;
             revokeKeysTimer =
-                std::make_unique<boost::asio::steady_timer>(*req.ioService);
+                std::make_unique<boost::asio::steady_timer>(getIoContext());
             revokeKeysTimer->expires_after(
                 std::chrono::seconds(timeoutTimeSeconds));
             revokeKeysTimer->async_wait(
@@ -2159,8 +2156,7 @@ inline void handleRevokeKeysAction(
                                   softwareSecurityCommonInterface);
         keys = std::vector<uint8_t>();
     }
-    revokeKeys(req, asyncResp, chassisId, componentId, requestType, nonce,
-               *keys);
+    revokeKeys(asyncResp, chassisId, componentId, requestType, nonce, *keys);
 }
 
 } // namespace firmware_info

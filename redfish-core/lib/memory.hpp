@@ -20,15 +20,8 @@
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/hex_utils.hpp"
-<<<<<<< HEAD
-#include "utils/json_utils.hpp"
-#include "utils/nvidia_memory.hpp"
-||||||| 80d2ef31c
-=======
-#include "utils/json_utils.hpp"
 
 #include <asm-generic/errno.h>
->>>>>>> origin/master
 
 #include <boost/beast/http/verb.hpp>
 #include <boost/container/flat_map.hpp>
@@ -457,15 +450,14 @@ inline void assembleDimmProperties(
     const std::string* sparePartNumber = nullptr;
     const std::string* model = nullptr;
     const std::string* locationCode = nullptr;
-<<<<<<< HEAD
+    const bool* functional = nullptr;
+
+    /* Nvidia Added Properties Start*/
     const std::string* locationType = nullptr;
     const std::string* locationContext = nullptr;
     const bool* rowMappingFailureState = nullptr;
     const bool* rowMappingPendingState = nullptr;
-||||||| 80d2ef31c
-=======
-    const bool* functional = nullptr;
->>>>>>> origin/master
+    /* Nvidia Added Properties End*/
 
     const bool success = sdbusplus::unpackPropertiesNoThrow(
         dbus_utils::UnpackErrorPrinter(), properties, "MemoryDataWidth",
@@ -478,16 +470,12 @@ inline void assembleDimmProperties(
         memoryConfiguredSpeedInMhz, "MemoryType", memoryType, "Channel",
         channel, "MemoryController", memoryController, "Slot", slot, "Socket",
         socket, "SparePartNumber", sparePartNumber, "Model", model,
-<<<<<<< HEAD
-        "LocationCode", locationCode, "LocationType", locationType,
-        "LocationContext", locationContext, "RowRemappingFailureState",
-        rowMappingFailureState, "RowRemappingPendingState",
-        rowMappingPendingState);
-||||||| 80d2ef31c
-        "LocationCode", locationCode);
-=======
-        "LocationCode", locationCode, "Functional", functional);
->>>>>>> origin/master
+        "LocationCode", locationCode, "Functional", functional, "LocationType",
+        /* Nvidia Added Properties Start*/
+        locationType, "LocationContext", locationContext,
+        "RowRemappingFailureState", rowMappingFailureState,
+        "RowRemappingPendingState", rowMappingPendingState);
+    /* Nvidia Added Properties End*/
 
     if (!success)
     {
@@ -659,10 +647,12 @@ inline void assembleDimmProperties(
 
     if (model != nullptr)
     {
+        /* Nvidia Added code start*/
         if (!(model->empty()))
         {
             asyncResp->res.jsonValue[jsonPtr]["Model"] = *model;
         }
+        /* Nvidia Added code end*/
     }
 
     if (locationCode != nullptr)
@@ -671,6 +661,7 @@ inline void assembleDimmProperties(
             .jsonValue[jsonPtr]["Location"]["PartLocation"]["ServiceLabel"] =
             *locationCode;
     }
+    /* Nvidia Added code start*/
     if (locationType != nullptr)
     {
         asyncResp->res
@@ -699,6 +690,7 @@ inline void assembleDimmProperties(
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             "#NvidiaMemory.v1_0_0.NvidiaMemory";
     }
+    /* Nvidia Added code End*/
 
     getPersistentMemoryProperties(asyncResp, properties, jsonPtr);
 }
@@ -824,8 +816,9 @@ inline void afterGetDimmData(
         bool dimmInterface = false;
         bool associationInterface = false;
         /* Note: Multiple D-Bus objects can provide details for the Memory
-         * object: 1) Dimm is the primary object 2) Additional partitions could
-         * exist per Dimm. Only consider the object found if the Dimm is found.
+         * object: 1) Dimm is the primary object 2) Additional partitions
+         * could exist per Dimm. Only consider the object found if the Dimm
+         * is found.
          */
         for (const auto& [serviceName, interfaceList] : serviceMap)
         {
@@ -834,75 +827,28 @@ inline void afterGetDimmData(
                 if (interface == "xyz.openbmc_project.Inventory.Item.Dimm" &&
                     path.filename() == dimmId)
                 {
-<<<<<<< HEAD
-                    for (const auto& interface : interfaces)
-                    {
-                        if (interface ==
-                                "xyz.openbmc_project.Inventory.Item.Dimm" &&
-                            path.filename() == dimmId)
-                        {
-                            getDimmDataByService(asyncResp, dimmId, service,
-                                                 rawPath);
-                            found = true;
-                            // Link association to parent processor
-                            redfish::nvidia_memory::getMemoryProcessorLink(
-                                asyncResp, path);
-                            // Link association to parent chassis
-                            redfish::nvidia_memory::getMemoryChassisLink(
-                                asyncResp, path);
-                        }
-
-                        // partitions are separate as there can be multiple
-                        // per
-                        // device, i.e.
-                        // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition1
-                        // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition2
-                        if (interface ==
-                                "xyz.openbmc_project.Inventory.Item.PersistentMemory.Partition" &&
-                            path.parent_path().filename() == dimmId)
-                        {
-                            getDimmPartitionData(asyncResp, service, rawPath);
-                        }
-                    }
-||||||| 80d2ef31c
-                    for (const auto& interface : interfaces)
-                    {
-                        if (interface ==
-                                "xyz.openbmc_project.Inventory.Item.Dimm" &&
-                            path.filename() == dimmId)
-                        {
-                            getDimmDataByService(asyncResp, dimmId, service,
-                                                 rawPath);
-                            found = true;
-                        }
-
-                        // partitions are separate as there can be multiple
-                        // per
-                        // device, i.e.
-                        // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition1
-                        // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition2
-                        if (interface ==
-                                "xyz.openbmc_project.Inventory.Item.PersistentMemory.Partition" &&
-                            path.parent_path().filename() == dimmId)
-                        {
-                            getDimmPartitionData(asyncResp, service, rawPath);
-                        }
-                    }
-=======
                     // Found the single Dimm
                     getDimmDataByService(asyncResp, dimmId, serviceName,
                                          objectPath);
                     dimmInterface = true;
                     found = true;
+
+                    // Nvidia Added Code Start
+                    redfish::nvidia_memory::getMemoryProcessorLink(asyncResp,
+                                                                   path);
+                    // Link association to parent chassis
+                    redfish::nvidia_memory::getMemoryChassisLink(asyncResp,
+                                                                 path);
+                    // Nvidia Added Code End
                 }
                 else if (interface ==
                          "xyz.openbmc_project.Association.Definitions")
                 {
-                    /* Object has associations. If this object is also a Dimm
-                     * then the association might provide the LED state
-                     * information. After all interfaces for this object have
-                     * been checked the LED information will be gathered if the
-                     * object was a Dimm
+                    /* Object has associations. If this object is also a
+                     * Dimm then the association might provide the LED state
+                     * information. After all interfaces for this object
+                     * have been checked the LED information will be
+                     * gathered if the object was a Dimm
                      */
                     associationInterface = true;
                 }
@@ -916,45 +862,8 @@ inline void afterGetDimmData(
                     // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition1
                     // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition2
                     getDimmPartitionData(asyncResp, serviceName, objectPath);
->>>>>>> origin/master
                 }
             }
-<<<<<<< HEAD
-            // Object not found
-            if (!found)
-            {
-                messages::resourceNotFound(asyncResp->res, "Memory", dimmId);
-                return;
-            }
-            // Set @odata only if object is found
-            asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_20_0.Memory";
-            asyncResp->res.jsonValue["@odata.id"] =
-                boost::urls::format("/redfish/v1/Systems/{}/Memory/{}",
-                                    BMCWEB_REDFISH_SYSTEM_URI_NAME, dimmId);
-            std::string memoryMetricsURI =
-                "/redfish/v1/Systems/" +
-                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Memory/";
-            memoryMetricsURI += dimmId;
-            std::string environmentMetricsURI = memoryMetricsURI;
-            memoryMetricsURI += "/MemoryMetrics";
-            asyncResp->res.jsonValue["Metrics"]["@odata.id"] = memoryMetricsURI;
-            environmentMetricsURI += "/EnvironmentMetrics";
-            asyncResp->res.jsonValue["EnvironmentMetrics"]["@odata.id"] =
-                environmentMetricsURI;
-
-||||||| 80d2ef31c
-            // Object not found
-            if (!found)
-            {
-                messages::resourceNotFound(asyncResp->res, "Memory", dimmId);
-                return;
-            }
-            // Set @odata only if object is found
-            asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_11_0.Memory";
-            asyncResp->res.jsonValue["@odata.id"] =
-                boost::urls::format("/redfish/v1/Systems/{}/Memory/{}",
-                                    BMCWEB_REDFISH_SYSTEM_URI_NAME, dimmId);
-=======
         }
 
         /* If a Dimm has an Association check if it has a LED */
@@ -971,10 +880,15 @@ inline void afterGetDimmData(
         return;
     }
     // Set @odata only if object is found
-    asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_11_0.Memory";
+    // Nvidia : Updated to v1_20_0.Memory from v1_11_0.Memory
+    asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_20_0.Memory";
     asyncResp->res.jsonValue["@odata.id"] =
         boost::urls::format("/redfish/v1/Systems/{}/Memory/{}",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME, dimmId);
+
+    // Nvidia : Added Code Start
+    redfish::nvidia_memory::assignMemoryMetricsLinks(asyncResp, dimmId);
+    // Nvidia : Added Code End
 }
 
 inline void getDimmData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1030,7 +944,6 @@ inline void afterGetValidDimmPath(
         if (path.filename() == dimmId)
         {
             callback(path);
->>>>>>> origin/master
             return;
         }
     }
@@ -1190,6 +1103,7 @@ inline void requestRoutesMemory(App& app)
             std::bind_front(handleMemoryPatch, std::ref(app)));
 }
 
+// Nvidia : Added Code Start
 inline void requestRoutesMemoryMetrics(App& app)
 {
     /**
@@ -1209,5 +1123,6 @@ inline void requestRoutesMemoryMetrics(App& app)
                 redfish::nvidia_memory::getMemoryMetricsData(asyncResp, dimmId);
             });
 }
+// Nvidia : Added Code End
 
 } // namespace redfish

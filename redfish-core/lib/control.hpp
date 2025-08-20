@@ -1278,8 +1278,8 @@ inline void requestRoutesChassisControls(App& app)
                 return;
             }
             auto patchControlSystem = [asyncResp, chassisID, controlID,
-                                       req](const std::optional<std::string>&
-                                                validChassisPath) {
+                                       &req](const std::optional<std::string>&
+                                                 validChassisPath) {
                 if (!validChassisPath)
                 {
                     BMCWEB_LOG_ERROR("Not a valid chassis ID: {}", chassisID);
@@ -1289,8 +1289,8 @@ inline void requestRoutesChassisControls(App& app)
                 }
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisID, controlID,
-                     req](const boost::system::error_code& ec,
-                          std::variant<std::vector<std::string>>& resp) {
+                     &req](const boost::system::error_code& ec,
+                           std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {
                             BMCWEB_LOG_ERROR(
@@ -1376,8 +1376,8 @@ inline void requestRoutesChassisControls(App& app)
 
             auto patchChassisControl = [asyncResp, chassisID, controlID,
                                         patchControlSystem,
-                                        req](const std::optional<std::string>&
-                                                 validChassisPath) {
+                                        &req](const std::optional<std::string>&
+                                                  validChassisPath) {
                 if (!validChassisPath)
                 {
                     BMCWEB_LOG_ERROR("Not a valid chassis ID:{}", chassisID);
@@ -1389,8 +1389,8 @@ inline void requestRoutesChassisControls(App& app)
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, controlID, validChassisPath, patchControlSystem,
                      chassisID,
-                     req](const boost::system::error_code& ec,
-                          std::variant<std::vector<std::string>>& resp) {
+                     &req](const boost::system::error_code& ec,
+                           std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {
                             BMCWEB_LOG_DEBUG(
@@ -1415,9 +1415,9 @@ inline void requestRoutesChassisControls(App& app)
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, controlID, chassisID, processorPath,
                                  validChassisPath,
-                                 req](const boost::system::error_code& ec1,
-                                      const dbus::utility::MapperGetObject&
-                                          objType) {
+                                 &req](const boost::system::error_code& ec1,
+                                       const dbus::utility::MapperGetObject&
+                                           objType) {
                                     if (ec1 || objType.empty())
                                     {
                                         BMCWEB_LOG_ERROR(
@@ -1469,8 +1469,8 @@ inline void requestRoutesChassisControls(App& app)
             };
 
             auto patchControlCpu = [asyncResp, chassisID, controlID,
-                                    req](const std::optional<std::string>&
-                                             validChassisPath) {
+                                    &req](const std::optional<std::string>&
+                                              validChassisPath) {
                 if (!validChassisPath)
                 {
                     BMCWEB_LOG_ERROR("Not a valid chassis ID:{}", chassisID);
@@ -1480,8 +1480,8 @@ inline void requestRoutesChassisControls(App& app)
                 }
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisID, controlID,
-                     req](const boost::system::error_code& ec,
-                          std::variant<std::vector<std::string>>& resp) {
+                     &req](const boost::system::error_code& ec,
+                           std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {
                             BMCWEB_LOG_ERROR(

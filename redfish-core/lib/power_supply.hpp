@@ -10,16 +10,14 @@
 #include "http_request.hpp"
 #include "led.hpp"
 #include "logging.hpp"
+#include "nvidia_power_supply.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/dbus_utils.hpp"
-<<<<<<< HEAD
-#include "utils/nvidia_power_supply_utils.hpp"
-||||||| 80d2ef31c
-=======
 #include "utils/json_utils.hpp"
->>>>>>> origin/master
+#include "utils/nvidia_power_supply_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <asm-generic/errno.h>
@@ -42,7 +40,6 @@
 
 namespace redfish
 {
-
 static constexpr std::array<std::string_view, 1> powerSupplyInterface = {
     "xyz.openbmc_project.Inventory.Item.PowerSupply"};
 
@@ -512,14 +509,9 @@ inline void doPowerSupplyGet(
     getPowerSupplyFirmwareVersion(asyncResp, service, powerSupplyPath);
     getPowerSupplyLocation(asyncResp, service, powerSupplyPath);
     getEfficiencyPercent(asyncResp);
-<<<<<<< HEAD
-
+    getLocationIndicatorActive(asyncResp, powerSupplyPath);
     redfish::nvidia_power_supply_utils::getNvidiaPowerSupply(
         asyncResp, service, powerSupplyPath, powerSupplyId, chassisId);
-||||||| 80d2ef31c
-=======
-    getLocationIndicatorActive(asyncResp, powerSupplyPath);
->>>>>>> origin/master
 }
 
 inline void handlePowerSupplyHead(
@@ -564,47 +556,6 @@ inline void handlePowerSupplyGet(
         std::bind_front(doPowerSupplyGet, asyncResp, chassisId, powerSupplyId));
 }
 
-<<<<<<< HEAD
-inline void doPowerSupplyMetricsGet(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& powerSupplyId,
-    const std::optional<std::string>& validChassisPath)
-{
-    if (!validChassisPath)
-    {
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-        return;
-    }
-
-    // Get the correct Path and Service that match the input parameters
-    getValidPowerSupplyPath(
-        asyncResp, chassisId, powerSupplyId,
-        [asyncResp, chassisId,
-         powerSupplyId](const std::string& powerSupplyPath,
-                        const std::string& /*service*/) {
-            redfish::nvidia_power_supply_utils::getNvidiaPowerSupplyMetrics(
-                asyncResp, chassisId, powerSupplyId, powerSupplyPath);
-        });
-}
-
-inline void handlePowerSupplyMetricsGet(
-    App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& powerSupplyId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    redfish::chassis_utils::getValidChassisPath(
-        asyncResp, chassisId,
-        std::bind_front(doPowerSupplyMetricsGet, asyncResp, chassisId,
-                        powerSupplyId));
-}
-
-||||||| 80d2ef31c
-=======
 inline void doPatchPowerSupply(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const bool locationIndicatorActive, const std::string& powerSupplyPath,
@@ -642,7 +593,6 @@ inline void handlePowerSupplyPatch(
     }
 }
 
->>>>>>> origin/master
 inline void requestRoutesPowerSupply(App& app)
 {
     BMCWEB_ROUTE(
@@ -656,23 +606,16 @@ inline void requestRoutesPowerSupply(App& app)
         .privileges(redfish::privileges::getPowerSupply)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handlePowerSupplyGet, std::ref(app)));
-<<<<<<< HEAD
-
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Chassis/<str>/PowerSubsystem/PowerSupplies/<str>/Metrics/")
-        .privileges(redfish::privileges::getPowerSupplyMetrics)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handlePowerSupplyMetricsGet, std::ref(app)));
-||||||| 80d2ef31c
-=======
 
     BMCWEB_ROUTE(
         app, "/redfish/v1/Chassis/<str>/PowerSubsystem/PowerSupplies/<str>/")
         .privileges(redfish::privileges::patchPowerSupply)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handlePowerSupplyPatch, std::ref(app)));
->>>>>>> origin/master
+
+    // Nvidia Added route
+    requestRoutesPowerSupplyMetrics(app);
+    // Nvidia Added Code Start
 }
 
 } // namespace redfish

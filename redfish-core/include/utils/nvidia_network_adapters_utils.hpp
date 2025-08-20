@@ -21,7 +21,6 @@
 #include "dbus_utility.hpp"
 #include "logging.hpp"
 
-#include <boost/asio.hpp>
 #include <boost/system/error_code.hpp>
 
 #include <algorithm>

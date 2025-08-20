@@ -85,19 +85,6 @@ enum class Role{
     Server,
 };
 
-enum class ConnectorType{
-    Invalid,
-    RJ45,
-    RJ11,
-    DB9Female,
-    DB9Male,
-    DB25Female,
-    DB25Male,
-    USB,
-    mUSB,
-    uUSB,
-};
-
 NLOHMANN_JSON_SERIALIZE_ENUM(SignalType, {
     {SignalType::Invalid, "Invalid"},
     {SignalType::Rs232, "Rs232"},
@@ -174,19 +161,6 @@ NLOHMANN_JSON_SERIALIZE_ENUM(Role, {
     {Role::Invalid, "Invalid"},
     {Role::Client, "Client"},
     {Role::Server, "Server"},
-});
-
-NLOHMANN_JSON_SERIALIZE_ENUM(ConnectorType, {
-    {ConnectorType::Invalid, "Invalid"},
-    {ConnectorType::RJ45, "RJ45"},
-    {ConnectorType::RJ11, "RJ11"},
-    {ConnectorType::DB9Female, "DB9 Female"},
-    {ConnectorType::DB9Male, "DB9 Male"},
-    {ConnectorType::DB25Female, "DB25 Female"},
-    {ConnectorType::DB25Male, "DB25 Male"},
-    {ConnectorType::USB, "USB"},
-    {ConnectorType::mUSB, "mUSB"},
-    {ConnectorType::uUSB, "uUSB"},
 });
 
 }

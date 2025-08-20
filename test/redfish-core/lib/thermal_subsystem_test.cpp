@@ -23,6 +23,7 @@ constexpr const char* validChassisPath = "ChassisPath";
 void assertThermalCollectionGet(crow::Response& res)
 {
     nlohmann::json& json = res.jsonValue;
+    // Nvidia modified odata type from v1_0_0 to v1_3_0
     EXPECT_EQ(json["@odata.type"], "#ThermalSubsystem.v1_3_0.ThermalSubsystem");
     EXPECT_EQ(json["Name"], "Thermal Subsystem");
     EXPECT_EQ(json["Id"], "ThermalSubsystem");

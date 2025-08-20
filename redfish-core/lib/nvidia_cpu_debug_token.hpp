@@ -188,7 +188,7 @@ inline void handleCpuDebugTokenResourceInfo(
     const std::string resourceUri = std::format(
         "/redfish/v1/Systems/{}/Oem/Nvidia/CPUDebugToken", systemName);
 
-    getCpuEid(asyncResp, [req, asyncResp, systemName,
+    getCpuEid(asyncResp, [&req, asyncResp, systemName,
                           resourceUri](uint32_t eid) {
         MctpVdmUtil mctpVdmUtilWrapper(eid);
         mctpVdmUtilWrapper.run(
@@ -365,7 +365,7 @@ inline void handleCpuDisableToken(
                                    systemName);
         return;
     }
-    getCpuEid(asyncResp, [req, asyncResp, systemName](uint32_t eid) {
+    getCpuEid(asyncResp, [&req, asyncResp, systemName](uint32_t eid) {
         MctpVdmUtil mctpVdmUtilWrapper(eid);
         mctpVdmUtilWrapper.run(
             MctpVdmUtilCommand::DEBUG_TOKEN_ERASE, std::monostate(), req,
@@ -604,7 +604,7 @@ inline void handleCpuInstallToken(
     }
     auto dataVector =
         std::vector<uint8_t>(binaryData.begin(), binaryData.end());
-    getCpuEid(asyncResp, [req, asyncResp, systemName,
+    getCpuEid(asyncResp, [&req, asyncResp, systemName,
                           dataVector](uint32_t eid) {
         MctpVdmUtil mctpVdmUtilWrapper(eid);
         mctpVdmUtilWrapper.run(

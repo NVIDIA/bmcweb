@@ -23,6 +23,7 @@
 #include <nlohmann/json.hpp>
 #include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
+#include <utils/nvidia_pcie_utils.hpp>
 
 #include <array>
 #include <cstddef>
@@ -79,19 +80,23 @@ inline void onPcieSlotGetAllDone(
 
     if (generation != nullptr)
     {
+        // Nvidia added code start
         /*TODO: Add support for Gen6 once DMTF schema is updated, to be taken
          * care while upstream sync*/
         // std::optional<pcie_device::PCIeTypes> pcieType =
         //     pcie_util::redfishPcieGenerationFromDbus(*generation);
+        // Nvidia added code end
 
         std::optional<std::string> pcieType =
             pcie_util::redfishPcieGenerationStringFromDbus(*generation);
+        // Nvidia code ends here
         if (!pcieType)
         {
             BMCWEB_LOG_WARNING("Unknown PCIe Slot Generation: {}", *generation);
         }
         else
         {
+            // Nvidia added code start
             /*TODO: Add support for Gen6 once DMTF schema is updated, to be
              * taken care while upstream sync*/
             // if (*pcieType == pcie_device::PCIeTypes::Invalid)
@@ -99,6 +104,8 @@ inline void onPcieSlotGetAllDone(
             //     messages::internalError(asyncResp->res);
             //     return;
             // }
+            // Nvidia added code end
+
             slot["PCIeType"] = *pcieType;
         }
     }

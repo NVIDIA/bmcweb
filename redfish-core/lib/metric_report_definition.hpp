@@ -20,6 +20,7 @@
 #include "utils/json_utils.hpp"
 #include "utils/metric_report_definition_utils.hpp"
 #include "utils/metric_report_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/telemetry_utils.hpp"
 #include "utils/time_utils.hpp"
 
@@ -1327,12 +1328,14 @@ inline void handleMetricReportDefinitionCollectionGet(
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/TelemetryService/MetricReportDefinitions";
     asyncResp->res.jsonValue["Name"] = "Metric Definition Collection";
+    // Nvidia code starts here
     if constexpr (BMCWEB_SHMEM_PLATFORM_METRICS)
     {
         redfish::nvidia_metric_report_def_utils::getMetricReportCollection(
             asyncResp);
         return;
     }
+    // Nvidia code ends here
     constexpr std::array<std::string_view, 1> interfaces{
         telemetry::reportInterface};
     collection_util::getCollectionMembers(
@@ -1498,6 +1501,7 @@ inline void handleMetricReportGet(
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/MetricReport/MetricReport.json>; rel=describedby");
+    // Nvidia code starts here
     if constexpr (BMCWEB_SHMEM_PLATFORM_METRICS)
     {
         redfish::nvidia_metric_report_def_utils::
@@ -1505,47 +1509,19 @@ inline void handleMetricReportGet(
     }
     else
     {
+        // Nvidia code ends here
         dbus::utility::getAllProperties(
             telemetry::service, telemetry::getDbusReportPath(id),
             telemetry::reportInterface,
             [asyncResp,
              id](const boost::system::error_code& ec,
                  const dbus::utility::DBusPropertiesMap& properties) {
-                if (!redfish::telemetry::verifyCommonErrors(asyncResp->res, id,
-                                                            ec))
+                if (!telemetry::formatMessageOnError(asyncResp->res, id, ec))
                 {
-                    return;
+                    telemetry::fillReportDefinition(asyncResp, id, properties);
                 }
-
-<<<<<<< HEAD
-                telemetry::fillReportDefinition(asyncResp, id, properties);
             });
     }
-||||||| 80d2ef31c
-    dbus::utility::getAllProperties(
-        telemetry::service, telemetry::getDbusReportPath(id),
-        telemetry::reportInterface,
-        [asyncResp, id](const boost::system::error_code& ec,
-                        const dbus::utility::DBusPropertiesMap& properties) {
-            if (!redfish::telemetry::verifyCommonErrors(asyncResp->res, id, ec))
-            {
-                return;
-            }
-
-            telemetry::fillReportDefinition(asyncResp, id, properties);
-        });
-=======
-    dbus::utility::getAllProperties(
-        telemetry::service, telemetry::getDbusReportPath(id),
-        telemetry::reportInterface,
-        [asyncResp, id](const boost::system::error_code& ec,
-                        const dbus::utility::DBusPropertiesMap& properties) {
-            if (!telemetry::formatMessageOnError(asyncResp->res, id, ec))
-            {
-                telemetry::fillReportDefinition(asyncResp, id, properties);
-            }
-        });
->>>>>>> origin/master
 }
 
 inline void handleMetricReportDelete(
@@ -1601,10 +1577,15 @@ inline void requestRoutesMetricReportDefinitionCollection(App& app)
             telemetry::handleMetricReportDefinitionCollectionGet,
             std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/TelemetryService/MetricReportDefinitions/")
-        .privileges(redfish::privileges::postMetricReportDefinitionCollection)
-        .methods(boost::beast::http::verb::post)(
-            std::bind_front(handleMetricReportDefinitionsPost, std::ref(app)));
+    if constexpr (!BMCWEB_SHMEM_PLATFORM_METRICS)
+    {
+        BMCWEB_ROUTE(app,
+                     "/redfish/v1/TelemetryService/MetricReportDefinitions/")
+            .privileges(
+                redfish::privileges::postMetricReportDefinitionCollection)
+            .methods(boost::beast::http::verb::post)(std::bind_front(
+                handleMetricReportDefinitionsPost, std::ref(app)));
+    }
 }
 
 inline void requestRoutesMetricReportDefinition(App& app)
@@ -1621,16 +1602,19 @@ inline void requestRoutesMetricReportDefinition(App& app)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleMetricReportGet, std::ref(app)));
 
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/TelemetryService/MetricReportDefinitions/<str>/")
-        .privileges(redfish::privileges::deleteMetricReportDefinition)
-        .methods(boost::beast::http::verb::delete_)(
-            std::bind_front(handleMetricReportDelete, std::ref(app)));
+    if constexpr (!BMCWEB_SHMEM_PLATFORM_METRICS)
+    {
+        BMCWEB_ROUTE(
+            app, "/redfish/v1/TelemetryService/MetricReportDefinitions/<str>/")
+            .privileges(redfish::privileges::deleteMetricReportDefinition)
+            .methods(boost::beast::http::verb::delete_)(
+                std::bind_front(handleMetricReportDelete, std::ref(app)));
 
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/TelemetryService/MetricReportDefinitions/<str>/")
-        .privileges(redfish::privileges::patchMetricReportDefinition)
-        .methods(boost::beast::http::verb::patch)(
-            std::bind_front(telemetry::handleReportPatch, std::ref(app)));
+        BMCWEB_ROUTE(
+            app, "/redfish/v1/TelemetryService/MetricReportDefinitions/<str>/")
+            .privileges(redfish::privileges::patchMetricReportDefinition)
+            .methods(boost::beast::http::verb::patch)(
+                std::bind_front(telemetry::handleReportPatch, std::ref(app)));
+    }
 }
 } // namespace redfish

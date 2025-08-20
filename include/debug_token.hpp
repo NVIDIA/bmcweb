@@ -33,10 +33,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <boost/process.hpp>
-#include <boost/process/async.hpp>
-#include <boost/process/child.hpp>
-
 #include <functional>
 #include <memory>
 #include <sstream>
@@ -263,8 +259,8 @@ class StatusQueryHandler : public OperationHandler
                 BMCWEB_LOG_DEBUG("{}", desc);
                 if (results.empty())
                 {
-                    errCallback(false, desc,
-                                "No valid NSM token status responses");
+                    BMCWEB_LOG_ERROR(
+                        "No NSM objects found that support debug tokens");
                 }
                 if (!endpoints)
                 {

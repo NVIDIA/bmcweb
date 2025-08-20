@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!---->
 <!--################################################################################       -->
-<!--# Redfish OEM Schema:  NvidiaProcessor  v1.5.0                                         -->
+<!--# Redfish OEM Schema:  NvidiaProcessor  v1.7.0                                         -->
 <!--#                                                                                      -->
 <!--# Copyright 2021-2025 NVIDIA.                                                          -->
 <!--# For the full NVIDIA copyright policy, see LICENSE.md                                 -->
@@ -525,6 +525,18 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.Description" String="The in-band settings for InfoROM Filesystem Recreate."/>
           <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for InfoROM Filesystem Recreate."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_7_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_6_0.NvidiaGPU"/>
+      <ComplexType Name="MNNVLinkTopology" BaseType="NvidiaProcessor.v1_3_0.MNNVLinkTopology">
+        <Property Name="LsbIBGUID" Type="Edm.String" Nullable="true">
+          <Annotation Term="Validation.Pattern" String="^[0-9a-fA-F]{16}$"/>
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Multi-Node NVLink IB globally unique identifier in LSB order."/>
+          <Annotation Term="OData.LongDescription" String="Multi-Node NVLink IB globally unique identifier in LSB order."/>
         </Property>
       </ComplexType>
     </Schema>

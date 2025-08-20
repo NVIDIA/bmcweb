@@ -373,7 +373,6 @@ option(
     description: 'Specifies the http request body length limit',
 )
 
-<<<<<<< HEAD
 # BMCWEB_FIRMWARE_IMAGE_LIMIT
 option(
     'firmware-image-limit',
@@ -384,8 +383,6 @@ option(
     description: 'Specifies the firmware image size limit',
 )
 
-||||||| 80d2ef31c
-=======
 # BMCWEB_HTTP_ZSTD
 option(
     'http-zstd',
@@ -394,7 +391,6 @@ option(
     description: 'Allows compression/decompression using zstd',
 )
 
->>>>>>> origin/master
 # BMCWEB_REDFISH_NEW_POWERSUBSYSTEM_THERMALSUBSYSTEM
 option(
     'redfish-new-powersubsystem-thermalsubsystem',
@@ -1265,4 +1261,18 @@ option(
     type: 'feature',
     value: 'enabled',
     description: 'nvidia Dbus log entry handling implementation',
+)
+
+# BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
+option(
+    'enable-unused-upstream-code', 
+    type: 'feature',
+    value: 'disabled', 
+    description: 'Enable unused upstream routes'
+)
+option(
+    'rshim-support',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable/Disable Rshim management',
 )

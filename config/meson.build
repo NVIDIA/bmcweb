@@ -52,7 +52,6 @@ feature_options = [
     'command-shell',
     'command-smbpbi-oob',
     'cookie-auth',
-<<<<<<< HEAD
     'cpu-diag-support',
     'debug-interface-support',
     'dhcp-configuration-update',
@@ -64,20 +63,9 @@ feature_options = [
     'enable-ist-mode',
     'enforce_sensor_name_format',
     'erot-reset',
-    'experimental-http2',
-||||||| 80d2ef31c
-    'experimental-http2',
-    'experimental-redfish-multi-computer-system',
-=======
->>>>>>> origin/master
     'experimental-redfish-dbus-log-subscription',
-<<<<<<< HEAD
     'experimental-redfish-multi-computer-system',
     'fencing-privilege',
-||||||| 80d2ef31c
-=======
-    'experimental-redfish-multi-computer-system',
->>>>>>> origin/master
     'google-api',
     'health-rollup-alternative',
     'hide-host-os-features-init-value',
@@ -86,13 +74,9 @@ feature_options = [
     'host-iface',
     'host-os-features',
     'host-serial-socket',
-<<<<<<< HEAD
     'http-chunking',
-||||||| 80d2ef31c
-=======
     'http-zstd',
     'http2',
->>>>>>> origin/master
     'hypervisor-computer-system',
     'ibm-management-console',
     'insecure-disable-auth',
@@ -104,17 +88,10 @@ feature_options = [
     'insecure-tftp-update',
     'ipmi',
     'kvm',
-<<<<<<< HEAD
     'lldp-dedicated-ports',
     'manual-boot-mode-support',
     'manufacturing-test',
-    'meta-tls-common-name-parsing',
-||||||| 80d2ef31c
-    'meta-tls-common-name-parsing',
-=======
->>>>>>> origin/master
     'mutual-tls-auth',
-<<<<<<< HEAD
     'network-adapters',
     'network-adapters-generic',
     'nic-configuration-update',
@@ -143,10 +120,6 @@ feature_options = [
     'profile-configuration',
     'push-smbios-table-feature',
     'redfish',
-||||||| 80d2ef31c
-=======
-    'redfish',
->>>>>>> origin/master
     'redfish-aggregation',
     'redfish-aggregation-prefix-removal',
     'redfish-allow-deprecated-power-thermal',
@@ -170,16 +143,11 @@ feature_options = [
     'redfish-system-faultlog-dump-log',
     'redfish-updateservice-http-pull',
     'redfish-updateservice-use-dbus',
-<<<<<<< HEAD
     'redfish-use-3-digit-messageid',
     'reset-bios-by-clear-nonvolatile',
-||||||| 80d2ef31c
-    'redfish',
-=======
-    'redfish-use-3-digit-messageid',
->>>>>>> origin/master
     'rest',
     'rmedia',
+    'rshim-support',
     'rsyslog-client',
     'scp-update',
     'session-auth',
@@ -193,6 +161,7 @@ feature_options = [
     'vm-nbdproxy',
     'vm-websocket',
     'xtoken-auth',
+    'enable-unused-upstream-code',
 ]
 
 string_options = [
@@ -237,31 +206,13 @@ int_options = [
     'rfa-delay-subscribe-time',
     'stalesensor-upper-limit-milisecond',
     'update-service-task-timeout',
+    'watchdog-timeout-seconds'
 ]
-
-<<<<<<< HEAD
-array_options = []
-||||||| 80d2ef31c
-int_options = ['http-body-limit']
-=======
-int_options = ['http-body-limit', 'watchdog-timeout-seconds']
->>>>>>> origin/master
 
 feature_options_string = '\n// Feature options\n'
 string_options_string = '\n// String options\n'
 int_options_string = '\n// Integer options\n'
-array_options_string = '\n// Array options\n'
 
-<<<<<<< HEAD
-foreach option_key : feature_options + string_options + int_options + array_options
-    option_key_config = 'BMCWEB_' + option_key.to_upper()
-    option_key_config = option_key_config.replace('-', '_')
-||||||| 80d2ef31c
-foreach option_key : feature_options + string_options + int_options
-    option_key_config = 'BMCWEB_' + option_key.to_upper()
-    option_key_config = option_key_config.replace('-', '_')
-=======
->>>>>>> origin/master
 
 foreach feature_type, feature_list : {
     'Feature': feature_options,
@@ -273,39 +224,6 @@ foreach feature_type, feature_list : {
         option_key_config = 'BMCWEB_' + option_key.to_upper()
         option_key_config = option_key_config.replace('-', '_')
 
-<<<<<<< HEAD
-    opt = get_option(option_key)
-    if string_options.contains(option_key)
-        if opt != ''
-            string_options_string += 'constexpr std::string_view  ' + option_key_config + ' = "' + opt + '";\n'
-        else
-            string_options_string += 'constexpr std::string_view  ' + option_key_config + ';\n'
-        endif
-    elif int_options.contains(option_key)
-        int_options_string += 'constexpr const int         ' + option_key_config + ' = ' + opt.to_string() + ';\n'
-    elif array_options.contains(option_key)
-        array_options_string += 'constexpr std::array<std::string_view, '
-        array_options_string += opt.length().to_string() + '> ' + option_key_config
-        array_options_string += ' = {\n    "'
-        array_options_string += '",\n    "'.join(opt)
-        array_options_string += '"\n};\n'
-    else
-        feature_options_string += 'constexpr const bool        ' + option_key_config + ' = ' + opt.allowed().to_string() + ';\n'
-        opt = opt.allowed().to_string()
-    endif
-    summary(option_key, opt, section: 'Features')
-||||||| 80d2ef31c
-    opt = get_option(option_key)
-    if string_options.contains(option_key)
-        string_options_string += 'constexpr std::string_view  ' + option_key_config + ' = "' + opt + '";\n'
-    elif int_options.contains(option_key)
-        int_options_string += 'constexpr const int         ' + option_key_config + ' = ' + opt.to_string() + ';\n'
-    else
-        feature_options_string += 'constexpr const bool        ' + option_key_config + ' = ' + opt.allowed().to_string() + ';\n'
-        opt = opt.allowed().to_string()
-    endif
-    summary(option_key, opt, section: 'Features')
-=======
         opt = get_option(option_key)
         if feature_type == 'Feature'
             opt = opt.allowed()
@@ -329,7 +247,6 @@ foreach feature_type, feature_list : {
         summary_dict += {option_key: opt}
     endforeach
     summary(summary_dict, section: feature_type + ' Options', bool_yn: true)
->>>>>>> origin/master
 endforeach
 
 
@@ -344,19 +261,9 @@ endif
 loglvlopt = loglvlopt.to_upper()
 string_options_string += 'constexpr std::string_view  BMCWEB_LOGGING_LEVEL' + ' = "' + loglvlopt + '";\n'
 
-<<<<<<< HEAD
-||||||| 80d2ef31c
-# NBD proxy is disabled due to lack of maintenance.  See meson_options.txt
-feature_options_string += 'constexpr const bool        BMCWEB_VM_NBDPROXY = false;\n'
-
-=======
-# NBD proxy is disabled due to lack of maintenance.  See meson_options.txt
-feature_options_string += 'constexpr const bool BMCWEB_VM_NBDPROXY = false;\n'
-
->>>>>>> origin/master
 conf_data.set(
     'BMCWEB_OPTIONS',
-    string_options_string + int_options_string + feature_options_string + array_options_string,
+    string_options_string + int_options_string + feature_options_string,
 )
 
 conf_data.set_quoted(
@@ -386,7 +293,7 @@ if https_port > 0
         configuration: configuration_data(
             {
                 'BMCWEB_PORT': https_port,
-                'HTTP_LEVEL_ALLOWED': 'https',
+                'HTTP_LEVEL_ALLOWED': 'both',
                 'HTTP_AUTH_LEVEL': 'auth',
                 'HTTP_BIND': '',
             },

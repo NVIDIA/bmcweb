@@ -18,6 +18,7 @@
 
 #include "http/logging.hpp"
 
+#include <boost/asio/streambuf.hpp>
 #include <boost/interprocess/streams/bufferstream.hpp>
 #include <nlohmann/json.hpp>
 
@@ -27,6 +28,7 @@
 #include <map>
 #include <optional>
 #include <sstream>
+#include <string>
 #include <tuple>
 #include <unordered_map>
 #include <vector>
@@ -410,13 +412,13 @@ struct VdmTokenStatus
 };
 
 inline std::map<int, VdmTokenStatus> parseVdmUtilWrapperOutput(
-    std::vector<char>& output)
+    boost::asio::streambuf& output)
 {
-    boost::interprocess::bufferstream outputStream(output.data(),
-                                                   output.size());
     std::string line;
     std::map<int, VdmTokenStatus> outputMap;
-    while (std::getline(outputStream, line))
+    std::istream is(&output);
+
+    while (std::getline(is, line))
     {
         if (line.empty())
         {

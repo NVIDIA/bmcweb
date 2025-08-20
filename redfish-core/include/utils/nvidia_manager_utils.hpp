@@ -26,6 +26,7 @@
 #include "registries/privilege_registry.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <boost/system/error_code.hpp>
@@ -480,16 +481,17 @@ inline void requestRouteNSMRawCommand(App& app)
                 uint16_t dataSizeInBytes = 0;
                 bool isLongRunning = false;
                 std::vector<uint8_t> data;
+                uint8_t msgFormatVersion = 0;
 
                 if (nsm_command_support::parseRequestJson(
                         req, asyncResp, commandCode, deviceIdentificationId,
                         deviceRoleId, deviceInstanceId, messageType,
-                        isLongRunning, dataSizeInBytes, data))
+                        isLongRunning, dataSizeInBytes, data, msgFormatVersion))
                 {
                     nsm_command_support::callSendRequest(
                         asyncResp, deviceIdentificationId, deviceRoleId,
                         deviceInstanceId, isLongRunning, messageType,
-                        commandCode, data);
+                        commandCode, data, msgFormatVersion);
                 }
             });
 }
@@ -687,7 +689,7 @@ inline void populateRestrictionModeData(
         BMCWEB_LOG_ERROR("Invalid restriction mode: {}", modeStr);
         return;
     }
-    nlohmann::json& ipmi = asyncResp->res.jsonValue["Oem"]["Nvidia"]["IPMI"];
+    nlohmann::json& ipmi = asyncResp->res.jsonValue["IPMI"];
     ipmi["RestrictionMode"] = mode;
 }
 

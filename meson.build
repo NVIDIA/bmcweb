@@ -101,18 +101,6 @@ if (cxx.get_id() == 'clang')
         '-Wno-padded',
         '-Wno-shadow',
         '-Wno-switch-enum',
-<<<<<<< HEAD
-        '-Wno-unused-macros',
-        '-Wno-covered-switch-default',
-        '-Wno-attributes',
-        '-Wno-comment',
-        '-Wno-disabled-macro-expansion',
-||||||| 80d2ef31c
-        '-Wno-unused-macros',
-        '-Wno-covered-switch-default',
-        '-Wno-disabled-macro-expansion',
-=======
->>>>>>> origin/master
         '-Wno-unneeded-internal-declaration',
         '-Wno-unsafe-buffer-usage-in-container',
         '-Wno-unsafe-buffer-usage-in-libc-call',
@@ -248,21 +236,17 @@ if not openssl.found()
 endif
 bmcweb_dependencies += [openssl]
 
-<<<<<<< HEAD
 if get_option('shmem-platform-metrics').enabled()
     nvtal = dependency('nvidia-tal', required: true)
     add_project_arguments('-DNVIDIA_HAVE_TAL', language: 'cpp')
     bmcweb_dependencies += nvtal
 endif
 
-||||||| 80d2ef31c
-=======
 zstd = dependency('libzstd', required: get_option('http-zstd').allowed())
 if zstd.found()
     add_project_arguments('-DHAVE_ZSTD', language: 'cpp')
     bmcweb_dependencies += [zstd]
 endif
->>>>>>> origin/master
 nghttp2 = dependency('libnghttp2', version: '>=1.52.0', required: false)
 if not nghttp2.found()
     cmake = import('cmake')
@@ -433,13 +417,16 @@ srcfiles_bmcweb = files(
     'redfish-core/src/utils/json_utils.cpp',
     'redfish-core/src/utils/nsm_cmd_support.cpp',
     'redfish-core/src/utils/time_utils.cpp',
+    'redfish-core/src/utils/nvidia_time_utils.cpp',
     'src/boost_asio.cpp',
     'src/boost_asio_ssl.cpp',
     'src/boost_beast.cpp',
     'src/dbus_singleton.cpp',
     'src/dbus_utility.cpp',
     'src/json_html_serializer.cpp',
+    'src/nvidia_dbus_utility.cpp',
     'src/nvidia_persistent_data.cpp',
+    'src/ssl_key_handler.cpp',
     'src/nvidia_ssl_key_handler.cpp',
     'src/ossl_random.cpp',
     'src/webserver_run.cpp',
@@ -473,189 +460,10 @@ executable(
     install: true,
     install_dir: bindir,
 )
+subdir('test')
 
-<<<<<<< HEAD
-srcfiles_unittest = files(
-    'test/http/crow_getroutes_test.cpp',
-    'test/http/http2_connection_test.cpp',
-    'test/http/http_body_test.cpp',
-    'test/http/http_connection_test.cpp',
-    'test/http/http_response_test.cpp',
-    'test/http/mutual_tls.cpp',
-    'test/http/mutual_tls_meta.cpp',
-    'test/http/parsing_test.cpp',
-    'test/http/router_test.cpp',
-    'test/http/server_sent_event_test.cpp',
-    'test/http/utility_test.cpp',
-    'test/http/verb_test.cpp',
-    'test/include/async_resolve_test.cpp',
-    'test/include/credential_pipe_test.cpp',
-    'test/include/dbus_utility_test.cpp',
-    'test/include/google/google_service_root_test.cpp',
-    'test/include/http_utility_test.cpp',
-    'test/include/human_sort_test.cpp',
-    'test/include/ibm/configfile_test.cpp',
-    'test/include/json_html_serializer.cpp',
-    'test/include/multipart_test.cpp',
-    'test/include/openbmc_dbus_rest_test.cpp',
-    'test/include/ossl_random.cpp',
-    'test/include/ssl_key_handler_test.cpp',
-    #'test/redfish-core/include/dbus_log_watcher_test.cpp',
-    'test/include/str_utility_test.cpp',
-    'test/redfish-core/include/event_log_test.cpp',
-    'test/redfish-core/include/event_matches_filter_test.cpp',
-    'test/redfish-core/include/filter_expr_executor_test.cpp',
-    'test/redfish-core/include/filter_expr_parser_test.cpp',
-    'test/redfish-core/include/nvidia_dbus_log_watcher_test.cpp',
-    'test/redfish-core/include/privileges_test.cpp',
-    'test/redfish-core/include/redfish_aggregator_test.cpp',
-    'test/redfish-core/include/redfish_oem_routing_test.cpp',
-    'test/redfish-core/include/redfish_test.cpp',
-    'test/redfish-core/include/registries_test.cpp',
-    'test/redfish-core/include/submit_test_event_test.cpp',
-    'test/redfish-core/include/utils/dbus_utils.cpp',
-    'test/redfish-core/include/utils/error_code_test.cpp',
-    'test/redfish-core/include/utils/hex_utils_test.cpp',
-    'test/redfish-core/include/utils/ip_utils_test.cpp',
-    'test/redfish-core/include/utils/json_utils_test.cpp',
-    'test/redfish-core/include/utils/query_param_test.cpp',
-    'test/redfish-core/include/utils/sensor_utils_test.cpp',
-    'test/redfish-core/include/utils/stl_utils_test.cpp',
-    'test/redfish-core/include/utils/time_utils_test.cpp',
-    'test/redfish-core/lib/chassis_test.cpp',
-    'test/redfish-core/lib/ethernet_test.cpp',
-    'test/redfish-core/lib/log_services_dump_test.cpp',
-    'test/redfish-core/lib/manager_diagnostic_data_test.cpp',
-    'test/redfish-core/lib/metadata_test.cpp',
-    'test/redfish-core/lib/power_subsystem_test.cpp',
-    'test/redfish-core/lib/service_root_test.cpp',
-    'test/redfish-core/lib/system_test.cpp',
-    'test/redfish-core/lib/systems_logservices_postcode.cpp',
-    'test/redfish-core/lib/thermal_subsystem_test.cpp',
-    'test/redfish-core/lib/update_service_test.cpp',
-)
-
-if (get_option('tests').allowed())
-    gtest = dependency(
-        'gtest_main',
-        main: true,
-        version: '>=1.15.0',
-        required: true,
-    )
-    gmock = dependency('gmock', required: true)
-    gtestlib = static_library('gtestlib', dependencies: [gtest, gmock])
-    gtestdep = declare_dependency(
-        link_with: gtestlib,
-        dependencies: [
-            gtest.partial_dependency(includes: true),
-            gmock.partial_dependency(includes: true),
-        ],
-    )
-    # generate the test executable
-    foreach test_src : srcfiles_unittest
-        test_bin = executable(
-            fs.stem(test_src),
-            test_src,
-            link_with: bmcweblib,
-            include_directories: incdir,
-            install_dir: bindir,
-            dependencies: bmcweb_dependencies + [gtestdep],
-        )
-        test(fs.stem(test_src), test_bin, protocol: 'gtest')
-    endforeach
-endif
-
+# Generate event-listener binary
 if (get_option('redfish-aggregation').enabled())
     subdir('event-listener')
 endif
-||||||| 80d2ef31c
-srcfiles_unittest = files(
-    'test/http/crow_getroutes_test.cpp',
-    'test/http/http2_connection_test.cpp',
-    'test/http/http_body_test.cpp',
-    'test/http/http_connection_test.cpp',
-    'test/http/http_response_test.cpp',
-    'test/http/mutual_tls.cpp',
-    'test/http/mutual_tls_meta.cpp',
-    'test/http/parsing_test.cpp',
-    'test/http/router_test.cpp',
-    'test/http/server_sent_event_test.cpp',
-    'test/http/utility_test.cpp',
-    'test/http/verb_test.cpp',
-    'test/include/async_resolve_test.cpp',
-    'test/include/credential_pipe_test.cpp',
-    'test/include/dbus_utility_test.cpp',
-    'test/include/google/google_service_root_test.cpp',
-    'test/include/http_utility_test.cpp',
-    'test/include/human_sort_test.cpp',
-    'test/include/ibm/configfile_test.cpp',
-    'test/include/json_html_serializer.cpp',
-    'test/include/multipart_test.cpp',
-    'test/include/openbmc_dbus_rest_test.cpp',
-    'test/include/ossl_random.cpp',
-    'test/include/ssl_key_handler_test.cpp',
-    'test/include/str_utility_test.cpp',
-    'test/redfish-core/include/dbus_log_watcher_test.cpp',
-    'test/redfish-core/include/event_log_test.cpp',
-    'test/redfish-core/include/event_matches_filter_test.cpp',
-    'test/redfish-core/include/filter_expr_executor_test.cpp',
-    'test/redfish-core/include/filter_expr_parser_test.cpp',
-    'test/redfish-core/include/privileges_test.cpp',
-    'test/redfish-core/include/redfish_aggregator_test.cpp',
-    'test/redfish-core/include/redfish_test.cpp',
-    'test/redfish-core/include/registries_test.cpp',
-    'test/redfish-core/include/submit_test_event_test.cpp',
-    'test/redfish-core/include/utils/dbus_utils.cpp',
-    'test/redfish-core/include/utils/error_code_test.cpp',
-    'test/redfish-core/include/utils/hex_utils_test.cpp',
-    'test/redfish-core/include/utils/ip_utils_test.cpp',
-    'test/redfish-core/include/utils/json_utils_test.cpp',
-    'test/redfish-core/include/utils/query_param_test.cpp',
-    'test/redfish-core/include/utils/sensor_utils_test.cpp',
-    'test/redfish-core/include/utils/stl_utils_test.cpp',
-    'test/redfish-core/include/utils/time_utils_test.cpp',
-    'test/redfish-core/lib/chassis_test.cpp',
-    'test/redfish-core/lib/ethernet_test.cpp',
-    'test/redfish-core/lib/log_services_dump_test.cpp',
-    'test/redfish-core/lib/manager_diagnostic_data_test.cpp',
-    'test/redfish-core/lib/metadata_test.cpp',
-    'test/redfish-core/lib/power_subsystem_test.cpp',
-    'test/redfish-core/lib/service_root_test.cpp',
-    'test/redfish-core/lib/system_test.cpp',
-    'test/redfish-core/lib/systems_logservices_postcode.cpp',
-    'test/redfish-core/lib/thermal_subsystem_test.cpp',
-    'test/redfish-core/lib/update_service_test.cpp',
-)
 
-if (get_option('tests').allowed())
-    gtest = dependency(
-        'gtest_main',
-        main: true,
-        version: '>=1.15.0',
-        required: true,
-    )
-    gmock = dependency('gmock', required: true)
-    gtestlib = static_library('gtestlib', dependencies: [gtest, gmock])
-    gtestdep = declare_dependency(
-        link_with: gtestlib,
-        dependencies: [
-            gtest.partial_dependency(includes: true),
-            gmock.partial_dependency(includes: true),
-        ],
-    )
-    # generate the test executable
-    foreach test_src : srcfiles_unittest
-        test_bin = executable(
-            fs.stem(test_src),
-            test_src,
-            link_with: bmcweblib,
-            include_directories: incdir,
-            install_dir: bindir,
-            dependencies: bmcweb_dependencies + [gtestdep],
-        )
-        test(fs.stem(test_src), test_bin, protocol: 'gtest')
-    endforeach
-endif
-=======
-subdir('test')
->>>>>>> origin/master

@@ -6,6 +6,7 @@
 #include "human_sort.hpp"
 #include "logging.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <nlohmann/json.hpp>
@@ -20,6 +21,7 @@
 #include <string>
 #include <string_view>
 #include <variant>
+
 namespace redfish
 {
 
@@ -171,6 +173,7 @@ ValueVisitor::result_type ValueVisitor::operator()(
         }
         return {*strValue};
     }
+
     BMCWEB_LOG_ERROR(
         "Type for key {} was {} which does not have a comparison operator",
         static_cast<std::string>(x), static_cast<int>(entry.type()));

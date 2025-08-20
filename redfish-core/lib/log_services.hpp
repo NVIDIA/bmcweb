@@ -30,6 +30,7 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/log_services_util.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/nvidia_utils.hpp"
 #include "utils/origin_utils.hpp"
 #include "utils/query_param.hpp"
@@ -229,6 +230,7 @@ inline log_entry::OriginatorTypes mapDbusOriginatorTypeToRedfish(
 inline void parseDumpEntryFromDbusObject(
     const dbus::utility::ManagedObjectType::value_type& object,
     std::string& dumpStatus, uint64_t& size, uint64_t& timestampUs,
+    // Nvidia code starts here
     std::string& faultLogDiagnosticDataType, std::string& notificationType,
     std::string& sectionType, std::string& fruid, std::string& severity,
     std::string& nvipSignature, std::string& nvSeverity,
@@ -237,6 +239,7 @@ inline void parseDumpEntryFromDbusObject(
     std::string& pcieFunctionNumber, std::string& pcieDeviceNumber,
     std::string& pcieSegmentNumber, std::string& pcieDeviceBusNumber,
     std::string& pcieSecondaryBusNumber, std::string& pcieSlotNumber,
+    // NVIDIA code ends here
     std::string& originatorId, log_entry::OriginatorTypes& originatorType,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -277,24 +280,6 @@ inline void parseDumpEntryFromDbusObject(
                 }
             }
         }
-        else if (interfaceMap.first == "xyz.openbmc_project.FDR.Entry")
-        {
-            for (const auto& propertyMap : interfaceMap.second)
-            {
-                if (propertyMap.first == "Size")
-                {
-                    const auto* sizePtr =
-                        std::get_if<uint64_t>(&propertyMap.second);
-                    if (sizePtr == nullptr)
-                    {
-                        messages::internalError(asyncResp->res);
-                        break;
-                    }
-                    size = *sizePtr;
-                    break;
-                }
-            }
-        }
         else if (interfaceMap.first == "xyz.openbmc_project.Time.EpochTime")
         {
             for (const auto& propertyMap : interfaceMap.second)
@@ -311,215 +296,6 @@ inline void parseDumpEntryFromDbusObject(
                     timestampUs = *usecsTimeStamp;
                     break;
                 }
-            }
-        }
-        else if (interfaceMap.first ==
-                 "xyz.openbmc_project.Dump.Entry.FaultLog")
-        {
-            const std::string* type = nullptr;
-            const std::string* additionalTypeName = nullptr;
-            for (const auto& propertyMap : interfaceMap.second)
-            {
-                if (propertyMap.first == "Type")
-                {
-                    type = std::get_if<std::string>(&propertyMap.second);
-                }
-                else if (propertyMap.first == "AdditionalTypeName")
-                {
-                    additionalTypeName =
-                        std::get_if<std::string>(&propertyMap.second);
-                }
-            }
-            if (type != nullptr &&
-                *type ==
-                    "xyz.openbmc_project.Common.FaultLogType.FaultLogTypes.CPER")
-            {
-                if (additionalTypeName != nullptr)
-                {
-                    faultLogDiagnosticDataType = *additionalTypeName;
-                }
-            }
-        }
-        else if (interfaceMap.first ==
-                 "xyz.openbmc_project.Dump.Entry.CPERDecode")
-        {
-            const std::string* notificationTypePtr = nullptr;
-            const std::string* sectionTypePtr = nullptr;
-            const std::string* fruidPtr = nullptr;
-            const std::string* severityPtr = nullptr;
-            const std::string* nvipSignaturePtr = nullptr;
-            const std::string* nvSeverityPtr = nullptr;
-            const std::string* nvSocketNumberPtr = nullptr;
-            const std::string* pcieVendorIDPtr = nullptr;
-            const std::string* pcieDeviceIDPtr = nullptr;
-            const std::string* pcieClassCodePtr = nullptr;
-            const std::string* pcieFunctionNumberPtr = nullptr;
-            const std::string* pcieDeviceNumberPtr = nullptr;
-            const std::string* pcieSegmentNumberPtr = nullptr;
-            const std::string* pcieDeviceBusNumberPtr = nullptr;
-            const std::string* pcieSecondaryBusNumberPtr = nullptr;
-            const std::string* pcieSlotNumberPtr = nullptr;
-
-            for (const auto& propertyMap : interfaceMap.second)
-            {
-                if (propertyMap.first == "FRU_ID")
-                {
-                    fruidPtr = std::get_if<std::string>(&propertyMap.second);
-                }
-                else if (propertyMap.first == "NV_IPSignature")
-                {
-                    nvipSignaturePtr =
-                        std::get_if<std::string>(&propertyMap.second);
-                }
-                else if (propertyMap.first == "NV_Severity")
-                {
-                    nvSeverityPtr =
-                        std::get_if<std::string>(&propertyMap.second);
-                }
-                else if (propertyMap.first == "NV_Socket_Number")
-                {
-                    nvSocketNumberPtr =
-                        std::get_if<std::string>(&propertyMap.second);
-                }
-                else if (propertyMap.first == "PCIE_Class_Code")
-                {
-                    pcieClassCodePtr =
-                        std::get_if<std::string>(&propertyMap.second);
-                }
-                else if (propertyMap.first == "PCIE_Device_Bus_Number")
-                {
-                    pcieDeviceBusNumberPtr =
-                        std::get_if<std::string>(&propertyMap.second);
-                }
-                else if (propertyMap.first == "PCIE_Device_ID")
-                {
-                    pcieDeviceIDPtr =
-                        std::get_if<std::string>(&propertyMap.second);
-                }
-                else if (propertyMap.first == "PCIE_Device_Number")
-                {
-                    pcieDeviceNumberPtr =
-                        std::get_if<std::string>(&propertyMap.second);
-                }
-                else if (propertyMap.first == "PCIE_Function_Number")
-                {
-                    pcieFunctionNumberPtr =
-                        std::get_if<std::string>(&propertyMap.second);
-                }
-                else if (propertyMap.first == "PCIE_Secondary_Bus_Number")
-                {
-                    pcieSecondaryBusNumberPtr =
-                        std::get_if<std::string>(&propertyMap.second);
-                }
-                else if (propertyMap.first == "PCIE_Segment_Number")
-                {
-                    pcieSegmentNumberPtr =
-                        std::get_if<std::string>(&propertyMap.second);
-                }
-                else if (propertyMap.first == "PCIE_Slot_Number")
-                {
-                    pcieSlotNumberPtr =
-                        std::get_if<std::string>(&propertyMap.second);
-                }
-                else if (propertyMap.first == "PCIE_Vendor_ID")
-                {
-                    pcieVendorIDPtr =
-                        std::get_if<std::string>(&propertyMap.second);
-                }
-                else if (propertyMap.first == "Section_Type")
-                {
-                    sectionTypePtr =
-                        std::get_if<std::string>(&propertyMap.second);
-                }
-                else if (propertyMap.first == "Notification_Type")
-                {
-                    notificationTypePtr =
-                        std::get_if<std::string>(&propertyMap.second);
-                }
-                else if (propertyMap.first == "Severity")
-                {
-                    severityPtr = std::get_if<std::string>(&propertyMap.second);
-                }
-            }
-
-            if (fruidPtr != nullptr)
-            {
-                fruid = *fruidPtr;
-            }
-
-            if (notificationTypePtr != nullptr)
-            {
-                notificationType = *notificationTypePtr;
-            }
-
-            if (sectionTypePtr != nullptr)
-            {
-                sectionType = *sectionTypePtr;
-            }
-
-            if (severityPtr != nullptr)
-            {
-                severity = *severityPtr;
-            }
-
-            if (nvipSignaturePtr != nullptr)
-            {
-                nvipSignature = *nvipSignaturePtr;
-            }
-
-            if (nvSeverityPtr != nullptr)
-            {
-                nvSeverity = *nvSeverityPtr;
-            }
-
-            if (nvSocketNumberPtr != nullptr)
-            {
-                nvSocketNumber = *nvSocketNumberPtr;
-            }
-
-            if (pcieVendorIDPtr != nullptr)
-            {
-                pcieVendorID = *pcieVendorIDPtr;
-            }
-
-            if (pcieDeviceIDPtr != nullptr)
-            {
-                pcieDeviceID = *pcieDeviceIDPtr;
-            }
-
-            if (pcieClassCodePtr != nullptr)
-            {
-                pcieClassCode = *pcieClassCodePtr;
-            }
-
-            if (pcieFunctionNumberPtr != nullptr)
-            {
-                pcieFunctionNumber = *pcieFunctionNumberPtr;
-            }
-
-            if (pcieDeviceNumberPtr != nullptr)
-            {
-                pcieDeviceNumber = *pcieDeviceNumberPtr;
-            }
-
-            if (pcieSegmentNumberPtr != nullptr)
-            {
-                pcieSegmentNumber = *pcieSegmentNumberPtr;
-            }
-
-            if (pcieDeviceBusNumberPtr != nullptr)
-            {
-                pcieDeviceBusNumber = *pcieDeviceBusNumberPtr;
-            }
-
-            if (pcieSecondaryBusNumberPtr != nullptr)
-            {
-                pcieSecondaryBusNumber = *pcieSecondaryBusNumberPtr;
-            }
-
-            if (pcieSlotNumberPtr != nullptr)
-            {
-                pcieSlotNumber = *pcieSlotNumberPtr;
             }
         }
         else if (interfaceMap.first ==
@@ -559,6 +335,16 @@ inline void parseDumpEntryFromDbusObject(
             }
         }
     }
+
+    // NVIDIA code starts here
+    // Call NVIDIA extension function to parse NVIDIA-specific interfaces
+    parseNvidiaDumpEntryFromDbusObject(
+        object, size, faultLogDiagnosticDataType, notificationType, sectionType,
+        fruid, severity, nvipSignature, nvSeverity, nvSocketNumber,
+        pcieVendorID, pcieDeviceID, pcieClassCode, pcieFunctionNumber,
+        pcieDeviceNumber, pcieSegmentNumber, pcieDeviceBusNumber,
+        pcieSecondaryBusNumber, pcieSlotNumber);
+    // NVIDIA code ends here
 }
 
 static std::string getDumpEntriesPath(const std::string& dumpType)
@@ -571,24 +357,26 @@ static std::string getDumpEntriesPath(const std::string& dumpType)
             std::format("/redfish/v1/Managers/{}/LogServices/Dump/Entries/",
                         BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
+    else if (dumpType == "FaultLog")
+    {
+        entriesPath =
+            std::format("/redfish/v1/Managers/{}/LogServices/FaultLog/Entries/",
+                        BMCWEB_REDFISH_MANAGER_URI_NAME);
+    }
     else if (dumpType == "System")
     {
         entriesPath =
             std::format("/redfish/v1/Systems/{}/LogServices/Dump/Entries/",
                         BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
+    // NVIDIA code starts here
     else if (dumpType == "FDR")
     {
         entriesPath = "/redfish/v1/Systems/" +
                       std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                       "/LogServices/FDR/Entries/";
     }
-    else if (dumpType == "FaultLog")
-    {
-        entriesPath =
-            std::format("/redfish/v1/Systems/{}/LogServices/FaultLog/Entries/",
-                        BMCWEB_REDFISH_SYSTEM_URI_NAME);
-    }
+    // NVIDIA code ends here
     else
     {
         BMCWEB_LOG_ERROR("getDumpEntriesPath() invalid dump type: {}",
@@ -658,7 +446,8 @@ inline void getDumpEntryCollection(
                 std::string originatorId;
                 log_entry::OriginatorTypes originatorType =
                     log_entry::OriginatorTypes::Internal;
-                nlohmann::json::object_t thisEntry;
+                // NVIDIA code starts here for CPER properties
+                nlohmann::json thisEntry;
                 std::string faultLogDiagnosticDataType;
                 std::string notificationType;
                 std::string sectionType;
@@ -676,13 +465,13 @@ inline void getDumpEntryCollection(
                 std::string pcieDeviceBusNumber;
                 std::string pcieSecondaryBusNumber;
                 std::string pcieSlotNumber;
-
+                // NVIDIA code ends here
                 std::string entryID = object.first.filename();
                 if (entryID.empty())
                 {
                     continue;
                 }
-
+                // NVIDIA code starts here
                 parseDumpEntryFromDbusObject(
                     object, dumpStatus, size, timestampUs,
                     faultLogDiagnosticDataType, notificationType, sectionType,
@@ -691,7 +480,7 @@ inline void getDumpEntryCollection(
                     pcieFunctionNumber, pcieDeviceNumber, pcieSegmentNumber,
                     pcieDeviceBusNumber, pcieSecondaryBusNumber, pcieSlotNumber,
                     originatorId, originatorType, asyncResp);
-
+                // NVIDIA code ends here
                 if (dumpStatus !=
                         "xyz.openbmc_project.Common.Progress.OperationStatus.Completed" &&
                     !dumpStatus.empty())
@@ -711,8 +500,8 @@ inline void getDumpEntryCollection(
                 if (!originatorId.empty())
                 {
                     thisEntry["Originator"] = originatorId;
+                    thisEntry["OriginatorType"] = originatorType;
                 }
-                thisEntry["OriginatorType"] = originatorType;
 
                 if (dumpType == "BMC")
                 {
@@ -729,6 +518,7 @@ inline void getDumpEntryCollection(
                         entriesPath + entryID + "/attachment";
                     thisEntry["AdditionalDataSizeBytes"] = size;
                 }
+                // NVIDIA code starts here
                 else if (dumpType == "FDR")
                 {
                     thisEntry["DiagnosticDataType"] = "OEM";
@@ -763,85 +553,16 @@ inline void getDumpEntryCollection(
                         thisEntry["CPER"]["NotificationType"] =
                             notificationType;
                     }
-                    // CPER Oem properties
-                    thisEntry["CPER"]["Oem"]["Nvidia"]["@odata.type"] =
-                        "#NvidiaLogEntry.v1_0_0.CPER";
-                    if (sectionType != "NA")
-                    {
-                        thisEntry["CPER"]["Oem"]["Nvidia"]["SectionType"] =
-                            sectionType;
-                    }
-                    if (fruid != "NA")
-                    {
-                        thisEntry["CPER"]["Oem"]["Nvidia"]["FruID"] = fruid;
-                    }
-                    if (severity != "NA")
-                    {
-                        thisEntry["CPER"]["Oem"]["Nvidia"]["Severity"] =
-                            severity;
-                    }
-                    if (nvipSignature != "NA")
-                    {
-                        thisEntry["CPER"]["Oem"]["Nvidia"]["NvIpSignature"] =
-                            nvipSignature;
-                    }
-                    if (nvSeverity != "NA")
-                    {
-                        thisEntry["CPER"]["Oem"]["Nvidia"]["NvSeverity"] =
-                            nvSeverity;
-                    }
-                    if (nvSocketNumber != "NA")
-                    {
-                        thisEntry["CPER"]["Oem"]["Nvidia"]["NvSocketNumber"] =
-                            nvSocketNumber;
-                    }
-                    if (pcieVendorID != "NA")
-                    {
-                        thisEntry["CPER"]["Oem"]["Nvidia"]["PCIeVendorId"] =
-                            pcieVendorID;
-                    }
-                    if (pcieDeviceID != "NA")
-                    {
-                        thisEntry["CPER"]["Oem"]["Nvidia"]["PCIeDeviceId"] =
-                            pcieDeviceID;
-                    }
-                    if (pcieClassCode != "NA")
-                    {
-                        thisEntry["CPER"]["Oem"]["Nvidia"]["PCIeClassCode"] =
-                            pcieClassCode;
-                    }
-                    if (pcieFunctionNumber != "NA")
-                    {
-                        thisEntry["CPER"]["Oem"]["Nvidia"]
-                                 ["PCIeFunctionNumber"] = pcieFunctionNumber;
-                    }
-                    if (pcieDeviceNumber != "NA")
-                    {
-                        thisEntry["CPER"]["Oem"]["Nvidia"]["PCIeDeviceNumber"] =
-                            pcieDeviceNumber;
-                    }
-                    if (pcieSegmentNumber != "NA")
-                    {
-                        thisEntry["CPER"]["Oem"]["Nvidia"]
-                                 ["PCIeSegmentNumber"] = pcieSegmentNumber;
-                    }
-                    if (pcieDeviceBusNumber != "NA")
-                    {
-                        thisEntry["CPER"]["Oem"]["Nvidia"]
-                                 ["PCIeDeviceBusNumber"] = pcieDeviceBusNumber;
-                    }
-                    if (pcieSecondaryBusNumber != "NA")
-                    {
-                        thisEntry["CPER"]["Oem"]["Nvidia"]
-                                 ["PCIeSecondaryBusNumber"] =
-                                     pcieSecondaryBusNumber;
-                    }
-                    if (pcieSlotNumber != "NA")
-                    {
-                        thisEntry["CPER"]["Oem"]["Nvidia"]["PCIeSlotNumber"] =
-                            pcieSlotNumber;
-                    }
+                    // NVIDIA extension
+                    extendDumpEntryWithCPERProperties(
+                        thisEntry, dumpType, sectionType, fruid, severity,
+                        nvipSignature, nvSeverity, nvSocketNumber, pcieVendorID,
+                        pcieDeviceID, pcieClassCode, pcieFunctionNumber,
+                        pcieDeviceNumber, pcieSegmentNumber,
+                        pcieDeviceBusNumber, pcieSecondaryBusNumber,
+                        pcieSlotNumber);
                 }
+                // NVIDIA code ends here
                 entriesArray.emplace_back(std::move(thisEntry));
             }
             asyncResp->res.jsonValue["Members@odata.count"] =
@@ -888,6 +609,7 @@ inline void getDumpEntryById(
                 uint64_t timestampUs = 0;
                 uint64_t size = 0;
                 std::string dumpStatus;
+                // NVIDIA code starts here
                 std::string faultLogDiagnosticDataType;
                 std::string notificationType;
                 std::string sectionType;
@@ -905,10 +627,11 @@ inline void getDumpEntryById(
                 std::string pcieDeviceBusNumber;
                 std::string pcieSecondaryBusNumber;
                 std::string pcieSlotNumber;
+                // NVIDIA code ends here
                 std::string originatorId;
                 log_entry::OriginatorTypes originatorType =
                     log_entry::OriginatorTypes::Internal;
-
+                // NVIDIA code starts here
                 parseDumpEntryFromDbusObject(
                     objectPath, dumpStatus, size, timestampUs,
                     faultLogDiagnosticDataType, notificationType, sectionType,
@@ -917,7 +640,7 @@ inline void getDumpEntryById(
                     pcieFunctionNumber, pcieDeviceNumber, pcieSegmentNumber,
                     pcieDeviceBusNumber, pcieSecondaryBusNumber, pcieSlotNumber,
                     originatorId, originatorType, asyncResp);
-
+                // NVIDIA code ends here
                 if (dumpStatus !=
                         "xyz.openbmc_project.Common.Progress.OperationStatus.Completed" &&
                     !dumpStatus.empty())
@@ -941,23 +664,23 @@ inline void getDumpEntryById(
                 if (!originatorId.empty())
                 {
                     asyncResp->res.jsonValue["Originator"] = originatorId;
+                    asyncResp->res.jsonValue["OriginatorType"] = originatorType;
                 }
-                asyncResp->res.jsonValue["OriginatorType"] = originatorType;
+                // NVIDIA code starts here
+                // NVIDIA extension
                 asyncResp->res.jsonValue["AdditionalDataSizeBytes"] = size;
                 asyncResp->res.jsonValue["Created"] =
                     redfish::time_utils::getDateTimeUintUs(timestampUs);
 
-                // Set schema defaults
+                // Set schema defaults Downstream
                 asyncResp->res.jsonValue["Message"] = "";
                 asyncResp->res.jsonValue["Severity"] = "OK";
-
+                // NVIDIA code ends here
                 if (dumpType == "BMC")
                 {
                     asyncResp->res.jsonValue["DiagnosticDataType"] = "Manager";
                     asyncResp->res.jsonValue["AdditionalDataURI"] =
-                        "/redfish/v1/Managers/" +
-                        std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                        "/LogServices/Dump/Entries/" + entryID + "/attachment";
+                        entriesPath + entryID + "/attachment";
                     asyncResp->res.jsonValue["AdditionalDataSizeBytes"] = size;
                 }
                 else if (dumpType == "System")
@@ -966,19 +689,16 @@ inline void getDumpEntryById(
                     asyncResp->res.jsonValue["OEMDiagnosticDataType"] =
                         "System";
                     asyncResp->res.jsonValue["AdditionalDataURI"] =
-                        "/redfish/v1/Systems/" +
-                        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                        "/LogServices/Dump/Entries/" + entryID + "/attachment";
+                        entriesPath + entryID + "/attachment";
                     asyncResp->res.jsonValue["AdditionalDataSizeBytes"] = size;
                 }
+                // NVIDIA code starts here
                 else if (dumpType == "FDR")
                 {
                     asyncResp->res.jsonValue["DiagnosticDataType"] = "OEM";
                     asyncResp->res.jsonValue["OEMDiagnosticDataType"] = "FDR";
                     asyncResp->res.jsonValue["AdditionalDataURI"] =
-                        "/redfish/v1/Systems/" +
-                        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                        "/LogServices/FDR/Entries/" + entryID + "/attachment";
+                        entriesPath + entryID + "/attachment";
                     asyncResp->res.jsonValue["AdditionalDataSizeBytes"] = size;
                 }
                 else if (dumpType == "FaultLog")
@@ -986,10 +706,7 @@ inline void getDumpEntryById(
                     asyncResp->res.jsonValue["DiagnosticDataType"] =
                         faultLogDiagnosticDataType;
                     asyncResp->res.jsonValue["AdditionalDataURI"] =
-                        "/redfish/v1/Systems/" +
-                        std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                        "/LogServices/FaultLog/Entries/" + entryID +
-                        "/attachment";
+                        entriesPath + entryID + "/attachment";
 
                     std::string messageId = "Platform.1.0.PlatformError";
                     asyncResp->res.jsonValue["MessageId"] = messageId;
@@ -1011,100 +728,17 @@ inline void getDumpEntryById(
                         asyncResp->res.jsonValue["CPER"]["NotificationType"] =
                             notificationType;
                     }
-                    // CPER Oem properties
-                    asyncResp->res
-                        .jsonValue["CPER"]["Oem"]["Nvidia"]["@odata.type"] =
-                        "#NvidiaLogEntry.v1_0_0.CPER";
-                    if (sectionType != "NA")
-                    {
-                        asyncResp->res
-                            .jsonValue["CPER"]["Oem"]["Nvidia"]["SectionType"] =
-                            sectionType;
-                    }
-                    if (fruid != "NA")
-                    {
-                        asyncResp->res
-                            .jsonValue["CPER"]["Oem"]["Nvidia"]["FruID"] =
-                            fruid;
-                    }
-                    if (severity != "NA")
-                    {
-                        asyncResp->res
-                            .jsonValue["CPER"]["Oem"]["Nvidia"]["Severity"] =
-                            severity;
-                    }
-                    if (nvipSignature != "NA")
-                    {
-                        asyncResp->res.jsonValue["CPER"]["Oem"]["Nvidia"]
-                                                ["NvIpSignature"] =
-                            nvipSignature;
-                    }
-                    if (nvSeverity != "NA")
-                    {
-                        asyncResp->res
-                            .jsonValue["CPER"]["Oem"]["Nvidia"]["NvSeverity"] =
-                            nvSeverity;
-                    }
-                    if (nvSocketNumber != "NA")
-                    {
-                        asyncResp->res.jsonValue["CPER"]["Oem"]["Nvidia"]
-                                                ["NvSocketNumber"] =
-                            nvSocketNumber;
-                    }
-                    if (pcieVendorID != "NA")
-                    {
-                        asyncResp->res.jsonValue["CPER"]["Oem"]["Nvidia"]
-                                                ["PCIeVendorId"] = pcieVendorID;
-                    }
-                    if (pcieDeviceID != "NA")
-                    {
-                        asyncResp->res.jsonValue["CPER"]["Oem"]["Nvidia"]
-                                                ["PCIeDeviceId"] = pcieDeviceID;
-                    }
-                    if (pcieClassCode != "NA")
-                    {
-                        asyncResp->res.jsonValue["CPER"]["Oem"]["Nvidia"]
-                                                ["PCIeClassCode"] =
-                            pcieClassCode;
-                    }
-                    if (pcieFunctionNumber != "NA")
-                    {
-                        asyncResp->res.jsonValue["CPER"]["Oem"]["Nvidia"]
-                                                ["PCIeFunctionNumber"] =
-                            pcieFunctionNumber;
-                    }
-                    if (pcieDeviceNumber != "NA")
-                    {
-                        asyncResp->res.jsonValue["CPER"]["Oem"]["Nvidia"]
-                                                ["PCIeDeviceNumber"] =
-                            pcieDeviceNumber;
-                    }
-                    if (pcieSegmentNumber != "NA")
-                    {
-                        asyncResp->res.jsonValue["CPER"]["Oem"]["Nvidia"]
-                                                ["PCIeSegmentNumber"] =
-                            pcieSegmentNumber;
-                    }
-                    if (pcieDeviceBusNumber != "NA")
-                    {
-                        asyncResp->res.jsonValue["CPER"]["Oem"]["Nvidia"]
-                                                ["PCIeDeviceBusNumber"] =
-                            pcieDeviceBusNumber;
-                    }
-                    if (pcieSecondaryBusNumber != "NA")
-                    {
-                        asyncResp->res.jsonValue["CPER"]["Oem"]["Nvidia"]
-                                                ["PCIeSecondaryBusNumber"] =
-                            pcieSecondaryBusNumber;
-                    }
-                    if (pcieSlotNumber != "NA")
-                    {
-                        asyncResp->res.jsonValue["CPER"]["Oem"]["Nvidia"]
-                                                ["PCIeSlotNumber"] =
-                            pcieSlotNumber;
-                    }
+                    // NVIDIA extension
+                    extendDumpEntryWithCPERProperties(
+                        asyncResp->res.jsonValue, dumpType, sectionType, fruid,
+                        severity, nvipSignature, nvSeverity, nvSocketNumber,
+                        pcieVendorID, pcieDeviceID, pcieClassCode,
+                        pcieFunctionNumber, pcieDeviceNumber, pcieSegmentNumber,
+                        pcieDeviceBusNumber, pcieSecondaryBusNumber,
+                        pcieSlotNumber);
                     asyncResp->res.jsonValue["AdditionalDataSizeBytes"] = size;
                 }
+                // NVIDIA code ends here
             }
 
             if (!foundDumpEntry)
@@ -1143,20 +777,6 @@ inline void deleteDumpEntry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         asyncResp, respHandler, "xyz.openbmc_project.Dump.Manager",
         std::format("{}/entry/{}", getDumpPath(dumpType), entryID),
         "xyz.openbmc_project.Object.Delete", "Delete");
-}
-
-constexpr long long int maxFileSize()
-{
-    if constexpr (BMCWEB_REDFISH_FDR_LOG)
-    {
-        // "The maximum size of FDR dump is 1.5GB
-        return 1500 * 1024LL * 1024LL;
-    }
-    else
-    {
-        // Arbitrary max size of 20MB to accommodate BMC dumps
-        return 20LL * 1024LL * 1024LL;
-    }
 }
 
 inline bool checkSizeLimit(int fd, crow::Response& res)
@@ -1205,8 +825,10 @@ inline void downloadEntryCallback(
     }
 
     // Make sure we know how to process the retrieved entry attachment
+    // NVIDIA code starts here
     if ((downloadEntryType != "BMC") && (downloadEntryType != "System") &&
         (downloadEntryType != "FDR"))
+    // NVIDIA code ends here
     {
         BMCWEB_LOG_ERROR("downloadEntryCallback() invalid entry type: {}",
                          downloadEntryType);
@@ -1242,6 +864,7 @@ inline void downloadEntryCallback(
             return;
         }
     }
+    // NVIDIA code starts here
     if (downloadEntryType == "FDR")
     {
         if (!asyncResp->res.openFd(fd, bmcweb::EncodingType::Raw))
@@ -1253,6 +876,7 @@ inline void downloadEntryCallback(
 
         return;
     }
+    // NVIDIA code ends here
     if (!asyncResp->res.openFd(fd))
     {
         messages::internalError(asyncResp->res);
@@ -1267,7 +891,9 @@ inline void downloadDumpEntry(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& entryID, const std::string& dumpType)
 {
+    // NVIDIA code starts here
     if (dumpType != "BMC" && dumpType != "System")
+    // NVIDIA code ends here
     {
         BMCWEB_LOG_WARNING("Can't find Dump Entry {}", entryID);
         messages::resourceNotFound(asyncResp->res, dumpType + " dump", entryID);
@@ -1374,12 +1000,14 @@ inline std::string getDumpEntryPath(const std::string& dumpPath)
         return std::format("/redfish/v1/Systems/{}/LogServices/Dump/Entries/",
                            BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
+    // NVIDIA code starts here
     if (dumpPath == "/xyz/openbmc_project/dump/fdr/entry")
     {
         return "/redfish/v1/Systems/" +
                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                "/LogServices/FDR/Entries/";
     }
+    // NVIDIA code ends here
     return "";
 }
 
@@ -1480,12 +1108,14 @@ inline void createDumpTaskCallback(
                             BMCWEB_LOG_ERROR("{}: Error in creating dump",
                                              createdObjPath.str);
                             taskData->state = "Cancelled";
+                            // NVIDIA code starts here
                             nlohmann::json retMessage =
                                 messages::operationFailed();
                             taskData->messages.emplace_back(retMessage);
+                            // NVIDIA code ends here
                             return task::completed;
                         }
-
+                        // NVIDIA code starts here
                         if (dumpStatus ==
                             DumpCreationProgress::DUMP_CREATE_INPROGRESS)
                         {
@@ -1516,7 +1146,7 @@ inline void createDumpTaskCallback(
                                             static_cast<size_t>(*progress)));
                                 }
                             }
-
+                            // NVIDIA code ends here
                             return !task::completed;
                         }
                     }
@@ -1545,15 +1175,10 @@ inline void createDumpTaskCallback(
 
             // The task timer is set to max time limit within which the
             // requested dump will be collected.
-<<<<<<< HEAD
             task->startTimer(std::chrono::minutes(45));
+            // NVIDIA code starts here
             task->populateResp(asyncResp->res);
-||||||| 80d2ef31c
-            task->startTimer(std::chrono::minutes(6));
-            task->populateResp(asyncResp->res);
-=======
-            task->startTimer(std::chrono::minutes(6));
->>>>>>> origin/master
+            // NVIDIA code ends here
             task->payload.emplace(payload);
             task->populateResp(asyncResp->res);
         },
@@ -1573,8 +1198,10 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     std::optional<std::string> diagnosticDataType;
     std::optional<std::string> oemDiagnosticDataType;
+    // NVIDIA code starts here
     std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
         createDumpParamVec;
+    // NVIDIA code ends here
     // clang-format off
     if (!redfish::json_util::readJsonAction(           //
         req, asyncResp->res,                           //
@@ -1612,6 +1239,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                    "/LogServices/Dump/";
     }
+    // NVIDIA code starts here
     else if (dumpType == "FDR")
     {
         if (!oemDiagnosticDataType || !diagnosticDataType)
@@ -1640,6 +1268,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                    "/LogServices/FDR/";
     }
+    // NVIDIA code ends here
     else if (dumpType == "BMC")
     {
         if (!diagnosticDataType)
@@ -1679,27 +1308,15 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             "xyz.openbmc_project.Common.OriginatedBy.OriginatorTypes.Client");
     }
 
-<<<<<<< HEAD
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, payload(task::Payload(req)), dumpPath,
-         oemDiagnosticDataType](
-            const boost::system::error_code ec,
-            const sdbusplus::message::message& msg,
-            const sdbusplus::message::object_path& objPath) mutable {
-||||||| 80d2ef31c
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, payload(task::Payload(req)),
-         dumpPath](const boost::system::error_code& ec,
-                   const sdbusplus::message_t& msg,
-                   const sdbusplus::message::object_path& objPath) mutable {
-=======
     dbus::utility::async_method_call(
         asyncResp,
-        [asyncResp, payload(task::Payload(req)),
-         dumpPath](const boost::system::error_code& ec,
-                   const sdbusplus::message_t& msg,
-                   const sdbusplus::message::object_path& objPath) mutable {
->>>>>>> origin/master
+        // NVIDIA code starts here
+        [asyncResp, payload(task::Payload(req)), dumpPath,
+         oemDiagnosticDataType](
+            // NVIDIA code ends here
+            const boost::system::error_code& ec,
+            const sdbusplus::message_t& msg,
+            const sdbusplus::message::object_path& objPath) mutable {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("CreateDump resp_handler got error {}", ec);
@@ -1733,6 +1350,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     messages::resourceInUse(asyncResp->res);
                     return;
                 }
+                // NVIDIA code starts here
                 if (std::string_view(
                         "xyz.openbmc_project.Dump.Create.Error.QuotaExceeded") ==
                     dbusError->name)
@@ -1749,6 +1367,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                                      *oemDiagnosticDataType);
                     return;
                 }
+                // NVIDIA code ends here
                 // Other Dbus errors such as:
                 // xyz.openbmc_project.Common.Error.InvalidArgument &
                 // org.freedesktop.DBus.Error.InvalidArgs are all related to
@@ -1764,86 +1383,6 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         },
         "xyz.openbmc_project.Dump.Manager", getDumpPath(dumpType),
         "xyz.openbmc_project.Dump.Create", "CreateDump", createDumpParamVec);
-}
-
-inline void precheckOemDiagDataTypeAndCreateDump(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const crow::Request& req, const std::string& dumpType)
-{
-    std::optional<std::string> diagnosticDataType;
-    std::optional<std::string> oemDiagnosticDataType;
-
-    if (!redfish::json_util::readJsonAction(
-            req, asyncResp->res, "DiagnosticDataType", diagnosticDataType,
-            "OEMDiagnosticDataType", oemDiagnosticDataType))
-    {
-        return;
-    }
-
-    if (!oemDiagnosticDataType || !diagnosticDataType)
-    {
-        BMCWEB_LOG_ERROR(
-            "CreateDump action parameter 'DiagnosticDataType'/'OEMDiagnosticDataType' value not found!");
-        messages::actionParameterMissing(
-            asyncResp->res, "CollectDiagnosticData",
-            "DiagnosticDataType & OEMDiagnosticDataType");
-        return;
-    }
-
-    if (*diagnosticDataType != "OEM")
-    {
-        BMCWEB_LOG_ERROR("Wrong parameter values passed");
-        messages::actionParameterValueError(asyncResp->res,
-                                            "DiagnosticDataType",
-                                            "LogService.CollectDiagnosticData");
-        return;
-    }
-
-    redfish::getOEMDiagnosticAllowableValues(
-        dumpType, [asyncResp, req, dumpType, oemDiagnosticDataType](
-                      const std::vector<std::string>& oemAllowableValues) {
-            // Check the OEMDiagnosticDataType AllowableValues should be the
-            // same as our definition
-            bool isValid = false;
-            if (dumpType == "System")
-            {
-                isValid = std::find(oemAllowableValues.begin(),
-                                    oemAllowableValues.end(),
-                                    *oemDiagnosticDataType) !=
-                          oemAllowableValues.end();
-            }
-            else if (dumpType == "FDR")
-            {
-                std::string oemDataCopy = *oemDiagnosticDataType;
-                std::vector<
-                    std::pair<std::string, std::variant<std::string, uint64_t>>>
-                    createDumpParamVec = parseOEMAdditionalData(oemDataCopy);
-                for (const auto& dumpPara : createDumpParamVec)
-                {
-                    if (dumpPara.first == "DiagnosticType")
-                    {
-                        const std::string* oemDiagType =
-                            std::get_if<std::string>(&dumpPara.second);
-                        if (*oemDiagType == "FDR")
-                        {
-                            isValid = true;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (!isValid)
-            {
-                BMCWEB_LOG_ERROR("Wrong parameter values passed");
-                messages::actionParameterValueError(
-                    asyncResp->res, "OEMDiagnosticDataType",
-                    "LogService.CollectDiagnosticData");
-                return;
-            }
-
-            createDump(asyncResp, req, dumpType);
-        });
 }
 
 inline void clearDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1941,6 +1480,7 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
                 asyncResp->res.jsonValue["Members"];
             logServiceArray = nlohmann::json::array();
             nlohmann::json::object_t eventLog;
+            // NVIDIA code starts here
             if constexpr (BMCWEB_HOST_OS_FEATURES)
             {
                 nlohmann::json::object_t selLog;
@@ -1970,6 +1510,7 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
                     "/LogServices/FaultLog";
                 logServiceArray.push_back(std::move(faultLog));
             } // BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
+            // NVIDIA code ends here
             eventLog["@odata.id"] =
                 std::format("/redfish/v1/Systems/{}/LogServices/EventLog",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME);
@@ -2000,7 +1541,7 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
                                 BMCWEB_REDFISH_SYSTEM_URI_NAME);
                 logServiceArray.emplace_back(std::move(hostlogger));
             }
-
+            // NVIDIA code starts here
             nlohmann::json::object_t debugToken;
             debugToken["@odata.id"] =
                 "/redfish/v1/Systems/" +
@@ -2236,7 +1777,8 @@ static LogParseError fillEventLogEntryJson(
 }
 
 inline void fillEventLogLogEntryFromDbusLogEntry(
-    const DbusEventLogEntry& entry, nlohmann::json& objectToFillOut)
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    DbusEventLogEntry& entry, nlohmann::json& objectToFillOut)
 {
     objectToFillOut["@odata.type"] = "#LogEntry.v1_9_0.LogEntry";
     objectToFillOut["@odata.id"] = boost::urls::format(
@@ -2310,7 +1852,7 @@ inline void afterLogEntriesGetManagedObjects(
             messages::internalError(asyncResp->res);
             return;
         }
-        fillEventLogLogEntryFromDbusLogEntry(*optEntry,
+        fillEventLogLogEntryFromDbusLogEntry(asyncResp, *optEntry,
                                              entriesArray.emplace_back());
     }
 
@@ -2595,7 +2137,8 @@ inline void afterDBusEventLogEntryGet(
         return;
     }
 
-    fillEventLogLogEntryFromDbusLogEntry(*optEntry, asyncResp->res.jsonValue);
+    fillEventLogLogEntryFromDbusLogEntry(asyncResp, *optEntry,
+                                         asyncResp->res.jsonValue);
 }
 
 inline void dBusEventLogEntryGet(
@@ -2791,6 +2334,7 @@ inline void handleBMCLogServicesCollectionGet(
         logServiceArray.emplace_back(std::move(journal));
     }
 
+    // NVIDIA code starts here
     if constexpr (BMCWEB_REDFISH_MANAGER_EVENT_LOG)
     {
         logServiceArray.push_back(
@@ -2798,7 +2342,7 @@ inline void handleBMCLogServicesCollectionGet(
                                "/redfish/v1/Managers/{}/LogServices/EventLog",
                                BMCWEB_REDFISH_MANAGER_URI_NAME)}});
     }
-
+    // NVIDIA code ends here
     asyncResp->res.jsonValue["Members@odata.count"] = logServiceArray.size();
 
     if constexpr (BMCWEB_REDFISH_DUMP_LOG)
@@ -2920,9 +2464,11 @@ inline void getDumpServiceInfo(
         asyncResp->res.jsonValue["Actions"]["#LogService.CollectDiagnosticData"]
                                 ["target"] =
             dumpPath + "/Actions/LogService.CollectDiagnosticData";
+        // NVIDIA code starts here
         asyncResp->res.jsonValue["Actions"]["#LogService.CollectDiagnosticData"]
                                 ["@Redfish.ActionInfo"] =
             dumpPath + "/CollectDiagnosticDataActionInfo";
+        // NVIDIA code ends here
     }
 
     constexpr std::array<std::string_view, 1> interfaces = {deleteAllInterface};
@@ -3116,24 +2662,6 @@ inline void handleLogServicesDumpEntryDownloadGet(
     downloadDumpEntry(asyncResp, dumpId, dumpType);
 }
 
-inline void handleLogServicesSystemDumpEntryDownloadGet(
-    crow::App& app, const std::string& dumpType, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& systemId, const std::string& dumpId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    if (systemId != BMCWEB_REDFISH_SYSTEM_URI_NAME)
-    {
-        messages::resourceNotFound(asyncResp->res, "System", systemId);
-        return;
-    }
-    downloadDumpEntry(asyncResp, dumpId, dumpType);
-}
-
 inline void handleDBusEventLogEntryDownloadGet(
     crow::App& app, const std::string& dumpType, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -3194,7 +2722,7 @@ inline void handleLogServicesDumpCollectDiagnosticDataComputerSystemPost(
                                    systemName);
         return;
     }
-
+    // NVIDIA code starts here
     if constexpr (BMCWEB_CHECK_OEM_DIAGNOSTIC_TYPE)
     {
         precheckOemDiagDataTypeAndCreateDump(asyncResp, req, "System");
@@ -3203,6 +2731,7 @@ inline void handleLogServicesDumpCollectDiagnosticDataComputerSystemPost(
     {
         createDump(asyncResp, req, "System");
     }
+    // NVIDIA code ends here
 }
 
 inline void handleLogServicesDumpClearLogPost(
@@ -3289,17 +2818,6 @@ inline void requestRoutesBMCDumpEntryDownload(App& app)
             handleLogServicesDumpEntryDownloadGet, std::ref(app), "BMC"));
 }
 
-inline void requestRoutesSystemDumpEntryDownload(App& app)
-{
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/<str>/attachment/")
-        .privileges(redfish::privileges::getLogEntry)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleLogServicesSystemDumpEntryDownloadGet,
-                            std::ref(app), "System"));
-}
-
 inline void requestRoutesBMCDumpCreate(App& app)
 {
     BMCWEB_ROUTE(
@@ -3380,58 +2898,12 @@ inline void requestRoutesSystemDumpService(App& app)
         .privileges(redfish::privileges::getLogService)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleLogServicesDumpServiceComputerSystemGet, std::ref(app)));
-<<<<<<< HEAD
+    // NVIDIA code starts here
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/Dump/")
         .privileges(redfish::privileges::patchLogService)
         .methods(boost::beast::http::verb::patch)(std::bind_front(
             handleLogServicesDumpServiceComputerSystemPatch, std::ref(app)));
-||||||| 80d2ef31c
-}
-
-inline void requestRoutesSystemDumpEntryCollection(App& app)
-{
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/")
-        .privileges(redfish::privileges::getLogEntryCollection)
-        .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleLogServicesDumpEntriesCollectionComputerSystemGet,
-            std::ref(app)));
-}
-
-inline void requestRoutesSystemDumpEntry(App& app)
-{
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/<str>/")
-        .privileges(redfish::privileges::getLogEntry)
-        .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleLogServicesDumpEntryComputerSystemGet, std::ref(app)));
-
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/<str>/")
-        .privileges(redfish::privileges::deleteLogEntry)
-        .methods(boost::beast::http::verb::delete_)(std::bind_front(
-            handleLogServicesDumpEntryComputerSystemDelete, std::ref(app)));
-}
-
-inline void requestRoutesSystemDumpCreate(App& app)
-{
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Systems/<str>/LogServices/Dump/Actions/LogService.CollectDiagnosticData/")
-        .privileges(redfish::privileges::postLogService)
-        .methods(boost::beast::http::verb::post)(std::bind_front(
-            handleLogServicesDumpCollectDiagnosticDataComputerSystemPost,
-            std::ref(app)));
-}
-
-inline void requestRoutesSystemDumpClear(App& app)
-{
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Systems/<str>/LogServices/Dump/Actions/LogService.ClearLog/")
-        .privileges(redfish::privileges::postLogService)
-        .methods(boost::beast::http::verb::post)(std::bind_front(
-            handleLogServicesDumpClearLogComputerSystemPost, std::ref(app)));
-=======
+    // NVIDIA code ends here
 }
 
 inline void requestRoutesSystemDumpEntryCollection(App& app)
@@ -3479,7 +2951,6 @@ inline void requestRoutesSystemDumpClear(App& app)
                         postLogServiceSubOverComputerSystemLogServiceCollection)
         .methods(boost::beast::http::verb::post)(std::bind_front(
             handleLogServicesDumpClearLogComputerSystemPost, std::ref(app)));
->>>>>>> origin/master
 }
 
 inline void requestRoutesCrashdumpService(App& app)
@@ -3545,51 +3016,6 @@ inline void requestRoutesCrashdumpService(App& app)
                 "/redfish/v1/Systems/{}/LogServices/Crashdump/Actions/LogService.CollectDiagnosticData",
                 BMCWEB_REDFISH_SYSTEM_URI_NAME);
         });
-}
-
-inline void requestRoutesSystemDumpEntryCollection(App& app)
-{
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/")
-        .privileges(redfish::privileges::getLogEntryCollection)
-        .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleLogServicesDumpEntriesCollectionComputerSystemGet,
-            std::ref(app)));
-}
-
-inline void requestRoutesSystemDumpEntry(App& app)
-{
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/<str>/")
-        .privileges(redfish::privileges::getLogEntry)
-        .methods(boost::beast::http::verb::get)(std::bind_front(
-            handleLogServicesDumpEntryComputerSystemGet, std::ref(app)));
-
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/<str>/")
-        .privileges(redfish::privileges::deleteLogEntry)
-        .methods(boost::beast::http::verb::delete_)(std::bind_front(
-            handleLogServicesDumpEntryComputerSystemDelete, std::ref(app)));
-}
-
-inline void requestRoutesSystemDumpCreate(App& app)
-{
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Systems/<str>/LogServices/Dump/Actions/LogService.CollectDiagnosticData/")
-        .privileges(redfish::privileges::postLogService)
-        .methods(boost::beast::http::verb::post)(std::bind_front(
-            handleLogServicesDumpCollectDiagnosticDataComputerSystemPost,
-            std::ref(app)));
-}
-
-inline void requestRoutesSystemDumpClear(App& app)
-{
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Systems/<str>/LogServices/Dump/Actions/LogService.ClearLog/")
-        .privileges(redfish::privileges::postLogService)
-        .methods(boost::beast::http::verb::post)(std::bind_front(
-            handleLogServicesDumpClearLogComputerSystemPost, std::ref(app)));
 }
 
 void inline requestRoutesCrashdumpClear(App& app)

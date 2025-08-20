@@ -75,9 +75,7 @@ void asyncError(crow::Response& res, const std::string& errorCode,
 void updateInProgressMsg(crow::Response& res, const std::string& resolution)
 {
     res.result(boost::beast::http::status::bad_request);
-    std::vector<std::string> rfArgs;
-    auto message = redfish::messages::getUpdateMessage(
-        "Update.1.0.UpdateInProgress", rfArgs);
+    auto message = redfish::messages::updateInProgress();
     if (!resolution.empty())
     {
         message["Resolution"] = resolution;

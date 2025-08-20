@@ -15,14 +15,9 @@
 #include "http_response.hpp"
 #include "json_formatters.hpp"
 #include "logging.hpp"
-<<<<<<< HEAD
 #include "nvidia_persistent_data.hpp"
 #include "redfish_aggregator.hpp"
 #include "redfishoemrule.hpp"
-||||||| 80d2ef31c
-=======
-#include "redfishoemrule.hpp"
->>>>>>> origin/master
 #include "str_utility.hpp"
 #include "sub_request.hpp"
 #include "utils/json_utils.hpp"
@@ -82,8 +77,9 @@ class SelectTrieNode
         return &it->second;
     }
 
-    // Creates a new node if the key doesn't exist, returns the reference to the
-    // newly created node; otherwise, return the reference to the existing node
+    // Creates a new node if the key doesn't exist, returns the reference to
+    // the newly created node; otherwise, return the reference to the
+    // existing node
     SelectTrieNode* emplace(std::string_view jsonKey)
     {
         auto [it, _] = children.emplace(jsonKey, SelectTrieNode{});
@@ -141,7 +137,8 @@ struct SelectTrie
 {
     SelectTrie() = default;
 
-    // Inserts a $select value; returns false if the nestedProperty is illegal.
+    // Inserts a $select value; returns false if the nestedProperty is
+    // illegal.
     bool insertNode(std::string_view nestedProperty)
     {
         if (nestedProperty.empty())
@@ -172,7 +169,8 @@ struct SelectTrie
     SelectTrieNode root;
 };
 
-// The struct stores the parsed query parameters of the default Redfish route.
+// The struct stores the parsed query parameters of the default Redfish
+// route.
 struct Query
 {
     // Only
@@ -200,8 +198,8 @@ struct Query
 };
 
 // The struct defines how resource handlers in redfish-core/lib/ can handle
-// query parameters themselves, so that the default Redfish route will delegate
-// the processing.
+// query parameters themselves, so that the default Redfish route will
+// delegate the processing.
 struct QueryCapabilities
 {
     bool canDelegateOnly = false;
@@ -355,9 +353,8 @@ inline QueryError getTopParam(std::string_view value, Query& query)
 }
 
 // Parses and validates the $select parameter.
-// As per OData URL Conventions and Redfish Spec, the $select values shall be
-// comma separated Resource Path
-// Ref:
+// As per OData URL Conventions and Redfish Spec, the $select values shall
+// be comma separated Resource Path Ref:
 // 1. https://datatracker.ietf.org/doc/html/rfc3986#section-3.3
 // 2.
 // https://docs.oasis-open.org/odata/odata/v4.01/os/abnf/odata-abnf-construction-rules.txt
@@ -585,11 +582,12 @@ inline void findNavigationReferencesInObjectRecursive(
     bool inLinks, std::vector<ExpandNode>& out);
 
 // Walks a json object looking for Redfish NavigationReference entries that
-// might need resolved.  It recursively walks the jsonResponse object, looking
-// for links at every level, and returns a list (out) of locations within the
-// tree that need to be expanded.  The current json pointer location p is passed
-// in to reference the current node that's being expanded, so it can be combined
-// with the keys from the jsonResponse object
+// might need resolved.  It recursively walks the jsonResponse object,
+// looking for links at every level, and returns a list (out) of locations
+// within the tree that need to be expanded.  The current json pointer
+// location p is passed in to reference the current node that's being
+// expanded, so it can be combined with the keys from the jsonResponse
+// object
 inline void findNavigationReferencesRecursive(
     ExpandType eType, nlohmann::json& jsonResponse,
     const nlohmann::json::json_pointer& jsonPtr, int depth, int skipDepth,
@@ -664,10 +662,11 @@ inline void findNavigationReferencesInObjectRecursive(
     if (odataId != obj.end())
     {
         // The Redfish spec requires all resources to include the resource
-        // identifier.  If the object has multiple elements and one of them is
-        // "@odata.id" then that means we have entered a new level / expanded
-        // resource.  We need to stop traversing if we're already at the desired
-        // depth
+        // identifier.  If the object has multiple elements and one of them
+        // is
+        // "@odata.id" then that means we have entered a new level /
+        // expanded resource.  We need to stop traversing if we're already
+        // at the desired depth
         if (obj.size() > 1)
         {
             if (depth == 0)
@@ -718,8 +717,8 @@ inline void findNavigationReferencesInObjectRecursive(
 // response we may need need additional handling when the original URI was
 // up tree from a top level collection.
 // Isn't a concern until https://gerrit.openbmc.org/c/openbmc/bmcweb/+/60556
-// lands.  May want to avoid forwarding query params when request is uptree from
-// a top level collection.
+// lands.  May want to avoid forwarding query params when request is uptree
+// from a top level collection.
 inline std::vector<ExpandNode> findNavigationReferences(
     ExpandType eType, int depth, int skipDepth, nlohmann::json& jsonResponse)
 {
@@ -735,7 +734,8 @@ inline std::vector<ExpandNode> findNavigationReferences(
 // Returns std::nullopt on failures.
 // This function shall handle $select when it is added.
 // There is no need to handle parameters that's not compatible with $expand,
-// e.g., $only, since this function will only be called in side $expand handlers
+// e.g., $only, since this function will only be called in side $expand
+// handlers
 inline std::optional<std::string> formatQueryForExpand(const Query& query)
 {
     // query.expandLevel<=1: no need to do subqueries
@@ -805,17 +805,10 @@ class MultiAsyncResp : public std::enable_shared_from_this<MultiAsyncResp>
         finalObj = std::move(*obj);
     }
 
-    // Handles the very first level of Expand, and starts a chain of sub-queries
-    // for deeper levels.
-<<<<<<< HEAD
-    void startQuery(const Query& query, const Query& delegated,
-                    const std::shared_ptr<crow::Request>& req)
-||||||| 80d2ef31c
-    void startQuery(const Query& query, const Query& delegated)
-=======
+    // Handles the very first level of Expand, and starts a chain of
+    // sub-queries for deeper levels.
     void startQuery(const Query& query, const Query& delegated,
                     const crow::Request& req)
->>>>>>> origin/master
     {
         std::vector<ExpandNode> nodes = findNavigationReferences(
             query.expandType, query.expandLevel, delegated.expandLevel,
@@ -842,16 +835,8 @@ class MultiAsyncResp : public std::enable_shared_from_this<MultiAsyncResp>
                 return;
             }
             // Copy the session from the original request
-            if (req->session == nullptr &&
+            if (req.session == nullptr &&
                 persistent_data::nvidia::getConfig().isTLSAuthEnabled())
-            {
-                BMCWEB_LOG_ERROR("Session is null");
-                messages::internalError(finalRes->res);
-                return;
-            }
-            newReq->session = req->session;
-
-            if (req.session == nullptr)
             {
                 BMCWEB_LOG_ERROR("Session is null");
                 messages::internalError(finalRes->res);
@@ -939,9 +924,9 @@ inline void processTopAndSkip(const Query& query, crow::Response& res)
     {
         // From the Redfish specification 7.3.1
         // ... the HTTP 400 Bad Request status code with the
-        // QueryNotSupportedOnResource message from the Base Message Registry
-        // for any supported query parameters that apply only to resource
-        // collections but are used on singular resources.
+        // QueryNotSupportedOnResource message from the Base Message
+        // Registry for any supported query parameters that apply only to
+        // resource collections but are used on singular resources.
         messages::queryNotSupportedOnResource(res);
         return;
     }
@@ -956,8 +941,8 @@ inline void processTopAndSkip(const Query& query, crow::Response& res)
 
     if (query.skip)
     {
-        // Per section 7.3.1 of the Redfish specification, $skip is run before
-        // $top Can only skip as many values as we have
+        // Per section 7.3.1 of the Redfish specification, $skip is run
+        // before $top Can only skip as many values as we have
         size_t skip = std::min(arr->size(), *query.skip);
         arr->erase(arr->begin(), arr->begin() + static_cast<ssize_t>(skip));
     }
@@ -968,8 +953,8 @@ inline void processTopAndSkip(const Query& query, crow::Response& res)
     }
 }
 
-// Given a JSON subtree |currRoot|, this function erases leaves whose keys are
-// not in the |currNode| Trie node.
+// Given a JSON subtree |currRoot|, this function erases leaves whose keys
+// are not in the |currNode| Trie node.
 inline void recursiveSelect(nlohmann::json& currRoot,
                             const SelectTrieNode& currNode)
 {
@@ -1021,7 +1006,8 @@ inline void recursiveSelect(nlohmann::json& currRoot,
     }
 }
 
-// The current implementation of $select still has the following TODOs due to
+// The current implementation of $select still has the following TODOs due
+// to
 //  ambiguity and/or complexity.
 // 1. combined with $expand; https://github.com/DMTF/Redfish/issues/5058 was
 // created for clarification.
@@ -1037,14 +1023,7 @@ inline void processSelect(crow::Response& intermediateResponse,
 inline void processAllParams(
     crow::App& app, const Query& query, const Query& delegated,
     std::function<void(crow::Response&)>& completionHandler,
-<<<<<<< HEAD
-    crow::Response& intermediateResponse,
-    const std::shared_ptr<crow::Request>& req)
-||||||| 80d2ef31c
-    crow::Response& intermediateResponse)
-=======
     crow::Response& intermediateResponse, const crow::Request& req)
->>>>>>> origin/master
 {
     if (!completionHandler)
     {
@@ -1089,8 +1068,8 @@ inline void processAllParams(
         applyFilterToCollection(intermediateResponse.jsonValue, *query.filter);
     }
 
-    // According to Redfish Spec Section 7.3.1, $select is the last parameter to
-    // to process
+    // According to Redfish Spec Section 7.3.1, $select is the last
+    // parameter to to process
     if (!query.selectTrie.root.empty())
     {
         processSelect(intermediateResponse, query.selectTrie.root);

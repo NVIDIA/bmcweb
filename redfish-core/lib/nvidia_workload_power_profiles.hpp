@@ -28,6 +28,7 @@
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_async_call_utils.hpp"
 #include "utils/nvidia_async_set_utils.hpp"
+#include "utils/nvidia_hex_utils.hpp"
 
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
@@ -43,6 +44,8 @@
 #include <string_view>
 namespace redfish
 {
+using ::stringNibbleToVector;
+using ::vectorTo256BitHexString;
 using DbusProperties =
     std::vector<std::pair<std::string, dbus::utility::DbusVariantType>>;
 

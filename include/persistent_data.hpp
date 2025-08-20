@@ -240,6 +240,7 @@ class ConfigFile
             systemUuid = bmcweb::getRandomUUID();
             needWrite = true;
         }
+
         if (fileRevision < jsonRevision)
         {
             needWrite = true;
@@ -388,8 +389,9 @@ class ConfigFile
 
             subscriptions.emplace_back(std::move(subscription));
         }
-        persistent_data::nvidia::getConfig().toJson(data);
-        std::string out = nlohmann::json(data).dump(
+        nlohmann::json outJson = nlohmann::json(data);
+        persistent_data::nvidia::getConfig().toJson(outJson);
+        std::string out = outJson.dump(
             -1, ' ', true, nlohmann::json::error_handler_t::replace);
         size_t writeBytes = persistentFile.write(out.data(), out.size(), ec);
         if (ec || writeBytes == 0U)

@@ -58,14 +58,17 @@ inline int mrdConfigRead(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     if (rc == 0)
     {
         auto jMsgNamespace = jStatus.find("Namespace");
-        std::string msgNamespace = *jMsgNamespace;
-        if (jMsgNamespace != jStatus.end() && msgNamespace == deviceType)
+        if (jMsgNamespace != jStatus.end() && jMsgNamespace->is_string())
         {
-            auto jMsgMetricProperties = jStatus.find("MetricProperties");
-            if (jMsgMetricProperties != jStatus.end())
+            std::string msgNamespace = jMsgNamespace->get<std::string>();
+            if (msgNamespace == deviceType)
             {
-                asyncResp->res.jsonValue["MetricProperties"] =
-                    *jMsgMetricProperties;
+                auto jMsgMetricProperties = jStatus.find("MetricProperties");
+                if (jMsgMetricProperties != jStatus.end())
+                {
+                    asyncResp->res.jsonValue["MetricProperties"] =
+                        *jMsgMetricProperties;
+                }
             }
         }
     }

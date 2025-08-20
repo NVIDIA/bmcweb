@@ -36,8 +36,10 @@
 #include "sub_request.hpp"
 #include "utils/conditions_utils.hpp"
 #include "utils/dbus_utils.hpp"
-#include "utils/json_utils.hpp"
+#include "utils/nvidia_hex_utils.hpp"
+#include "utils/nvidia_json_utils.hpp"
 #include "utils/nvidia_manager_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/sw_utils.hpp"
 #include "utils/systemd_utils.hpp"
 #include "utils/time_utils.hpp"
@@ -61,6 +63,8 @@
 namespace redfish
 {
 
+using ::intToHexByteArray;
+
 // Map of service name to list of interfaces
 using MapperServiceMap =
     std::vector<std::pair<std::string, std::vector<std::string>>>;
@@ -72,6 +76,9 @@ using MapperGetSubTreeResponse =
 const std::string hexPrefix = "0x";
 
 const int invalidDataOutSizeErr = 0x116;
+
+// Forward declaration for functions from managers.hpp
+void doBMCGracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 
 /**
  * Helper to enable the AuthenticationTLSRequired
@@ -572,43 +579,6 @@ inline void getBMCAssetData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         connectionName, path, "org.freedesktop.DBus.Properties", "GetAll",
         "xyz.openbmc_project.Inventory.Decorator."
         "Asset");
-}
-
-inline void setServiceIdentification(std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                     std::string sysId)
-{
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
-        "/xyz/openbmc_project/Software/Settings/ServiceIdentification",
-        "xyz.openbmc_project.Inventory.Decorator.AssetTag", "AssetTag", sysId,
-        [aResp{std::move(aResp)}](const boost::system::error_code ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR(
-                    "DBUS response error on ServiceIdentification setProperty: {}",
-                    ec);
-                return;
-            }
-        });
-}
-
-inline void getServiceIdentification(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
-        "/xyz/openbmc_project/Software/Settings/ServiceIdentification",
-        "xyz.openbmc_project.Inventory.Decorator.AssetTag", "AssetTag",
-        [asyncResp](const boost::system::error_code& ec,
-                    const std::string& sysId) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG(
-                    "DBUS response error for ServiceIdentification {}", ec);
-                return;
-            }
-            asyncResp->res.jsonValue["ServiceIdentification"] = sysId;
-        });
 }
 
 inline void getLinkManagerForSwitches(
@@ -1618,8 +1588,6 @@ inline void extendManagerGet(
         "/xyz/openbmc_project/inventory", int32_t(0),
         std::array<const char*, 1>{"xyz.openbmc_project.Inventory."
                                    "Item.ManagementService"});
-
-    getServiceIdentification(asyncResp);
 }
 
 inline void extendManagerOEM(
@@ -1809,6 +1777,16 @@ inline void extendManagerOEMActions(
             "/redfish/v1/Managers/{}/Oem/Nvidia/SWErrorInjectionActionInfo",
             BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
+
+    if constexpr (BMCWEB_RSHIM_SUPPORT)
+    {
+        nlohmann::json& oemActionsRshim = oemActions["#NvidiaManager.SetRshim"];
+        oemActionsRshim["target"] = boost::urls::format(
+            "/redfish/v1/Managers/{}/Actions/Oem/NvidiaManager.SetRshim",
+            BMCWEB_REDFISH_MANAGER_URI_NAME);
+        oemActionsRshim["Rshim"]["@Redfish.AllowableValues"] = {
+            "Enabled", "Disabled", "Forced"};
+    }
 }
 
 inline void handleGetManagerNvidia(
@@ -1844,6 +1822,120 @@ inline void handleGetManagerSecureErase(
     oemActions["@Redfish.ActionInfo"] =
         "/redfish/v1/Managers/" + std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
         "/Oem/EmmcSecureEraseActionInfo";
+}
+
+/**
+ * NvidiaManagerResetToDefaultsAction class supports POST method for complete
+ * reset action.
+ */
+inline void requestRoutesNvidiaManagerResetToDefaultsAction(App& app)
+{
+    /**
+     * Function handles ResetToDefaults POST method request.
+     *
+     */
+
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Managers/<str>/Actions/Oem/NvidiaManager.ResetToDefaults")
+        .privileges(redfish::privileges::postManager)
+        .methods(boost::beast::http::verb::post)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   [[maybe_unused]] const std::string& managerName) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                BMCWEB_LOG_DEBUG("Post ResetToDefaults.");
+                (void)req;
+                std::string ifnameCompleteReset =
+                    "com.nvidia.Common.CompleteReset";
+
+                crow::connections::systemBus->async_method_call(
+                    [asyncResp, ifnameCompleteReset](
+                        const boost::system::error_code& ec,
+                        const std::vector<
+                            std::pair<std::string, std::vector<std::string>>>&
+                            interfaceNames) {
+                        if (ec || interfaceNames.empty())
+                        {
+                            BMCWEB_LOG_ERROR("Can't find object");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+
+                        for (const std::pair<std::string,
+                                             std::vector<std::string>>& object :
+                             interfaceNames)
+                        {
+                            crow::connections::systemBus->async_method_call(
+                                [asyncResp,
+                                 object](const boost::system::error_code& ec1) {
+                                    if (ec1)
+                                    {
+                                        BMCWEB_LOG_DEBUG(
+                                            "Failed to ResetToDefaults: {}",
+                                            ec1);
+                                        messages::internalError(asyncResp->res);
+                                        return;
+                                    }
+                                    // Factory Reset doesn't actually happen
+                                    // until a reboot Can't erase what the BMC
+                                    // is running on
+                                    doBMCGracefulRestart(asyncResp);
+                                },
+                                object.first, "/xyz/openbmc_project/software",
+                                ifnameCompleteReset, "CompleteReset");
+                        }
+                    },
+                    "xyz.openbmc_project.ObjectMapper",
+                    "/xyz/openbmc_project/object_mapper",
+                    "xyz.openbmc_project.ObjectMapper", "GetObject",
+                    "/xyz/openbmc_project/software",
+                    std::array<const char*, 1>{ifnameCompleteReset.c_str()});
+            });
+}
+
+/**
+ * eMMCSecureErase class supports POST method for eMMC Secure Erase
+ */
+inline void requestRoutesNvidiaManagerEmmcSecureErase(App& app)
+{
+    /**
+     * Function handles ResetToDefaults POST method request.
+     *
+     */
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Actions/Oem/eMMC.SecureErase")
+        .privileges(redfish::privileges::postManager)
+        .methods(boost::beast::http::verb::post)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   [[maybe_unused]] const std::string& systemName) {
+                std::string setCommand =
+                    "/sbin/fw_setenv emmc_secure_erase yes";
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                BMCWEB_LOG_DEBUG("Post eMMC Secure Erase.");
+                auto resetEMMCSecureEraseCallback =
+                    []([[maybe_unused]] const crow::Request& req1,
+                       [[maybe_unused]] const std::shared_ptr<
+                           bmcweb::AsyncResp>& response,
+                       [[maybe_unused]] const std::string& stdOut,
+                       [[maybe_unused]] const std::string& stdErr,
+                       [[maybe_unused]] const boost::system::error_code& ec,
+                       [[maybe_unused]] int exitCode) -> void {
+                    BMCWEB_LOG_INFO("Setting eMMC Secure Erase uboot env");
+                    return;
+                };
+                redfish::PersistentStorageUtil::executeEnvCommand(
+                    req, asyncResp, setCommand,
+                    std::move(resetEMMCSecureEraseCallback));
+                doBMCGracefulRestart(asyncResp);
+            });
 }
 
 inline void requestRoutesNvidiaManager(RedfishService& service)

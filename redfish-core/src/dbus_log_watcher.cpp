@@ -6,6 +6,7 @@
 #include "event_service_manager.hpp"
 #include "logging.hpp"
 #include "metric_report.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/nvidia_utils.hpp"
 #include "utils/time_utils.hpp"
 
@@ -203,28 +204,28 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
     {
         AdditionalData additionalData(entry.AdditionalData);
 
-        if (additionalData.count("DEVICE_NAME") > 0)
+        if (additionalData.contains("DEVICE_NAME"))
         {
             deviceName = additionalData["DEVICE_NAME"];
         }
         // convert SEL SENSOR_PATH to RF OriginOfCondition
-        if (additionalData.count("SENSOR_PATH") == 1)
+        if (additionalData.contains("SENSOR_PATH"))
         {
             originOfCondition = additionalData["SENSOR_PATH"];
         }
-        if (additionalData.count("REDFISH_ORIGIN_OF_CONDITION") == 1)
+        if (additionalData.contains("REDFISH_ORIGIN_OF_CONDITION"))
         {
             originOfCondition = additionalData["REDFISH_ORIGIN_OF_CONDITION"];
         }
-        if (additionalData.count("REDFISH_LOGENTRY") == 1)
+        if (additionalData.contains("REDFISH_LOGENTRY"))
         {
             satBMCLogEntryUrl = additionalData["REDFISH_LOGENTRY"];
         }
-        if (additionalData.count("REDFISH_MESSAGE_ID") == 1)
+        if (additionalData.contains("REDFISH_MESSAGE_ID"))
         {
             messageId = additionalData["REDFISH_MESSAGE_ID"];
             BMCWEB_LOG_DEBUG("Found message ID: {}", messageId);
-            if (additionalData.count("REDFISH_MESSAGE_ARGS") == 1)
+            if (additionalData.contains("REDFISH_MESSAGE_ARGS"))
             {
                 std::string args = additionalData["REDFISH_MESSAGE_ARGS"];
                 BMCWEB_LOG_DEBUG("Processing message args: {}", args);
@@ -238,8 +239,7 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
                 if (!messageArgs[0].empty())
                 {
                     // Map dbus property to redfish property
-                    if (dBusToRedfishProperty.find(messageArgs[0]) !=
-                        dBusToRedfishProperty.end())
+                    if (dBusToRedfishProperty.contains(messageArgs[0]))
                     {
                         std::string oldArg = messageArgs[0];
                         auto it = dBusToRedfishProperty.find(messageArgs[0]);
@@ -258,7 +258,7 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
                     }
                 }
             }
-            else if (additionalData.count("REDFISH_MESSAGE_ARGS") > 0)
+            else if (additionalData.contains("REDFISH_MESSAGE_ARGS"))
             {
                 BMCWEB_LOG_DEBUG(
                     "Multiple REDFISH_MESSAGE_ARGS in the Dbus signal message.");
@@ -267,13 +267,13 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
         }
         else
         {
-            auto counter = additionalData.count("REDFISH_MESSAGE_ID");
-            // when removing entries counter will be 0
-            if (counter > 0)
+            bool hasMsgId = additionalData.contains("REDFISH_MESSAGE_ID");
+            // when removing entries, this should be false
+            if (hasMsgId)
             {
                 BMCWEB_LOG_DEBUG(
                     "There should be exactly one MessageId in the Dbus signal message. Found {}",
-                    std::to_string(counter));
+                    "1");
                 return false;
             }
         }

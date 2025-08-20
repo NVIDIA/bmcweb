@@ -145,20 +145,6 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
         return false;
     }
 
-<<<<<<< HEAD
-    // Handle unauthorized expand query parameters for service root example
-    // /redfish/v1/?$expand=< >
-    if (req.session == nullptr &&
-        persistent_data::nvidia::getConfig().isTLSAuthEnabled() &&
-        queryOpt->expandType != query_param::ExpandType::None)
-    {
-        messages::resourceAtUriUnauthorized(asyncResp->res, req.url(),
-                                            "Invalid username or password");
-        return false;
-    }
-
-||||||| 80d2ef31c
-=======
     if constexpr (!BMCWEB_INSECURE_DISABLE_AUTH)
     {
         // Handle unauthorized expand query parameters for service root example
@@ -172,7 +158,6 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
         }
     }
 
->>>>>>> origin/master
     if (!handleIfMatch(app, req, asyncResp))
     {
         return false;
@@ -197,12 +182,6 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
         return needToCallHandlers;
     }
 
-<<<<<<< HEAD
-    // make a copy of the request
-    auto newReq = std::make_shared<crow::Request>(req);
-
-||||||| 80d2ef31c
-=======
     // make a copy of the request because older request goes out of scope
     // trying to access it after it goes out of scope will cause a crash
     // Create a copy of the request using shared_ptr
@@ -215,25 +194,15 @@ inline bool handleIfMatch(crow::App& app, const crow::Request& req,
     // Cleanup is required here.
     auto newReq = std::make_shared<crow::Request>(req.copy());
 
->>>>>>> origin/master
     delegated = query_param::delegate(queryCapabilities, *queryOpt);
     std::function<void(crow::Response&)> handler =
         asyncResp->res.releaseCompleteRequestHandler();
 
     asyncResp->res.setCompleteRequestHandler(
         [&app, handler(std::move(handler)), query{std::move(*queryOpt)},
-<<<<<<< HEAD
-         delegated{delegated},
-         newReq{std::move(newReq)}](crow::Response& resIn) mutable {
-            processAllParams(app, query, delegated, handler, resIn, newReq);
-||||||| 80d2ef31c
-         delegated{delegated}](crow::Response& resIn) mutable {
-            processAllParams(app, query, delegated, handler, resIn);
-=======
          delegated{delegated},
          newReq{std::move(newReq)}](crow::Response& resIn) mutable {
             processAllParams(app, query, delegated, handler, resIn, *newReq);
->>>>>>> origin/master
         });
 
     return needToCallHandlers;

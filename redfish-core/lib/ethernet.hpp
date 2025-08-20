@@ -51,11 +51,6 @@
 #include <variant>
 #include <vector>
 
-enum
-{
-    MAC_STRING_SIZE = 17
-};
-
 namespace redfish
 {
 
@@ -190,21 +185,24 @@ inline std::string getDhcpEnabledEnumeration(bool isIPv4, bool isIPv6,
     }
     if (isIPv4)
     {
+        // Nvidia code starts here
         if (ipv6AcceptRa)
         {
             return "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.v4v6stateless";
         }
-
+        // Nvidia code edns here
         return "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.v4";
     }
     if (isIPv6)
     {
         return "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.v6";
     }
+    // Nvidia code starts here
     if (ipv6AcceptRa)
     {
         return "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.v6stateless";
     }
+    // Nvidia code edns here
     return "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.none";
 }
 
@@ -819,12 +817,12 @@ inline void createIPv4(const std::string& ifaceId, uint8_t prefixLength,
  * @brief Deletes the IP entry for this interface and creates a replacement
  * static entry
  *
- * @param[in] ifaceId      Id of interface upon which to create the IPv6 entry
- * @param[in] id           The unique hash entry identifying the DBus entry
+ * @param[in] ifaceId        Id of interface upon which to create the IPv6 entry
+ * @param[in] id             The unique hash entry identifying the DBus entry
  * @param[in] prefixLength   Prefix syntax for the subnet mask
  * @param[in] address        Address to assign to this interface
  * @param[in] numStaticAddrs Count of IPv4 static addresses
- * @param[io] asyncResp    Response object that will be returned to client
+ * @param[io] asyncResp      Response object that will be returned to client
  *
  * @return None
  */
@@ -1345,13 +1343,15 @@ inline void handleMACAddressPatch(
     const std::string& ifaceId, const std::string& macAddress,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    if (macAddress.size() > MAC_STRING_SIZE)
+    // Nvidia code starts here
+    static constexpr const size_t macStringSize = 17;
+    if (macAddress.size() > macStringSize)
     {
         messages::propertyValueFormatError(asyncResp->res, macAddress,
                                            "MACAddress");
         return;
     }
-
+    // Nvidia code edns here
     setDbusProperty(
         asyncResp, "MACAddress", "xyz.openbmc_project.Network",
         sdbusplus::message::object_path("/xyz/openbmc_project/network") /
@@ -1364,6 +1364,7 @@ inline void setDHCPEnabled(const std::string& ifaceId,
                            const bool v6Value, const bool ipv6AcceptRa,
                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    // Nvidia code starts here
     const std::string dhcp =
         getDhcpEnabledEnumeration(v4Value, v6Value, ipv6AcceptRa);
     setDbusProperty(
@@ -1566,7 +1567,9 @@ inline bool parseAddresses(
 
         if (obj == nullptr)
         {
+            // Nvidia code starts here
             if (nicIpEntry == ipv4Data.cend())
+            // Nvidia code Ends here
             {
                 // Received a DELETE action on an entry not assigned to the NIC
                 messages::resourceCannotBeDeleted(res);
@@ -1607,7 +1610,9 @@ inline bool parseAddresses(
                 thisAddress.operation = AddrChange::Update;
                 thisAddress.address = *address;
             }
+            // Nvidia code starts here
             else if (nicIpEntry == ipv4Data.cend())
+            // Nvidia code Ends here
             {
                 messages::propertyMissing(res, pathString + "/Address");
                 return false;
@@ -1630,7 +1635,9 @@ inline bool parseAddresses(
                 thisAddress.prefixLength = prefixLength;
                 thisAddress.operation = AddrChange::Update;
             }
+            // Nvidia code starts here
             else if (nicIpEntry == ipv4Data.cend())
+            // Nvidia code Ends here
             {
                 messages::propertyMissing(res, pathString + "/SubnetMask");
                 return false;
@@ -1656,7 +1663,9 @@ inline bool parseAddresses(
                 thisAddress.operation = AddrChange::Update;
                 thisAddress.gateway = *gateway;
             }
+            // Nvidia code starts here
             else if (nicIpEntry == ipv4Data.cend())
+            // Nvidia code Ends here
             {
                 // Default to null gateway
                 gateway = "";
@@ -1769,13 +1778,16 @@ inline void handleIPv4StaticPatch(
             break;
         }
     }
+    // Nvidia code starts here
     // Defaultgateway was cleared in handleDHCPPatch function.
     bool dhcpCleared = translateDhcpEnabledToBool(ethData.dhcpEnabled, true);
-
+    // Nvidia code ends here
     // now update to the new gateway.
     // Default gateway is already empty, so no need to update if we're clearing
+    // Nvidia code starts here
     if ((!gatewayOut.empty() && ethData.defaultGateway != gatewayOut) ||
         (dhcpCleared))
+    // Nvidia code Ends here
     {
         updateIPv4DefaultGateway(ifaceId, gatewayOut, asyncResp);
     }
@@ -1923,7 +1935,9 @@ inline void parseInterfaceData(
             ethData.linkUp ? ethernet_interface::LinkStatus::LinkUp
                            : ethernet_interface::LinkStatus::LinkDown;
         jsonResponse["Status"]["State"] = resource::State::Enabled;
+        // Nvidia code starts here
         jsonResponse["Status"]["Health"] = resource::Health::OK;
+        // Nvidia code ends here
     }
     else
     {
@@ -2138,11 +2152,6 @@ inline void afterVlanCreate(
     asyncResp->res.addHeader("Location", vlanInterfaceUri.buffer());
 }
 
-inline bool verifyNames(const std::string& parent, const std::string& iface)
-{
-    return iface.starts_with(parent + "_");
-}
-
 inline void requestEthernetInterfacesRoutes(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/")
@@ -2223,14 +2232,14 @@ inline void requestEthernetInterfacesRoutes(App& app)
                     return;
                 }
 
-                bool vlanEnabled = false;
+                bool vlanEnable = false;
                 uint32_t vlanId = 0;
                 std::vector<nlohmann::json::object_t> relatedInterfaces;
 
                 if (!json_util::readJsonPatch(                        //
                         req, asyncResp->res,                          //
                         "Links/RelatedInterfaces", relatedInterfaces, //
-                        "VLAN/VLANEnable", vlanEnabled,               //
+                        "VLAN/VLANEnable", vlanEnable,                //
                         "VLAN/VLANId", vlanId                         //
                         ))
                 {
@@ -2277,7 +2286,7 @@ inline void requestEthernetInterfacesRoutes(App& app)
                     return;
                 }
 
-                if (!vlanEnabled)
+                if (!vlanEnable)
                 {
                     // In OpenBMC implementation, VLANEnable cannot be false on
                     // create
@@ -2456,19 +2465,10 @@ inline void requestEthernetInterfacesRoutes(App& app)
                         return;
                     }
 
-                    // Pre-validate IPv4 static addresses to determine if
-                    // gateway clearing is safe
                     if (ipv4StaticAddresses)
                     {
-                        std::vector<AddressPatch> tempAddresses;
-                        std::string tempGatewayOut;
-                        auto result = parseAddresses(
-                            *ipv4StaticAddresses, ipv4Data, asyncResp->res,
-                            tempAddresses, tempGatewayOut);
-                        if (!result)
-                        {
-                            return;
-                        }
+                        handleIPv4StaticPatch(ifaceId, *ipv4StaticAddresses,
+                                              ethData, ipv4Data, asyncResp);
                     }
 
                     handleDHCPPatch(ifaceId, ethData, v4dhcpParms, v6dhcpParms,
@@ -2493,12 +2493,6 @@ inline void requestEthernetInterfacesRoutes(App& app)
                     if (macAddress)
                     {
                         handleMACAddressPatch(ifaceId, *macAddress, asyncResp);
-                    }
-
-                    if (ipv4StaticAddresses)
-                    {
-                        handleIPv4StaticPatch(ifaceId, *ipv4StaticAddresses,
-                                              ethData, ipv4Data, asyncResp);
                     }
 
                     if (staticNameServers)

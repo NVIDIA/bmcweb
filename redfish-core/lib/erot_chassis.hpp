@@ -18,11 +18,13 @@
 #pragma once
 
 #include "background_copy.hpp"
+#include "credential_pipe.hpp"
 #include "dot.hpp"
 #include "health.hpp"
 #include "in_band.hpp"
 #include "lsp.hpp"
 #include "manual_boot.hpp"
+#include "nvidia_dbus_utility.hpp"
 #include "nvidia_protected_component.hpp"
 #include "query.hpp"
 #include "trusted_components.hpp"
@@ -31,7 +33,12 @@
 #include <openssl/ec.h>
 
 #include <app.hpp>
+#include <boost/asio/connect_pipe.hpp>
+#include <boost/asio/readable_pipe.hpp>
+#include <boost/asio/writable_pipe.hpp>
 #include <boost/container/flat_map.hpp>
+#include <boost/process/v2/process.hpp>
+#include <boost/process/v2/stdio.hpp>
 #include <dbus_utility.hpp>
 #include <openbmc_dbus_rest.hpp>
 #include <registries/privilege_registry.hpp>
@@ -41,6 +48,7 @@
 #include <utils/conditions_utils.hpp>
 #include <utils/dbus_utils.hpp>
 #include <utils/json_utils.hpp>
+#include <utils/nvidia_chassis_util.hpp>
 
 namespace redfish
 {
@@ -74,7 +82,7 @@ static void getChassisCertificate(
     // NOTE: EROT chassis will be having only one certificate at any momment of
     // time.
     crow::connections::systemBus->async_method_call(
-        [req, asyncResp, objectPath,
+        [&req, asyncResp, objectPath,
          certificateID](const boost::system::error_code ec,
                         const dbus::utility::ManagedObjectType& objects) {
             if (ec)
@@ -86,7 +94,7 @@ static void getChassisCertificate(
             for (const auto& object : objects)
             {
                 crow::connections::systemBus->async_method_call(
-                    [req, asyncResp, object, objectPath, certificateID](
+                    [&req, asyncResp, object, objectPath, certificateID](
                         const boost::system::error_code ec1,
                         std::variant<std::vector<std::string>>& resp) {
                         if (ec1)
@@ -271,7 +279,7 @@ inline void getEROTChassis(const crow::Request& req,
         "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
 
     crow::connections::systemBus->async_method_call(
-        [req, asyncResp, chassisId(std::string(chassisId)),
+        [&req, asyncResp, chassisId(std::string(chassisId)),
          isCpuEROT](const boost::system::error_code& ec,
                     const dbus::utility::GetSubTreeType& subtree) {
             if (ec)
@@ -555,9 +563,9 @@ inline void requestRoutesEROTChassisCertificate(App& app)
                 {
                     return;
                 }
-                redfish::chassis_utils::isEROTChassis(
+                redfish::nvidia_chassis_utils::isEROTChassis(
                     chassisID,
-                    [req, asyncResp, chassisID, certificateID](
+                    [&req, asyncResp, chassisID, certificateID](
                         bool isEROT, [[maybe_unused]] bool isCpuEROT) {
                         if (!isEROT)
                         {
@@ -579,7 +587,7 @@ inline void requestRoutesEROTChassisCertificate(App& app)
                             "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
 
                         crow::connections::systemBus->async_method_call(
-                            [req, asyncResp, chassisID(std::string(chassisID)),
+                            [&req, asyncResp, chassisID(std::string(chassisID)),
                              certificateID](
                                 const boost::system::error_code ec,
                                 const dbus::utility::GetSubTreeType& subtree) {
@@ -739,7 +747,7 @@ inline void handleEROTChassisPatch(
     const std::array<const char*, 1> interfaces = {
         "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
     crow::connections::systemBus->async_method_call(
-        [req, asyncResp, chassisId(std::string(chassisId)),
+        [&req, asyncResp, chassisId(std::string(chassisId)),
          backgroundCopyEnabled,
          inBandEnabled](const boost::system::error_code& ec,
                         const dbus::utility::GetSubTreeType& subtree) {
@@ -770,7 +778,7 @@ inline void handleEROTChassisPatch(
                     sdbusplus::asio::getProperty<std::string>(
                         *crow::connections::systemBus, connection.first, path,
                         "xyz.openbmc_project.Common.UUID", "UUID",
-                        [req, asyncResp, chassisId(std::string(chassisId)),
+                        [&req, asyncResp, chassisId(std::string(chassisId)),
                          backgroundCopyEnabled,
                          inBandEnabled](const boost::system::error_code ec1,
                                         const std::string& chassisUUID) {
@@ -1041,9 +1049,7 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     }
 
     std::string command = erotResetPrePath + " " + std::to_string(endpointId);
-    auto dataOut = std::make_shared<boost::process::ipstream>();
-    auto dataErr = std::make_shared<boost::process::ipstream>();
-    auto exitCallback = [asyncResp, dataOut, dataErr, erotResetPath,
+    auto exitCallback = [asyncResp, erotResetPath,
                          endpointId](const boost::system::error_code& ec,
                                      int errorCode) mutable {
         BMCWEB_LOG_DEBUG("ec: {}  errorCode {}", ec, errorCode);
@@ -1083,26 +1089,61 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
         std::string resetCommand =
             erotResetPath + " " + std::to_string(endpointId);
-        auto secondExitCallback =
-            [](const boost::system::error_code& ec2, int errorCode2) mutable {
-                BMCWEB_LOG_DEBUG("ec: {}  errorCode {}", ec2, errorCode2);
-            };
         BMCWEB_LOG_DEBUG("Sending ERoT self-reset command");
 
         /* During the erotReset script, ERoT performs a self reset which leads
         to BMC external reset. Hence it is unnecessary to check its results */
         messages::success(asyncResp->res);
 
-        boost::process::async_system(
-            crow::connections::systemBus->get_io_context(),
-            std::move(secondExitCallback), resetCommand,
-            boost::process::std_in.close(), boost::process::std_out > *dataOut,
-            boost::process::std_err > *dataErr);
+        namespace bpv2 = boost::process::v2;
+        auto& io = crow::connections::systemBus->get_io_context();
+        boost::asio::readable_pipe outRead(io);
+        boost::asio::writable_pipe outWrite(io);
+        boost::asio::connect_pipe(outRead, outWrite);
+        boost::asio::readable_pipe errRead(io);
+        boost::asio::writable_pipe errWrite(io);
+        boost::asio::connect_pipe(errRead, errWrite);
+
+        bpv2::process child{
+            io,
+            resetCommand,
+            {},
+            bpv2::process_stdio{.in = nullptr,
+                                .out = std::move(outWrite),
+                                .err = std::move(errWrite)},
+        };
+        child.async_wait(
+            [outRead = std::move(outRead), errRead = std::move(errRead)](
+                const std::error_code&, int) mutable {
+                // Ignore output; pipes kept alive until exit
+            });
     };
-    boost::process::async_system(
-        crow::connections::systemBus->get_io_context(), std::move(exitCallback),
-        command, boost::process::std_in.close(),
-        boost::process::std_out > *dataOut, boost::process::std_err > *dataErr);
+    namespace bpv2 = boost::process::v2;
+    auto& io = crow::connections::systemBus->get_io_context();
+    boost::asio::readable_pipe preOutRead(io);
+    boost::asio::writable_pipe preOutWrite(io);
+    boost::asio::connect_pipe(preOutRead, preOutWrite);
+    boost::asio::readable_pipe preErrRead(io);
+    boost::asio::writable_pipe preErrWrite(io);
+    boost::asio::connect_pipe(preErrRead, preErrWrite);
+
+    bpv2::process preChild{
+        io,
+        command,
+        {},
+        bpv2::process_stdio{.in = nullptr,
+                            .out = std::move(preOutWrite),
+                            .err = std::move(preErrWrite)},
+    };
+    preChild.async_wait([exitCallback = std::move(exitCallback),
+                         preOutRead = std::move(preOutRead),
+                         preErrRead = std::move(preErrRead)](
+                            const std::error_code& ec, int code) mutable {
+        // Keep pipes alive; then invoke original callback
+        exitCallback(boost::system::error_code(
+                         ec.value(), boost::system::generic_category()),
+                     code);
+    });
 }
 
 /**
@@ -1124,7 +1165,7 @@ inline void findEIDforEROTReset(
     }
 
     crow::connections::systemBus->async_method_call(
-        [req, asyncResp, chassisUUID,
+        [&req, asyncResp, chassisUUID,
          isPCIe](const boost::system::error_code ec,
                  const dbus::utility::ManagedObjectType& resp) {
             if (ec)
@@ -1231,7 +1272,7 @@ inline void handleEROTChassisResetAction(
         "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
 
     crow::connections::systemBus->async_method_call(
-        [req, asyncResp, chassisId(std::string(chassisId))](
+        [&req, asyncResp, chassisId(std::string(chassisId))](
             const boost::system::error_code ec,
             const dbus::utility::GetSubTreeType& subtree) {
             if (ec)
@@ -1270,8 +1311,8 @@ inline void handleEROTChassisResetAction(
                 sdbusplus::asio::getProperty<std::string>(
                     *crow::connections::systemBus, connectionNames[0].first,
                     path, "xyz.openbmc_project.Common.UUID", "UUID",
-                    [req, asyncResp](const boost::system::error_code& ec2,
-                                     const std::string& chassisUUID) {
+                    [&req, asyncResp](const boost::system::error_code& ec2,
+                                      const std::string& chassisUUID) {
                         if (ec2)
                         {
                             BMCWEB_LOG_DEBUG(

@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "registries.hpp"
 
-<<<<<<< HEAD
 #include "registries/base_message_registry.hpp"
 #include "registries/openbmc_message_registry.hpp"
 #include "registries/platform_message_registry.hpp"
@@ -11,12 +10,9 @@
 #include "registries/task_event_message_registry.hpp"
 #include "registries/telemetry_message_registry.hpp"
 #include "registries/update_message_registry.hpp"
-||||||| 80d2ef31c
-=======
 // We need the registries_selector pulled into some cpp part so that the
 // registration hooks run.
 // NOLINTNEXTLINE(misc-include-cleaner)
->>>>>>> origin/master
 #include "registries_selector.hpp"
 #include "str_utility.hpp"
 

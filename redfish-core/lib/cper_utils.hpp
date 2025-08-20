@@ -325,7 +325,7 @@ inline void parseAdditionalDataForCPER(
         }
     }
 
-    entry = jOut;
+    entry = jOut.get<nlohmann::json::object_t>();
 
     BMCWEB_LOG_DEBUG("Done {}", type->second);
 }

@@ -28,6 +28,7 @@
 #include <boost/url/url_view.hpp>
 #include <nlohmann/json.hpp>
 #include <sdbusplus/message/native_types.hpp>
+#include <utils/nvidia_http_utils.hpp>
 
 #include <algorithm>
 #include <array>
@@ -55,7 +56,7 @@ constexpr std::array prefixURLTable{
     "/TaskService/Tasks",
 };
 
-constexpr unsigned int aggregatorReadBodyLimit = 50 * 1024 * 1024; // 50MB
+constexpr unsigned int aggregatorReadBodyLimit = 68 * 1024 * 1024; // 68MB
 
 enum class Result
 {
@@ -522,21 +523,11 @@ class RedfishAggregator
                         satelliteInfo.clear();
                         return;
                     }
-
-<<<<<<< HEAD
-                    // For now assume there will only be one satellite config.
-                    // Assign it the name/prefix
+                    // Nvidia code starts here
                     addSatelliteConfig(
                         std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX),
                         interface.second, satelliteInfo);
-||||||| 80d2ef31c
-                    // For now assume there will only be one satellite config.
-                    // Assign it the name/prefix "5B247A"
-                    addSatelliteConfig("5B247A", interface.second,
-                                       satelliteInfo);
-=======
-                    addSatelliteConfig(interface.second, satelliteInfo);
->>>>>>> origin/master
+                    // Nvidia code ends here
                 }
             }
         }
@@ -545,11 +536,12 @@ class RedfishAggregator
     // Parse the properties of a satellite config object and add the
     // configuration if the properties are valid
     static void addSatelliteConfig(
+        const std::string& prefix,
         const dbus::utility::DBusPropertiesMap& properties,
         std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
     {
         boost::urls::url url;
-        std::string prefix;
+        std::string upstreamPrefix; // Upstream code not used downstream
 
         for (const auto& prop : properties)
         {
@@ -603,13 +595,14 @@ class RedfishAggregator
                 }
                 url.set_scheme("http");
             }
-            else if (prop.first == "Name")
+            else if (prop.first ==
+                     "Name") // Upstream code not used downstream starts here
             {
                 const std::string* propVal =
                     std::get_if<std::string>(&prop.second);
                 if (propVal != nullptr && !propVal->empty())
                 {
-                    prefix = *propVal;
+                    upstreamPrefix = *propVal;
                     BMCWEB_LOG_DEBUG("Using Name property {} as prefix",
                                      prefix);
                 }
@@ -619,7 +612,7 @@ class RedfishAggregator
                         "Invalid or empty Name property, invalid satellite config");
                     return;
                 }
-            }
+            } // Upstream code not used downstream ends here
         } // Finished reading properties
 
         // Make sure all required config information was made available
@@ -936,9 +929,13 @@ class RedfishAggregator
         {
             url.set_query(targetURI.query());
         }
+        // Build filtered headers and drop HTTP/2 pseudo headers like :authority
+        boost::beast::http::fields fwdHeaders =
+            redfish::nvidia_http_utils::filterHeadersDropAuthority(
+                thisReq.fields(), url);
         client.sendDataWithCallback(std::move(data), url,
                                     ensuressl::VerifyCertificate::Verify,
-                                    thisReq.fields(), thisReq.method(), cb);
+                                    fwdHeaders, thisReq.method(), cb);
     }
 
     // Forward a request for a collection URI to each known satellite BMC
@@ -969,9 +966,12 @@ class RedfishAggregator
                 }
             }
             std::string data = thisReq.body();
+            boost::beast::http::fields fwdHeaders =
+                redfish::nvidia_http_utils::filterHeadersDropAuthority(
+                    thisReq.fields(), url);
             client.sendDataWithCallback(std::move(data), url,
                                         ensuressl::VerifyCertificate::Verify,
-                                        thisReq.fields(), thisReq.method(), cb);
+                                        fwdHeaders, thisReq.method(), cb);
         }
     }
 
@@ -995,10 +995,12 @@ class RedfishAggregator
             url.set_path(thisReq.url().path());
 
             std::string data = thisReq.body();
-
+            boost::beast::http::fields fwdHeaders =
+                redfish::nvidia_http_utils::filterHeadersDropAuthority(
+                    thisReq.fields(), url);
             client.sendDataWithCallback(std::move(data), url,
                                         ensuressl::VerifyCertificate::Verify,
-                                        thisReq.fields(), thisReq.method(), cb);
+                                        fwdHeaders, thisReq.method(), cb);
         }
     }
 
@@ -1019,6 +1021,11 @@ class RedfishAggregator
     {
         static RedfishAggregator handler;
         return handler;
+    }
+
+    crow::HttpClient& getClient()
+    {
+        return client;
     }
 
     // Polls D-Bus to get all available satellite config information
@@ -1500,4 +1507,5 @@ class RedfishAggregator
         return Result::LocalHandle;
     }
 };
+
 } // namespace redfish

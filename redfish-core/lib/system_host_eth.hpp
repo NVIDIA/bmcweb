@@ -22,13 +22,13 @@
 #include "dbus_singleton.hpp"
 #include "ethernet.hpp"
 #include "health.hpp"
+#include "nvidia_dbus_utility.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/json_utils.hpp"
-
 namespace redfish
 {
 template <typename CallbackFunc>

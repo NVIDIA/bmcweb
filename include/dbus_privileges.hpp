@@ -168,7 +168,7 @@ inline void validatePrivilege(
 
     requestUserInfo(
         req->session->username, asyncResp,
-        [req, asyncResp, &rule, callback = std::move(callback)](
+        [&req, asyncResp, &rule, callback = std::move(callback)](
             const dbus::utility::DBusPropertiesMap& userInfoMap) mutable {
             if (afterGetUserInfoValidate(*req, asyncResp, rule, userInfoMap))
             {

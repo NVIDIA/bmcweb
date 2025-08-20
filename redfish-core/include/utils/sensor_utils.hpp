@@ -11,6 +11,7 @@
 #include "nvidia_sensor_utils.hpp"
 #include "str_utility.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <boost/url/format.hpp>
@@ -210,13 +211,12 @@ inline std::string_view toReadingUnits(std::string_view sensorType)
     {
         return "J";
     }
-<<<<<<< HEAD
+    // Nvidia Added Code Start
     if (sensorType == "frequency")
     {
         return "Hz";
     }
-||||||| 80d2ef31c
-=======
+    // Nvidia Added Code End
     if (sensorType == "liquidflow")
     {
         return "L/min";
@@ -225,7 +225,6 @@ inline std::string_view toReadingUnits(std::string_view sensorType)
     {
         return "Pa";
     }
->>>>>>> origin/master
     return "";
 }
 
@@ -271,13 +270,12 @@ inline sensor::ReadingType toReadingType(std::string_view sensorType)
     {
         return sensor::ReadingType::EnergyJoules;
     }
-<<<<<<< HEAD
+    // Nvidia Added Code Start
     if (sensorType == "frequency")
     {
         return sensor::ReadingType::Frequency;
     }
-||||||| 80d2ef31c
-=======
+    // Nvidia Added Code End
     if (sensorType == "liquidflow")
     {
         return sensor::ReadingType::LiquidFlowLPM;
@@ -286,7 +284,6 @@ inline sensor::ReadingType toReadingType(std::string_view sensorType)
     {
         return sensor::ReadingType::PressurePa;
     }
->>>>>>> origin/master
     return sensor::ReadingType::Invalid;
 }
 
@@ -616,7 +613,6 @@ inline void objectPropertiesToJson(
             properties.emplace_back(
                 "xyz.openbmc_project.Sensor.Threshold.Critical", "CriticalLow",
                 "/Thresholds/LowerCritical/Reading"_json_pointer);
-<<<<<<< HEAD
             properties.emplace_back(
                 "xyz.openbmc_project.Sensor.Threshold.HardShutdown",
                 "HardShutdownHigh",
@@ -637,17 +633,6 @@ inline void objectPropertiesToJson(
             properties.emplace_back("xyz.openbmc_project.Sensor.PeakValue",
                                     "Timestamp",
                                     "/PeakReadingTime"_json_pointer);
-||||||| 80d2ef31c
-=======
-            properties.emplace_back(
-                "xyz.openbmc_project.Sensor.Threshold.HardShutdown",
-                "HardShutdownHigh",
-                "/Thresholds/UpperFatal/Reading"_json_pointer);
-            properties.emplace_back(
-                "xyz.openbmc_project.Sensor.Threshold.HardShutdown",
-                "HardShutdownLow",
-                "/Thresholds/LowerFatal/Reading"_json_pointer);
->>>>>>> origin/master
 
             /* Add additional properties specific to sensorType */
             if (sensorType == "fan_tach")
