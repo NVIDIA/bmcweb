@@ -238,17 +238,9 @@ struct TaskData : std::enable_shared_from_this<TaskData>
 
         if (tasks.size() >= maxTaskCount)
         {
-<<<<<<< HEAD
-            auto taskToRemove = getTaskToRemove();
-||||||| 80d2ef31c
-            const auto& last = tasks.front();
-
-=======
             const auto last = getTaskToRemove();
 
->>>>>>> origin/master
             // destroy all references
-<<<<<<< HEAD
             (*taskToRemove)
                 ->messages.emplace_back(
                     (*taskToRemove)
@@ -256,15 +248,6 @@ struct TaskData : std::enable_shared_from_this<TaskData>
             (*taskToRemove)->timer.cancel();
             (*taskToRemove)->match.reset();
             tasks.erase(taskToRemove);
-||||||| 80d2ef31c
-            last->timer.cancel();
-            last->match.reset();
-            tasks.pop_front();
-=======
-            (*last)->timer.cancel();
-            (*last)->match.reset();
-            tasks.erase(last);
->>>>>>> origin/master
         }
 
         return tasks.emplace_back(std::make_shared<MakeSharedHelper>(

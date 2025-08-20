@@ -87,7 +87,6 @@ def openbmc_local_getter() -> RegistryInfo:
     return (path, json_file, "openbmc", url)
 
 
-<<<<<<< HEAD
 def nvidia_local_getter():
     url = ""
     with open(
@@ -108,12 +107,7 @@ def nvidia_local_getter():
     return (path, json_file, "nvidia", url)
 
 
-def update_registries(files):
-||||||| 80d2ef31c
-def update_registries(files):
-=======
 def update_registries(files: t.List[RegistryInfo]) -> None:
->>>>>>> origin/master
     # Remove the old files
     for file, json_dict, namespace, url in files:
         try:
@@ -763,27 +757,12 @@ def main() -> None:
                 f"{registry}_message_registry.hpp",
                 registry,
             )
-<<<<<<< HEAD
-            registries_map[registry] = files[-1]
     if "nvidia" in registries:
-        files.append(nvidia_local_getter())
-||||||| 80d2ef31c
-            registries_map[registry] = files[-1]
-=======
->>>>>>> origin/master
+        registries_map["nvidia"] = nvidia_local_getter()
     if "openbmc" in registries:
-<<<<<<< HEAD
-        files.append(openbmc_local_getter())
-    update_registries(files)
-||||||| 80d2ef31c
-        files.append(openbmc_local_getter())
-
-    update_registries(files)
-=======
         registries_map["openbmc"] = openbmc_local_getter()
 
     update_registries(list(registries_map.values()))
->>>>>>> origin/master
 
     if "base" in registries_map:
         create_error_registry(
