@@ -4,13 +4,9 @@
 
 #include "bmcweb_config.h"
 
-<<<<<<< HEAD
 #include "asn1.hpp"
 #include "file_watcher.hpp"
-||||||| 80d2ef31c
-=======
 #include "http_connect_types.hpp"
->>>>>>> origin/master
 #include "http_connection.hpp"
 #include "io_context_singleton.hpp"
 #include "logging.hpp"
@@ -18,27 +14,12 @@
 #include "nvidia_ssl_key_handler.hpp"
 #include "ssl_key_handler.hpp"
 
-<<<<<<< HEAD
 #include <openssl/pem.h> // For PEM_read_PrivateKey
 #include <sys/inotify.h> // For IN_CLOSE_WRITE
 
-#include <boost/asio/io_context.hpp>
-||||||| 80d2ef31c
-#include <boost/asio/io_context.hpp>
-=======
->>>>>>> origin/master
-#include <boost/asio/ip/address.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/signal_set.hpp>
-#include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
-<<<<<<< HEAD
 #include <boost/beast/core.hpp> // For lowest_layer_type
-||||||| 80d2ef31c
-#include <boost/beast/core/stream_traits.hpp>
-=======
->>>>>>> origin/master
 
 #include <chrono>
 #include <csignal>
@@ -70,15 +51,8 @@ class Server
         acceptors(std::move(acceptorsIn)),
 
         // NOLINTNEXTLINE(misc-include-cleaner)
-<<<<<<< HEAD
         signals(ioService, SIGINT, SIGTERM, SIGHUP), handler(handlerIn),
         adaptorCtx(std::move(adaptorCtxIn)), fileWatcher(io)
-||||||| 80d2ef31c
-        signals(ioService, SIGINT, SIGTERM, SIGHUP), handler(handlerIn),
-        adaptorCtx(std::move(adaptorCtxIn))
-=======
-        signals(getIoContext(), SIGINT, SIGTERM, SIGHUP), handler(handlerIn)
->>>>>>> origin/master
     {}
 
     void updateDateStr()
@@ -135,7 +109,6 @@ class Server
         {
             auto sslContext = ensuressl::getSslServerContext();
 
-<<<<<<< HEAD
             adaptorCtx = sslContext;
             handler->ssl(std::move(sslContext));
         }
@@ -180,14 +153,7 @@ class Server
                 }
             }
         });
-||||||| 80d2ef31c
-        auto sslContext = ensuressl::getSslServerContext();
-
-        adaptorCtx = sslContext;
-        handler->ssl(std::move(sslContext));
-=======
         adaptorCtx = ensuressl::getSslServerContext();
->>>>>>> origin/master
     }
 
     void startAsyncWaitForSignal()

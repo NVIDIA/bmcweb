@@ -204,13 +204,8 @@ struct Response
         return response.body().payloadSize();
     }
 
-<<<<<<< HEAD
-    void preparePayload(ForceChunking chunked = ForceChunking::Disabled)
-||||||| 80d2ef31c
-    void preparePayload()
-=======
-    void preparePayload(const boost::urls::url_view& urlView)
->>>>>>> origin/master
+    void preparePayload(const boost::urls::url_view& urlView,
+                        ForceChunking chunked = ForceChunking::Disabled)
     {
         std::optional<uint64_t> pSize = response.body().payloadSize();
 
@@ -234,25 +229,13 @@ struct Response
             response.content_length(*pSize);
         }
 
-        if ((*pSize > 0) && (is1XXReturn || result() == status::no_content ||
-                             result() == status::not_modified))
+        if (is1XXReturn || result() == status::no_content ||
+            result() == status::not_modified)
         {
-<<<<<<< HEAD
-            BMCWEB_LOG_DEBUG("{} Response content provided but code was "
-                             "no-content or not_modified, which aren't "
-                             "allowed to have a body",
-                             logPtr(this));
-||||||| 80d2ef31c
-            BMCWEB_LOG_CRITICAL("{} Response content provided but code was "
-                                "no-content or not_modified, which aren't "
-                                "allowed to have a body",
-                                logPtr(this));
-=======
             BMCWEB_LOG_CRITICAL("{} Response content provided but code was "
                                 "no-content or not_modified, which aren't "
                                 "allowed to have a body for url : \"{}\"",
                                 logPtr(this), urlView.path());
->>>>>>> origin/master
             response.content_length(0);
             return;
         }

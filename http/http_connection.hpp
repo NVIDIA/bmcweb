@@ -293,8 +293,7 @@ class Connection :
     void upgradeToHttp2()
     {
         auto http2 = std::make_shared<HTTP2Connection<Adaptor, Handler>>(
-            std::move(adaptor), handler, getCachedDateStr, httpType,
-            mtlsSession);
+            std::move(adaptor), handler, getCachedDateStr, httpType);
         if (http2settings.empty())
         {
             http2->start();
@@ -424,42 +423,8 @@ class Connection :
 
         if (authenticationEnabled)
         {
-            if (!crow::authentication::isOnAllowlist(req->url().path(),
-                                                     req->method()) &&
-                req->session == nullptr)
+            if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
             {
-<<<<<<< HEAD
-                if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
-                {
-                    if (!crow::authentication::isOnAllowlist(req->url().path(),
-                                                             req->method()) &&
-                        req->session == nullptr)
-                    {
-                        BMCWEB_LOG_WARNING("Authentication failed");
-                        forward_unauthorized::sendUnauthorized(
-                            req->url().encoded_path(),
-                            req->getHeaderValue("X-Requested-With"),
-                            req->getHeaderValue("Accept"), res);
-
-                        std::string user = getUser(*req);
-                        if (user.empty())
-                        {
-                            completeRequest(res);
-                            return;
-                        }
-                        auto asyncResp =
-                            std::make_shared<bmcweb::AsyncResp>(std::move(res));
-                        BMCWEB_LOG_DEBUG("Setting completion handler");
-                        asyncResp->res.setCompleteRequestHandler(
-                            [self(shared_from_this())](
-                                crow::Response& thisRes) {
-                                self->completeRequest(thisRes);
-                            });
-                        redfish::handleAccountLocked(user, asyncResp, *req);
-                        return;
-                    }
-                }
-||||||| 80d2ef31c
                 if (!crow::authentication::isOnAllowlist(req->url().path(),
                                                          req->method()) &&
                     req->session == nullptr)
@@ -469,18 +434,23 @@ class Connection :
                         req->url().encoded_path(),
                         req->getHeaderValue("X-Requested-With"),
                         req->getHeaderValue("Accept"), res);
-                    completeRequest(res);
+
+                    std::string user = getUser(*req);
+                    if (user.empty())
+                    {
+                        completeRequest(res);
+                        return;
+                    }
+                    auto asyncResp =
+                        std::make_shared<bmcweb::AsyncResp>(std::move(res));
+                    BMCWEB_LOG_DEBUG("Setting completion handler");
+                    asyncResp->res.setCompleteRequestHandler(
+                        [self(shared_from_this())](crow::Response& thisRes) {
+                            self->completeRequest(thisRes);
+                        });
+                    redfish::handleAccountLocked(user, asyncResp, *req);
                     return;
                 }
-=======
-                BMCWEB_LOG_WARNING("Authentication failed");
-                forward_unauthorized::sendUnauthorized(
-                    req->url().encoded_path(),
-                    req->getHeaderValue("X-Requested-With"),
-                    req->getHeaderValue("Accept"), res);
-                completeRequest(res);
-                return;
->>>>>>> origin/master
             }
         }
 
@@ -525,20 +495,9 @@ class Connection :
     void gracefulClose()
     {
         BMCWEB_LOG_DEBUG("{} Socket close requested", logPtr(this));
-<<<<<<< HEAD
-        if constexpr (IsTls<Adaptor>::value)
-||||||| 80d2ef31c
-
-        if constexpr (IsTls<Adaptor>::value)
-=======
 
         if (httpType == HttpType::HTTPS)
->>>>>>> origin/master
         {
-<<<<<<< HEAD
-            BMCWEB_LOG_DEBUG("{} Shutting down TLS", logPtr(this));
-||||||| 80d2ef31c
-=======
             if (mtlsSession != nullptr)
             {
                 BMCWEB_LOG_DEBUG("{} Removing TLS session: {}", logPtr(this),
@@ -547,17 +506,8 @@ class Connection :
                     mtlsSession);
             }
 
->>>>>>> origin/master
             adaptor.async_shutdown(std::bind_front(
                 &self_type::tlsShutdownComplete, this, shared_from_this()));
-
-            if (mtlsSession != nullptr)
-            {
-                BMCWEB_LOG_DEBUG("{} Removing TLS session: {}", logPtr(this),
-                                 mtlsSession->uniqueId);
-                persistent_data::SessionStore::getInstance().removeSession(
-                    mtlsSession);
-            }
         }
         else
         {
@@ -692,29 +642,9 @@ class Connection :
                 doWrite();
                 return;
             }
-<<<<<<< HEAD
-
             BMCWEB_LOG_WARNING("{} End of stream, closing {}", logPtr(this),
                                ec);
             hardClose();
-||||||| 80d2ef31c
-            if (ec == boost::beast::http::error::end_of_stream)
-            {
-                BMCWEB_LOG_WARNING("{} End of stream, closing {}", logPtr(this),
-                                   ec);
-                hardClose();
-                return;
-            }
-
-            BMCWEB_LOG_DEBUG("{} Closing socket due to read error {}",
-                             logPtr(this), ec.message());
-            gracefulClose();
-
-=======
-            BMCWEB_LOG_WARNING("{} End of stream, closing {}", logPtr(this),
-                               ec);
-            hardClose();
->>>>>>> origin/master
             return;
         }
 
@@ -728,22 +658,12 @@ class Connection :
 
         if (authenticationEnabled)
         {
-<<<<<<< HEAD
             if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
             {
-                boost::beast::http::verb method = parser->get().method();
+                boost::beast::http::verb method = value.method();
                 userSession = crow::authentication::authenticate(
-                    ip, res, method, parser->get().base(), mtlsSession);
+                    ip, res, method, value.base(), mtlsSession);
             }
-||||||| 80d2ef31c
-            boost::beast::http::verb method = parser->get().method();
-            userSession = crow::authentication::authenticate(
-                ip, res, method, parser->get().base(), mtlsSession);
-=======
-            boost::beast::http::verb method = value.method();
-            userSession = authentication::authenticate(
-                ip, res, method, value.base(), mtlsSession);
->>>>>>> origin/master
         }
 
         std::string_view expect = value[boost::beast::http::field::expect];
@@ -828,14 +748,6 @@ class Connection :
                                ec);
             hardClose();
 
-<<<<<<< HEAD
-            BMCWEB_LOG_WARNING("{} End of stream, closing {}", logPtr(this),
-                               ec);
-            hardClose();
-||||||| 80d2ef31c
-            gracefulClose();
-=======
->>>>>>> origin/master
             return;
         }
 
@@ -955,7 +867,6 @@ class Connection :
     void doWrite()
     {
         BMCWEB_LOG_DEBUG("{} doWrite", logPtr(this));
-<<<<<<< HEAD
         ForceChunking chunked = ForceChunking::Disabled;
 
         if constexpr (BMCWEB_HTTP_CHUNKING)
@@ -972,18 +883,12 @@ class Connection :
             }
         }
 
-        res.preparePayload(chunked);
-||||||| 80d2ef31c
-        res.preparePayload();
-=======
-
         boost::urls::url_view urlView;
         if (req != nullptr)
         {
             urlView = req->url();
         }
-        res.preparePayload(urlView);
->>>>>>> origin/master
+        res.preparePayload(urlView, chunked);
 
         startDeadline();
         if (httpType == HttpType::HTTP)
