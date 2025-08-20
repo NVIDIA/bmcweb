@@ -296,20 +296,12 @@ RedfishService::RedfishService(App& app)
     requestRoutesNvidia(app);
     // Note, this must be the last route registered
     requestRoutesRedfish(app);
-<<<<<<< HEAD
 
     requestRoutesOpenBmcManager(*this);
     // Nvidia OEM routes
     requestRoutesNvidiaManager(*this);
 
     validate();
-||||||| 80d2ef31c
-=======
-
-    requestRoutesOpenBmcManager(*this);
-
-    validate();
->>>>>>> origin/master
 }
 
 } // namespace redfish

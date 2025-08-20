@@ -462,46 +462,10 @@ struct InsertMediaActionParams
 inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& service, const std::string& name,
                             const std::string& imageUrl, bool rw,
-                            std::string&& userName, std::string&& userPassword)
+                            std::string&& userName, std::string&& password)
 {
-<<<<<<< HEAD
-    int fd = -1;
-    std::shared_ptr<CredentialsPipe> secretPipe;
-    dbus::utility::DbusVariantType unixFd = -1;
-    if (!userName.empty() || !userPassword.empty())
-||||||| 80d2ef31c
-    int fd = -1;
-    std::shared_ptr<CredentialsPipe> secretPipe;
-    if (!userName.empty() || !password.empty())
-=======
     if (userName.contains('\0'))
->>>>>>> origin/master
     {
-<<<<<<< HEAD
-        // Payload must contain data + NULL delimiters
-        constexpr const size_t secretLimit = 1024;
-        if (userName.size() + userPassword.size() + 2 > secretLimit)
-        {
-            BMCWEB_LOG_ERROR("Credentials too long to handle");
-            messages::unrecognizedRequestBody(asyncResp->res);
-            return;
-        }
-
-        // Open pipe
-        secretPipe = std::make_shared<CredentialsPipe>(
-||||||| 80d2ef31c
-        // Payload must contain data + NULL delimiters
-        constexpr const size_t secretLimit = 1024;
-        if (userName.size() + password.size() + 2 > secretLimit)
-        {
-            BMCWEB_LOG_ERROR("Credentials too long to handle");
-            messages::unrecognizedRequestBody(asyncResp->res);
-            return;
-        }
-
-        // Open pipe
-        secretPipe = std::make_shared<CredentialsPipe>(
-=======
         messages::actionParameterValueFormatError(
             asyncResp->res, userName, "Username", "VirtualMedia.InsertMedia");
         return;
@@ -526,39 +490,7 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     // Open pipe
     std::shared_ptr<CredentialsPipe> secretPipe =
         std::make_shared<CredentialsPipe>(
->>>>>>> origin/master
             crow::connections::systemBus->get_io_context());
-<<<<<<< HEAD
-        fd = secretPipe->releaseFd();
-        unixFd = static_cast<sdbusplus::message::unix_fd>(fd);
-        // Pass secret over pipe
-        secretPipe->asyncWrite(
-            std::move(userName), std::move(userPassword),
-            [asyncResp,
-             secretPipe](const boost::system::error_code& ec, std::size_t) {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR("Failed to pass secret: {}", ec);
-                    messages::internalError(asyncResp->res);
-                }
-            });
-    }
-||||||| 80d2ef31c
-        fd = secretPipe->releaseFd();
-
-        // Pass secret over pipe
-        secretPipe->asyncWrite(
-            std::move(userName), std::move(password),
-            [asyncResp,
-             secretPipe](const boost::system::error_code& ec, std::size_t) {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR("Failed to pass secret: {}", ec);
-                    messages::internalError(asyncResp->res);
-                }
-            });
-    }
-=======
     int fd = secretPipe->releaseFd();
 
     // Pass secret over pipe
@@ -572,17 +504,9 @@ inline void doMountVmLegacy(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 messages::internalError(asyncResp->res);
             }
         });
->>>>>>> origin/master
 
-<<<<<<< HEAD
-||||||| 80d2ef31c
-    std::variant<sdbusplus::message::unix_fd> unixFd(
-        std::in_place_type<sdbusplus::message::unix_fd>, fd);
-
-=======
     sdbusplus::message::unix_fd unixFd(fd);
 
->>>>>>> origin/master
     sdbusplus::message::object_path path(
         "/xyz/openbmc_project/VirtualMedia/Legacy");
     path /= name;
