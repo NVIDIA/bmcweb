@@ -47,6 +47,7 @@
 #include "nvidia_protected_component.hpp"
 #include "nvidia_smbios_mdr.hpp"
 #include "nvidia_sweinj.hpp"
+#include "nvidia_system.hpp"
 #include "nvidia_system_variable_spi_erase.hpp"
 #include "nvidia_update_service.hpp"
 #include "nvidia_workload_power_profiles.hpp"
@@ -306,6 +307,10 @@ void requestRoutesNvidia(crow::App& app)
     }
 
     requestRoutesNvidiaSmbios(app);
+    if constexpr (BMCWEB_CPU_DIAG_SUPPORT)
+    {
+        requestRoutesSystemsCPUDiag(app);
+    }
 
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
