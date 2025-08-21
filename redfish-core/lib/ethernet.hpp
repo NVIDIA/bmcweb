@@ -2447,19 +2447,10 @@ inline void requestEthernetInterfacesRoutes(App& app)
                         return;
                     }
 
-                    // Pre-validate IPv4 static addresses to determine if
-                    // gateway clearing is safe
                     if (ipv4StaticAddresses)
                     {
-                        std::vector<AddressPatch> tempAddresses;
-                        std::string tempGatewayOut;
-                        auto result = parseAddresses(
-                            *ipv4StaticAddresses, ipv4Data, asyncResp->res,
-                            tempAddresses, tempGatewayOut);
-                        if (!result)
-                        {
-                            return;
-                        }
+                        handleIPv4StaticPatch(ifaceId, *ipv4StaticAddresses,
+                                              ethData, ipv4Data, asyncResp);
                     }
 
                     handleDHCPPatch(ifaceId, ethData, v4dhcpParms, v6dhcpParms,
@@ -2484,12 +2475,6 @@ inline void requestEthernetInterfacesRoutes(App& app)
                     if (macAddress)
                     {
                         handleMACAddressPatch(ifaceId, *macAddress, asyncResp);
-                    }
-
-                    if (ipv4StaticAddresses)
-                    {
-                        handleIPv4StaticPatch(ifaceId, *ipv4StaticAddresses,
-                                              ethData, ipv4Data, asyncResp);
                     }
 
                     if (staticNameServers)
