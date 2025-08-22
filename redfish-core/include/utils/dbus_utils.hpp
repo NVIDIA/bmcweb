@@ -441,6 +441,24 @@ inline nlohmann::json toChannelPresence(const std::string& state)
     }
     return nullptr;
 }
+
+inline std::string toPowerBreakPerformance(const std::string& state)
+{
+    if (state == "com.nvidia.ProcessorPowerBreak.PowerBreakStates.Normal")
+    {
+        return "Normal";
+    }
+    if (state == "com.nvidia.ProcessorPowerBreak.PowerBreakStates.Throttled")
+    {
+        return "Throttled";
+    }
+    if (state == "com.nvidia.ProcessorPowerBreak.PowerBreakStates.Unknown")
+    {
+        return "Unknown";
+    }
+    return "";
+}
+
 /**
  * @brief Defer the callback function until the shared_ptr destroys the returned
  * object.
