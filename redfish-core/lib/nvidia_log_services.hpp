@@ -630,9 +630,9 @@ inline std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
     bmcweb::split(tokens, oemData, ';');
     if (!tokens.empty())
     {
-        std::vector<std::string> subTokens;
         for (auto& token : tokens)
         {
+            std::vector<std::string> subTokens;
             bmcweb::split(subTokens, token, '=');
             // Include only <key,value> pair with '=' delimiter
             if (subTokens.size() == 2)
