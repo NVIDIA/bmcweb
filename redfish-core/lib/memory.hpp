@@ -23,12 +23,12 @@
 <<<<<<< HEAD
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_memory.hpp"
-||||||| 80d2ef31c
+    ||||||| 80d2ef31c
 =======
 #include "utils/json_utils.hpp"
 
 #include <asm-generic/errno.h>
->>>>>>> origin/master
+    >>>>>>> origin/master
 
 #include <boost/beast/http/verb.hpp>
 #include <boost/container/flat_map.hpp>
@@ -50,1094 +50,1125 @@
 #include <utility>
 #include <vector>
 
-namespace redfish
+    namespace redfish
 {
-using DimmProperties =
-    boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
+    using DimmProperties =
+        boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
 
-inline std::string translateMemoryTypeToRedfish(const std::string& memoryType)
-{
-    if (memoryType == "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR")
+    inline std::string translateMemoryTypeToRedfish(
+        const std::string& memoryType)
     {
-        return "DDR";
-    }
-    if (memoryType == "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR2")
-    {
-        return "DDR2";
-    }
-    if (memoryType == "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR3")
-    {
-        return "DDR3";
-    }
-    if (memoryType == "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR4")
-    {
-        return "DDR4";
-    }
-    if (memoryType ==
-        "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR4E_SDRAM")
-    {
-        return "DDR4E_SDRAM";
-    }
-    if (memoryType == "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR5")
-    {
-        return "DDR5";
-    }
-    if (memoryType ==
-        "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.LPDDR5_SDRAM")
-    {
-        return "LPDDR5_SDRAM";
-    }
-    if (memoryType ==
-        "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.LPDDR4_SDRAM")
-    {
-        return "LPDDR4_SDRAM";
-    }
-    if (memoryType ==
-        "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.LPDDR3_SDRAM")
-    {
-        return "LPDDR3_SDRAM";
-    }
-    if (memoryType ==
-        "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR2_SDRAM_FB_DIMM")
-    {
-        return "DDR2_SDRAM_FB_DIMM";
-    }
-    if (memoryType ==
-        "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR2_SDRAM_FB_DIMM_PROB")
-    {
-        return "DDR2_SDRAM_FB_DIMM_PROBE";
-    }
-    if (memoryType ==
-        "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR_SGRAM")
-    {
-        return "DDR_SGRAM";
-    }
-    if (memoryType == "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.ROM")
-    {
-        return "ROM";
-    }
-    if (memoryType ==
-        "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.SDRAM")
-    {
-        return "SDRAM";
-    }
-    if (memoryType == "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.EDO")
-    {
-        return "EDO";
-    }
-    if (memoryType ==
-        "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.FastPageMode")
-    {
-        return "FastPageMode";
-    }
-    if (memoryType ==
-        "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.PipelinedNibble")
-    {
-        return "PipelinedNibble";
-    }
-    if (memoryType ==
-        "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.Logical")
-    {
-        return "Logical";
-    }
-    if (memoryType == "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.HBM")
-    {
-        return "HBM";
-    }
-    if (memoryType == "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.HBM2")
-    {
-        return "HBM2";
-    }
-    if (memoryType == "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.HBM3")
-    {
-        return "HBM3";
-    }
-    // This is values like Other or Unknown
-    // Also D-Bus values:
-    // DRAM
-    // EDRAM
-    // VRAM
-    // SRAM
-    // RAM
-    // FLASH
-    // EEPROM
-    // FEPROM
-    // EPROM
-    // CDRAM
-    // ThreeDRAM
-    // RDRAM
-    // FBD2
-    // LPDDR_SDRAM
-    // LPDDR2_SDRAM
-    return "";
-}
-
-inline void dimmPropToHex(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          const char* key, const uint16_t* value,
-                          const nlohmann::json::json_pointer& jsonPtr)
-{
-    if (value == nullptr)
-    {
-        return;
-    }
-    asyncResp->res.jsonValue[jsonPtr][key] = "0x" + intToHexString(*value, 4);
-}
-
-inline void getPersistentMemoryProperties(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const dbus::utility::DBusPropertiesMap& properties,
-    const nlohmann::json::json_pointer& jsonPtr)
-{
-    const uint16_t* moduleManufacturerID = nullptr;
-    const uint16_t* moduleProductID = nullptr;
-    const uint16_t* subsystemVendorID = nullptr;
-    const uint16_t* subsystemDeviceID = nullptr;
-    const uint64_t* volatileRegionSizeLimitInKiB = nullptr;
-    const uint64_t* pmRegionSizeLimitInKiB = nullptr;
-    const uint64_t* volatileSizeInKiB = nullptr;
-    const uint64_t* pmSizeInKiB = nullptr;
-    const uint64_t* cacheSizeInKB = nullptr;
-    const uint64_t* voltaileRegionMaxSizeInKib = nullptr;
-    const uint64_t* pmRegionMaxSizeInKiB = nullptr;
-    const uint64_t* allocationIncrementInKiB = nullptr;
-    const uint64_t* allocationAlignmentInKiB = nullptr;
-    const uint64_t* volatileRegionNumberLimit = nullptr;
-    const uint64_t* pmRegionNumberLimit = nullptr;
-    const uint64_t* spareDeviceCount = nullptr;
-    const bool* isSpareDeviceInUse = nullptr;
-    const bool* isRankSpareEnabled = nullptr;
-    const std::vector<uint32_t>* maxAveragePowerLimitmW = nullptr;
-    const bool* configurationLocked = nullptr;
-    const std::string* allowedMemoryModes = nullptr;
-    const std::string* memoryMedia = nullptr;
-    const bool* configurationLockCapable = nullptr;
-    const bool* dataLockCapable = nullptr;
-    const bool* passphraseCapable = nullptr;
-    const uint64_t* maxPassphraseCount = nullptr;
-    const uint64_t* passphraseLockLimit = nullptr;
-
-    const bool success = sdbusplus::unpackPropertiesNoThrow(
-        dbus_utils::UnpackErrorPrinter(), properties, "ModuleManufacturerID",
-        moduleManufacturerID, "ModuleProductID", moduleProductID,
-        "SubsystemVendorID", subsystemVendorID, "SubsystemDeviceID",
-        subsystemDeviceID, "VolatileRegionSizeLimitInKiB",
-        volatileRegionSizeLimitInKiB, "PmRegionSizeLimitInKiB",
-        pmRegionSizeLimitInKiB, "VolatileSizeInKiB", volatileSizeInKiB,
-        "PmSizeInKiB", pmSizeInKiB, "CacheSizeInKB", cacheSizeInKB,
-        "VoltaileRegionMaxSizeInKib", voltaileRegionMaxSizeInKib,
-        "PmRegionMaxSizeInKiB", pmRegionMaxSizeInKiB,
-        "AllocationIncrementInKiB", allocationIncrementInKiB,
-        "AllocationAlignmentInKiB", allocationAlignmentInKiB,
-        "VolatileRegionNumberLimit", volatileRegionNumberLimit,
-        "PmRegionNumberLimit", pmRegionNumberLimit, "SpareDeviceCount",
-        spareDeviceCount, "IsSpareDeviceInUse", isSpareDeviceInUse,
-        "IsRankSpareEnabled", isRankSpareEnabled, "MaxAveragePowerLimitmW",
-        maxAveragePowerLimitmW, "ConfigurationLocked", configurationLocked,
-        "AllowedMemoryModes", allowedMemoryModes, "MemoryMedia", memoryMedia,
-        "ConfigurationLockCapable", configurationLockCapable, "DataLockCapable",
-        dataLockCapable, "PassphraseCapable", passphraseCapable,
-        "MaxPassphraseCount", maxPassphraseCount, "PassphraseLockLimit",
-        passphraseLockLimit);
-
-    if (!success)
-    {
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
-    dimmPropToHex(asyncResp, "ModuleManufacturerID", moduleManufacturerID,
-                  jsonPtr);
-    dimmPropToHex(asyncResp, "ModuleProductID", moduleProductID, jsonPtr);
-    dimmPropToHex(asyncResp, "MemorySubsystemControllerManufacturerID",
-                  subsystemVendorID, jsonPtr);
-    dimmPropToHex(asyncResp, "MemorySubsystemControllerProductID",
-                  subsystemDeviceID, jsonPtr);
-
-    if (volatileRegionSizeLimitInKiB != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["VolatileRegionSizeLimitMiB"] =
-            (*volatileRegionSizeLimitInKiB) >> 10;
-    }
-
-    if (pmRegionSizeLimitInKiB != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["PersistentRegionSizeLimitMiB"] =
-            (*pmRegionSizeLimitInKiB) >> 10;
-    }
-
-    if (volatileSizeInKiB != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["VolatileSizeMiB"] =
-            (*volatileSizeInKiB) >> 10;
-    }
-
-    if (pmSizeInKiB != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["NonVolatileSizeMiB"] =
-            (*pmSizeInKiB) >> 10;
-    }
-
-    if (cacheSizeInKB != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["CacheSizeMiB"] =
-            (*cacheSizeInKB >> 10);
-    }
-
-    if (voltaileRegionMaxSizeInKib != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["VolatileRegionSizeMaxMiB"] =
-            (*voltaileRegionMaxSizeInKib) >> 10;
-    }
-
-    if (pmRegionMaxSizeInKiB != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["PersistentRegionSizeMaxMiB"] =
-            (*pmRegionMaxSizeInKiB) >> 10;
-    }
-
-    if (allocationIncrementInKiB != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["AllocationIncrementMiB"] =
-            (*allocationIncrementInKiB) >> 10;
-    }
-
-    if (allocationAlignmentInKiB != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["AllocationAlignmentMiB"] =
-            (*allocationAlignmentInKiB) >> 10;
-    }
-
-    if (volatileRegionNumberLimit != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["VolatileRegionNumberLimit"] =
-            *volatileRegionNumberLimit;
-    }
-
-    if (pmRegionNumberLimit != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["PersistentRegionNumberLimit"] =
-            *pmRegionNumberLimit;
-    }
-
-    if (spareDeviceCount != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["SpareDeviceCount"] =
-            *spareDeviceCount;
-    }
-
-    if (isSpareDeviceInUse != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["IsSpareDeviceEnabled"] =
-            *isSpareDeviceInUse;
-    }
-
-    if (isRankSpareEnabled != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["IsRankSpareEnabled"] =
-            *isRankSpareEnabled;
-    }
-
-    if (maxAveragePowerLimitmW != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["MaxTDPMilliWatts"] =
-            *maxAveragePowerLimitmW;
-    }
-
-    if (configurationLocked != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["ConfigurationLocked"] =
-            *configurationLocked;
-    }
-
-    if (allowedMemoryModes != nullptr)
-    {
-        constexpr const std::array<const char*, 3> values{"Volatile", "PMEM",
-                                                          "Block"};
-
-        for (const char* v : values)
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR")
         {
-            if (allowedMemoryModes->ends_with(v))
-            {
-                asyncResp->res.jsonValue[jsonPtr]["OperatingMemoryModes"]
-                    .push_back(v);
-                break;
-            }
+            return "DDR";
         }
-    }
-
-    if (memoryMedia != nullptr)
-    {
-        constexpr const std::array<const char*, 3> values{"DRAM", "NAND",
-                                                          "Intel3DXPoint"};
-
-        for (const char* v : values)
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR2")
         {
-            if (memoryMedia->ends_with(v))
-            {
-                asyncResp->res.jsonValue[jsonPtr]["MemoryMedia"].push_back(v);
-                break;
-            }
+            return "DDR2";
         }
-    }
-
-    if (configurationLockCapable != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["SecurityCapabilities"]
-                                ["ConfigurationLockCapable"] =
-            *configurationLockCapable;
-    }
-
-    if (dataLockCapable != nullptr)
-    {
-        asyncResp->res
-            .jsonValue[jsonPtr]["SecurityCapabilities"]["DataLockCapable"] =
-            *dataLockCapable;
-    }
-
-    if (passphraseCapable != nullptr)
-    {
-        asyncResp->res
-            .jsonValue[jsonPtr]["SecurityCapabilities"]["PassphraseCapable"] =
-            *passphraseCapable;
-    }
-
-    if (maxPassphraseCount != nullptr)
-    {
-        asyncResp->res
-            .jsonValue[jsonPtr]["SecurityCapabilities"]["MaxPassphraseCount"] =
-            *maxPassphraseCount;
-    }
-
-    if (passphraseLockLimit != nullptr)
-    {
-        asyncResp->res
-            .jsonValue[jsonPtr]["SecurityCapabilities"]["PassphraseLockLimit"] =
-            *passphraseLockLimit;
-    }
-}
-
-inline void assembleDimmProperties(
-    std::string_view dimmId,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const dbus::utility::DBusPropertiesMap& properties,
-    const nlohmann::json::json_pointer& jsonPtr)
-{
-    asyncResp->res.jsonValue[jsonPtr]["Id"] = dimmId;
-    asyncResp->res.jsonValue[jsonPtr]["Name"] = "DIMM Slot";
-    asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
-        resource::State::Enabled;
-    asyncResp->res.jsonValue[jsonPtr]["Status"]["Health"] =
-        resource::Health::OK;
-    asyncResp->res.jsonValue[jsonPtr]["Status"]["HealthRollup"] = "OK";
-
-    std::string dimmIdStr{dimmId};
-    if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
-    {
-        redfish::conditions_utils::populateServiceConditions(asyncResp,
-                                                             dimmIdStr);
-    }
-    const uint16_t* memoryDataWidth = nullptr;
-    const size_t* memorySizeInKB = nullptr;
-    const std::string* partNumber = nullptr;
-    const std::string* serialNumber = nullptr;
-    const std::string* manufacturer = nullptr;
-    const uint16_t* revisionCode = nullptr;
-    const bool* present = nullptr;
-    const uint16_t* memoryTotalWidth = nullptr;
-    const std::string* ecc = nullptr;
-    const std::string* formFactor = nullptr;
-    const std::vector<uint16_t>* allowedSpeedsMT = nullptr;
-    const size_t* memoryAttributes = nullptr;
-    const uint16_t* memoryConfiguredSpeedInMhz = nullptr;
-    const std::string* memoryType = nullptr;
-    const std::uint8_t* channel = nullptr;
-    const std::uint8_t* memoryController = nullptr;
-    const std::uint8_t* slot = nullptr;
-    const std::uint8_t* socket = nullptr;
-    const std::string* sparePartNumber = nullptr;
-    const std::string* model = nullptr;
-    const std::string* locationCode = nullptr;
-<<<<<<< HEAD
-    const std::string* locationType = nullptr;
-    const std::string* locationContext = nullptr;
-    const bool* rowMappingFailureState = nullptr;
-    const bool* rowMappingPendingState = nullptr;
-||||||| 80d2ef31c
-=======
-    const bool* functional = nullptr;
->>>>>>> origin/master
-
-    const bool success = sdbusplus::unpackPropertiesNoThrow(
-        dbus_utils::UnpackErrorPrinter(), properties, "MemoryDataWidth",
-        memoryDataWidth, "MemorySizeInKB", memorySizeInKB, "PartNumber",
-        partNumber, "SerialNumber", serialNumber, "Manufacturer", manufacturer,
-        "RevisionCode", revisionCode, "Present", present, "MemoryTotalWidth",
-        memoryTotalWidth, "ECC", ecc, "FormFactor", formFactor,
-        "AllowedSpeedsMT", allowedSpeedsMT, "MemoryAttributes",
-        memoryAttributes, "MemoryConfiguredSpeedInMhz",
-        memoryConfiguredSpeedInMhz, "MemoryType", memoryType, "Channel",
-        channel, "MemoryController", memoryController, "Slot", slot, "Socket",
-        socket, "SparePartNumber", sparePartNumber, "Model", model,
-<<<<<<< HEAD
-        "LocationCode", locationCode, "LocationType", locationType,
-        "LocationContext", locationContext, "RowRemappingFailureState",
-        rowMappingFailureState, "RowRemappingPendingState",
-        rowMappingPendingState);
-||||||| 80d2ef31c
-        "LocationCode", locationCode);
-=======
-        "LocationCode", locationCode, "Functional", functional);
->>>>>>> origin/master
-
-    if (!success)
-    {
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
-    if (memoryDataWidth != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["DataWidthBits"] = *memoryDataWidth;
-    }
-
-    if (memorySizeInKB != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["CapacityMiB"] =
-            (*memorySizeInKB >> 10);
-    }
-
-    if ((partNumber != nullptr) && !partNumber->empty())
-    {
-        asyncResp->res.jsonValue[jsonPtr]["PartNumber"] = *partNumber;
-    }
-
-    if (serialNumber != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["SerialNumber"] = *serialNumber;
-    }
-
-    if (manufacturer != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["Manufacturer"] = *manufacturer;
-    }
-
-    if (revisionCode != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["FirmwareRevision"] =
-            std::to_string(*revisionCode);
-    }
-
-    if (present != nullptr && !*present)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
-            resource::State::Absent;
-    }
-
-    if (functional != nullptr)
-    {
-        if (!*functional)
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR3")
         {
-            asyncResp->res.jsonValue[jsonPtr]["Status"]["Health"] =
-                resource::Health::Critical;
+            return "DDR3";
         }
-    }
-
-    if (memoryTotalWidth != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["BusWidthBits"] = *memoryTotalWidth;
-    }
-
-    if (ecc != nullptr)
-    {
-        constexpr const std::array<const char*, 4> values{
-            "NoECC", "SingleBitECC", "MultiBitECC", "AddressParity"};
-
-        for (const char* v : values)
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR4")
         {
-            if (ecc->ends_with(v))
-            {
-                asyncResp->res.jsonValue[jsonPtr]["ErrorCorrection"] = v;
-                break;
-            }
+            return "DDR4";
         }
-    }
-
-    if (formFactor != nullptr)
-    {
-        constexpr const std::array<const char*, 11> values{
-            "RDIMM",       "UDIMM",       "SO_DIMM",      "LRDIMM",
-            "Mini_RDIMM",  "Mini_UDIMM",  "SO_RDIMM_72b", "SO_UDIMM_72b",
-            "SO_DIMM_16b", "SO_DIMM_32b", "Die"};
-
-        for (const char* v : values)
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR4E_SDRAM")
         {
-            if (formFactor->ends_with(v))
-            {
-                asyncResp->res.jsonValue[jsonPtr]["BaseModuleType"] = v;
-                break;
-            }
+            return "DDR4E_SDRAM";
         }
-    }
-
-    if (allowedSpeedsMT != nullptr)
-    {
-        nlohmann::json& jValue =
-            asyncResp->res.jsonValue[jsonPtr]["AllowedSpeedsMHz"];
-        jValue = nlohmann::json::array();
-        for (uint16_t subVal : *allowedSpeedsMT)
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR5")
         {
-            jValue.push_back(subVal);
+            return "DDR5";
         }
-    }
-
-    if (memoryAttributes != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["RankCount"] = *memoryAttributes;
-    }
-
-    if (memoryConfiguredSpeedInMhz != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["OperatingSpeedMhz"] =
-            *memoryConfiguredSpeedInMhz;
-    }
-
-    if (memoryType != nullptr)
-    {
-        std::string memoryDeviceType =
-            translateMemoryTypeToRedfish(*memoryType);
-        // Values like "Unknown" or "Other" will return empty
-        // so just leave off
-        if (!memoryDeviceType.empty())
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.LPDDR5_SDRAM")
         {
-            asyncResp->res.jsonValue[jsonPtr]["MemoryDeviceType"] =
-                memoryDeviceType;
+            return "LPDDR5_SDRAM";
         }
-        if (memoryType->find("DDR") != std::string::npos ||
-            (memoryType->ends_with("HBM")) || (memoryType->ends_with("HBM2")))
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.LPDDR4_SDRAM")
         {
-            asyncResp->res.jsonValue[jsonPtr]["MemoryType"] =
-                memory::MemoryType::DRAM;
+            return "LPDDR4_SDRAM";
         }
-        else if (memoryType->ends_with("Logical"))
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.LPDDR3_SDRAM")
         {
-            asyncResp->res.jsonValue[jsonPtr]["MemoryType"] =
-                memory::MemoryType::IntelOptane;
+            return "LPDDR3_SDRAM";
         }
-    }
-
-    if (channel != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["MemoryLocation"]["Channel"] =
-            *channel;
-    }
-
-    if (memoryController != nullptr)
-    {
-        asyncResp->res
-            .jsonValue[jsonPtr]["MemoryLocation"]["MemoryController"] =
-            *memoryController;
-    }
-
-    if (slot != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["MemoryLocation"]["Slot"] = *slot;
-    }
-
-    if (socket != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["MemoryLocation"]["Socket"] = *socket;
-    }
-
-    if (sparePartNumber != nullptr)
-    {
-        if (!(sparePartNumber->empty()))
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR2_SDRAM_FB_DIMM")
         {
-            asyncResp->res.jsonValue[jsonPtr]["SparePartNumber"] =
-                *sparePartNumber;
+            return "DDR2_SDRAM_FB_DIMM";
         }
-    }
-
-    if (model != nullptr)
-    {
-        if (!(model->empty()))
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR2_SDRAM_FB_DIMM_PROB")
         {
-            asyncResp->res.jsonValue[jsonPtr]["Model"] = *model;
+            return "DDR2_SDRAM_FB_DIMM_PROBE";
         }
-    }
-
-    if (locationCode != nullptr)
-    {
-        asyncResp->res
-            .jsonValue[jsonPtr]["Location"]["PartLocation"]["ServiceLabel"] =
-            *locationCode;
-    }
-    if (locationType != nullptr)
-    {
-        asyncResp->res
-            .jsonValue[jsonPtr]["Location"]["PartLocation"]["LocationType"] =
-            redfish::dbus_utils::toLocationType(*locationType);
-    }
-    if (locationContext != nullptr)
-    {
-        asyncResp->res.jsonValue[jsonPtr]["Location"]["PartLocationContext"] =
-            *locationContext;
-    }
-    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-    {
-        if (rowMappingFailureState != nullptr)
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.DDR_SGRAM")
         {
-            asyncResp->res
-                .jsonValue[jsonPtr]["Oem"]["Nvidia"]["RowRemappingFailed"] =
-                *rowMappingFailureState;
+            return "DDR_SGRAM";
         }
-        if (rowMappingPendingState != nullptr)
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.ROM")
         {
-            asyncResp->res
-                .jsonValue[jsonPtr]["Oem"]["Nvidia"]["RowRemappingPending"] =
-                *rowMappingPendingState;
+            return "ROM";
         }
-        asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaMemory.v1_0_0.NvidiaMemory";
-    }
-
-    getPersistentMemoryProperties(asyncResp, properties, jsonPtr);
-}
-
-inline void getDimmDataByService(
-    std::shared_ptr<bmcweb::AsyncResp> asyncResp, const std::string& dimmId,
-    const std::string& service, const std::string& objPath)
-{
-    BMCWEB_LOG_DEBUG("Get available system components.");
-    dbus::utility::getAllProperties(
-        service, objPath, "",
-        [dimmId, asyncResp{std::move(asyncResp)}](
-            const boost::system::error_code& ec,
-            const dbus::utility::DBusPropertiesMap& properties) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            assembleDimmProperties(dimmId, asyncResp, properties,
-                                   ""_json_pointer);
-        });
-}
-
-inline void assembleDimmPartitionData(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const dbus::utility::DBusPropertiesMap& properties,
-    const nlohmann::json::json_pointer& regionPtr)
-{
-    const std::string* memoryClassification = nullptr;
-    const uint64_t* offsetInKiB = nullptr;
-    const std::string* partitionId = nullptr;
-    const bool* passphraseState = nullptr;
-    const uint64_t* sizeInKiB = nullptr;
-
-    const bool success = sdbusplus::unpackPropertiesNoThrow(
-        dbus_utils::UnpackErrorPrinter(), properties, "MemoryClassification",
-        memoryClassification, "OffsetInKiB", offsetInKiB, "PartitionId",
-        partitionId, "PassphraseState", passphraseState, "SizeInKiB",
-        sizeInKiB);
-
-    if (!success)
-    {
-        messages::internalError(asyncResp->res);
-        return;
-    }
-
-    nlohmann::json::object_t partition;
-
-    if (memoryClassification != nullptr)
-    {
-        partition["MemoryClassification"] = *memoryClassification;
-    }
-
-    if (offsetInKiB != nullptr)
-    {
-        partition["OffsetMiB"] = (*offsetInKiB >> 10);
-    }
-
-    if (partitionId != nullptr)
-    {
-        partition["RegionId"] = *partitionId;
-    }
-
-    if (passphraseState != nullptr)
-    {
-        partition["PassphraseEnabled"] = *passphraseState;
-    }
-
-    if (sizeInKiB != nullptr)
-    {
-        partition["SizeMiB"] = (*sizeInKiB >> 10);
-    }
-
-    asyncResp->res.jsonValue[regionPtr].emplace_back(std::move(partition));
-}
-
-inline void getDimmPartitionData(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
-                                 const std::string& service,
-                                 const std::string& path)
-{
-    dbus::utility::getAllProperties(
-        service, path,
-        "xyz.openbmc_project.Inventory.Item.PersistentMemory.Partition",
-        [asyncResp{std::move(asyncResp)}](
-            const boost::system::error_code& ec,
-            const dbus::utility::DBusPropertiesMap& properties) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error");
-                messages::internalError(asyncResp->res);
-
-                return;
-            }
-            nlohmann::json::json_pointer regionPtr = "/Regions"_json_pointer;
-            assembleDimmPartitionData(asyncResp, properties, regionPtr);
-        }
-
-    );
-}
-
-inline void afterGetDimmData(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& dimmId, const boost::system::error_code& ec,
-    const dbus::utility::MapperGetSubTreeResponse& subtree)
-{
-    if (ec)
-    {
-        if (ec.value() != EBADR)
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.SDRAM")
         {
-            BMCWEB_LOG_ERROR("DBUS response error: {}", ec.value());
-            messages::internalError(asyncResp->res);
+            return "SDRAM";
         }
-        return;
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.EDO")
+        {
+            return "EDO";
+        }
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.FastPageMode")
+        {
+            return "FastPageMode";
+        }
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.PipelinedNibble")
+        {
+            return "PipelinedNibble";
+        }
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.Logical")
+        {
+            return "Logical";
+        }
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.HBM")
+        {
+            return "HBM";
+        }
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.HBM2")
+        {
+            return "HBM2";
+        }
+        if (memoryType ==
+            "xyz.openbmc_project.Inventory.Item.Dimm.DeviceType.HBM3")
+        {
+            return "HBM3";
+        }
+        // This is values like Other or Unknown
+        // Also D-Bus values:
+        // DRAM
+        // EDRAM
+        // VRAM
+        // SRAM
+        // RAM
+        // FLASH
+        // EEPROM
+        // FEPROM
+        // EPROM
+        // CDRAM
+        // ThreeDRAM
+        // RDRAM
+        // FBD2
+        // LPDDR_SDRAM
+        // LPDDR2_SDRAM
+        return "";
     }
 
-    bool found = false;
-    for (const auto& [objectPath, serviceMap] : subtree)
+    inline void dimmPropToHex(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const char* key,
+        const uint16_t* value, const nlohmann::json::json_pointer& jsonPtr)
     {
-        sdbusplus::message::object_path path(objectPath);
-
-        bool dimmInterface = false;
-        bool associationInterface = false;
-        /* Note: Multiple D-Bus objects can provide details for the Memory
-         * object: 1) Dimm is the primary object 2) Additional partitions could
-         * exist per Dimm. Only consider the object found if the Dimm is found.
-         */
-        for (const auto& [serviceName, interfaceList] : serviceMap)
+        if (value == nullptr)
         {
-            for (const auto& interface : interfaceList)
-            {
-                if (interface == "xyz.openbmc_project.Inventory.Item.Dimm" &&
-                    path.filename() == dimmId)
-                {
-<<<<<<< HEAD
-                    for (const auto& interface : interfaces)
-                    {
-                        if (interface ==
-                                "xyz.openbmc_project.Inventory.Item.Dimm" &&
-                            path.filename() == dimmId)
-                        {
-                            getDimmDataByService(asyncResp, dimmId, service,
-                                                 rawPath);
-                            found = true;
-                            // Link association to parent processor
-                            redfish::nvidia_memory::getMemoryProcessorLink(
-                                asyncResp, path);
-                            // Link association to parent chassis
-                            redfish::nvidia_memory::getMemoryChassisLink(
-                                asyncResp, path);
-                        }
-
-                        // partitions are separate as there can be multiple
-                        // per
-                        // device, i.e.
-                        // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition1
-                        // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition2
-                        if (interface ==
-                                "xyz.openbmc_project.Inventory.Item.PersistentMemory.Partition" &&
-                            path.parent_path().filename() == dimmId)
-                        {
-                            getDimmPartitionData(asyncResp, service, rawPath);
-                        }
-                    }
-||||||| 80d2ef31c
-                    for (const auto& interface : interfaces)
-                    {
-                        if (interface ==
-                                "xyz.openbmc_project.Inventory.Item.Dimm" &&
-                            path.filename() == dimmId)
-                        {
-                            getDimmDataByService(asyncResp, dimmId, service,
-                                                 rawPath);
-                            found = true;
-                        }
-
-                        // partitions are separate as there can be multiple
-                        // per
-                        // device, i.e.
-                        // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition1
-                        // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition2
-                        if (interface ==
-                                "xyz.openbmc_project.Inventory.Item.PersistentMemory.Partition" &&
-                            path.parent_path().filename() == dimmId)
-                        {
-                            getDimmPartitionData(asyncResp, service, rawPath);
-                        }
-                    }
-=======
-                    // Found the single Dimm
-                    getDimmDataByService(asyncResp, dimmId, serviceName,
-                                         objectPath);
-                    dimmInterface = true;
-                    found = true;
-                }
-                else if (interface ==
-                         "xyz.openbmc_project.Association.Definitions")
-                {
-                    /* Object has associations. If this object is also a Dimm
-                     * then the association might provide the LED state
-                     * information. After all interfaces for this object have
-                     * been checked the LED information will be gathered if the
-                     * object was a Dimm
-                     */
-                    associationInterface = true;
-                }
-                else if (
-                    interface ==
-                        "xyz.openbmc_project.Inventory.Item.PersistentMemory.Partition" &&
-                    path.parent_path().filename() == dimmId)
-                {
-                    // partitions are separate as there can be multiple per
-                    // device, i.e.
-                    // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition1
-                    // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition2
-                    getDimmPartitionData(asyncResp, serviceName, objectPath);
->>>>>>> origin/master
-                }
-            }
-<<<<<<< HEAD
-            // Object not found
-            if (!found)
-            {
-                messages::resourceNotFound(asyncResp->res, "Memory", dimmId);
-                return;
-            }
-            // Set @odata only if object is found
-            asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_20_0.Memory";
-            asyncResp->res.jsonValue["@odata.id"] =
-                boost::urls::format("/redfish/v1/Systems/{}/Memory/{}",
-                                    BMCWEB_REDFISH_SYSTEM_URI_NAME, dimmId);
-            std::string memoryMetricsURI =
-                "/redfish/v1/Systems/" +
-                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Memory/";
-            memoryMetricsURI += dimmId;
-            std::string environmentMetricsURI = memoryMetricsURI;
-            memoryMetricsURI += "/MemoryMetrics";
-            asyncResp->res.jsonValue["Metrics"]["@odata.id"] = memoryMetricsURI;
-            environmentMetricsURI += "/EnvironmentMetrics";
-            asyncResp->res.jsonValue["EnvironmentMetrics"]["@odata.id"] =
-                environmentMetricsURI;
-
-||||||| 80d2ef31c
-            // Object not found
-            if (!found)
-            {
-                messages::resourceNotFound(asyncResp->res, "Memory", dimmId);
-                return;
-            }
-            // Set @odata only if object is found
-            asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_11_0.Memory";
-            asyncResp->res.jsonValue["@odata.id"] =
-                boost::urls::format("/redfish/v1/Systems/{}/Memory/{}",
-                                    BMCWEB_REDFISH_SYSTEM_URI_NAME, dimmId);
-=======
-        }
-
-        /* If a Dimm has an Association check if it has a LED */
-        if (associationInterface && dimmInterface)
-        {
-            getLocationIndicatorActive(asyncResp, objectPath);
-        }
-    }
-
-    if (!found)
-    {
-        // Dimm object not found
-        messages::resourceNotFound(asyncResp->res, "Memory", dimmId);
-        return;
-    }
-    // Set @odata only if object is found
-    asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_11_0.Memory";
-    asyncResp->res.jsonValue["@odata.id"] =
-        boost::urls::format("/redfish/v1/Systems/{}/Memory/{}",
-                            BMCWEB_REDFISH_SYSTEM_URI_NAME, dimmId);
-}
-
-inline void getDimmData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                        const std::string& dimmId)
-{
-    BMCWEB_LOG_DEBUG("Get dimm path for {}", dimmId);
-    constexpr std::array<std::string_view, 2> interfaces = {
-        "xyz.openbmc_project.Inventory.Item.Dimm",
-        "xyz.openbmc_project.Inventory.Item.PersistentMemory.Partition"};
-
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
-        [asyncResp,
-         dimmId](const boost::system::error_code& ec,
-                 const dbus::utility::MapperGetSubTreeResponse& subtree) {
-            afterGetDimmData(asyncResp, dimmId, ec, subtree);
-        });
-}
-
-inline void handleSetDimmData(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    bool locationIndicatorActive, const std::string& dimmPath)
-{
-    setLocationIndicatorActive(asyncResp, dimmPath, locationIndicatorActive);
-}
-
-inline void afterGetValidDimmPath(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& dimmId, const boost::system::error_code& ec,
-    const dbus::utility::MapperGetSubTreePathsResponse& subtree,
-    const std::function<void(const std::string& dimmPath)>& callback)
-{
-    if (ec)
-    {
-        if (ec.value() == EBADR)
-        {
-            /* Need to report error for PATCH */
-            BMCWEB_LOG_WARNING("Dimm not found in inventory");
-            messages::resourceNotFound(asyncResp->res, "Memory", dimmId);
-        }
-        else
-        {
-            BMCWEB_LOG_ERROR("DBUS response error: {}", ec.value());
-            messages::internalError(asyncResp->res);
-        }
-        return;
-    }
-
-    for (const auto& objectPath : subtree)
-    {
-        // Ignore any objects which don't end with our desired dimm name
-        sdbusplus::message::object_path path(objectPath);
-        if (path.filename() == dimmId)
-        {
-            callback(path);
->>>>>>> origin/master
             return;
         }
+        asyncResp->res.jsonValue[jsonPtr][key] =
+            "0x" + intToHexString(*value, 4);
     }
 
-    // Object not found
-    messages::resourceNotFound(asyncResp->res, "Memory", dimmId);
-}
-
-inline void getValidDimmPath(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& dimmId,
-    std::function<void(const std::string& dimmPath)>&& callback)
-{
-    BMCWEB_LOG_DEBUG("Get dimm path for {}", dimmId);
-    constexpr std::array<std::string_view, 1> interfaces = {
-        "xyz.openbmc_project.Inventory.Item.Dimm"};
-
-    dbus::utility::getSubTreePaths(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
-        [asyncResp, dimmId, callback{std::move(callback)}](
-            const boost::system::error_code& ec,
-            const dbus::utility::MapperGetSubTreePathsResponse& subtree) {
-            afterGetValidDimmPath(asyncResp, dimmId, ec, subtree, callback);
-        });
-}
-
-inline void handleMemoryPatch(
-    App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& systemName, const std::string& dimmId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    inline void getPersistentMemoryProperties(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        const dbus::utility::DBusPropertiesMap& properties,
+        const nlohmann::json::json_pointer& jsonPtr)
     {
-        return;
+        const uint16_t* moduleManufacturerID = nullptr;
+        const uint16_t* moduleProductID = nullptr;
+        const uint16_t* subsystemVendorID = nullptr;
+        const uint16_t* subsystemDeviceID = nullptr;
+        const uint64_t* volatileRegionSizeLimitInKiB = nullptr;
+        const uint64_t* pmRegionSizeLimitInKiB = nullptr;
+        const uint64_t* volatileSizeInKiB = nullptr;
+        const uint64_t* pmSizeInKiB = nullptr;
+        const uint64_t* cacheSizeInKB = nullptr;
+        const uint64_t* voltaileRegionMaxSizeInKib = nullptr;
+        const uint64_t* pmRegionMaxSizeInKiB = nullptr;
+        const uint64_t* allocationIncrementInKiB = nullptr;
+        const uint64_t* allocationAlignmentInKiB = nullptr;
+        const uint64_t* volatileRegionNumberLimit = nullptr;
+        const uint64_t* pmRegionNumberLimit = nullptr;
+        const uint64_t* spareDeviceCount = nullptr;
+        const bool* isSpareDeviceInUse = nullptr;
+        const bool* isRankSpareEnabled = nullptr;
+        const std::vector<uint32_t>* maxAveragePowerLimitmW = nullptr;
+        const bool* configurationLocked = nullptr;
+        const std::string* allowedMemoryModes = nullptr;
+        const std::string* memoryMedia = nullptr;
+        const bool* configurationLockCapable = nullptr;
+        const bool* dataLockCapable = nullptr;
+        const bool* passphraseCapable = nullptr;
+        const uint64_t* maxPassphraseCount = nullptr;
+        const uint64_t* passphraseLockLimit = nullptr;
+
+        const bool success = sdbusplus::unpackPropertiesNoThrow(
+            dbus_utils::UnpackErrorPrinter(), properties,
+            "ModuleManufacturerID", moduleManufacturerID, "ModuleProductID",
+            moduleProductID, "SubsystemVendorID", subsystemVendorID,
+            "SubsystemDeviceID", subsystemDeviceID,
+            "VolatileRegionSizeLimitInKiB", volatileRegionSizeLimitInKiB,
+            "PmRegionSizeLimitInKiB", pmRegionSizeLimitInKiB,
+            "VolatileSizeInKiB", volatileSizeInKiB, "PmSizeInKiB", pmSizeInKiB,
+            "CacheSizeInKB", cacheSizeInKB, "VoltaileRegionMaxSizeInKib",
+            voltaileRegionMaxSizeInKib, "PmRegionMaxSizeInKiB",
+            pmRegionMaxSizeInKiB, "AllocationIncrementInKiB",
+            allocationIncrementInKiB, "AllocationAlignmentInKiB",
+            allocationAlignmentInKiB, "VolatileRegionNumberLimit",
+            volatileRegionNumberLimit, "PmRegionNumberLimit",
+            pmRegionNumberLimit, "SpareDeviceCount", spareDeviceCount,
+            "IsSpareDeviceInUse", isSpareDeviceInUse, "IsRankSpareEnabled",
+            isRankSpareEnabled, "MaxAveragePowerLimitmW",
+            maxAveragePowerLimitmW, "ConfigurationLocked", configurationLocked,
+            "AllowedMemoryModes", allowedMemoryModes, "MemoryMedia",
+            memoryMedia, "ConfigurationLockCapable", configurationLockCapable,
+            "DataLockCapable", dataLockCapable, "PassphraseCapable",
+            passphraseCapable, "MaxPassphraseCount", maxPassphraseCount,
+            "PassphraseLockLimit", passphraseLockLimit);
+
+        if (!success)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        dimmPropToHex(asyncResp, "ModuleManufacturerID", moduleManufacturerID,
+                      jsonPtr);
+        dimmPropToHex(asyncResp, "ModuleProductID", moduleProductID, jsonPtr);
+        dimmPropToHex(asyncResp, "MemorySubsystemControllerManufacturerID",
+                      subsystemVendorID, jsonPtr);
+        dimmPropToHex(asyncResp, "MemorySubsystemControllerProductID",
+                      subsystemDeviceID, jsonPtr);
+
+        if (volatileRegionSizeLimitInKiB != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["VolatileRegionSizeLimitMiB"] =
+                (*volatileRegionSizeLimitInKiB) >> 10;
+        }
+
+        if (pmRegionSizeLimitInKiB != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["PersistentRegionSizeLimitMiB"] =
+                (*pmRegionSizeLimitInKiB) >> 10;
+        }
+
+        if (volatileSizeInKiB != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["VolatileSizeMiB"] =
+                (*volatileSizeInKiB) >> 10;
+        }
+
+        if (pmSizeInKiB != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["NonVolatileSizeMiB"] =
+                (*pmSizeInKiB) >> 10;
+        }
+
+        if (cacheSizeInKB != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["CacheSizeMiB"] =
+                (*cacheSizeInKB >> 10);
+        }
+
+        if (voltaileRegionMaxSizeInKib != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["VolatileRegionSizeMaxMiB"] =
+                (*voltaileRegionMaxSizeInKib) >> 10;
+        }
+
+        if (pmRegionMaxSizeInKiB != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["PersistentRegionSizeMaxMiB"] =
+                (*pmRegionMaxSizeInKiB) >> 10;
+        }
+
+        if (allocationIncrementInKiB != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["AllocationIncrementMiB"] =
+                (*allocationIncrementInKiB) >> 10;
+        }
+
+        if (allocationAlignmentInKiB != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["AllocationAlignmentMiB"] =
+                (*allocationAlignmentInKiB) >> 10;
+        }
+
+        if (volatileRegionNumberLimit != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["VolatileRegionNumberLimit"] =
+                *volatileRegionNumberLimit;
+        }
+
+        if (pmRegionNumberLimit != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["PersistentRegionNumberLimit"] =
+                *pmRegionNumberLimit;
+        }
+
+        if (spareDeviceCount != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["SpareDeviceCount"] =
+                *spareDeviceCount;
+        }
+
+        if (isSpareDeviceInUse != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["IsSpareDeviceEnabled"] =
+                *isSpareDeviceInUse;
+        }
+
+        if (isRankSpareEnabled != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["IsRankSpareEnabled"] =
+                *isRankSpareEnabled;
+        }
+
+        if (maxAveragePowerLimitmW != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["MaxTDPMilliWatts"] =
+                *maxAveragePowerLimitmW;
+        }
+
+        if (configurationLocked != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["ConfigurationLocked"] =
+                *configurationLocked;
+        }
+
+        if (allowedMemoryModes != nullptr)
+        {
+            constexpr const std::array<const char*, 3> values{"Volatile",
+                                                              "PMEM", "Block"};
+
+            for (const char* v : values)
+            {
+                if (allowedMemoryModes->ends_with(v))
+                {
+                    asyncResp->res.jsonValue[jsonPtr]["OperatingMemoryModes"]
+                        .push_back(v);
+                    break;
+                }
+            }
+        }
+
+        if (memoryMedia != nullptr)
+        {
+            constexpr const std::array<const char*, 3> values{"DRAM", "NAND",
+                                                              "Intel3DXPoint"};
+
+            for (const char* v : values)
+            {
+                if (memoryMedia->ends_with(v))
+                {
+                    asyncResp->res.jsonValue[jsonPtr]["MemoryMedia"].push_back(
+                        v);
+                    break;
+                }
+            }
+        }
+
+        if (configurationLockCapable != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["SecurityCapabilities"]
+                                    ["ConfigurationLockCapable"] =
+                *configurationLockCapable;
+        }
+
+        if (dataLockCapable != nullptr)
+        {
+            asyncResp->res
+                .jsonValue[jsonPtr]["SecurityCapabilities"]["DataLockCapable"] =
+                *dataLockCapable;
+        }
+
+        if (passphraseCapable != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["SecurityCapabilities"]
+                                    ["PassphraseCapable"] = *passphraseCapable;
+        }
+
+        if (maxPassphraseCount != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["SecurityCapabilities"]
+                                    ["MaxPassphraseCount"] =
+                *maxPassphraseCount;
+        }
+
+        if (passphraseLockLimit != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["SecurityCapabilities"]
+                                    ["PassphraseLockLimit"] =
+                *passphraseLockLimit;
+        }
     }
 
-    if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+    inline void assembleDimmProperties(
+        std::string_view dimmId,
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        const dbus::utility::DBusPropertiesMap& properties,
+        const nlohmann::json::json_pointer& jsonPtr)
     {
-        // Option currently returns no systems.  TBD
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
-        return;
+        asyncResp->res.jsonValue[jsonPtr]["Id"] = dimmId;
+        asyncResp->res.jsonValue[jsonPtr]["Name"] = "DIMM Slot";
+        asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
+            resource::State::Enabled;
+        asyncResp->res.jsonValue[jsonPtr]["Status"]["Health"] =
+            resource::Health::OK;
+        asyncResp->res.jsonValue[jsonPtr]["Status"]["HealthRollup"] = "OK";
+
+        std::string dimmIdStr{dimmId};
+        if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+        {
+            redfish::conditions_utils::populateServiceConditions(asyncResp,
+                                                                 dimmIdStr);
+        }
+        const uint16_t* memoryDataWidth = nullptr;
+        const size_t* memorySizeInKB = nullptr;
+        const std::string* partNumber = nullptr;
+        const std::string* serialNumber = nullptr;
+        const std::string* manufacturer = nullptr;
+        const uint16_t* revisionCode = nullptr;
+        const bool* present = nullptr;
+        const uint16_t* memoryTotalWidth = nullptr;
+        const std::string* ecc = nullptr;
+        const std::string* formFactor = nullptr;
+        const std::vector<uint16_t>* allowedSpeedsMT = nullptr;
+        const size_t* memoryAttributes = nullptr;
+        const uint16_t* memoryConfiguredSpeedInMhz = nullptr;
+        const std::string* memoryType = nullptr;
+        const std::uint8_t* channel = nullptr;
+        const std::uint8_t* memoryController = nullptr;
+        const std::uint8_t* slot = nullptr;
+        const std::uint8_t* socket = nullptr;
+        const std::string* sparePartNumber = nullptr;
+        const std::string* model = nullptr;
+        const std::string* locationCode = nullptr;
+<<<<<<< HEAD
+        const std::string* locationType = nullptr;
+        const std::string* locationContext = nullptr;
+        const bool* rowMappingFailureState = nullptr;
+        const bool* rowMappingPendingState = nullptr;
+||||||| 80d2ef31c
+=======
+        const bool* functional = nullptr;
+>>>>>>> origin/master
+
+        const bool success = sdbusplus::unpackPropertiesNoThrow(
+            dbus_utils::UnpackErrorPrinter(), properties, "MemoryDataWidth",
+            memoryDataWidth, "MemorySizeInKB", memorySizeInKB, "PartNumber",
+            partNumber, "SerialNumber", serialNumber, "Manufacturer",
+            manufacturer, "RevisionCode", revisionCode, "Present", present,
+            "MemoryTotalWidth", memoryTotalWidth, "ECC", ecc, "FormFactor",
+            formFactor, "AllowedSpeedsMT", allowedSpeedsMT, "MemoryAttributes",
+            memoryAttributes, "MemoryConfiguredSpeedInMhz",
+            memoryConfiguredSpeedInMhz, "MemoryType", memoryType, "Channel",
+            channel, "MemoryController", memoryController, "Slot", slot,
+            "Socket", socket, "SparePartNumber", sparePartNumber, "Model",
+            model,
+<<<<<<< HEAD
+            "LocationCode", locationCode, "LocationType", locationType,
+            "LocationContext", locationContext, "RowRemappingFailureState",
+            rowMappingFailureState, "RowRemappingPendingState",
+            rowMappingPendingState);
+||||||| 80d2ef31c
+            "LocationCode", locationCode);
+=======
+            "LocationCode", locationCode, "Functional", functional);
+>>>>>>> origin/master
+
+        if (!success)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        if (memoryDataWidth != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["DataWidthBits"] =
+                *memoryDataWidth;
+        }
+
+        if (memorySizeInKB != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["CapacityMiB"] =
+                (*memorySizeInKB >> 10);
+        }
+
+        if ((partNumber != nullptr) && !partNumber->empty())
+        {
+            asyncResp->res.jsonValue[jsonPtr]["PartNumber"] = *partNumber;
+        }
+
+        if (serialNumber != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["SerialNumber"] = *serialNumber;
+        }
+
+        if (manufacturer != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["Manufacturer"] = *manufacturer;
+        }
+
+        if (revisionCode != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["FirmwareRevision"] =
+                std::to_string(*revisionCode);
+        }
+
+        if (present != nullptr && !*present)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["Status"]["State"] =
+                resource::State::Absent;
+        }
+
+        if (functional != nullptr)
+        {
+            if (!*functional)
+            {
+                asyncResp->res.jsonValue[jsonPtr]["Status"]["Health"] =
+                    resource::Health::Critical;
+            }
+        }
+
+        if (memoryTotalWidth != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["BusWidthBits"] =
+                *memoryTotalWidth;
+        }
+
+        if (ecc != nullptr)
+        {
+            constexpr const std::array<const char*, 4> values{
+                "NoECC", "SingleBitECC", "MultiBitECC", "AddressParity"};
+
+            for (const char* v : values)
+            {
+                if (ecc->ends_with(v))
+                {
+                    asyncResp->res.jsonValue[jsonPtr]["ErrorCorrection"] = v;
+                    break;
+                }
+            }
+        }
+
+        if (formFactor != nullptr)
+        {
+            constexpr const std::array<const char*, 11> values{
+                "RDIMM",       "UDIMM",       "SO_DIMM",      "LRDIMM",
+                "Mini_RDIMM",  "Mini_UDIMM",  "SO_RDIMM_72b", "SO_UDIMM_72b",
+                "SO_DIMM_16b", "SO_DIMM_32b", "Die"};
+
+            for (const char* v : values)
+            {
+                if (formFactor->ends_with(v))
+                {
+                    asyncResp->res.jsonValue[jsonPtr]["BaseModuleType"] = v;
+                    break;
+                }
+            }
+        }
+
+        if (allowedSpeedsMT != nullptr)
+        {
+            nlohmann::json& jValue =
+                asyncResp->res.jsonValue[jsonPtr]["AllowedSpeedsMHz"];
+            jValue = nlohmann::json::array();
+            for (uint16_t subVal : *allowedSpeedsMT)
+            {
+                jValue.push_back(subVal);
+            }
+        }
+
+        if (memoryAttributes != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["RankCount"] = *memoryAttributes;
+        }
+
+        if (memoryConfiguredSpeedInMhz != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["OperatingSpeedMhz"] =
+                *memoryConfiguredSpeedInMhz;
+        }
+
+        if (memoryType != nullptr)
+        {
+            std::string memoryDeviceType =
+                translateMemoryTypeToRedfish(*memoryType);
+            // Values like "Unknown" or "Other" will return empty
+            // so just leave off
+            if (!memoryDeviceType.empty())
+            {
+                asyncResp->res.jsonValue[jsonPtr]["MemoryDeviceType"] =
+                    memoryDeviceType;
+            }
+            if (memoryType->find("DDR") != std::string::npos ||
+                (memoryType->ends_with("HBM")) ||
+                (memoryType->ends_with("HBM2")))
+            {
+                asyncResp->res.jsonValue[jsonPtr]["MemoryType"] =
+                    memory::MemoryType::DRAM;
+            }
+            else if (memoryType->ends_with("Logical"))
+            {
+                asyncResp->res.jsonValue[jsonPtr]["MemoryType"] =
+                    memory::MemoryType::IntelOptane;
+            }
+        }
+
+        if (channel != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["MemoryLocation"]["Channel"] =
+                *channel;
+        }
+
+        if (memoryController != nullptr)
+        {
+            asyncResp->res
+                .jsonValue[jsonPtr]["MemoryLocation"]["MemoryController"] =
+                *memoryController;
+        }
+
+        if (slot != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["MemoryLocation"]["Slot"] = *slot;
+        }
+
+        if (socket != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["MemoryLocation"]["Socket"] =
+                *socket;
+        }
+
+        if (sparePartNumber != nullptr)
+        {
+            if (!(sparePartNumber->empty()))
+            {
+                asyncResp->res.jsonValue[jsonPtr]["SparePartNumber"] =
+                    *sparePartNumber;
+            }
+        }
+
+        if (model != nullptr)
+        {
+            if (!(model->empty()))
+            {
+                asyncResp->res.jsonValue[jsonPtr]["Model"] = *model;
+            }
+        }
+
+        if (locationCode != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["Location"]["PartLocation"]
+                                    ["ServiceLabel"] = *locationCode;
+        }
+        if (locationType != nullptr)
+        {
+            asyncResp->res.jsonValue[jsonPtr]["Location"]["PartLocation"]
+                                    ["LocationType"] =
+                redfish::dbus_utils::toLocationType(*locationType);
+        }
+        if (locationContext != nullptr)
+        {
+            asyncResp->res
+                .jsonValue[jsonPtr]["Location"]["PartLocationContext"] =
+                *locationContext;
+        }
+        if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+        {
+            if (rowMappingFailureState != nullptr)
+            {
+                asyncResp->res
+                    .jsonValue[jsonPtr]["Oem"]["Nvidia"]["RowRemappingFailed"] =
+                    *rowMappingFailureState;
+            }
+            if (rowMappingPendingState != nullptr)
+            {
+                asyncResp->res.jsonValue[jsonPtr]["Oem"]["Nvidia"]
+                                        ["RowRemappingPending"] =
+                    *rowMappingPendingState;
+            }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaMemory.v1_0_0.NvidiaMemory";
+        }
+
+        getPersistentMemoryProperties(asyncResp, properties, jsonPtr);
     }
 
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    inline void getDimmDataByService(
+        std::shared_ptr<bmcweb::AsyncResp> asyncResp, const std::string& dimmId,
+        const std::string& service, const std::string& objPath)
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
-        return;
+        BMCWEB_LOG_DEBUG("Get available system components.");
+        dbus::utility::getAllProperties(
+            service, objPath, "",
+            [dimmId, asyncResp{std::move(asyncResp)}](
+                const boost::system::error_code& ec,
+                const dbus::utility::DBusPropertiesMap& properties) {
+                if (ec)
+                {
+                    BMCWEB_LOG_DEBUG("DBUS response error");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                assembleDimmProperties(dimmId, asyncResp, properties,
+                                       ""_json_pointer);
+            });
     }
 
-    std::optional<bool> locationIndicatorActive;
-    if (!json_util::readJsonPatch(                             //
-            req, asyncResp->res,                               //
-            "LocationIndicatorActive", locationIndicatorActive //
-            ))
+    inline void assembleDimmPartitionData(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        const dbus::utility::DBusPropertiesMap& properties,
+        const nlohmann::json::json_pointer& regionPtr)
     {
-        return;
+        const std::string* memoryClassification = nullptr;
+        const uint64_t* offsetInKiB = nullptr;
+        const std::string* partitionId = nullptr;
+        const bool* passphraseState = nullptr;
+        const uint64_t* sizeInKiB = nullptr;
+
+        const bool success = sdbusplus::unpackPropertiesNoThrow(
+            dbus_utils::UnpackErrorPrinter(), properties,
+            "MemoryClassification", memoryClassification, "OffsetInKiB",
+            offsetInKiB, "PartitionId", partitionId, "PassphraseState",
+            passphraseState, "SizeInKiB", sizeInKiB);
+
+        if (!success)
+        {
+            messages::internalError(asyncResp->res);
+            return;
+        }
+
+        nlohmann::json::object_t partition;
+
+        if (memoryClassification != nullptr)
+        {
+            partition["MemoryClassification"] = *memoryClassification;
+        }
+
+        if (offsetInKiB != nullptr)
+        {
+            partition["OffsetMiB"] = (*offsetInKiB >> 10);
+        }
+
+        if (partitionId != nullptr)
+        {
+            partition["RegionId"] = *partitionId;
+        }
+
+        if (passphraseState != nullptr)
+        {
+            partition["PassphraseEnabled"] = *passphraseState;
+        }
+
+        if (sizeInKiB != nullptr)
+        {
+            partition["SizeMiB"] = (*sizeInKiB >> 10);
+        }
+
+        asyncResp->res.jsonValue[regionPtr].emplace_back(std::move(partition));
     }
 
-    if (locationIndicatorActive)
+    inline void getDimmPartitionData(
+        std::shared_ptr<bmcweb::AsyncResp> asyncResp,
+        const std::string& service, const std::string& path)
     {
-        getValidDimmPath(asyncResp, dimmId,
-                         std::bind_front(handleSetDimmData, asyncResp,
-                                         *locationIndicatorActive));
-    }
-}
+        dbus::utility::getAllProperties(
+            service, path,
+            "xyz.openbmc_project.Inventory.Item.PersistentMemory.Partition",
+            [asyncResp{std::move(asyncResp)}](
+                const boost::system::error_code& ec,
+                const dbus::utility::DBusPropertiesMap& properties) {
+                if (ec)
+                {
+                    BMCWEB_LOG_DEBUG("DBUS response error");
+                    messages::internalError(asyncResp->res);
 
-inline void handleMemoryGet(App& app, const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& systemName,
+                    return;
+                }
+                nlohmann::json::json_pointer regionPtr =
+                    "/Regions"_json_pointer;
+                assembleDimmPartitionData(asyncResp, properties, regionPtr);
+            }
+
+        );
+    }
+
+    inline void afterGetDimmData(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        const std::string& dimmId, const boost::system::error_code& ec,
+        const dbus::utility::MapperGetSubTreeResponse& subtree)
+    {
+        if (ec)
+        {
+            if (ec.value() != EBADR)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error: {}", ec.value());
+                messages::internalError(asyncResp->res);
+            }
+            return;
+        }
+
+        bool found = false;
+        for (const auto& [objectPath, serviceMap] : subtree)
+        {
+            sdbusplus::message::object_path path(objectPath);
+
+            bool dimmInterface = false;
+            bool associationInterface = false;
+            /* Note: Multiple D-Bus objects can provide details for the Memory
+             * object: 1) Dimm is the primary object 2) Additional partitions
+             * could exist per Dimm. Only consider the object found if the Dimm
+             * is found.
+             */
+            for (const auto& [serviceName, interfaceList] : serviceMap)
+            {
+                for (const auto& interface : interfaceList)
+                {
+                    if (interface ==
+                            "xyz.openbmc_project.Inventory.Item.Dimm" &&
+                        path.filename() == dimmId)
+                    {
+<<<<<<< HEAD
+                        for (const auto& interface : interfaces)
+                        {
+                            if (interface ==
+                                    "xyz.openbmc_project.Inventory.Item.Dimm" &&
+                                path.filename() == dimmId)
+                            {
+                                getDimmDataByService(asyncResp, dimmId, service,
+                                                     rawPath);
+                                found = true;
+                                // Link association to parent processor
+                                redfish::nvidia_memory::getMemoryProcessorLink(
+                                    asyncResp, path);
+                                // Link association to parent chassis
+                                redfish::nvidia_memory::getMemoryChassisLink(
+                                    asyncResp, path);
+                            }
+
+                            // partitions are separate as there can be multiple
+                            // per
+                            // device, i.e.
+                            // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition1
+                            // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition2
+                            if (interface ==
+                                    "xyz.openbmc_project.Inventory.Item.PersistentMemory.Partition" &&
+                                path.parent_path().filename() == dimmId)
+                            {
+                                getDimmPartitionData(asyncResp, service,
+                                                     rawPath);
+                            }
+                        }
+||||||| 80d2ef31c
+                        for (const auto& interface : interfaces)
+                        {
+                            if (interface ==
+                                    "xyz.openbmc_project.Inventory.Item.Dimm" &&
+                                path.filename() == dimmId)
+                            {
+                                getDimmDataByService(asyncResp, dimmId, service,
+                                                     rawPath);
+                                found = true;
+                            }
+
+                            // partitions are separate as there can be multiple
+                            // per
+                            // device, i.e.
+                            // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition1
+                            // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition2
+                            if (interface ==
+                                    "xyz.openbmc_project.Inventory.Item.PersistentMemory.Partition" &&
+                                path.parent_path().filename() == dimmId)
+                            {
+                                getDimmPartitionData(asyncResp, service,
+                                                     rawPath);
+                            }
+                        }
+=======
+                        // Found the single Dimm
+                        getDimmDataByService(asyncResp, dimmId, serviceName,
+                                             objectPath);
+                        dimmInterface = true;
+                        found = true;
+                    }
+                    else if (interface ==
+                             "xyz.openbmc_project.Association.Definitions")
+                    {
+                        /* Object has associations. If this object is also a
+                         * Dimm then the association might provide the LED state
+                         * information. After all interfaces for this object
+                         * have been checked the LED information will be
+                         * gathered if the object was a Dimm
+                         */
+                        associationInterface = true;
+                    }
+                    else if (
+                        interface ==
+                            "xyz.openbmc_project.Inventory.Item.PersistentMemory.Partition" &&
+                        path.parent_path().filename() == dimmId)
+                    {
+                        // partitions are separate as there can be multiple per
+                        // device, i.e.
+                        // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition1
+                        // /xyz/openbmc_project/Inventory/Item/Dimm1/Partition2
+                        getDimmPartitionData(asyncResp, serviceName,
+                                             objectPath);
+>>>>>>> origin/master
+                    }
+                }
+<<<<<<< HEAD
+                // Object not found
+                if (!found)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Memory",
+                                               dimmId);
+                    return;
+                }
+                // Set @odata only if object is found
+                asyncResp->res.jsonValue["@odata.type"] =
+                    "#Memory.v1_20_0.Memory";
+                asyncResp->res.jsonValue["@odata.id"] =
+                    boost::urls::format("/redfish/v1/Systems/{}/Memory/{}",
+                                        BMCWEB_REDFISH_SYSTEM_URI_NAME, dimmId);
+                std::string memoryMetricsURI =
+                    "/redfish/v1/Systems/" +
+                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Memory/";
+                memoryMetricsURI += dimmId;
+                std::string environmentMetricsURI = memoryMetricsURI;
+                memoryMetricsURI += "/MemoryMetrics";
+                asyncResp->res.jsonValue["Metrics"]["@odata.id"] =
+                    memoryMetricsURI;
+                environmentMetricsURI += "/EnvironmentMetrics";
+                asyncResp->res.jsonValue["EnvironmentMetrics"]["@odata.id"] =
+                    environmentMetricsURI;
+
+||||||| 80d2ef31c
+                // Object not found
+                if (!found)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Memory",
+                                               dimmId);
+                    return;
+                }
+                // Set @odata only if object is found
+                asyncResp->res.jsonValue["@odata.type"] =
+                    "#Memory.v1_11_0.Memory";
+                asyncResp->res.jsonValue["@odata.id"] =
+                    boost::urls::format("/redfish/v1/Systems/{}/Memory/{}",
+                                        BMCWEB_REDFISH_SYSTEM_URI_NAME, dimmId);
+=======
+            }
+
+            /* If a Dimm has an Association check if it has a LED */
+            if (associationInterface && dimmInterface)
+            {
+                getLocationIndicatorActive(asyncResp, objectPath);
+            }
+        }
+
+        if (!found)
+        {
+            // Dimm object not found
+            messages::resourceNotFound(asyncResp->res, "Memory", dimmId);
+            return;
+        }
+        // Set @odata only if object is found
+        asyncResp->res.jsonValue["@odata.type"] = "#Memory.v1_11_0.Memory";
+        asyncResp->res.jsonValue["@odata.id"] =
+            boost::urls::format("/redfish/v1/Systems/{}/Memory/{}",
+                                BMCWEB_REDFISH_SYSTEM_URI_NAME, dimmId);
+    }
+
+    inline void getDimmData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& dimmId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
-        return;
+        BMCWEB_LOG_DEBUG("Get dimm path for {}", dimmId);
+        constexpr std::array<std::string_view, 2> interfaces = {
+            "xyz.openbmc_project.Inventory.Item.Dimm",
+            "xyz.openbmc_project.Inventory.Item.PersistentMemory.Partition"};
+
+        dbus::utility::getSubTree(
+            "/xyz/openbmc_project/inventory", 0, interfaces,
+            [asyncResp,
+             dimmId](const boost::system::error_code& ec,
+                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
+                afterGetDimmData(asyncResp, dimmId, ec, subtree);
+            });
     }
 
-    if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+    inline void handleSetDimmData(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        bool locationIndicatorActive, const std::string& dimmPath)
     {
-        // Option currently returns no systems.  TBD
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
-        return;
+        setLocationIndicatorActive(asyncResp, dimmPath,
+                                   locationIndicatorActive);
     }
 
-    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    inline void afterGetValidDimmPath(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        const std::string& dimmId, const boost::system::error_code& ec,
+        const dbus::utility::MapperGetSubTreePathsResponse& subtree,
+        const std::function<void(const std::string& dimmPath)>& callback)
     {
-        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                   systemName);
-        return;
+        if (ec)
+        {
+            if (ec.value() == EBADR)
+            {
+                /* Need to report error for PATCH */
+                BMCWEB_LOG_WARNING("Dimm not found in inventory");
+                messages::resourceNotFound(asyncResp->res, "Memory", dimmId);
+            }
+            else
+            {
+                BMCWEB_LOG_ERROR("DBUS response error: {}", ec.value());
+                messages::internalError(asyncResp->res);
+            }
+            return;
+        }
+
+        for (const auto& objectPath : subtree)
+        {
+            // Ignore any objects which don't end with our desired dimm name
+            sdbusplus::message::object_path path(objectPath);
+            if (path.filename() == dimmId)
+            {
+                callback(path);
+>>>>>>> origin/master
+                return;
+            }
+        }
+
+        // Object not found
+        messages::resourceNotFound(asyncResp->res, "Memory", dimmId);
     }
 
-    getDimmData(asyncResp, dimmId);
-}
+    inline void getValidDimmPath(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        const std::string& dimmId,
+        std::function<void(const std::string& dimmPath)>&& callback)
+    {
+        BMCWEB_LOG_DEBUG("Get dimm path for {}", dimmId);
+        constexpr std::array<std::string_view, 1> interfaces = {
+            "xyz.openbmc_project.Inventory.Item.Dimm"};
 
-inline void requestRoutesMemoryCollection(App& app)
-{
-    /**
-     * Functions triggers appropriate requests on DBus
-     */
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Memory/")
-        .privileges(redfish::privileges::getMemoryCollection)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& systemName) {
+        dbus::utility::getSubTreePaths(
+            "/xyz/openbmc_project/inventory", 0, interfaces,
+            [asyncResp, dimmId, callback{std::move(callback)}](
+                const boost::system::error_code& ec,
+                const dbus::utility::MapperGetSubTreePathsResponse& subtree) {
+                afterGetValidDimmPath(asyncResp, dimmId, ec, subtree, callback);
+            });
+    }
+
+    inline void handleMemoryPatch(
+        App & app, const crow::Request& req,
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        const std::string& systemName, const std::string& dimmId)
+    {
+        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        {
+            return;
+        }
+
+        if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+        {
+            // Option currently returns no systems.  TBD
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
+
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
+
+        std::optional<bool> locationIndicatorActive;
+        if (!json_util::readJsonPatch(                             //
+                req, asyncResp->res,                               //
+                "LocationIndicatorActive", locationIndicatorActive //
+                ))
+        {
+            return;
+        }
+
+        if (locationIndicatorActive)
+        {
+            getValidDimmPath(asyncResp, dimmId,
+                             std::bind_front(handleSetDimmData, asyncResp,
+                                             *locationIndicatorActive));
+        }
+    }
+
+    inline void handleMemoryGet(
+        App & app, const crow::Request& req,
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        const std::string& systemName, const std::string& dimmId)
+    {
+        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        {
+            return;
+        }
+
+        if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
+        {
+            // Option currently returns no systems.  TBD
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
+
+        if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+        {
+            messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                       systemName);
+            return;
+        }
+
+        getDimmData(asyncResp, dimmId);
+    }
+
+    inline void requestRoutesMemoryCollection(App & app)
+    {
+        /**
+         * Functions triggers appropriate requests on DBus
+         */
+        BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Memory/")
+            .privileges(redfish::privileges::getMemoryCollection)
+            .methods(boost::beast::http::verb::
+                         get)([&app](const crow::Request& req,
+                                     const std::shared_ptr<bmcweb::AsyncResp>&
+                                         asyncResp,
+                                     const std::string& systemName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
@@ -1172,42 +1203,44 @@ inline void requestRoutesMemoryCollection(App& app)
                                         BMCWEB_REDFISH_SYSTEM_URI_NAME),
                     interfaces, "/xyz/openbmc_project/inventory");
             });
-}
+    }
 
-inline void requestRoutesMemory(App& app)
-{
-    /**
-     * Functions triggers appropriate requests on DBus
-     */
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Memory/<str>/")
-        .privileges(redfish::privileges::getMemory)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleMemoryGet, std::ref(app)));
+    inline void requestRoutesMemory(App & app)
+    {
+        /**
+         * Functions triggers appropriate requests on DBus
+         */
+        BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Memory/<str>/")
+            .privileges(redfish::privileges::getMemory)
+            .methods(boost::beast::http::verb::get)(
+                std::bind_front(handleMemoryGet, std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Memory/<str>/")
-        .privileges(redfish::privileges::patchMemory)
-        .methods(boost::beast::http::verb::patch)(
-            std::bind_front(handleMemoryPatch, std::ref(app)));
-}
+        BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Memory/<str>/")
+            .privileges(redfish::privileges::patchMemory)
+            .methods(boost::beast::http::verb::patch)(
+                std::bind_front(handleMemoryPatch, std::ref(app)));
+    }
 
-inline void requestRoutesMemoryMetrics(App& app)
-{
-    /**
-     * Functions triggers appropriate requests on DBus
-     */
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Memory/<str>/MemoryMetrics")
-        .privileges({{"Login"}})
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
-                   const std::string& dimmId) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                redfish::nvidia_memory::getMemoryMetricsData(asyncResp, dimmId);
-            });
-}
+    inline void requestRoutesMemoryMetrics(App & app)
+    {
+        /**
+         * Functions triggers appropriate requests on DBus
+         */
+        BMCWEB_ROUTE(app,
+                     "/redfish/v1/Systems/<str>/Memory/<str>/MemoryMetrics")
+            .privileges({{"Login"}})
+            .methods(boost::beast::http::verb::get)(
+                [&app](const crow::Request& req,
+                       const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                       [[maybe_unused]] const std::string& systemName,
+                       const std::string& dimmId) {
+                    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                    {
+                        return;
+                    }
+                    redfish::nvidia_memory::getMemoryMetricsData(asyncResp,
+                                                                 dimmId);
+                });
+    }
 
 } // namespace redfish

@@ -1912,21 +1912,21 @@ inline void processMultipartFormData(
 <<<<<<< HEAD
     if (!validateUpdateFileFormData(asyncResp, hasFile))
 ||||||| 80d2ef31c
-inline void updateMultipartContext(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const crow::Request& req, MultipartParser&& parser)
-{
-    std::optional<MultiPartUpdateParameters> multipart =
-        extractMultipartUpdateParameters(asyncResp, std::move(parser));
-    if (!multipart)
+    inline void updateMultipartContext(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        const crow::Request& req, MultipartParser&& parser)
+    {
+        std::optional<MultiPartUpdateParameters> multipart =
+            extractMultipartUpdateParameters(asyncResp, std::move(parser));
+        if (!multipart)
 =======
-inline void updateMultipartContext(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const crow::Request& req, MultipartParser&& parser)
-{
-    std::optional<MultiPartUpdate> multipart =
-        extractMultipartUpdateParameters(asyncResp, std::move(parser));
-    if (!multipart)
+    inline void updateMultipartContext(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        const crow::Request& req, MultipartParser&& parser)
+    {
+        std::optional<MultiPartUpdate> multipart =
+            extractMultipartUpdateParameters(asyncResp, std::move(parser));
+        if (!multipart)
 >>>>>>> origin/master
     {
         return;
@@ -1936,17 +1936,17 @@ inline void updateMultipartContext(
     std::vector<std::string> uriTargets;
     if (targets.has_value())
 ||||||| 80d2ef31c
-    if (!multipart->applyTime)
+        if (!multipart->applyTime)
 =======
-    if (!multipart->params.applyTime)
+        if (!multipart->params.applyTime)
 >>>>>>> origin/master
     {
 <<<<<<< HEAD
         uriTargets = *targets;
 ||||||| 80d2ef31c
-        multipart->applyTime = "OnReset";
+            multipart->applyTime = "OnReset";
 =======
-        multipart->params.applyTime = "OnReset";
+            multipart->params.applyTime = "OnReset";
 >>>>>>> origin/master
     }
 
@@ -1958,13 +1958,13 @@ inline void updateMultipartContext(
         std::string rfaPrefix = std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX);
         if (!uriTargets.empty())
 ||||||| 80d2ef31c
-        std::string applyTimeNewVal;
-        if (!convertApplyTime(asyncResp->res, *multipart->applyTime,
-                              applyTimeNewVal))
+            std::string applyTimeNewVal;
+            if (!convertApplyTime(asyncResp->res, *multipart->applyTime,
+                                  applyTimeNewVal))
 =======
-        std::string applyTimeNewVal;
-        if (!convertApplyTime(asyncResp->res, *multipart->params.applyTime,
-                              applyTimeNewVal))
+            std::string applyTimeNewVal;
+            if (!convertApplyTime(asyncResp->res, *multipart->params.applyTime,
+                                  applyTimeNewVal))
 >>>>>>> origin/master
         {
             for (const auto& uri : uriTargets)
@@ -1984,21 +1984,21 @@ inline void updateMultipartContext(
                     return;
                 }
 ||||||| 80d2ef31c
-        processUpdateRequest(asyncResp, std::move(payload),
-                             multipart->uploadData, applyTimeNewVal,
-                             multipart->targets);
-    }
-    else
-    {
-        setApplyTime(asyncResp, *multipart->applyTime);
+                    processUpdateRequest(asyncResp, std::move(payload),
+                                         multipart->uploadData, applyTimeNewVal,
+                                         multipart->targets);
+                }
+                else
+                {
+                    setApplyTime(asyncResp, *multipart->applyTime);
 =======
-        processUpdateRequest(asyncResp, std::move(payload),
-                             multipart->uploadData, applyTimeNewVal,
-                             multipart->params.targets);
-    }
-    else
-    {
-        setApplyTime(asyncResp, *multipart->params.applyTime);
+                    processUpdateRequest(asyncResp, std::move(payload),
+                                         multipart->uploadData, applyTimeNewVal,
+                                         multipart->params.targets);
+                }
+                else
+                {
+                    setApplyTime(asyncResp, *multipart->params.applyTime);
 >>>>>>> origin/master
 
                 const boost::urls::url_view& thisUrl = *parsed;
@@ -2084,16 +2084,16 @@ inline void handleMultipartUpdateServicePost(
     bool enableFWInProgCheck = true;
     if constexpr (BMCWEB_REDFISH_AGGREGATION)
 ||||||| 80d2ef31c
-    BMCWEB_LOG_DEBUG("doPost: contentType={}", contentType);
+        BMCWEB_LOG_DEBUG("doPost: contentType={}", contentType);
 
-    // Make sure that content type is application/octet-stream or
-    // multipart/form-data
-    if (bmcweb::asciiIEquals(contentType, "application/octet-stream"))
+        // Make sure that content type is application/octet-stream or
+        // multipart/form-data
+        if (bmcweb::asciiIEquals(contentType, "application/octet-stream"))
 =======
-    BMCWEB_LOG_DEBUG("doPost: contentType={}", contentType);
+        BMCWEB_LOG_DEBUG("doPost: contentType={}", contentType);
 
-    // Make sure that content type is application/octet-stream
-    if (bmcweb::asciiIEquals(contentType, "application/octet-stream"))
+        // Make sure that content type is application/octet-stream
+        if (bmcweb::asciiIEquals(contentType, "application/octet-stream"))
 >>>>>>> origin/master
     {
         // This is the flag to check BMC firmware update.
@@ -2105,27 +2105,27 @@ inline void handleMultipartUpdateServicePost(
 
     if (!preCheckMultipartUpdateServiceReq(req, asyncResp, enableFWInProgCheck))
 ||||||| 80d2ef31c
-    else if (contentType.starts_with("multipart/form-data"))
+        else if (contentType.starts_with("multipart/form-data"))
 =======
-    else
-    {
-        BMCWEB_LOG_DEBUG("Bad content type specified:{}", contentType);
-        asyncResp->res.result(boost::beast::http::status::bad_request);
-    }
-}
-
-inline void handleUpdateServiceMultipartUpdatePost(
-    App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
+        else
+        {
+            BMCWEB_LOG_DEBUG("Bad content type specified:{}", contentType);
+            asyncResp->res.result(boost::beast::http::status::bad_request);
+        }
     }
 
-    std::string_view contentType = req.getHeaderValue("Content-Type");
-    // Make sure that content type is multipart/form-data
-    if (contentType.starts_with("multipart/form-data"))
+    inline void handleUpdateServiceMultipartUpdatePost(
+        App & app, const crow::Request& req,
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+    {
+        if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        {
+            return;
+        }
+
+        std::string_view contentType = req.getHeaderValue("Content-Type");
+        // Make sure that content type is multipart/form-data
+        if (contentType.starts_with("multipart/form-data"))
 >>>>>>> origin/master
     {
         return;
@@ -2366,66 +2366,66 @@ inline void getSoftwareVersion(
                 return;
             }
 ||||||| 80d2ef31c
-        [asyncResp,
-         swId](const boost::system::error_code& ec,
-               const dbus::utility::DBusPropertiesMap& propertiesList) {
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
+            [asyncResp,
+             swId](const boost::system::error_code& ec,
+                   const dbus::utility::DBusPropertiesMap& propertiesList) {
+                if (ec)
+                {
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
 
-            const std::string* swInvPurpose = nullptr;
-            const std::string* version = nullptr;
+                const std::string* swInvPurpose = nullptr;
+                const std::string* version = nullptr;
 
-            const bool success = sdbusplus::unpackPropertiesNoThrow(
-                dbus_utils::UnpackErrorPrinter(), propertiesList, "Purpose",
-                swInvPurpose, "Version", version);
+                const bool success = sdbusplus::unpackPropertiesNoThrow(
+                    dbus_utils::UnpackErrorPrinter(), propertiesList, "Purpose",
+                    swInvPurpose, "Version", version);
 
-            if (!success)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
+                if (!success)
+                {
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
 
-            if (swInvPurpose == nullptr)
-            {
-                BMCWEB_LOG_DEBUG("Can't find property \"Purpose\"!");
-                messages::internalError(asyncResp->res);
-                return;
-            }
+                if (swInvPurpose == nullptr)
+                {
+                    BMCWEB_LOG_DEBUG("Can't find property \"Purpose\"!");
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
 
-            BMCWEB_LOG_DEBUG("swInvPurpose = {}", *swInvPurpose);
+                BMCWEB_LOG_DEBUG("swInvPurpose = {}", *swInvPurpose);
 
-            if (version == nullptr)
-            {
-                BMCWEB_LOG_DEBUG("Can't find property \"Version\"!");
+                if (version == nullptr)
+                {
+                    BMCWEB_LOG_DEBUG("Can't find property \"Version\"!");
 
-                messages::internalError(asyncResp->res);
+                    messages::internalError(asyncResp->res);
 
-                return;
-            }
-            asyncResp->res.jsonValue["Version"] = *version;
-            asyncResp->res.jsonValue["Id"] = swId;
+                    return;
+                }
+                asyncResp->res.jsonValue["Version"] = *version;
+                asyncResp->res.jsonValue["Id"] = swId;
 
-            // swInvPurpose is of format:
-            // xyz.openbmc_project.Software.Version.VersionPurpose.ABC
-            // Translate this to "ABC image"
-            size_t endDesc = swInvPurpose->rfind('.');
-            if (endDesc == std::string::npos)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            endDesc++;
-            if (endDesc >= swInvPurpose->size())
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
+                // swInvPurpose is of format:
+                // xyz.openbmc_project.Software.Version.VersionPurpose.ABC
+                // Translate this to "ABC image"
+                size_t endDesc = swInvPurpose->rfind('.');
+                if (endDesc == std::string::npos)
+                {
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                endDesc++;
+                if (endDesc >= swInvPurpose->size())
+                {
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
 =======
-        std::bind_front(getSoftwareVersionCallback, asyncResp, swId));
-}
+            std::bind_front(getSoftwareVersionCallback, asyncResp, swId));
+    }
 >>>>>>> origin/master
 
 <<<<<<< HEAD
@@ -2434,67 +2434,69 @@ inline void getSoftwareVersion(
             getRelatedItems(asyncResp, swId, *swInvPurpose);
         });
 ||||||| 80d2ef31c
-            std::string formatDesc = swInvPurpose->substr(endDesc);
-            asyncResp->res.jsonValue["Description"] = formatDesc + " image";
-            getRelatedItems(asyncResp, *swInvPurpose);
-        });
+                std::string formatDesc = swInvPurpose->substr(endDesc);
+                asyncResp->res.jsonValue["Description"] = formatDesc + " image";
+                getRelatedItems(asyncResp, *swInvPurpose);
+            });
 =======
-inline void handleUpdateServiceFirmwareInventoryGetCallback(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::shared_ptr<std::string>& swId,
-    const boost::system::error_code& ec,
-    const dbus::utility::MapperGetSubTreeResponse& subtree)
-{
-    BMCWEB_LOG_DEBUG("doGet callback...");
-    if (ec)
+    inline void handleUpdateServiceFirmwareInventoryGetCallback(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+        const std::shared_ptr<std::string>& swId,
+        const boost::system::error_code& ec,
+        const dbus::utility::MapperGetSubTreeResponse& subtree)
     {
-        messages::internalError(asyncResp->res);
-        return;
-    }
-    // Ensure we find our input swId, otherwise return an error
-    bool found = false;
-    for (const std::pair<
-             std::string,
-             std::vector<std::pair<std::string, std::vector<std::string>>>>&
-             obj : subtree)
-    {
-        sdbusplus::message::object_path path(obj.first);
-        std::string id = path.filename();
-        if (id.empty())
+        BMCWEB_LOG_DEBUG("doGet callback...");
+        if (ec)
         {
-            BMCWEB_LOG_DEBUG("Failed to find software id in {}", obj.first);
-            continue;
+            messages::internalError(asyncResp->res);
+            return;
         }
-        if (id != *swId)
+        // Ensure we find our input swId, otherwise return an error
+        bool found = false;
+        for (const std::pair<
+                 std::string,
+                 std::vector<std::pair<std::string, std::vector<std::string>>>>&
+                 obj : subtree)
         {
-            continue;
+            sdbusplus::message::object_path path(obj.first);
+            std::string id = path.filename();
+            if (id.empty())
+            {
+                BMCWEB_LOG_DEBUG("Failed to find software id in {}", obj.first);
+                continue;
+            }
+            if (id != *swId)
+            {
+                continue;
+            }
+            if (obj.second.empty())
+            {
+                continue;
+            }
+            found = true;
+            sw_util::getSwStatus(asyncResp, swId, obj.second[0].first);
+            sw_util::getSwMinimumVersion(asyncResp, swId, obj.second[0].first);
+            getSoftwareVersion(asyncResp, obj.second[0].first, obj.first,
+                               *swId);
         }
-        if (obj.second.empty())
+        if (!found)
         {
-            continue;
+            BMCWEB_LOG_WARNING("Input swID {} not found!", *swId);
+            messages::resourceMissingAtURI(
+                asyncResp->res,
+                boost::urls::format(
+                    "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId));
+            return;
         }
-        found = true;
-        sw_util::getSwStatus(asyncResp, swId, obj.second[0].first);
-        sw_util::getSwMinimumVersion(asyncResp, swId, obj.second[0].first);
-        getSoftwareVersion(asyncResp, obj.second[0].first, obj.first, *swId);
-    }
-    if (!found)
-    {
-        BMCWEB_LOG_WARNING("Input swID {} not found!", *swId);
-        messages::resourceMissingAtURI(
-            asyncResp->res,
-            boost::urls::format(
-                "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId));
-        return;
-    }
-    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-        "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId);
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#SoftwareInventory.v1_1_0.SoftwareInventory";
-    asyncResp->res.jsonValue["Name"] = "Software Inventory";
-    asyncResp->res.jsonValue["Status"]["HealthRollup"] = resource::Health::OK;
-    asyncResp->res.jsonValue["Updateable"] = false;
-    sw_util::getSwUpdatableStatus(asyncResp, swId);
+        asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+            "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId);
+        asyncResp->res.jsonValue["@odata.type"] =
+            "#SoftwareInventory.v1_1_0.SoftwareInventory";
+        asyncResp->res.jsonValue["Name"] = "Software Inventory";
+        asyncResp->res.jsonValue["Status"]["HealthRollup"] =
+            resource::Health::OK;
+        asyncResp->res.jsonValue["Updateable"] = false;
+        sw_util::getSwUpdatableStatus(asyncResp, swId);
 >>>>>>> origin/master
 }
 
@@ -2519,14 +2521,14 @@ inline void handleUpdateServiceFirmwareInventoryGet(
         "xyz.openbmc_project.State.Decorator.Health",
         "xyz.openbmc_project.State.Decorator.OperationalStatus"};
 ||||||| 80d2ef31c
-    asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-        "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId);
+        asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
+            "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId);
 
-    constexpr std::array<std::string_view, 1> interfaces = {
-        "xyz.openbmc_project.Software.Version"};
+        constexpr std::array<std::string_view, 1> interfaces = {
+            "xyz.openbmc_project.Software.Version"};
 =======
-    constexpr std::array<std::string_view, 1> interfaces = {
-        "xyz.openbmc_project.Software.Version"};
+        constexpr std::array<std::string_view, 1> interfaces = {
+            "xyz.openbmc_project.Software.Version"};
 >>>>>>> origin/master
     dbus::utility::getSubTree(
 <<<<<<< HEAD
@@ -2829,62 +2831,63 @@ inline void handleUpdateServiceFirmwareInventoryGet(
             }
         });
 ||||||| 80d2ef31c
-        "/", 0, interfaces,
-        [asyncResp,
-         swId](const boost::system::error_code& ec,
-               const dbus::utility::MapperGetSubTreeResponse& subtree) {
-            BMCWEB_LOG_DEBUG("doGet callback...");
-            if (ec)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            // Ensure we find our input swId, otherwise return an error
-            bool found = false;
-            for (const std::pair<std::string,
-                                 std::vector<std::pair<
-                                     std::string, std::vector<std::string>>>>&
-                     obj : subtree)
-            {
-                if (!obj.first.ends_with(*swId))
+            "/", 0, interfaces,
+            [asyncResp,
+             swId](const boost::system::error_code& ec,
+                   const dbus::utility::MapperGetSubTreeResponse& subtree) {
+                BMCWEB_LOG_DEBUG("doGet callback...");
+                if (ec)
                 {
-                    continue;
+                    messages::internalError(asyncResp->res);
+                    return;
                 }
 
-                if (obj.second.empty())
+                // Ensure we find our input swId, otherwise return an error
+                bool found = false;
+                for (const std::pair<
+                         std::string,
+                         std::vector<
+                             std::pair<std::string, std::vector<std::string>>>>&
+                         obj : subtree)
                 {
-                    continue;
+                    if (!obj.first.ends_with(*swId))
+                    {
+                        continue;
+                    }
+
+                    if (obj.second.empty())
+                    {
+                        continue;
+                    }
+
+                    found = true;
+                    sw_util::getSwStatus(asyncResp, swId, obj.second[0].first);
+                    getSoftwareVersion(asyncResp, obj.second[0].first,
+                                       obj.first, *swId);
                 }
+                if (!found)
+                {
+                    BMCWEB_LOG_WARNING("Input swID {} not found!", *swId);
+                    messages::resourceMissingAtURI(
+                        asyncResp->res,
+                        boost::urls::format(
+                            "/redfish/v1/UpdateService/FirmwareInventory/{}",
+                            *swId));
+                    return;
+                }
+                asyncResp->res.jsonValue["@odata.type"] =
+                    "#SoftwareInventory.v1_1_0.SoftwareInventory";
+                asyncResp->res.jsonValue["Name"] = "Software Inventory";
+                asyncResp->res.jsonValue["Status"]["HealthRollup"] =
+                    resource::Health::OK;
 
-                found = true;
-                sw_util::getSwStatus(asyncResp, swId, obj.second[0].first);
-                getSoftwareVersion(asyncResp, obj.second[0].first, obj.first,
-                                   *swId);
-            }
-            if (!found)
-            {
-                BMCWEB_LOG_WARNING("Input swID {} not found!", *swId);
-                messages::resourceMissingAtURI(
-                    asyncResp->res,
-                    boost::urls::format(
-                        "/redfish/v1/UpdateService/FirmwareInventory/{}",
-                        *swId));
-                return;
-            }
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#SoftwareInventory.v1_1_0.SoftwareInventory";
-            asyncResp->res.jsonValue["Name"] = "Software Inventory";
-            asyncResp->res.jsonValue["Status"]["HealthRollup"] =
-                resource::Health::OK;
-
-            asyncResp->res.jsonValue["Updateable"] = false;
-            sw_util::getSwUpdatableStatus(asyncResp, swId);
-        });
+                asyncResp->res.jsonValue["Updateable"] = false;
+                sw_util::getSwUpdatableStatus(asyncResp, swId);
+            });
 =======
-        "/xyz/openbmc_project/software/", 0, interfaces,
-        std::bind_front(handleUpdateServiceFirmwareInventoryGetCallback,
-                        asyncResp, swId));
+            "/xyz/openbmc_project/software/", 0, interfaces,
+            std::bind_front(handleUpdateServiceFirmwareInventoryGetCallback,
+                            asyncResp, swId));
 >>>>>>> origin/master
 }
 

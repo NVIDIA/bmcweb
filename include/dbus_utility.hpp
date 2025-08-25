@@ -16,8 +16,8 @@
 #include <cstdint>
 #include <functional>
 #include <map>
-#include <regex>
 #include <memory>
+#include <regex>
 #include <span>
 #include <string>
 #include <string_view>
@@ -231,10 +231,10 @@ void getAssociationEndPoints(
     std::function<void(const boost::system::error_code&,
                        const MapperEndPoints&)>&& callback);
 
-void getManagedObjects(
-    const std::string& service, const sdbusplus::message::object_path& path,
-    std::function<void(const boost::system::error_code&,
-                       const ManagedObjectType&)>&& callback)
+void getManagedObjects(const std::string& service,
+                       const sdbusplus::message::object_path& path,
+                       std::function<void(const boost::system::error_code&,
+                                          const ManagedObjectType&)>&& callback)
 {
     crow::connections::systemBus->async_method_call(
         [callback{std::move(callback)}](const boost::system::error_code& ec,

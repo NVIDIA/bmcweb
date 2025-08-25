@@ -1500,7 +1500,6 @@ inline void handleGetManagerOpenBmc(
         oemOpenbmc["Certificates"] = std::move(certificates);
     }
 
-
     if constexpr (BMCWEB_REDFISH_OEM_MANAGER_FAN_DATA)
     {
         auto pids = std::make_shared<GetPIDValues>(asyncResp);
