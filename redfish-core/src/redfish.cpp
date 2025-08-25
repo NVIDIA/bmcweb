@@ -219,7 +219,6 @@ RedfishService::RedfishService(App& app)
     if constexpr (BMCWEB_BIOS)
     {
         requestRoutesBiosService(app);
-        requestRoutesBiosSettings(app);
         requestRoutesBiosReset(app);
     }
 
