@@ -45,22 +45,8 @@ inline void handleMessageRegistryFileCollectionGet(
         "Collection of MessageRegistryFiles";
 
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
-<<<<<<< HEAD
-    std::vector<std::string> prefixes =
-        message_registries::getRegistryPrefixes();
-    // registries::getRegistryPrefixes();
-    for (std::string memberName : prefixes)
-||||||| 80d2ef31c
-
-    static constexpr const auto registryFiles = std::to_array(
-        {"Base", "TaskEvent", "ResourceEvent", "OpenBMC", "Telemetry",
-         "HeartbeatEvent"});
-
-    for (const char* memberName : registryFiles)
-=======
 
     for (const auto& memberName : std::views::keys(registries::allRegistries()))
->>>>>>> origin/master
     {
         nlohmann::json::object_t member;
         member["@odata.id"] =

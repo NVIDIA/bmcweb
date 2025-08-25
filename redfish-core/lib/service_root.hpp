@@ -228,12 +228,7 @@ inline void handleServiceRootGetImpl(
         "/redfish/v1/EventService";
     asyncResp->res.jsonValue["TelemetryService"]["@odata.id"] =
         "/redfish/v1/TelemetryService";
-<<<<<<< HEAD
-
-||||||| 80d2ef31c
-=======
     manager_utils::getServiceIdentification(asyncResp, true);
->>>>>>> origin/master
     asyncResp->res.jsonValue["Cables"]["@odata.id"] = "/redfish/v1/Cables";
 
     asyncResp->res.jsonValue["Links"]["ManagerProvidingService"]["@odata.id"] =

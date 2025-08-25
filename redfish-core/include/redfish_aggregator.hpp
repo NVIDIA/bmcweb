@@ -523,20 +523,7 @@ class RedfishAggregator
                         return;
                     }
 
-<<<<<<< HEAD
-                    // For now assume there will only be one satellite config.
-                    // Assign it the name/prefix
-                    addSatelliteConfig(
-                        std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX),
-                        interface.second, satelliteInfo);
-||||||| 80d2ef31c
-                    // For now assume there will only be one satellite config.
-                    // Assign it the name/prefix "5B247A"
-                    addSatelliteConfig("5B247A", interface.second,
-                                       satelliteInfo);
-=======
                     addSatelliteConfig(interface.second, satelliteInfo);
->>>>>>> origin/master
                 }
             }
         }

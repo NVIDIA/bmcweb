@@ -131,25 +131,6 @@ enum class Orientation{
     RightToLeft,
 };
 
-<<<<<<< HEAD
-NLOHMANN_JSON_SERIALIZE_ENUM(Id, {
-    {Id::Invalid, "Invalid"},
-});
-
-NLOHMANN_JSON_SERIALIZE_ENUM(Description, {
-    {Description::Invalid, "Invalid"},
-});
-
-NLOHMANN_JSON_SERIALIZE_ENUM(Name, {
-    {Name::Invalid, "Invalid"},
-});
-
-NLOHMANN_JSON_SERIALIZE_ENUM(UUID, {
-    {UUID::Invalid, "Invalid"},
-});
-
-||||||| 80d2ef31c
-=======
 enum class ConditionType{
     Invalid,
     Alert,
@@ -173,7 +154,6 @@ NLOHMANN_JSON_SERIALIZE_ENUM(UUID, {
     {UUID::Invalid, "Invalid"},
 });
 
->>>>>>> origin/master
 NLOHMANN_JSON_SERIALIZE_ENUM(State, {
     {State::Invalid, "Invalid"},
     {State::Enabled, "Enabled"},

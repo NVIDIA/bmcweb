@@ -1,4 +1,3 @@
-
 srcfiles_unittest = files(
     'http/crow_getroutes_test.cpp',
     'http/http2_connection_test.cpp',
@@ -23,7 +22,7 @@ srcfiles_unittest = files(
     'include/sessions_test.cpp',
     'include/ssl_key_handler_test.cpp',
     'include/str_utility_test.cpp',
-    'redfish-core/include/dbus_log_watcher_test.cpp',
+ #   'redfish-core/include/dbus_log_watcher_test.cpp',
     'redfish-core/include/event_log_test.cpp',
     'redfish-core/include/event_matches_filter_test.cpp',
     'redfish-core/include/filter_expr_executor_test.cpp',
@@ -54,6 +53,7 @@ srcfiles_unittest = files(
     'redfish-core/lib/systems_logservices_postcode.cpp',
     'redfish-core/lib/thermal_subsystem_test.cpp',
     'redfish-core/lib/update_service_test.cpp',
+    'redfish-core/include/nvidia_dbus_log_watcher_test.cpp'
 ) + test_sources
 
 if (get_option('tests').allowed())

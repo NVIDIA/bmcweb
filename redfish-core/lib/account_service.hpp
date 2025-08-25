@@ -1317,17 +1317,6 @@ inline void handleAccountServiceClientCertificatesGet(
     {
         return;
     }
-<<<<<<< HEAD
-    asyncResp->res.jsonValue["@odata.id"] =
-        "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates";
-    asyncResp->res.jsonValue["@odata.type"] =
-        "#CertificateCollection.CertificateCollection";
-    asyncResp->res.jsonValue["Name"] =
-        "MultiFactorAuth Certificates Collection";
-    asyncResp->res.jsonValue["Description"] =
-        "A Collection of MultiFactorAuth Certificate Instances";
-||||||| 80d2ef31c
-=======
 
     nlohmann::json& json = asyncResp->res.jsonValue;
     json["@odata.id"] =
@@ -1335,7 +1324,6 @@ inline void handleAccountServiceClientCertificatesGet(
     json["@odata.type"] = "#CertificateCollection.CertificateCollection";
     json["Name"] = "Certificates Collection";
     json["Description"] = "Multi-factor Authentication Client Certificates";
->>>>>>> origin/master
     getClientCertificates(asyncResp, "/Members"_json_pointer);
 }
 
@@ -1358,30 +1346,7 @@ inline CertificateMappingAttribute getCertificateMapping(
         {
             return CertificateMappingAttribute::UserPrincipalName;
         }
-<<<<<<< HEAD
-
-        case MTLSCommonNameParseMode::Meta:
-        {
-            if constexpr (BMCWEB_META_TLS_COMMON_NAME_PARSING)
-            {
-                return CertificateMappingAttribute::CommonName;
-            }
-        }
         break;
-||||||| 80d2ef31c
-        break;
-
-        case MTLSCommonNameParseMode::Meta:
-        {
-            if constexpr (BMCWEB_META_TLS_COMMON_NAME_PARSING)
-            {
-                return CertificateMappingAttribute::CommonName;
-            }
-        }
-        break;
-=======
-        break;
->>>>>>> origin/master
         default:
         {
             return CertificateMappingAttribute::Invalid;
@@ -2233,18 +2198,9 @@ inline void handleAccountDelete(
     tempObjPath /= username;
     const std::string userPath(tempObjPath);
 
-<<<<<<< HEAD
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, username](const boost::system::error_code& ec,
-                              sdbusplus::message::message& m) {
-||||||| 80d2ef31c
-    crow::connections::systemBus->async_method_call(
-        [asyncResp, username](const boost::system::error_code& ec) {
-=======
     dbus::utility::async_method_call(
         asyncResp,
         [asyncResp, username](const boost::system::error_code& ec) {
->>>>>>> origin/master
             if (ec)
             {
                 handleNvidiaDeleteError(asyncResp, username, m);

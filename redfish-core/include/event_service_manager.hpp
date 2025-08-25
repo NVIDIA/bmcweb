@@ -52,15 +52,6 @@ namespace redfish
 static constexpr const char* eventFormatType = "Event";
 static constexpr const char* metricReportFormatType = "MetricReport";
 
-<<<<<<< HEAD
-static constexpr const char* eventServiceFile =
-    "/var/lib/bmcweb/eventservice_config.json";
-||||||| 80d2ef31c
-static constexpr const char* eventServiceFile =
-    "/var/lib/bmcweb/eventservice_config.json";
-
-=======
->>>>>>> origin/master
 class EventServiceManager
 {
   private:
@@ -594,32 +585,15 @@ class EventServiceManager
         // MemberId is 0 : since we are sending one event record.
         logEntryJson["MemberId"] = "0";
 
-<<<<<<< HEAD
-        nlohmann::json::object_t msg;
-        msg["@odata.type"] = "#Event.v1_9_0.Event";
-||||||| 80d2ef31c
-        nlohmann::json msg;
-        msg["@odata.type"] = "#Event.v1_4_0.Event";
-        msg["Id"] = std::to_string(eventId);
-=======
         nlohmann::json::object_t msg;
         msg["@odata.type"] = "#Event.v1_4_0.Event";
         msg["Id"] = std::to_string(eventId);
->>>>>>> origin/master
         msg["Name"] = "Event Log";
         msg["Events"] = logEntryArray;
-<<<<<<< HEAD
-||||||| 80d2ef31c
-
-        std::string strMsg =
-            msg.dump(2, ' ', true, nlohmann::json::error_handler_t::replace);
-
-=======
 
         std::string strMsg = nlohmann::json(msg).dump(
             2, ' ', true, nlohmann::json::error_handler_t::replace);
 
->>>>>>> origin/master
         messages.push_back(Event(eventId, msg));
         msg["Id"] = std::to_string(eventId);
 
