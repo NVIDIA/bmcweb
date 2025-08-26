@@ -5,6 +5,7 @@
 #include "generated/enums/log_entry.hpp"
 #include "logging.hpp"
 #include "utility.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <systemd/sd-journal.h>

@@ -18,6 +18,7 @@
 #include "utils/chassis_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/sensor_utils.hpp"
 #include "utils/time_utils.hpp"
 

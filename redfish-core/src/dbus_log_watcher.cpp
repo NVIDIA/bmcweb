@@ -6,6 +6,7 @@
 #include "event_service_manager.hpp"
 #include "logging.hpp"
 #include "metric_report.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/nvidia_utils.hpp"
 #include "utils/time_utils.hpp"
 

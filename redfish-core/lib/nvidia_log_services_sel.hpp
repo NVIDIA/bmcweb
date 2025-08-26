@@ -23,6 +23,7 @@
 #include "registries/privilege_registry.hpp"
 #include "utils/dbus_log_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/time_utils.hpp"
 
 namespace redfish

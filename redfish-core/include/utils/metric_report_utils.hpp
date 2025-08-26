@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 #pragma once
+
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <utils/chassis_utils.hpp>

@@ -25,6 +25,7 @@
 #include "logging.hpp"
 #include "utils/dbus_log_utils.hpp"
 #include "utils/file_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/origin_utils.hpp"
 #include "utils/registry_utils.hpp"
 #include "utils/time_utils.hpp"

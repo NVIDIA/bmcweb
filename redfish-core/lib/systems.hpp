@@ -29,6 +29,7 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/health_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/pcie_util.hpp"
 #include "utils/sw_utils.hpp"
 #include "utils/systems_utils.hpp"

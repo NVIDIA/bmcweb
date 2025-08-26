@@ -28,6 +28,7 @@
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_pcie_utils.hpp"
 #include "utils/nvidia_processor_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/port_utils.hpp"
 #include "utils/processor_utils.hpp"
 #include "utils/time_utils.hpp"

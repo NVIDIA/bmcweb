@@ -20,6 +20,7 @@
 #include "utils/json_utils.hpp"
 #include "utils/metric_report_definition_utils.hpp"
 #include "utils/metric_report_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/telemetry_utils.hpp"
 #include "utils/time_utils.hpp"
 

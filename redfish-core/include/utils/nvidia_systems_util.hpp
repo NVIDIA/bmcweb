@@ -2,6 +2,7 @@
 #include "dbus_utility.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/pcie_util.hpp"
 #include "utils/privilege_utils.hpp"
 #include "utils/sw_utils.hpp"

@@ -14,6 +14,7 @@
 #include "registries/privilege_registry.hpp"
 #include "utility.hpp"
 #include "utils/journal_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/query_param.hpp"
 #include "utils/time_utils.hpp"
 

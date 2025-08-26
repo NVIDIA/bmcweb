@@ -17,6 +17,7 @@
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "task_messages.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/privilege_utils.hpp"
 #include "utils/time_utils.hpp"
 

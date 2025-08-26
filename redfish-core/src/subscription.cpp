@@ -16,6 +16,7 @@
 #include "metric_report.hpp"
 #include "server_sent_event.hpp"
 #include "ssl_key_handler.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <boost/asio/error.hpp>

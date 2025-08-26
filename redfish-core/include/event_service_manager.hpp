@@ -19,6 +19,7 @@
 #include "persistent_data.hpp"
 #include "server_sent_event.hpp"
 #include "subscription.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/nvidia_utils.hpp"
 #include "utils/origin_utils.hpp"
 #include "utils/time_utils.hpp"

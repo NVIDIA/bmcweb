@@ -18,6 +18,7 @@
 #include "str_utility.hpp"
 #include "utility.hpp"
 #include "utils/hex_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/query_param.hpp"
 #include "utils/time_utils.hpp"
 

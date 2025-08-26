@@ -11,6 +11,7 @@
 #include "nvidia_sensor_utils.hpp"
 #include "str_utility.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/nvidia_time_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <boost/url/format.hpp>
