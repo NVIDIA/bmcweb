@@ -23,6 +23,7 @@
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/nvidia_stl_utils.hpp"
 #include "utils/stl_utils.hpp"
 
 #include <boost/system/error_code.hpp>

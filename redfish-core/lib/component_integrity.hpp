@@ -26,6 +26,8 @@
 #include <task.hpp>
 #include <utils/chassis_utils.hpp>
 #include <utils/json_utils.hpp>
+#include <utils/nvidia_stl_utils.hpp>
+#include <utils/nvidia_time_utils.hpp>
 #include <utils/stl_utils.hpp>
 
 namespace redfish
