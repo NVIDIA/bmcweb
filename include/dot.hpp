@@ -29,11 +29,12 @@
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
+#include <boost/asio/read.hpp>
+#include <boost/asio/readable_pipe.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/interprocess/streams/bufferstream.hpp>
-#include <boost/process.hpp>
-#include <boost/process/async.hpp>
-#include <boost/process/child.hpp>
+#include <boost/asio/streambuf.hpp>
+#include <boost/process/v2/process.hpp>
+#include <boost/process/v2/stdio.hpp>
 
 #include <memory>
 #include <numeric>
@@ -86,6 +87,7 @@ class DotCommandHandler
                       ErrorCallback&& errorCallbackIn, int timeoutSec = 3) :
         externalResultCallback(std::move(resultCallbackIn)),
         externalErrorCallback(std::move(errorCallbackIn)),
+        subprocessOutput(crow::connections::systemBus->get_io_context()),
         subprocessTimeout(timeoutSec)
     {
         mctp_utils::enumerateMctpEndpoints(
@@ -122,9 +124,9 @@ class DotCommandHandler
     ResultCallback externalResultCallback;
     ErrorCallback externalErrorCallback;
 
-    std::unique_ptr<boost::process::child> subprocess;
+    std::unique_ptr<boost::process::v2::process> subprocess;
     std::unique_ptr<boost::asio::steady_timer> subprocessTimer;
-    std::vector<char> subprocessOutput;
+    boost::asio::readable_pipe subprocessOutput;
 
     int subprocessTimeout;
 
@@ -162,12 +164,14 @@ class DotCommandHandler
         }
         else if (exitCode == 0)
         {
-            boost::interprocess::bufferstream outputStream(
-                subprocessOutput.data(), subprocessOutput.size());
             std::string line;
             std::string rxLine;
             std::string txLine;
             std::string output;
+            boost::asio::streambuf buf;
+            boost::asio::read(subprocessOutput, buf,
+                              boost::asio::transfer_all());
+            std::istream outputStream(&buf);
             while (std::getline(outputStream, line) && output.empty())
             {
                 if (line.starts_with("RX: "))
@@ -227,31 +231,22 @@ class DotCommandHandler
             args.emplace_back(ss.str());
         }
         BMCWEB_LOG_DEBUG("mctp-vdm-util {}", join(args, " "));
-        try
-        {
-            size_t hexDataSize = data.size() * 3; // hex representation + space
-            subprocessOutput.resize(mctpVdmUtilOutputSize + hexDataSize);
-            auto callback = [this](int exitCode, const std::error_code& ec) {
+
+        subprocess = std::make_unique<boost::process::v2::process>(
+            crow::connections::systemBus->get_io_context(),
+            "/usr/bin/mctp-vdm-util", args,
+            boost::process::v2::process_stdio{
+                .in = nullptr, .out = subprocessOutput, .err = nullptr});
+        subprocess->async_wait(
+            [this](const boost::system::error_code& ec, int exitCode) {
                 subprocessExitCallback(exitCode, ec);
-            };
-            subprocess = std::make_unique<boost::process::child>(
-                "/usr/bin/mctp-vdm-util", args,
-                boost::process::std_err > boost::process::null,
-                boost::process::std_out > boost::asio::buffer(subprocessOutput),
-                crow::connections::systemBus->get_io_context(),
-                boost::process::on_exit = std::move(callback));
-        }
-        catch (const std::runtime_error& e)
-        {
-            errorCallback(desc, e.what());
-        }
+            });
     }
 
     void cleanup()
     {
         boost::asio::post(crow::connections::systemBus->get_io_context(),
                           [this] {
-                              subprocessOutput.resize(0);
                               subprocess.reset(nullptr);
                               subprocessTimer.reset(nullptr);
                               externalErrorCallback = nullptr;

@@ -23,6 +23,9 @@
 #include "utils/certificate_utils.hpp"
 
 #include <app.hpp>
+#include <boost/asio/readable_pipe.hpp>
+#include <boost/process/v2/process.hpp>
+#include <boost/process/v2/stdio.hpp>
 #include <dbus_utility.hpp>
 #include <query.hpp>
 #include <registries/privilege_registry.hpp>
@@ -886,8 +889,9 @@ inline void resetTorSwitch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     try
     {
-        boost::process::child execProg("/usr/sbin/mlnx_bf_reset_control",
-                                       "do_tor_eswitch_reset");
+        boost::process::v2::process execProg(
+            crow::connections::systemBus->get_io_context(),
+            "/usr/sbin/mlnx_bf_reset_control", {"do_tor_eswitch_reset"});
         execProg.wait();
         if (execProg.exit_code() == 0)
         {
@@ -1855,11 +1859,21 @@ inline void requestRoutesNvidiaOemBf(App& app)
                                            systemName);
                 return;
             }
-            auto dataOut = std::make_shared<boost::process::ipstream>();
-            auto dataErr = std::make_shared<boost::process::ipstream>();
-            auto callback = [asyncResp, dataOut,
-                             dataErr](const boost::system::error_code& ec,
-                                      int errorCode) mutable {
+            auto dataOut = std::make_shared<boost::asio::readable_pipe>(
+                crow::connections::systemBus->get_io_context());
+            auto dataErr = std::make_shared<boost::asio::readable_pipe>(
+                crow::connections::systemBus->get_io_context());
+            std::shared_ptr<boost::process::v2::process> p =
+                std::make_shared<boost::process::v2::process>(
+                    boost::process::v2::process(
+                        crow::connections::systemBus->get_io_context(),
+                        "/usr/sbin/mlnx_bf_reset_control",
+                        {"soc_hard_reset_ignore_host"},
+                        boost::process::v2::process_stdio{
+                            .in = nullptr, .out = *dataOut, .err = *dataErr}));
+            auto callback = [asyncResp, dataOut, dataErr,
+                             p](const boost::system::error_code& ec,
+                                int errorCode) mutable {
                 if (ec)
                 {
                     BMCWEB_LOG_ERROR(
@@ -1872,13 +1886,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
                 messages::success(asyncResp->res);
             };
 
-            std::string command =
-                "/usr/sbin/mlnx_bf_reset_control soc_hard_reset_ignore_host";
-            boost::process::async_system(
-                crow::connections::systemBus->get_io_context(),
-                std::move(callback), command, boost::process::std_in.close(),
-                boost::process::std_out > *dataOut,
-                boost::process::std_err > *dataErr);
+            p->async_wait(std::move(callback));
         });
 
     if constexpr (BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)

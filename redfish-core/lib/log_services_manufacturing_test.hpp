@@ -19,18 +19,19 @@
 #include "registries/privilege_registry.hpp"
 #include "task.hpp"
 
-#include <boost/process.hpp>
-#include <boost/process/async.hpp>
-#include <boost/process/child.hpp>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/readable_pipe.hpp>
+#include <boost/process/v2/process.hpp>
+#include <boost/process/v2/stdio.hpp>
 
 namespace redfish
 {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::shared_ptr<task::TaskData> mfgTestTask;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static std::shared_ptr<boost::process::child> mfgTestProc;
+static std::shared_ptr<boost::process::v2::process> mfgTestProc;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static std::vector<char> mfgTestProcOutput(128, 0);
+static std::shared_ptr<boost::asio::readable_pipe> mfgTestProcOutput;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::vector<std::string> scriptExecOutputFiles;
 
@@ -87,7 +88,7 @@ inline int copyMfgTestOutputFile(std::string& path)
  * @param[in]  ec           Optional system error code
  *
  */
-inline void mfgTestProcExitHandler(int exitCode, const std::error_code& ec)
+inline void mfgTestProcExitHandler(const std::error_code& ec, int exitCode)
 {
     auto& t = mfgTestTask;
     if (ec)
@@ -101,7 +102,13 @@ inline void mfgTestProcExitHandler(int exitCode, const std::error_code& ec)
         BMCWEB_LOG_DEBUG("Script exit code: {}", exitCode);
         if (exitCode == 0)
         {
-            std::string output(mfgTestProcOutput.data());
+            std::string output;
+            boost::asio::dynamic_string_buffer<std::string::value_type,
+                                               std::string::traits_type,
+                                               std::string::allocator_type>
+                buf(output);
+            boost::asio::read(*mfgTestProcOutput, buf,
+                              boost::asio::transfer_all());
             int id = copyMfgTestOutputFile(output);
             if (id != -1)
             {
@@ -144,7 +151,7 @@ inline void mfgTestProcExitHandler(int exitCode, const std::error_code& ec)
     }
     mfgTestProc = nullptr;
     mfgTestTask = nullptr;
-    std::fill(mfgTestProcOutput.begin(), mfgTestProcOutput.end(), 0);
+    mfgTestProcOutput = nullptr;
 };
 
 inline void requestRoutesEventLogDiagnosticDataCollect(App& app)
@@ -207,16 +214,23 @@ inline void requestRoutesEventLogDiagnosticDataCollect(App& app)
                             BMCWEB_MANUFACTURING_TEST_TIMEOUT));
                         try
                         {
-                            mfgTestProc =
-                                std::make_shared<boost::process::child>(
-                                    "/usr/bin/mfg-script-exec.sh",
-                                    "/usr/share/mfg-script-exec/config.yml",
-                                    boost::process::std_out >
-                                        boost::asio::buffer(mfgTestProcOutput),
+                            mfgTestProcOutput =
+                                std::make_shared<boost::asio::readable_pipe>(
                                     crow::connections::systemBus
-                                        ->get_io_context(),
-                                    boost::process::on_exit =
-                                        mfgTestProcExitHandler);
+                                        ->get_io_context());
+                            boost::process::v2::process p(
+                                crow::connections::systemBus->get_io_context(),
+                                "/usr/bin/mfg-script-exec.sh",
+                                {"/usr/share/mfg-script-exec/config.yml"},
+                                boost::process::v2::process_stdio{
+                                    .in = nullptr,
+                                    .out = *mfgTestProcOutput,
+                                    .err = nullptr});
+
+                            mfgTestProc =
+                                std::make_shared<boost::process::v2::process>(
+                                    std::move(p));
+                            mfgTestProc->async_wait(mfgTestProcExitHandler);
                         }
                         catch (const std::runtime_error& e)
                         {
