@@ -46,6 +46,7 @@
 #include "nvidia_power_smoothing.hpp"
 #include "nvidia_processor_port.hpp"
 #include "nvidia_protected_component.hpp"
+#include "nvidia_storage.hpp"
 #include "nvidia_smbios_mdr.hpp"
 #include "nvidia_sweinj.hpp"
 #include "nvidia_system.hpp"
@@ -335,6 +336,8 @@ void requestRoutesNvidia(crow::App& app)
             app);
         nvidia_oem_managed_entity::requestRoutesNvidiaManagedEntity(app);
     }
+    requestRoutesNvidiaChassisDriveName(app);
+    requestRoutesNvidiaDrive(app);
 }
 
 } // namespace redfish
