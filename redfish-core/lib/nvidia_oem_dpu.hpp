@@ -655,20 +655,18 @@ inline void getIsOemNvidiaRshimEnable(
 
 inline void requestOemNvidiaRshim(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::optional<bool>& bmcRshimEnabled,
-    const std::optional<bool>& force)
+    const bool& bmcRshimEnabled, const bool& force)
 {
     std::variant<std::string> state = "com.nvidia.BF.Rshim.State.Disabled";
-    if (force.has_value() && force.value() && bmcRshimEnabled.has_value() &&
-        bmcRshimEnabled.value())
+    if (force && bmcRshimEnabled)
     {
         state = "com.nvidia.BF.Rshim.State.Forced";
     }
-    else if (bmcRshimEnabled.has_value() && bmcRshimEnabled.value())
+    else if (bmcRshimEnabled)
     {
         state = "com.nvidia.BF.Rshim.State.Enabled";
     }
-    else if (bmcRshimEnabled.has_value() && !bmcRshimEnabled.value())
+    else if (!bmcRshimEnabled)
     {
         state = "com.nvidia.BF.Rshim.State.Disabled";
     }
@@ -1651,9 +1649,54 @@ inline void requestRoutesNvidiaOemBf(App& app)
                         return;
                     }
 
-                    bluefield::requestOemNvidiaRshim(asyncResp, bmcRshimEnabled,
-                                                     force);
+                    bluefield::requestOemNvidiaRshim(asyncResp,
+                                                     *bmcRshimEnabled, *force);
                 }
+            });
+    BMCWEB_ROUTE(
+        app, "/redfish/v1/Managers/<str>/Actions/Oem/NvidiaManager.SetRshim")
+        .privileges(redfish::privileges::postManager)
+        .methods(boost::beast::http::verb::post)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   [[maybe_unused]] const std::string& managerName) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+                std::string rshim;
+                if (!redfish::json_util::readJsonAction(req, asyncResp->res,
+                                                        "Rshim", rshim))
+                {
+                    BMCWEB_LOG_ERROR(
+                        "Illegal Property {}",
+                        asyncResp->res.jsonValue.dump(
+                            2, ' ', true,
+                            nlohmann::json::error_handler_t::replace));
+                    return;
+                }
+                bool bmcRshimEnabled = false;
+                bool force = false;
+                if (rshim == "Enabled")
+                {
+                    bmcRshimEnabled = true;
+                }
+                else if (rshim == "Disabled")
+                {
+                    bmcRshimEnabled = false;
+                }
+                else if (rshim == "Forced")
+                {
+                    bmcRshimEnabled = true;
+                    force = true;
+                }
+                else
+                {
+                    BMCWEB_LOG_ERROR("Invalid Rshim");
+                    return;
+                }
+                bluefield::requestOemNvidiaRshim(asyncResp, bmcRshimEnabled,
+                                                 force);
             });
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Oem/Nvidia/Switch")
         .privileges(redfish::privileges::getSwitch)

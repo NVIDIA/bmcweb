@@ -1809,6 +1809,16 @@ inline void extendManagerOEMActions(
             "/redfish/v1/Managers/{}/Oem/Nvidia/SWErrorInjectionActionInfo",
             BMCWEB_REDFISH_MANAGER_URI_NAME);
     }
+
+    if constexpr (BMCWEB_RSHIM_SUPPORT)
+    {
+        nlohmann::json& oemActionsRshim = oemActions["#NvidiaManager.SetRshim"];
+        oemActionsRshim["target"] = boost::urls::format(
+            "/redfish/v1/Managers/{}/Actions/Oem/NvidiaManager.SetRshim",
+            BMCWEB_REDFISH_MANAGER_URI_NAME);
+        oemActionsRshim["Rshim"]["@Redfish.AllowableValues"] = {
+            "Enabled", "Disabled", "Forced"};
+    }
 }
 
 inline void handleGetManagerNvidia(

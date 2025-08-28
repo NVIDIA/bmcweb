@@ -1212,3 +1212,10 @@ option(
     value: 'enabled',
     description: 'nvidia Dbus log entry handling implementation',
 )
+
+option(
+    'rshim-support',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable/Disable Rshim management',
+)
