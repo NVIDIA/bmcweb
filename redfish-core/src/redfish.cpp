@@ -34,20 +34,6 @@
 #include "network_adapters.hpp"
 #include "network_adapters_generic.hpp"
 #include "network_protocol.hpp"
-#include "nvidia_bios.hpp"
-#include "nvidia_debug_token.hpp"
-#include "nvidia_dpu_system_profiles.hpp"
-#include "nvidia_error_injection.hpp"
-#include "nvidia_manager_eventlog.hpp"
-#include "nvidia_policy.hpp"
-#include "nvidia_power_reset_metrics.hpp"
-#include "nvidia_power_smoothing.hpp"
-#include "nvidia_processor.hpp"
-#include "nvidia_protected_component.hpp"
-#include "nvidia_smbios_mdr.hpp"
-#include "nvidia_sweinj.hpp"
-#include "nvidia_system_variable_spi_erase.hpp"
-#include "nvidia_workload_power_profiles.hpp"
 #include "odata.hpp"
 #include "openbmc/openbmc_managers.hpp"
 #include "pcie.hpp"
@@ -191,10 +177,6 @@ RedfishService::RedfishService(App& app)
     if constexpr (BMCWEB_REDFISH_BMC_JOURNAL)
     {
         requestRoutesBMCJournalLogService(app);
-    }
-    if constexpr (BMCWEB_REDFISH_MANAGER_EVENT_LOG)
-    {
-        requestRoutesMangersEventLogService(app);
     }
 
     if constexpr (BMCWEB_REDFISH_CPU_LOG)

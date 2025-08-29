@@ -31,6 +31,7 @@
 #include "nvidia_log_services_fdr.hpp"
 #include "nvidia_log_services_sel.hpp"
 #include "nvidia_log_services_xid.hpp"
+#include "nvidia_manager_eventlog.hpp"
 #include "nvidia_managers.hpp"
 #include "nvidia_memory_env_metrics.hpp"
 #include "nvidia_oem_dpu.hpp"
@@ -311,6 +312,11 @@ void requestRoutesNvidia(crow::App& app)
     {
         nvidia_manager_util::requestRouteNSMRawCommand(app);
         nvidia_manager_util::requestRouteNSMRawCommandActionInfo(app);
+    }
+
+    if constexpr (BMCWEB_REDFISH_MANAGER_EVENT_LOG)
+    {
+        requestRoutesMangersEventLogService(app);
     }
 
     if constexpr (BMCWEB_REDFISH_SW_EINJ)
