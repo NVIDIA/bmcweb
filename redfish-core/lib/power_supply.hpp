@@ -15,12 +15,8 @@
 #include "utils/chassis_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
-<<<<<<< HEAD
 #include "utils/nvidia_power_supply_utils.hpp"
-    ||||||| 80d2ef31c
-=======
 #include "utils/json_utils.hpp"
-    >>>>>>> origin/master
 #include "utils/time_utils.hpp"
 
 #include <asm-generic/errno.h>
@@ -528,14 +524,9 @@
         getPowerSupplyFirmwareVersion(asyncResp, service, powerSupplyPath);
         getPowerSupplyLocation(asyncResp, service, powerSupplyPath);
         getEfficiencyPercent(asyncResp);
-<<<<<<< HEAD
-
+        getLocationIndicatorActive(asyncResp, powerSupplyPath);
         redfish::nvidia_power_supply_utils::getNvidiaPowerSupply(
             asyncResp, service, powerSupplyPath, powerSupplyId, chassisId);
-||||||| 80d2ef31c
-=======
-        getLocationIndicatorActive(asyncResp, powerSupplyPath);
->>>>>>> origin/master
     }
 
     inline void handlePowerSupplyHead(
@@ -579,8 +570,7 @@
                                 std::bind_front(doPowerSupplyGet, asyncResp,
                                                 chassisId, powerSupplyId));
     }
-
-<<<<<<< HEAD
+    //TODO: move to nvidia specific files
     inline void doPowerSupplyMetricsGet(
         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         const std::string& chassisId, const std::string& powerSupplyId,
@@ -602,7 +592,7 @@
                     asyncResp, chassisId, powerSupplyId, powerSupplyPath);
             });
     }
-
+    //TODO: move to nvidia specific files
     inline void handlePowerSupplyMetricsGet(
         App & app, const crow::Request& req,
         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -619,8 +609,6 @@
                             powerSupplyId));
     }
 
-||||||| 80d2ef31c
-=======
     inline void doPatchPowerSupply(
         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         const bool locationIndicatorActive, const std::string& powerSupplyPath,
@@ -659,7 +647,6 @@
         }
     }
 
->>>>>>> origin/master
     inline void requestRoutesPowerSupply(App & app)
     {
         BMCWEB_ROUTE(
@@ -675,7 +662,6 @@
             .privileges(redfish::privileges::getPowerSupply)
             .methods(boost::beast::http::verb::get)(
                 std::bind_front(handlePowerSupplyGet, std::ref(app)));
-<<<<<<< HEAD
 
         BMCWEB_ROUTE(
             app,
@@ -683,8 +669,6 @@
             .privileges(redfish::privileges::getPowerSupplyMetrics)
             .methods(boost::beast::http::verb::get)(
                 std::bind_front(handlePowerSupplyMetricsGet, std::ref(app)));
-||||||| 80d2ef31c
-=======
 
         BMCWEB_ROUTE(
             app,
@@ -692,7 +676,6 @@
             .privileges(redfish::privileges::patchPowerSupply)
             .methods(boost::beast::http::verb::patch)(
                 std::bind_front(handlePowerSupplyPatch, std::ref(app)));
->>>>>>> origin/master
     }
 
 } // namespace redfish

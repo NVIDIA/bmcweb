@@ -36,13 +36,8 @@
 #include <boost/url/format.hpp>
 #include <boost/url/url.hpp>
 #include <nlohmann/json.hpp>
-<<<<<<< HEAD
 #include <openbmc_dbus_rest.hpp>
 #include <sdbusplus/asio/property.hpp>
-    ||||||| 80d2ef31c
-#include <sdbusplus/asio/property.hpp>
-    =======
->>>>>>> origin/master
 #include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <utils/chassis_utils.hpp>
@@ -833,7 +828,7 @@
                                 if (indicatorChassis)
                                 {
                                     getIndicatorLedState(asyncResp);
-                                    getSystemLocationIndicatorActive(asyncResp);
+                                    getLocationIndicatorActive(asyncResp, objPath);
                                 }
                             });
                         break;
@@ -858,29 +853,7 @@
 
                 if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                 {
-<<<<<<< HEAD
-                    if (std::any_of(
-                            interfaces2.begin(), interfaces2.end(),
-                            [](std::string_view itemInterface) {
-                                return itemInterface ==
-                                           "xyz.openbmc_project.Inventory.Item.System" ||
-                                       itemInterface ==
-                                           "xyz.openbmc_project.Inventory.Item.Chassis";
-                            }))
-                    {
-                        // static power hint
-                        redfish::nvidia_chassis_utils::
-                            getStaticPowerHintByChassis(asyncResp, path);
-                    }
-||||||| 80d2ef31c
-                    getIndicatorLedState(asyncResp);
-                    getSystemLocationIndicatorActive(asyncResp);
-                    break;
-=======
-                    getIndicatorLedState(asyncResp);
-                    getLocationIndicatorActive(asyncResp, objPath);
-                    break;
->>>>>>> origin/master
+                    redfish::nvidia_chassis_utils::maybePopulateStaticPowerHint(asyncResp, path, interfaces2);
                 }
 
                 sdbusplus::asio::getAllProperties(
@@ -902,7 +875,6 @@
                                                           chassisId);
                     });
 
-<<<<<<< HEAD
                 for (const auto& interface : interfaces2)
                 {
                     if (interface == "xyz.openbmc_project.Common.UUID")
@@ -934,25 +906,6 @@
                         }
                     }
                 }
-||||||| 80d2ef31c
-                sdbusplus::asio::getAllProperties(
-                    *crow::connections::systemBus, connectionName, path,
-                    "xyz.openbmc_project.Inventory.Item.Chassis",
-                    [asyncResp](const boost::system::error_code&,
-                                const dbus::utility::DBusPropertiesMap&
-                                    propertiesList) {
-                        handleChassisProperties(asyncResp, propertiesList);
-                    });
-=======
-                dbus::utility::getAllProperties(
-                    *crow::connections::systemBus, connectionName, path,
-                    "xyz.openbmc_project.Inventory.Item.Chassis",
-                    [asyncResp](const boost::system::error_code&,
-                                const dbus::utility::DBusPropertiesMap&
-                                    propertiesList) {
-                        handleChassisProperties(asyncResp, propertiesList);
-                    });
->>>>>>> origin/master
 
                 if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
                 {
@@ -1017,21 +970,14 @@
         {
             return;
         }
-<<<<<<< HEAD
 
         constexpr std::array<std::string_view, 3> interfaces = {
             "xyz.openbmc_project.Inventory.Item.Board",
             "xyz.openbmc_project.Inventory.Item.Chassis",
             "xyz.openbmc_project.Inventory.Item.Component"};
-||||||| 80d2ef31c
-        constexpr std::array<std::string_view, 2> interfaces = {
-            "xyz.openbmc_project.Inventory.Item.Board",
-            "xyz.openbmc_project.Inventory.Item.Chassis"};
-=======
->>>>>>> origin/master
 
         dbus::utility::getSubTree(
-            "/xyz/openbmc_project/inventory", 0, chassisInterfaces,
+            "/xyz/openbmc_project/inventory", 0, interfaces,
             std::bind_front(handleChassisGetSubTree, asyncResp, chassisId));
 
         constexpr std::array<std::string_view, 1> interfaces2 = {
@@ -1162,24 +1108,12 @@
         const std::string& chassisId = param;
 
         dbus::utility::getSubTree(
-<<<<<<< HEAD
-            "/xyz/openbmc_project/inventory", 0, interfaces,
+            "/xyz/openbmc_project/inventory", 0, chassisInterfaces,
             [asyncResp, chassisId, locationIndicatorActive, indicatorLed,
              partNumber, serialNumber, cpuClockFrequency, workloadFactor,
              temperature, hardwareWriteProtectEnable](
                 const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreeResponse& subtree) {
-||||||| 80d2ef31c
-            "/xyz/openbmc_project/inventory", 0, interfaces,
-            [asyncResp, chassisId, locationIndicatorActive, indicatorLed](
-                const boost::system::error_code& ec,
-                const dbus::utility::MapperGetSubTreeResponse& subtree) {
-=======
-            "/xyz/openbmc_project/inventory", 0, chassisInterfaces,
-            [asyncResp, chassisId, locationIndicatorActive, indicatorLed](
-                const boost::system::error_code& ec,
-                const dbus::utility::MapperGetSubTreeResponse& subtree) {
->>>>>>> origin/master
                 if (ec)
                 {
                     BMCWEB_LOG_ERROR("DBUS response error {}", ec);

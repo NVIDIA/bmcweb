@@ -2,12 +2,8 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include "async_resp.hpp"
-<<<<<<< HEAD
 #include "background_copy.hpp"
-    ||||||| 80d2ef31c
-=======
 #include "boost_formatters.hpp"
-    >>>>>>> origin/master
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "in_band.hpp"

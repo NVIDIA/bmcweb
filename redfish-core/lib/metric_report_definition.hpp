@@ -1510,48 +1510,16 @@ inline void handleMetricReportGet(
             telemetry::service, telemetry::getDbusReportPath(id),
             telemetry::reportInterface,
             [asyncResp,
-             id](const boost::system::error_code& ec,
-                 const dbus::utility::DBusPropertiesMap& properties) {
-                if (!redfish::telemetry::verifyCommonErrors(asyncResp->res, id,
-                                                            ec))
+                id](const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& properties) {
+                if (!telemetry::formatMessageOnError(asyncResp->res, id,
+                                                        ec))
                 {
-                    return;
+                    telemetry::fillReportDefinition(asyncResp, id,
+                                                    properties);
                 }
-
-<<<<<<< HEAD
-                telemetry::fillReportDefinition(asyncResp, id, properties);
             });
     }
-||||||| 80d2ef31c
-            dbus::utility::getAllProperties(
-                telemetry::service, telemetry::getDbusReportPath(id),
-                telemetry::reportInterface,
-                [asyncResp,
-                 id](const boost::system::error_code& ec,
-                     const dbus::utility::DBusPropertiesMap& properties) {
-                    if (!redfish::telemetry::verifyCommonErrors(asyncResp->res,
-                                                                id, ec))
-                    {
-                        return;
-                    }
-
-                    telemetry::fillReportDefinition(asyncResp, id, properties);
-                });
-=======
-            dbus::utility::getAllProperties(
-                telemetry::service, telemetry::getDbusReportPath(id),
-                telemetry::reportInterface,
-                [asyncResp,
-                 id](const boost::system::error_code& ec,
-                     const dbus::utility::DBusPropertiesMap& properties) {
-                    if (!telemetry::formatMessageOnError(asyncResp->res, id,
-                                                         ec))
-                    {
-                        telemetry::fillReportDefinition(asyncResp, id,
-                                                        properties);
-                    }
-                });
->>>>>>> origin/master
 }
 
 inline void handleMetricReportDelete(

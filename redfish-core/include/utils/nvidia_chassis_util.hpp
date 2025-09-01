@@ -1839,6 +1839,28 @@ inline void getStaticPowerHintByChassis(
         "xyz.openbmc_project.Association", "endpoints");
 }
 
+
+inline void maybePopulateStaticPowerHint(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& path,
+    const std::vector<std::string>& interfaces)
+{
+    const auto shouldFetch = std::any_of(
+        interfaces.begin(), interfaces.end(), [](std::string_view iface) {
+            return iface ==
+                       "xyz.openbmc_project.Inventory.Item.System" ||
+                   iface ==
+                       "xyz.openbmc_project.Inventory.Item.Chassis";
+        });
+
+    if (shouldFetch)
+    {
+        getStaticPowerHintByChassis(asyncResp, path);
+    }
+}
+
+
+
 inline void getNetworkAdapters(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objPath, const std::vector<std::string>& interfaces,

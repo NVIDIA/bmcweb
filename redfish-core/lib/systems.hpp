@@ -1431,27 +1431,12 @@ inline void getAutomaticRebootAttempts(
             const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
-<<<<<<< HEAD
-                BMCWEB_LOG_ERROR("DBUS response error {}, {}", ec.value(),
-                                 ec.message());
-                // handle the error while BMC is booting
-                if (ec.value() != EBADR &&
-                    ec.value() != boost::system::errc::host_unreachable)
-||||||| 80d2ef31c
-                if (ec.value() != EBADR)
-=======
                 if (ec.value() != EBADR &&
                     ec.value() != boost::asio::error::host_unreachable)
->>>>>>> origin/master
                 {
-<<<<<<< HEAD
-||||||| 80d2ef31c
-                    BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
-=======
                     // Service not available, no error, just don't return
                     // RebootAttempts information
                     BMCWEB_LOG_ERROR("D-Bus responses error: {}", ec);
->>>>>>> origin/master
                     messages::internalError(asyncResp->res);
                 }
                 return;
@@ -4176,7 +4161,6 @@ inline void handleComputerSystemPatch(
         return;
     }
 
-<<<<<<< HEAD
     asyncResp->res.result(boost::beast::http::status::no_content);
 
     if constexpr (BMCWEB_ENABLE_IST_MODE)
@@ -4187,12 +4171,8 @@ inline void handleComputerSystemPatch(
             ist_mode_utils::setIstMode(asyncResp, req, *istModeEnabled);
         }
     }
-
-||||||| 80d2ef31c
     asyncResp->res.result(boost::beast::http::status::no_content);
 
-=======
->>>>>>> origin/master
     if (assetTag)
     {
         setAssetTag(asyncResp, *assetTag);

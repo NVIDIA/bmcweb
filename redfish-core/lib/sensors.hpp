@@ -88,16 +88,10 @@ constexpr auto getSensorPaths(){
         "/xyz/openbmc_project/sensors/fan_pwm",
         "/xyz/openbmc_project/sensors/altitude",
         "/xyz/openbmc_project/sensors/energy",
-<<<<<<< HEAD
-        "/xyz/openbmc_project/sensors/utilization",
-        "/xyz/openbmc_project/sensors/frequency"});
-||||||| 80d2ef31c
-        "/xyz/openbmc_project/sensors/utilization"});
-=======
         "/xyz/openbmc_project/sensors/liquidflow",
         "/xyz/openbmc_project/sensors/pressure",
-        "/xyz/openbmc_project/sensors/utilization"});
->>>>>>> origin/master
+        "/xyz/openbmc_project/sensors/utilization",
+        "/xyz/openbmc_project/sensors/frequency"});
     } else {
       return  std::to_array<std::string_view>({"/xyz/openbmc_project/sensors/power",
         "/xyz/openbmc_project/sensors/current",
