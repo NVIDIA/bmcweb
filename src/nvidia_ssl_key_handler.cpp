@@ -106,13 +106,12 @@ std::string ensureOpensslKeyPresentEncryptedAndValid(
         BMCWEB_LOG_INFO("TLS key is encrypted.");
     }
 
-    cert = verifyOpensslKeyCert(filepath, lsp::passwordCallback);
+    cert = verifyOpensslKeyCert(filepath);
 
     if (cert.empty())
     {
         BMCWEB_LOG_WARNING("Error in verifying signature, regenerating");
-        std::vector<char> pwd;
-        cert = generateSslCertificate("testhost", &pwd);
+        cert = generateSslCertificate("testhost");
         if (cert.empty())
         {
             BMCWEB_LOG_ERROR("Failed to generate cert");
