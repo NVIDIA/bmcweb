@@ -131,4 +131,38 @@ inline void dotMctpStatusError(crow::Response& res, std::string_view arg1)
     addMessageToErrorJson(res.jsonValue, dotMctpStatusError(arg1));
 }
 
+inline nlohmann::json componentUpdateSkipped(std::string_view arg1,
+                                             std::string_view arg2)
+{
+    std::array<std::string_view, 2> args{arg1, arg2};
+    return getLogNvidia(
+        redfish::registries::nvidia::Index::componentUpdateSkipped, args);
+}
+
+inline nlohmann::json recoveryStarted(std::string_view arg1)
+{
+    return getLogNvidia(
+        redfish::registries::nvidia::Index::recoveryStarted, {arg1});
+}
+
+inline nlohmann::json recoverySuccessful(std::string_view arg1)
+{
+    return getLogNvidia(
+        redfish::registries::nvidia::Index::recoverySuccessful, {arg1});
+}
+
+inline nlohmann::json firmwareNotInRecovery(std::string_view arg1)
+{
+    return getLogNvidia(
+        redfish::registries::nvidia::Index::firmwareNotInRecovery, {arg1});
+}
+
+inline nlohmann::json stageSuccessful(std::string_view arg1,
+                                      std::string_view arg2)
+{
+    return getLogNvidia(
+        redfish::registries::nvidia::Index::stageSuccessful, {arg1});
+}
+
+
 } // namespace redfish::messages
