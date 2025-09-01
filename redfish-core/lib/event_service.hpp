@@ -13,6 +13,7 @@
 #include "http_request.hpp"
 #include "io_context_singleton.hpp"
 #include "logging.hpp"
+#include "nvidia_event_service.hpp"
 #include "query.hpp"
 #include "registries.hpp"
 #include "registries/privilege_registry.hpp"
@@ -49,17 +50,15 @@ namespace redfish
 
 static constexpr const std::array<const char*, 2> supportedEvtFormatTypes = {
     eventFormatType, metricReportFormatType};
-
-static constexpr const std::array<const char*, 4> supportedRegPrefixes = {
-    "Base", "OpenBMC", "TaskEvent", "ResourceEvent"};
-
+static constexpr const std::array<const char*, 5> supportedRegPrefixes = {
+    "Base", "OpenBMC", "TaskEvent", "HeartbeatEvent", "ResourceEvent"};
 static constexpr const std::array<const char*, 3> supportedRetryPolicies = {
     "TerminateAfterRetries", "SuspendRetries", "RetryForever"};
 
 static constexpr const std::array<const char*, 12> supportedResourceTypes = {
-    "Task",         "AccountService",     "ManagerAccount", "SessionService",
-    "EventService", "UpdateService",      "Chassis",        "Systems",
-    "Managers",     "CertificateService", "VirtualMedia",   "Heartbeat"};
+    "Task",           "Heartbeat",    "AccountService",     "ManagerAccount",
+    "SessionService", "EventService", "UpdateService",      "Chassis",
+    "Systems",        "Managers",     "CertificateService", "VirtualMedia"};
 
 inline void requestRoutesEventService(App& app)
 {
@@ -180,16 +179,7 @@ inline void requestRoutesEventService(App& app)
                     }
                 }
 
-                if constexpr (BMCWEB_REDFISH_DBUS_LOG)
-                {
-                    EventServiceManager::getInstance().setEventServiceConfig(
-                        eventServiceConfig, req.target());
-                }
-                else
-                {
-                    EventServiceManager::getInstance().setEventServiceConfig(
-                        eventServiceConfig);
-                }
+                nvidiaSetEventServiceConfig(eventServiceConfig, req.target());
             });
 }
 
@@ -746,15 +736,7 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 messages::internalError(asyncResp->res);
                 return;
             }
-            if constexpr (BMCWEB_REDFISH_AGGREGATION)
-            {
-                // new subscription is added so start redfish event listener.
-                if (EventServiceManager::getInstance()
-                        .getNumberOfSubscriptions() == 1)
-                {
-                    startRedfishEventListener(*req.ioService);
-                }
-            }
+            enableRedfishEventListener(req);
             messages::created(asyncResp->res);
             asyncResp->res.addHeader(
                 "Location", "/redfish/v1/EventService/Subscriptions/" + id);
@@ -877,15 +859,8 @@ inline void requestRoutesEventDestination(App& app)
                 if (context)
                 {
                     subValue->userSub->customText = *context;
-                    if constexpr (BMCWEB_REDFISH_DBUS_LOG)
-                    {
-                        // Send an event for property change
-                        NvEvent event =
-                            redfish::EventUtil::createEventPropertyModified(
-                                "Context", *context, "EventService");
-                        redfish::EventServiceManager::getInstance()
-                            .sendEventWithOOC(std::string(req.target()), event);
-                    }
+                    sendPropertyModifiedEvent(req.target(), "EventService", "Context",
+                                              *context);
                 }
 
                 if (headers)
@@ -913,15 +888,8 @@ inline void requestRoutesEventDestination(App& app)
                         }
                     }
                     subValue->userSub->httpHeaders = std::move(fields);
-                    if constexpr (BMCWEB_REDFISH_DBUS_LOG)
-                    {
-                        // Send an event for property change
-                        NvEvent event =
-                            redfish::EventUtil::createEventPropertyModified(
-                                "Headers", keyValues, "EventService");
-                        redfish::EventServiceManager::getInstance()
-                            .sendEventWithOOC(std::string(req.target()), event);
-                    }
+                    sendPropertyModifiedEvent(req.target(), "EventService", "Headers",
+                                              keyValues);
                 }
 
                 if (retryPolicy)
@@ -936,15 +904,8 @@ inline void requestRoutesEventDestination(App& app)
                         return;
                     }
                     subValue->userSub->retryPolicy = *retryPolicy;
-                    if constexpr (BMCWEB_REDFISH_DBUS_LOG)
-                    {
-                        // Send an event for property change
-                        NvEvent event =
-                            redfish::EventUtil::createEventPropertyModified(
-                                "RetryPolicy", *retryPolicy, "EventService");
-                        redfish::EventServiceManager::getInstance()
-                            .sendEventWithOOC(std::string(req.target()), event);
-                    }
+                    sendPropertyModifiedEvent(req.target(), "EventService", "RetryPolicy",
+                                              *retryPolicy);
                 }
 
                 if (sendHeartbeat)
@@ -1007,16 +968,7 @@ inline void requestRoutesEventDestination(App& app)
                     return;
                 }
                 messages::success(asyncResp->res);
-                if constexpr (BMCWEB_REDFISH_AGGREGATION)
-                {
-                    // there will be no subscription after the deletion
-                    // stop redfish event listener
-                    if (EventServiceManager::getInstance()
-                            .getNumberOfSubscriptions() == 1)
-                    {
-                        stopRedfishEventListener(*req.ioService);
-                    }
-                }
+                disableRedfishEventListener(req);
             });
 }
 

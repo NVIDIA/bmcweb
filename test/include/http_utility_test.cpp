@@ -126,28 +126,6 @@ TEST(getPreferredContentType, NegativeTest)
         ContentType::NoMatch);
 }
 
-TEST(headerContains, PositiveTest)
-{
-    EXPECT_TRUE(headerContains("chunked", "chunked"));
-    EXPECT_TRUE(headerContains("chunked;q=0.8", "chunked"));
-    EXPECT_TRUE(
-        headerContains("chunked, br;q=1.0, gzip;q=0.8, *;q=0.1", "chunked"));
-    EXPECT_TRUE(
-        headerContains("br;q=1.0, chunked, gzip;q=0.8, *;q=0.1", "chunked"));
-    EXPECT_TRUE(
-        headerContains("br;q=1.0, gzip;q=0.8, chunked, *;q=0.1", "chunked"));
-    EXPECT_TRUE(
-        headerContains("br;q=1.0, gzip;q=0.8, *;q=0.1, chunked", "chunked"));
-}
-
-TEST(headerContains, NegativeTest)
-{
-    EXPECT_FALSE(headerContains("", "chunked"));
-    EXPECT_FALSE(headerContains(std::string_view{}, "chunked"));
-    EXPECT_FALSE(headerContains("nochunked;q=0.8", "chunked"));
-    EXPECT_FALSE(headerContains("br;q=1.0, gzip;q=0.8, *;q=0.1", "chunked"));
-}
-
 TEST(getPreferredEncoding, PositiveTest)
 {
     std::array<Encoding, 1> encodingsGzip{Encoding::GZIP};
@@ -172,6 +150,28 @@ TEST(getPreferredEncoding, NegativeTest)
 
     std::array<Encoding, 1> contentType2{Encoding::GZIP};
     EXPECT_EQ(getPreferredEncoding("zstd", contentType2), Encoding::NoMatch);
+}
+
+TEST(headerContains, PositiveTest)
+{
+    EXPECT_TRUE(headerContains("chunked", "chunked"));
+    EXPECT_TRUE(headerContains("chunked;q=0.8", "chunked"));
+    EXPECT_TRUE(
+        headerContains("chunked, br;q=1.0, gzip;q=0.8, *;q=0.1", "chunked"));
+    EXPECT_TRUE(
+        headerContains("br;q=1.0, chunked, gzip;q=0.8, *;q=0.1", "chunked"));
+    EXPECT_TRUE(
+        headerContains("br;q=1.0, gzip;q=0.8, chunked, *;q=0.1", "chunked"));
+    EXPECT_TRUE(
+        headerContains("br;q=1.0, gzip;q=0.8, *;q=0.1, chunked", "chunked"));
+}
+
+TEST(headerContains, NegativeTest)
+{
+    EXPECT_FALSE(headerContains("", "chunked"));
+    EXPECT_FALSE(headerContains(std::string_view{}, "chunked"));
+    EXPECT_FALSE(headerContains("nochunked;q=0.8", "chunked"));
+    EXPECT_FALSE(headerContains("br;q=1.0, gzip;q=0.8, *;q=0.1", "chunked"));
 }
 
 } // namespace

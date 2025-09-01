@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #pragma once
 #include "logging.hpp"
+#include "nvidia_event_service_store.hpp"
 
 #include <boost/beast/http/fields.hpp>
 #include <boost/container/flat_map.hpp>
@@ -270,33 +271,11 @@ struct UserSubscription
                     subvalue.originResources.emplace_back(*value);
                 }
             }
-            else if (element.first == "OriginResources")
+            else if (handleOriginFields(element.first, element.second,
+                                       subvalue.originResources,
+                                       subvalue.includeOriginOfCondition))
             {
-                const nlohmann::json::array_t* obj =
-                    element.second.get_ptr<const nlohmann::json::array_t*>();
-                if (obj == nullptr)
-                {
-                    continue;
-                }
-                for (const auto& val : *obj)
-                {
-                    const std::string* value =
-                        val.get_ptr<const std::string*>();
-                    if (value == nullptr)
-                    {
-                        continue;
-                    }
-                    subvalue.originResources.emplace_back(*value);
-                }
-            }
-            else if (element.first == "IncludeOriginOfCondition")
-            {
-                const bool* value = element.second.get_ptr<const bool*>();
-                if (value == nullptr)
-                {
-                    continue;
-                }
-                subvalue.includeOriginOfCondition = *value;
+                continue;
             }
             else
             {

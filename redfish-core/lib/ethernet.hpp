@@ -51,11 +51,6 @@
 #include <variant>
 #include <vector>
 
-enum
-{
-    MAC_STRING_SIZE = 17
-};
-
 namespace redfish
 {
 
@@ -819,12 +814,12 @@ inline void createIPv4(const std::string& ifaceId, uint8_t prefixLength,
  * @brief Deletes the IP entry for this interface and creates a replacement
  * static entry
  *
- * @param[in] ifaceId      Id of interface upon which to create the IPv6 entry
- * @param[in] id           The unique hash entry identifying the DBus entry
+ * @param[in] ifaceId        Id of interface upon which to create the IPv6 entry
+ * @param[in] id             The unique hash entry identifying the DBus entry
  * @param[in] prefixLength   Prefix syntax for the subnet mask
  * @param[in] address        Address to assign to this interface
  * @param[in] numStaticAddrs Count of IPv4 static addresses
- * @param[io] asyncResp    Response object that will be returned to client
+ * @param[io] asyncResp      Response object that will be returned to client
  *
  * @return None
  */
@@ -1345,7 +1340,8 @@ inline void handleMACAddressPatch(
     const std::string& ifaceId, const std::string& macAddress,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    if (macAddress.size() > MAC_STRING_SIZE)
+    static constexpr const size_t macStringSize = 17;
+    if (macAddress.size() > macStringSize)
     {
         messages::propertyValueFormatError(asyncResp->res, macAddress,
                                            "MACAddress");
@@ -2138,11 +2134,6 @@ inline void afterVlanCreate(
     asyncResp->res.addHeader("Location", vlanInterfaceUri.buffer());
 }
 
-inline bool verifyNames(const std::string& parent, const std::string& iface)
-{
-    return iface.starts_with(parent + "_");
-}
-
 inline void requestEthernetInterfacesRoutes(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/EthernetInterfaces/")
@@ -2223,14 +2214,14 @@ inline void requestEthernetInterfacesRoutes(App& app)
                     return;
                 }
 
-                bool vlanEnabled = false;
+                bool vlanEnable = false;
                 uint32_t vlanId = 0;
                 std::vector<nlohmann::json::object_t> relatedInterfaces;
 
                 if (!json_util::readJsonPatch(                        //
                         req, asyncResp->res,                          //
                         "Links/RelatedInterfaces", relatedInterfaces, //
-                        "VLAN/VLANEnable", vlanEnabled,               //
+                        "VLAN/VLANEnable", vlanEnable,                //
                         "VLAN/VLANId", vlanId                         //
                         ))
                 {
@@ -2277,7 +2268,7 @@ inline void requestEthernetInterfacesRoutes(App& app)
                     return;
                 }
 
-                if (!vlanEnabled)
+                if (!vlanEnable)
                 {
                     // In OpenBMC implementation, VLANEnable cannot be false on
                     // create

@@ -12,14 +12,13 @@
 #include "event_service_manager.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
-#include "nvidia_event_service_manager.hpp"
 #include "pam_authenticate.hpp"
 #include "privileges.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "sessions.hpp"
 #include "utils/json_utils.hpp"
-
+#include "nvidia_event_service.hpp"
 #include <security/_pam_types.h>
 
 #include <boost/beast/http/field.hpp>
@@ -143,14 +142,7 @@ inline void handleSessionDelete(
 
     persistent_data::SessionStore::getInstance().removeSession(session);
     messages::success(asyncResp->res);
-    if constexpr (BMCWEB_REDFISH_DBUS_LOG)
-    {
-        // Send an event for session deletion
-        NvEvent event =
-            redfish::EventUtil::createEventResourceRemoved("SessionService");
-        redfish::EventServiceManager::getInstance().sendEventWithOOC(
-            std::string(req.target()), event);
-    }
+    sendResourceDeletedEvent(req.target(), "SessionService");
 }
 
 inline nlohmann::json getSessionCollectionMembers()
@@ -305,15 +297,7 @@ inline void handleSessionCollectionPost(
         return;
     }
     processAfterSessionCreation(asyncResp, req, username, session);
-
-    if constexpr (BMCWEB_REDFISH_DBUS_LOG)
-    {
-        // Send an event for session creation
-        NvEvent event =
-            redfish::EventUtil::createEventResourceCreated("SessionService");
-        redfish::EventServiceManager::getInstance().sendEventWithOOC(
-            std::string(req.target()), event);
-    }
+    sendResourceCreatedEvent(req.target(), "SessionService");
 }
 
 inline void handleSessionServiceHead(
@@ -389,16 +373,8 @@ inline void handleSessionServicePatch(
             // update the message severity
             redfish::message_registries::updateMessageSeverity(
                 asyncResp, "SessionTimeOut", "OK");
-            if constexpr (BMCWEB_REDFISH_DBUS_LOG)
-            {
-                // send redfish event for property change
-                NvEvent event = redfish::EventUtil::createEventPropertyModified(
-                    "SessionTimeOut",
-                    std::to_string(sessionTimeoutInseconds.count()),
-                    "SessionService");
-                redfish::EventServiceManager::getInstance().sendEventWithOOC(
-                    std::string(req.target()), event);
-            }
+            sendPropertyModifiedEvent(req.target(), "SessionService", "SessionTimeOut",
+                                      std::to_string(sessionTimeoutInseconds.count()));
         }
         else
         {
