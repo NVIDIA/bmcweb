@@ -1420,10 +1420,6 @@ inline void handleDHCPPatch(
     bool ipv4Active = translateDhcpEnabledToBool(ethData.dhcpEnabled, true);
     bool ipv6Active = translateDhcpEnabledToBool(ethData.dhcpEnabled, false);
 
-    if (ipv4Active)
-    {
-        updateIPv4DefaultGateway(ifaceId, "", asyncResp);
-    }
     bool nextv4DHCPState =
         v4dhcpParms.dhcpv4Enabled ? *v4dhcpParms.dhcpv4Enabled : ipv4Active;
 
@@ -2447,12 +2443,6 @@ inline void requestEthernetInterfacesRoutes(App& app)
                         return;
                     }
 
-                    if (ipv4StaticAddresses)
-                    {
-                        handleIPv4StaticPatch(ifaceId, *ipv4StaticAddresses,
-                                              ethData, ipv4Data, asyncResp);
-                    }
-
                     handleDHCPPatch(ifaceId, ethData, v4dhcpParms, v6dhcpParms,
                                     asyncResp);
 
@@ -2475,6 +2465,12 @@ inline void requestEthernetInterfacesRoutes(App& app)
                     if (macAddress)
                     {
                         handleMACAddressPatch(ifaceId, *macAddress, asyncResp);
+                    }
+
+                    if (ipv4StaticAddresses)
+                    {
+                        handleIPv4StaticPatch(ifaceId, *ipv4StaticAddresses,
+                                              ethData, ipv4Data, asyncResp);
                     }
 
                     if (staticNameServers)
