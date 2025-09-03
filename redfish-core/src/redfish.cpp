@@ -79,7 +79,6 @@
 #include "trusted_components.hpp"
 #include "update_service.hpp"
 #include "virtual_media.hpp"
-
 namespace redfish
 {
 

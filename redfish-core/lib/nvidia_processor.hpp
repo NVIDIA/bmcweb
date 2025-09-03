@@ -3673,6 +3673,167 @@ inline void patchEccMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                 std::variant<bool>(eccModeEnabled));
         });
 }
+
+inline void patchSpeedConfigIfRequested(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath, const MapperServiceMap& serviceMap,
+    const std::string& processorId, const std::optional<int>& speedLimit,
+    const std::optional<bool>& speedLocked)
+{
+    // speedlimit is required property for patching speedlocked
+    if (!speedLimit && speedLocked)
+    {
+        BMCWEB_LOG_ERROR("SpeedLimit value required ");
+        messages::propertyMissing(asyncResp->res, "SpeedLimit");
+    }
+
+    // Update speed limit
+    else if (speedLimit && speedLocked)
+    {
+        std::tuple<bool, uint32_t> reqSpeedConfig =
+            std::make_tuple(*speedLocked, static_cast<uint32_t>(*speedLimit));
+        redfish::nvidia_processor::patchSpeedConfig(
+            asyncResp, processorId, reqSpeedConfig, objectPath, serviceMap);
+    }
+}
+
+inline void patchOperatingSpeedRangeIfRequested(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath,
+    [[maybe_unused]] const MapperServiceMap& serviceMap,
+    const std::string& processorId,
+    const std::optional<nlohmann::json>& operatingSpeedRangeMHzObject)
+{
+    if (operatingSpeedRangeMHzObject)
+    {
+        std::optional<uint32_t> settingMin;
+        std::optional<uint32_t> settingMax;
+        nlohmann::json operatingSpeedRange = *operatingSpeedRangeMHzObject;
+        if (redfish::json_util::readJson(operatingSpeedRange, asyncResp->res,
+                                         "SettingMax", settingMax, "SettingMin",
+                                         settingMin))
+        {
+            if (settingMax)
+            {
+                redfish::nvidia_processor_utils::patchOperatingSpeedRangeMHz(
+                    asyncResp, processorId, *settingMax, "SettingMax",
+                    objectPath);
+            }
+            else if (settingMin)
+            {
+                redfish::nvidia_processor_utils::patchOperatingSpeedRangeMHz(
+                    asyncResp, processorId, *settingMin, "SettingMin",
+                    objectPath);
+            }
+        }
+    }
+}
+
+inline void patchMigModeIfPresent(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId, const std::string& objectPath,
+    const MapperServiceMap& serviceMap, const std::optional<bool>& migMode)
+{
+    if (!migMode)
+    {
+        return;
+    }
+
+    redfish::nvidia_processor::patchMigMode(asyncResp, processorId, *migMode,
+                                            objectPath, serviceMap);
+}
+
+inline void patchRemoteDebugIfPresent(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId, const std::string& objectPath,
+    [[maybe_unused]] const MapperServiceMap& serviceMap,
+    const std::optional<bool>& remoteDebugEnabled)
+{
+    if (!remoteDebugEnabled)
+    {
+        return;
+    }
+
+    redfish::nvidia_processor::patchRemoteDebug(
+        asyncResp, processorId, *remoteDebugEnabled, objectPath);
+}
+
+inline void patchReconfigPermissionsIfPresent(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId,
+    const std::optional<nlohmann::json>& inbandReconfigPermissions,
+    const std::optional<nlohmann::json>& doeReconfigPermissions)
+{
+    if (inbandReconfigPermissions)
+    {
+        nlohmann::json inbandJson = *inbandReconfigPermissions; // mutable copy
+        nvidia_processor_utils::patchInbandReconfigPermissions(
+            asyncResp, processorId, inbandJson);
+    }
+    if (doeReconfigPermissions)
+    {
+        nlohmann::json doeJson = *doeReconfigPermissions; // mutable copy
+        nvidia_processor_utils::patchDOEReconfigPermissions(
+            asyncResp, processorId, doeJson);
+    }
+}
+
+inline void handleNvidiaOemIfRequested(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objectPath, const MapperServiceMap& serviceMap,
+    const std::string& processorId,
+    const std::optional<nlohmann::json>& oemObject)
+{
+    if constexpr (!BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        return;
+    }
+
+    if (!oemObject)
+    {
+        return;
+    }
+
+    nlohmann::json oemRoot = *oemObject; // mutable copy
+
+    std::optional<nlohmann::json> oemNvidiaObject;
+    if (!redfish::json_util::readJson(oemRoot, asyncResp->res, "Nvidia",
+                                      oemNvidiaObject))
+    {
+        return;
+    }
+
+    std::optional<bool> migMode;
+    std::optional<bool> remoteDebugEnabled;
+    std::optional<nlohmann::json> inbandReconfigPermissions;
+    std::optional<nlohmann::json> doeReconfigPermissions;
+
+    if (oemNvidiaObject)
+    {
+        nlohmann::json nvidiaRoot = *oemNvidiaObject; // mutable copy
+
+        if (!redfish::json_util::readJson(
+                nvidiaRoot, asyncResp->res, "MIGModeEnabled", migMode,
+                "RemoteDebugEnabled", remoteDebugEnabled,
+                "InbandReconfigPermissions", inbandReconfigPermissions,
+                "DOEReconfigPermissions", doeReconfigPermissions))
+        {
+            return;
+        }
+    }
+    else
+    {
+        return;
+    }
+
+    patchMigModeIfPresent(asyncResp, processorId, objectPath, serviceMap,
+                          migMode);
+    patchRemoteDebugIfPresent(asyncResp, processorId, objectPath, serviceMap,
+                              remoteDebugEnabled);
+    patchReconfigPermissionsIfPresent(asyncResp, processorId,
+                                      inbandReconfigPermissions,
+                                      doeReconfigPermissions);
+}
 } // namespace nvidia_processor
 
 inline void requestRoutesProcessorPortHistogramBuckets(App& app)

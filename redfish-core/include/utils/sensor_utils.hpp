@@ -211,10 +211,12 @@ inline std::string_view toReadingUnits(std::string_view sensorType)
     {
         return "J";
     }
+    // Nvidia Added Code Start
     if (sensorType == "frequency")
     {
         return "Hz";
     }
+    // Nvidia Added Code End
     if (sensorType == "liquidflow")
     {
         return "L/min";
@@ -268,10 +270,12 @@ inline sensor::ReadingType toReadingType(std::string_view sensorType)
     {
         return sensor::ReadingType::EnergyJoules;
     }
+    // Nvidia Added Code Start
     if (sensorType == "frequency")
     {
         return sensor::ReadingType::Frequency;
     }
+    // Nvidia Added Code End
     if (sensorType == "liquidflow")
     {
         return sensor::ReadingType::LiquidFlowLPM;

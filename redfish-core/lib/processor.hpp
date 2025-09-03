@@ -838,302 +838,85 @@ inline void getCpuUniqueId(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         });
 }
 
-inline void handleProcessorSubtree(
+// Nvidia Added Code Start
+inline void getProcessorMigModeData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& processorId,
-    const std::function<
-        void(const std::string& objectPath,
-             const dbus::utility::MapperServiceMap& serviceMap)>& callback,
-    const boost::system::error_code& ec,
-    const dbus::utility::MapperGetSubTreeResponse& subtree)
+    const std::string& cpuId, const std::string& service,
+    const std::string& objPath)
 {
-    if (ec)
-    {
-        BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
-        messages::internalError(asyncResp->res);
-        return;
-    }
-    for (const auto& [objectPath, serviceMap] : subtree)
-    {
-        // Ignore any objects which don't end with our desired cpu name
-        sdbusplus::message::object_path path(objectPath);
-        if (path.filename() == processorId)
-        {
-            // Filter out objects that don't have the CPU-specific
-            // interfaces to make sure we can return 404 on non-CPUs
-            // (e.g. /redfish/../Processors/dimm0)
-            for (const auto& [serviceName, interfaceList] : serviceMap)
-            {
-                if (std::ranges::find_first_of(interfaceList,
-                                               processorInterfaces) !=
-                    interfaceList.end())
-                {
-                    // Process the first object which matches cpu name and
-                    // required interfaces, and potentially ignore any other
-                    // matching objects. Assume all interfaces we want to
-                    // process must be on the same object path.
+    BMCWEB_LOG_DEBUG(" get GpuMIGMode data");
+    redfish::nvidia_processor::getMigModeData(asyncResp, cpuId, service,
+                                              objPath);
+}
 
-                    callback(objectPath, serviceMap);
-                    return;
-                }
-            }
-        }
-    }
-    messages::resourceNotFound(asyncResp->res, "Processor", processorId);
+inline void getProcessorEgmModeData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& cpuId, const std::string& service,
+    const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG(" get EGMMode data");
+    redfish::nvidia_processor_utils::getEgmModeData(asyncResp, cpuId, service,
+                                                    objPath);
+}
+
+inline void getProcessorSystemGUID(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& service, const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG("Get System-GUID");
+    redfish::nvidia_processor_utils::getSysGUID(asyncResp, service, objPath);
+}
+
+inline void getMNNVLinkTopologyInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& cpuId, const std::string& service,
+    const std::string& objPath, const std::string& interface)
+{
+    BMCWEB_LOG_DEBUG("Get MNNVLinkTopologyInfo");
+    redfish::nvidia_processor_utils::getMNNVLinkTopologyInfo(
+        asyncResp, cpuId, service, objPath, interface);
+}
+
+inline void getProcessorCCModeData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& cpuId, const std::string& service,
+    const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG(" get GpuCCMode data");
+    redfish::nvidia_processor_utils::getCCModeData(asyncResp, cpuId, service,
+                                                   objPath);
+}
+
+inline void getPowerSmoothingInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId, const std::string& service,
+    const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG(" get getPowerSmoothingInfo data");
+    redfish::nvidia_processor_utils::getPowerSmoothingInfo(
+        asyncResp, processorId, service, objPath);
+}
+
+inline void getResetMetricsInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId, const std::string& service,
+    const std::string& objPath)
+{
+    BMCWEB_LOG_DEBUG(" get getResetMetricsInfo data");
+    redfish::nvidia_processor_utils::getResetMetricsInfo(asyncResp, processorId,
+                                                         service, objPath);
+}
+
+inline void getWorkLoadPowerInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId)
+{
+    BMCWEB_LOG_DEBUG(" get getWorkLoadPowerInfo data");
+    redfish::nvidia_processor_utils::getWorkLoadPowerInfo(
+        asyncResp, processorId);
 }
 
 /**
-<<<<<<< HEAD
-||||||| 80d2ef31c
- * Find the D-Bus object representing the requested Processor, and call the
- * handler with the results. If matching object is not found, add 404 error to
- * response and don't call the handler.
- *
- * @param[in,out]   resp            Async HTTP response.
- * @param[in]       processorId     Redfish Processor Id.
- * @param[in]       handler         Callback to continue processing request upon
- *                                  successfully finding object.
- */
-template <typename Handler>
-inline void getProcessorObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
-                               const std::string& processorId,
-                               Handler&& handler)
-{
-    BMCWEB_LOG_DEBUG("Get available system processor resources.");
-
-    // GetSubTree on all interfaces which provide info about a Processor
-    constexpr std::array<std::string_view, 9> interfaces = {
-        "xyz.openbmc_project.Common.UUID",
-        "xyz.openbmc_project.Inventory.Decorator.Asset",
-        "xyz.openbmc_project.Inventory.Decorator.Revision",
-        "xyz.openbmc_project.Inventory.Item.Cpu",
-        "xyz.openbmc_project.Inventory.Decorator.LocationCode",
-        "xyz.openbmc_project.Inventory.Item.Accelerator",
-        "xyz.openbmc_project.Control.Processor.CurrentOperatingConfig",
-        "xyz.openbmc_project.Inventory.Decorator.UniqueIdentifier",
-        "xyz.openbmc_project.Control.Power.Throttle"};
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
-        [resp, processorId, handler = std::forward<Handler>(handler)](
-            const boost::system::error_code& ec,
-            const dbus::utility::MapperGetSubTreeResponse& subtree) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG("DBUS response error: {}", ec);
-                messages::internalError(resp->res);
-                return;
-            }
-            for (const auto& [objectPath, serviceMap] : subtree)
-            {
-                // Ignore any objects which don't end with our desired cpu name
-                if (!objectPath.ends_with(processorId))
-                {
-                    continue;
-                }
-
-                bool found = false;
-                // Filter out objects that don't have the CPU-specific
-                // interfaces to make sure we can return 404 on non-CPUs
-                // (e.g. /redfish/../Processors/dimm0)
-                for (const auto& [serviceName, interfaceList] : serviceMap)
-                {
-                    if (std::ranges::find_first_of(interfaceList,
-                                                   processorInterfaces) !=
-                        std::end(interfaceList))
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found)
-                {
-                    continue;
-                }
-
-                // Process the first object which does match our cpu name and
-                // required interfaces, and potentially ignore any other
-                // matching objects. Assume all interfaces we want to process
-                // must be on the same object path.
-
-                handler(objectPath, serviceMap);
-                return;
-            }
-            messages::resourceNotFound(resp->res, "Processor", processorId);
-        });
-}
-
-inline void getProcessorData(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& processorId, const std::string& objectPath,
-    const dbus::utility::MapperServiceMap& serviceMap)
-{
-    for (const auto& [serviceName, interfaceList] : serviceMap)
-    {
-        for (const auto& interface : interfaceList)
-        {
-            if (interface == "xyz.openbmc_project.Inventory.Decorator.Asset")
-            {
-                getCpuAssetData(asyncResp, serviceName, objectPath);
-            }
-            else if (interface ==
-                     "xyz.openbmc_project.Inventory.Decorator.Revision")
-            {
-                getCpuRevisionData(asyncResp, serviceName, objectPath);
-            }
-            else if (interface == "xyz.openbmc_project.Inventory.Item.Cpu")
-            {
-                getCpuDataByService(asyncResp, processorId, serviceName,
-                                    objectPath);
-            }
-            else if (interface ==
-                     "xyz.openbmc_project.Inventory.Item.Accelerator")
-            {
-                getAcceleratorDataByService(asyncResp, processorId, serviceName,
-                                            objectPath);
-            }
-            else if (
-                interface ==
-                "xyz.openbmc_project.Control.Processor.CurrentOperatingConfig")
-            {
-                getCpuConfigData(asyncResp, processorId, serviceName,
-                                 objectPath);
-            }
-            else if (interface ==
-                     "xyz.openbmc_project.Inventory.Decorator.LocationCode")
-            {
-                getCpuLocationCode(asyncResp, serviceName, objectPath);
-            }
-            else if (interface == "xyz.openbmc_project.Common.UUID")
-            {
-                getProcessorUUID(asyncResp, serviceName, objectPath);
-            }
-            else if (interface ==
-                     "xyz.openbmc_project.Inventory.Decorator.UniqueIdentifier")
-            {
-                getCpuUniqueId(asyncResp, serviceName, objectPath);
-            }
-            else if (interface == "xyz.openbmc_project.Control.Power.Throttle")
-            {
-                getThrottleProperties(asyncResp, serviceName, objectPath);
-            }
-        }
-    }
-}
-
-/**
-=======
- * Find the D-Bus object representing the requested Processor, and call the
- * handler with the results. If matching object is not found, add 404 error to
- * response and don't call the handler.
- *
- * @param[in,out]   asyncResp       Async HTTP response.
- * @param[in]       processorId     Redfish Processor Id.
- * @param[in]       callback        Callback to continue processing request upon
- *                                  successfully finding object.
- */
-inline void getProcessorObject(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& processorId,
-    std::function<void(const std::string& objectPath,
-                       const dbus::utility::MapperServiceMap& serviceMap)>&&
-        callback)
-{
-    BMCWEB_LOG_DEBUG("Get available system processor resources.");
-
-    // GetSubTree on all interfaces which provide info about a Processor
-    constexpr std::array<std::string_view, 9> interfaces = {
-        "xyz.openbmc_project.Common.UUID",
-        "xyz.openbmc_project.Inventory.Decorator.Asset",
-        "xyz.openbmc_project.Inventory.Decorator.Revision",
-        "xyz.openbmc_project.Inventory.Item.Cpu",
-        "xyz.openbmc_project.Inventory.Decorator.LocationCode",
-        "xyz.openbmc_project.Inventory.Item.Accelerator",
-        "xyz.openbmc_project.Control.Processor.CurrentOperatingConfig",
-        "xyz.openbmc_project.Inventory.Decorator.UniqueIdentifier",
-        "xyz.openbmc_project.Control.Power.Throttle"};
-    dbus::utility::getSubTree(
-        "/xyz/openbmc_project/inventory", 0, interfaces,
-        [asyncResp, processorId, callback{std::move(callback)}](
-            const boost::system::error_code& ec,
-            const dbus::utility::MapperGetSubTreeResponse& subtree) {
-            handleProcessorSubtree(asyncResp, processorId, callback, ec,
-                                   subtree);
-        });
-}
-
-inline void getProcessorData(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& processorId, const std::string& objectPath,
-    const dbus::utility::MapperServiceMap& serviceMap)
-{
-    asyncResp->res.addHeader(
-        boost::beast::http::field::link,
-        "</redfish/v1/JsonSchemas/Processor/Processor.json>; rel=describedby");
-    asyncResp->res.jsonValue["@odata.type"] = "#Processor.v1_18_0.Processor";
-    asyncResp->res.jsonValue["@odata.id"] =
-        boost::urls::format("/redfish/v1/Systems/{}/Processors/{}",
-                            BMCWEB_REDFISH_SYSTEM_URI_NAME, processorId);
-
-    for (const auto& [serviceName, interfaceList] : serviceMap)
-    {
-        for (const auto& interface : interfaceList)
-        {
-            if (interface == "xyz.openbmc_project.Inventory.Decorator.Asset")
-            {
-                getCpuAssetData(asyncResp, serviceName, objectPath);
-            }
-            else if (interface ==
-                     "xyz.openbmc_project.Inventory.Decorator.Revision")
-            {
-                getCpuRevisionData(asyncResp, serviceName, objectPath);
-            }
-            else if (interface == "xyz.openbmc_project.Inventory.Item.Cpu")
-            {
-                getCpuDataByService(asyncResp, processorId, serviceName,
-                                    objectPath);
-            }
-            else if (interface ==
-                     "xyz.openbmc_project.Inventory.Item.Accelerator")
-            {
-                getAcceleratorDataByService(asyncResp, processorId, serviceName,
-                                            objectPath);
-            }
-            else if (
-                interface ==
-                "xyz.openbmc_project.Control.Processor.CurrentOperatingConfig")
-            {
-                getCpuConfigData(asyncResp, processorId, serviceName,
-                                 objectPath);
-            }
-            else if (interface ==
-                     "xyz.openbmc_project.Inventory.Decorator.LocationCode")
-            {
-                getCpuLocationCode(asyncResp, serviceName, objectPath);
-            }
-            else if (interface == "xyz.openbmc_project.Common.UUID")
-            {
-                getProcessorUUID(asyncResp, serviceName, objectPath);
-            }
-            else if (interface ==
-                     "xyz.openbmc_project.Inventory.Decorator.UniqueIdentifier")
-            {
-                getCpuUniqueId(asyncResp, serviceName, objectPath);
-            }
-            else if (interface == "xyz.openbmc_project.Control.Power.Throttle")
-            {
-                getThrottleProperties(asyncResp, serviceName, objectPath);
-            }
-            else if (interface == "xyz.openbmc_project.Association.Definitions")
-            {
-                getLocationIndicatorActive(asyncResp, objectPath);
-            }
-        }
-    }
-}
-
-/**
->>>>>>> origin/master
  * Request all the properties for the given D-Bus object and fill out the
  * related entries in the Redfish OperatingConfig response.
  *
@@ -1274,90 +1057,106 @@ inline void getOperatingConfigData(
             }
         });
 }
+// Nvidia Added Code End
 
-inline void getProcessorMigModeData(
+inline void handleProcessorSubtree(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& cpuId, const std::string& service,
-    const std::string& objPath)
+    const std::string& processorId,
+    const std::function<
+        void(const std::string& objectPath,
+             const dbus::utility::MapperServiceMap& serviceMap)>& callback,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetSubTreeResponse& subtree)
 {
-    BMCWEB_LOG_DEBUG(" get GpuMIGMode data");
-    redfish::nvidia_processor::getMigModeData(asyncResp, cpuId, service,
-                                              objPath);
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    for (const auto& [objectPath, serviceMap] : subtree)
+    {
+        // Ignore any objects which don't end with our desired cpu name
+        sdbusplus::message::object_path path(objectPath);
+        if (path.filename() == processorId)
+        {
+            // Filter out objects that don't have the CPU-specific
+            // interfaces to make sure we can return 404 on non-CPUs
+            // (e.g. /redfish/../Processors/dimm0)
+            for (const auto& [serviceName, interfaceList] : serviceMap)
+            {
+                if (std::ranges::find_first_of(interfaceList,
+                                               processorInterfaces) !=
+                    interfaceList.end())
+                {
+                    // Process the first object which matches cpu name and
+                    // required interfaces, and potentially ignore any other
+                    // matching objects. Assume all interfaces we want to
+                    // process must be on the same object path.
+
+                    callback(objectPath, serviceMap);
+                    return;
+                }
+            }
+        }
+    }
+    messages::resourceNotFound(asyncResp->res, "Processor", processorId);
 }
 
-inline void getProcessorEgmModeData(
+/**
+ * Find the D-Bus object representing the requested Processor, and call the
+ * handler with the results. If matching object is not found, add 404 error to
+ * response and don't call the handler.
+ *
+ * @param[in,out]   asyncResp       Async HTTP response.
+ * @param[in]       processorId     Redfish Processor Id.
+ * @param[in]       callback        Callback to continue processing request upon
+ *                                  successfully finding object.
+ */
+inline void getProcessorObject(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& cpuId, const std::string& service,
-    const std::string& objPath)
+    const std::string& processorId,
+    std::function<void(const std::string& objectPath,
+                       const dbus::utility::MapperServiceMap& serviceMap)>&&
+        callback)
 {
-    BMCWEB_LOG_DEBUG(" get EGMMode data");
-    redfish::nvidia_processor_utils::getEgmModeData(asyncResp, cpuId, service,
-                                                    objPath);
-}
+    BMCWEB_LOG_DEBUG("Get available system processor resources.");
 
-inline void getProcessorSystemGUID(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& service, const std::string& objPath)
-{
-    BMCWEB_LOG_DEBUG("Get System-GUID");
-    redfish::nvidia_processor_utils::getSysGUID(asyncResp, service, objPath);
+    // GetSubTree on all interfaces which provide info about a Processor
+    constexpr std::array<std::string_view, 9> interfaces = {
+        "xyz.openbmc_project.Common.UUID",
+        "xyz.openbmc_project.Inventory.Decorator.Asset",
+        "xyz.openbmc_project.Inventory.Decorator.Revision",
+        "xyz.openbmc_project.Inventory.Item.Cpu",
+        "xyz.openbmc_project.Inventory.Decorator.LocationCode",
+        "xyz.openbmc_project.Inventory.Item.Accelerator",
+        "xyz.openbmc_project.Control.Processor.CurrentOperatingConfig",
+        "xyz.openbmc_project.Inventory.Decorator.UniqueIdentifier",
+        "xyz.openbmc_project.Control.Power.Throttle"};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0, interfaces,
+        [asyncResp, processorId, callback{std::move(callback)}](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
+            handleProcessorSubtree(asyncResp, processorId, callback, ec,
+                                   subtree);
+        });
 }
-
-inline void getMNNVLinkTopologyInfo(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& cpuId, const std::string& service,
-    const std::string& objPath, const std::string& interface)
-{
-    BMCWEB_LOG_DEBUG("Get MNNVLinkTopologyInfo");
-    redfish::nvidia_processor_utils::getMNNVLinkTopologyInfo(
-        asyncResp, cpuId, service, objPath, interface);
-}
-
-inline void getProcessorCCModeData(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& cpuId, const std::string& service,
-    const std::string& objPath)
-{
-    BMCWEB_LOG_DEBUG(" get GpuCCMode data");
-    redfish::nvidia_processor_utils::getCCModeData(asyncResp, cpuId, service,
-                                                   objPath);
-}
-
-inline void getPowerSmoothingInfo(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& processorId, const std::string& service,
-    const std::string& objPath)
-{
-    BMCWEB_LOG_DEBUG(" get getPowerSmoothingInfo data");
-    redfish::nvidia_processor_utils::getPowerSmoothingInfo(
-        asyncResp, processorId, service, objPath);
-}
-
-inline void getResetMetricsInfo(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& processorId, const std::string& service,
-    const std::string& objPath)
-{
-    BMCWEB_LOG_DEBUG(" get getResetMetricsInfo data");
-    redfish::nvidia_processor_utils::getResetMetricsInfo(asyncResp, processorId,
-                                                         service, objPath);
-}
-
-inline void getWorkLoadPowerInfo(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& processorId)
-{
-    BMCWEB_LOG_DEBUG(" get getWorkLoadPowerInfo data");
-    redfish::nvidia_processor_utils::getWorkLoadPowerInfo(
-        asyncResp, processorId);
-}
-
+// Nvidia Added args: deviceType
 inline void getProcessorData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& processorId, const std::string& objectPath,
     const dbus::utility::MapperServiceMap& serviceMap,
     const std::string& deviceType)
 {
+    asyncResp->res.addHeader(
+        boost::beast::http::field::link,
+        "</redfish/v1/JsonSchemas/Processor/Processor.json>; rel=describedby");
+    asyncResp->res.jsonValue["@odata.type"] = "#Processor.v1_18_0.Processor";
+    asyncResp->res.jsonValue["@odata.id"] =
+        boost::urls::format("/redfish/v1/Systems/{}/Processors/{}",
+                            BMCWEB_REDFISH_SYSTEM_URI_NAME, processorId);
+
     for (const auto& [serviceName, interfaceList] : serviceMap)
     {
         for (const auto& interface : interfaceList)
@@ -1375,11 +1174,13 @@ inline void getProcessorData(
             {
                 getCpuDataByService(asyncResp, processorId, serviceName,
                                     objectPath);
+                // Nvidia Added Code Start
                 if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
                 {
                     redfish::nvidia_processor::getRemoteDebugState(
                         asyncResp, serviceName, objectPath);
                 }
+                // Nvidia Added Code End
             }
             else if (interface ==
                      "xyz.openbmc_project.Inventory.Item.Accelerator")
@@ -1399,6 +1200,24 @@ inline void getProcessorData(
             {
                 getCpuLocationCode(asyncResp, serviceName, objectPath);
             }
+            else if (interface == "xyz.openbmc_project.Common.UUID")
+            {
+                getProcessorUUID(asyncResp, serviceName, objectPath);
+            }
+            else if (interface ==
+                     "xyz.openbmc_project.Inventory.Decorator.UniqueIdentifier")
+            {
+                getCpuUniqueId(asyncResp, serviceName, objectPath);
+            }
+            else if (interface == "xyz.openbmc_project.Control.Power.Throttle")
+            {
+                getThrottleProperties(asyncResp, serviceName, objectPath);
+            }
+            else if (interface == "xyz.openbmc_project.Association.Definitions")
+            {
+                getLocationIndicatorActive(asyncResp, objectPath);
+            }
+            // Nvidia Added Code Start
             else if (interface ==
                      "xyz.openbmc_project.Inventory.Decorator.LocationContext")
             {
@@ -1410,15 +1229,6 @@ inline void getProcessorData(
             {
                 redfish::nvidia_processor::getCpuLocationType(
                     asyncResp, serviceName, objectPath);
-            }
-            else if (interface == "xyz.openbmc_project.Common.UUID")
-            {
-                getProcessorUUID(asyncResp, serviceName, objectPath);
-            }
-            else if (interface ==
-                     "xyz.openbmc_project.Inventory.Decorator.UniqueIdentifier")
-            {
-                getCpuUniqueId(asyncResp, serviceName, objectPath);
             }
             else if (interface ==
                      "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig")
@@ -1454,7 +1264,6 @@ inline void getProcessorData(
                 redfish::nvidia_processor::getProcessorReplaceable(
                     asyncResp, serviceName, objectPath);
             }
-
             if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
             {
                 if (interface == "com.nvidia.MigMode")
@@ -1503,10 +1312,12 @@ inline void getProcessorData(
                     getResetMetricsInfo(asyncResp, processorId, serviceName,
                                         objectPath);
                 }
+                // Nvidia Added Code End
             }
         }
     }
 
+    // Nvidia Added Code Start
     getComponentFirmwareVersion(asyncResp, objectPath);
     redfish::nvidia_processor_utils::getOperatingSpeedRange(
         asyncResp, objectPath);
@@ -1547,6 +1358,7 @@ inline void getProcessorData(
         nvidia_processor_utils::populateErrorInjectionData(asyncResp,
                                                            processorId);
     }
+    // Nvidia Added Code End
 }
 
 /**
@@ -1664,16 +1476,32 @@ inline void handleProcessorGet(
         return;
     }
 
-    getProcessorObject(
-        asyncResp, processorId,
-        std::bind_front(getProcessorData, asyncResp, processorId));
+    // Nvidia modified to use getProcessorObject from utils
+    redfish::processor_utils::getProcessorObject(asyncResp, processorId,
+                                                 getProcessorData);
+
+    // Nvidia : Added Code Start
+    if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+    {
+        redfish::conditions_utils::populateServiceConditions(asyncResp,
+                                                             processorId);
+    }
+    // Nvidia : Added Code End
 }
 
+// Nvidia Added args: speedLimit, speedLocked, oemObject,
+// operatingSpeedRangeMHzObject, settingMin, settingMax for processing nvidia
+// properties
 inline void doPatchProcessor(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& processorId,
     const std::optional<std::string>& appliedConfigUri,
-    std::optional<bool> locationIndicatorActive, const std::string& objectPath,
+    std::optional<bool> locationIndicatorActive,
+    const std::optional<int>& speedLimit,
+    const std::optional<bool>& speedLocked,
+    const std::optional<nlohmann::json>& oemObject,
+    const std::optional<nlohmann::json>& operatingSpeedRangeMHzObject,
+    const std::string& objectPath,
     const dbus::utility::MapperServiceMap& serviceMap)
 {
     if (appliedConfigUri)
@@ -1688,6 +1516,16 @@ inline void doPatchProcessor(
         setLocationIndicatorActive(asyncResp, objectPath,
                                    *locationIndicatorActive);
     }
+    // Nvidia: Added Code Start
+    redfish::nvidia_processor::patchSpeedConfigIfRequested(
+        asyncResp, objectPath, serviceMap, processorId, speedLimit,
+        speedLocked);
+    redfish::nvidia_processor::patchOperatingSpeedRangeIfRequested(
+        asyncResp, objectPath, serviceMap, processorId,
+        operatingSpeedRangeMHzObject);
+    redfish::nvidia_processor::handleNvidiaOemIfRequested(
+        asyncResp, objectPath, serviceMap, processorId, oemObject);
+    // Nvidia: Added Code End
 }
 
 inline void handleProcessorPatch(
@@ -1715,21 +1553,36 @@ inline void handleProcessorPatch(
 
     std::optional<std::string> appliedConfigUri;
     std::optional<bool> locationIndicatorActive;
-    if (!json_util::readJsonPatch(
-            req, asyncResp->res,                                  //
-            "AppliedOperatingConfig/@odata.id", appliedConfigUri, //
-            "LocationIndicatorActive", locationIndicatorActive    //
-            ))
+
+    // Nvidia: Added Code Start
+    std::optional<int> speedLimit;
+    std::optional<bool> speedLocked;
+    std::optional<nlohmann::json> oemObject;
+    std::optional<nlohmann::json> operatingSpeedRangeMHzObject;
+    // Nvidia: Added Code End
+
+    // Nvidia change readJsonPatch to readJsonAction with all properties from
+    // nvidia
+    if (!json_util::readJsonAction(
+            req, asyncResp->res,                                     //
+            "AppliedOperatingConfig/@odata.id", appliedConfigUri,    //
+            "LocationIndicatorActive", locationIndicatorActive,      //
+            "SpeedLimitMHz", speedLimit, "SpeedLocked", speedLocked, //
+            "Oem", oemObject, "OperatingSpeedRangeMHz",
+            operatingSpeedRangeMHzObject))
     {
         return;
     }
 
     // Check for 404 and find matching D-Bus object, then run
     // property patch handlers if that all succeeds.
+    // Nvidia modified: to add speedLimit, speedLocked, oemObject,
+    // operatingSpeedRangeMHzObject
     getProcessorObject(
         asyncResp, processorId,
         std::bind_front(doPatchProcessor, asyncResp, processorId,
-                        appliedConfigUri, locationIndicatorActive));
+                        appliedConfigUri, locationIndicatorActive, speedLimit,
+                        speedLocked, oemObject, operatingSpeedRangeMHzObject));
 }
 
 inline void requestRoutesOperatingConfigCollection(App& app)
@@ -1972,578 +1825,13 @@ inline void requestRoutesProcessor(App& app)
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/")
         .privileges(redfish::privileges::getProcessor)
-<<<<<<< HEAD
-        .methods(
-            boost::beast::http::verb::
-                get)([&app](const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& systemName,
-                            const std::string& processorId) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-            if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
-            {
-                // Option currently returns no systems.  TBD
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                           systemName);
-                return;
-            }
-
-            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
-            {
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                           systemName);
-                return;
-            }
-
-            asyncResp->res.addHeader(
-                boost::beast::http::field::link,
-                "</redfish/v1/JsonSchemas/Processor/Processor.json>; rel=describedby");
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#Processor.v1_20_0.Processor";
-            asyncResp->res.jsonValue["@odata.id"] =
-                "/redfish/v1/Systems/" +
-                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Processors/" +
-                processorId;
-            std::string processorMetricsURI =
-                "/redfish/v1/Systems/" +
-                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Processors/";
-            processorMetricsURI += processorId;
-            processorMetricsURI += "/ProcessorMetrics";
-            asyncResp->res.jsonValue["Metrics"]["@odata.id"] =
-                processorMetricsURI;
-
-            redfish::processor_utils::getProcessorObject(asyncResp, processorId,
-                                                         getProcessorData);
-            if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
-            {
-                redfish::conditions_utils::populateServiceConditions(
-                    asyncResp, processorId);
-            }
-        });
-||||||| 80d2ef31c
-        .methods(
-            boost::beast::http::verb::
-                get)([&app](const crow::Request& req,
-                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                            const std::string& systemName,
-                            const std::string& processorId) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-            if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
-            {
-                // Option currently returns no systems.  TBD
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                           systemName);
-                return;
-            }
-            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
-            {
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                           systemName);
-                return;
-            }
-
-            asyncResp->res.addHeader(
-                boost::beast::http::field::link,
-                "</redfish/v1/JsonSchemas/Processor/Processor.json>; rel=describedby");
-            asyncResp->res.jsonValue["@odata.type"] =
-                "#Processor.v1_18_0.Processor";
-            asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
-                "/redfish/v1/Systems/{}/Processors/{}",
-                BMCWEB_REDFISH_SYSTEM_URI_NAME, processorId);
-
-            getProcessorObject(
-                asyncResp, processorId,
-                std::bind_front(getProcessorData, asyncResp, processorId));
-        });
-=======
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleProcessorGet, std::ref(app)));
->>>>>>> origin/master
 
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/")
         .privileges(redfish::privileges::patchProcessor)
-<<<<<<< HEAD
-        .methods(
-            boost::beast::http::verb::
-                patch)([&app](
-                           const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& systemName,
-                           const std::string& processorId) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-            if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
-            {
-                // Option currently returns no systems.  TBD
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                           systemName);
-                return;
-            }
-            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
-            {
-                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                           systemName);
-                return;
-            }
-
-            std::optional<int> speedLimit;
-            std::optional<bool> speedLocked;
-            std::optional<nlohmann::json> oemObject;
-            std::optional<nlohmann::json> operatingSpeedRangeMHzObject;
-            std::optional<uint32_t> settingMin;
-            std::optional<uint32_t> settingMax;
-            std::optional<std::string> appliedConfigUri;
-            if (!redfish::json_util::readJsonAction(
-                    req, asyncResp->res, "SpeedLimitMHz", speedLimit,
-                    "SpeedLocked", speedLocked,
-                    "AppliedOperatingConfig/@odata.id", appliedConfigUri, "Oem",
-                    oemObject, "OperatingSpeedRangeMHz",
-                    operatingSpeedRangeMHzObject))
-            {
-                return;
-            }
-            // speedlimit is required property for patching speedlocked
-            if (!speedLimit && speedLocked)
-            {
-                BMCWEB_LOG_ERROR("SpeedLimit value required ");
-                messages::propertyMissing(asyncResp->res, "SpeedLimit");
-            }
-
-            // Update speed limit
-            else if (speedLimit && speedLocked)
-            {
-                std::tuple<bool, uint32_t> reqSpeedConfig;
-                reqSpeedConfig = std::make_tuple(
-                    *speedLocked, static_cast<uint32_t>(*speedLimit));
-                redfish::processor_utils::getProcessorObject(
-                    asyncResp, processorId,
-                    [reqSpeedConfig](
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
-                        const std::string& processorId1,
-                        const std::string& objectPath,
-                        const MapperServiceMap& serviceMap,
-                        [[maybe_unused]] const std::string& deviceType) {
-                        redfish::nvidia_processor::patchSpeedConfig(
-                            asyncResp1, processorId1, reqSpeedConfig,
-                            objectPath, serviceMap);
-                    });
-            }
-
-            else if (operatingSpeedRangeMHzObject &&
-                     redfish::json_util::readJson(
-                         *operatingSpeedRangeMHzObject, asyncResp->res,
-                         "SettingMax", settingMax, "SettingMin", settingMin))
-            {
-                redfish::processor_utils::getProcessorObject(
-                    asyncResp, processorId,
-                    [settingMin, settingMax](
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
-                        const std::string& processorId1,
-                        const std::string& objectPath,
-                        [[maybe_unused]] const MapperServiceMap& serviceMap,
-                        [[maybe_unused]] const std::string& deviceType) {
-                        if (settingMax)
-                        {
-                            redfish::nvidia_processor_utils::
-                                patchOperatingSpeedRangeMHz(
-                                    asyncResp1, processorId1, *settingMax,
-                                    "SettingMax", objectPath);
-                        }
-                        else if (settingMin)
-                        {
-                            redfish::nvidia_processor_utils::
-                                patchOperatingSpeedRangeMHz(
-                                    asyncResp1, processorId1, *settingMin,
-                                    "SettingMin", objectPath);
-                        }
-                    });
-            }
-
-            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-            {
-                // Update migMode
-                if (std::optional<nlohmann::json> oemNvidiaObject;
-                    oemObject &&
-                    redfish::json_util::readJson(*oemObject, asyncResp->res,
-                                                 "Nvidia", oemNvidiaObject))
-                {
-                    std::optional<bool> migMode;
-                    std::optional<bool> remoteDebugEnabled;
-                    std::optional<nlohmann::json> inbandReconfigPermissions;
-                    std::optional<nlohmann::json> doeReconfigPermissions;
-
-                    if (oemNvidiaObject &&
-                        redfish::json_util::readJson(
-                            *oemNvidiaObject, asyncResp->res, "MIGModeEnabled",
-                            migMode, "RemoteDebugEnabled", remoteDebugEnabled,
-                            "InbandReconfigPermissions",
-                            inbandReconfigPermissions, "DOEReconfigPermissions",
-                            doeReconfigPermissions))
-                    {
-                        if (migMode)
-                        {
-                            redfish::processor_utils::getProcessorObject(
-                                asyncResp, processorId,
-                                [migMode](
-                                    const std::shared_ptr<bmcweb::AsyncResp>&
-                                        asyncResp1,
-                                    const std::string& processorId1,
-                                    const std::string& objectPath,
-                                    const MapperServiceMap& serviceMap,
-                                    [[maybe_unused]] const std::string&
-                                        deviceType) {
-                                    redfish::nvidia_processor::patchMigMode(
-                                        asyncResp1, processorId1, *migMode,
-                                        objectPath, serviceMap);
-                                });
-                        }
-
-                        if (remoteDebugEnabled)
-                        {
-                            redfish::processor_utils::getProcessorObject(
-                                asyncResp, processorId,
-                                [remoteDebugEnabled](
-                                    const std::shared_ptr<bmcweb::AsyncResp>&
-                                        asyncResp1,
-                                    const std::string& processorId1,
-                                    const std::string& objectPath,
-                                    [[maybe_unused]] const MapperServiceMap&
-                                        serviceMap,
-                                    [[maybe_unused]] const std::string&
-                                        deviceType) {
-                                    redfish::nvidia_processor::patchRemoteDebug(
-                                        asyncResp1, processorId1,
-                                        *remoteDebugEnabled, objectPath);
-                                });
-                        }
-
-                        if (inbandReconfigPermissions)
-                        {
-                            nvidia_processor_utils::
-                                patchInbandReconfigPermissions(
-                                    asyncResp, processorId,
-                                    *inbandReconfigPermissions);
-                        }
-
-                        if (doeReconfigPermissions)
-                        {
-                            nvidia_processor_utils::patchDOEReconfigPermissions(
-                                asyncResp, processorId,
-                                *doeReconfigPermissions);
-                        }
-                    }
-                }
-            }
-
-            if (appliedConfigUri)
-            {
-                // Check for 404 and find matching D-Bus object, then run
-                // property patch handlers if that all succeeds.
-                redfish::processor_utils::getProcessorObject(
-                    asyncResp, processorId,
-                    [appliedConfigUri = std::move(appliedConfigUri)](
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
-                        const std::string& processorId1,
-                        const std::string& objectPath,
-                        const MapperServiceMap& serviceMap,
-                        [[maybe_unused]] const std::string& deviceType) {
-                        patchAppliedOperatingConfig(asyncResp1, processorId1,
-                                                    *appliedConfigUri,
-                                                    objectPath, serviceMap);
-                    });
-            }
-        });
-}
-
-inline void requestRoutesProcessorMetrics(App& app)
-{
-    /**
-     * Functions triggers appropriate requests on DBus
-     */
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/Systems/<str>/Processors/<str>/ProcessorMetrics")
-        .privileges(redfish::privileges::getProcessor)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncRespOuter,
-                   [[maybe_unused]] const std::string& systemName,
-                   const std::string& processorIdOuter) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncRespOuter))
-                {
-                    return;
-                }
-                redfish::nvidia_processor::getProcessorMetricsData(
-                    asyncRespOuter, processorIdOuter);
-            });
-}
-
-inline void requestRoutesProcessorMemoryMetrics(App& app)
-{
-    /**
-     * Functions triggers appropriate requests on DBus
-     */
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Systems/<str>/Processors/<str>/MemorySummary/MemoryMetrics")
-        .privileges(redfish::privileges::getProcessor)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncRespOuter,
-                   [[maybe_unused]] const std::string& systemName,
-                   const std::string& processorIdOuter) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncRespOuter))
-                {
-                    return;
-                }
-                redfish::nvidia_processor::getProcessorMemoryMetricsData(
-                    asyncRespOuter, processorIdOuter);
-            });
-}
-
-inline void requestRoutesProcessorSettings(App& app)
-{
-    /**
-     * Functions triggers appropriate requests on DBus
-     */
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
-                      "Settings")
-        .privileges(redfish::privileges::getProcessor)
-        .methods(boost::beast::http::verb::get)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
-                   const std::string& processorId) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                redfish::nvidia_processor::getProcessorSettingsData(
-                    asyncResp, processorId);
-            });
-
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
-                      "Settings")
-        .privileges(redfish::privileges::patchProcessor)
-        .methods(
-            boost::beast::http::verb::
-                patch)([&app](
-                           const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           [[maybe_unused]] const std::string& systemName,
-                           const std::string& processorId) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-            std::optional<nlohmann::json> memSummary;
-            std::optional<nlohmann::json> oemObject;
-            if (!redfish::json_util::readJsonAction(
-                    req, asyncResp->res, "MemorySummary", memSummary, "Oem",
-                    oemObject))
-            {
-                return;
-            }
-            std::optional<bool> eccModeEnabled;
-            if (memSummary)
-            {
-                if (redfish::json_util::readJson(*memSummary, asyncResp->res,
-                                                 "ECCModeEnabled",
-                                                 eccModeEnabled))
-                {
-                    redfish::processor_utils::getProcessorObject(
-                        asyncResp, processorId,
-                        [eccModeEnabled](
-                            const std::shared_ptr<bmcweb::AsyncResp>&
-                                asyncResp1,
-                            const std::string& processorId1,
-                            const std::string& objectPath,
-                            const MapperServiceMap& serviceMap,
-                            [[maybe_unused]] const std::string& deviceType) {
-                            redfish::nvidia_processor::patchEccMode(
-                                asyncResp1, processorId1, *eccModeEnabled,
-                                objectPath, serviceMap);
-                        });
-                }
-            }
-            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-            {
-                // Update ccMode
-                std::optional<nlohmann::json> oemNvidiaObject;
-
-                if (oemObject &&
-                    redfish::json_util::readJson(*oemObject, asyncResp->res,
-                                                 "Nvidia", oemNvidiaObject))
-                {
-                    std::optional<bool> ccMode;
-                    std::optional<bool> ccDevMode;
-                    std::optional<bool> egmMode;
-                    if (oemNvidiaObject &&
-                        redfish::json_util::readJson(
-                            *oemNvidiaObject, asyncResp->res, "CCModeEnabled",
-                            ccMode, "CCDevModeEnabled", ccDevMode,
-                            "EGMModeEnabled", egmMode))
-                    {
-                        if (ccMode && ccDevMode)
-                        {
-                            messages::queryCombinationInvalid(asyncResp->res);
-                            return;
-                        }
-
-                        if (ccMode)
-                        {
-                            redfish::processor_utils::getProcessorObject(
-                                asyncResp, processorId,
-                                [ccMode](
-                                    const std::shared_ptr<bmcweb::AsyncResp>&
-                                        asyncResp1,
-                                    const std::string& processorId1,
-                                    const std::string& objectPath,
-                                    const MapperServiceMap& serviceMap,
-                                    [[maybe_unused]] const std::string&
-                                        deviceType) {
-                                    redfish::nvidia_processor_utils::
-                                        patchCCMode(asyncResp1, processorId1,
-                                                    *ccMode, objectPath,
-                                                    serviceMap);
-                                });
-                        }
-                        if (ccDevMode)
-                        {
-                            redfish::processor_utils::getProcessorObject(
-                                asyncResp, processorId,
-                                [ccDevMode](
-                                    const std::shared_ptr<bmcweb::AsyncResp>&
-                                        asyncResp1,
-                                    const std::string& processorId1,
-                                    const std::string& objectPath,
-                                    const MapperServiceMap& serviceMap,
-                                    [[maybe_unused]] const std::string&
-                                        deviceType) {
-                                    redfish::nvidia_processor_utils::
-                                        patchCCDevMode(asyncResp1, processorId1,
-                                                       *ccDevMode, objectPath,
-                                                       serviceMap);
-                                });
-                        }
-                        if (egmMode)
-                        {
-                            redfish::processor_utils::getProcessorObject(
-                                asyncResp, processorId,
-                                [egmMode](
-                                    const std::shared_ptr<bmcweb::AsyncResp>&
-                                        asyncResp1,
-                                    const std::string& processorId1,
-                                    const std::string& objectPath,
-                                    const MapperServiceMap& serviceMap,
-                                    [[maybe_unused]] const std::string&
-                                        deviceType) {
-                                    redfish::nvidia_processor_utils::
-                                        patchEgmMode(asyncResp1, processorId1,
-                                                     *egmMode, objectPath,
-                                                     serviceMap);
-                                });
-                        }
-                    }
-                }
-            }
-        });
-}
-
-inline void requestRoutesProcessorReset(App& app)
-{
-    /**
-     * Functions triggers appropriate requests on DBus
-     */
-    BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Processors/<str>/"
-                      "Actions/Processor.Reset")
-        .privileges({{"Login"}})
-        .methods(boost::beast::http::verb::post)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName,
-                   const std::string& processorId) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                std::optional<std::string> resetType;
-                if (!json_util::readJsonAction(req, asyncResp->res, "ResetType",
-                                               resetType))
-                {
-                    return;
-                }
-                if (resetType)
-                {
-                    redfish::processor_utils::getProcessorObject(
-                        asyncResp, processorId,
-                        [resetType](
-                            const std::shared_ptr<bmcweb::AsyncResp>&
-                                asyncResp1,
-                            const std::string& processorId1,
-                            const std::string& objectPath,
-                            const MapperServiceMap& serviceMap,
-                            [[maybe_unused]] const std::string& deviceType) {
-                            redfish::nvidia_processor::postResetType(
-                                asyncResp1, processorId1, objectPath,
-                                *resetType, serviceMap);
-                        });
-                }
-            });
-||||||| 80d2ef31c
-        .methods(boost::beast::http::verb::patch)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& systemName,
-                   const std::string& processorId) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                if constexpr (BMCWEB_EXPERIMENTAL_REDFISH_MULTI_COMPUTER_SYSTEM)
-                {
-                    // Option currently returns no systems.  TBD
-                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
-                    return;
-                }
-                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
-                {
-                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
-                                               systemName);
-                    return;
-                }
-
-                std::optional<std::string> appliedConfigUri;
-                if (!json_util::readJsonPatch(
-                        req, asyncResp->res,                                 //
-                        "AppliedOperatingConfig/@odata.id", appliedConfigUri //
-                        ))
-                {
-                    return;
-                }
-
-                if (appliedConfigUri)
-                {
-                    // Check for 404 and find matching D-Bus object, then run
-                    // property patch handlers if that all succeeds.
-                    getProcessorObject(
-                        asyncResp, processorId,
-                        std::bind_front(patchAppliedOperatingConfig, asyncResp,
-                                        processorId, *appliedConfigUri));
-                }
-            });
-=======
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handleProcessorPatch, std::ref(app)));
->>>>>>> origin/master
 }
 
 } // namespace redfish

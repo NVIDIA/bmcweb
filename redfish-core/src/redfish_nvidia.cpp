@@ -66,7 +66,7 @@
 #include "update_service.hpp"
 #include "utils/nvidia_manager_utils.hpp"
 #include "utils/nvidia_pcie_utils.hpp"
-
+#include "nvidia_processor_routes.hpp"
 namespace redfish
 {
 void requestRoutesNvidia(crow::App& app)
