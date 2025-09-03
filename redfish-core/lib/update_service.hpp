@@ -1819,33 +1819,6 @@ inline bool validateUpdateFileFormData(
 
 #ifdef BMCWEB_ENABLE_REDFISH_AGGREGATION
 /**
- * @brief retry handler of the aggregation post request.
- *
- * @param[in] respCode HTTP response status code
- *
- * @return None
- */
-inline boost::system::error_code
-    aggregationPostRetryHandler(unsigned int respCode)
-{
-    // Allow all response codes because we want to surface any satellite
-    // issue to the client
-    BMCWEB_LOG_DEBUG(
-        "Received {} response of the firmware update from satellite", respCode);
-    return boost::system::errc::make_error_code(boost::system::errc::success);
-}
-
-inline crow::ConnectionPolicy getPostAggregationPolicy()
-{
-    return {.maxRetryAttempts = 0,
-            .requestByteLimit = firmwareImageLimitBytes,
-            .maxConnections = 20,
-            .retryPolicyAction = "TerminateAfterRetries",
-            .retryIntervalSecs = std::chrono::seconds(0),
-            .invalidResp = aggregationPostRetryHandler};
-}
-
-/**
  * @brief process the response from satellite BMC.
  *
  * @param[in] prefix the prefix of the url
@@ -1969,9 +1942,7 @@ inline void forwardImage(
         return;
     }
 
-    crow::HttpClient client(
-        *sharedReq->ioService,
-        std::make_shared<crow::ConnectionPolicy>(getPostAggregationPolicy()));
+    crow::HttpClient& client = RedfishAggregator::getInstance().getClient();
 
     std::function<void(crow::Response&)> cb =
         std::bind_front(handleSatBMCResponse, asyncResp);
@@ -4788,9 +4759,7 @@ inline void forwardCommitImageActionInfo(
         return;
     }
 
-    crow::HttpClient client(
-        *req.ioService,
-        std::make_shared<crow::ConnectionPolicy>(getPostAggregationPolicy()));
+    crow::HttpClient& client = RedfishAggregator::getInstance().getClient();
 
     std::function<void(crow::Response&)> cb =
         std::bind_front(commitImageActionInfoResp, asyncResp);
@@ -4924,9 +4893,7 @@ inline void forwardCommitImagePost(
         return;
     }
 
-    crow::HttpClient client(
-        *req.ioService,
-        std::make_shared<crow::ConnectionPolicy>(getPostAggregationPolicy()));
+    crow::HttpClient& client = RedfishAggregator::getInstance().getClient();
 
     std::function<void(crow::Response&)> cb =
         std::bind_front(handleSatBMCResponse, asyncResp);
