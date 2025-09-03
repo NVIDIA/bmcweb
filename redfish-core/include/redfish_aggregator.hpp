@@ -995,6 +995,11 @@ class RedfishAggregator
         return handler;
     }
 
+    crow::HttpClient& getClient()
+    {
+        return client;
+    }
+
     // Polls D-Bus to get all available satellite config information
     // Expects a handler which interacts with the returned configs
     static void getSatelliteConfigs(
