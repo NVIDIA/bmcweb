@@ -30,8 +30,8 @@ class Config
     Config& operator=(const Config&) = delete;
     Config& operator=(const Config&&) = delete;
     ~Config() = default;
-    void fromJson(const nlohmann::json::object_t& /*json*/);
-    void toJson(nlohmann::json::object_t& /*json*/) const;
+    void fromJson(const nlohmann::json& /*json*/);
+    void toJson(nlohmann::json& /*json*/) const;
 
     void enableTLSAuth();
     bool isTLSAuthEnabled() const;

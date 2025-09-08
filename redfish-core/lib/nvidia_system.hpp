@@ -8,7 +8,7 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "http_request.hpp"
-#include "json_util.hpp"
+#include "utils/json_utils.hpp"
 #include "logging.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"

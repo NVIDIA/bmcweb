@@ -3,7 +3,7 @@
 #pragma once
 
 #include "logging.hpp"
-
+#include "hex_utils.hpp"
 #include <array>
 #include <climits>
 #include <cstddef>
@@ -14,6 +14,10 @@
 #include <string>
 #include <vector>
 
+static constexpr std::array<char, 16> nvidiaDigitsArray = {
+    '0', '1', '2', '3', '4', '5', '6', '7',
+    '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+
 inline std::vector<std::string> intToHexByteArray(
     uint32_t value, size_t digits = sizeof(uint32_t) << 1)
 {
@@ -21,7 +25,7 @@ inline std::vector<std::string> intToHexByteArray(
     size_t bitIndex = (digits - 1) * 4;
     for (size_t digitIndex = 0; digitIndex < digits; digitIndex++)
     {
-        rc[digitIndex] = digitsArray[(value >> bitIndex) & 0x0f];
+        rc[digitIndex] = nvidiaDigitsArray[(value >> bitIndex) & 0x0f];
         bitIndex -= 4;
     }
 

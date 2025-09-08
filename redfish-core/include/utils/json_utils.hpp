@@ -515,7 +515,8 @@ struct PerUnpack
 
 inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
                                  crow::Response& res,
-                                 std::span<PerUnpack> toUnpack)
+                                 std::span<PerUnpack> toUnpack,
+                                 bool allowUnknownKeys = false)
 {
     bool result = true;
     for (auto& item : obj)
@@ -564,7 +565,8 @@ inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
                     p.complete = true;
                 }
 
-                result = readJsonHelperObject(j, res, nextLevel) && result;
+                result = readJsonHelperObject(j, res, nextLevel,
+                                              allowUnknownKeys) && result;
                 break;
             }
 

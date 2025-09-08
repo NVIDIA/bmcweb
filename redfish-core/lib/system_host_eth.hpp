@@ -28,7 +28,7 @@
 #include "utils/chassis_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/json_utils.hpp"
-
+#include "nvidia_dbus_utility.hpp"
 namespace redfish
 {
 template <typename CallbackFunc>

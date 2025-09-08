@@ -63,7 +63,6 @@ feature_options = [
     'enable-ist-mode',
     'enforce_sensor_name_format',
     'erot-reset',
-    'experimental-http2',
     'experimental-redfish-dbus-log-subscription',
     'experimental-redfish-multi-computer-system',
     'fencing-privilege',
@@ -92,7 +91,6 @@ feature_options = [
     'lldp-dedicated-ports',
     'manual-boot-mode-support',
     'manufacturing-test',
-    'meta-tls-common-name-parsing',
     'mutual-tls-auth',
     'network-adapters',
     'network-adapters-generic',
@@ -206,9 +204,8 @@ int_options = [
     'rfa-delay-subscribe-time',
     'stalesensor-upper-limit-milisecond',
     'update-service-task-timeout',
+    'watchdog-timeout-seconds'
 ]
-
-int_options = ['http-body-limit', 'watchdog-timeout-seconds']
 
 feature_options_string = '\n// Feature options\n'
 string_options_string = '\n// String options\n'

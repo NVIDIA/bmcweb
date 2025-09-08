@@ -17,5 +17,9 @@ const Header header = {
     "BiosAttributeRegistry",
     "OpenBMC",
 };
+
+constexpr const char* url =
+    "/redfish/v1/Registries/BiosAttributeRegistry/BiosAttributeRegistry";
+
 constexpr std::array<MessageEntry, 0> registry = {};
 } // namespace redfish::registries::bios

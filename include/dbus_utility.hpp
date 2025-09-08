@@ -17,7 +17,6 @@
 #include <functional>
 #include <map>
 #include <memory>
-#include <regex>
 #include <span>
 #include <string>
 #include <string_view>
@@ -85,9 +84,6 @@ using ManagedObjectType =
 using MapperServiceMap =
     std::vector<std::pair<std::string, std::vector<std::string>>>;
 
-// Type for component path and its associated services
-using ComponentServicePair = std::pair<std::string, MapperServiceMap>;
-
 // Map of object paths to MapperServiceMaps
 using MapperGetSubTreeResponse =
     std::vector<std::pair<std::string, MapperServiceMap>>;
@@ -103,15 +99,7 @@ using MapperGetSubTreePathsResponse = std::vector<std::string>;
 
 using MapperEndPoints = std::vector<std::string>;
 
-using GetSubTreeType = std::vector<
-    std::pair<std::string,
-              std::vector<std::pair<std::string, std::vector<std::string>>>>>;
-
-inline void escapePathForDbus(std::string& path)
-{
-    const static std::regex reg("[^A-Za-z0-9_/]");
-    std::regex_replace(path.begin(), path.begin(), path.end(), reg, "_");
-}
+void escapePathForDbus(std::string& path);
 
 void logError(const boost::system::error_code& ec);
 
@@ -231,70 +219,9 @@ void getAssociationEndPoints(
     std::function<void(const boost::system::error_code&,
                        const MapperEndPoints&)>&& callback);
 
-void getManagedObjects(const std::string& service,
-                       const sdbusplus::message::object_path& path,
-                       std::function<void(const boost::system::error_code&,
-                                          const ManagedObjectType&)>&& callback)
-{
-    crow::connections::systemBus->async_method_call(
-        [callback{std::move(callback)}](const boost::system::error_code& ec,
-                                        const ManagedObjectType& objects) {
-            callback(ec, objects);
-        },
-        service, path, "org.freedesktop.DBus.ObjectManager",
-        "GetManagedObjects");
-}
-
-inline void getAllNameSpaceObjects(
+void getManagedObjects(
     const std::string& service, const sdbusplus::message::object_path& path,
-    const std::string& interfaces, const std::string& namespaceName,
-    const std::string& filter,
     std::function<void(const boost::system::error_code&,
-                       const ManagedObjectType&)>&& callback)
-{
-    crow::connections::systemBus->async_method_call(
-        [callback{std::move(callback)}](const boost::system::error_code& ec,
-                                        const ManagedObjectType& objects) {
-            callback(ec, objects);
-        },
-        service, path, interfaces, "GetAll", namespaceName, filter);
-}
-
-template <typename Callback>
-inline void findAssociations(const std::string& path, Callback&& callbackIn)
-{
-    crow::connections::systemBus->async_method_call(
-        [callback{std::forward<Callback>(callbackIn)}](
-            const boost::system::error_code ec,
-            std::variant<std::vector<std::string>>& resp) {
-            callback(ec, resp);
-        },
-        "xyz.openbmc_project.ObjectMapper", path,
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
-}
-
-inline void systemdReload()
-{
-    auto method = crow::connections::systemBus->new_method_call(
-        "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
-        "org.freedesktop.systemd1.Manager", "Reload");
-
-    crow::connections::systemBus->call_noreply(method);
-}
-
-inline void systemdRestartUnit(const std::string_view unit, const char* mode)
-{
-    std::string path("/org/freedesktop/systemd1/unit/");
-    path.append(unit);
-    auto method = crow::connections::systemBus->new_method_call(
-        "org.freedesktop.systemd1", path.c_str(),
-        "org.freedesktop.systemd1.Unit", "Restart");
-
-    method.append(mode);
-
-    crow::connections::systemBus->call_noreply(method);
-}
-
+                       const ManagedObjectType&)>&& callback);
 } // namespace utility
 } // namespace dbus

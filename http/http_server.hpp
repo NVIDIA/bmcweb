@@ -19,6 +19,7 @@
 
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/asio/signal_set.hpp>
 #include <boost/beast/core.hpp> // For lowest_layer_type
 
 #include <chrono>
@@ -47,11 +48,12 @@ class Server
     using self_t = Server<Handler, Adaptor>;
 
   public:
-    Server(Handler* handlerIn, std::vector<Acceptor>&& acceptorsIn) :
+    Server(Handler* handlerIn, std::vector<Acceptor>&& acceptorsIn,
+           std::shared_ptr<boost::asio::ssl::context> adaptorCtxIn,
+           boost::asio::io_context& io) :
         acceptors(std::move(acceptorsIn)),
-
         // NOLINTNEXTLINE(misc-include-cleaner)
-        signals(ioService, SIGINT, SIGTERM, SIGHUP), handler(handlerIn),
+        signals(io, SIGINT, SIGTERM, SIGHUP), handler(handlerIn),
         adaptorCtx(std::move(adaptorCtxIn)), fileWatcher(io)
     {}
 
@@ -180,7 +182,8 @@ class Server
             });
     }
 
-    using SocketPtr = std::unique_ptr<Adaptor>;
+    using AcceptSocket = boost::asio::ip::tcp::socket;
+    using SocketPtr = std::unique_ptr<AcceptSocket>;
 
     void afterAccept(SocketPtr socket, HttpType httpType,
                      const boost::system::error_code& ec)
@@ -213,10 +216,10 @@ class Server
 
     void doAccept()
     {
-        SocketPtr socket = std::make_unique<Adaptor>(getIoContext());
+        SocketPtr socket = std::make_unique<AcceptSocket>(getIoContext());
         // Keep a raw pointer so when the socket is moved, the pointer is still
         // valid
-        Adaptor* socketPtr = socket.get();
+        AcceptSocket* socketPtr = socket.get();
         for (Acceptor& accept : acceptors)
         {
             accept.acceptor.async_accept(

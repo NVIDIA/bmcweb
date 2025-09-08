@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "dbus_utility.hpp"
+#include "nvidia_dbus_utility.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/nvidia_async_set_callbacks.hpp"

@@ -20,8 +20,12 @@
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
 #include "logging.hpp"
+#include "credential_pipe.hpp"
 
-#include <boost/process.hpp>
+#include <boost/process/v2/process.hpp>
+#include <boost/process/v2/stdio.hpp>
+#include <boost/system/error_code.hpp>
+#include <array>
 
 #include <chrono>
 #include <functional>
@@ -190,50 +194,81 @@ struct MctpVdmUtil
              ResponseCallback responseCallback) const
     {
         translateOperationToCommand(mctpVdmUtilcommand, std::move(data));
-        auto dataOut = std::make_shared<boost::process::ipstream>();
-        auto dataErr = std::make_shared<boost::process::ipstream>();
-        auto exitCallback =
-            [req, asyncResp, dataOut, dataErr,
-             respCallback = std::move(responseCallback),
-             endpointId = this->endpointId, command = this->command](
-                const boost::system::error_code& ec, int errorCode) mutable {
-                std::string stdOut;
-                while (*dataOut)
+        namespace bpv2 = boost::process::v2;
+        auto& io = crow::connections::systemBus->get_io_context();
+
+        struct ProcState
+        {
+            bpv2::process proc;
+            CredentialsPipe outPipe;
+            CredentialsPipe errPipe;
+            std::array<char, 4096> outBuf{};
+            std::array<char, 4096> errBuf{};
+            std::string outStr;
+            std::string errStr;
+            int exitCode{0};
+            bool outDone{false};
+            bool errDone{false};
+            bool waitDone{false};
+            explicit ProcState(boost::asio::io_context& ioCtx) : proc(ioCtx), outPipe(ioCtx), errPipe(ioCtx) {}
+        };
+
+        auto state = std::make_shared<ProcState>(io);
+
+        // Launch via shell to pass full command string
+        state->proc = bpv2::process(
+            io, "/bin/sh", std::vector<std::string>{"-c", command},
+            bpv2::process_stdio{.in = bpv2::stdio::null,
+                                 .out = bpv2::fd{state->outPipe.impl.native_handle()},
+                                 .err = bpv2::fd{state->errPipe.impl.native_handle()}});
+
+        auto tryComplete = [state, req, asyncResp, cb = std::move(responseCallback),
+                            endpointId = this->endpointId]() mutable {
+            if (state->outDone && state->errDone && state->waitDone)
+            {
+                boost::system::error_code ec;
+                if (state->exitCode != 0)
                 {
-                    std::string line;
-                    std::getline(*dataOut, line);
-                    stdOut += line + "\n";
+                    ec = make_error_code(boost::system::errc::io_error);
                 }
-                dataOut->close();
-                std::string stdErr;
-                while (*dataErr)
-                {
-                    std::string line;
-                    std::getline(*dataErr, line);
-                    stdErr += line + "\n";
-                }
-                dataErr->close();
-                if (ec || errorCode != 0)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "Error while executing command: {} Error Code: {}",
-                        command, errorCode);
-                    BMCWEB_LOG_ERROR("MCTP VDM Error Response: {}", stdErr);
-                    if (ec)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "Error while executing command: {} Message: {}",
-                            command, ec.message());
-                    }
-                }
-                respCallback(req, asyncResp, endpointId, stdOut, stdErr, ec,
-                             errorCode);
-                return;
-            };
-        boost::process::async_system(
-            crow::connections::systemBus->get_io_context(),
-            std::move(exitCallback), command, boost::process::std_in.close(),
-            boost::process::std_out > *dataOut,
-            boost::process::std_err > *dataErr);
+                cb(req, asyncResp, endpointId, state->outStr, state->errStr, ec, state->exitCode);
+            }
+        };
+
+        auto readOut = [state, tryComplete](auto& self) mutable {
+            state->outPipe.read.async_read_some(boost::asio::buffer(state->outBuf),
+                                       [state, &self, tryComplete](const boost::system::error_code& ec, std::size_t n) mutable {
+                                           if (!ec)
+                                           {
+                                               state->outStr.append(state->outBuf.data(), n);
+                                               self(self);
+                                               return;
+                                           }
+                                           state->outDone = true;
+                                           tryComplete();
+                                       });
+        };
+        auto readErr = [state, tryComplete](auto& self) mutable {
+            state->errPipe.read.async_read_some(boost::asio::buffer(state->errBuf),
+                                       [state, &self, tryComplete](const boost::system::error_code& ec, std::size_t n) mutable {
+                                           if (!ec)
+                                           {
+                                               state->errStr.append(state->errBuf.data(), n);
+                                               self(self);
+                                               return;
+                                           }
+                                           state->errDone = true;
+                                           tryComplete();
+                                       });
+        };
+
+        // Start reading and waiting
+        readOut(readOut);
+        readErr(readErr);
+        state->proc.async_wait([state, tryComplete](const boost::system::error_code& /*ec*/, int code) mutable {
+            state->exitCode = code;
+            state->waitDone = true;
+            tryComplete();
+        });
     }
 };

@@ -24,18 +24,21 @@
 
 namespace persistent_data::nvidia
 {
-
-void Config::fromJson(const nlohmann::json::object_t& json)
+ 
+void Config::fromJson(const nlohmann::json& json)
 {
-    const bool* ptr = json.at("tls_auth_enabled").get_ptr<const bool*>();
-    if (ptr != nullptr)
+    if (json.contains("tls_auth_enabled"))
     {
-        currentTlsAuth = *ptr;
-        pendingTlsAuth = *ptr;
+        const bool* ptr = json["tls_auth_enabled"].get_ptr<const bool*>();
+        if (ptr != nullptr)
+        {
+            currentTlsAuth = *ptr;
+            pendingTlsAuth = *ptr;
+        }
     }
 }
 
-void Config::toJson(nlohmann::json::object_t& json) const
+void Config::toJson(nlohmann::json& json) const
 {
     json["tls_auth_enabled"] = pendingTlsAuth;
 }

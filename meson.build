@@ -37,6 +37,12 @@ optimization = get_option('optimization')
 summary('Build Type', build, section: 'Build Info')
 summary('Optimization', optimization, section: 'Build Info')
 
+package_datadir = join_paths(
+    get_option('prefix'),
+    get_option('datadir'),
+    meson.project_name(),
+)
+
 # remove debug information for minsize buildtype
 if (get_option('buildtype') == 'minsize')
     add_project_arguments(
@@ -417,6 +423,7 @@ srcfiles_bmcweb = files(
     'src/dbus_singleton.cpp',
     'src/dbus_utility.cpp',
     'src/json_html_serializer.cpp',
+    'src/nvidia_dbus_utility.cpp',
     'src/nvidia_persistent_data.cpp',
     'src/nvidia_ssl_key_handler.cpp',
     'src/ossl_random.cpp',

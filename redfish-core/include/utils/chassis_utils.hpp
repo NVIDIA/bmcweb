@@ -5,6 +5,7 @@
 #include "background_copy.hpp"
 #include "boost_formatters.hpp"
 #include "dbus_utility.hpp"
+#include "nvidia_dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "in_band.hpp"
 #include "logging.hpp"
