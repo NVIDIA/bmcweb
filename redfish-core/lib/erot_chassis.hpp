@@ -1270,7 +1270,7 @@ inline void handleEROTChassisResetAction(
                 sdbusplus::asio::getProperty<std::string>(
                     *crow::connections::systemBus, connectionNames[0].first,
                     path, "xyz.openbmc_project.Common.UUID", "UUID",
-                    [req, asyncResp](const boost::system::error_code& ec2,
+                    [&req, asyncResp](const boost::system::error_code& ec2,
                                      const std::string& chassisUUID) {
                         if (ec2)
                         {

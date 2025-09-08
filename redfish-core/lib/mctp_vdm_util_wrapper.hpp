@@ -200,8 +200,6 @@ struct MctpVdmUtil
         struct ProcState
         {
             bpv2::process proc;
-            CredentialsPipe outPipe;
-            CredentialsPipe errPipe;
             std::array<char, 4096> outBuf{};
             std::array<char, 4096> errBuf{};
             std::string outStr;
@@ -210,7 +208,7 @@ struct MctpVdmUtil
             bool outDone{false};
             bool errDone{false};
             bool waitDone{false};
-            explicit ProcState(boost::asio::io_context& ioCtx) : proc(ioCtx), outPipe(ioCtx), errPipe(ioCtx) {}
+            explicit ProcState(boost::asio::io_context& ioCtx) : proc(ioCtx) {}
         };
 
         auto state = std::make_shared<ProcState>(io);
@@ -219,10 +217,10 @@ struct MctpVdmUtil
         state->proc = bpv2::process(
             io, "/bin/sh", std::vector<std::string>{"-c", command},
             bpv2::process_stdio{.in = bpv2::stdio::null,
-                                 .out = bpv2::fd{state->outPipe.impl.native_handle()},
-                                 .err = bpv2::fd{state->errPipe.impl.native_handle()}});
+                                 .out = bpv2::stdio::pipe,
+                                 .err = bpv2::stdio::pipe});
 
-        auto tryComplete = [state, req, asyncResp, cb = std::move(responseCallback),
+        auto tryComplete = [state, &req, asyncResp, cb = std::move(responseCallback),
                             endpointId = this->endpointId]() mutable {
             if (state->outDone && state->errDone && state->waitDone)
             {
@@ -236,7 +234,7 @@ struct MctpVdmUtil
         };
 
         auto readOut = [state, tryComplete](auto& self) mutable {
-            state->outPipe.read.async_read_some(boost::asio::buffer(state->outBuf),
+            state->proc.stdout().async_read_some(boost::asio::buffer(state->outBuf),
                                        [state, &self, tryComplete](const boost::system::error_code& ec, std::size_t n) mutable {
                                            if (!ec)
                                            {
@@ -249,7 +247,7 @@ struct MctpVdmUtil
                                        });
         };
         auto readErr = [state, tryComplete](auto& self) mutable {
-            state->errPipe.read.async_read_some(boost::asio::buffer(state->errBuf),
+            state->proc.stderr().async_read_some(boost::asio::buffer(state->errBuf),
                                        [state, &self, tryComplete](const boost::system::error_code& ec, std::size_t n) mutable {
                                            if (!ec)
                                            {
