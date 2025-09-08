@@ -278,8 +278,9 @@ inline void handleServiceConditionsURI(
                             messageId);
 
                         std::string sev = (*severity).substr(prefix.length());
-                        std::string currSev =
-                            asyncResp->res.jsonValue["HealthRollup"];
+                        std::string currSev = asyncResp->res.jsonValue
+                                                   .at("HealthRollup")
+                                                   .get<std::string>();
 
                         if (severityMap.at(sev) > severityMap.at(currSev))
                         {
@@ -348,9 +349,9 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
         if (jMsgId != j.end() && jMsgArgs != j.end())
         {
             // MessageRegistry Format
-            std::string messageId = *jMsgId;
-            std::string message =
-                message_registries::composeMessage(*jMsgId, *jMsgArgs);
+            std::string messageId = jMsgId->get<std::string>();
+            std::string message = message_registries::composeMessage(
+                messageId, *jMsgArgs);
 
             conditionResp["MessageId"] = messageId;
             conditionResp["MessageArgs"] = *jMsgArgs;
@@ -369,7 +370,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
         auto jOOC = j.find("OriginOfCondition");
         if (jOOC != j.end())
         {
-            std::string ooc = *jOOC;
+            std::string ooc = jOOC->get<std::string>();
             std::string originOfCondition =
                 origin_utils::getDeviceRedfishURI(ooc);
 
@@ -391,14 +392,14 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
             auto jDevice = j.find("Device");
             if (jDevice != j.end())
             {
-                std::string device = *jDevice;
+                std::string device = jDevice->get<std::string>();
                 conditionResp["Oem"]["Nvidia"]["Device"] = device;
             }
 
             auto jErrorId = j.find("ErrorId");
             if (jErrorId != j.end())
             {
-                std::string errorId = *jErrorId;
+                std::string errorId = jErrorId->get<std::string>();
                 conditionResp["Oem"]["Nvidia"]["ErrorId"] = errorId;
             }
 
@@ -413,7 +414,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
         auto jResolution = j.find("Resolution");
         if (jResolution != j.end())
         {
-            std::string resolution = *jResolution;
+            std::string resolution = jResolution->get<std::string>();
             if (resolution.empty())
             {
                 BMCWEB_LOG_WARNING("Get {} Resolution failed!", deviceId);
@@ -428,7 +429,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
         auto jSeverity = j.find("Severity");
         if (jSeverity != j.end())
         {
-            std::string severity = *jSeverity;
+            std::string severity = jSeverity->get<std::string>();
             if (severity.empty())
             {
                 BMCWEB_LOG_WARNING("Get {} Severity failed!", deviceId);
@@ -443,7 +444,7 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
         auto jTimestamp = j.find("Timestamp");
         if (jTimestamp != j.end())
         {
-            std::string timestamp = *jTimestamp;
+            std::string timestamp = jTimestamp->get<std::string>();
             if (timestamp.empty())
             {
                 BMCWEB_LOG_WARNING("Get {} Timestamp failed!", deviceId);
@@ -479,7 +480,7 @@ inline void populateServiceConditions(
     const std::string& chassisId)
 {
     BMCWEB_LOG_DEBUG("Populating service conditions for device {}", chassisId);
-    std::string redfishUri = asyncResp->res.jsonValue["@odata.id"];
+    std::string redfishUri = asyncResp->res.jsonValue.at("@odata.id").get<std::string>();
     BMCWEB_LOG_DEBUG("ON REDFISH URI {}", redfishUri);
     BMCWEB_LOG_DEBUG("PLATFORM DEVICE PREFIX IS {}",
                      BMCWEB_PLATFORM_DEVICE_PREFIX);

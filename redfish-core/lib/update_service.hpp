@@ -1487,7 +1487,7 @@ inline void validateUpdatePolicyCallback(
             }
             setOemUpdateOption(
                 asyncResp, oemUpdateOption.value_or("StageAndActivate"),
-                [req, asyncResp]() { uploadImageFile(req, asyncResp); });
+                [&req, asyncResp]() { uploadImageFile(req, asyncResp); });
         },
         objInfo[0].first, "/xyz/openbmc_project/software",
         "org.freedesktop.DBus.Properties", "Set",
@@ -1735,7 +1735,7 @@ inline void processMultipartFormData(
         }
     }
 
-    auto sharedReq = std::make_shared<const crow::Request>(req);
+    auto sharedReq = std::make_shared<const crow::Request>(req.copy());
 
     setForceUpdate(asyncResp, "/xyz/openbmc_project/software",
                    forceUpdate.value_or(false),

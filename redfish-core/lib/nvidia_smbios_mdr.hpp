@@ -141,7 +141,7 @@ inline void pushSmbiosTablePrivilegeCheck(
 
     privilege_utils::isBiosPrivilege(
         req.session->username,
-        [req, asyncResp](const boost::system::error_code& ec, bool isBios) {
+        [&req, asyncResp](const boost::system::error_code& ec, bool isBios) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Failed to check BIOS privilege: {}",

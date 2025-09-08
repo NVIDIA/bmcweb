@@ -1779,7 +1779,7 @@ inline void precheckOemDiagDataTypeAndCreateDump(
     }
 
     redfish::getOEMDiagnosticAllowableValues(
-        dumpType, [asyncResp, req, dumpType, oemDiagnosticDataType](
+        dumpType, [asyncResp, &req, dumpType, oemDiagnosticDataType](
                       const std::vector<std::string>& oemAllowableValues) {
             // Check the OEMDiagnosticDataType AllowableValues should be the
             // same as our definition

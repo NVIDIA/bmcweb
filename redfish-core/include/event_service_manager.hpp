@@ -606,9 +606,9 @@ class EventServiceManager
                 BMCWEB_LOG_DEBUG("Filter didn't match");
                 continue;
             }
-            std::string strMsg = nlohmann::json(msg).dump(
+            std::string strMsg2 = nlohmann::json(msg).dump(
                 2, ' ', true, nlohmann::json::error_handler_t::replace);
-            entry->sendEventToSubscriber(eventId, std::move(strMsg));
+            entry->sendEventToSubscriber(eventId, std::move(strMsg2));
         }
 
         return true;

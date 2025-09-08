@@ -177,7 +177,7 @@ inline void updateBackgroundCopyStatus(
 {
     MctpVdmUtil mctpVdmUtilWrapper(endpointId);
     auto bgCopyQueryResponseCallback =
-        [callback, allowList, chassisId, req, asyncResp, endpointId](
+        [callback, allowList, chassisId, &req, asyncResp, endpointId](
             [[maybe_unused]] const crow::Request& reqIn,
             const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
             [[maybe_unused]] uint32_t endpointIdIn, const std::string& stdOut,

@@ -835,16 +835,8 @@ class MultiAsyncResp : public std::enable_shared_from_this<MultiAsyncResp>
                 return;
             }
             // Copy the session from the original request
-            if (req->session == nullptr &&
+            if (req.session == nullptr &&
                 persistent_data::nvidia::getConfig().isTLSAuthEnabled())
-            {
-                BMCWEB_LOG_ERROR("Session is null");
-                messages::internalError(finalRes->res);
-                return;
-            }
-            newReq->session = req->session;
-
-            if (req.session == nullptr)
             {
                 BMCWEB_LOG_ERROR("Session is null");
                 messages::internalError(finalRes->res);

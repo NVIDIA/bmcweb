@@ -79,7 +79,16 @@ inline void updateResolution(
     auto& extendedInfoArr = asyncResp->res.jsonValue[extendInfo];
     if (!extendedInfoArr.empty())
     {
-        std::string oldResolution = extendedInfoArr[0]["Resolution"];
+        const auto& oldResJson = extendedInfoArr[0]["Resolution"];
+        std::string oldResolution;
+        if (oldResJson.is_string())
+        {
+            oldResolution = oldResJson.get<std::string>();
+        }
+        else
+        {
+            oldResolution = oldResJson.dump();
+        }
         resolution = oldResolution + resolution;
         extendedInfoArr[0]["Resolution"] = resolution;
     }
@@ -117,7 +126,16 @@ inline std::string composeMessage(const std::string& messageId,
         size_t argPos = message.find(argStr);
         if (argPos != std::string::npos)
         {
-            message.replace(argPos, argStr.length(), arg);
+            std::string argVal;
+            if (arg.is_string())
+            {
+                argVal = arg.get<std::string>();
+            }
+            else
+            {
+                argVal = arg.dump();
+            }
+            message.replace(argPos, argStr.length(), argVal);
         }
     }
 

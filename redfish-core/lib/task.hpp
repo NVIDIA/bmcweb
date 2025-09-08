@@ -587,7 +587,7 @@ inline void requestRoutesTaskUpdate(App& app)
 
             privilege_utils::isBiosPrivilege(
                 req.session->username,
-                [req, asyncResp, strParam](const boost::system::error_code ec,
+                [&req, asyncResp, strParam](const boost::system::error_code ec,
                                            const bool isBios) {
                     if (ec || !isBios)
                     {

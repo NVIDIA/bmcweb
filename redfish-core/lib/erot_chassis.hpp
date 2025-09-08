@@ -26,7 +26,7 @@
 #include "nvidia_protected_component.hpp"
 #include "query.hpp"
 #include "trusted_components.hpp"
-
+include "nvidia_dbus_utility.hpp"
 #include <openssl/bio.h>
 #include <openssl/ec.h>
 
@@ -74,7 +74,7 @@ static void getChassisCertificate(
     // NOTE: EROT chassis will be having only one certificate at any momment of
     // time.
     crow::connections::systemBus->async_method_call(
-        [req, asyncResp, objectPath,
+        [&req, asyncResp, objectPath,
          certificateID](const boost::system::error_code ec,
                         const dbus::utility::ManagedObjectType& objects) {
             if (ec)
@@ -86,7 +86,7 @@ static void getChassisCertificate(
             for (const auto& object : objects)
             {
                 crow::connections::systemBus->async_method_call(
-                    [req, asyncResp, object, objectPath, certificateID](
+                    [&req, asyncResp, object, objectPath, certificateID](
                         const boost::system::error_code ec1,
                         std::variant<std::vector<std::string>>& resp) {
                         if (ec1)
@@ -271,7 +271,7 @@ inline void getEROTChassis(const crow::Request& req,
         "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
 
     crow::connections::systemBus->async_method_call(
-        [req, asyncResp, chassisId(std::string(chassisId)),
+        [&req, asyncResp, chassisId(std::string(chassisId)),
          isCpuEROT](const boost::system::error_code& ec,
                     const dbus::utility::GetSubTreeType& subtree) {
             if (ec)
@@ -557,7 +557,7 @@ inline void requestRoutesEROTChassisCertificate(App& app)
                 }
                 redfish::chassis_utils::isEROTChassis(
                     chassisID,
-                    [req, asyncResp, chassisID, certificateID](
+                    [&req, asyncResp, chassisID, certificateID](
                         bool isEROT, [[maybe_unused]] bool isCpuEROT) {
                         if (!isEROT)
                         {
@@ -579,7 +579,7 @@ inline void requestRoutesEROTChassisCertificate(App& app)
                             "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
 
                         crow::connections::systemBus->async_method_call(
-                            [req, asyncResp, chassisID(std::string(chassisID)),
+                            [&req, asyncResp, chassisID(std::string(chassisID)),
                              certificateID](
                                 const boost::system::error_code ec,
                                 const dbus::utility::GetSubTreeType& subtree) {
@@ -739,7 +739,7 @@ inline void handleEROTChassisPatch(
     const std::array<const char*, 1> interfaces = {
         "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
     crow::connections::systemBus->async_method_call(
-        [req, asyncResp, chassisId(std::string(chassisId)),
+        [&req, asyncResp, chassisId(std::string(chassisId)),
          backgroundCopyEnabled,
          inBandEnabled](const boost::system::error_code& ec,
                         const dbus::utility::GetSubTreeType& subtree) {
@@ -1231,7 +1231,7 @@ inline void handleEROTChassisResetAction(
         "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
 
     crow::connections::systemBus->async_method_call(
-        [req, asyncResp, chassisId(std::string(chassisId))](
+        [&req, asyncResp, chassisId(std::string(chassisId))](
             const boost::system::error_code ec,
             const dbus::utility::GetSubTreeType& subtree) {
             if (ec)
@@ -1270,7 +1270,7 @@ inline void handleEROTChassisResetAction(
                 sdbusplus::asio::getProperty<std::string>(
                     *crow::connections::systemBus, connectionNames[0].first,
                     path, "xyz.openbmc_project.Common.UUID", "UUID",
-                    [&req, asyncResp](const boost::system::error_code& ec2,
+                    [req, asyncResp](const boost::system::error_code& ec2,
                                      const std::string& chassisUUID) {
                         if (ec2)
                         {

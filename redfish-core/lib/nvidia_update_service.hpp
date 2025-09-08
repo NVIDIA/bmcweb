@@ -883,7 +883,7 @@ inline void computeDigest(const crow::Request& req,
                           const std::string& swId)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp, req, hashComputeObjPath, swId](
+        [asyncResp, &req, hashComputeObjPath, swId](
             const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
                 objInfo) {
@@ -1092,7 +1092,7 @@ inline void handlePostComputeDigest(
     const std::string& swId)
 {
     crow::connections::systemBus->async_method_call(
-        [req, asyncResp, swId](
+        [&req, asyncResp, swId](
             const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string,
@@ -1742,7 +1742,7 @@ inline bool handleSatBMCCommitImagePost(
         {
             // targets with the prefix included only.
             RedfishAggregator::getSatelliteConfigs(
-                std::bind_front(forwardCommitImagePost, req, asyncResp));
+                std::bind_front(forwardCommitImagePost, req.copy(), asyncResp));
 
             // don't pass the request to the local
             return false;
@@ -1758,7 +1758,7 @@ inline bool handleSatBMCCommitImagePost(
     else
     {
         RedfishAggregator::getSatelliteConfigs(
-            std::bind_front(forwardCommitImagePost, req, asyncResp));
+            std::bind_front(forwardCommitImagePost, req.copy(), asyncResp));
         // forward the request with empty target.
     }
     return true;

@@ -208,7 +208,7 @@ inline void setIstMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 
                             // Async method call setISTMode
                             crow::connections::systemBus->async_method_call(
-                                [aResp, req, reqIstModeEnabled](
+                                [aResp, &req, reqIstModeEnabled](
                                     boost::system::error_code& ec3) {
                                     if (ec3)
                                     {

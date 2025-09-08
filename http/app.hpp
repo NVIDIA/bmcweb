@@ -38,10 +38,10 @@ class App
 {
   public:
     using raw_socket_t = boost::asio::ip::tcp::socket;
-    using ssl_socket_t = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
 
     using server_type = Server<App, raw_socket_t>;
-    using ssl_server_type = Server<App, ssl_socket_t>;
+    using ssl_server_type = Server<App, raw_socket_t>;
+    using raw_server_type = server_type;
 
     template <typename Adaptor>
     void handleUpgrade(const std::shared_ptr<Request>& req,

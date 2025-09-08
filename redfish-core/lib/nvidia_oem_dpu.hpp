@@ -1217,7 +1217,7 @@ inline void handleTruststoreCertificatesResetKeys(
         return;
     }
 
-    crow::Request reqFixedTar(req);
+    crow::Request reqFixedTar = req.copy();
     privilege_utils::isBiosPrivilege(req.session->username, [reqFixedTar,
                                                              asyncResp](
                                                                 const boost::
@@ -1264,7 +1264,7 @@ inline void handleGetOemFru([[maybe_unused]] crow::App& app,
         *crow::connections::systemBus, "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/control/oem_fru",
         "xyz.openbmc_project.Object.Enable", "Enabled",
-        [req, asyncResp](const boost::system::error_code& ec, bool enabled) {
+        [&req, asyncResp](const boost::system::error_code& ec, bool enabled) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
