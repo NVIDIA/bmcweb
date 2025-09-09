@@ -337,7 +337,7 @@ inline void handleTargetedTokenOp(
     }
     chassis_utils::getValidChassisID(
         asyncResp, chassisId,
-        [&req, asyncResp, chassisId](const std::optional<std::string>& valid) {
+        [req, asyncResp, chassisId](const std::optional<std::string>& valid) {
             if (!valid.has_value())
             {
                 messages::resourceNotFound(asyncResp->res, "Chassis",
