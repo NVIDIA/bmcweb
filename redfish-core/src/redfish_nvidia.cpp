@@ -19,7 +19,6 @@
 #include "nvidia_bios.hpp"
 #include "nvidia_chassis_env_metrics.hpp"
 #include "nvidia_cpu_debug_token.hpp"
-#include "nvidia_debug_token.hpp"
 #include "nvidia_dot.hpp"
 #include "nvidia_dpu_system_profiles.hpp"
 #include "nvidia_error_injection.hpp"
@@ -33,6 +32,7 @@
 #include "nvidia_manager_eventlog.hpp"
 #include "nvidia_managers.hpp"
 #include "nvidia_memory_env_metrics.hpp"
+#include "nvidia_nic_debug_token.hpp"
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_oem_managed_entity.hpp"
 #include "nvidia_oem_managed_entity_group.hpp"
@@ -58,6 +58,7 @@
 #include "nvidia_system.hpp"
 #include "nvidia_system_variable_spi_erase.hpp"
 #include "nvidia_task.hpp"
+#include "nvidia_unified_debug_token.hpp"
 #include "nvidia_update_service.hpp"
 #include "nvidia_workload_power_profiles.hpp"
 #include "pcieslots.hpp"
@@ -125,6 +126,7 @@ void requestRoutesNvidia(crow::App& app)
         }
 
         requestRoutesChassisDebugToken(app);
+        requestRoutesUnifiedDebugToken(app);
         requestRoutesCpuDebugToken(app);
         requestRoutesChassisEnvironmentMetricsClearOOBSetPoint(app);
         requestRoutesChassisFirmwareInfo(app);

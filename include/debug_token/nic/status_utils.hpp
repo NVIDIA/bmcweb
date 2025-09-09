@@ -19,24 +19,38 @@
 #include <logging.hpp>
 #include <nlohmann/json.hpp>
 
+#include <cstdint>
 #include <string>
 #include <tuple>
 #include <unordered_map>
 
-namespace redfish::debug_token
+namespace redfish::debug_token::nic
 {
 
-using NsmDbusTokenStatus =
+using DbusTokenStatus =
     std::tuple<std::string, std::string, std::string, uint32_t>;
 
-struct NsmTokenStatus
+/**
+ * @brief Represents the status of an NSM debug token
+ *
+ * This struct contains the parsed and processed information from a D-Bus token
+ * status response, including the token type, status, additional information,
+ * and remaining time.
+ */
+struct TokenStatus
 {
     /**
-     * @brief Convert D-Bus token status to NsmTokenStatus
+     * @brief Constructs an TokenStatus from D-Bus token status data
      *
-     * @param dbusStatus D-Bus token status
+     * Parses the D-Bus token status tuple and extracts the relevant
+     * information, converting the full D-Bus enum values to their short form by
+     * removing the namespace prefix.
+     *
+     * @param dbusStatus D-Bus token status tuple containing (tokenType,
+     *                   tokenStatus, additionalInfo, timeLeft)
+     * @throws std::exception if parsing fails due to invalid input data
      */
-    explicit NsmTokenStatus(const NsmDbusTokenStatus& dbusStatus)
+    explicit TokenStatus(const DbusTokenStatus& dbusStatus)
     {
         // NOLINTNEXTLINE(bugprone-unused-local-non-trivial-variable)
         auto dbusTokenType = std::get<0>(dbusStatus);
@@ -69,12 +83,15 @@ struct NsmTokenStatus
 };
 
 /**
- * @brief Get Redfish mapping for NSM DBus debug token status value
+ * @brief Maps NSM D-Bus debug token status values to Redfish-compatible strings
  *
- * @param[in] tokenStatus
- * @return std::string
+ * Converts the short-form D-Bus token status values to their corresponding
+ * Redfish representation. If no mapping is found, returns the original value.
+ *
+ * @param[in] tokenStatus The D-Bus token status value to map
+ * @return std::string The corresponding Redfish status string
  */
-inline std::string getNsmTokenStatus(const std::string& tokenStatus)
+static std::string getTokenStatusMapping(const std::string& tokenStatus)
 {
     const static std::unordered_map<std::string, std::string>
         nsmTokenStatusMapping{
@@ -94,12 +111,17 @@ inline std::string getNsmTokenStatus(const std::string& tokenStatus)
 }
 
 /**
- * @brief Get Redfish mapping for NSM DBus debug token additional info value
+ * @brief Maps NSM D-Bus debug token additional info values to
+ * Redfish-compatible strings
  *
- * @param[in] additionalInfo
- * @return std::string
+ * Converts the short-form D-Bus additional info values to their corresponding
+ * Redfish representation. If no mapping is found, returns the original value.
+ *
+ * @param[in] additionalInfo The D-Bus additional info value to map
+ * @return std::string The corresponding Redfish additional info string
  */
-inline std::string getNsmTokenAdditionalInfo(const std::string& additionalInfo)
+static std::string getTokenAdditionalInfoMapping(
+    const std::string& additionalInfo)
 {
     const static std::unordered_map<std::string, std::string>
         nsmTokenadditionalInfoMapping{
@@ -118,18 +140,21 @@ inline std::string getNsmTokenAdditionalInfo(const std::string& additionalInfo)
 }
 
 /**
- * @brief Convert NsmTokenStatus to JSON
+ * @brief Converts an TokenStatus object to a JSON representation
  *
- * @param status NsmTokenStatus
- * @param json JSON object to store the NsmTokenStatus
+ * Populates the provided JSON object with the token status information,
+ * applying Redfish-compatible mappings for status and additional info values.
+ *
+ * @param[in] status The TokenStatus object to convert
+ * @param[out] json The JSON object to populate with the status data
  */
-inline void nsmTokenStatusToJson(const NsmTokenStatus& status,
-                                 nlohmann::json& json)
+inline void tokenStatusToJson(const TokenStatus& status, nlohmann::json& json)
 {
     json["TokenType"] = status.tokenType;
-    json["Status"] = getNsmTokenStatus(status.tokenStatus);
-    json["AdditionalInfo"] = getNsmTokenAdditionalInfo(status.additionalInfo);
+    json["Status"] = getTokenStatusMapping(status.tokenStatus);
+    json["AdditionalInfo"] =
+        getTokenAdditionalInfoMapping(status.additionalInfo);
     json["TimeLeftSeconds"] = status.timeLeft;
 }
 
-} // namespace redfish::debug_token
+} // namespace redfish::debug_token::nic

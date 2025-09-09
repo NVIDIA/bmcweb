@@ -19,8 +19,8 @@
 #include "dbus_utility.hpp"
 #include "debug_token/base.hpp"
 #include "debug_token/endpoint.hpp"
-#include "debug_token/nsm_status_utils.hpp"
-#include "debug_token/request_utils.hpp"
+#include "debug_token/nic/request_utils.hpp"
+#include "debug_token/nic/status_utils.hpp"
 #include "utils/dbus_utils.hpp"
 
 #include <boost/asio/post.hpp>
@@ -36,22 +36,11 @@
 #include <variant>
 #include <vector>
 
-namespace redfish
-{
-namespace debug_token
+namespace redfish::debug_token
 {
 
-using NsmError = std::tuple<uint16_t, std::string>;
-
-namespace nsm_async::single_op
+namespace nic::action
 {
-
-constexpr const std::string_view asyncStatusIntf = "com.nvidia.Async.Status";
-constexpr const std::string_view asyncStatusProperty = "Status";
-constexpr const std::string_view asyncValueIntf = "com.nvidia.Async.Value";
-constexpr const std::string_view asyncValueProperty = "Value";
-constexpr const std::string_view asyncOperationBasePath =
-    "/com/nvidia/nsmd/AsyncOperation";
 
 enum class Operation
 {
@@ -64,15 +53,25 @@ enum class Operation
 
 using Argument =
     std::variant<std::monostate, std::string, std::vector<uint8_t>>;
-using Output = std::variant<std::monostate, NsmError, NsmTokenStatus,
-                            std::vector<uint8_t>>;
+using Output =
+    std::variant<std::monostate, NsmResult, TokenStatus, std::vector<uint8_t>>;
 using Result = std::tuple<EndpointState, Output>;
 using ResultCallback = std::function<void(Result)>;
 
 using RequestType = std::variant<sdbusplus::message::unix_fd>;
-using StatusType = std::variant<NsmDbusTokenStatus>;
-using ErrorType = std::variant<NsmError>;
+using StatusType = std::variant<DbusTokenStatus>;
+using ErrorType = std::variant<NsmResult>;
 
+/**
+ * @brief Handler class for managing NSM async operations
+ *
+ * This class handles asynchronous operations for debug tokens including
+ * disabling tokens, generating token requests, getting token status, and
+ * installing tokens. It manages the complete lifecycle of async operations
+ * including DBus method calls, property monitoring, and result handling.
+ * The class uses shared_from_this to ensure proper lifetime management
+ * during async operations.
+ */
 class Handler : public std::enable_shared_from_this<Handler>
 {
   public:
@@ -109,9 +108,9 @@ class Handler : public std::enable_shared_from_this<Handler>
                 Handler(op, std::move(arg), std::move(cb))
             {}
         };
-        std::shared_ptr<Handler> t =
+        std::shared_ptr<Handler> handler =
             std::make_shared<MakeSharedHelper>(op, arg, std::move(callback));
-        t->run(chassisId);
+        handler->run(chassisId);
     }
 
     /**
@@ -138,9 +137,9 @@ class Handler : public std::enable_shared_from_this<Handler>
                 Handler(op, std::move(arg), std::move(cb))
             {}
         };
-        std::shared_ptr<Handler> t =
+        std::shared_ptr<Handler> handler =
             std::make_shared<MakeSharedHelper>(op, arg, std::move(callback));
-        t->run(service, objectPath);
+        handler->run(service, objectPath);
     }
 
     ~Handler()
@@ -316,7 +315,12 @@ class Handler : public std::enable_shared_from_this<Handler>
     }
 
     /**
-     * @brief Create a match for the NSM operation
+     * @brief Create a DBus property match for monitoring async operation status
+     *
+     * This function creates a DBus match rule to monitor property changes
+     * on the async operation object. The match will trigger when the
+     * Status property changes, allowing the handler to respond to
+     * operation completion or status updates.
      */
     void createMatch()
     {
@@ -329,7 +333,11 @@ class Handler : public std::enable_shared_from_this<Handler>
     }
 
     /**
-     * @brief Destroy the match for the NSM operation
+     * @brief Destroy the DBus property match for the NSM operation
+     *
+     * This function cleans up the DBus match that was created to monitor
+     * the async operation status. It should be called when the operation
+     * is complete or when an error occurs.
      *
      * @param self The shared self pointer to the parent object (unused)
      */
@@ -339,10 +347,15 @@ class Handler : public std::enable_shared_from_this<Handler>
     }
 
     /**
-     * @brief Match callback function
+     * @brief DBus property change match callback function
+     *
+     * This function is called when a property change is detected on the
+     * async operation object. It processes the Status property change
+     * and determines if the operation has completed or needs further
+     * monitoring.
      *
      * @param self The shared self pointer to the parent object
-     * @param msg DBus message from the match
+     * @param msg DBus message containing the property change notification
      */
     void matchHandler(const std::shared_ptr<Handler>& self,
                       sdbusplus::message::message& msg)
@@ -374,9 +387,14 @@ class Handler : public std::enable_shared_from_this<Handler>
     /**
      * @brief Debug token interface method call callback function
      *
+     * This function is called when the initial DBus method call completes.
+     * It handles any errors from the method call and initiates monitoring
+     * of the async operation by getting the current status.
+     *
      * @param self The shared self pointer to the parent object
      * @param ec The error code from the DBus call
-     * @param objectPath The async operation object path from the DBus call
+     * @param objectPath The async operation object path returned from the DBus
+     * call
      */
     void methodHandler(const std::shared_ptr<Handler>& self,
                        const boost::system::error_code& ec,
@@ -396,11 +414,15 @@ class Handler : public std::enable_shared_from_this<Handler>
     }
 
     /**
-     * @brief Get async status callback function
+     * @brief Get async status property callback function
+     *
+     * This function is called when the initial status property read completes.
+     * It processes the current status and either continues monitoring or
+     * completes the operation based on the status value.
      *
      * @param self The shared self pointer to the parent object
      * @param ec The error code from the DBus call
-     * @param dbusStatus The async status value
+     * @param dbusStatus The current async status value from the property
      */
     void getStatusHandler(const std::shared_ptr<Handler>& self,
                           const boost::system::error_code& ec,
@@ -470,10 +492,16 @@ class Handler : public std::enable_shared_from_this<Handler>
     }
 
     /**
-     * @brief Binding function for getting the async value
+     * @brief Template function for getting the async operation result value
      *
-     * @param cb The callback function to be called when the async value
-     * is obtained
+     * This function retrieves the Value property from the async operation
+     * object. It is used for operations that return data (like token requests
+     * or status information) after the operation completes successfully.
+     *
+     * @tparam T The expected type of the result value
+     * @tparam U The callback function type
+     * @param cb The callback function to be called when the async value is
+     * obtained
      */
     template <typename T, typename U>
     void resultHandler(U&& cb)
@@ -484,11 +512,16 @@ class Handler : public std::enable_shared_from_this<Handler>
     }
 
     /**
-     * @brief Token request handler function
+     * @brief Token request result handler function
+     *
+     * This function processes the result of a GenerateTokenRequest operation.
+     * It reads the file descriptor containing the token request data,
+     * parses the NSM debug token request structure, and sets the appropriate
+     * result based on the request status.
      *
      * @param self The shared self pointer to the parent object (unused)
      * @param ec The error code from the DBus call
-     * @param dbusFd The file descriptor containing the token request
+     * @param dbusFd The file descriptor containing the token request data
      */
     void requestHandler(const std::shared_ptr<Handler>& /*unused*/,
                         const boost::system::error_code ec,
@@ -508,32 +541,32 @@ class Handler : public std::enable_shared_from_this<Handler>
             return;
         }
         std::vector<uint8_t> request;
-        if (!readNsmTokenRequestFd(unixFd->fd, request))
+        if (!readTokenRequestFd(unixFd->fd, request))
         {
             BMCWEB_LOG_ERROR("Invalid NSM token request");
             generalErrorHandler();
             return;
         }
-        if (request.size() < sizeof(NsmDebugTokenRequest))
+        if (request.size() < sizeof(DebugTokenRequest))
         {
             BMCWEB_LOG_ERROR("Invalid NSM token request size: {}",
                              request.size());
             result = std::make_tuple(EndpointState::Error, std::monostate());
             return;
         }
-        NsmDebugTokenRequest nsmReq{};
-        std::memcpy(&nsmReq, request.data(), sizeof(NsmDebugTokenRequest));
+        DebugTokenRequest nsmReq{};
+        std::memcpy(&nsmReq, request.data(), sizeof(DebugTokenRequest));
         switch (nsmReq.status)
         {
-            case NsmDebugTokenChallengeQueryStatus::OK:
+            case DebugTokenChallengeQueryStatus::OK:
                 result =
                     std::make_tuple(EndpointState::RequestAcquired, request);
                 break;
-            case NsmDebugTokenChallengeQueryStatus::TokenAlreadyApplied:
+            case DebugTokenChallengeQueryStatus::TokenAlreadyApplied:
                 result =
                     std::make_tuple(EndpointState::TokenInstalled, request);
                 break;
-            case NsmDebugTokenChallengeQueryStatus::TokenNotSupported:
+            case DebugTokenChallengeQueryStatus::TokenNotSupported:
                 result = std::make_tuple(EndpointState::DebugTokenUnsupported,
                                          std::monostate());
                 break;
@@ -547,11 +580,15 @@ class Handler : public std::enable_shared_from_this<Handler>
     }
 
     /**
-     * @brief Token status handler function
+     * @brief Token status result handler function
+     *
+     * This function processes the result of a GetTokenStatus operation.
+     * It converts the DBus token status to the internal TokenStatus
+     * format and sets the result accordingly.
      *
      * @param self The shared self pointer to the parent object (unused)
      * @param ec The error code from the DBus call
-     * @param dbusStatus The token status value
+     * @param dbusStatus The token status value from the async operation
      */
     void statusHandler(const std::shared_ptr<Handler>& /*unused*/,
                        const boost::system::error_code& ec,
@@ -563,7 +600,7 @@ class Handler : public std::enable_shared_from_this<Handler>
             generalErrorHandler();
             return;
         }
-        const auto* status = std::get_if<NsmDbusTokenStatus>(&dbusStatus);
+        const auto* status = std::get_if<DbusTokenStatus>(&dbusStatus);
         if (status == nullptr)
         {
             BMCWEB_LOG_ERROR("Failed to read NSM token status");
@@ -572,7 +609,7 @@ class Handler : public std::enable_shared_from_this<Handler>
         }
         try
         {
-            NsmTokenStatus nsmStatus(*status);
+            TokenStatus nsmStatus(*status);
             result = std::make_tuple(EndpointState::StatusAcquired, nsmStatus);
         }
         catch (const std::exception&)
@@ -583,11 +620,15 @@ class Handler : public std::enable_shared_from_this<Handler>
     }
 
     /**
-     * @brief Token error handler function
+     * @brief Token error result handler function
+     *
+     * This function processes error results from async operations.
+     * It handles NSM-specific error codes and converts them to appropriate
+     * endpoint states, with special handling for unsupported token errors.
      *
      * @param self The shared self pointer to the parent object (unused)
      * @param ec The error code from the DBus call
-     * @param dbusError The error value
+     * @param dbusError The error value from the async operation
      */
     void errorHandler(const std::shared_ptr<Handler>& /*unused*/,
                       const boost::system::error_code ec,
@@ -599,7 +640,7 @@ class Handler : public std::enable_shared_from_this<Handler>
             generalErrorHandler();
             return;
         }
-        const auto* error = std::get_if<NsmError>(&dbusError);
+        const auto* error = std::get_if<NsmResult>(&dbusError);
         if (error == nullptr)
         {
             BMCWEB_LOG_ERROR("Failed to read NSM error");
@@ -619,7 +660,9 @@ class Handler : public std::enable_shared_from_this<Handler>
     /**
      * @brief General error handler function
      *
-     * This function sets the result to an error state.
+     * This function handles general errors that occur during async operations.
+     * It sets the result to an error state and cleans up the DBus match.
+     * This is used for errors that don't have specific NSM error codes.
      */
     void generalErrorHandler()
     {
@@ -632,7 +675,9 @@ class Handler : public std::enable_shared_from_this<Handler>
     /**
      * @brief Success handler function
      *
-     * Used for operations which do not return any data.
+     * This function handles successful completion of operations that do not
+     * return any data (like DisableTokens and InstallToken operations).
+     * It sets the result to indicate successful completion with no data.
      */
     void successHandler()
     {
@@ -642,7 +687,9 @@ class Handler : public std::enable_shared_from_this<Handler>
     /**
      * @brief Token unsupported handler function
      *
-     * This function sets the result to a token unsupported state.
+     * This function handles cases where the debug token functionality is
+     * not supported on the target system. It sets the result to indicate
+     * that debug tokens are unsupported for the current endpoint.
      */
     void tokenUnsupportedHandler()
     {
@@ -651,7 +698,6 @@ class Handler : public std::enable_shared_from_this<Handler>
     }
 };
 
-} // namespace nsm_async::single_op
+} // namespace nic::action
 
-} // namespace debug_token
-} // namespace redfish
+} // namespace redfish::debug_token

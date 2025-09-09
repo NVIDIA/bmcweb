@@ -17,9 +17,9 @@
 #pragma once
 
 #include "component_integrity.hpp"
-#include "debug_token/install_utils.hpp"
 #include "debug_token/request_utils.hpp"
-#include "debug_token/vdm_status_utils.hpp"
+#include "debug_token/vdm/install_utils.hpp"
+#include "debug_token/vdm/status_utils.hpp"
 #include "mctp_vdm_util_wrapper.hpp"
 #include "nvidia_messages.hpp"
 #include "query.hpp"

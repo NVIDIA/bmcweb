@@ -18,10 +18,15 @@
 
 #include <cstdint>
 #include <string_view>
+
 namespace redfish::debug_token
 {
 
 constexpr const std::string_view debugTokenIntf = "com.nvidia.DebugToken";
+constexpr const std::string_view debugTokenActionIntf =
+    "com.nvidia.DebugToken.Action";
+constexpr const std::string_view debugTokenStatusIntf =
+    "com.nvidia.DebugToken.Status";
 constexpr const std::string_view debugTokenBasePath =
     "/xyz/openbmc_project/debug_token";
 constexpr const std::string_view debugTokenOpcodesEnumPrefix =
@@ -29,6 +34,16 @@ constexpr const std::string_view debugTokenOpcodesEnumPrefix =
 constexpr const std::string_view debugTokenTypesEnumPrefix =
     "com.nvidia.DebugToken.TokenTypes.";
 
+constexpr const std::string_view asyncStatusIntf = "com.nvidia.Async.Status";
+constexpr const std::string_view asyncStatusProperty = "Status";
+constexpr const std::string_view asyncValueIntf = "com.nvidia.Async.Value";
+constexpr const std::string_view asyncValueProperty = "Value";
+constexpr const std::string_view asyncOperationBasePath =
+    "/com/nvidia/nsmd/AsyncOperation";
+
+constexpr const uint16_t debugTokenSuccessNsmErrorCode = 0;
 constexpr const uint16_t debugTokenUnsupportedNsmErrorCode = 5;
+
+using NsmResult = std::tuple<uint16_t, std::string>;
 
 } // namespace redfish::debug_token

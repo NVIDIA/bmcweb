@@ -15,121 +15,146 @@
  * limitations under the License.
  */
 #pragma once
-#include "logging.hpp"
-#include "ossl_random.hpp"
 
-#include <boost/interprocess/streams/bufferstream.hpp>
+#include "bmcweb_config.h"
 
-#include <cstdio>
+#include <array>
 #include <cstring>
+#include <map>
 #include <memory>
-#include <optional>
-#include <sstream>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace redfish::debug_token
 {
 
-enum NsmDebugTokenChallengeQueryStatus
+/**
+ * @brief Enumeration of supported debug token types
+ *
+ * Defines the different types of debug tokens that can be requested
+ * from the BMC.
+ */
+enum class TokenType
 {
-    OK = 0,
-    TokenAlreadyApplied = 1,
-    TokenNotSupported = 2,
-    NoKeyConfigured = 3,
-    InterfaceNotAllowed = 4
+    Invalid,
+    DebugTokenRequest,
+    DOTCAKUnlockTokenRequest,
+    DOTEnableTokenRequest,
+    DOTSignTestToken,
+    DOTOverrideTokenRequest
 };
 
-#pragma pack(1)
-struct NsmDebugTokenRequest
+/**
+ * @brief Checks if a token type is a DOT type
+ *
+ * Determines whether the given token type belongs to the DOT family of tokens.
+ * This function is conditionally compiled based on BMCWEB_DOT_SUPPORT flag.
+ *
+ * @param type The token type to check
+ * @return bool True if the token type is a DOT type, false otherwise
+ */
+inline bool isDOTTokenType(const TokenType& type) noexcept
 {
-    uint16_t tokenRequestVersion;
-    uint16_t tokenRequestSize;
-    std::array<uint8_t, 20> reserved1;
-    std::array<uint8_t, 8> deviceUuid;
-    uint16_t deviceType;
-    std::array<uint8_t, 2> reserved2;
-    uint8_t tokenOpcode;
-    uint8_t status;
-    uint16_t deviceIndex:12;
-    uint8_t reserved3:4;
-    std::array<uint8_t, 16> keypairUuid;
-    std::array<uint8_t, 8> baseMac;
-    std::array<uint8_t, 16> psid;
-    std::array<uint8_t, 3> reserved4;
-    std::array<uint8_t, 5> fwVersion;
-    std::array<uint8_t, 16> sourceAddress;
-    uint16_t sessionId;
-    uint8_t reserved5;
-    uint8_t challengeVersion;
-    std::array<uint8_t, 32> challenge;
-};
-#pragma pack()
+    if constexpr (BMCWEB_DOT_SUPPORT)
+    {
+        return type == TokenType::DOTCAKUnlockTokenRequest ||
+               type == TokenType::DOTEnableTokenRequest ||
+               type == TokenType::DOTSignTestToken ||
+               type == TokenType::DOTOverrideTokenRequest;
+    }
+    return false;
+}
 
-inline std::vector<uint8_t> convertNsmTokenRequestToSpdmTranscript(
-    const std::vector<uint8_t>& request)
+/**
+ * @brief Converts a string representation to a TokenType enum value
+ *
+ * Maps string representations of token types to their corresponding enum
+ * values. Returns TokenType::Invalid for unrecognized strings.
+ *
+ * @param type String representation of the token type
+ * @return TokenType The corresponding enum value, or TokenType::Invalid if not
+ * found
+ */
+inline TokenType stringToTokenType(const std::string& type) noexcept
 {
-    constexpr const size_t wrapperOverhead = 86;
-    constexpr const size_t measurementRecordOverhead = 4;
-    constexpr const size_t dmtfSpecOverhead = 3;
-
-    std::vector<uint8_t> wrappedRequest;
-    std::uniform_int_distribution<uint8_t> dist(0);
-    bmcweb::OpenSSLGenerator gen;
-    size_t measurementLen = request.size() + dmtfSpecOverhead;
-    size_t recordLen = measurementLen + measurementRecordOverhead;
-    // request
-    wrappedRequest.reserve(request.size() + wrapperOverhead);
-    wrappedRequest.emplace_back(0x11); // version 1.1
-    wrappedRequest.emplace_back(0xE0); // SPDM_MEASUREMENTS
-    wrappedRequest.emplace_back(0x02); // param 1
-    wrappedRequest.emplace_back(0x32); // param 2
-    for (size_t i = 0; i < 32; ++i)
+    if (type == "GetDebugTokenRequest")
     {
-        wrappedRequest.emplace_back(dist(gen)); // nonce
+        return TokenType::DebugTokenRequest;
     }
-    wrappedRequest.emplace_back(0x00);          // slot ID param
-    // response
-    wrappedRequest.emplace_back(0x11);             // version 1.1
-    wrappedRequest.emplace_back(0x60);             // SPDM_MEASUREMENTS
-    wrappedRequest.emplace_back(0x00);             // param 1
-    wrappedRequest.emplace_back(0x00);             // param 2
-    wrappedRequest.emplace_back(1);                // number of blocks
-    wrappedRequest.emplace_back(recordLen & 0xFF); // measurement record length
-    wrappedRequest.emplace_back(
-        (recordLen >> 8) & 0xFF);                  // measurement record length
-    wrappedRequest.emplace_back(
-        (recordLen >> 16) & 0xFF);                 // measurement record length
-    wrappedRequest.emplace_back(0x32);             // measurement index
-    wrappedRequest.emplace_back(0x01);             // measurement specification
-    wrappedRequest.emplace_back(measurementLen & 0xFF); // measurement size
-    wrappedRequest.emplace_back(
-        (measurementLen >> 8) & 0xFF);                  // measurement size
-    wrappedRequest.emplace_back(0x85); // DMTF spec measurement value type
-    wrappedRequest.emplace_back(
-        request.size() & 0xFF);        // DMTF spec measurement value size
-    wrappedRequest.emplace_back(
-        (request.size() >> 8) & 0xFF); // DMTF spec measurement value size
-    wrappedRequest.insert(wrappedRequest.end(), request.begin(), request.end());
-    for (size_t i = 0; i < 32; ++i)
+    if constexpr (BMCWEB_DOT_SUPPORT)
     {
-        wrappedRequest.emplace_back(dist(gen)); // nonce
+        if (type == "GetDOTCAKUnlockTokenRequest")
+        {
+            return TokenType::DOTCAKUnlockTokenRequest;
+        }
+        if (type == "GetDOTEnableTokenRequest")
+        {
+            return TokenType::DOTEnableTokenRequest;
+        }
+        if (type == "GetDOTSignTestToken")
+        {
+            return TokenType::DOTSignTestToken;
+        }
+        if (type == "GetDOTOverrideTokenRequest")
+        {
+            return TokenType::DOTOverrideTokenRequest;
+        }
     }
-    wrappedRequest.emplace_back(0);             // opaque data length
-    wrappedRequest.emplace_back(0);             // opaque data length
+    return TokenType::Invalid;
+}
 
-    return wrappedRequest;
+/**
+ * @brief Maps a TokenType to its corresponding SPDM measurement index
+ *
+ * Provides the SPDM (Security Protocol and Data Model) measurement index
+ * associated with each token type for security measurement purposes.
+ *
+ * @param type The token type to map
+ * @return uint8_t The SPDM measurement index for the given token type
+ * @throws std::out_of_range If the token type is not found in the mapping
+ */
+inline uint8_t spdmTokenTypeToMeasurementIndex(TokenType type)
+{
+    static const std::map<TokenType, uint8_t> indexMap{
+        {TokenType::DebugTokenRequest, 50},
+        {TokenType::DOTCAKUnlockTokenRequest, 58},
+        {TokenType::DOTEnableTokenRequest, 59},
+        {TokenType::DOTSignTestToken, 60},
+        {TokenType::DOTOverrideTokenRequest, 61}};
+
+    return indexMap.at(type);
 }
 
 #pragma pack(1)
+/**
+ * @brief Header structure for server token requests
+ *
+ * Contains versioning and size information for token request structures
+ * sent to the server. Uses packed layout for binary protocol compatibility.
+ * The version field is set to 0x0002 in the current implementation.
+ */
 struct ServerRequestHeader
 {
-    /* Versioning for token request structure (0x0001) */
+    /* Versioning for token request structure (0x0002) */
     uint16_t version;
     /* Size of the token request structure */
     uint16_t size;
 };
 #pragma pack()
 
+/**
+ * @brief Prepends a ServerRequestHeader to a token request payload
+ *
+ * Creates a complete token request by adding the appropriate header
+ * structure to the request data. The header includes version and size
+ * information required by the server protocol. The request data is
+ * expected to be a TLV-encoded structure containing measurement transcript
+ * and certificate chain.
+ *
+ * @param request The TLV-encoded token request data without header
+ * @return std::vector<uint8_t> Complete request with header prepended
+ */
 inline std::vector<uint8_t> addTokenRequestHeader(
     const std::vector<uint8_t>& request)
 {
@@ -148,6 +173,12 @@ inline std::vector<uint8_t> addTokenRequestHeader(
     return requestWithHeader;
 }
 
+/**
+ * @brief Enumeration of token file types
+ *
+ * Defines the different types of data that can be stored in token files.
+ * Used to distinguish between token requests and actual debug tokens.
+ */
 enum class TokenFileType
 {
     TokenRequest = 1,
@@ -155,6 +186,13 @@ enum class TokenFileType
 };
 
 #pragma pack(1)
+/**
+ * @brief Header structure for token files
+ *
+ * Contains metadata for token files including version, type, record count,
+ * and file size information. Uses packed layout for binary file format
+ * compatibility.
+ */
 struct TokenFileHeader
 {
     /* Set to 0x01 */
@@ -173,6 +211,16 @@ struct TokenFileHeader
 };
 #pragma pack()
 
+/**
+ * @brief Generates a complete token request file with header
+ *
+ * Creates a binary file containing multiple token requests with appropriate
+ * file header metadata. The file format includes a header with version,
+ * type, record count, and size information followed by the actual request data.
+ *
+ * @param tokenRequests Vector of token request data to include in the file
+ * @return std::vector<uint8_t> Complete token request file as binary data
+ */
 inline std::vector<uint8_t> generateTokenRequestFile(
     const std::vector<std::vector<uint8_t>>& tokenRequests)
 {
@@ -187,7 +235,7 @@ inline std::vector<uint8_t> generateTokenRequestFile(
         size += request.size();
     }
     auto header = std::make_unique<TokenFileHeader>();
-    header->version = 0x01;
+    header->version = 0x02;
     header->type = static_cast<uint8_t>(TokenFileType::TokenRequest);
     header->numberOfRecords = static_cast<uint16_t>(tokenRequests.size());
     header->offsetToListOfStructs = sizeof(TokenFileHeader);
@@ -200,55 +248,6 @@ inline std::vector<uint8_t> generateTokenRequestFile(
         output.insert(output.end(), request.begin(), request.end());
     }
     return output;
-}
-
-inline bool readNsmTokenRequestFd(int fd, std::vector<uint8_t>& buffer)
-{
-    int dupFd = dup(fd);
-    if (dupFd < 0)
-    {
-        BMCWEB_LOG_ERROR("dup error");
-        return false;
-    }
-    auto fCleanup = [dupFd](FILE* f) -> void {
-        fclose(f);
-        close(dupFd);
-    };
-    std::unique_ptr<FILE, decltype(fCleanup)> file(fdopen(dupFd, "rb"),
-                                                   fCleanup);
-    if (!file)
-    {
-        BMCWEB_LOG_ERROR("fdopen error");
-        close(dupFd);
-        return false;
-    }
-    int rc = fseek(file.get(), 0, SEEK_END);
-    if (rc < 0)
-    {
-        BMCWEB_LOG_ERROR("fseek error: {}", rc);
-        return false;
-    }
-    auto filesize = ftell(file.get());
-    if (filesize <= 0)
-    {
-        BMCWEB_LOG_ERROR("ftell error or size is zero: {}", filesize);
-        return false;
-    }
-    if (fseek(file.get(), 0, SEEK_SET) != 0)
-    {
-        BMCWEB_LOG_ERROR("fseek error when rewinding file");
-        return false;
-    }
-    size_t size = static_cast<size_t>(filesize);
-    buffer.resize(size);
-    auto len = fread(buffer.data(), 1, size, file.get());
-    if (len != size)
-    {
-        BMCWEB_LOG_ERROR("fread error or length is invalid: {}", len);
-        return false;
-    }
-
-    return true;
 }
 
 } // namespace redfish::debug_token

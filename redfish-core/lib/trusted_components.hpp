@@ -20,6 +20,7 @@
 #include "bmcweb_config.h"
 
 #include "nvidia_dbus_utility.hpp"
+#include "nvidia_trusted_component_oem.hpp"
 #include "utils/certificate_utils.hpp"
 
 #include <app.hpp>
@@ -624,10 +625,11 @@ inline void fetchTrustedComponentLinks(
  */
 inline void fetchAssociations(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisID, const std::string& spdmService,
-    const std::string& spdmPath)
+    const std::string& chassisID, const std::string& componentID,
+    const std::string& spdmService, const std::string& spdmPath)
 {
-    if (chassisID.empty() || spdmService.empty() || spdmPath.empty())
+    if (chassisID.empty() || componentID.empty() || spdmService.empty() ||
+        spdmPath.empty())
     {
         BMCWEB_LOG_ERROR("Invalid input parameters for fetchAssociations");
         messages::internalError(asyncResp->res);
@@ -637,7 +639,7 @@ inline void fetchAssociations(
     std::string inventoryObjectPath = spdmPath + "/inventory_object";
     chassis_utils::getAssociationEndpoint(
         inventoryObjectPath,
-        [asyncResp, chassisID, spdmService,
+        [asyncResp, chassisID, componentID, spdmService,
          spdmPath](const bool& status, const std::string& endpoint) {
             if (!status)
             {
@@ -648,6 +650,10 @@ inline void fetchAssociations(
 
             fetchInventoryProperties(asyncResp, chassisID, endpoint);
             fetchTrustedComponentLinks(asyncResp, chassisID, endpoint);
+            // Nvidia Added Code Start
+            debug_token::addTrustedComponentOemProperties(asyncResp, chassisID,
+                                                          componentID);
+            // Nvidia Added Code End
         });
 }
 
@@ -718,7 +724,8 @@ inline void fetchComponentTypeAndAssociations(
                 "/redfish/v1/Chassis/" + chassisID + "/TrustedComponents/" +
                 componentID + "/Certificates";
 
-            fetchAssociations(asyncResp, chassisID, spdmService, spdmPath);
+            fetchAssociations(asyncResp, chassisID, componentID, spdmService,
+                              spdmPath);
         },
         spdmService, spdmPath, "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Inventory.Item.TrustedComponent",
@@ -752,7 +759,8 @@ inline void finalizeTrustedComponent(
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Chassis/" + chassisID +
                                             "/TrustedComponents/" + componentID;
     asyncResp->res.jsonValue["Id"] = componentID;
-    asyncResp->res.jsonValue["Name"] = componentID;
+    asyncResp->res.jsonValue["Name"] =
+        chassisID + " TrustedComponents " + componentID;
     fetchComponentTypeAndAssociations(asyncResp, chassisID, endpoint,
                                       componentID, services);
 }

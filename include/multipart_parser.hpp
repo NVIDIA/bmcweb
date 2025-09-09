@@ -60,6 +60,7 @@ struct FormPart
 {
     boost::beast::http::fields fields;
     std::string content;
+    bool isTokenFile = false;
     bool isUpdateFile = false;
     std::ofstream fileOut;
 };
@@ -86,9 +87,11 @@ class MultipartParser
 
     /**
      * @brief Constructor for direct writing to a file descriptor (e.g., memfd).
-     *        The parser will write UpdateFile content directly to this fd.
+     *        The parser will write UpdateFile or TokenFile content directly to
+     *        this fd.
      *
-     * @param fdIn File descriptor to write UpdateFile content to
+     * @param fdIn File descriptor to write UpdateFile or TokenFile content
+     * to
      */
     explicit MultipartParser(int fdIn) : targetFd(fdIn) {}
 
@@ -230,6 +233,28 @@ class MultipartParser
                                 }
                             }
                         }
+                        else if (currentHeader == field::content_disposition &&
+                                 value.find("name=\"TokenFile\"") !=
+                                     std::string::npos)
+                        {
+                            FormPart& fp = mime_fields.back();
+                            fp.isTokenFile = true;
+
+                            // If we wanted to write directly to file in this
+                            // parse:
+                            if (!filePath.empty() && !skipFileContent)
+                            {
+                                // open an ofstream
+                                fp.fileOut.open(filePath,
+                                                std::ofstream::out |
+                                                    std::ofstream::binary |
+                                                    std::ofstream::trunc);
+                                if (!fp.fileOut.is_open())
+                                {
+                                    return ParserError::ERROR_FILE_OPEN;
+                                }
+                            }
+                        }
 
                         state = State::HEADER_VALUE_ALMOST_DONE;
                     }
@@ -332,6 +357,7 @@ class MultipartParser
     ParserError processPartData(const std::string& buffer, size_t& i, char c)
     {
         FormPart& current = mime_fields.back();
+        bool isFile = current.isUpdateFile || current.isTokenFile;
         size_t prevIndex = index;
 
         if (index < boundary.size())
@@ -343,13 +369,13 @@ class MultipartParser
                     size_t chunkSize = i - partDataMark;
                     if (chunkSize > 0)
                     {
-                        // **If this part is UpdateFile** and **we're skipping**
-                        // big data, do nothing
-                        if (current.isUpdateFile && skipFileContent)
+                        // **If this part is UpdateFile or TokenFile**
+                        // and **we're skipping* big data, do nothing
+                        if (isFile && skipFileContent)
                         {
                             // skip storing big data
                         }
-                        else if (current.isUpdateFile && targetFd >= 0)
+                        else if (isFile && targetFd >= 0)
                         {
                             // Write directly to file descriptor (e.g., memfd)
                             ssize_t written = write(
@@ -359,8 +385,7 @@ class MultipartParser
                                 return ParserError::ERROR_FILE_WRITE;
                             }
                         }
-                        else if (current.isUpdateFile &&
-                                 current.fileOut.is_open())
+                        else if (isFile && current.fileOut.is_open())
                         {
                             // If we have an open file, write chunk to disk
                             current.fileOut.write(
@@ -444,11 +469,11 @@ class MultipartParser
         else if (prevIndex > 0)
         {
             // partial boundary was not complete -> belongs to content
-            if (current.isUpdateFile && skipFileContent)
+            if (isFile && skipFileContent)
             {
                 // skip
             }
-            else if (current.isUpdateFile && targetFd >= 0)
+            else if (isFile && targetFd >= 0)
             {
                 ssize_t written = write(targetFd, lookbehind.data(), prevIndex);
                 if (written != static_cast<ssize_t>(prevIndex))
@@ -456,7 +481,7 @@ class MultipartParser
                     return ParserError::ERROR_FILE_WRITE;
                 }
             }
-            else if (current.isUpdateFile && current.fileOut.is_open())
+            else if (isFile && current.fileOut.is_open())
             {
                 current.fileOut.write(lookbehind.data(),
                                       static_cast<std::streamsize>(prevIndex));

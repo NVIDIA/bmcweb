@@ -189,7 +189,7 @@ static VdmTokenInstallationStatus getTokenInstallationStatus(uint8_t arg)
  * @brief Convert the token installation status enum value to JSON
  *
  * @param arg Token installation status enum value
- * @param json JSON object to store the token installation status
+ * @param jsonObj JSON object to store the token installation status
  */
 static void tokenInstallationStatusToJson(const VdmTokenInstallationStatus& arg,
                                           nlohmann::json& jsonObj)
@@ -220,7 +220,7 @@ static VdmTokenFuseType getTokenFuseType(uint8_t arg)
  * @brief Convert the token fuse type enum value to JSON
  *
  * @param arg Token fuse type enum value
- * @param json JSON object to store the token fuse type
+ * @param jsonObj JSON object to store the token fuse type
  */
 static void tokenFuseTypeToJson(const VdmTokenFuseType& type,
                                 nlohmann::json& jsonObj)
@@ -283,7 +283,7 @@ static VdmDeviceType getDeviceType(uint16_t arg)
  * @brief Convert the device type enum value to JSON
  *
  * @param arg Device type enum value
- * @param json JSON object to store the device type
+ * @param jsonObj JSON object to store the device type
  */
 static void erotTokenTypeToJson(const uint32_t& type, nlohmann::json& jsonObj)
 {
@@ -310,7 +310,7 @@ static void erotTokenTypeToJson(const uint32_t& type, nlohmann::json& jsonObj)
  * @brief Convert the GPU IRoT token type enum value to JSON
  *
  * @param arg GPU IRoT token type enum value
- * @param json JSON object to store the GPU IRoT token type
+ * @param jsonObj JSON object to store the GPU IRoT token type
  */
 static void gpuTokenTypeToJson(const uint32_t& type, nlohmann::json& jsonObj)
 {
@@ -351,7 +351,7 @@ static void gpuTokenTypeToJson(const uint32_t& type, nlohmann::json& jsonObj)
  * @brief Convert the MCU token type enum value to JSON
  *
  * @param arg MCU token type enum value
- * @param json JSON object to store the MCU token type
+ * @param jsonObj JSON object to store the MCU token type
  */
 static void mcuTokenTypeToJson(const uint32_t& type, nlohmann::json& jsonObj)
 {
@@ -399,7 +399,7 @@ static VdmTokenLifecycle getTokenLifecycle(uint16_t tokenConfig)
  * @brief Convert the token lifecycle enum value to JSON
  *
  * @param arg Token lifecycle enum value
- * @param json JSON object to store the token lifecycle
+ * @param jsonObj JSON object to store the token lifecycle
  */
 static void tokenLifecycleToJson(const VdmTokenLifecycle& arg,
                                  nlohmann::json& jsonObj)
@@ -427,7 +427,7 @@ static VdmTokenActivation getTokenActivation(uint16_t tokenConfig)
  * @brief Convert the token activation enum value to JSON
  *
  * @param arg Token activation enum value
- * @param json JSON object to store the token activation
+ * @param jsonObj JSON object to store the token activation
  */
 static void tokenActivationToJson(const VdmTokenActivation& arg,
                                   nlohmann::json& jsonObj)
@@ -456,7 +456,7 @@ static VdmTokenRevocation getTokenRevocation(uint16_t tokenConfig)
  * @brief Convert the token revocation enum value to JSON
  *
  * @param arg Token revocation enum value
- * @param json JSON object to store the token revocation
+ * @param jsonObj JSON object to store the token revocation
  */
 static void tokenRevocationToJson(const VdmTokenRevocation& arg,
                                   nlohmann::json& jsonObj)
@@ -485,7 +485,7 @@ static VdmTokenDevIdStatus getTokenDevIdStatus(uint16_t tokenConfig)
  * @brief Convert the token device ID status enum value to JSON
  *
  * @param arg Token device ID status enum value
- * @param json JSON object to store the token device ID status
+ * @param jsonObj JSON object to store the token device ID status
  */
 static void tokenDevIdStatusToJson(const VdmTokenDevIdStatus& arg,
                                    nlohmann::json& jsonObj)
@@ -514,7 +514,7 @@ static VdmTokenAntiReplay getTokenAntiReplay(uint16_t tokenConfig)
  * @brief Convert the token anti-replay enum value to JSON
  *
  * @param arg Token anti-replay enum value
- * @param json JSON object to store the token anti-replay
+ * @param jsonObj JSON object to store the token anti-replay
  */
 static void tokenAntiReplayToJson(const VdmTokenAntiReplay& arg,
                                   nlohmann::json& jsonObj)
@@ -544,7 +544,7 @@ static VdmTokenResetPostInstall getTokenResetPostInstall(uint16_t tokenConfig)
  * @brief Convert the token reset post-install enum value to JSON
  *
  * @param arg Token reset post-install enum value
- * @param json JSON object to store the token reset post-install
+ * @param jsonObj JSON object to store the token reset post-install
  */
 static void tokenResetPostInstallToJson(const VdmTokenResetPostInstall& arg,
                                         nlohmann::json& jsonObj)
@@ -585,7 +585,7 @@ static VdmTokenProcessingStatus getTokenProcessingStatus(uint16_t arg)
  * @brief Convert the token processing status enum value to JSON
  *
  * @param status Token processing status enum value
- * @param json JSON object to store the token processing status
+ * @param jsonObj JSON object to store the token processing status
  */
 static void tokenProcessingStatusToJson(const VdmTokenProcessingStatus& status,
                                         nlohmann::json& jsonObj)
@@ -616,7 +616,7 @@ static void tokenProcessingStatusToJson(const VdmTokenProcessingStatus& status,
  * @brief Convert the device ID to JSON
  *
  * @param deviceId Device ID
- * @param json JSON object to store the device ID
+ * @param jsonObj JSON object to store the device ID
  */
 static void deviceIDToJson(const std::vector<uint8_t>& deviceId,
                            nlohmann::json& jsonObj)

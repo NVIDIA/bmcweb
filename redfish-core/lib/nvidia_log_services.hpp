@@ -2,7 +2,7 @@
 
 #include "app.hpp"
 #include "cper_utils.hpp"
-#include "debug_token.hpp"
+#include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/log_entry.hpp"
 #include "gzfile.hpp"

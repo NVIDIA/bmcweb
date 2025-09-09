@@ -19,7 +19,7 @@
 #include "led.hpp"
 #include "logging.hpp"
 #include "nvidia_chassis.hpp"
-#include "nvidia_debug_token.hpp"
+#include "nvidia_nic_debug_token.hpp"
 #include "nvidia_protected_component.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"

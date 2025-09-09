@@ -549,8 +549,9 @@ inline void getAssociationEndpoint(const std::string& objPath,
                                    CallbackFunc&& callback)
 {
     crow::connections::systemBus->async_method_call(
-        [callback, objPath](const boost::system::error_code& ec,
-                            std::variant<std::vector<std::string>>& resp) {
+        [callback = std::forward<CallbackFunc>(callback),
+         objPath](const boost::system::error_code& ec,
+                  const std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -561,7 +562,7 @@ inline void getAssociationEndpoint(const std::string& objPath,
                 callback(false, std::string(""));
                 return; // should have associated inventory object.
             }
-            std::vector<std::string>* data =
+            const std::vector<std::string>* data =
                 std::get_if<std::vector<std::string>>(&resp);
             if (data == nullptr || data->empty())
             {
