@@ -23,6 +23,9 @@
 #include "utils/certificate_utils.hpp"
 
 #include <app.hpp>
+#include <boost/process/v2/execute.hpp>
+#include <boost/process/v2/process.hpp>
+#include <boost/process/v2/stdio.hpp>
 #include <dbus_utility.hpp>
 #include <query.hpp>
 #include <registries/privilege_registry.hpp>
@@ -683,18 +686,20 @@ inline void getOemNvidiaSwitchLinkStatus(
 {
     std::string command =
         std::string(ctl3PortSwitchLinkStatusTool) + " " + portIndex;
+    namespace bpv2 = boost::process::v2;
+    auto& io = crow::connections::systemBus->get_io_context();
 
     auto callback = [asyncResp, portName](const boost::system::error_code& ec,
                                           int exitCode) mutable {
+        port::LinkStatus status = port::LinkStatus::Invalid;
+
         if (ec)
         {
-            BMCWEB_LOG_ERROR("Failed to execute command with error: {}",
-                             ec.message());
+            BMCWEB_LOG_ERROR("Failed to execute command: {}", ec.message());
             messages::internalError(asyncResp->res);
             return;
         }
-        port::LinkStatus status =
-            port::LinkStatus::Invalid; // Initialize with default value
+        // Map exit code to LinkStatus
         if (exitCode == static_cast<int>(port::LinkStatus::LinkUp))
         {
             status = port::LinkStatus::LinkUp;
@@ -712,10 +717,15 @@ inline void getOemNvidiaSwitchLinkStatus(
         asyncResp->res.jsonValue["LinkStatus"][portName] = status;
     };
 
-    boost::process::async_system(
-        crow::connections::systemBus->get_io_context(), std::move(callback),
-        command, boost::process::std_in.close(),
-        boost::process::std_out > boost::process::null);
+    // Launch the command asynchronously with stdin/stdout/stderr disconnected
+    auto proc = std::make_shared<bpv2::process>(
+        io, "/bin/sh", std::vector<std::string>{"-c", command},
+        bpv2::process_stdio{.in = nullptr, .out = nullptr, .err = nullptr});
+
+    // Async wait for process completion
+    proc->async_wait([proc, cb = std::move(callback)](
+                         const boost::system::error_code& ec,
+                         int exitCode) mutable { cb(ec, exitCode); });
 }
 
 /**
@@ -876,10 +886,14 @@ inline void resetTorSwitch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     try
     {
-        boost::process::child execProg("/usr/sbin/mlnx_bf_reset_control",
-                                       "do_tor_eswitch_reset");
-        execProg.wait();
-        if (execProg.exit_code() == 0)
+        boost::asio::io_context& ioCtx =
+            crow::connections::systemBus->get_io_context();
+        boost::process::v2::process proc(
+            ioCtx, "/usr/sbin/mlnx_bf_reset_control", {"do_tor_eswitch_reset"});
+
+        proc.wait(); // Wait for the process to finish
+
+        if (proc.exit_code() == 0)
         {
             BMCWEB_LOG_DEBUG("Reset switch to default");
         }
@@ -1217,7 +1231,6 @@ inline void handleTruststoreCertificatesResetKeys(
         return;
     }
 
-    crow::Request reqFixedTar = req.copy();
     privilege_utils::isBiosPrivilege(req.session->username, [reqFixedTar,
                                                              asyncResp](
                                                                 const boost::
@@ -1754,30 +1767,41 @@ inline void requestRoutesNvidiaOemBf(App& app)
             {
                 return;
             }
-            auto dataOut = std::make_shared<boost::process::ipstream>();
-            auto dataErr = std::make_shared<boost::process::ipstream>();
-            auto callback = [asyncResp, dataOut,
-                             dataErr](const boost::system::error_code& ec,
-                                      int errorCode) mutable {
-                if (ec)
-                {
-                    BMCWEB_LOG_ERROR(
-                        "mlnx_bf_reset_control script failed with error code: {} {}",
-                        ec, errorCode);
-                    messages::operationFailed(asyncResp->res);
-                    return;
-                }
-                BMCWEB_LOG_DEBUG("SOC Hard Reset");
-                messages::success(asyncResp->res);
-            };
 
             std::string command =
                 "/usr/sbin/mlnx_bf_reset_control soc_hard_reset_ignore_host";
-            boost::process::async_system(
-                crow::connections::systemBus->get_io_context(),
-                std::move(callback), command, boost::process::std_in.close(),
-                boost::process::std_out > *dataOut,
-                boost::process::std_err > *dataErr);
+
+            // Launch process with stdin/out/err disconnected
+            namespace bpv2 = boost::process::v2;
+            auto& io = crow::connections::systemBus->get_io_context();
+
+            auto proc = std::make_shared<bpv2::process>(
+                io, "/bin/sh", std::vector<std::string>{"-c", command},
+                bpv2::process_stdio{
+                    .in = nullptr, .out = nullptr, .err = nullptr});
+
+            // Async wait for process completion
+            proc->async_wait(
+                [proc, asyncResp](const boost::system::error_code& ec,
+                                  int exitCode) mutable {
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR("SOC reset failed: {}", ec.message());
+                        messages::operationFailed(asyncResp->res);
+                        return;
+                    }
+
+                    if (exitCode != 0)
+                    {
+                        BMCWEB_LOG_ERROR("SOC reset returned exit code {}",
+                                         exitCode);
+                        messages::operationFailed(asyncResp->res);
+                        return;
+                    }
+
+                    BMCWEB_LOG_DEBUG("SOC Hard Reset successful");
+                    messages::success(asyncResp->res);
+                });
         });
 
     if constexpr (BMCWEB_NVIDIA_OEM_BF3_PROPERTIES)
