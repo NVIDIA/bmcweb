@@ -93,7 +93,7 @@ inline void bootModeSet(const crow::Request& req,
                         const std::string& chassisId, bool enabled)
 {
     mctp_utils::enumerateMctpEndpoints(
-        [req, asyncResp, chassisId,
+        [&req, asyncResp, chassisId,
          enabled](const std::shared_ptr<std::vector<mctp_utils::MctpEndpoint>>&
                       endpoints) {
             if (!endpoints || endpoints->empty())

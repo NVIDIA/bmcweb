@@ -20,12 +20,15 @@
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
 #include "logging.hpp"
-#include "credential_pipe.hpp"
 
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/readable_pipe.hpp>
+#include <boost/asio/writable_pipe.hpp>
+#include <boost/asio/write.hpp>
+#include <boost/process/v2/execute.hpp>
 #include <boost/process/v2/process.hpp>
 #include <boost/process/v2/stdio.hpp>
-#include <boost/system/error_code.hpp>
-#include <array>
 
 #include <chrono>
 #include <functional>
@@ -197,78 +200,80 @@ struct MctpVdmUtil
         namespace bpv2 = boost::process::v2;
         auto& io = crow::connections::systemBus->get_io_context();
 
-        struct ProcState
-        {
-            bpv2::process proc;
-            CredentialsPipe outPipe;
-            CredentialsPipe errPipe;
-            std::array<char, 4096> outBuf{};
-            std::array<char, 4096> errBuf{};
-            std::string outStr;
-            std::string errStr;
-            int exitCode{0};
-            bool outDone{false};
-            bool errDone{false};
-            bool waitDone{false};
-            explicit ProcState(boost::asio::io_context& ioCtx) : proc(ioCtx), outPipe(ioCtx), errPipe(ioCtx) {}
+        // Create pipes for stdout/stderr
+        auto outPipe = std::make_shared<boost::asio::readable_pipe>(io);
+        auto errPipe = std::make_shared<boost::asio::readable_pipe>(io);
+
+        // Buffers and accumulators
+        auto outBuf = std::make_shared<std::array<char, 4096>>();
+        auto errBuf = std::make_shared<std::array<char, 4096>>();
+        auto stdOutStr = std::make_shared<std::string>();
+        auto stdErrStr = std::make_shared<std::string>();
+
+        // Setup stdio redirection
+        bpv2::process_stdio stdio{
+            nullptr,  // stdin closed
+            *outPipe, // stdout
+            *errPipe  // stderr
         };
 
-        auto state = std::make_shared<ProcState>(io);
+        // Launch process
+        auto proc = std::make_shared<bpv2::process>(
+            io, "/bin/sh", std::vector<std::string>{"-c", this->command},
+            stdio);
 
-        // Launch via shell to pass full command string
-        state->proc = bpv2::process(
-            io, "/bin/sh", std::vector<std::string>{"-c", command},
-            bpv2::process_stdio{.in = bpv2::stdio::null,
-                                 .out = bpv2::fd{state->outPipe.impl.native_handle()},
-                                 .err = bpv2::fd{state->errPipe.impl.native_handle()}});
-
-        auto tryComplete = [state, req, asyncResp, cb = std::move(responseCallback),
-                            endpointId = this->endpointId]() mutable {
-            if (state->outDone && state->errDone && state->waitDone)
-            {
-                boost::system::error_code ec;
-                if (state->exitCode != 0)
-                {
-                    ec = make_error_code(boost::system::errc::io_error);
-                }
-                cb(req, asyncResp, endpointId, state->outStr, state->errStr, ec, state->exitCode);
-            }
+        // Async readers
+        auto readOut = [outPipe, outBuf, stdOutStr](auto&& self) -> void {
+            outPipe->async_read_some(
+                boost::asio::buffer(*outBuf),
+                [outPipe, outBuf, stdOutStr,
+                 self](const boost::system::error_code& ec,
+                       std::size_t n) mutable {
+                    if (!ec && n > 0)
+                    {
+                        stdOutStr->append(outBuf->data(), n);
+                        self(self); // continue reading
+                    }
+                });
+        };
+        auto readErr = [errPipe, errBuf, stdErrStr](auto&& self) -> void {
+            errPipe->async_read_some(
+                boost::asio::buffer(*errBuf),
+                [errPipe, errBuf, stdErrStr,
+                 self](const boost::system::error_code& ec,
+                       std::size_t n) mutable {
+                    if (!ec && n > 0)
+                    {
+                        stdErrStr->append(errBuf->data(), n);
+                        self(self); // continue reading
+                    }
+                });
         };
 
-        auto readOut = [state, tryComplete](auto& self) mutable {
-            state->outPipe.read.async_read_some(boost::asio::buffer(state->outBuf),
-                                       [state, &self, tryComplete](const boost::system::error_code& ec, std::size_t n) mutable {
-                                           if (!ec)
-                                           {
-                                               state->outStr.append(state->outBuf.data(), n);
-                                               self(self);
-                                               return;
-                                           }
-                                           state->outDone = true;
-                                           tryComplete();
-                                       });
-        };
-        auto readErr = [state, tryComplete](auto& self) mutable {
-            state->errPipe.read.async_read_some(boost::asio::buffer(state->errBuf),
-                                       [state, &self, tryComplete](const boost::system::error_code& ec, std::size_t n) mutable {
-                                           if (!ec)
-                                           {
-                                               state->errStr.append(state->errBuf.data(), n);
-                                               self(self);
-                                               return;
-                                           }
-                                           state->errDone = true;
-                                           tryComplete();
-                                       });
-        };
-
-        // Start reading and waiting
         readOut(readOut);
         readErr(readErr);
-        state->proc.async_wait([state, tryComplete](const boost::system::error_code& /*ec*/, int code) mutable {
-            state->exitCode = code;
-            state->waitDone = true;
-            tryComplete();
-        });
+
+        // Completion callback
+        proc->async_wait(
+            [&req, asyncResp, proc, outPipe, errPipe, stdOutStr, stdErrStr,
+             respCallback = std::move(responseCallback),
+             endpointId = this->endpointId, command = this->command](
+                const boost::system::error_code& ec, int exitCode) mutable {
+                if (ec || exitCode != 0)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "Error while executing command: {} Error Code: {}",
+                        command, exitCode);
+                    BMCWEB_LOG_ERROR("MCTP VDM Error Response: {}", *stdErrStr);
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Error while executing command: {} Message: {}",
+                            command, ec.message());
+                    }
+                }
+                respCallback(req, asyncResp, endpointId, *stdOutStr, *stdErrStr,
+                             ec, exitCode);
+            });
     }
 };
