@@ -165,7 +165,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
      *
      * @return TaskQueue::iterator
      */
-    static TaskQueue::iterator getTaskToRemove()
+    static TaskQueue::iterator getTaskToRemoveLegacy()
     {
         TaskQueue::iterator runningTask = tasks.end();
         TaskQueue::iterator completedTask = tasks.end();
@@ -239,7 +239,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
 
         if (tasks.size() >= maxTaskCount)
         {
-            const auto last = getTaskToRemove();
+            const auto taskToRemove = getTaskToRemoveLegacy();
 
             // destroy all references
             (*taskToRemove)
@@ -280,11 +280,11 @@ struct TaskData : std::enable_shared_from_this<TaskData>
             {
                 // Severity is deprecated but there are still providers that
                 // use 1.0 schema.
-                severity = message["Severity"];
+                severity = message["Severity"].get<std::string>();
             }
             else if (message.contains("MessageSeverity"))
             {
-                severity = message["MessageSeverity"];
+                severity = message["MessageSeverity"].get<std::string>();
             }
             if (!severity.empty())
             {

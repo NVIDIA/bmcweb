@@ -536,9 +536,7 @@ class EventServiceManager
 
     bool sendTestEventLog(TestEvent& testEvent)
     {
-        nlohmann::json::array_t logEntryArray;
-        nlohmann::json& logEntryJson =
-            logEntryArray.emplace_back(nlohmann::json::object());
+        nlohmann::json::object_t logEntryJson;
 
         logEntryJson["EventId"] = std::to_string(eventId);
 
@@ -585,6 +583,9 @@ class EventServiceManager
         }
         // MemberId is 0 : since we are sending one event record.
         logEntryJson["MemberId"] = "0";
+
+        nlohmann::json::array_t logEntryArray;
+        logEntryArray.emplace_back(nlohmann::json(logEntryJson));
 
         nlohmann::json::object_t msg;
         msg["@odata.type"] = "#Event.v1_4_0.Event";

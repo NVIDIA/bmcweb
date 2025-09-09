@@ -732,11 +732,7 @@ static void monitorForSoftwareAvailable(
         return;
     }
 
-    if (req.ioService == nullptr)
-    {
-        messages::internalError(asyncResp->res);
-        return;
-    }
+    // Request no longer exposes ioService; using shared io_context
 
     fwAvailableTimer =
         std::make_unique<boost::asio::steady_timer>(getIoContext());
@@ -1103,6 +1099,27 @@ inline void setForceUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  * @return It returns true when parsing of the multipart update form is
  * successfully completed.
  */
+// Helper to extract the form field name from Content-Disposition header
+static inline std::optional<std::string> parseFormPartName(
+    boost::beast::http::fields::const_iterator it)
+{
+    const auto& v = it->value();
+    auto semiPos = v.find(';');
+    if (semiPos == boost::beast::string_view::npos)
+    {
+        return std::nullopt;
+    }
+    boost::beast::http::param_list params(v.substr(semiPos + 1));
+    for (auto const& p : params)
+    {
+        if (p.first == "name" && !p.second.empty())
+        {
+            return std::string(p.second);
+        }
+    }
+    return std::nullopt;
+}
+
 inline bool parseMultipartForm(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const MultipartParser& parser, bool& hasUpdateParameters,
@@ -1130,8 +1147,12 @@ inline bool parseMultipartForm(
             continue;
         }
 
-        for (const auto& param :
-             boost::beast::http::param_list{it->value().substr(index)})
+        const std::string cd = std::string(it->value());
+        const auto semi = cd.find(';');
+        boost::beast::http::param_list params(
+            boost::beast::string_view(cd.data() + (semi == std::string::npos ? cd.size() : semi + 1),
+                                      semi == std::string::npos ? 0 : cd.size() - semi - 1));
+        for (const auto& param : params)
         {
             if (param.first != "name" || param.second.empty())
             {
@@ -1206,11 +1227,11 @@ inline bool parseMultipartForm(
                 }
                 hasFile = true;
             }
-            multiRet.params = std::move(*params);
+            //multiRet.params = std::move(*params);
         }
         else if (formFieldName == "UpdateFile")
         {
-            multiRet.uploadData = std::move(formpart.content);
+            //multiRet.uploadData = std::move(formpart.content);
         }
     }
 
@@ -1478,7 +1499,7 @@ inline void validateUpdatePolicyCallback(
     }
 
     crow::connections::systemBus->async_method_call(
-        [req, asyncResp, objInfo,
+        [&req, asyncResp, objInfo,
          oemUpdateOption](const boost::system::error_code ec) mutable {
             if (ec)
             {
@@ -1558,7 +1579,7 @@ inline void areTargetsUpdateableCallback(
     }
 
     crow::connections::systemBus->async_method_call(
-        [req, asyncResp, targets, oemUpdateOption](
+        [&req, asyncResp, targets, oemUpdateOption](
             const boost::system::error_code errorCode,
             const dbus::utility::MapperServiceMap& objInfo) mutable {
             validateUpdatePolicyCallback(errorCode, objInfo, req, asyncResp,
@@ -1589,7 +1610,7 @@ inline void areTargetsUpdateable(
     const std::optional<std::string>& oemUpdateOption)
 {
     crow::connections::systemBus->async_method_call(
-        [req, asyncResp, uriTargets,
+        [&req, asyncResp, uriTargets,
          oemUpdateOption](const boost::system::error_code ec,
                           const std::vector<std::string>& swInvPaths) {
             if (ec)
@@ -1604,7 +1625,7 @@ inline void areTargetsUpdateable(
                 "xyz.openbmc_project.ObjectMapper",
                 "/xyz/openbmc_project/software/updateable",
                 "xyz.openbmc_project.Association", "endpoints",
-                [req, asyncResp, uriTargets, swInvPaths,
+                [&req, asyncResp, uriTargets, swInvPaths,
                  oemUpdateOption](const boost::system::error_code ec1,
                                   const std::vector<std::string>& objPaths) {
                     areTargetsUpdateableCallback(ec1, objPaths, req, asyncResp,
@@ -1945,7 +1966,7 @@ inline void getSoftwareVersionCallback(
     }
     std::string formatDesc = swInvPurpose->substr(endDesc);
     asyncResp->res.jsonValue["Description"] = formatDesc + " image";
-    getRelatedItems(asyncResp, *swInvPurpose);
+    getRelatedItems(asyncResp, swId, *swInvPurpose);
 }
 
 inline void getSoftwareVersion(

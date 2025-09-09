@@ -1053,7 +1053,8 @@ inline void computeDigest(const crow::Request& req,
                 timeoutCallback);
             task->startTimer(std::chrono::seconds(retimerHashMaxTimeSec));
             task->populateResp(asyncResp->res);
-            task->payload.emplace(req);
+            task::Payload payload(req);
+            task->payload.emplace(std::move(payload));
             computeDigestInProgress = true;
             crow::connections::systemBus->async_method_call(
                 [task](const boost::system::error_code& ec3) {
@@ -1311,7 +1312,7 @@ inline void handleCommitImagePost(
     }
 
     auto initBackgroundCopyCallback =
-        [req, asyncResp]([[maybe_unused]] const UUID& uuid, const EID eid,
+        [&req, asyncResp]([[maybe_unused]] const UUID& uuid, const EID eid,
                          const URI& inventoryUri) mutable {
             BMCWEB_LOG_DEBUG("Run CommitImage operation for EID {}, UUID {}",
                              eid, uuid);
@@ -1319,7 +1320,7 @@ inline void handleCommitImagePost(
         };
 
     auto errorCallback =
-        [req, asyncResp]([[maybe_unused]] const std::string& desc,
+        [&req, asyncResp]([[maybe_unused]] const std::string& desc,
                          [[maybe_unused]] const std::string& errMsg) mutable {
             BMCWEB_LOG_ERROR("The CommitImage operation failed: {}, {}", desc,
                              errMsg);
@@ -1670,7 +1671,7 @@ inline void forwardCommitImagePost(
     }
 
     crow::HttpClient client(
-        *req.ioService,
+        crow::connections::systemBus->get_io_context(),
         std::make_shared<crow::ConnectionPolicy>(getPostAggregationPolicy()));
 
     std::function<void(crow::Response&)> cb =
@@ -1830,7 +1831,7 @@ inline void forwardImage(
     }
 
     crow::HttpClient client(
-        *sharedReq->ioService,
+        crow::connections::systemBus->get_io_context(),
         std::make_shared<crow::ConnectionPolicy>(getPostAggregationPolicy()));
 
     std::function<void(crow::Response&)> cb =
@@ -2077,7 +2078,7 @@ inline void forwardCommitImageActionInfo(
     }
 
     crow::HttpClient client(
-        *req.ioService,
+        crow::connections::systemBus->get_io_context(),
         std::make_shared<crow::ConnectionPolicy>(getPostAggregationPolicy()));
 
     std::function<void(crow::Response&)> cb =
@@ -2108,7 +2109,7 @@ inline void handleCommitImageActionInfoGet(
     asyncResp->res.jsonValue["Id"] = "CommitImageActionInfo";
 
     crow::connections::systemBus->async_method_call(
-        [asyncResp{asyncResp}, req](
+        [asyncResp{asyncResp}, &req](
             const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string,
@@ -2124,7 +2125,7 @@ inline void handleCommitImageActionInfoGet(
             if constexpr (BMCWEB_REDFISH_AGGREGATION)
             {
                 RedfishAggregator::getSatelliteConfigs(std::bind_front(
-                    forwardCommitImageActionInfo, req, asyncResp));
+                    forwardCommitImageActionInfo, req.copy(), asyncResp));
             }
         },
         // Note that only firmware levels associated with a device
@@ -2172,7 +2173,7 @@ inline void handleCommitImageActionInfoPost(
     }
 
     crow::connections::systemBus->async_method_call(
-        [req, asyncResp{asyncResp}](
+        [&req, asyncResp{asyncResp}](
             const boost::system::error_code& ec,
             const std::vector<std::pair<
                 std::string,

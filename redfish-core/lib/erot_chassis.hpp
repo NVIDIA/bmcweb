@@ -26,7 +26,8 @@
 #include "nvidia_protected_component.hpp"
 #include "query.hpp"
 #include "trusted_components.hpp"
-include "nvidia_dbus_utility.hpp"
+#include "nvidia_dbus_utility.hpp"
+#include "credential_pipe.hpp"
 #include <openssl/bio.h>
 #include <openssl/ec.h>
 
@@ -770,7 +771,7 @@ inline void handleEROTChassisPatch(
                     sdbusplus::asio::getProperty<std::string>(
                         *crow::connections::systemBus, connection.first, path,
                         "xyz.openbmc_project.Common.UUID", "UUID",
-                        [req, asyncResp, chassisId(std::string(chassisId)),
+                        [&req, asyncResp, chassisId(std::string(chassisId)),
                          backgroundCopyEnabled,
                          inBandEnabled](const boost::system::error_code ec1,
                                         const std::string& chassisUUID) {
@@ -1041,9 +1042,7 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     }
 
     std::string command = erotResetPrePath + " " + std::to_string(endpointId);
-    auto dataOut = std::make_shared<boost::process::ipstream>();
-    auto dataErr = std::make_shared<boost::process::ipstream>();
-    auto exitCallback = [asyncResp, dataOut, dataErr, erotResetPath,
+    auto exitCallback = [asyncResp, erotResetPath,
                          endpointId](const boost::system::error_code& ec,
                                      int errorCode) mutable {
         BMCWEB_LOG_DEBUG("ec: {}  errorCode {}", ec, errorCode);
@@ -1081,28 +1080,30 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
 
-        std::string resetCommand =
-            erotResetPath + " " + std::to_string(endpointId);
-        auto secondExitCallback =
-            [](const boost::system::error_code& ec2, int errorCode2) mutable {
-                BMCWEB_LOG_DEBUG("ec: {}  errorCode {}", ec2, errorCode2);
-            };
+        std::string resetCommand = erotResetPath + " " + std::to_string(endpointId);
         BMCWEB_LOG_DEBUG("Sending ERoT self-reset command");
 
         /* During the erotReset script, ERoT performs a self reset which leads
         to BMC external reset. Hence it is unnecessary to check its results */
         messages::success(asyncResp->res);
 
-        boost::process::async_system(
-            crow::connections::systemBus->get_io_context(),
-            std::move(secondExitCallback), resetCommand,
-            boost::process::std_in.close(), boost::process::std_out > *dataOut,
-            boost::process::std_err > *dataErr);
+        namespace bpv2 = boost::process::v2;
+        auto& io = crow::connections::systemBus->get_io_context();
+        auto outPipe = std::make_shared<CredentialsPipe>(io);
+        auto errPipe = std::make_shared<CredentialsPipe>(io);
+        // No result checking required for the reset command
+        bpv2::async_system(
+            io,
+            [outPipe, errPipe](const std::error_code&, int) {}, resetCommand,
+            bpv2::process_stdio{.in = nullptr, .out = outPipe->read, .err = errPipe->read});
     };
-    boost::process::async_system(
-        crow::connections::systemBus->get_io_context(), std::move(exitCallback),
-        command, boost::process::std_in.close(),
-        boost::process::std_out > *dataOut, boost::process::std_err > *dataErr);
+    namespace bpv2 = boost::process::v2;
+    auto& io = crow::connections::systemBus->get_io_context();
+    auto outPipe = std::make_shared<CredentialsPipe>(io);
+    auto errPipe = std::make_shared<CredentialsPipe>(io);
+    bpv2::async_system(
+        io, std::move(exitCallback), command,
+        bpv2::process_stdio{.in = nullptr, .out = outPipe->read, .err = errPipe->read});
 }
 
 /**
@@ -1124,7 +1125,7 @@ inline void findEIDforEROTReset(
     }
 
     crow::connections::systemBus->async_method_call(
-        [req, asyncResp, chassisUUID,
+        [&req, asyncResp, chassisUUID,
          isPCIe](const boost::system::error_code ec,
                  const dbus::utility::ManagedObjectType& resp) {
             if (ec)
@@ -1270,7 +1271,7 @@ inline void handleEROTChassisResetAction(
                 sdbusplus::asio::getProperty<std::string>(
                     *crow::connections::systemBus, connectionNames[0].first,
                     path, "xyz.openbmc_project.Common.UUID", "UUID",
-                    [req, asyncResp](const boost::system::error_code& ec2,
+                    [&req, asyncResp](const boost::system::error_code& ec2,
                                      const std::string& chassisUUID) {
                         if (ec2)
                         {

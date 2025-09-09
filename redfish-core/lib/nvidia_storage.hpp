@@ -551,7 +551,8 @@ inline void createSanitizeProgressTask(
             path + "'");
 
     task->startTimer(std::chrono::seconds(60));
-    task->payload.emplace(req);
+    task::Payload payload(req);
+    task->payload.emplace(std::move(payload));
     task->populateResp(asyncResp->res);
 
     taskUri[driveId] =
@@ -596,7 +597,7 @@ inline void handleDriveSanitizePost(
         "xyz.openbmc_project.Inventory.Item.Drive"};
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/inventory", 0, localDriveInterface,
-        [req, asyncResp, driveId, sanitizeType,
+        [&req, asyncResp, driveId, sanitizeType,
          owPass](const boost::system::error_code& ec4,
                  const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec4)
@@ -648,7 +649,7 @@ inline void handleDriveSanitizePost(
                 sanitizeType;
             // execute drive sanitize operation
             crow::connections::systemBus->async_method_call(
-                [req, asyncResp, service, path,
+                [&req, asyncResp, service, path,
                  driveId](const boost::system::error_code& ec,
                           sdbusplus::message::message& msg) {
                     const sd_bus_error* dbusError = msg.get_error();

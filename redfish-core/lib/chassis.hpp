@@ -824,7 +824,7 @@
                     {
                         redfish::nvidia_chassis_utils::checkIndicatorChassis(
                             connectionName, path,
-                            [asyncResp](bool indicatorChassis) {
+                            [asyncResp, objPath](bool indicatorChassis) {
                                 if (indicatorChassis)
                                 {
                                     getIndicatorLedState(asyncResp);
@@ -999,7 +999,7 @@
         }
         redfish::chassis_utils::isEROTChassis(
             chassisId,
-            [&app, req, asyncResp, chassisId](bool isEROT, bool isCpuEROT) {
+            [&app, &req, asyncResp, chassisId](bool isEROT, bool isCpuEROT) {
                 if (isEROT)
                 {
                     BMCWEB_LOG_DEBUG(" EROT chassis");
@@ -1259,7 +1259,7 @@
             return;
         }
         redfish::chassis_utils::isEROTChassis(
-            param, [&app, req, asyncResp, param](bool isEROT, bool isCpuEROT) {
+            param, [&app, &req, asyncResp, param](bool isEROT, bool isCpuEROT) {
                 if (isEROT)
                 {
                     BMCWEB_LOG_DEBUG(" EROT chassis");
@@ -1443,7 +1443,7 @@
         {
             redfish::chassis_utils::isEROTChassis(
                 chassisId,
-                [req, asyncResp, chassisId](bool isEROT, bool /*isCpuEROT*/) {
+                [&req, asyncResp, chassisId](bool isEROT, bool /*isCpuEROT*/) {
                     if (isEROT)
                     {
                         handleEROTChassisResetAction(req, asyncResp, chassisId);

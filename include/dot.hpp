@@ -128,6 +128,7 @@ class DotCommandHandler
     int lastExitCode{0};
 
     int subprocessTimeout;
+    std::unique_ptr<boost::asio::steady_timer> subprocessTimer;
 
     void resultCallback(const std::string& data)
     {
@@ -213,7 +214,7 @@ class DotCommandHandler
             [this, desc](const boost::system::error_code& ec) {
                 if (ec && ec != boost::asio::error::operation_aborted)
                 {
-                    subprocess.reset(nullptr);
+                    subprocess.reset();
                     errorCallback(desc, "Timeout");
                 }
             });
@@ -243,9 +244,9 @@ class DotCommandHandler
 
             // Configure stdio (ignore stderr as before)
             bpv2::process_stdio stdio{
-                .in = bpv2::stdio::null,
-                .out = bpv2::fd{outPipe->impl.native_handle()},
-                .err = bpv2::stdio::null,
+                .in = nullptr,
+                .out = outPipe->read,
+                .err = nullptr,
             };
 
             // Launch process
@@ -301,7 +302,7 @@ class DotCommandHandler
                               subprocessOutput.resize(0);
                               outPipe.reset(nullptr);
                               subprocess.reset();
-                              subprocessTimer.reset(nullptr);
+                              subprocessTimer.reset();
                               externalErrorCallback = nullptr;
                               externalResultCallback = nullptr;
                           });

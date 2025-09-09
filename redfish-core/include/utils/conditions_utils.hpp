@@ -129,7 +129,7 @@ inline void handleDeviceServiceConditions(
 
                 if (additionalData != nullptr)
                 {
-                    AdditionalData additional(*additionalData);
+                    redfish::AdditionalData additional(*additionalData);
                     if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
                     {
                         originOfCondition =
@@ -250,7 +250,7 @@ inline void handleServiceConditionsURI(
 
                 if (additionalData != nullptr)
                 {
-                    AdditionalData additional(*additionalData);
+                    redfish::AdditionalData additional(*additionalData);
                     if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
                     {
                         originOfCondition =

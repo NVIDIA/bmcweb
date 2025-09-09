@@ -2215,6 +2215,7 @@ static LogParseError fillEventLogEntryJson(
 }
 
 inline void fillEventLogLogEntryFromDbusLogEntry(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const DbusEventLogEntry& entry, nlohmann::json& objectToFillOut)
 {
     objectToFillOut["@odata.type"] = "#LogEntry.v1_9_0.LogEntry";
@@ -2289,7 +2290,7 @@ inline void afterLogEntriesGetManagedObjects(
             messages::internalError(asyncResp->res);
             return;
         }
-        fillEventLogLogEntryFromDbusLogEntry(*optEntry,
+        fillEventLogLogEntryFromDbusLogEntry(asyncResp, *optEntry,
                                              entriesArray.emplace_back());
     }
 
@@ -2574,7 +2575,7 @@ inline void afterDBusEventLogEntryGet(
         return;
     }
 
-    fillEventLogLogEntryFromDbusLogEntry(*optEntry, asyncResp->res.jsonValue);
+    fillEventLogLogEntryFromDbusLogEntry(asyncResp, *optEntry, asyncResp->res.jsonValue);
 }
 
 inline void dBusEventLogEntryGet(

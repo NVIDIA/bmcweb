@@ -202,7 +202,8 @@ inline void requestRoutesEventLogDiagnosticDataCollect(App& app)
                                 return task::completed;
                             },
                             "0");
-                        mfgTestTask->payload.emplace(req);
+                        task::Payload payload(req);
+                        mfgTestTask->payload.emplace(std::move(payload));
                         mfgTestTask->startTimer(std::chrono::seconds(
                             BMCWEB_MANUFACTURING_TEST_TIMEOUT));
                         try

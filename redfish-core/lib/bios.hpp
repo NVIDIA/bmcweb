@@ -13,7 +13,7 @@
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/sw_utils.hpp"
-
+#include "nvidia_bios.hpp"
 #include <boost/beast/http/verb.hpp>
 
 #include <format>

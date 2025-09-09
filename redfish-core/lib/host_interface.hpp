@@ -24,6 +24,7 @@
 #include <dbus_utility.hpp>
 #include <error_messages.hpp>
 #include <registries/privilege_registry.hpp>
+#include <registries/bios_attribute_registry.hpp>
 #include <utils/json_utils.hpp>
 
 #include <fstream>
@@ -31,6 +32,7 @@
 #include <regex>
 namespace redfish
 {
+namespace rf_bios = redfish::registries::bios;
 using GetObjectType =
     std::vector<std::pair<std::string, std::vector<std::string>>>;
 
@@ -104,7 +106,7 @@ inline void getCredentialsBootStrap(
             if (ec || objType.empty())
             {
                 BMCWEB_LOG_ERROR("GetObject for path {}",
-                                 redfish::bios::biosConfigObj);
+                                 rf_bios::biosConfigObj);
                 messages::internalError(asyncResp->res);
                 return;
             }
@@ -115,7 +117,7 @@ inline void getCredentialsBootStrap(
                     const boost::system::error_code& ec1,
                     const std::vector<std::pair<
                         std::string,
-                        std::variant<std::string, redfish::bios::BaseBIOSTable,
+                        std::variant<std::string, rf_bios::BaseBIOSTable,
                                      bool>>>& propertiesList) {
                     if (ec1)
                     {
@@ -131,7 +133,7 @@ inline void getCredentialsBootStrap(
                     for (const std::pair<
                              std::string,
                              std::variant<std::string,
-                                          redfish::bios::BaseBIOSTable, bool>>&
+                                          rf_bios::BaseBIOSTable, bool>>&
                              property : propertiesList)
                     {
                         const std::string& propertyName = property.first;
@@ -165,15 +167,15 @@ inline void getCredentialsBootStrap(
                         }
                     }
                 },
-                biosService, redfish::bios::biosConfigObj,
+                biosService, rf_bios::biosConfigObj,
                 "org.freedesktop.DBus.Properties", "GetAll",
-                redfish::bios::biosConfigIface);
+                rf_bios::biosConfigIface);
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject",
-        redfish::bios::biosConfigObj,
-        std::array<const char*, 1>{redfish::bios::biosConfigIface});
+        rf_bios::biosConfigObj,
+        std::array<const char*, 1>{rf_bios::biosConfigIface});
 }
 
 inline void setCredentialBootstrap(
@@ -186,7 +188,7 @@ inline void setCredentialBootstrap(
             if (ec || objType.empty())
             {
                 BMCWEB_LOG_ERROR("GetObject for path {}",
-                                 redfish::bios::biosConfigObj);
+                                 rf_bios::biosConfigObj);
                 messages::internalError(asyncResp->res);
                 return;
             }
@@ -202,16 +204,16 @@ inline void setCredentialBootstrap(
                         return;
                     }
                 },
-                biosService, redfish::bios::biosConfigObj,
+                biosService, rf_bios::biosConfigObj,
                 "org.freedesktop.DBus.Properties", "Set",
-                redfish::bios::biosConfigIface, property,
+                rf_bios::biosConfigIface, property,
                 std::variant<bool>(flag));
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject",
-        redfish::bios::biosConfigObj,
-        std::array<const char*, 1>{redfish::bios::biosConfigIface});
+        rf_bios::biosConfigObj,
+        std::array<const char*, 1>{rf_bios::biosConfigIface});
 }
 
 inline void setInterfaceEnabled(

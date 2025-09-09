@@ -1278,7 +1278,7 @@ inline void requestRoutesChassisControls(App& app)
                 return;
             }
             auto patchControlSystem = [asyncResp, chassisID, controlID,
-                                       req](const std::optional<std::string>&
+                                       &req](const std::optional<std::string>&
                                                 validChassisPath) {
                 if (!validChassisPath)
                 {
@@ -1289,7 +1289,7 @@ inline void requestRoutesChassisControls(App& app)
                 }
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisID, controlID,
-                     req](const boost::system::error_code& ec,
+                     &req](const boost::system::error_code& ec,
                           std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {
@@ -1376,7 +1376,7 @@ inline void requestRoutesChassisControls(App& app)
 
             auto patchChassisControl = [asyncResp, chassisID, controlID,
                                         patchControlSystem,
-                                        req](const std::optional<std::string>&
+                                        &req](const std::optional<std::string>&
                                                  validChassisPath) {
                 if (!validChassisPath)
                 {
@@ -1389,7 +1389,7 @@ inline void requestRoutesChassisControls(App& app)
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, controlID, validChassisPath, patchControlSystem,
                      chassisID,
-                     req](const boost::system::error_code& ec,
+                     &req](const boost::system::error_code& ec,
                           std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {
@@ -1415,7 +1415,7 @@ inline void requestRoutesChassisControls(App& app)
                             crow::connections::systemBus->async_method_call(
                                 [asyncResp, controlID, chassisID, processorPath,
                                  validChassisPath,
-                                 req](const boost::system::error_code& ec1,
+                                 &req](const boost::system::error_code& ec1,
                                       const dbus::utility::MapperGetObject&
                                           objType) {
                                     if (ec1 || objType.empty())
@@ -1469,7 +1469,7 @@ inline void requestRoutesChassisControls(App& app)
             };
 
             auto patchControlCpu = [asyncResp, chassisID, controlID,
-                                    req](const std::optional<std::string>&
+                                    &req](const std::optional<std::string>&
                                              validChassisPath) {
                 if (!validChassisPath)
                 {
@@ -1480,7 +1480,7 @@ inline void requestRoutesChassisControls(App& app)
                 }
                 crow::connections::systemBus->async_method_call(
                     [asyncResp, chassisID, controlID,
-                     req](const boost::system::error_code& ec,
+                     &req](const boost::system::error_code& ec,
                           std::variant<std::vector<std::string>>& resp) {
                         if (ec)
                         {

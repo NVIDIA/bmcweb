@@ -710,7 +710,7 @@
 
         dbus::utility::getDbusObject(
             "/au/com/codeconstruct/mctp1", interfaces,
-            [req, asyncResp, chassisId, chassisUUID, option,
+            [&req, asyncResp, chassisId, chassisUUID, option,
              enabled](const boost::system::error_code& ec,
                       const dbus::utility::MapperGetObject& resp) mutable {
                 if (ec || resp.empty())
@@ -729,7 +729,7 @@
                     }
                     std::string serviceName = it.first;
                     crow::connections::systemBus->async_method_call(
-                        [req, asyncResp, chassisUUID, serviceName, option,
+                        [&req, asyncResp, chassisUUID, serviceName, option,
                          enabled, chassisId, chassisProcessed](
                             const boost::system::error_code& ec2,
                             const dbus::utility::ManagedObjectType&
@@ -891,7 +891,7 @@
                                             req, asyncResp, endpointId,
                                             inbandUpdatePolicyAllowList,
                                             chassisId,
-                                            [req, asyncResp, endpointId,
+                                            [&req, asyncResp, endpointId,
                                              automaticBackgroundCopyAllowList,
                                              backgroundCopyStatusAllowList,
                                              chassisId]() {
@@ -899,7 +899,7 @@
                                                     req, asyncResp, endpointId,
                                                     automaticBackgroundCopyAllowList,
                                                     chassisId,
-                                                    [req, asyncResp, endpointId,
+                                                    [&req, asyncResp, endpointId,
                                                      backgroundCopyStatusAllowList,
                                                      chassisId]() {
                                                         updateBackgroundCopyStatus(
@@ -1124,7 +1124,7 @@
         sdbusplus::asio::getProperty<std::string>(
             *crow::connections::systemBus, connectionName, path,
             "xyz.openbmc_project.Common.UUID", "UUID",
-            [req, asyncResp, isERoT, path](const boost::system::error_code& ec,
+            [&req, asyncResp, isERoT, path](const boost::system::error_code& ec,
                                            const std::string& chassisUUID) {
                 if (ec)
                 {

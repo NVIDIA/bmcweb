@@ -20,7 +20,10 @@
 #include "dbus_singleton.hpp"
 #include "error_messages.hpp"
 
-#include <boost/process.hpp>
+#include "credential_pipe.hpp"
+#include <boost/asio/readable_pipe.hpp>
+#include <boost/process/v2/process.hpp>
+#include <boost/process/v2/stdio.hpp>
 
 #include <functional>
 #include <iostream>
@@ -110,51 +113,101 @@ struct PersistentStorageUtil
         const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         const std::string& command, AsyncResponseCallback responseCallback)
     {
-        auto dataOut = std::make_shared<boost::process::ipstream>();
-        auto dataErr = std::make_shared<boost::process::ipstream>();
-        auto exitCallback = [&req, asyncResp, dataOut, dataErr, command,
-                             respCallback = std::move(responseCallback)](
-                                const boost::system::error_code& ec,
-                                int errorCode) mutable {
+        namespace bpv2 = boost::process::v2;
+        auto& io = crow::connections::systemBus->get_io_context();
+
+        struct State
+        {
+            std::shared_ptr<bpv2::process> proc;
+            std::shared_ptr<CredentialsPipe> outPipe;
+            std::shared_ptr<CredentialsPipe> errPipe;
+            std::array<char, 4096> outBuf{};
+            std::array<char, 4096> errBuf{};
             std::string stdOut;
             std::string stdErr;
-            if (ec || (errorCode != 0))
-            {
-                BMCWEB_LOG_ERROR(
-                    "Error while executing persistent storage command: {} Error Code: {}",
-                    command, errorCode);
+            int exitCode{0};
+            bool outDone{false};
+            bool errDone{false};
+            bool waitDone{false};
+        };
 
-                while (*dataErr)
-                {
-                    std::string line;
-                    std::getline(*dataErr, line);
-                    stdErr += line + "\n";
-                }
-                dataErr->close();
-                BMCWEB_LOG_ERROR("Command Response: {}", stdErr);
-                if (ec)
+        auto state = std::make_shared<State>();
+        state->outPipe = std::make_shared<CredentialsPipe>(io);
+        state->errPipe = std::make_shared<CredentialsPipe>(io);
+
+        auto tryComplete = [state, &req, asyncResp,
+                            cb = std::move(responseCallback),
+                            command](const boost::system::error_code& ec) mutable {
+            if (state->outDone && state->errDone && state->waitDone)
+            {
+                if (ec || state->exitCode != 0)
                 {
                     BMCWEB_LOG_ERROR(
-                        "Error while executing command: {} Message: {}",
-                        command, ec.message());
+                        "Error while executing persistent storage command: {} Error Code: {}",
+                        command, state->exitCode);
+                    if (!state->stdErr.empty())
+                    {
+                        BMCWEB_LOG_ERROR("Command Response: {}", state->stdErr);
+                    }
+                    if (ec)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "Error while executing command: {} Message: {}",
+                            command, ec.message());
+                    }
+                    return;
                 }
-                return;
+                cb(req, asyncResp, state->stdOut, state->stdErr, ec, state->exitCode);
             }
-            while (*dataOut)
-            {
-                std::string line;
-                std::getline(*dataOut, line);
-                stdOut += line + "\n";
-            }
-            dataOut->close();
-            respCallback(req, asyncResp, stdOut, stdErr, ec, errorCode);
-            return;
         };
-        boost::process::async_system(
-            crow::connections::systemBus->get_io_context(), exitCallback,
-            command, boost::process::std_in.close(),
-            boost::process::std_out > *dataOut,
-            boost::process::std_err > *dataErr);
+
+        // Launch via shell so command string is honored
+        state->proc = std::make_shared<bpv2::process>(
+            io, "/bin/sh", std::vector<std::string>{"-c", command},
+            bpv2::process_stdio{.in = nullptr, .out = state->outPipe->read, .err = state->errPipe->read});
+
+        // Read stdout
+        std::function<void()> readOut;
+        readOut = [state, tryComplete, &readOut]() mutable {
+            state->outPipe->read.async_read_some(
+                boost::asio::buffer(state->outBuf),
+                [state, tryComplete, &readOut](const boost::system::error_code& ec, std::size_t n) mutable {
+                    if (!ec)
+                    {
+                        state->stdOut.append(state->outBuf.data(), n);
+                        readOut();
+                        return;
+                    }
+                    state->outDone = true;
+                    tryComplete(ec);
+                });
+        };
+        readOut();
+
+        // Read stderr
+        std::function<void()> readErr;
+        readErr = [state, tryComplete, &readErr]() mutable {
+            state->errPipe->read.async_read_some(
+                boost::asio::buffer(state->errBuf),
+                [state, tryComplete, &readErr](const boost::system::error_code& ec, std::size_t n) mutable {
+                    if (!ec)
+                    {
+                        state->stdErr.append(state->errBuf.data(), n);
+                        readErr();
+                        return;
+                    }
+                    state->errDone = true;
+                    tryComplete(ec);
+                });
+        };
+        readErr();
+
+        // Wait for process exit
+        state->proc->async_wait([state, tryComplete](const boost::system::error_code& ec, int code) mutable {
+            state->exitCode = code;
+            state->waitDone = true;
+            tryComplete(ec);
+        });
     }
 };
 

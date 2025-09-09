@@ -24,9 +24,9 @@
 #include <boost/asio/error.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/process.hpp>
-//#include <boost/process/async.hpp>
-//#include <boost/process/child.hpp>
+#include <boost/process/v2/process.hpp>
+#include <boost/process/v2/stdio.hpp>
+
 
 #include <memory>
 #include <tuple>
@@ -103,7 +103,7 @@ class Handler : public std::enable_shared_from_this<Handler>
     ResultCallback callback;
 
     std::unique_ptr<boost::asio::steady_timer> operationTimer;
-    std::unique_ptr<boost::process::child> subprocess;
+    std::unique_ptr<boost::process::v2::process> subprocess;
     std::vector<char> subprocessOutput;
 
     /**
@@ -124,13 +124,13 @@ class Handler : public std::enable_shared_from_this<Handler>
             args.emplace_back(std::to_string(eid));
         }
         subprocessOutput.resize(vdmTokenStatusQueryOutputSize * eids.size());
-        subprocess = std::make_unique<boost::process::child>(
-            "/usr/bin/mctp-vdm-util-token-status-query-wrapper.sh", args,
-            boost::process::std_err > boost::process::null,
-            boost::process::std_out > boost::asio::buffer(subprocessOutput),
-            crow::connections::systemBus->get_io_context(),
-            boost::process::on_exit = std::bind_front(
-                &Handler::subprocessExitHandler, this, shared_from_this()));
+        namespace bpv2 = boost::process::v2;
+        auto& io = crow::connections::systemBus->get_io_context();
+        subprocess = std::make_unique<bpv2::process>(
+            io, "/usr/bin/mctp-vdm-util-token-status-query-wrapper.sh", args,
+            bpv2::process_stdio{.in = nullptr, .out = nullptr, .err = nullptr});
+        subprocess->async_wait(std::bind_front(
+            &Handler::subprocessExitHandler, this, shared_from_this()));
     }
 
     /**
@@ -154,7 +154,7 @@ class Handler : public std::enable_shared_from_this<Handler>
      */
     void destroyTimer(const std::shared_ptr<Handler>& /*unused*/)
     {
-        operationTimer.reset(nullptr);
+        operationTimer.reset();
     }
 
     /**
@@ -168,7 +168,7 @@ class Handler : public std::enable_shared_from_this<Handler>
     void timerHandler(const std::shared_ptr<Handler>& self,
                       const boost::system::error_code& ec)
     {
-        subprocess.reset(nullptr);
+        subprocess.reset();
         if (!ec)
         {
             BMCWEB_LOG_ERROR("VDM operation timeout");

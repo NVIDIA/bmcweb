@@ -420,7 +420,8 @@ inline void handleSPDMGETSignedMeasurement(
             "arg0=xyz.openbmc_project.SPDM.Responder");
     task->startTimer(std::chrono::seconds(spdmMeasurementTimeout));
     task->populateResp(asyncResp->res);
-    task->payload.emplace(req);
+    task::Payload payload(req);
+    task->payload.emplace(std::move(payload));
 
     crow::connections::systemBus->async_method_call(
         [objPath, task](const boost::system::error_code ec) {

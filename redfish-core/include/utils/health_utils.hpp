@@ -79,7 +79,7 @@ inline void getDeviceHealthInfo(crow::Response& resp,
     auto h = j->find("Health");
     if (h != j->end())
     {
-        std::string value = *h;
+        std::string value = h->get<std::string>();
         if (value.empty())
         {
             BMCWEB_LOG_WARNING("Get {} Health failed!", deviceId);
@@ -94,7 +94,7 @@ inline void getDeviceHealthInfo(crow::Response& resp,
     auto r = j->find("HealthRollup");
     if (r != j->end())
     {
-        std::string value = *r;
+        std::string value = r->get<std::string>();
         if (value.empty())
         {
             BMCWEB_LOG_WARNING("Get {} HealthRollup failed!", deviceId);

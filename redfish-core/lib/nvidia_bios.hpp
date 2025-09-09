@@ -2654,7 +2654,7 @@ inline void handleBiosAttrRegistryPut(
         return;
     }
     crow::connections::systemBus->async_method_call(
-        [req,
+        [&req,
          asyncResp](const boost::system::error_code& ec,
                     const std::map<std::string, dbus::utility::DbusVariantType>&
                         userInfo) {

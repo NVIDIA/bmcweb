@@ -136,10 +136,11 @@ inline void handleDiagResultGet(
 
             for (const auto& item : data)
             {
-                uint8_t tid = item["Tid"];
-                uint16_t result = item["Result"];
-                uint8_t resultMaskSize = item["ResultMaskSize"];
-                const std::vector<uint8_t>& resultMask = item["ResultMask"];
+                uint8_t tid = item["Tid"].get<uint8_t>();
+                uint16_t result = item["Result"].get<uint16_t>();
+                uint8_t resultMaskSize = item["ResultMaskSize"].get<uint8_t>();
+                std::vector<uint8_t> resultMask =
+                    item["ResultMask"].get<std::vector<uint8_t>>();
 
                 // Copy the required number of bytes
                 std::vector<uint8_t> truncatedResultMask(
