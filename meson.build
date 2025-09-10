@@ -425,6 +425,7 @@ srcfiles_bmcweb = files(
     'src/json_html_serializer.cpp',
     'src/nvidia_dbus_utility.cpp',
     'src/nvidia_persistent_data.cpp',
+    'src/ssl_key_handler.cpp',
     'src/nvidia_ssl_key_handler.cpp',
     'src/ossl_random.cpp',
     'src/webserver_run.cpp',

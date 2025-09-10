@@ -32,7 +32,9 @@
 //#include <boost/process/pipe.hpp>
 #include <boost/process/v2/process.hpp>
 #include <boost/process/v2/stdio.hpp>
-#include "credential_pipe.hpp"
+#include <boost/asio/readable_pipe.hpp>
+#include <boost/asio/writable_pipe.hpp>
+#include <boost/asio/connect_pipe.hpp>
 #include <memory>
 #include <numeric>
 #include <vector>
@@ -121,7 +123,7 @@ class DotCommandHandler
     ErrorCallback externalErrorCallback;
 
     std::optional<boost::process::v2::process> subprocess;
-    std::unique_ptr<CredentialsPipe> outPipe;
+    std::unique_ptr<boost::asio::readable_pipe> outRead;
     std::vector<char> subprocessOutput;
     std::array<char, 4096> outBuf{};
     bool readDone{false};
@@ -240,12 +242,15 @@ class DotCommandHandler
             subprocessOutput.reserve(mctpVdmUtilOutputSize + hexDataSize);
 
             // Pipe for stdout
-            outPipe = std::make_unique<CredentialsPipe>(io);
+            boost::asio::readable_pipe rp(io);
+            boost::asio::writable_pipe wp(io);
+            boost::asio::connect_pipe(rp, wp);
+            outRead = std::make_unique<boost::asio::readable_pipe>(std::move(rp));
 
             // Configure stdio (ignore stderr as before)
             bpv2::process_stdio stdio{
                 .in = nullptr,
-                .out = outPipe->read,
+                .out = std::move(wp),
                 .err = nullptr,
             };
 
@@ -256,7 +261,7 @@ class DotCommandHandler
             auto self = this;
             std::function<void()> readLoop;
             readLoop = [self, &readLoop]() {
-                self->outPipe->read.async_read_some(
+                self->outRead->async_read_some(
                     boost::asio::buffer(self->outBuf),
                     [self, &readLoop](const boost::system::error_code& ec, std::size_t n) {
                         if (!ec)
@@ -300,7 +305,7 @@ class DotCommandHandler
         boost::asio::post(crow::connections::systemBus->get_io_context(),
                           [this] {
                               subprocessOutput.resize(0);
-                              outPipe.reset(nullptr);
+                              outRead.reset(nullptr);
                               subprocess.reset();
                               subprocessTimer.reset();
                               externalErrorCallback = nullptr;

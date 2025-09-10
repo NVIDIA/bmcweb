@@ -33,6 +33,12 @@
 
 #include <app.hpp>
 #include <boost/container/flat_map.hpp>
+#include <boost/process/v2/process.hpp>
+#include <boost/process/v2/stdio.hpp>
+//#include <boost/process/v2/async_pipe.hpp>
+#include <boost/asio/readable_pipe.hpp>
+#include <boost/asio/writable_pipe.hpp>
+#include <boost/asio/connect_pipe.hpp>
 #include <dbus_utility.hpp>
 #include <openbmc_dbus_rest.hpp>
 #include <registries/privilege_registry.hpp>
@@ -1089,21 +1095,45 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
         namespace bpv2 = boost::process::v2;
         auto& io = crow::connections::systemBus->get_io_context();
-        auto outPipe = std::make_shared<CredentialsPipe>(io);
-        auto errPipe = std::make_shared<CredentialsPipe>(io);
-        // No result checking required for the reset command
-        bpv2::async_system(
+        boost::asio::readable_pipe outRead(io);
+        boost::asio::writable_pipe outWrite(io);
+        boost::asio::connect_pipe(outRead, outWrite);
+        boost::asio::readable_pipe errRead(io);
+        boost::asio::writable_pipe errWrite(io);
+        boost::asio::connect_pipe(errRead, errWrite);
+
+        bpv2::process child{
             io,
-            [outPipe, errPipe](const std::error_code&, int) {}, resetCommand,
-            bpv2::process_stdio{.in = nullptr, .out = outPipe->read, .err = errPipe->read});
+            resetCommand,
+            {},
+            bpv2::process_stdio{.in = nullptr, .out = std::move(outWrite), .err = std::move(errWrite)},
+        };
+        child.async_wait([outRead = std::move(outRead), errRead = std::move(errRead)](
+                             const std::error_code&, int) mutable {
+            // Ignore output; pipes kept alive until exit
+        });
     };
     namespace bpv2 = boost::process::v2;
     auto& io = crow::connections::systemBus->get_io_context();
-    auto outPipe = std::make_shared<CredentialsPipe>(io);
-    auto errPipe = std::make_shared<CredentialsPipe>(io);
-    bpv2::async_system(
-        io, std::move(exitCallback), command,
-        bpv2::process_stdio{.in = nullptr, .out = outPipe->read, .err = errPipe->read});
+    boost::asio::readable_pipe preOutRead(io);
+    boost::asio::writable_pipe preOutWrite(io);
+    boost::asio::connect_pipe(preOutRead, preOutWrite);
+    boost::asio::readable_pipe preErrRead(io);
+    boost::asio::writable_pipe preErrWrite(io);
+    boost::asio::connect_pipe(preErrRead, preErrWrite);
+
+    bpv2::process preChild{
+        io,
+        command,
+        {},
+        bpv2::process_stdio{.in = nullptr, .out = std::move(preOutWrite), .err = std::move(preErrWrite)},
+    };
+    preChild.async_wait([exitCallback = std::move(exitCallback),
+                         preOutRead = std::move(preOutRead),
+                         preErrRead = std::move(preErrRead)](const std::error_code& ec, int code) mutable {
+        // Keep pipes alive; then invoke original callback
+        exitCallback(boost::system::error_code(ec.value(), boost::system::generic_category()), code);
+    });
 }
 
 /**
