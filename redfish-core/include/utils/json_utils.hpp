@@ -963,7 +963,7 @@ bool readJsonSubObject(nlohmann::json::object_t& jsonRequest,
     packVariant(toUnpack2, key, std::forward<FirstType>(first),
                 std::forward<UnpackTypes&&>(in)...);
     // Only validate the keys we care about, ignore extra keys
-    return readJsonHelperObject(jsonRequest, res, toUnpack2);
+    return readJsonHelperObject(jsonRequest, res, toUnpack2, /*allowUnknownKeys=*/true);
 }
 
 template <typename FirstType, typename... UnpackTypes>

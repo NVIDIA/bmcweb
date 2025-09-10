@@ -1268,7 +1268,6 @@ inline void handleTruststoreCertificatesResetKeys(
 }
 
 inline void handleGetOemFru([[maybe_unused]] crow::App& app,
-                            const crow::Request& req,
                             const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     // Check if the OEM FRU is enabled
@@ -1277,7 +1276,7 @@ inline void handleGetOemFru([[maybe_unused]] crow::App& app,
         *crow::connections::systemBus, "xyz.openbmc_project.Settings",
         "/xyz/openbmc_project/control/oem_fru",
         "xyz.openbmc_project.Object.Enable", "Enabled",
-        [&req, asyncResp](const boost::system::error_code& ec, bool enabled) {
+        [asyncResp](const boost::system::error_code& ec, bool enabled) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -1903,7 +1902,7 @@ inline void requestRoutesNvidiaOemBf(App& app)
                                "DeleteAllKeys"};
                 }
                 socForceReset["target"] = bluefield::socForceResetTraget;
-                bluefield::handleGetOemFru(app, req, asyncResp);
+                bluefield::handleGetOemFru(app, asyncResp);
                 sdbusplus::asio::getAllProperties(
                     *crow::connections::systemBus, bluefield::dpuFruObj,
                     bluefield::dpuFruPath,

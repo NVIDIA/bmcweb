@@ -37,6 +37,7 @@
 #include <boost/asio/connect_pipe.hpp>
 #include <memory>
 #include <numeric>
+#include <span>
 #include <vector>
 
 namespace redfish
@@ -266,8 +267,10 @@ class DotCommandHandler
                     [self, &readLoop](const boost::system::error_code& ec, std::size_t n) {
                         if (!ec)
                         {
-                            self->subprocessOutput.insert(self->subprocessOutput.end(),
-                                                          self->outBuf.begin(), self->outBuf.begin() + n);
+                            std::span<const char> chunk(self->outBuf.data(), n);
+                            self->subprocessOutput.insert(
+                                self->subprocessOutput.end(), chunk.begin(),
+                                chunk.end());
                             readLoop();
                             return;
                         }

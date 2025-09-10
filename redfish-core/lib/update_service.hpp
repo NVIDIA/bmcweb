@@ -1148,9 +1148,10 @@ inline bool parseMultipartForm(
 
         const std::string cd = std::string(it->value());
         const auto semi = cd.find(';');
-        boost::beast::http::param_list params(
-            boost::beast::string_view(cd.data() + (semi == std::string::npos ? cd.size() : semi + 1),
-                                      semi == std::string::npos ? 0 : cd.size() - semi - 1));
+        boost::beast::string_view cdv(cd);
+        const std::size_t start = (semi == std::string::npos) ? cdv.size() : semi + 1;
+        const boost::beast::string_view tail = cdv.substr(start);
+        boost::beast::http::param_list params(tail);
         for (const auto& param : params)
         {
             if (param.first != "name" || param.second.empty())
@@ -1731,7 +1732,7 @@ inline void processMultipartFormData(
                 {
                     // All URIs in Target has the prepended prefix
                     BMCWEB_LOG_ERROR("forward image {}", uriTargets[0]);
-                    auto sharedReq = std::make_shared<crow::Request>(req);
+                    auto sharedReq = std::make_shared<crow::Request>(req.copy());
                     RedfishAggregator::getSatelliteConfigs(std::bind_front(
                         forwardImage, sharedReq, updateAll, asyncResp));
                 }

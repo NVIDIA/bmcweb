@@ -1007,12 +1007,19 @@ inline void getOemCBCChassisAsset(
                               nullptr, 16));
             }
 
-            TrayTopology* trayTopologyPtr =
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-                reinterpret_cast<TrayTopology*>(byteArray.data());
+            // Safely copy into a TrayTopology struct
+            TrayTopology trayTopology{};
+            if (sizeof(trayTopology) > byteArray.size())
+            {
+                BMCWEB_LOG_ERROR(
+                    "CBC Tray ID data is shorter than TrayTopology size");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            std::memcpy(&trayTopology, byteArray.data(), sizeof(trayTopology));
 
             // make sure it can support trayTopologyMinRevision at least
-            if (trayTopologyPtr->revision < trayTopologyMinRevision)
+            if (trayTopology.revision < trayTopologyMinRevision)
             {
                 BMCWEB_LOG_ERROR("CBC Tray ID revision must be >= {}",
                                  static_cast<int>(trayTopologyMinRevision));
@@ -1021,11 +1028,10 @@ inline void getOemCBCChassisAsset(
 
             auto& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
             oem["@odata.type"] = "#NvidiaChassis.v1_4_0.NvidiaCBCChassis";
-            oem["ChassisPhysicalSlotNumber"] =
-                trayTopologyPtr->chassisSlotNumber;
-            oem["ComputeTrayIndex"] = trayTopologyPtr->trayIndex;
-            oem["RevisionId"] = trayTopologyPtr->revision;
-            oem["TopologyId"] = trayTopologyPtr->topologyId;
+            oem["ChassisPhysicalSlotNumber"] = trayTopology.chassisSlotNumber;
+            oem["ComputeTrayIndex"] = trayTopology.trayIndex;
+            oem["RevisionId"] = trayTopology.revision;
+            oem["TopologyId"] = trayTopology.topologyId;
         });
 }
 

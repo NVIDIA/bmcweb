@@ -514,10 +514,15 @@ class Handler : public std::enable_shared_from_this<Handler>
             generalErrorHandler();
             return;
         }
-        NsmDebugTokenRequest* nsmReq =
-            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-            reinterpret_cast<NsmDebugTokenRequest*>(request.data());
-        switch (nsmReq->status)
+        if (request.size() < sizeof(NsmDebugTokenRequest))
+        {
+            BMCWEB_LOG_ERROR("Invalid NSM token request size: {}", request.size());
+            result = std::make_tuple(EndpointState::Error, std::monostate());
+            return;
+        }
+        NsmDebugTokenRequest nsmReq{};
+        std::memcpy(&nsmReq, request.data(), sizeof(NsmDebugTokenRequest));
+        switch (nsmReq.status)
         {
             case NsmDebugTokenChallengeQueryStatus::OK:
                 result =
@@ -533,7 +538,7 @@ class Handler : public std::enable_shared_from_this<Handler>
                 break;
             default:
                 BMCWEB_LOG_ERROR("NSM token request - status: {}",
-                                 nsmReq->status);
+                                 nsmReq.status);
                 result =
                     std::make_tuple(EndpointState::Error, std::monostate());
                 break;

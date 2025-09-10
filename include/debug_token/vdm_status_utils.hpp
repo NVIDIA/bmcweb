@@ -762,15 +762,19 @@ struct VdmTokenStatus
                 responseStatus = VdmResponseStatus::INVALID_LENGTH;
                 return;
             }
-            VdmStatusV1* status =
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-                reinterpret_cast<VdmStatusV1*>(statusData.data());
+            VdmStatusV1 status{};
+            if (statusData.size() < sizeof(VdmStatusV1))
+            {
+                responseStatus = VdmResponseStatus::INVALID_LENGTH;
+                return;
+            }
+            std::memcpy(&status, statusData.data(), sizeof(VdmStatusV1));
             tokenStatus =
-                getTokenInstallationStatus(status->tokenInstallationStatus);
+                getTokenInstallationStatus(status.tokenInstallationStatus);
             deviceId.resize(vdmStatusDeviceIdLength);
-            std::memcpy(deviceId.data(), status->deviceId.data(),
+            std::memcpy(deviceId.data(), status.deviceId.data(),
                         vdmStatusDeviceIdLength);
-            fuseType = getTokenFuseType(status->fuseType);
+            fuseType = getTokenFuseType(status.fuseType);
             responseStatus = VdmResponseStatus::STATUS;
             return;
         }
@@ -784,30 +788,32 @@ struct VdmTokenStatus
                 responseStatus = VdmResponseStatus::INVALID_LENGTH;
                 return;
             }
-            VdmStatusV2* status =
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-                reinterpret_cast<VdmStatusV2*>(statusData.data());
-            status->tokenType = be32toh(status->tokenType);
-            status->validityCounter = be16toh(status->validityCounter);
-            status->tokenConfig = be16toh(status->tokenConfig);
-            status->processingStatus = be16toh(status->processingStatus);
+            VdmStatusV2 status{};
+            if (statusData.size() < sizeof(VdmStatusV2))
+            {
+                responseStatus = VdmResponseStatus::INVALID_LENGTH;
+                return;
+            }
+            std::memcpy(&status, statusData.data(), sizeof(VdmStatusV2));
+            status.tokenType = be32toh(status.tokenType);
+            status.validityCounter = be16toh(status.validityCounter);
+            status.tokenConfig = be16toh(status.tokenConfig);
+            status.processingStatus = be16toh(status.processingStatus);
             tokenStatus =
-                getTokenInstallationStatus(status->tokenInstallationStatus);
+                getTokenInstallationStatus(status.tokenInstallationStatus);
             deviceId.resize(vdmStatusV2DeviceIdLength);
-            std::memcpy(deviceId.data(), status->deviceId.data(),
+            std::memcpy(deviceId.data(), status.deviceId.data(),
                         vdmStatusV2DeviceIdLength);
-            fuseType = getTokenFuseType(status->fuseType);
-            tokenType = status->tokenType;
-            validityCounter = status->validityCounter;
-            tokenLifecycle = getTokenLifecycle(status->tokenConfig);
-            tokenActivation = getTokenActivation(status->tokenConfig);
-            tokenRevocation = getTokenRevocation(status->tokenConfig);
-            tokenDevIdStatus = getTokenDevIdStatus(status->tokenConfig);
-            tokenAntiReplay = getTokenAntiReplay(status->tokenConfig);
-            tokenResetPostInstall =
-                getTokenResetPostInstall(status->tokenConfig);
-            tokenProcessingStatus =
-                getTokenProcessingStatus(status->processingStatus);
+            fuseType = getTokenFuseType(status.fuseType);
+            tokenType = status.tokenType;
+            validityCounter = status.validityCounter;
+            tokenLifecycle = getTokenLifecycle(status.tokenConfig);
+            tokenActivation = getTokenActivation(status.tokenConfig);
+            tokenRevocation = getTokenRevocation(status.tokenConfig);
+            tokenDevIdStatus = getTokenDevIdStatus(status.tokenConfig);
+            tokenAntiReplay = getTokenAntiReplay(status.tokenConfig);
+            tokenResetPostInstall = getTokenResetPostInstall(status.tokenConfig);
+            tokenProcessingStatus = getTokenProcessingStatus(status.processingStatus);
             responseStatus = VdmResponseStatus::STATUS;
             return;
         }
@@ -821,19 +827,23 @@ struct VdmTokenStatus
                 responseStatus = VdmResponseStatus::INVALID_LENGTH;
                 return;
             }
-            VdmStatusV3* status =
-                // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-                reinterpret_cast<VdmStatusV3*>(statusData.data());
-            status->deviceType = be16toh(status->deviceType);
-            status->tokenType = be32toh(status->tokenType);
-            deviceType = getDeviceType(status->deviceType);
+            VdmStatusV3 status{};
+            if (statusData.size() < sizeof(VdmStatusV3))
+            {
+                responseStatus = VdmResponseStatus::INVALID_LENGTH;
+                return;
+            }
+            std::memcpy(&status, statusData.data(), sizeof(VdmStatusV3));
+            status.deviceType = be16toh(status.deviceType);
+            status.tokenType = be32toh(status.tokenType);
+            deviceType = getDeviceType(status.deviceType);
             tokenStatus =
-                getTokenInstallationStatus(status->tokenInstallationStatus);
+                getTokenInstallationStatus(status.tokenInstallationStatus);
             deviceId.resize(vdmStatusV3DeviceIdLength);
-            std::memcpy(deviceId.data(), status->deviceId.data(),
+            std::memcpy(deviceId.data(), status.deviceId.data(),
                         vdmStatusV3DeviceIdLength);
-            fuseType = getTokenFuseType(status->fuseType);
-            tokenType = status->tokenType;
+            fuseType = getTokenFuseType(status.fuseType);
+            tokenType = status.tokenType;
             responseStatus = VdmResponseStatus::STATUS;
             return;
         }

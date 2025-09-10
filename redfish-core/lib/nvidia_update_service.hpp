@@ -1320,8 +1320,8 @@ inline void handleCommitImagePost(
         };
 
     auto errorCallback =
-        [&req, asyncResp]([[maybe_unused]] const std::string& desc,
-                         [[maybe_unused]] const std::string& errMsg) mutable {
+        [asyncResp]([[maybe_unused]] const std::string& desc,
+                          [[maybe_unused]] const std::string& errMsg) mutable {
             BMCWEB_LOG_ERROR("The CommitImage operation failed: {}, {}", desc,
                              errMsg);
             messages::internalError(asyncResp->res);
@@ -2120,7 +2120,7 @@ inline void handleCommitImageActionInfoGet(
                 messages::internalError(asyncResp->res);
                 return;
             }
-
+            BMCWEB_LOG_DEBUG("Request URL: {}", req.url());
             updateParametersForCommitImageInfo(asyncResp, subtree);
             if constexpr (BMCWEB_REDFISH_AGGREGATION)
             {
