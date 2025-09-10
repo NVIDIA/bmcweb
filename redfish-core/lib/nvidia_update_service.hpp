@@ -1743,7 +1743,7 @@ inline bool handleSatBMCCommitImagePost(
         {
             // targets with the prefix included only.
             RedfishAggregator::getSatelliteConfigs(
-                std::bind_front(forwardCommitImagePost, req.copy(), asyncResp));
+                std::bind_front(forwardCommitImagePost, std::ref(req), asyncResp));
 
             // don't pass the request to the local
             return false;
@@ -1759,7 +1759,7 @@ inline bool handleSatBMCCommitImagePost(
     else
     {
         RedfishAggregator::getSatelliteConfigs(
-            std::bind_front(forwardCommitImagePost, req.copy(), asyncResp));
+            std::bind_front(forwardCommitImagePost, std::ref(req), asyncResp));
         // forward the request with empty target.
     }
     return true;
@@ -2125,7 +2125,7 @@ inline void handleCommitImageActionInfoGet(
             if constexpr (BMCWEB_REDFISH_AGGREGATION)
             {
                 RedfishAggregator::getSatelliteConfigs(std::bind_front(
-                    forwardCommitImageActionInfo, req.copy(), asyncResp));
+                    forwardCommitImageActionInfo, std::ref(req), asyncResp));
             }
         },
         // Note that only firmware levels associated with a device

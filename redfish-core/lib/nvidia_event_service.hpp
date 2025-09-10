@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright OpenBMC Authors
+#pragma once
+
 #include "event_service_manager.hpp"
 #include "logging.hpp"
 #include "subscription.hpp"
@@ -35,7 +39,7 @@ inline void enableRedfishEventListener(const crow::Request& req) {
         if (EventServiceManager::getInstance()
                 .getNumberOfSubscriptions() == 1)
         {
-            startRedfishEventListener(*req.ioService);
+            startRedfishEventListener(getIoContext());
         }
     }
 }
@@ -49,7 +53,7 @@ inline void disableRedfishEventListener(const crow::Request& req) {
         if (EventServiceManager::getInstance()
                 .getNumberOfSubscriptions() == 1)
         {
-            stopRedfishEventListener(*req.ioService);
+            stopRedfishEventListener(getIoContext());
         }
     }
 }

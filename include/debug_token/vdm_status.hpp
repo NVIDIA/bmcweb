@@ -129,8 +129,12 @@ class Handler : public std::enable_shared_from_this<Handler>
         subprocess = std::make_unique<bpv2::process>(
             io, "/usr/bin/mctp-vdm-util-token-status-query-wrapper.sh", args,
             bpv2::process_stdio{.in = nullptr, .out = nullptr, .err = nullptr});
-        subprocess->async_wait(std::bind_front(
-            &Handler::subprocessExitHandler, this, shared_from_this()));
+        {
+            auto self = shared_from_this();
+            subprocess->async_wait([this, self](const boost::system::error_code& ec, int code) {
+                subprocessExitHandler(self, code, ec);
+            });
+        }
     }
 
     /**

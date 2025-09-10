@@ -306,20 +306,19 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
             }
             else
             {
-                auto message =
-                    redfish::messages::getUpdateMessage(rfMessage, rfArgs);
-                if (message.find("Message") != message.end())
+                // Fallback: construct a basic message object when registry helper is unavailable
+                nlohmann::json msgObj;
+                msgObj["MessageId"] = rfMessage;
+                msgObj["Message"] = rfMessage;
+                if (!rfArgs.empty())
                 {
-                    if (!resolution.empty())
-                    {
-                        message["Resolution"] = resolution;
-                    }
-                    messages.emplace_back(message);
+                    msgObj["MessageArgs"] = rfArgs;
                 }
-                else
+                if (!resolution.empty())
                 {
-                    BMCWEB_LOG_ERROR("Unknown message ID: {}", rfMessage);
+                    msgObj["Resolution"] = resolution;
                 }
+                messages.emplace_back(std::move(msgObj));
             }
         }
     }
@@ -1229,10 +1228,10 @@ inline bool parseMultipartForm(
             }
             //multiRet.params = std::move(*params);
         }
-        else if (formFieldName == "UpdateFile")
-        {
+        // if (formFieldName == "UpdateFile")
+        // {
             //multiRet.uploadData = std::move(formpart.content);
-        }
+        //}
     }
 
     return true;

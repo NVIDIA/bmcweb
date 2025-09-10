@@ -146,24 +146,7 @@ inline void getCableProperties(
             {
                 dbus::utility::getAllProperties(
                     *crow::connections::systemBus, service, cableObjectPath,
-<<<<<<< HEAD
-                    interface,
-                    [asyncResp](
-                        const boost::system::error_code& ec,
-                        const dbus::utility::DBusPropertiesMap& properties) {
-                        fillCableProperties(asyncResp->res, ec, properties);
-                        updateCableNameProperty(asyncResp->res, ec, properties);
-                    });
-||||||| 80d2ef31c
-                    interface,
-                    [asyncResp](
-                        const boost::system::error_code& ec,
-                        const dbus::utility::DBusPropertiesMap& properties) {
-                        fillCableProperties(asyncResp->res, ec, properties);
-                    });
-=======
                     interface, std::bind_front(fillCableProperties, asyncResp));
->>>>>>> origin/master
             }
             else if (interface == "xyz.openbmc_project.Inventory.Item")
             {
@@ -276,48 +259,7 @@ inline void requestRoutesCableCollection(App& app)
     BMCWEB_ROUTE(app, "/redfish/v1/Cables/")
         .privileges(redfish::privileges::getCableCollection)
         .methods(boost::beast::http::verb::get)(
-<<<<<<< HEAD
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#CableCollection.CableCollection";
-                asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Cables";
-                asyncResp->res.jsonValue["Name"] = "Cable Collection";
-                asyncResp->res.jsonValue["Description"] =
-                    "Collection of Cable Entries";
-                asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
-                constexpr std::array<std::string_view, 1> interfaces{
-                    "xyz.openbmc_project.Inventory.Item.Cable"};
-                collection_util::getCollectionMembers(
-                    asyncResp, boost::urls::url("/redfish/v1/Cables"),
-                    interfaces, "/xyz/openbmc_project/inventory");
-            });
-||||||| 80d2ef31c
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                asyncResp->res.jsonValue["@odata.type"] =
-                    "#CableCollection.CableCollection";
-                asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/Cables";
-                asyncResp->res.jsonValue["Name"] = "Cable Collection";
-                asyncResp->res.jsonValue["Description"] =
-                    "Collection of Cable Entries";
-                constexpr std::array<std::string_view, 1> interfaces{
-                    "xyz.openbmc_project.Inventory.Item.Cable"};
-                collection_util::getCollectionMembers(
-                    asyncResp, boost::urls::url("/redfish/v1/Cables"),
-                    interfaces, "/xyz/openbmc_project/inventory");
-            });
-=======
             std::bind_front(handleCableCollectionGet, std::ref(app)));
->>>>>>> origin/master
 }
 
 } // namespace redfish

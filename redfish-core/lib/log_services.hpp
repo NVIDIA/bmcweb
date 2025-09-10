@@ -1676,7 +1676,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     dbus::utility::async_method_call(
         asyncResp,
         [asyncResp, payload(task::Payload(req)),
-         dumpPath](const boost::system::error_code& ec,
+         dumpPath, oemDiagnosticDataType](const boost::system::error_code& ec,
                    const sdbusplus::message_t& msg,
                    const sdbusplus::message::object_path& objPath) mutable {
             if (ec)
@@ -2216,7 +2216,7 @@ static LogParseError fillEventLogEntryJson(
 
 inline void fillEventLogLogEntryFromDbusLogEntry(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const DbusEventLogEntry& entry, nlohmann::json& objectToFillOut)
+    DbusEventLogEntry& entry, nlohmann::json& objectToFillOut)
 {
     objectToFillOut["@odata.type"] = "#LogEntry.v1_9_0.LogEntry";
     objectToFillOut["@odata.id"] = boost::urls::format(

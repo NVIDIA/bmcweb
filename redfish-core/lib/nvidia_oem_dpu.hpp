@@ -1223,7 +1223,7 @@ inline void handleTruststoreCertificatesResetKeys(
     {
         return;
     }
-
+    crow::Request reqFixedTar(req.copy());
     if (resetKeysType != "DeleteAllKeys")
     {
         messages::propertyValueNotInList(asyncResp->res, resetKeysType,
@@ -1231,7 +1231,7 @@ inline void handleTruststoreCertificatesResetKeys(
         return;
     }
 
-    privilege_utils::isBiosPrivilege(req.session->username, [reqFixedTar,
+    privilege_utils::isBiosPrivilege(req.session->username, [&reqFixedTar,
                                                              asyncResp](
                                                                 const boost::
                                                                     system::

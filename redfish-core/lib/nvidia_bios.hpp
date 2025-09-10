@@ -1465,7 +1465,7 @@ inline void setBiosCurrentOrPendingAttr(
                                     pendingAttrIt.key());
                                 return;
                             }
-                            std::string attrReqVal = pendingAttrIt.value();
+                            std::string attrReqVal = pendingAttrIt.value().get<std::string>();
 
                             if (attrType == "Enumeration")
                             {
@@ -1650,7 +1650,7 @@ inline void setBiosCurrentOrPendingAttr(
                                     pendingAttrIt.key());
                                 return;
                             }
-                            int64_t attrReqVal = pendingAttrIt.value();
+                            int64_t attrReqVal = pendingAttrIt.value().get<int64_t>();
                             if (biosFlag)
                             {
                                 std::get<BaseBiosTableIndex::baseBiosCurrValue>(
@@ -2766,7 +2766,7 @@ inline void handleBiosServiceGetExtended(
     biosSettings["@odata.type"] = "#Settings.v1_3_5.Settings";
     biosSettings["SettingsObject"] = {
         {"@odata.id", std::format("/redfish/v1/Systems/{}/Bios/Settings",
-                                  BMCWEB_REDFISH_SYSTEM_URI_NAME)};
+                                  BMCWEB_REDFISH_SYSTEM_URI_NAME)}};
     asyncResp->res.jsonValue["@Redfish.Settings"] = biosSettings;
     asyncResp->res.jsonValue["Attributes"] = nlohmann::json({});
     // Get the BIOS Attributes

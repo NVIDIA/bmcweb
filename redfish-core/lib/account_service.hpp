@@ -2198,9 +2198,9 @@ inline void handleAccountDelete(
     tempObjPath /= username;
     const std::string userPath(tempObjPath);
 
-    dbus::utility::async_method_call(
-        asyncResp,
-        [asyncResp, username](const boost::system::error_code& ec) {
+    crow::connections::systemBus->async_method_call(
+        [asyncResp, username](const boost::system::error_code& ec,
+                              sdbusplus::message::message& m) {
             if (ec)
             {
                 handleNvidiaDeleteError(asyncResp, username, m);

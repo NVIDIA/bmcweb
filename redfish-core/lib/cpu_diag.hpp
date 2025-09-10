@@ -552,7 +552,7 @@ inline bool validateDiagTidConfig(
             messages::propertyUnknown(asyncResp->res, "Invalid Configuration");
             return false;
         }
-        uint8_t dynamicDataSize = item["DynamicDataSize"];
+        uint8_t dynamicDataSize = item["DynamicDataSize"].get<uint8_t>();
         std::vector<uint8_t> dynamicData =
             item["DynamicData"].get<std::vector<uint8_t>>();
         if (dynamicDataSize != dynamicData.size())

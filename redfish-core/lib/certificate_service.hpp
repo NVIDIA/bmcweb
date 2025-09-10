@@ -976,7 +976,8 @@ inline void handleHTTPSCertificateCollectionPost(
 
     dbus::utility::async_method_call(
         asyncResp,
-        [asyncResp, certFile](const boost::system::error_code& ec,
+        [asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
+                            sdbusplus::message::message& m,
                               const std::string& objectPath) {
             if (ec)
             {
@@ -1102,7 +1103,8 @@ inline void handleLDAPCertificateCollectionPost(
 
     dbus::utility::async_method_call(
         asyncResp,
-        [asyncResp, certFile](const boost::system::error_code& ec,
+        [asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
+                              sdbusplus::message::message& m,                            
                               const std::string& objectPath) {
             if (ec)
             {
@@ -1250,7 +1252,8 @@ inline void handleTrustStoreCertificateCollectionPost(
         std::make_shared<CertificateFile>(certHttpBody);
     dbus::utility::async_method_call(
         asyncResp,
-        [asyncResp, certFile](const boost::system::error_code& ec,
+        [asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
+                              sdbusplus::message::message& m,
                               const std::string& objectPath) {
             if (ec)
             {

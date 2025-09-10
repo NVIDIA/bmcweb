@@ -19,16 +19,15 @@
 #include "registries/privilege_registry.hpp"
 #include "task.hpp"
 
-#include <boost/process.hpp>
-//#include <boost/process/async.hpp>
-//#include <boost/process/child.hpp>
+#include <boost/process/v2/process.hpp>
+#include <boost/process/v2/stdio.hpp>
 
 namespace redfish
 {
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::shared_ptr<task::TaskData> mfgTestTask;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static std::shared_ptr<boost::process::child> mfgTestProc;
+static std::shared_ptr<boost::process::v2::process> mfgTestProc;
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static std::vector<char> mfgTestProcOutput(128, 0);
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
@@ -208,16 +207,16 @@ inline void requestRoutesEventLogDiagnosticDataCollect(App& app)
                             BMCWEB_MANUFACTURING_TEST_TIMEOUT));
                         try
                         {
-                            mfgTestProc =
-                                std::make_shared<boost::process::child>(
-                                    "/usr/bin/mfg-script-exec.sh",
-                                    "/usr/share/mfg-script-exec/config.yml",
-                                    boost::process::std_out >
-                                        boost::asio::buffer(mfgTestProcOutput),
-                                    crow::connections::systemBus
-                                        ->get_io_context(),
-                                    boost::process::on_exit =
-                                        mfgTestProcExitHandler);
+                            namespace bpv2 = boost::process::v2;
+                            auto& io = crow::connections::systemBus->get_io_context();
+                            // Launch script and capture stdout to buffer
+                            mfgTestProc = std::make_shared<bpv2::process>(
+                                io, "/usr/bin/mfg-script-exec.sh",
+                                std::vector<std::string>{"/usr/share/mfg-script-exec/config.yml"},
+                                bpv2::process_stdio{.in = nullptr, .out = nullptr, .err = nullptr});
+                            mfgTestProc->async_wait([](const std::error_code& ec, int code) {
+                                mfgTestProcExitHandler(code, ec);
+                            });
                         }
                         catch (const std::runtime_error& e)
                         {
