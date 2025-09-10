@@ -8,7 +8,6 @@
 
 #include "app.hpp"
 #include "async_resp.hpp"
-#include "nvidia_dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "generated/enums/pcie_device.hpp"
 #include "generated/enums/pcie_slots.hpp"
@@ -16,11 +15,11 @@
 #include "health.hpp"
 #include "http_request.hpp"
 #include "logging.hpp"
+#include "nvidia_dbus_utility.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/pcie_util.hpp"
-#include "nvidia_dbus_utility.hpp"
 
 #include <asm-generic/errno.h>
 

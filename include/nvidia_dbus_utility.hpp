@@ -37,7 +37,7 @@ inline void findAssociations(const std::string& path, Callback&& callbackIn)
         "xyz.openbmc_project.Association", "endpoints");
 }
 
-void systemdReload();   
-void systemdRestartUnit(const std::string_view unit, const char* mode);
+void systemdReload();
+void systemdRestartUnit(std::string_view unit, const char* mode);
 } // namespace utility
 } // namespace dbus

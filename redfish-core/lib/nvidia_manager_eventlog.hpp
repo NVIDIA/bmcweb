@@ -123,13 +123,13 @@ inline void fillManagerEventLogLogEntryFromPropertyMap(
     if (!entry.AdditionalData.empty())
     {
         AdditionalData additional(entry.AdditionalData);
-        if (additional.count("REDFISH_MESSAGE_ID") > 0)
+        if (additional.contains("REDFISH_MESSAGE_ID"))
         {
             isMessageRegistry = true;
             messageId = additional["REDFISH_MESSAGE_ID"];
             BMCWEB_LOG_DEBUG("MessageId: [{}]", messageId);
 
-            if (additional.count("REDFISH_MESSAGE_ARGS") > 0)
+            if (additional.contains("REDFISH_MESSAGE_ARGS"))
             {
                 messageArgs = additional["REDFISH_MESSAGE_ARGS"];
             }

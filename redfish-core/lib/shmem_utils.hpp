@@ -54,8 +54,8 @@ struct MetricsReplacement
 inline void updateReplacementFlag(const MetricsReplacement& replacement,
                                   const std::set<std::string>& allowedWildcards)
 {
-    replacement.isEnabled = (allowedWildcards.find(replacement.wildcardName) !=
-                             allowedWildcards.end());
+    replacement.isEnabled =
+        (allowedWildcards.contains(replacement.wildcardName));
 }
 
 inline void getShmemPlatformMetrics(
@@ -279,25 +279,19 @@ inline void metricsReplacementsNonPlatformMetrics(
 {
     // Precompute allowed flags based on the wildcards present in
     // "MetricProperties"
-    bool allowNVSwitchId =
-        (wildcardSet.find("NVSwitchId") != wildcardSet.end());
-    bool allowNvlinkId = (wildcardSet.find("NvlinkId") != wildcardSet.end());
-    bool allowGpuId = (wildcardSet.find("GpuId") != wildcardSet.end());
-    bool allowCpuId = (wildcardSet.find("CpuId") != wildcardSet.end());
-    bool allowProcessorId =
-        (wildcardSet.find("ProcessorId") != wildcardSet.end());
-    bool allowCoreId = (wildcardSet.find("CoreId") != wildcardSet.end());
-    bool allowPCIeLinkId =
-        (wildcardSet.find("PCIeLinkId") != wildcardSet.end());
-    bool allowRetimerId = (wildcardSet.find("RetimerId") != wildcardSet.end());
-    bool allowPortType = (wildcardSet.find("PortType") != wildcardSet.end());
-    bool allowPortId = (wildcardSet.find("PortId") != wildcardSet.end());
-    bool allowInstanceId =
-        (wildcardSet.find("InstanceId") != wildcardSet.end());
-    bool allowNetworkAdapterNId =
-        (wildcardSet.find("NId") != wildcardSet.end());
-    bool allowNetworkAdapterCXId =
-        (wildcardSet.find("CXId") != wildcardSet.end());
+    bool allowNVSwitchId = (wildcardSet.contains("NVSwitchId"));
+    bool allowNvlinkId = (wildcardSet.contains("NvlinkId"));
+    bool allowGpuId = (wildcardSet.contains("GpuId"));
+    bool allowCpuId = (wildcardSet.contains("CpuId"));
+    bool allowProcessorId = (wildcardSet.contains("ProcessorId"));
+    bool allowCoreId = (wildcardSet.contains("CoreId"));
+    bool allowPCIeLinkId = (wildcardSet.contains("PCIeLinkId"));
+    bool allowRetimerId = (wildcardSet.contains("RetimerId"));
+    bool allowPortType = (wildcardSet.contains("PortType"));
+    bool allowPortId = (wildcardSet.contains("PortId"));
+    bool allowInstanceId = (wildcardSet.contains("InstanceId"));
+    bool allowNetworkAdapterNId = (wildcardSet.contains("NId"));
+    bool allowNetworkAdapterCXId = (wildcardSet.contains("CXId"));
 
     std::string nvSwitchValue = "NVSwitch_";
     std::smatch match;

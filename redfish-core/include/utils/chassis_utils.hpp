@@ -674,7 +674,7 @@
                                        const std::string& property)
     {
         const auto& allowListMap = getRoTChassisAllowListMap();
-        if (allowListMap.find(property) == allowListMap.end())
+        if (!allowListMap.contains(property))
         {
             return false;
         }
@@ -863,25 +863,22 @@
                                             automaticBackgroundCopyAllowList{};
                                         std::vector<std::string>
                                             backgroundCopyStatusAllowList{};
-                                        if (allowListMap.find(
-                                                "InbandUpdatePolicyEnabled") !=
-                                            allowListMap.end())
+                                        if (allowListMap.contains(
+                                                "InbandUpdatePolicyEnabled"))
                                         {
                                             inbandUpdatePolicyAllowList =
                                                 allowListMap.at(
                                                     "InbandUpdatePolicyEnabled");
                                         }
-                                        if (allowListMap.find(
-                                                "AutomaticBackgroundCopyEnabled") !=
-                                            allowListMap.end())
+                                        if (allowListMap.contains(
+                                                "AutomaticBackgroundCopyEnabled"))
                                         {
                                             automaticBackgroundCopyAllowList =
                                                 allowListMap.at(
                                                     "AutomaticBackgroundCopyEnabled");
                                         }
-                                        if (allowListMap.find(
-                                                "BackgroundCopyStatus") !=
-                                            allowListMap.end())
+                                        if (allowListMap.contains(
+                                                "BackgroundCopyStatus"))
                                         {
                                             backgroundCopyStatusAllowList =
                                                 allowListMap.at(

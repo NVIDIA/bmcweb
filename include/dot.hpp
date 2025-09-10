@@ -259,7 +259,7 @@ class DotCommandHandler
             subprocess.emplace(io, "/usr/bin/mctp-vdm-util", args, stdio);
 
             // Async read all stdout
-            auto self = this;
+            auto* self = this;
             std::function<void()> readLoop;
             readLoop = [self, &readLoop]() {
                 self->outRead->async_read_some(

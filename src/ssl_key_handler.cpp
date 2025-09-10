@@ -148,7 +148,7 @@ std::string verifyOpensslKeyCert(const std::string& filepath)
     std::string fileContents;
     fileContents.resize(static_cast<size_t>(file.size(ec)), '\0');
     size_t readSize = file.read(fileContents.data(), fileContents.size(), ec);
-    if (ec || !readSize)
+    if (ec || (readSize == 0U))
     {
         BMCWEB_LOG_ERROR("Failed to read file");
         return "";
@@ -263,7 +263,7 @@ void writeCertificateToFile(const std::string& filepath,
     file.open(filepath.c_str(), boost::beast::file_mode::write, ec);
     size_t writeBytes = file.write(certificate.data(), certificate.size(), ec);
 
-    if (!writeBytes)
+    if (writeBytes == 0U)
     {
         BMCWEB_LOG_ERROR("Certificate Write failed");
     }

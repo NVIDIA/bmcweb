@@ -96,7 +96,7 @@ class AdditionalData
             std::vector<std::string> fields;
             fields.reserve(2);
             bmcweb::split(fields, kv, '=');
-            if (data.find(fields[0]) == data.end())
+            if (!data.contains(fields[0]))
             {
                 data[fields[0]] = "";
             }
@@ -142,7 +142,7 @@ class AdditionalData
 
     bool contains(const std::string& key) const
     {
-        return data.find(key) != data.end();
+        return data.contains(key);
     }
 
   protected:

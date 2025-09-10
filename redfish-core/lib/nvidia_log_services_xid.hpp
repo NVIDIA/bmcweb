@@ -511,9 +511,8 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                                             additional(
                                                                                 *additionalData);
                                                                         if (additional
-                                                                                .count(
-                                                                                    "REDFISH_MESSAGE_ID") >
-                                                                            0)
+                                                                                .contains(
+                                                                                    "REDFISH_MESSAGE_ID"))
                                                                         {
                                                                             isMessageRegistry =
                                                                                 true;
@@ -524,26 +523,23 @@ inline void requestRoutesChassisXIDLogEntryCollection(App& app)
                                                                                 messageId);
 
                                                                             if (additional
-                                                                                    .count(
-                                                                                        "REDFISH_MESSAGE_ARGS") >
-                                                                                0)
+                                                                                    .contains(
+                                                                                        "REDFISH_MESSAGE_ARGS"))
                                                                             {
                                                                                 messageArgs = additional
                                                                                     ["REDFISH_MESSAGE_ARGS"];
                                                                             }
                                                                         }
                                                                         if (additional
-                                                                                .count(
-                                                                                    "REDFISH_ORIGIN_OF_CONDITION") >
-                                                                            0)
+                                                                                .contains(
+                                                                                    "REDFISH_ORIGIN_OF_CONDITION"))
                                                                         {
                                                                             originOfCondition = additional
                                                                                 ["REDFISH_ORIGIN_OF_CONDITION"];
                                                                         }
                                                                         if (additional
-                                                                                .count(
-                                                                                    "DEVICE_NAME") >
-                                                                            0)
+                                                                                .contains(
+                                                                                    "DEVICE_NAME"))
                                                                         {
                                                                             deviceName = additional
                                                                                 ["DEVICE_NAME"];

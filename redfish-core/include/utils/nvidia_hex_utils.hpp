@@ -3,12 +3,11 @@
 #pragma once
 
 #include "logging.hpp"
-#include "hex_utils.hpp"
 #include <array>
 #include <climits>
 #include <cstddef>
 #include <cstdint>
-#include <iomanip>
+#include <stdexcept>
 #include <regex>
 #include <sstream>
 #include <string>
@@ -53,8 +52,9 @@ inline std::string vectorTo256BitHexString(const std::vector<uint8_t>& value)
     ss << "0x";
     for (const auto& byte : value)
     {
-        ss << std::hex << std::setw(2) << std::setfill('0')
-           << static_cast<int>(byte);
+        char hi = nvidiaDigitsArray[(byte >> 4) & 0x0F];
+        char lo = nvidiaDigitsArray[byte & 0x0F];
+        ss << hi << lo;
     }
     // add logic to remove leading 0s
     std::string result = ss.str();
@@ -84,9 +84,10 @@ inline std::vector<uint8_t> stringNibbleToVector(
     std::string processedString = nibbleString;
 
     // Remove '0x' prefix if present
-    if (processedString.substr(0, 2) == "0x")
+    if (processedString.size() >= 2 && processedString[0] == '0' &&
+        processedString[1] == 'x')
     {
-        processedString = processedString.substr(2);
+        processedString.erase(0, 2);
     }
 
     // Check for even length

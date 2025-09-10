@@ -39,6 +39,7 @@
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_manager_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
+#include "utils/nvidia_hex_utils.hpp"
 #include "utils/sw_utils.hpp"
 #include "utils/systemd_utils.hpp"
 #include "utils/time_utils.hpp"
@@ -61,6 +62,8 @@
 
 namespace redfish
 {
+
+using ::intToHexByteArray;
 
 // Map of service name to list of interfaces
 using MapperServiceMap =

@@ -93,7 +93,7 @@ inline bool isSelEntry(
     if (!additionalData.empty())
     {
         AdditionalData additional(additionalData);
-        if (additional.count("namespace") > 0 &&
+        if (additional.contains("namespace") &&
             additional["namespace"] == "SEL")
         {
             return true;
@@ -187,26 +187,26 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
             if (additionalData != nullptr)
             {
                 AdditionalData additional(*additionalData);
-                if (additional.count("REDFISH_MESSAGE_ID") > 0)
+                if (additional.contains("REDFISH_MESSAGE_ID"))
                 {
                     isMessageRegistry = true;
                     messageId = additional["REDFISH_MESSAGE_ID"];
                     BMCWEB_LOG_DEBUG("RedFish MessageId: [{}]", messageId);
 
-                    if (additional.count("REDFISH_MESSAGE_ARGS") > 0)
+                    if (additional.contains("REDFISH_MESSAGE_ARGS"))
                     {
                         messageArgs = additional["REDFISH_MESSAGE_ARGS"];
                     }
                 }
                 else
                 {
-                    if (additional.count("EVENT_DIR") > 0)
+                    if (additional.contains("EVENT_DIR"))
                     {
                         hexCodeEventDir
                             << "0x" << std::setfill('0') << std::setw(2)
                             << std::hex << std::stoi(additional["EVENT_DIR"]);
                     }
-                    if (additional.count("GENERATOR_ID") > 0)
+                    if (additional.contains("GENERATOR_ID"))
                     {
                         std::ostringstream hexCodeGeneratorId;
                         if (!additional["GENERATOR_ID"].empty())
@@ -218,11 +218,11 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
                             generatorId = hexCodeGeneratorId.str();
                         }
                     }
-                    if (additional.count("RECORD_TYPE") > 0)
+                    if (additional.contains("RECORD_TYPE"))
                     {
                         recordType = additional["RECORD_TYPE"];
                     }
-                    if (additional.count("SENSOR_DATA") > 0)
+                    if (additional.contains("SENSOR_DATA"))
                     {
                         sensorData = additional["SENSOR_DATA"];
                         std::transform(sensorData.begin(), sensorData.end(),
@@ -237,7 +237,7 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
                     messageId = hexCodeEventDir.str() + sensorData;
                     BMCWEB_LOG_DEBUG("SEL MessageId: [{}]", messageId);
                 }
-                if (additional.end() != additional.find("EVENT_DIR"))
+                if (additional.contains("EVENT_DIR"))
                 {
                     uint8_t eventDir = 0;
                     std::string_view eventDirView = additional["EVENT_DIR"];
@@ -260,21 +260,21 @@ inline void populateRedfishSELEntry(GetManagedPropertyType& resp,
                         }
                     }
                 }
-                if (additional.end() != additional.find("SENSOR_TYPE"))
+                if (additional.contains("SENSOR_TYPE"))
                 {
                     nlohmann::json sensorTypeJson = additional["SENSOR_TYPE"];
                     sensorType = sensorTypeJson.get<log_entry::SensorType>();
                 }
-                if (additional.end() != additional.find("SENSOR_NUMBER"))
+                if (additional.contains("SENSOR_NUMBER"))
                 {
                     sensorNumber = additional["SENSOR_NUMBER"];
                 }
-                if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
+                if (additional.contains("REDFISH_ORIGIN_OF_CONDITION"))
                 {
                     originOfCondition =
                         additional["REDFISH_ORIGIN_OF_CONDITION"];
                 }
-                if (additional.count("DEVICE_NAME") > 0)
+                if (additional.contains("DEVICE_NAME"))
                 {
                     deviceName = additional["DEVICE_NAME"];
                 }
@@ -559,7 +559,7 @@ inline std::string getEntryIdFromSelId(
     if (entryIdPtr != nullptr && additionalDataVectorString != nullptr)
     {
         AdditionalData additional(*additionalDataVectorString);
-        if (additional.count("SEL_RECORD_ID") > 0)
+        if (additional.contains("SEL_RECORD_ID"))
         {
             if (std::to_string(selRecordId) == additional["SEL_RECORD_ID"])
             {

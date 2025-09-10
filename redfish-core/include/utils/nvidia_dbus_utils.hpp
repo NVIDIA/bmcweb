@@ -5,7 +5,6 @@
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
 #include "logging.hpp"
-#include "nvidia_dbus_utils.hpp"
 
 #include <nlohmann/json.hpp>
 #include <sdbusplus/asio/property.hpp>

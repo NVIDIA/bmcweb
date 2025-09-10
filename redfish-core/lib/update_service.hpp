@@ -270,17 +270,17 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
                     {
                         redfish::AdditionalData additional(*additionalData);
 
-                        if (additional.count("REDFISH_MESSAGE_ID") > 0)
+                        if (additional.contains("REDFISH_MESSAGE_ID"))
                         {
                             rfMessage = additional["REDFISH_MESSAGE_ID"];
                         }
-                        if (additional.count("REDFISH_MESSAGE_ARGS") > 0)
+                        if (additional.contains("REDFISH_MESSAGE_ARGS"))
                         {
                             bmcweb::split(rfArgs,
                                           additional["REDFISH_MESSAGE_ARGS"],
                                           ',');
                         }
-                        if (additional.count("namespace") > 0)
+                        if (additional.contains("namespace"))
                         {
                             messageNamespace = additional["namespace"];
                         }
@@ -1100,7 +1100,7 @@ inline void setForceUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  */
 // Helper to extract the form field name from Content-Disposition header
 static inline std::optional<std::string> parseFormPartName(
-    boost::beast::http::fields::const_iterator it)
+    const boost::beast::http::fields::const_iterator& it)
 {
     const auto& v = it->value();
     auto semiPos = v.find(';');

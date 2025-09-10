@@ -29,7 +29,7 @@ void systemdReload()
     crow::connections::systemBus->call_noreply(method);
 }
 
-void systemdRestartUnit(const std::string_view unit, const char* mode)
+void systemdRestartUnit(std::string_view unit, const char* mode)
 {
     std::string path("/org/freedesktop/systemd1/unit/");
     path.append(unit);

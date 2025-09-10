@@ -538,26 +538,26 @@ inline void dBusEventLogEntryGetAdditionalInfo(
     if (!entry.AdditionalData.empty())
     {
         AdditionalData additional(entry.AdditionalData);
-        if (additional.count("REDFISH_MESSAGE_ID") > 0)
+        if (additional.contains("REDFISH_MESSAGE_ID"))
         {
             isMessageRegistry = true;
             messageId = additional["REDFISH_MESSAGE_ID"];
             BMCWEB_LOG_DEBUG("MessageId: [{}]", messageId);
 
-            if (additional.count("REDFISH_MESSAGE_ARGS") > 0)
+            if (additional.contains("REDFISH_MESSAGE_ARGS"))
             {
                 messageArgs = additional["REDFISH_MESSAGE_ARGS"];
             }
         }
-        if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
+        if (additional.contains("REDFISH_ORIGIN_OF_CONDITION"))
         {
             originOfCondition = additional["REDFISH_ORIGIN_OF_CONDITION"];
         }
-        if (additional.count("DEVICE_NAME") > 0)
+        if (additional.contains("DEVICE_NAME"))
         {
             deviceName = additional["DEVICE_NAME"];
         }
-        if (additional.count("DEVICE_EVENT_DATA") > 0)
+        if (additional.contains("DEVICE_EVENT_DATA"))
         {
             deviceEventData = true;
         }

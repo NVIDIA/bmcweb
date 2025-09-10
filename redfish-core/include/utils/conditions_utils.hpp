@@ -130,20 +130,20 @@ inline void handleDeviceServiceConditions(
                 if (additionalData != nullptr)
                 {
                     redfish::AdditionalData additional(*additionalData);
-                    if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
+                    if (additional.contains("REDFISH_ORIGIN_OF_CONDITION"))
                     {
                         originOfCondition =
                             additional["REDFISH_ORIGIN_OF_CONDITION"];
                     }
-                    if (additional.count("REDFISH_MESSAGE_ARGS") > 0)
+                    if (additional.contains("REDFISH_MESSAGE_ARGS"))
                     {
                         messageArgs = additional["REDFISH_MESSAGE_ARGS"];
                     }
-                    if (additional.count("REDFISH_MESSAGE_ID") > 0)
+                    if (additional.contains("REDFISH_MESSAGE_ID"))
                     {
                         messageId = additional["REDFISH_MESSAGE_ID"];
                     }
-                    if (additional.count("DEVICE_NAME") > 0)
+                    if (additional.contains("DEVICE_NAME"))
                     {
                         deviceName = additional["DEVICE_NAME"];
                     }
@@ -251,20 +251,20 @@ inline void handleServiceConditionsURI(
                 if (additionalData != nullptr)
                 {
                     redfish::AdditionalData additional(*additionalData);
-                    if (additional.count("REDFISH_ORIGIN_OF_CONDITION") > 0)
+                    if (additional.contains("REDFISH_ORIGIN_OF_CONDITION"))
                     {
                         originOfCondition =
                             additional["REDFISH_ORIGIN_OF_CONDITION"];
                     }
-                    if (additional.count("REDFISH_MESSAGE_ARGS") > 0)
+                    if (additional.contains("REDFISH_MESSAGE_ARGS"))
                     {
                         messageArgs = additional["REDFISH_MESSAGE_ARGS"];
                     }
-                    if (additional.count("REDFISH_MESSAGE_ID") > 0)
+                    if (additional.contains("REDFISH_MESSAGE_ID"))
                     {
                         messageId = additional["REDFISH_MESSAGE_ID"];
                     }
-                    if (additional.count("DEVICE_NAME") > 0)
+                    if (additional.contains("DEVICE_NAME"))
                     {
                         deviceName = additional["DEVICE_NAME"];
                     }

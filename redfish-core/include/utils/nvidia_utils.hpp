@@ -185,8 +185,7 @@ inline void convertDbusToRedfishProperty(AdditionalData& additional,
     if (!messageArgsDbus.empty() && !messageArgsDbus[0].empty())
     {
         BMCWEB_LOG_DEBUG("First message arg: {}", messageArgsDbus[0]);
-        if (dBusToRedfishProperty.find(messageArgsDbus[0]) !=
-            dBusToRedfishProperty.end())
+        if (dBusToRedfishProperty.contains(messageArgsDbus[0]))
         {
             std::string oldArg = messageArgsDbus[0];
             auto it = dBusToRedfishProperty.find(messageArgsDbus[0]);

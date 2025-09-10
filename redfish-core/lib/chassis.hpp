@@ -40,7 +40,6 @@
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
-#include <utils/chassis_utils.hpp>
 #include <utils/conditions_utils.hpp>
 #include <utils/nvidia_chassis_util.hpp>
 

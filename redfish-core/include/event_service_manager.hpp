@@ -585,7 +585,7 @@ class EventServiceManager
         logEntryJson["MemberId"] = "0";
 
         nlohmann::json::array_t logEntryArray;
-        logEntryArray.emplace_back(nlohmann::json(logEntryJson));
+        logEntryArray.emplace_back(logEntryJson);
 
         nlohmann::json::object_t msg;
         msg["@odata.type"] = "#Event.v1_4_0.Event";
@@ -593,8 +593,7 @@ class EventServiceManager
         msg["Name"] = "Event Log";
         msg["Events"] = logEntryArray;
 
-        std::string strMsg = nlohmann::json(msg).dump(
-            2, ' ', true, nlohmann::json::error_handler_t::replace);
+        // Prepare and send events to matching subscribers below
 
         messages.push_back(Event(eventId, msg));
         msg["Id"] = std::to_string(eventId);

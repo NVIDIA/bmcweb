@@ -82,7 +82,7 @@ static const std::unordered_map<ExitCode, ErrorMapping>
 inline std::optional<ErrorMapping> getEMMCErrorMessageFromExitCode(
     ExitCode exitCode)
 {
-    if (emmcServiceErrorMapping.find(exitCode) != emmcServiceErrorMapping.end())
+    if (emmcServiceErrorMapping.contains(exitCode))
     {
         auto it = emmcServiceErrorMapping.find(exitCode);
         return it->second;

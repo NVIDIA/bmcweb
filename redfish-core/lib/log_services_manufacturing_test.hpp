@@ -18,7 +18,7 @@
 #include "app.hpp"
 #include "registries/privilege_registry.hpp"
 #include "task.hpp"
-
+#include "utils/nvidia_hex_utils.hpp"
 #include <boost/process/v2/process.hpp>
 #include <boost/process/v2/stdio.hpp>
 

@@ -456,7 +456,7 @@ inline void doNDF(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    if (value->find("oob") != 0)
+                    if (!value->starts_with("oob"))
                     {
                         auto& capabilitiesArray =
                             asyncResp->res.jsonValue["NetDevFuncCapabilities"];
