@@ -153,6 +153,129 @@ inline void getProcessorCurrentProfileData(
                 aResp->res.jsonValue["AdminOverrideActiveMask"]
                                     ["TMPFloorPercentApplied"] = *value;
             }
+            else if (property.first == "SecondaryPowerFloorSettingApplied")
+            {
+                const bool* value = std::get_if<bool>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "SecondaryPowerFloorSettingApplied nullptr");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["AdminOverrideActiveMask"]
+                                    ["SecondaryPowerFloorSettingApplied"] =
+                    *value;
+            }
+            else if (property.first == "SecondaryPowerFloorSetting")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("SecondaryPowerFloorSetting nullptr");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["SecondaryPowerFloorWatts"] = *value;
+            }
+            else if (property.first == "PrimaryFloorActivationWindowMultiplier")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "PrimaryFloorActivationWindowMultiplier nullptr");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["PrimaryFloorActivationWindowMultiplier"] =
+                    *value;
+            }
+            else if (property.first ==
+                     "PrimaryFloorActivationWindowMultiplierApplied")
+            {
+                const bool* value = std::get_if<bool>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "PrimaryFloorActivationWindowMultiplierApplied nullptr");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue
+                    ["AdminOverrideActiveMask"]
+                    ["PrimaryFloorActivationWindowMultiplierApplied"] = *value;
+            }
+            else if (property.first == "PrimaryFloorTargetWindowMultiplier")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "PrimaryFloorTargetWindowMultiplier nullptr");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["PrimaryFloorTargetWindowMultiplier"] =
+                    *value;
+            }
+            else if (property.first ==
+                     "PrimaryFloorTargetWindowMultiplierApplied")
+            {
+                const bool* value = std::get_if<bool>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "PrimaryFloorTargetWindowMultiplierApplied nullptr");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res
+                    .jsonValue["AdminOverrideActiveMask"]
+                              ["PrimaryFloorTargetWindowMultiplierApplied"] =
+                    *value;
+            }
+            else if (property.first ==
+                     "PrimaryFloorTargetWindowMultiplierApplied")
+            {
+                const bool* value = std::get_if<bool>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "PrimaryFloorTargetWindowMultiplierApplied nullptr");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res
+                    .jsonValue["AdminOverrideActiveMask"]
+                              ["PrimaryFloorTargetWindowMultiplierApplied"] =
+                    *value;
+            }
+            else if (property.first == "PrimaryFloorActivationOffset")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("PrimaryFloorActivationOffset nullptr");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["PrimaryFloorActivationOffsetWatts"] = *value;
+            }
+            else if (property.first == "PrimaryFloorActivationOffsetApplied")
+            {
+                const bool* value = std::get_if<bool>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "PrimaryFloorActivationOffsetApplied nullptr");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["AdminOverrideActiveMask"]
+                                    ["PrimaryFloorActivationOffsetApplied"] =
+                    *value;
+            }
             else if (property.first == "AppliedProfilePath")
             {
                 const sdbusplus::message::object_path* value =
@@ -290,6 +413,51 @@ inline void getProcessorPowerSmoothingControlData(
                 }
                 aResp->res.jsonValue["PowerSmoothingSupported"] = *value;
             }
+            else if (property.first == "DelayedPowerSmoothingSupported")
+            {
+                const bool* value = std::get_if<bool>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("DelayedPowerSmoothingSupported nullptr");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["DelayedPowerSmoothingSupported"] = *value;
+            }
+            else if (property.first == "FloorWindowMultiplier")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("FloorWindowMultiplier nullptr");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["FloorWindowMultiplier"] = *value;
+            }
+            else if (property.first == "MinPrimaryFloorActivationOffset")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("MinPrimaryFloorActivationOffset nullptr");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["MinAllowedPrimaryFloorActivationOffset"] =
+                    *value;
+            }
+            else if (property.first == "MinPrimaryFloorActivationPoint")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("MinPrimaryFloorActivationPoint nullptr");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["MinAllowedPrimaryFloorActivationPoint"] = *value;
+            }
         }
     },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
@@ -321,13 +489,15 @@ inline void
             {
                 continue;
             }
+            // get version
+            // inside callbacnk call the existing code
             std::string pwrSmoothingURI =
                 "/redfish/v1/Systems/" +
                 std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/Processors/";
             pwrSmoothingURI += processorId;
             pwrSmoothingURI += "/Oem/Nvidia/PowerSmoothing";
             aResp->res.jsonValue["@odata.type"] =
-                "#NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing";
+                "#NvidiaPowerSmoothing.v1_2_0.NvidiaPowerSmoothing";
             aResp->res.jsonValue["@odata.id"] = pwrSmoothingURI;
             aResp->res.jsonValue["Id"] = "PowerSmoothing";
             aResp->res.jsonValue["Name"] = processorId + " Power Smoothing";
@@ -362,7 +532,6 @@ inline void
             aResp->res.jsonValue["Actions"]
                                 ["#NvidiaPowerSmoothing.ApplyAdminOverrides"]
                                 ["target"] = adminOverrideURI;
-
             for (const auto& [service, interfaces] : object)
             {
                 if (std::find(interfaces.begin(), interfaces.end(),
@@ -372,6 +541,7 @@ inline void
                     // no interface = no failures
                     continue;
                 }
+
                 getProcessorPowerSmoothingControlData(aResp, service, path,
                                                       presetProfileURI);
                 if (std::find(
@@ -470,6 +640,54 @@ inline void getAdminProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                 }
                 aResp->res.jsonValue["TMPFloorPercent"] = *value;
             }
+            else if (property.first == "SecondaryPowerFloorSetting")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("SecondaryPowerFloorSetting nullptr");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["SecondaryPowerFloorWatts"] = *value;
+            }
+            else if (property.first == "PrimaryFloorActivationWindowMultiplier")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "PrimaryFloorActivationWindowMultiplier nullptr");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["PrimaryFloorActivationWindowMultiplier"] =
+                    *value;
+            }
+            else if (property.first == "PrimaryFloorTargetWindowMultiplier")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "PrimaryFloorTargetWindowMultiplier nullptr");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["PrimaryFloorTargetWindowMultiplier"] =
+                    *value;
+            }
+            else if (property.first == "PrimaryFloorActivationOffset")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    BMCWEB_LOG_ERROR("PrimaryFloorActivationOffset nullptr");
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["PrimaryFloorActivationOffsetWatts"] = *value;
+            }
         }
     },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
@@ -506,12 +724,11 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
             adminOverrideURI +=
                 "/Oem/Nvidia/PowerSmoothing/AdminOverrideProfile";
             aResp->res.jsonValue["@odata.type"] =
-                "#NvidiaPowerSmoothingPresetProfile.v1_0_0.NvidiaPowerSmoothingPresetProfile";
+                "#NvidiaPowerSmoothingPresetProfile.v1_1_0.NvidiaPowerSmoothingPresetProfile";
             aResp->res.jsonValue["@odata.id"] = adminOverrideURI;
             aResp->res.jsonValue["Id"] = "AdminOverrideProfile";
             aResp->res.jsonValue["Name"] =
                 processorId + " PowerSmoothing AdminOverrideProfile";
-
             crow::connections::systemBus->async_method_call(
                 [aResp,
                  processorId](const boost::system::error_code ec2,
@@ -655,6 +872,48 @@ inline void getProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                 }
                 aResp->res.jsonValue["TMPFloorPercent"] = *value;
             }
+            else if (property.first == "SecondaryPowerFloorSetting")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["SecondaryPowerFloorWatts"] = *value;
+            }
+            else if (property.first == "PrimaryFloorActivationWindowMultiplier")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["PrimaryFloorActivationWindowMultiplier"] =
+                    *value;
+            }
+            else if (property.first == "PrimaryFloorTargetWindowMultiplier")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["PrimaryFloorTargetWindowMultiplier"] =
+                    *value;
+            }
+            else if (property.first == "PrimaryFloorActivationOffset")
+            {
+                const double* value = std::get_if<double>(&property.second);
+                if (value == nullptr)
+                {
+                    messages::internalError(aResp->res);
+                    return;
+                }
+                aResp->res.jsonValue["PrimaryFloorActivationOffsetWatts"] = *value;
+            }
         }
     },
         service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
@@ -693,7 +952,7 @@ inline void getProcessorPowerSmoothingPresetProfileData(
             profileURI += "/Oem/Nvidia/PowerSmoothing/PresetProfiles/";
             profileURI += profileId;
             aResp->res.jsonValue["@odata.type"] =
-                "#NvidiaPowerSmoothingPresetProfile.v1_0_0.NvidiaPowerSmoothingPresetProfile";
+                "#NvidiaPowerSmoothingPresetProfile.v1_1_0.NvidiaPowerSmoothingPresetProfile";
             aResp->res.jsonValue["@odata.id"] = profileURI;
             aResp->res.jsonValue["Id"] = profileId;
 
@@ -967,6 +1226,7 @@ inline void patchAdminOverrideProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
             messages::internalError(aResp->res);
             return;
         }
+
         for (const auto& [path, object] : subtree)
         {
             if (!boost::ends_with(path, processorId))
@@ -1082,6 +1342,7 @@ inline void patchPresetProfile(std::shared_ptr<bmcweb::AsyncResp> aResp,
             {
                 continue;
             }
+
             crow::connections::systemBus->async_method_call(
                 [aResp, profileId, propName, propValue,
                  processorId](const boost::system::error_code ec2,
@@ -1543,11 +1804,21 @@ inline void requestRoutesProcessorPowerSmoothingAdminProfile(App& app)
         std::optional<double> rampUpWattsPerSecond;
         std::optional<double> rampDownWattsPerSecond;
         std::optional<double> rampDownHysteresisSeconds;
+        std::optional<double> secondaryPowerFloorSetting;
+        std::optional<double> primaryFloorActivationWindowMultiplier;
+        std::optional<double> primaryFloorTargetWindowMultiplier;
+        std::optional<double> primaryFloorActivationOffset;
         if (!redfish::json_util::readJsonAction(
                 req, asyncResp->res, "TMPFloorPercent", tmpFloorPercent,
                 "RampUpWattsPerSecond", rampUpWattsPerSecond,
                 "RampDownWattsPerSecond", rampDownWattsPerSecond,
-                "RampDownHysteresisSeconds", rampDownHysteresisSeconds))
+                "RampDownHysteresisSeconds", rampDownHysteresisSeconds,
+                "SecondaryPowerFloorWatts", secondaryPowerFloorSetting,
+                "PrimaryFloorActivationWindowMultiplier",
+                primaryFloorActivationWindowMultiplier,
+                "PrimaryFloorTargetWindowMultiplier",
+                primaryFloorTargetWindowMultiplier,
+                "PrimaryFloorActivationOffsetWatts", primaryFloorActivationOffset))
         {
             return;
         }
@@ -1571,6 +1842,30 @@ inline void requestRoutesProcessorPowerSmoothingAdminProfile(App& app)
             patchAdminOverrideProfile(asyncResp, processorId,
                                       "RampDownHysteresis",
                                       *rampDownHysteresisSeconds);
+        }
+        if (secondaryPowerFloorSetting)
+        {
+            patchAdminOverrideProfile(asyncResp, processorId,
+                                      "SecondaryPowerFloorSetting",
+                                      *secondaryPowerFloorSetting);
+        }
+        if (primaryFloorActivationWindowMultiplier)
+        {
+            patchAdminOverrideProfile(asyncResp, processorId,
+                                      "PrimaryFloorActivationWindowMultiplier",
+                                      *primaryFloorActivationWindowMultiplier);
+        }
+        if (primaryFloorTargetWindowMultiplier)
+        {
+            patchAdminOverrideProfile(asyncResp, processorId,
+                                      "PrimaryFloorTargetWindowMultiplier",
+                                      *primaryFloorTargetWindowMultiplier);
+        }
+        if (primaryFloorActivationOffset)
+        {
+            patchAdminOverrideProfile(asyncResp, processorId,
+                                      "PrimaryFloorActivationOffset",
+                                      *primaryFloorActivationOffset);
         }
     });
 }
@@ -1640,11 +1935,21 @@ inline void requestRoutesProcessorPowerSmoothingPresetProfile(App& app)
         std::optional<double> rampUpWattsPerSecond;
         std::optional<double> rampDownWattsPerSecond;
         std::optional<double> rampDownHysteresisSeconds;
+        std::optional<double> secondaryPowerFloorSetting;
+        std::optional<double> primaryFloorActivationWindowMultiplier;
+        std::optional<double> primaryFloorTargetWindowMultiplier;
+        std::optional<double> primaryFloorActivationOffset;
         if (!redfish::json_util::readJsonAction(
                 req, asyncResp->res, "TMPFloorPercent", tmpFloorPercent,
                 "RampUpWattsPerSecond", rampUpWattsPerSecond,
                 "RampDownWattsPerSecond", rampDownWattsPerSecond,
-                "RampDownHysteresisSeconds", rampDownHysteresisSeconds))
+                "RampDownHysteresisSeconds", rampDownHysteresisSeconds,
+                "SecondaryPowerFloorWatts", secondaryPowerFloorSetting,
+                "PrimaryFloorActivationWindowMultiplier",
+                primaryFloorActivationWindowMultiplier,
+                "PrimaryFloorTargetWindowMultiplier",
+                primaryFloorTargetWindowMultiplier,
+                "PrimaryFloorActivationOffsetWatts", primaryFloorActivationOffset))
         {
             return;
         }
@@ -1668,6 +1973,30 @@ inline void requestRoutesProcessorPowerSmoothingPresetProfile(App& app)
             patchPresetProfile(asyncResp, processorId, profileId,
                                "RampDownHysteresis",
                                *rampDownHysteresisSeconds);
+        }
+        if (secondaryPowerFloorSetting)
+        {
+            patchPresetProfile(asyncResp, processorId, profileId,
+                               "SecondaryPowerFloorSetting",
+                               *secondaryPowerFloorSetting);
+        }
+        if (primaryFloorActivationWindowMultiplier)
+        {
+            patchPresetProfile(asyncResp, processorId, profileId,
+                               "PrimaryFloorActivationWindowMultiplier",
+                               *primaryFloorActivationWindowMultiplier);
+        }
+        if (primaryFloorTargetWindowMultiplier)
+        {
+            patchPresetProfile(asyncResp, processorId, profileId,
+                               "PrimaryFloorTargetWindowMultiplier",
+                               *primaryFloorTargetWindowMultiplier);
+        }
+        if (primaryFloorActivationOffset)
+        {
+            patchPresetProfile(asyncResp, processorId, profileId,
+                               "PrimaryFloorActivationOffset",
+                               *primaryFloorActivationOffset);
         }
     });
 }
