@@ -16,9 +16,10 @@
 // NOLINTNEXTLINE(misc-include-cleaner)
 #include "registries/task_event_message_registry.hpp"
 // NOLINTNEXTLINE(misc-include-cleaner)
+#include "registries/bios_attribute_registry.hpp"
 #include "registries/telemetry_message_registry.hpp"
 #include "registries/update_message_registry.hpp"
-#include "registries/bios_attribute_registry.hpp"
+
 #include <optional>
 #include <span>
 #include <string_view>

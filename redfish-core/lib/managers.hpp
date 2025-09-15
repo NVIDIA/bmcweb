@@ -1027,93 +1027,94 @@ inline void requestRoutesManager(App& app)
             extendManagerGet(req, asyncResp, managerId);
             extendManagerOEMActions(req, asyncResp, managerId);
             RedfishService::getInstance(app).handleSubRoute(req, asyncResp);
-});
-
-BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/")
-    .privileges(redfish::privileges::patchManager)
-    .methods(boost::beast::http::verb::patch)(
-        [&app](const crow::Request& req,
-               const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-               const std::string& managerId) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-
-            if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
-            {
-                messages::resourceNotFound(asyncResp->res, "Manager",
-                                           managerId);
-                return;
-            }
-
-            std::optional<std::string> activeSoftwareImageOdataId;
-            std::optional<std::string> datetime;
-            std::optional<bool> locationIndicatorActive;
-            std::optional<nlohmann::json::object_t> pidControllers;
-            std::optional<nlohmann::json::object_t> fanControllers;
-            std::optional<nlohmann::json::object_t> fanZones;
-            std::optional<nlohmann::json::object_t> stepwiseControllers;
-            std::optional<std::string> profile;
-            std::optional<std::string> serviceIdentification;
-            std::optional<std::string> privilege;
-            std::optional<bool> tlsAuth;
-            std::optional<bool> openocdValue;
-            std::optional<std::string> restrictionMode;
-
-            if (!json_util::readJsonPatch(                             //
-                    req, asyncResp->res,                               //
-                    "DateTime", datetime,                              //
-                    "Links/ActiveSoftwareImage/@odata.id",
-                    activeSoftwareImageOdataId,                        //
-                    "LocationIndicatorActive",
-                    locationIndicatorActive,                           //
-                    "Oem/OpenBmc/Fan/FanControllers", fanControllers,  //
-                    "Oem/OpenBmc/Fan/FanZones", fanZones,              //
-                    "Oem/OpenBmc/Fan/PidControllers", pidControllers,  //
-                    "Oem/OpenBmc/Fan/Profile", profile,                //
-                    "Oem/OpenBmc/Fan/StepwiseControllers",
-                    stepwiseControllers,                               //
-                    "ServiceIdentification", serviceIdentification,    //
-                    "Oem/Nvidia/SMBPBIFencingPrivilege", privilege,    //
-                    "Oem/Nvidia/AuthenticationTLSRequired", tlsAuth,   //
-                    "Oem/Nvidia/OpenOCD/Enable", openocdValue,         //
-                    "Oem/Nvidia/IPMI/RestrictionMode", restrictionMode //
-                    ))
-            {
-                return;
-            }
-
-            if (activeSoftwareImageOdataId)
-            {
-                setActiveFirmwareImage(asyncResp, *activeSoftwareImageOdataId);
-            }
-
-            if (datetime)
-            {
-                setDateTime(asyncResp, *datetime);
-            }
-
-            if (locationIndicatorActive)
-            {
-                setLocationIndicatorActiveState(
-                    asyncResp, *locationIndicatorActive, managerId);
-            }
-
-            if (serviceIdentification)
-            {
-                manager_utils::setServiceIdentification(
-                    asyncResp, serviceIdentification.value());
-            }
-
-            if (restrictionMode)
-            {
-                redfish::nvidia_manager_util::setRestrictionMode(
-                    asyncResp, *restrictionMode);
-            }
-
-            RedfishService::getInstance(app).handleSubRoute(req, asyncResp);
         });
+
+    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/")
+        .privileges(redfish::privileges::patchManager)
+        .methods(boost::beast::http::verb::patch)(
+            [&app](const crow::Request& req,
+                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                   const std::string& managerId) {
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+                {
+                    return;
+                }
+
+                if (managerId != BMCWEB_REDFISH_MANAGER_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "Manager",
+                                               managerId);
+                    return;
+                }
+
+                std::optional<std::string> activeSoftwareImageOdataId;
+                std::optional<std::string> datetime;
+                std::optional<bool> locationIndicatorActive;
+                std::optional<nlohmann::json::object_t> pidControllers;
+                std::optional<nlohmann::json::object_t> fanControllers;
+                std::optional<nlohmann::json::object_t> fanZones;
+                std::optional<nlohmann::json::object_t> stepwiseControllers;
+                std::optional<std::string> profile;
+                std::optional<std::string> serviceIdentification;
+                std::optional<std::string> privilege;
+                std::optional<bool> tlsAuth;
+                std::optional<bool> openocdValue;
+                std::optional<std::string> restrictionMode;
+
+                if (!json_util::readJsonPatch(                             //
+                        req, asyncResp->res,                               //
+                        "DateTime", datetime,                              //
+                        "Links/ActiveSoftwareImage/@odata.id",
+                        activeSoftwareImageOdataId,                        //
+                        "LocationIndicatorActive",
+                        locationIndicatorActive,                           //
+                        "Oem/OpenBmc/Fan/FanControllers", fanControllers,  //
+                        "Oem/OpenBmc/Fan/FanZones", fanZones,              //
+                        "Oem/OpenBmc/Fan/PidControllers", pidControllers,  //
+                        "Oem/OpenBmc/Fan/Profile", profile,                //
+                        "Oem/OpenBmc/Fan/StepwiseControllers",
+                        stepwiseControllers,                               //
+                        "ServiceIdentification", serviceIdentification,    //
+                        "Oem/Nvidia/SMBPBIFencingPrivilege", privilege,    //
+                        "Oem/Nvidia/AuthenticationTLSRequired", tlsAuth,   //
+                        "Oem/Nvidia/OpenOCD/Enable", openocdValue,         //
+                        "Oem/Nvidia/IPMI/RestrictionMode", restrictionMode //
+                        ))
+                {
+                    return;
+                }
+
+                if (activeSoftwareImageOdataId)
+                {
+                    setActiveFirmwareImage(asyncResp,
+                                           *activeSoftwareImageOdataId);
+                }
+
+                if (datetime)
+                {
+                    setDateTime(asyncResp, *datetime);
+                }
+
+                if (locationIndicatorActive)
+                {
+                    setLocationIndicatorActiveState(
+                        asyncResp, *locationIndicatorActive, managerId);
+                }
+
+                if (serviceIdentification)
+                {
+                    manager_utils::setServiceIdentification(
+                        asyncResp, serviceIdentification.value());
+                }
+
+                if (restrictionMode)
+                {
+                    redfish::nvidia_manager_util::setRestrictionMode(
+                        asyncResp, *restrictionMode);
+                }
+
+                RedfishService::getInstance(app).handleSubRoute(req, asyncResp);
+            });
 }
 
 inline void requestRoutesManagerCollection(App& app)

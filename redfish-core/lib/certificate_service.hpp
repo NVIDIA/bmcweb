@@ -977,8 +977,8 @@ inline void handleHTTPSCertificateCollectionPost(
     dbus::utility::async_method_call(
         asyncResp,
         [asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
-                            sdbusplus::message::message& m,
-                              const std::string& objectPath) {
+                                            sdbusplus::message::message& m,
+                                            const std::string& objectPath) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
@@ -1104,8 +1104,8 @@ inline void handleLDAPCertificateCollectionPost(
     dbus::utility::async_method_call(
         asyncResp,
         [asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
-                              sdbusplus::message::message& m,                            
-                              const std::string& objectPath) {
+                                            sdbusplus::message::message& m,
+                                            const std::string& objectPath) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
@@ -1253,8 +1253,8 @@ inline void handleTrustStoreCertificateCollectionPost(
     dbus::utility::async_method_call(
         asyncResp,
         [asyncResp, certFile, certHttpBody](const boost::system::error_code& ec,
-                              sdbusplus::message::message& m,
-                              const std::string& objectPath) {
+                                            sdbusplus::message::message& m,
+                                            const std::string& objectPath) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: {}", ec);

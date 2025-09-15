@@ -27,7 +27,6 @@
 #include <boost/process/v2/process.hpp>
 #include <boost/process/v2/stdio.hpp>
 
-
 #include <memory>
 #include <tuple>
 #include <utility>
@@ -131,9 +130,10 @@ class Handler : public std::enable_shared_from_this<Handler>
             bpv2::process_stdio{.in = nullptr, .out = nullptr, .err = nullptr});
         {
             auto self = shared_from_this();
-            subprocess->async_wait([this, self](const boost::system::error_code& ec, int code) {
-                subprocessExitHandler(self, code, ec);
-            });
+            subprocess->async_wait(
+                [this, self](const boost::system::error_code& ec, int code) {
+                    subprocessExitHandler(self, code, ec);
+                });
         }
     }
 

@@ -859,8 +859,8 @@ inline void requestRoutesEventDestination(App& app)
                 if (context)
                 {
                     subValue->userSub->customText = *context;
-                    sendPropertyModifiedEvent(req.target(), "EventService", "Context",
-                                              *context);
+                    sendPropertyModifiedEvent(req.target(), "EventService",
+                                              "Context", *context);
                 }
 
                 if (headers)
@@ -888,8 +888,8 @@ inline void requestRoutesEventDestination(App& app)
                         }
                     }
                     subValue->userSub->httpHeaders = std::move(fields);
-                    sendPropertyModifiedEvent(req.target(), "EventService", "Headers",
-                                              keyValues);
+                    sendPropertyModifiedEvent(req.target(), "EventService",
+                                              "Headers", keyValues);
                 }
 
                 if (retryPolicy)
@@ -904,8 +904,8 @@ inline void requestRoutesEventDestination(App& app)
                         return;
                     }
                     subValue->userSub->retryPolicy = *retryPolicy;
-                    sendPropertyModifiedEvent(req.target(), "EventService", "RetryPolicy",
-                                              *retryPolicy);
+                    sendPropertyModifiedEvent(req.target(), "EventService",
+                                              "RetryPolicy", *retryPolicy);
                 }
 
                 if (sendHeartbeat)

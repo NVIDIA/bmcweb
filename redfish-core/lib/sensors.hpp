@@ -2930,8 +2930,9 @@ inline void requestRoutesSensorPatch(App& app)
                     return;
                 }
                 crow::connections::systemBus->async_method_call(
-                    [&req, asyncResp, chassisId, sensorId](const boost::system::error_code& ec1,
-                          const std::vector<std::string>& objects) {
+                    [&req, asyncResp, chassisId,
+                     sensorId](const boost::system::error_code& ec1,
+                               const std::vector<std::string>& objects) {
                         if (ec1)
                         {
                             messages::internalError(asyncResp->res);
@@ -2944,13 +2945,14 @@ inline void requestRoutesSensorPatch(App& app)
                                 continue;
                             }
                             crow::connections::systemBus->async_method_call(
-                                [&req, asyncResp, sensorId](const boost::system::error_code& ec2,
-                                      const std::vector<std::pair<
-                                          std::string,
-                                          std::vector<std::pair<
-                                              std::string,
-                                              std::vector<std::string>>>>>&
-                                          subtree) {
+                                [&req, asyncResp,
+                                 sensorId](const boost::system::error_code& ec2,
+                                           const std::vector<std::pair<
+                                               std::string,
+                                               std::vector<std::pair<
+                                                   std::string,
+                                                   std::vector<std::string>>>>>&
+                                               subtree) {
                                     if (ec2)
                                     {
                                         messages::internalError(asyncResp->res);

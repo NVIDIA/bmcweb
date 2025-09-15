@@ -44,8 +44,8 @@
 #include <string_view>
 namespace redfish
 {
-using ::vectorTo256BitHexString;
 using ::stringNibbleToVector;
+using ::vectorTo256BitHexString;
 using DbusProperties =
     std::vector<std::pair<std::string, dbus::utility::DbusVariantType>>;
 

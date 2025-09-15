@@ -12,13 +12,14 @@
 #include "event_service_manager.hpp"
 #include "http_request.hpp"
 #include "http_response.hpp"
+#include "nvidia_event_service.hpp"
 #include "pam_authenticate.hpp"
 #include "privileges.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "sessions.hpp"
 #include "utils/json_utils.hpp"
-#include "nvidia_event_service.hpp"
+
 #include <security/_pam_types.h>
 
 #include <boost/beast/http/field.hpp>
@@ -373,8 +374,9 @@ inline void handleSessionServicePatch(
             // update the message severity
             redfish::message_registries::updateMessageSeverity(
                 asyncResp, "SessionTimeOut", "OK");
-            sendPropertyModifiedEvent(req.target(), "SessionService", "SessionTimeOut",
-                                      std::to_string(sessionTimeoutInseconds.count()));
+            sendPropertyModifiedEvent(
+                req.target(), "SessionService", "SessionTimeOut",
+                std::to_string(sessionTimeoutInseconds.count()));
         }
         else
         {

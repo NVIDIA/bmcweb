@@ -17,18 +17,19 @@
 #pragma once
 
 #include "bmcweb_config.h" // For BMCWEB_DISABLE_CONDITIONS_ARRAY
+
 #include "app.hpp"
 #include "async_resp.hpp"
+#include "nvidia_processor.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
-#include "nvidia_processor.hpp"
 namespace redfish
 {
-    
+
 inline void requestRoutesProcessorMetrics(App& app)
 {
     /**
@@ -264,4 +265,4 @@ inline void requestRoutesProcessorReset(App& app)
                 }
             });
 }
-}
+} // namespace redfish

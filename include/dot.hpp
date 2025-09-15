@@ -28,13 +28,12 @@
 #include <boost/algorithm/string/join.hpp>
 #include <boost/asio.hpp>
 #include <boost/interprocess/streams/bufferstream.hpp>
-//#include <boost/process/child.hpp>
-//#include <boost/process/pipe.hpp>
-#include <boost/process/v2/process.hpp>
-#include <boost/process/v2/stdio.hpp>
+#include <boost/asio/connect_pipe.hpp>
 #include <boost/asio/readable_pipe.hpp>
 #include <boost/asio/writable_pipe.hpp>
-#include <boost/asio/connect_pipe.hpp>
+#include <boost/process/v2/process.hpp>
+#include <boost/process/v2/stdio.hpp>
+
 #include <memory>
 #include <numeric>
 #include <span>
@@ -246,7 +245,8 @@ class DotCommandHandler
             boost::asio::readable_pipe rp(io);
             boost::asio::writable_pipe wp(io);
             boost::asio::connect_pipe(rp, wp);
-            outRead = std::make_unique<boost::asio::readable_pipe>(std::move(rp));
+            outRead =
+                std::make_unique<boost::asio::readable_pipe>(std::move(rp));
 
             // Configure stdio (ignore stderr as before)
             bpv2::process_stdio stdio{
@@ -264,7 +264,8 @@ class DotCommandHandler
             readLoop = [self, &readLoop]() {
                 self->outRead->async_read_some(
                     boost::asio::buffer(self->outBuf),
-                    [self, &readLoop](const boost::system::error_code& ec, std::size_t n) {
+                    [self, &readLoop](const boost::system::error_code& ec,
+                                      std::size_t n) {
                         if (!ec)
                         {
                             std::span<const char> chunk(self->outBuf.data(), n);
@@ -279,21 +280,25 @@ class DotCommandHandler
                         // Try finish if process already exited
                         if (!self->subprocess.has_value())
                         {
-                            self->subprocessExitCallback(self->lastExitCode, std::error_code{});
+                            self->subprocessExitCallback(self->lastExitCode,
+                                                         std::error_code{});
                         }
                     });
             };
             readLoop();
 
             // Wait for process to exit
-            subprocess->async_wait([this](const boost::system::error_code& ec, int code) {
+            subprocess->async_wait([this](const boost::system::error_code& ec,
+                                          int code) {
                 lastExitCode = code;
                 // Clear process to indicate exit happened
                 subprocess.reset();
                 if (readDone)
                 {
                     // both read and exit done
-                    subprocessExitCallback(code, std::error_code(ec.value(), std::generic_category()));
+                    subprocessExitCallback(
+                        code,
+                        std::error_code(ec.value(), std::generic_category()));
                 }
             });
         }

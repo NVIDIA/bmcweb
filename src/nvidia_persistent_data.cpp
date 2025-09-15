@@ -24,7 +24,7 @@
 
 namespace persistent_data::nvidia
 {
- 
+
 void Config::fromJson(const nlohmann::json& json)
 {
     if (json.contains("tls_auth_enabled"))

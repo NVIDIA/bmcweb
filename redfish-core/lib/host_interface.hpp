@@ -23,8 +23,8 @@
 #include <bios.hpp>
 #include <dbus_utility.hpp>
 #include <error_messages.hpp>
-#include <registries/privilege_registry.hpp>
 #include <nvidia_bios.hpp>
+#include <registries/privilege_registry.hpp>
 #include <utils/json_utils.hpp>
 
 #include <fstream>
@@ -131,9 +131,8 @@ inline void getCredentialsBootStrap(
 
                     for (const std::pair<
                              std::string,
-                             std::variant<std::string,
-                                          redfish::BaseBIOSTable, bool>>&
-                             property : propertiesList)
+                             std::variant<std::string, redfish::BaseBIOSTable,
+                                          bool>>& property : propertiesList)
                     {
                         const std::string& propertyName = property.first;
 
@@ -172,8 +171,7 @@ inline void getCredentialsBootStrap(
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject",
-        redfish::biosConfigObj,
+        "xyz.openbmc_project.ObjectMapper", "GetObject", redfish::biosConfigObj,
         std::array<const char*, 1>{redfish::biosConfigIface});
 }
 
@@ -205,13 +203,11 @@ inline void setCredentialBootstrap(
                 },
                 biosService, redfish::biosConfigObj,
                 "org.freedesktop.DBus.Properties", "Set",
-                redfish::biosConfigIface, property,
-                std::variant<bool>(flag));
+                redfish::biosConfigIface, property, std::variant<bool>(flag));
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject",
-        redfish::biosConfigObj,
+        "xyz.openbmc_project.ObjectMapper", "GetObject", redfish::biosConfigObj,
         std::array<const char*, 1>{redfish::biosConfigIface});
 }
 

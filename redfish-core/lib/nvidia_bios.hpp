@@ -1464,7 +1464,8 @@ inline void setBiosCurrentOrPendingAttr(
                                     pendingAttrIt.key());
                                 return;
                             }
-                            std::string attrReqVal = pendingAttrIt.value().get<std::string>();
+                            std::string attrReqVal =
+                                pendingAttrIt.value().get<std::string>();
 
                             if (attrType == "Enumeration")
                             {
@@ -1649,7 +1650,8 @@ inline void setBiosCurrentOrPendingAttr(
                                     pendingAttrIt.key());
                                 return;
                             }
-                            int64_t attrReqVal = pendingAttrIt.value().get<int64_t>();
+                            int64_t attrReqVal =
+                                pendingAttrIt.value().get<int64_t>();
                             if (biosFlag)
                             {
                                 std::get<BaseBiosTableIndex::baseBiosCurrValue>(

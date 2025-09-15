@@ -278,9 +278,9 @@ inline void handleServiceConditionsURI(
                             messageId);
 
                         std::string sev = (*severity).substr(prefix.length());
-                        std::string currSev = asyncResp->res.jsonValue
-                                                   .at("HealthRollup")
-                                                   .get<std::string>();
+                        std::string currSev =
+                            asyncResp->res.jsonValue.at("HealthRollup")
+                                .get<std::string>();
 
                         if (severityMap.at(sev) > severityMap.at(currSev))
                         {
@@ -350,8 +350,8 @@ inline void handleDeviceServiceConditionsFromFile(crow::Response& resp,
         {
             // MessageRegistry Format
             std::string messageId = jMsgId->get<std::string>();
-            std::string message = message_registries::composeMessage(
-                messageId, *jMsgArgs);
+            std::string message =
+                message_registries::composeMessage(messageId, *jMsgArgs);
 
             conditionResp["MessageId"] = messageId;
             conditionResp["MessageArgs"] = *jMsgArgs;
@@ -480,7 +480,8 @@ inline void populateServiceConditions(
     const std::string& chassisId)
 {
     BMCWEB_LOG_DEBUG("Populating service conditions for device {}", chassisId);
-    std::string redfishUri = asyncResp->res.jsonValue.at("@odata.id").get<std::string>();
+    std::string redfishUri =
+        asyncResp->res.jsonValue.at("@odata.id").get<std::string>();
     BMCWEB_LOG_DEBUG("ON REDFISH URI {}", redfishUri);
     BMCWEB_LOG_DEBUG("PLATFORM DEVICE PREFIX IS {}",
                      BMCWEB_PLATFORM_DEVICE_PREFIX);

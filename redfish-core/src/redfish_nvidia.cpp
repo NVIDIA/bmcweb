@@ -45,9 +45,10 @@
 #include "nvidia_power_reset_metrics.hpp"
 #include "nvidia_power_smoothing.hpp"
 #include "nvidia_processor_port.hpp"
+#include "nvidia_processor_routes.hpp"
 #include "nvidia_protected_component.hpp"
-#include "nvidia_storage.hpp"
 #include "nvidia_smbios_mdr.hpp"
+#include "nvidia_storage.hpp"
 #include "nvidia_sweinj.hpp"
 #include "nvidia_system.hpp"
 #include "nvidia_system_variable_spi_erase.hpp"
@@ -66,7 +67,6 @@
 #include "update_service.hpp"
 #include "utils/nvidia_manager_utils.hpp"
 #include "utils/nvidia_pcie_utils.hpp"
-#include "nvidia_processor_routes.hpp"
 namespace redfish
 {
 void requestRoutesNvidia(crow::App& app)

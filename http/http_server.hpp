@@ -17,9 +17,9 @@
 #include <openssl/pem.h> // For PEM_read_PrivateKey
 #include <sys/inotify.h> // For IN_CLOSE_WRITE
 
+#include <boost/asio/signal_set.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/asio/signal_set.hpp>
 #include <boost/beast/core.hpp> // For lowest_layer_type
 
 #include <chrono>

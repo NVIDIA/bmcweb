@@ -142,15 +142,15 @@ inline nlohmann::json componentUpdateSkipped(std::string_view arg1,
 inline nlohmann::json recoveryStarted(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};
-    return getLogNvidia(
-        redfish::registries::nvidia::Index::recoveryStarted, args);
+    return getLogNvidia(redfish::registries::nvidia::Index::recoveryStarted,
+                        args);
 }
 
 inline nlohmann::json recoverySuccessful(std::string_view arg1)
 {
     std::array<std::string_view, 1> args{arg1};
-    return getLogNvidia(
-        redfish::registries::nvidia::Index::recoverySuccessful, args);
+    return getLogNvidia(redfish::registries::nvidia::Index::recoverySuccessful,
+                        args);
 }
 
 inline nlohmann::json firmwareNotInRecovery(std::string_view arg1)
@@ -165,9 +165,8 @@ inline nlohmann::json stageSuccessful(std::string_view arg1,
 {
     (void)arg2;
     std::array<std::string_view, 1> args{arg1};
-    return getLogNvidia(
-        redfish::registries::nvidia::Index::stageSuccessful, args);
+    return getLogNvidia(redfish::registries::nvidia::Index::stageSuccessful,
+                        args);
 }
-
 
 } // namespace redfish::messages

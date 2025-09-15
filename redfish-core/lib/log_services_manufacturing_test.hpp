@@ -19,6 +19,7 @@
 #include "registries/privilege_registry.hpp"
 #include "task.hpp"
 #include "utils/nvidia_hex_utils.hpp"
+
 #include <boost/process/v2/process.hpp>
 #include <boost/process/v2/stdio.hpp>
 
@@ -208,15 +209,20 @@ inline void requestRoutesEventLogDiagnosticDataCollect(App& app)
                         try
                         {
                             namespace bpv2 = boost::process::v2;
-                            auto& io = crow::connections::systemBus->get_io_context();
+                            auto& io =
+                                crow::connections::systemBus->get_io_context();
                             // Launch script and capture stdout to buffer
                             mfgTestProc = std::make_shared<bpv2::process>(
                                 io, "/usr/bin/mfg-script-exec.sh",
-                                std::vector<std::string>{"/usr/share/mfg-script-exec/config.yml"},
-                                bpv2::process_stdio{.in = nullptr, .out = nullptr, .err = nullptr});
-                            mfgTestProc->async_wait([](const std::error_code& ec, int code) {
-                                mfgTestProcExitHandler(code, ec);
-                            });
+                                std::vector<std::string>{
+                                    "/usr/share/mfg-script-exec/config.yml"},
+                                bpv2::process_stdio{.in = nullptr,
+                                                    .out = nullptr,
+                                                    .err = nullptr});
+                            mfgTestProc->async_wait(
+                                [](const std::error_code& ec, int code) {
+                                    mfgTestProcExitHandler(code, ec);
+                                });
                         }
                         catch (const std::runtime_error& e)
                         {

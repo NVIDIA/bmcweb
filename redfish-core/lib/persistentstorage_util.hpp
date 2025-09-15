@@ -20,9 +20,9 @@
 #include "dbus_singleton.hpp"
 #include "error_messages.hpp"
 
+#include <boost/asio/connect_pipe.hpp>
 #include <boost/asio/readable_pipe.hpp>
 #include <boost/asio/writable_pipe.hpp>
-#include <boost/asio/connect_pipe.hpp>
 #include <boost/process/v2/process.hpp>
 #include <boost/process/v2/stdio.hpp>
 
@@ -139,12 +139,14 @@ struct PersistentStorageUtil
         boost::asio::readable_pipe errRead(io);
         boost::asio::writable_pipe errWrite(io);
         boost::asio::connect_pipe(errRead, errWrite);
-        state->outRead = std::make_unique<boost::asio::readable_pipe>(std::move(outRead));
-        state->errRead = std::make_unique<boost::asio::readable_pipe>(std::move(errRead));
+        state->outRead =
+            std::make_unique<boost::asio::readable_pipe>(std::move(outRead));
+        state->errRead =
+            std::make_unique<boost::asio::readable_pipe>(std::move(errRead));
 
         auto tryComplete = [state, &req, asyncResp,
-                            cb = std::move(responseCallback),
-                            command](const boost::system::error_code& ec) mutable {
+                            cb = std::move(responseCallback), command](
+                               const boost::system::error_code& ec) mutable {
             if (state->outDone && state->errDone && state->waitDone)
             {
                 if (ec || state->exitCode != 0)
@@ -164,21 +166,26 @@ struct PersistentStorageUtil
                     }
                     return;
                 }
-                cb(req, asyncResp, state->stdOut, state->stdErr, ec, state->exitCode);
+                cb(req, asyncResp, state->stdOut, state->stdErr, ec,
+                   state->exitCode);
             }
         };
 
         // Launch via shell so command string is honored
         state->proc = std::make_shared<bpv2::process>(
             io, "/bin/sh", std::vector<std::string>{"-c", command},
-            bpv2::process_stdio{.in = nullptr, .out = std::move(outWrite), .err = std::move(errWrite)});
+            bpv2::process_stdio{.in = nullptr,
+                                .out = std::move(outWrite),
+                                .err = std::move(errWrite)});
 
         // Read stdout
         std::function<void()> readOut;
         readOut = [state, tryComplete, &readOut]() mutable {
             state->outRead->async_read_some(
                 boost::asio::buffer(state->outBuf),
-                [state, tryComplete, &readOut](const boost::system::error_code& ec, std::size_t n) mutable {
+                [state, tryComplete,
+                 &readOut](const boost::system::error_code& ec,
+                           std::size_t n) mutable {
                     if (!ec)
                     {
                         state->stdOut.append(state->outBuf.data(), n);
@@ -196,7 +203,9 @@ struct PersistentStorageUtil
         readErr = [state, tryComplete, &readErr]() mutable {
             state->errRead->async_read_some(
                 boost::asio::buffer(state->errBuf),
-                [state, tryComplete, &readErr](const boost::system::error_code& ec, std::size_t n) mutable {
+                [state, tryComplete,
+                 &readErr](const boost::system::error_code& ec,
+                           std::size_t n) mutable {
                     if (!ec)
                     {
                         state->stdErr.append(state->errBuf.data(), n);
@@ -210,11 +219,13 @@ struct PersistentStorageUtil
         readErr();
 
         // Wait for process exit
-        state->proc->async_wait([state, tryComplete](const boost::system::error_code& ec, int code) mutable {
-            state->exitCode = code;
-            state->waitDone = true;
-            tryComplete(ec);
-        });
+        state->proc->async_wait(
+            [state, tryComplete](const boost::system::error_code& ec,
+                                 int code) mutable {
+                state->exitCode = code;
+                state->waitDone = true;
+                tryComplete(ec);
+            });
     }
 };
 

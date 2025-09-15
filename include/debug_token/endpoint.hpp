@@ -111,7 +111,8 @@ class DebugTokenNsmEndpoint : public DebugTokenEndpoint
     {
         if (r.size() < sizeof(NsmDebugTokenRequest))
         {
-            BMCWEB_LOG_ERROR("NSM token request buffer too small: {}", r.size());
+            BMCWEB_LOG_ERROR("NSM token request buffer too small: {}",
+                             r.size());
             state = EndpointState::Error;
             return;
         }

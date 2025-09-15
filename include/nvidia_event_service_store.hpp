@@ -11,10 +11,9 @@ namespace persistent_data
 {
 
 // Returns true if the key was handled, false otherwise
-inline bool handleOriginFields(const std::string& key,
-                               const nlohmann::json& value,
-                               std::vector<std::string>& originResources,
-                               bool& includeOriginOfCondition)
+inline bool handleOriginFields(
+    const std::string& key, const nlohmann::json& value,
+    std::vector<std::string>& originResources, bool& includeOriginOfCondition)
 {
     if (key == "OriginResources")
     {
@@ -26,8 +25,7 @@ inline bool handleOriginFields(const std::string& key,
         }
         for (const auto& val : *obj)
         {
-            const std::string* parsedValue =
-                val.get_ptr<const std::string*>();
+            const std::string* parsedValue = val.get_ptr<const std::string*>();
             if (parsedValue == nullptr)
             {
                 continue;
@@ -49,4 +47,4 @@ inline bool handleOriginFields(const std::string& key,
     return false;
 }
 
-} // namespace persistent_data 
+} // namespace persistent_data

@@ -272,8 +272,8 @@ struct UserSubscription
                 }
             }
             else if (handleOriginFields(element.first, element.second,
-                                       subvalue.originResources,
-                                       subvalue.includeOriginOfCondition))
+                                        subvalue.originResources,
+                                        subvalue.includeOriginOfCondition))
             {
                 continue;
             }

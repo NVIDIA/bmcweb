@@ -18,16 +18,17 @@
 #pragma once
 
 #include "background_copy.hpp"
+#include "credential_pipe.hpp"
 #include "dot.hpp"
 #include "health.hpp"
 #include "in_band.hpp"
 #include "lsp.hpp"
 #include "manual_boot.hpp"
+#include "nvidia_dbus_utility.hpp"
 #include "nvidia_protected_component.hpp"
 #include "query.hpp"
 #include "trusted_components.hpp"
-#include "nvidia_dbus_utility.hpp"
-#include "credential_pipe.hpp"
+
 #include <openssl/bio.h>
 #include <openssl/ec.h>
 
@@ -35,10 +36,9 @@
 #include <boost/container/flat_map.hpp>
 #include <boost/process/v2/process.hpp>
 #include <boost/process/v2/stdio.hpp>
-//#include <boost/process/v2/async_pipe.hpp>
+#include <boost/asio/connect_pipe.hpp>
 #include <boost/asio/readable_pipe.hpp>
 #include <boost/asio/writable_pipe.hpp>
-#include <boost/asio/connect_pipe.hpp>
 #include <dbus_utility.hpp>
 #include <openbmc_dbus_rest.hpp>
 #include <registries/privilege_registry.hpp>
@@ -1086,7 +1086,8 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             return;
         }
 
-        std::string resetCommand = erotResetPath + " " + std::to_string(endpointId);
+        std::string resetCommand =
+            erotResetPath + " " + std::to_string(endpointId);
         BMCWEB_LOG_DEBUG("Sending ERoT self-reset command");
 
         /* During the erotReset script, ERoT performs a self reset which leads
@@ -1106,12 +1107,15 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             io,
             resetCommand,
             {},
-            bpv2::process_stdio{.in = nullptr, .out = std::move(outWrite), .err = std::move(errWrite)},
+            bpv2::process_stdio{.in = nullptr,
+                                .out = std::move(outWrite),
+                                .err = std::move(errWrite)},
         };
-        child.async_wait([outRead = std::move(outRead), errRead = std::move(errRead)](
-                             const std::error_code&, int) mutable {
-            // Ignore output; pipes kept alive until exit
-        });
+        child.async_wait(
+            [outRead = std::move(outRead), errRead = std::move(errRead)](
+                const std::error_code&, int) mutable {
+                // Ignore output; pipes kept alive until exit
+            });
     };
     namespace bpv2 = boost::process::v2;
     auto& io = crow::connections::systemBus->get_io_context();
@@ -1126,13 +1130,18 @@ inline void gracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         io,
         command,
         {},
-        bpv2::process_stdio{.in = nullptr, .out = std::move(preOutWrite), .err = std::move(preErrWrite)},
+        bpv2::process_stdio{.in = nullptr,
+                            .out = std::move(preOutWrite),
+                            .err = std::move(preErrWrite)},
     };
     preChild.async_wait([exitCallback = std::move(exitCallback),
                          preOutRead = std::move(preOutRead),
-                         preErrRead = std::move(preErrRead)](const std::error_code& ec, int code) mutable {
+                         preErrRead = std::move(preErrRead)](
+                            const std::error_code& ec, int code) mutable {
         // Keep pipes alive; then invoke original callback
-        exitCallback(boost::system::error_code(ec.value(), boost::system::generic_category()), code);
+        exitCallback(boost::system::error_code(
+                         ec.value(), boost::system::generic_category()),
+                     code);
     });
 }
 
@@ -1302,7 +1311,7 @@ inline void handleEROTChassisResetAction(
                     *crow::connections::systemBus, connectionNames[0].first,
                     path, "xyz.openbmc_project.Common.UUID", "UUID",
                     [&req, asyncResp](const boost::system::error_code& ec2,
-                                     const std::string& chassisUUID) {
+                                      const std::string& chassisUUID) {
                         if (ec2)
                         {
                             BMCWEB_LOG_DEBUG(

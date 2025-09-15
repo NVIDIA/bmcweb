@@ -812,8 +812,10 @@ struct VdmTokenStatus
             tokenRevocation = getTokenRevocation(status.tokenConfig);
             tokenDevIdStatus = getTokenDevIdStatus(status.tokenConfig);
             tokenAntiReplay = getTokenAntiReplay(status.tokenConfig);
-            tokenResetPostInstall = getTokenResetPostInstall(status.tokenConfig);
-            tokenProcessingStatus = getTokenProcessingStatus(status.processingStatus);
+            tokenResetPostInstall =
+                getTokenResetPostInstall(status.tokenConfig);
+            tokenProcessingStatus =
+                getTokenProcessingStatus(status.processingStatus);
             responseStatus = VdmResponseStatus::STATUS;
             return;
         }

@@ -20,12 +20,12 @@
 
 #include "app.hpp"
 #include "dbus_utility.hpp"
+#include "error_messages.hpp"
+#include "logging.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
-#include "error_messages.hpp"
 #include "task.hpp"
 #include "utils/json_utils.hpp"
-#include "logging.hpp"
 
 #include <map>
 
@@ -195,14 +195,14 @@ inline void getDrivePortProperties(
         "xyz.openbmc_project.Inventory.Decorator.PortInfo",
         [asyncResp](const boost::system::error_code& ec,
                     const std::vector<
-                        std::pair<std::string, dbus::utility::DbusVariantType>> &
+                        std::pair<std::string, dbus::utility::DbusVariantType>>&
                         propertiesList) {
             if (ec)
             {
                 // this interface isn't required
                 return;
             }
-            for (const std::pair<std::string, dbus::utility::DbusVariantType> &
+            for (const std::pair<std::string, dbus::utility::DbusVariantType>&
                      property : propertiesList)
             {
                 const std::string& propertyName = property.first;
@@ -845,9 +845,9 @@ inline void extendSystemsStorageGet(
     }
 }
 
-inline void extendAllDriveInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& connectionName,
-    const std::string& path,
+inline void extendAllDriveInfo(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& connectionName, const std::string& path,
     const std::string& interface)
 {
     if (interface == "xyz.openbmc_project.Inventory.Decorator.PortInfo")
@@ -909,8 +909,9 @@ inline void driveCollectionGet(
 
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/inventory", 0, localDriveInterface,
-        [asyncResp, localDriveInterface](const boost::system::error_code& ec,
-                    const dbus::utility::MapperGetSubTreeResponse& subtree) {
+        [asyncResp, localDriveInterface](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Drive mapper call error");
@@ -971,7 +972,7 @@ inline void requestRoutesNvidiaChassisDriveName(App& app)
             handleChassisDriveSanitizetActionInfoGet, std::ref(app)));
 }
 
-inline void requestRoutesNvidiaDrive(App& app)                                                                                                
+inline void requestRoutesNvidiaDrive(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/Storage/1/Drives/")
         .privileges(redfish::privileges::getDriveCollection)

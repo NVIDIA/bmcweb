@@ -1313,7 +1313,7 @@ inline void handleCommitImagePost(
 
     auto initBackgroundCopyCallback =
         [&req, asyncResp]([[maybe_unused]] const UUID& uuid, const EID eid,
-                         const URI& inventoryUri) mutable {
+                          const URI& inventoryUri) mutable {
             BMCWEB_LOG_DEBUG("Run CommitImage operation for EID {}, UUID {}",
                              eid, uuid);
             initBackgroundCopy(req, asyncResp, eid, inventoryUri);
@@ -1321,7 +1321,7 @@ inline void handleCommitImagePost(
 
     auto errorCallback =
         [asyncResp]([[maybe_unused]] const std::string& desc,
-                          [[maybe_unused]] const std::string& errMsg) mutable {
+                    [[maybe_unused]] const std::string& errMsg) mutable {
             BMCWEB_LOG_ERROR("The CommitImage operation failed: {}, {}", desc,
                              errMsg);
             messages::internalError(asyncResp->res);
@@ -1742,8 +1742,8 @@ inline bool handleSatBMCCommitImagePost(
         if (prefix && !noPrefix)
         {
             // targets with the prefix included only.
-            RedfishAggregator::getSatelliteConfigs(
-                std::bind_front(forwardCommitImagePost, std::ref(req), asyncResp));
+            RedfishAggregator::getSatelliteConfigs(std::bind_front(
+                forwardCommitImagePost, std::ref(req), asyncResp));
 
             // don't pass the request to the local
             return false;

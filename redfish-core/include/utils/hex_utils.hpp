@@ -82,4 +82,3 @@ inline std::vector<uint8_t> hexStringToBytes(const std::string& str)
     }
     return rc;
 }
-

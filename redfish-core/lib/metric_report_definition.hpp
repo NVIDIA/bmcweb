@@ -1510,13 +1510,11 @@ inline void handleMetricReportGet(
             telemetry::service, telemetry::getDbusReportPath(id),
             telemetry::reportInterface,
             [asyncResp,
-                id](const boost::system::error_code& ec,
-                    const dbus::utility::DBusPropertiesMap& properties) {
-                if (!telemetry::formatMessageOnError(asyncResp->res, id,
-                                                        ec))
+             id](const boost::system::error_code& ec,
+                 const dbus::utility::DBusPropertiesMap& properties) {
+                if (!telemetry::formatMessageOnError(asyncResp->res, id, ec))
                 {
-                    telemetry::fillReportDefinition(asyncResp, id,
-                                                    properties);
+                    telemetry::fillReportDefinition(asyncResp, id, properties);
                 }
             });
     }

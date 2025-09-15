@@ -8,11 +8,11 @@
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
 #include "http_request.hpp"
-#include "utils/json_utils.hpp"
 #include "logging.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/json_utils.hpp"
 
 #include <boost/system/error_code.hpp>
 

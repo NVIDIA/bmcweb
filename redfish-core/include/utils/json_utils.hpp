@@ -513,10 +513,9 @@ struct PerUnpack
     bool complete = false;
 };
 
-inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
-                                 crow::Response& res,
-                                 std::span<PerUnpack> toUnpack,
-                                 bool allowUnknownKeys = false)
+inline bool readJsonHelperObject(
+    nlohmann::json::object_t& obj, crow::Response& res,
+    std::span<PerUnpack> toUnpack, bool allowUnknownKeys = false)
 {
     bool result = true;
     for (auto& item : obj)
@@ -565,8 +564,9 @@ inline bool readJsonHelperObject(nlohmann::json::object_t& obj,
                     p.complete = true;
                 }
 
-                result = readJsonHelperObject(j, res, nextLevel,
-                                              allowUnknownKeys) && result;
+                result =
+                    readJsonHelperObject(j, res, nextLevel, allowUnknownKeys) &&
+                    result;
                 break;
             }
 
@@ -963,7 +963,8 @@ bool readJsonSubObject(nlohmann::json::object_t& jsonRequest,
     packVariant(toUnpack2, key, std::forward<FirstType>(first),
                 std::forward<UnpackTypes&&>(in)...);
     // Only validate the keys we care about, ignore extra keys
-    return readJsonHelperObject(jsonRequest, res, toUnpack2, /*allowUnknownKeys=*/true);
+    return readJsonHelperObject(jsonRequest, res, toUnpack2,
+                                /*allowUnknownKeys=*/true);
 }
 
 template <typename FirstType, typename... UnpackTypes>

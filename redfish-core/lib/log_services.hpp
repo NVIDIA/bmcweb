@@ -1290,10 +1290,11 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     dbus::utility::async_method_call(
         asyncResp,
-        [asyncResp, payload(task::Payload(req)),
-         dumpPath, oemDiagnosticDataType](const boost::system::error_code& ec,
-                   const sdbusplus::message_t& msg,
-                   const sdbusplus::message::object_path& objPath) mutable {
+        [asyncResp, payload(task::Payload(req)), dumpPath,
+         oemDiagnosticDataType](
+            const boost::system::error_code& ec,
+            const sdbusplus::message_t& msg,
+            const sdbusplus::message::object_path& objPath) mutable {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("CreateDump resp_handler got error {}", ec);
@@ -2111,7 +2112,8 @@ inline void afterDBusEventLogEntryGet(
         return;
     }
 
-    fillEventLogLogEntryFromDbusLogEntry(asyncResp, *optEntry, asyncResp->res.jsonValue);
+    fillEventLogLogEntryFromDbusLogEntry(asyncResp, *optEntry,
+                                         asyncResp->res.jsonValue);
 }
 
 inline void dBusEventLogEntryGet(

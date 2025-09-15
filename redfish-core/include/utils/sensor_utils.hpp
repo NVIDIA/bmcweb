@@ -622,17 +622,17 @@ inline void objectPropertiesToJson(
                 "HardShutdownLow",
                 "/Thresholds/LowerFatal/Reading"_json_pointer);
             properties.emplace_back("xyz.openbmc_project.Time.EpochTime",
-                    "Elapsed", "/ReadingTime"_json_pointer);
+                                    "Elapsed", "/ReadingTime"_json_pointer);
             properties.emplace_back("xyz.openbmc_project.Sensor.ReadingBasis",
-                    "ReadingBasis",
-                    "/ReadingBasis"_json_pointer);
+                                    "ReadingBasis",
+                                    "/ReadingBasis"_json_pointer);
             properties.emplace_back("xyz.openbmc_project.Sensor.Description",
-                    "Description", "/Description"_json_pointer);
+                                    "Description", "/Description"_json_pointer);
             properties.emplace_back("xyz.openbmc_project.Sensor.PeakValue",
-                    "PeakValue", "/PeakReading"_json_pointer);
+                                    "PeakValue", "/PeakReading"_json_pointer);
             properties.emplace_back("xyz.openbmc_project.Sensor.PeakValue",
-                    "Timestamp",
-                    "/PeakReadingTime"_json_pointer);
+                                    "Timestamp",
+                                    "/PeakReadingTime"_json_pointer);
 
             /* Add additional properties specific to sensorType */
             if (sensorType == "fan_tach")

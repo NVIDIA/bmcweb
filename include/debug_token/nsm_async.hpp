@@ -516,7 +516,8 @@ class Handler : public std::enable_shared_from_this<Handler>
         }
         if (request.size() < sizeof(NsmDebugTokenRequest))
         {
-            BMCWEB_LOG_ERROR("Invalid NSM token request size: {}", request.size());
+            BMCWEB_LOG_ERROR("Invalid NSM token request size: {}",
+                             request.size());
             result = std::make_tuple(EndpointState::Error, std::monostate());
             return;
         }

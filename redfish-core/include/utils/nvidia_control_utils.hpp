@@ -407,7 +407,7 @@ inline void patchClockLimitControl(
     crow::connections::systemBus->async_method_call(
         [asyncResp, chassisID, controlID, validChassisPath, processorName,
          &req](const boost::system::error_code& ec,
-              std::variant<std::vector<std::string>>& resp) {
+               std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(

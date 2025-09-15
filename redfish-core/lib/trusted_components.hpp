@@ -19,8 +19,8 @@
 
 #include "bmcweb_config.h"
 
-#include "utils/certificate_utils.hpp"
 #include "nvidia_dbus_utility.hpp"
+#include "utils/certificate_utils.hpp"
 
 #include <app.hpp>
 #include <query.hpp>
@@ -864,8 +864,7 @@ static void constructCertificateResponse(
     const CertificateData& certData)
 {
     crow::connections::systemBus->async_method_call(
-        [asyncResp, chassisID, componentID, certificateID, certPath,
-         certData](
+        [asyncResp, chassisID, componentID, certificateID, certPath, certData](
             const boost::system::error_code& ec,
             const boost::container::flat_map<
                 std::string, dbus::utility::DbusVariantType>& responderProps) {
@@ -1083,11 +1082,11 @@ inline void getTrustedComponentCertificate(
     // Construct the D-Bus path for the SPDM certificate object
     CertificateData certData;
     crow::connections::systemBus->async_method_call(
-        [asyncResp, chassisID, componentID, certificateID, certPath,
-         certData](const boost::system::error_code& ec,
-                   const boost::container::flat_map<
-                       std::string, dbus::utility::DbusVariantType>&
-                       certProps) mutable {
+        [asyncResp, chassisID, componentID, certificateID, certPath, certData](
+            const boost::system::error_code& ec,
+            const boost::container::flat_map<std::string,
+                                             dbus::utility::DbusVariantType>&
+                certProps) mutable {
             handleCertificateProperties(asyncResp, chassisID, componentID,
                                         certificateID, certPath, ec, certProps,
                                         certData);
@@ -1232,8 +1231,8 @@ inline void handleTrustedComponentCertificateGet(
 
             dbus::utility::getSubTree(
                 "/xyz/openbmc_project/SPDM", 0, interfaces,
-                [asyncResp, chassisID, componentID, certificateID,
-                 endpoint, isCollection](
+                [asyncResp, chassisID, componentID, certificateID, endpoint,
+                 isCollection](
                     const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
                     if (ec)
@@ -1298,8 +1297,7 @@ inline void handleTrustedComponentCertificatesCollectionGet(
 
             dbus::utility::getSubTree(
                 "/xyz/openbmc_project/SPDM", 0, interfaces,
-                [asyncResp, chassisID, componentID, endpoint,
-                 isCollection](
+                [asyncResp, chassisID, componentID, endpoint, isCollection](
                     const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
                     if (ec)

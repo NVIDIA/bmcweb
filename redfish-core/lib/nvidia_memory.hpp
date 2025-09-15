@@ -477,11 +477,12 @@ inline void assignMemoryMetricsLinks(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& dimmId)
 {
-    std::string baseUri = "/redfish/v1/Systems/" +
-                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                          "/Memory/" + dimmId;
+    std::string baseUri =
+        "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+        "/Memory/" + dimmId;
 
-    asyncResp->res.jsonValue["Metrics"]["@odata.id"] = baseUri + "/MemoryMetrics";
+    asyncResp->res.jsonValue["Metrics"]["@odata.id"] =
+        baseUri + "/MemoryMetrics";
     asyncResp->res.jsonValue["EnvironmentMetrics"]["@odata.id"] =
         baseUri + "/EnvironmentMetrics";
 }

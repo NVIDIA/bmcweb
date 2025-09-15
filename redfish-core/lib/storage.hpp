@@ -16,13 +16,13 @@
 #include "http_request.hpp"
 #include "human_sort.hpp"
 #include "logging.hpp"
+#include "nvidia_storage.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/chassis_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
-#include "nvidia_storage.hpp"
 
 #include <boost/beast/http/verb.hpp>
 #include <boost/system/error_code.hpp>

@@ -3,13 +3,14 @@
 #pragma once
 
 #include "logging.hpp"
+
 #include <array>
 #include <climits>
 #include <cstddef>
 #include <cstdint>
-#include <stdexcept>
 #include <regex>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 

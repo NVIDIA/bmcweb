@@ -10,10 +10,11 @@
 #include "error_messages.hpp"
 #include "http_request.hpp"
 #include "logging.hpp"
+#include "nvidia_bios.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/sw_utils.hpp"
-#include "nvidia_bios.hpp"
+
 #include <boost/beast/http/verb.hpp>
 
 #include <format>

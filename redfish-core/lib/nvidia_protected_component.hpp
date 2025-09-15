@@ -1805,8 +1805,8 @@ inline void updateMinSecurityVersion(
     }
     dbus::utility::getDbusObject(
         securityPath, minSecIntf,
-        [asyncResp, chassisId, securityPath, componentId, requestType,
-         nonce, reqMinSecVersion](
+        [asyncResp, chassisId, securityPath, componentId, requestType, nonce,
+         reqMinSecVersion](
             const boost::system::error_code& ec,
             const ::dbus::utility::MapperGetObject& mapperResponse) {
             if (ec)
@@ -1923,8 +1923,8 @@ inline void handleUpdateMinSecVersionAction(
                                   softwareSecurityCommonInterface);
         reqMinSecVersion = 0;
     }
-    updateMinSecurityVersion(asyncResp, chassisId, componentId,
-                             requestType, reqMinSecVersion, nonce);
+    updateMinSecurityVersion(asyncResp, chassisId, componentId, requestType,
+                             reqMinSecVersion, nonce);
 }
 
 inline void handleRevokeKeysActionInfo(
@@ -2044,9 +2044,9 @@ inline void revokeKeys(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     }
     dbus::utility::getDbusObject(
         securityPath, signingConfigIntf,
-        [asyncResp, chassisId, securityPath, componentId, requestType,
-         keys, nonce](const boost::system::error_code& ec,
-                      const ::dbus::utility::MapperGetObject& mapperResponse) {
+        [asyncResp, chassisId, securityPath, componentId, requestType, keys,
+         nonce](const boost::system::error_code& ec,
+                const ::dbus::utility::MapperGetObject& mapperResponse) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("SigningConfig interface not found : {}, {}",
@@ -2156,8 +2156,7 @@ inline void handleRevokeKeysAction(
                                   softwareSecurityCommonInterface);
         keys = std::vector<uint8_t>();
     }
-    revokeKeys(asyncResp, chassisId, componentId, requestType, nonce,
-               *keys);
+    revokeKeys(asyncResp, chassisId, componentId, requestType, nonce, *keys);
 }
 
 } // namespace firmware_info
