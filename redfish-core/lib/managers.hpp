@@ -10,18 +10,15 @@
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "error_messages.hpp"
-#include "event_service_manager.hpp"
 #include "generated/enums/action_info.hpp"
 #include "generated/enums/manager.hpp"
 #include "generated/enums/resource.hpp"
-#include "health.hpp"
 #include "http_request.hpp"
 #include "led.hpp"
 #include "logging.hpp"
 #include "nvidia_managers.hpp"
 #include "nvidia_oem_managers_pmc.hpp"
 #include "persistent_data.hpp"
-#include "persistentstorage_util.hpp"
 #include "query.hpp"
 #include "redfish.hpp"
 #include "redfish_util.hpp"
@@ -29,7 +26,6 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/manager_utils.hpp"
-#include "utils/nvidia_time_utils.hpp"
 #include "utils/sw_utils.hpp"
 #include "utils/systemd_utils.hpp"
 #include "utils/time_utils.hpp"
@@ -1056,6 +1052,7 @@ inline void requestRoutesManager(App& app)
                 std::optional<nlohmann::json::object_t> stepwiseControllers;
                 std::optional<std::string> profile;
                 std::optional<std::string> serviceIdentification;
+                // Nvidia Specific properties
                 std::optional<std::string> privilege;
                 std::optional<bool> tlsAuth;
                 std::optional<bool> openocdValue;
@@ -1075,6 +1072,7 @@ inline void requestRoutesManager(App& app)
                         "Oem/OpenBmc/Fan/StepwiseControllers",
                         stepwiseControllers,                               //
                         "ServiceIdentification", serviceIdentification,    //
+                        // Nvidia Specific properties
                         "Oem/Nvidia/SMBPBIFencingPrivilege", privilege,    //
                         "Oem/Nvidia/AuthenticationTLSRequired", tlsAuth,   //
                         "Oem/Nvidia/OpenOCD/Enable", openocdValue,         //
@@ -1107,6 +1105,7 @@ inline void requestRoutesManager(App& app)
                         asyncResp, serviceIdentification.value());
                 }
 
+                // Nvidia Specific properties
                 if (restrictionMode)
                 {
                     redfish::nvidia_manager_util::setRestrictionMode(
@@ -1140,126 +1139,6 @@ inline void requestRoutesManagerCollection(App& app)
                 bmc["@odata.id"] = boost::urls::format(
                     "/redfish/v1/Managers/{}", BMCWEB_REDFISH_MANAGER_URI_NAME);
                 asyncResp->res.jsonValue["Members"] = std::move(members);
-            });
-}
-
-/**
-
-Nvidia Routes and handlers
-
- */
-
-/**
- * NvidiaManagerResetToDefaultsAction class supports POST method for complete
- * reset action.
- */
-inline void requestRoutesNvidiaManagerResetToDefaultsAction(App& app)
-{
-    /**
-     * Function handles ResetToDefaults POST method request.
-     *
-     */
-
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Managers/<str>/Actions/Oem/NvidiaManager.ResetToDefaults")
-        .privileges(redfish::privileges::postManager)
-        .methods(boost::beast::http::verb::post)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& managerName) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                BMCWEB_LOG_DEBUG("Post ResetToDefaults.");
-                (void)req;
-                std::string ifnameCompleteReset =
-                    "com.nvidia.Common.CompleteReset";
-
-                crow::connections::systemBus->async_method_call(
-                    [asyncResp, ifnameCompleteReset](
-                        const boost::system::error_code& ec,
-                        const std::vector<
-                            std::pair<std::string, std::vector<std::string>>>&
-                            interfaceNames) {
-                        if (ec || interfaceNames.empty())
-                        {
-                            BMCWEB_LOG_ERROR("Can't find object");
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-
-                        for (const std::pair<std::string,
-                                             std::vector<std::string>>& object :
-                             interfaceNames)
-                        {
-                            crow::connections::systemBus->async_method_call(
-                                [asyncResp,
-                                 object](const boost::system::error_code& ec1) {
-                                    if (ec1)
-                                    {
-                                        BMCWEB_LOG_DEBUG(
-                                            "Failed to ResetToDefaults: {}",
-                                            ec1);
-                                        messages::internalError(asyncResp->res);
-                                        return;
-                                    }
-                                    // Factory Reset doesn't actually happen
-                                    // until a reboot Can't erase what the BMC
-                                    // is running on
-                                    doBMCGracefulRestart(asyncResp);
-                                },
-                                object.first, "/xyz/openbmc_project/software",
-                                ifnameCompleteReset, "CompleteReset");
-                        }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetObject",
-                    "/xyz/openbmc_project/software",
-                    std::array<const char*, 1>{ifnameCompleteReset.c_str()});
-            });
-}
-
-/**
- * eMMCSecureErase class supports POST method for eMMC Secure Erase
- */
-inline void requestRoutesNvidiaManagerEmmcSecureErase(App& app)
-{
-    /**
-     * Function handles ResetToDefaults POST method request.
-     *
-     */
-
-    BMCWEB_ROUTE(app, "/redfish/v1/Managers/<str>/Actions/Oem/eMMC.SecureErase")
-        .privileges(redfish::privileges::postManager)
-        .methods(boost::beast::http::verb::post)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName) {
-                std::string setCommand =
-                    "/sbin/fw_setenv emmc_secure_erase yes";
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-                {
-                    return;
-                }
-                BMCWEB_LOG_DEBUG("Post eMMC Secure Erase.");
-                auto resetEMMCSecureEraseCallback =
-                    []([[maybe_unused]] const crow::Request& req1,
-                       [[maybe_unused]] const std::shared_ptr<
-                           bmcweb::AsyncResp>& response,
-                       [[maybe_unused]] const std::string& stdOut,
-                       [[maybe_unused]] const std::string& stdErr,
-                       [[maybe_unused]] const boost::system::error_code& ec,
-                       [[maybe_unused]] int exitCode) -> void {
-                    BMCWEB_LOG_INFO("Setting eMMC Secure Erase uboot env");
-                    return;
-                };
-                redfish::PersistentStorageUtil::executeEnvCommand(
-                    req, asyncResp, setCommand,
-                    std::move(resetEMMCSecureEraseCallback));
-                doBMCGracefulRestart(asyncResp);
             });
 }
 
