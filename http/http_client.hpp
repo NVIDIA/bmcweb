@@ -429,6 +429,8 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
             BMCWEB_LOG_ERROR("recvMessage() callback is nullptr");
         }
         res.clear();
+        req.clear();
+        req.body().clear();
     }
 
     static void onTimeout(const std::weak_ptr<ConnectionInfo>& weakSelf,
@@ -484,6 +486,8 @@ class ConnectionInfo : public std::enable_shared_from_this<ConnectionInfo>
                 BMCWEB_LOG_ERROR("waitAndRetry() callback is nullptr");
             }
             res.clear();
+            req.clear();
+            req.body().clear();
 
             // Reset the retrycount to zero so that client can try
             // connecting again if needed
@@ -767,6 +771,8 @@ class ConnectionPool : public std::enable_shared_from_this<ConnectionPool>
         if (keepAlive)
         {
             conn->state = ConnState::idle;
+            conn->req.clear();
+            conn->req.body().clear();
         }
         else
         {
