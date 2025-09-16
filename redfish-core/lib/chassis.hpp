@@ -18,6 +18,7 @@
 #include "http_request.hpp"
 #include "led.hpp"
 #include "logging.hpp"
+#include "nvidia_chassis.hpp"
 #include "nvidia_debug_token.hpp"
 #include "nvidia_protected_component.hpp"
 #include "query.hpp"
@@ -968,30 +969,6 @@ inline void handleChassisGet(
         std::bind_front(handlePhysicalSecurityGetSubTree, asyncResp));
 }
 
-inline void handleChassisGetPreCheck(
-    App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-    redfish::chassis_utils::isEROTChassis(
-        chassisId,
-        [&app, &req, asyncResp, chassisId](bool isEROT, bool isCpuEROT) {
-            if (isEROT)
-            {
-                BMCWEB_LOG_DEBUG(" EROT chassis");
-                getEROTChassis(req, asyncResp, chassisId, isCpuEROT);
-            }
-            else
-            {
-                handleChassisGet(app, req, asyncResp, chassisId);
-            }
-        });
-}
-
 inline void handleChassisPatch(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1222,45 +1199,39 @@ inline void handleChassisPatch(
         });
 }
 
-// TODO: move to new file
-inline void handleChassisPatchReq(
-    App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& param)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-    redfish::chassis_utils::isEROTChassis(
-        param, [&app, &req, asyncResp, param](bool isEROT, bool isCpuEROT) {
-            if (isEROT)
-            {
-                BMCWEB_LOG_DEBUG(" EROT chassis");
-                handleEROTChassisPatch(req, asyncResp, param, isCpuEROT);
-            }
-            else
-            {
-                handleChassisPatch(app, req, asyncResp, param);
-            }
-        });
-}
-
 /**
  * Chassis override class for delivering Chassis Schema
  * Functions triggers appropriate requests on DBus
  */
 inline void requestRoutesChassis(App& app)
 {
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/")
-        .privileges(redfish::privileges::getChassis)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleChassisGetPreCheck, std::ref(app)));
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        // nvidia extension
+        BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/")
+            .privileges(redfish::privileges::getChassis)
+            .methods(boost::beast::http::verb::get)(std::bind_front(
+                redfish::nvidia_chassis::handleChassisGetPreCheck,
+                std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/")
-        .privileges(redfish::privileges::patchChassis)
-        .methods(boost::beast::http::verb::patch)(
-            std::bind_front(handleChassisPatchReq, std::ref(app)));
+        BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/")
+            .privileges(redfish::privileges::patchChassis)
+            .methods(boost::beast::http::verb::patch)(std::bind_front(
+                redfish::nvidia_chassis::handleChassisPatchReq, std::ref(app)));
+    }
+    else
+    {
+        // upstream code
+        BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/")
+            .privileges(redfish::privileges::getChassis)
+            .methods(boost::beast::http::verb::get)(
+                std::bind_front(handleChassisGet, std::ref(app)));
+
+        BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/")
+            .privileges(redfish::privileges::patchChassis)
+            .methods(boost::beast::http::verb::patch)(
+                std::bind_front(handleChassisPatch, std::ref(app)));
+    }
 }
 
 inline void doChassisPowerCycle(
