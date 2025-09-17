@@ -4090,6 +4090,7 @@ inline void handleComputerSystemGet(
     if constexpr (BMCWEB_HOST_OS_FEATURES)
     {
         getPowerRestorePolicy(asyncResp);
+        getPowerOnDelaySeconds(asyncResp);
         getStopBootOnFault(asyncResp);
         getAutomaticRetryPolicy(asyncResp);
     }
