@@ -232,7 +232,7 @@ inline void requestRoutesManagerResetAction(App& app)
                 {
                     return;
                 }
-
+                // NVIDIA code starts here
                 if constexpr (BMCWEB_REDFISH_DBUS_LOG)
                 {
                     sendRestartEvent(req, resetType);
@@ -248,7 +248,7 @@ inline void requestRoutesManagerResetAction(App& app)
                             .sendEventWithOOC(std::string(req.target()), event);
                     }
                 }
-
+                // NVIDIA code ends here
                 if (resetType == "GracefulRestart")
                 {
                     BMCWEB_LOG_DEBUG("Proceeding with {}", resetType);
@@ -261,12 +261,14 @@ inline void requestRoutesManagerResetAction(App& app)
                     doBMCForceRestart(asyncResp);
                     return;
                 }
+                // NVIDIA code starts here
                 if (resetType == "GracefulShutdown")
                 {
                     BMCWEB_LOG_DEBUG("Proceeding with {}", resetType);
                     doBMCGracefulShutdown(asyncResp);
                     return;
                 }
+                // NVIDIA code ends here
                 BMCWEB_LOG_DEBUG("Invalid property value for ResetType: {}",
                                  resetType);
                 messages::actionParameterNotSupported(asyncResp->res, resetType,
@@ -355,6 +357,7 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
             {
                 sendFactoryResetEvent(req);
             }
+            // NVIDIA code starts here
             crow::connections::systemBus->async_method_call(
                 [asyncResp, ifnameFactoryReset](
                     const boost::system::error_code& ec,
@@ -396,6 +399,7 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
                 "/xyz/openbmc_project/software/bmc",
                 std::array<const char*, 1>{ifnameFactoryReset.c_str()});
         });
+        // NVIDIA code ends here
 }
 
 /**
@@ -443,7 +447,9 @@ inline void requestRoutesManagerResetActionInfo(App& app)
                 nlohmann::json::array_t allowableValues;
                 allowableValues.emplace_back("GracefulRestart");
                 allowableValues.emplace_back("ForceRestart");
+                // NVIDIA code starts here
                 allowableValues.emplace_back("GracefulShutdown");
+                // NVIDIA code ends here
                 parameter["AllowableValues"] = std::move(allowableValues);
 
                 nlohmann::json::array_t parameters;
@@ -697,12 +703,13 @@ inline void checkForQuiesced(
             asyncResp->res.jsonValue["Status"]["Health"] = resource::Health::OK;
             asyncResp->res.jsonValue["Status"]["State"] =
                 resource::State::Enabled;
-            // Nvidia override for State property
+            // NVIDIA code starts here
             if (BMCWEB_NVIDIA_MANAGER_READY_CSM)
             {
                 nvidia_manager_util::getOemReadyState(
                     asyncResp, std::string(BMCWEB_REDFISH_MANAGER_URI_NAME));
             }
+            // NVIDIA code ends here
         });
 }
 
@@ -1052,12 +1059,12 @@ inline void requestRoutesManager(App& app)
                 std::optional<nlohmann::json::object_t> stepwiseControllers;
                 std::optional<std::string> profile;
                 std::optional<std::string> serviceIdentification;
-                // Nvidia Specific properties
+                // Nvidia code starts here
                 std::optional<std::string> privilege;
                 std::optional<bool> tlsAuth;
                 std::optional<bool> openocdValue;
                 std::optional<std::string> restrictionMode;
-
+                // Nvidia code ends here
                 if (!json_util::readJsonPatch(                             //
                         req, asyncResp->res,                               //
                         "DateTime", datetime,                              //
@@ -1072,11 +1079,12 @@ inline void requestRoutesManager(App& app)
                         "Oem/OpenBmc/Fan/StepwiseControllers",
                         stepwiseControllers,                               //
                         "ServiceIdentification", serviceIdentification,    //
-                        // Nvidia Specific properties
+                        // Nvidia code starts here
                         "Oem/Nvidia/SMBPBIFencingPrivilege", privilege,    //
                         "Oem/Nvidia/AuthenticationTLSRequired", tlsAuth,   //
                         "Oem/Nvidia/OpenOCD/Enable", openocdValue,         //
                         "Oem/Nvidia/IPMI/RestrictionMode", restrictionMode //
+                        // Nvidia code ends here
                         ))
                 {
                     return;
@@ -1105,13 +1113,13 @@ inline void requestRoutesManager(App& app)
                         asyncResp, serviceIdentification.value());
                 }
 
-                // Nvidia Specific properties
+                // Nvidia code starts here
                 if (restrictionMode)
                 {
                     redfish::nvidia_manager_util::setRestrictionMode(
                         asyncResp, *restrictionMode);
                 }
-
+                // NVIDIA code ends here
                 RedfishService::getInstance(app).handleSubRoute(req, asyncResp);
             });
 }
