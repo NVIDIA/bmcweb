@@ -27,6 +27,7 @@
 #include "registries/privilege_registry.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
+#include "utils/manager_utils.hpp"
 #include "utils/sw_utils.hpp"
 #include "utils/systemd_utils.hpp"
 #include "utils/time_utils.hpp"
@@ -701,6 +702,7 @@ inline void requestRoutesManager(App& app)
                 boost::urls::format(
                     "/redfish/v1/Managers/{}/EthernetInterfaces",
                     BMCWEB_REDFISH_MANAGER_URI_NAME);
+            manager_utils::getServiceIdentification(asyncResp, false);
 
             if constexpr (BMCWEB_VM_NBDPROXY)
             {
@@ -1018,8 +1020,8 @@ inline void requestRoutesManager(App& app)
 
                 if (serviceIdentification)
                 {
-                    setServiceIdentification(asyncResp,
-                                             std::move(*serviceIdentification));
+                    manager_utils::setServiceIdentification(
+                        asyncResp, serviceIdentification.value());
                 }
 
                 if (restrictionMode)
