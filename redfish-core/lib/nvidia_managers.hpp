@@ -78,7 +78,7 @@ const std::string hexPrefix = "0x";
 const int invalidDataOutSizeErr = 0x116;
 
 // Forward declaration for functions from managers.hpp
-inline void doBMCGracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
+void doBMCGracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 
 
 /**

@@ -979,9 +979,11 @@ inline std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
     return additionalData;
 }
 
-// Forward declaration - createDump is defined in log_services.hpp
+// Forward declarations - functions defined in log_services.hpp
 inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const crow::Request& req, const std::string& dumpType);
+inline void downloadDumpEntry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                              const std::string& entryID, const std::string& dumpType);
 
 inline void precheckOemDiagDataTypeAndCreateDump(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1126,6 +1128,52 @@ inline void requestRoutesEventLogServicePatch(App& app)
                     }
                 });
     }
+}
+
+// NVIDIA-specific file size limits
+constexpr long long int maxFileSize()
+{
+    if constexpr (BMCWEB_REDFISH_FDR_LOG)
+    {
+        // "The maximum size of FDR dump is 1.5GB
+        return 1500 * 1024LL * 1024LL;
+    }
+    else
+    {
+        // Arbitrary max size of 20MB to accommodate BMC dumps
+        return 20LL * 1024LL * 1024LL;
+    }
+}
+
+// NVIDIA-specific system dump entry download handler
+inline void handleLogServicesSystemDumpEntryDownloadGet(
+    crow::App& app, const std::string& dumpType, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& systemId, const std::string& dumpId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    if (systemId != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "System", systemId);
+        return;
+    }
+    downloadDumpEntry(asyncResp, dumpId, dumpType);
+}
+
+// NVIDIA-specific system dump entry download route registration
+inline void requestRoutesSystemDumpEntryDownload(App& app)
+{
+    BMCWEB_ROUTE(
+        app,
+        "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/<str>/attachment/")
+        .privileges(redfish::privileges::getLogEntry)
+        .methods(boost::beast::http::verb::get)(
+            std::bind_front(handleLogServicesSystemDumpEntryDownloadGet,
+                            std::ref(app), "System"));
 }
 
 } // namespace redfish

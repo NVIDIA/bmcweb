@@ -230,6 +230,7 @@ inline log_entry::OriginatorTypes mapDbusOriginatorTypeToRedfish(
 inline void parseDumpEntryFromDbusObject(
     const dbus::utility::ManagedObjectType::value_type& object,
     std::string& dumpStatus, uint64_t& size, uint64_t& timestampUs,
+    // Nvidia code starts here
     std::string& faultLogDiagnosticDataType, std::string& notificationType,
     std::string& sectionType, std::string& fruid, std::string& severity,
     std::string& nvipSignature, std::string& nvSeverity,
@@ -238,6 +239,7 @@ inline void parseDumpEntryFromDbusObject(
     std::string& pcieFunctionNumber, std::string& pcieDeviceNumber,
     std::string& pcieSegmentNumber, std::string& pcieDeviceBusNumber,
     std::string& pcieSecondaryBusNumber, std::string& pcieSlotNumber,
+    // NVIDIA code ends here
     std::string& originatorId, log_entry::OriginatorTypes& originatorType,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -334,6 +336,7 @@ inline void parseDumpEntryFromDbusObject(
         }
     }
     
+    // NVIDIA code starts here
     // Call NVIDIA extension function to parse NVIDIA-specific interfaces
     parseNvidiaDumpEntryFromDbusObject(
         object, size, faultLogDiagnosticDataType, notificationType, sectionType,
@@ -341,6 +344,7 @@ inline void parseDumpEntryFromDbusObject(
         pcieVendorID, pcieDeviceID, pcieClassCode, pcieFunctionNumber,
         pcieDeviceNumber, pcieSegmentNumber, pcieDeviceBusNumber,
         pcieSecondaryBusNumber, pcieSlotNumber);
+    // NVIDIA code ends here
 }
 
 static std::string getDumpEntriesPath(const std::string& dumpType)
@@ -365,12 +369,14 @@ static std::string getDumpEntriesPath(const std::string& dumpType)
             std::format("/redfish/v1/Systems/{}/LogServices/Dump/Entries/",
                         BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
+    // NVIDIA code starts here
     else if (dumpType == "FDR")
     {
         entriesPath = "/redfish/v1/Systems/" +
                       std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                       "/LogServices/FDR/Entries/";
     }
+    // NVIDIA code ends here
     else
     {
         BMCWEB_LOG_ERROR("getDumpEntriesPath() invalid dump type: {}",
@@ -440,6 +446,7 @@ inline void getDumpEntryCollection(
                 std::string originatorId;
                 log_entry::OriginatorTypes originatorType =
                     log_entry::OriginatorTypes::Internal;
+                // NVIDIA code starts here for CPER properties
                 nlohmann::json thisEntry;
                 std::string faultLogDiagnosticDataType;
                 std::string notificationType;
@@ -458,13 +465,13 @@ inline void getDumpEntryCollection(
                 std::string pcieDeviceBusNumber;
                 std::string pcieSecondaryBusNumber;
                 std::string pcieSlotNumber;
-
+                // NVIDIA code ends here
                 std::string entryID = object.first.filename();
                 if (entryID.empty())
                 {
                     continue;
                 }
-
+                // NVIDIA code starts here
                 parseDumpEntryFromDbusObject(
                     object, dumpStatus, size, timestampUs,
                     faultLogDiagnosticDataType, notificationType, sectionType,
@@ -473,7 +480,7 @@ inline void getDumpEntryCollection(
                     pcieFunctionNumber, pcieDeviceNumber, pcieSegmentNumber,
                     pcieDeviceBusNumber, pcieSecondaryBusNumber, pcieSlotNumber,
                     originatorId, originatorType, asyncResp);
-
+                // NVIDIA code ends here
                 if (dumpStatus !=
                         "xyz.openbmc_project.Common.Progress.OperationStatus.Completed" &&
                     !dumpStatus.empty())
@@ -511,6 +518,7 @@ inline void getDumpEntryCollection(
                         entriesPath + entryID + "/attachment";
                     thisEntry["AdditionalDataSizeBytes"] = size;
                 }
+                // NVIDIA code starts here
                 else if (dumpType == "FDR")
                 {
                     thisEntry["DiagnosticDataType"] = "OEM";
@@ -552,6 +560,7 @@ inline void getDumpEntryCollection(
                         pcieFunctionNumber, pcieDeviceNumber, pcieSegmentNumber, 
                         pcieDeviceBusNumber, pcieSecondaryBusNumber, pcieSlotNumber);
                 }
+                // NVIDIA code ends here
                 entriesArray.emplace_back(std::move(thisEntry));
             }
             asyncResp->res.jsonValue["Members@odata.count"] =
@@ -598,6 +607,7 @@ inline void getDumpEntryById(
                 uint64_t timestampUs = 0;
                 uint64_t size = 0;
                 std::string dumpStatus;
+                // NVIDIA code starts here
                 std::string faultLogDiagnosticDataType;
                 std::string notificationType;
                 std::string sectionType;
@@ -615,10 +625,11 @@ inline void getDumpEntryById(
                 std::string pcieDeviceBusNumber;
                 std::string pcieSecondaryBusNumber;
                 std::string pcieSlotNumber;
+                // NVIDIA code ends here
                 std::string originatorId;
                 log_entry::OriginatorTypes originatorType =
                     log_entry::OriginatorTypes::Internal;
-
+                // NVIDIA code starts here
                 parseDumpEntryFromDbusObject(
                     objectPath, dumpStatus, size, timestampUs,
                     faultLogDiagnosticDataType, notificationType, sectionType,
@@ -627,7 +638,7 @@ inline void getDumpEntryById(
                     pcieFunctionNumber, pcieDeviceNumber, pcieSegmentNumber,
                     pcieDeviceBusNumber, pcieSecondaryBusNumber, pcieSlotNumber,
                     originatorId, originatorType, asyncResp);
-
+                // NVIDIA code ends here
                 if (dumpStatus !=
                         "xyz.openbmc_project.Common.Progress.OperationStatus.Completed" &&
                     !dumpStatus.empty())
@@ -653,7 +664,8 @@ inline void getDumpEntryById(
                     asyncResp->res.jsonValue["Originator"] = originatorId;
                     asyncResp->res.jsonValue["OriginatorType"] = originatorType;
                 }
-                //NVIDIA extension
+                // NVIDIA code starts here
+                // NVIDIA extension
                 asyncResp->res.jsonValue["AdditionalDataSizeBytes"] = size;
                 asyncResp->res.jsonValue["Created"] =
                     redfish::time_utils::getDateTimeUintUs(timestampUs);
@@ -661,7 +673,7 @@ inline void getDumpEntryById(
                 // Set schema defaults Downstream
                 asyncResp->res.jsonValue["Message"] = "";
                 asyncResp->res.jsonValue["Severity"] = "OK";
-
+                // NVIDIA code ends here
                 if (dumpType == "BMC")
                 {
                     asyncResp->res.jsonValue["DiagnosticDataType"] = "Manager";
@@ -678,6 +690,7 @@ inline void getDumpEntryById(
                         entriesPath + entryID + "/attachment";
                     asyncResp->res.jsonValue["AdditionalDataSizeBytes"] = size;
                 }
+                // NVIDIA code starts here
                 else if (dumpType == "FDR")
                 {
                     asyncResp->res.jsonValue["DiagnosticDataType"] = "OEM";
@@ -721,6 +734,7 @@ inline void getDumpEntryById(
                         pcieDeviceBusNumber, pcieSecondaryBusNumber, pcieSlotNumber);
                     asyncResp->res.jsonValue["AdditionalDataSizeBytes"] = size;
                 }
+                // NVIDIA code ends here
             }
 
             if (!foundDumpEntry)
@@ -759,20 +773,6 @@ inline void deleteDumpEntry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         asyncResp, respHandler, "xyz.openbmc_project.Dump.Manager",
         std::format("{}/entry/{}", getDumpPath(dumpType), entryID),
         "xyz.openbmc_project.Object.Delete", "Delete");
-}
-
-constexpr long long int maxFileSize()
-{
-    if constexpr (BMCWEB_REDFISH_FDR_LOG)
-    {
-        // "The maximum size of FDR dump is 1.5GB
-        return 1500 * 1024LL * 1024LL;
-    }
-    else
-    {
-        // Arbitrary max size of 20MB to accommodate BMC dumps
-        return 20LL * 1024LL * 1024LL;
-    }
 }
 
 inline bool checkSizeLimit(int fd, crow::Response& res)
@@ -821,8 +821,10 @@ inline void downloadEntryCallback(
     }
 
     // Make sure we know how to process the retrieved entry attachment
+    // NVIDIA code starts here
     if ((downloadEntryType != "BMC") && (downloadEntryType != "System") &&
         (downloadEntryType != "FDR"))
+    // NVIDIA code ends here
     {
         BMCWEB_LOG_ERROR("downloadEntryCallback() invalid entry type: {}",
                          downloadEntryType);
@@ -858,6 +860,7 @@ inline void downloadEntryCallback(
             return;
         }
     }
+    // NVIDIA code starts here
     if (downloadEntryType == "FDR")
     {
         if (!asyncResp->res.openFd(fd, bmcweb::EncodingType::Raw))
@@ -869,6 +872,7 @@ inline void downloadEntryCallback(
 
         return;
     }
+    // NVIDIA code ends here
     if (!asyncResp->res.openFd(fd))
     {
         messages::internalError(asyncResp->res);
@@ -883,7 +887,9 @@ inline void downloadDumpEntry(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& entryID, const std::string& dumpType)
 {
+    // NVIDIA code starts here
     if (dumpType != "BMC" && dumpType != "System")
+    // NVIDIA code ends here
     {
         BMCWEB_LOG_WARNING("Can't find Dump Entry {}", entryID);
         messages::resourceNotFound(asyncResp->res, dumpType + " dump", entryID);
@@ -990,12 +996,14 @@ inline std::string getDumpEntryPath(const std::string& dumpPath)
         return std::format("/redfish/v1/Systems/{}/LogServices/Dump/Entries/",
                            BMCWEB_REDFISH_SYSTEM_URI_NAME);
     }
+    // NVIDIA code starts here
     if (dumpPath == "/xyz/openbmc_project/dump/fdr/entry")
     {
         return "/redfish/v1/Systems/" +
                std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                "/LogServices/FDR/Entries/";
     }
+    // NVIDIA code ends here
     return "";
 }
 
@@ -1096,12 +1104,14 @@ inline void createDumpTaskCallback(
                             BMCWEB_LOG_ERROR("{}: Error in creating dump",
                                              createdObjPath.str);
                             taskData->state = "Cancelled";
+                            // NVIDIA code starts here
                             nlohmann::json retMessage =
                                 messages::operationFailed();
                             taskData->messages.emplace_back(retMessage);
+                            // NVIDIA code ends here
                             return task::completed;
                         }
-
+                        // NVIDIA code starts here
                         if (dumpStatus ==
                             DumpCreationProgress::DUMP_CREATE_INPROGRESS)
                         {
@@ -1132,7 +1142,7 @@ inline void createDumpTaskCallback(
                                             static_cast<size_t>(*progress)));
                                 }
                             }
-
+                            // NVIDIA code ends here
                             return !task::completed;
                         }
                     }
@@ -1162,7 +1172,9 @@ inline void createDumpTaskCallback(
             // The task timer is set to max time limit within which the
             // requested dump will be collected.
             task->startTimer(std::chrono::minutes(45));
+            // NVIDIA code starts here
             task->populateResp(asyncResp->res);
+            // NVIDIA code ends here
             task->payload.emplace(payload);
             task->populateResp(asyncResp->res);
         },
@@ -1182,8 +1194,10 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     std::optional<std::string> diagnosticDataType;
     std::optional<std::string> oemDiagnosticDataType;
+    // NVIDIA code starts here
     std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
         createDumpParamVec;
+    // NVIDIA code ends here
     // clang-format off
     if (!redfish::json_util::readJsonAction(           //
         req, asyncResp->res,                           //
@@ -1221,6 +1235,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                    "/LogServices/Dump/";
     }
+    // NVIDIA code starts here
     else if (dumpType == "FDR")
     {
         if (!oemDiagnosticDataType || !diagnosticDataType)
@@ -1249,6 +1264,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                    "/LogServices/FDR/";
     }
+    // NVIDIA code ends here
     else if (dumpType == "BMC")
     {
         if (!diagnosticDataType)
@@ -1290,8 +1306,10 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     dbus::utility::async_method_call(
         asyncResp,
+        // NVIDIA code starts here
         [asyncResp, payload(task::Payload(req)), dumpPath,
          oemDiagnosticDataType](
+        // NVIDIA code ends here
             const boost::system::error_code& ec,
             const sdbusplus::message_t& msg,
             const sdbusplus::message::object_path& objPath) mutable {
@@ -1328,6 +1346,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     messages::resourceInUse(asyncResp->res);
                     return;
                 }
+                // NVIDIA code starts here
                 if (std::string_view(
                         "xyz.openbmc_project.Dump.Create.Error.QuotaExceeded") ==
                     dbusError->name)
@@ -1344,6 +1363,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                                      *oemDiagnosticDataType);
                     return;
                 }
+                // NVIDIA code ends here
                 // Other Dbus errors such as:
                 // xyz.openbmc_project.Common.Error.InvalidArgument &
                 // org.freedesktop.DBus.Error.InvalidArgs are all related to
@@ -1457,6 +1477,7 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
                 asyncResp->res.jsonValue["Members"];
             logServiceArray = nlohmann::json::array();
             nlohmann::json::object_t eventLog;
+            // NVIDIA code starts here
             if constexpr (BMCWEB_HOST_OS_FEATURES)
             {
                 nlohmann::json::object_t selLog;
@@ -1486,6 +1507,7 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
                     "/LogServices/FaultLog";
                 logServiceArray.push_back(std::move(faultLog));
             } // BMCWEB_REDFISH_SYSTEM_FAULTLOG_DUMP_LOG
+            // NVIDIA code ends here
             eventLog["@odata.id"] =
                 std::format("/redfish/v1/Systems/{}/LogServices/EventLog",
                             BMCWEB_REDFISH_SYSTEM_URI_NAME);
@@ -1516,7 +1538,7 @@ inline void requestRoutesSystemLogServiceCollection(App& app)
                                 BMCWEB_REDFISH_SYSTEM_URI_NAME);
                 logServiceArray.emplace_back(std::move(hostlogger));
             }
-
+            // NVIDIA code starts here
             nlohmann::json::object_t debugToken;
             debugToken["@odata.id"] =
                 "/redfish/v1/Systems/" +
@@ -2309,6 +2331,7 @@ inline void handleBMCLogServicesCollectionGet(
         logServiceArray.emplace_back(std::move(journal));
     }
 
+    // NVIDIA code starts here
     if constexpr (BMCWEB_REDFISH_MANAGER_EVENT_LOG)
     {
         logServiceArray.push_back(
@@ -2316,7 +2339,7 @@ inline void handleBMCLogServicesCollectionGet(
                                "/redfish/v1/Managers/{}/LogServices/EventLog",
                                BMCWEB_REDFISH_MANAGER_URI_NAME)}});
     }
-
+    // NVIDIA code ends here
     asyncResp->res.jsonValue["Members@odata.count"] = logServiceArray.size();
 
     if constexpr (BMCWEB_REDFISH_DUMP_LOG)
@@ -2438,9 +2461,11 @@ inline void getDumpServiceInfo(
         asyncResp->res.jsonValue["Actions"]["#LogService.CollectDiagnosticData"]
                                 ["target"] =
             dumpPath + "/Actions/LogService.CollectDiagnosticData";
+        // NVIDIA code starts here
         asyncResp->res.jsonValue["Actions"]["#LogService.CollectDiagnosticData"]
                                 ["@Redfish.ActionInfo"] =
             dumpPath + "/CollectDiagnosticDataActionInfo";
+        // NVIDIA code ends here
     }
 
     constexpr std::array<std::string_view, 1> interfaces = {deleteAllInterface};
@@ -2634,23 +2659,6 @@ inline void handleLogServicesDumpEntryDownloadGet(
     downloadDumpEntry(asyncResp, dumpId, dumpType);
 }
 
-inline void handleLogServicesSystemDumpEntryDownloadGet(
-    crow::App& app, const std::string& dumpType, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& systemId, const std::string& dumpId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    if (systemId != BMCWEB_REDFISH_SYSTEM_URI_NAME)
-    {
-        messages::resourceNotFound(asyncResp->res, "System", systemId);
-        return;
-    }
-    downloadDumpEntry(asyncResp, dumpId, dumpType);
-}
 
 inline void handleDBusEventLogEntryDownloadGet(
     crow::App& app, const std::string& dumpType, const crow::Request& req,
@@ -2712,7 +2720,7 @@ inline void handleLogServicesDumpCollectDiagnosticDataComputerSystemPost(
                                    systemName);
         return;
     }
-
+    // NVIDIA code starts here
     if constexpr (BMCWEB_CHECK_OEM_DIAGNOSTIC_TYPE)
     {
         precheckOemDiagDataTypeAndCreateDump(asyncResp, req, "System");
@@ -2721,6 +2729,7 @@ inline void handleLogServicesDumpCollectDiagnosticDataComputerSystemPost(
     {
         createDump(asyncResp, req, "System");
     }
+    // NVIDIA code ends here
 }
 
 inline void handleLogServicesDumpClearLogPost(
@@ -2807,17 +2816,6 @@ inline void requestRoutesBMCDumpEntryDownload(App& app)
             handleLogServicesDumpEntryDownloadGet, std::ref(app), "BMC"));
 }
 
-inline void requestRoutesSystemDumpEntryDownload(App& app)
-{
-    BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Systems/<str>/LogServices/Dump/Entries/<str>/attachment/")
-        .privileges(redfish::privileges::getLogEntry)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handleLogServicesSystemDumpEntryDownloadGet,
-                            std::ref(app), "System"));
-}
-
 inline void requestRoutesBMCDumpCreate(App& app)
 {
     BMCWEB_ROUTE(
@@ -2898,11 +2896,12 @@ inline void requestRoutesSystemDumpService(App& app)
         .privileges(redfish::privileges::getLogService)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleLogServicesDumpServiceComputerSystemGet, std::ref(app)));
-
+// NVIDIA code starts here
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/Dump/")
         .privileges(redfish::privileges::patchLogService)
         .methods(boost::beast::http::verb::patch)(std::bind_front(
             handleLogServicesDumpServiceComputerSystemPatch, std::ref(app)));
+// NVIDIA code ends here
 }
 
 inline void requestRoutesSystemDumpEntryCollection(App& app)
