@@ -62,6 +62,8 @@ inline void handleBiosServiceGet(
     // Get the ActiveSoftwareImage and SoftwareImages
     sw_util::populateSoftwareInformation(asyncResp, sw_util::biosPurpose, "",
                                          true);
+
+    // nvidia extension
     handleBiosServiceGetExtended(asyncResp);
 }
 
@@ -120,6 +122,7 @@ inline void handleBiosResetPost(
 
 inline void requestRoutesBiosReset(App& app)
 {
+    // nvidia code
     if constexpr (BMCWEB_RESET_BIOS_BY_CLEAR_NONVOLATILE)
     {
         BMCWEB_ROUTE(app,
@@ -128,6 +131,7 @@ inline void requestRoutesBiosReset(App& app)
             .methods(boost::beast::http::verb::post)(
                 std::bind_front(handleNvidiaBiosResetPost, std::ref(app)));
     }
+    // upstream code
     else
     {
         BMCWEB_ROUTE(app,
