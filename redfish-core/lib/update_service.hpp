@@ -1229,12 +1229,7 @@ inline bool parseMultipartForm(
                 }
                 hasFile = true;
             }
-            // multiRet.params = std::move(*params);
         }
-        // if (formFieldName == "UpdateFile")
-        // {
-        // multiRet.uploadData = std::move(formpart.content);
-        //}
     }
 
     return true;
