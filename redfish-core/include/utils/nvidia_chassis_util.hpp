@@ -17,7 +17,7 @@
 #pragma once
 
 #include "async_resp.hpp"
-#include "openbmc_dbus_rest.hpp"
+#include <openbmc_dbus_rest.hpp>
 #include "trusted_components.hpp"
 #include "utils/chassis_utils.hpp"
 
