@@ -56,9 +56,11 @@ static constexpr const std::array<const char*, 3> supportedRetryPolicies = {
     "TerminateAfterRetries", "SuspendRetries", "RetryForever"};
 
 static constexpr const std::array<const char*, 12> supportedResourceTypes = {
-    "Task",           "Heartbeat",    "AccountService",     "ManagerAccount",
-    "SessionService", "EventService", "UpdateService",      "Chassis",
-    "Systems",        "Managers",     "CertificateService", "VirtualMedia"};
+    "Task", "Heartbeat", "AccountService", "ManagerAccount",
+    // Nvidia code starts here
+    "SessionService", "EventService", "UpdateService", "Chassis", "Systems",
+    "Managers", "CertificateService", "VirtualMedia"};
+// Nvidia code ends here
 
 inline void requestRoutesEventService(App& app)
 {
@@ -736,7 +738,9 @@ inline void requestRoutesEventDestinationCollection(App& app)
                 messages::internalError(asyncResp->res);
                 return;
             }
+            // Nvidia code starts here
             enableRedfishEventListener(req);
+            // Nvidia code ends here
             messages::created(asyncResp->res);
             asyncResp->res.addHeader(
                 "Location", "/redfish/v1/EventService/Subscriptions/" + id);
@@ -859,8 +863,10 @@ inline void requestRoutesEventDestination(App& app)
                 if (context)
                 {
                     subValue->userSub->customText = *context;
+                    // Nvidia code starts here
                     sendPropertyModifiedEvent(req.target(), "EventService",
                                               "Context", *context);
+                    // Nvidia code ends here
                 }
 
                 if (headers)
@@ -881,15 +887,19 @@ inline void requestRoutesEventDestination(App& app)
                                 return;
                             }
                             fields.set(it.first, *value);
+                            // Nvidia code starts here
                             keyValues += it.first;
                             keyValues.push_back(':');
                             keyValues += *value;
                             keyValues.push_back(' ');
+                            // Nvidia code ends here
                         }
                     }
                     subValue->userSub->httpHeaders = std::move(fields);
+                    // Nvidia code starts here
                     sendPropertyModifiedEvent(req.target(), "EventService",
                                               "Headers", keyValues);
+                    // Nvidia code ends here
                 }
 
                 if (retryPolicy)
@@ -904,8 +914,10 @@ inline void requestRoutesEventDestination(App& app)
                         return;
                     }
                     subValue->userSub->retryPolicy = *retryPolicy;
+                    // Nvidia code starts here
                     sendPropertyModifiedEvent(req.target(), "EventService",
                                               "RetryPolicy", *retryPolicy);
+                    // Nvidia code ends here
                 }
 
                 if (sendHeartbeat)
@@ -968,7 +980,9 @@ inline void requestRoutesEventDestination(App& app)
                     return;
                 }
                 messages::success(asyncResp->res);
+                // Nvidia code starts here
                 disableRedfishEventListener(req);
+                // Nvidia code ends here
             });
 }
 

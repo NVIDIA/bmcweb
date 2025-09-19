@@ -283,7 +283,8 @@ inline void handleSessionCollectionPost(
     bool isConfigureSelfOnly = pamrc == PAM_NEW_AUTHTOK_REQD;
     if ((pamrc != PAM_SUCCESS) && !isConfigureSelfOnly)
     {
-        handleAccountLocked(username, asyncResp, req);
+        messages::resourceAtUriUnauthorized(asyncResp->res, req.url(),
+                                            "Invalid username or password");
         return;
     }
 
@@ -371,12 +372,13 @@ inline void handleSessionServicePatch(
                 sessionTimeoutInseconds);
             messages::propertyValueModified(asyncResp->res, "SessionTimeOut",
                                             std::to_string(*sessionTimeout));
-            // update the message severity
+            // update the message severity  // Nvidia code starts here
             redfish::message_registries::updateMessageSeverity(
                 asyncResp, "SessionTimeOut", "OK");
             sendPropertyModifiedEvent(
                 req.target(), "SessionService", "SessionTimeOut",
                 std::to_string(sessionTimeoutInseconds.count()));
+            // Nvidia code starts here
         }
         else
         {

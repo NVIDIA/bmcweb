@@ -152,6 +152,7 @@ inline void getCableProperties(
             {
                 fillCableHealthState(asyncResp, cableObjectPath, service);
             }
+            // Nvidia code starts here
             else if (
                 interface == "xyz.openbmc_project.Inventory.Decorator.Asset" ||
                 interface ==
@@ -162,6 +163,7 @@ inline void getCableProperties(
                 fetchCableInventoryProperties(asyncResp, service,
                                               cableObjectPath);
             }
+            // Nvidia code ends here
         }
     }
 }

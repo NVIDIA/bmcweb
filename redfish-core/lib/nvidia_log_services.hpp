@@ -322,8 +322,7 @@ inline void handleLogServicesDumpServiceComputerSystemPatch(
 
 // Extension function to parse NVIDIA-specific dump entry properties from DBus
 inline void parseNvidiaDumpEntryFromDbusObject(
-    const dbus::utility::ManagedObjectType::value_type& object,
-    uint64_t& size,
+    const dbus::utility::ManagedObjectType::value_type& object, uint64_t& size,
     std::string& faultLogDiagnosticDataType, std::string& notificationType,
     std::string& sectionType, std::string& fruid, std::string& severity,
     std::string& nvipSignature, std::string& nvSeverity,
@@ -568,13 +567,14 @@ inline void parseNvidiaDumpEntryFromDbusObject(
 // Extension function for dump entry NVIDIA CPER properties
 inline void extendDumpEntryWithCPERProperties(
     nlohmann::json& jsonEntry, const std::string& dumpType,
-    const std::string& sectionType, const std::string& fruid, 
-    const std::string& severity, const std::string& nvipSignature, 
+    const std::string& sectionType, const std::string& fruid,
+    const std::string& severity, const std::string& nvipSignature,
     const std::string& nvSeverity, const std::string& nvSocketNumber,
-    const std::string& pcieVendorID, const std::string& pcieDeviceID, 
+    const std::string& pcieVendorID, const std::string& pcieDeviceID,
     const std::string& pcieClassCode, const std::string& pcieFunctionNumber,
-    const std::string& pcieDeviceNumber, const std::string& pcieSegmentNumber, 
-    const std::string& pcieDeviceBusNumber, const std::string& pcieSecondaryBusNumber, 
+    const std::string& pcieDeviceNumber, const std::string& pcieSegmentNumber,
+    const std::string& pcieDeviceBusNumber,
+    const std::string& pcieSecondaryBusNumber,
     const std::string& pcieSlotNumber)
 {
     if (dumpType == "FaultLog")
@@ -604,7 +604,8 @@ inline void extendDumpEntryWithCPERProperties(
         }
         if (nvSocketNumber != "NA")
         {
-            jsonEntry["CPER"]["Oem"]["Nvidia"]["NvSocketNumber"] = nvSocketNumber;
+            jsonEntry["CPER"]["Oem"]["Nvidia"]["NvSocketNumber"] =
+                nvSocketNumber;
         }
         if (pcieVendorID != "NA")
         {
@@ -620,27 +621,33 @@ inline void extendDumpEntryWithCPERProperties(
         }
         if (pcieFunctionNumber != "NA")
         {
-            jsonEntry["CPER"]["Oem"]["Nvidia"]["PCIeFunctionNumber"] = pcieFunctionNumber;
+            jsonEntry["CPER"]["Oem"]["Nvidia"]["PCIeFunctionNumber"] =
+                pcieFunctionNumber;
         }
         if (pcieDeviceNumber != "NA")
         {
-            jsonEntry["CPER"]["Oem"]["Nvidia"]["PCIeDeviceNumber"] = pcieDeviceNumber;
+            jsonEntry["CPER"]["Oem"]["Nvidia"]["PCIeDeviceNumber"] =
+                pcieDeviceNumber;
         }
         if (pcieSegmentNumber != "NA")
         {
-            jsonEntry["CPER"]["Oem"]["Nvidia"]["PCIeSegmentNumber"] = pcieSegmentNumber;
+            jsonEntry["CPER"]["Oem"]["Nvidia"]["PCIeSegmentNumber"] =
+                pcieSegmentNumber;
         }
         if (pcieDeviceBusNumber != "NA")
         {
-            jsonEntry["CPER"]["Oem"]["Nvidia"]["PCIeDeviceBusNumber"] = pcieDeviceBusNumber;
+            jsonEntry["CPER"]["Oem"]["Nvidia"]["PCIeDeviceBusNumber"] =
+                pcieDeviceBusNumber;
         }
         if (pcieSecondaryBusNumber != "NA")
         {
-            jsonEntry["CPER"]["Oem"]["Nvidia"]["PCIeSecondaryBusNumber"] = pcieSecondaryBusNumber;
+            jsonEntry["CPER"]["Oem"]["Nvidia"]["PCIeSecondaryBusNumber"] =
+                pcieSecondaryBusNumber;
         }
         if (pcieSlotNumber != "NA")
         {
-            jsonEntry["CPER"]["Oem"]["Nvidia"]["PCIeSlotNumber"] = pcieSlotNumber;
+            jsonEntry["CPER"]["Oem"]["Nvidia"]["PCIeSlotNumber"] =
+                pcieSlotNumber;
         }
     }
 }
@@ -982,8 +989,9 @@ inline std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
 // Forward declarations - functions defined in log_services.hpp
 inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                        const crow::Request& req, const std::string& dumpType);
-inline void downloadDumpEntry(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                              const std::string& entryID, const std::string& dumpType);
+inline void downloadDumpEntry(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& entryID, const std::string& dumpType);
 
 inline void precheckOemDiagDataTypeAndCreateDump(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

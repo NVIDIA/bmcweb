@@ -291,7 +291,7 @@ if https_port > 0
         configuration: configuration_data(
             {
                 'BMCWEB_PORT': https_port,
-                'HTTP_LEVEL_ALLOWED': 'https',
+                'HTTP_LEVEL_ALLOWED': 'both',
                 'HTTP_AUTH_LEVEL': 'auth',
                 'HTTP_BIND': '',
             },

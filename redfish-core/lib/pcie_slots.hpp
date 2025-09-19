@@ -79,6 +79,7 @@ inline void onPcieSlotGetAllDone(
 
     if (generation != nullptr)
     {
+        // Nvidia code starts here
         /*TODO: Add support for Gen6 once DMTF schema is updated, to be taken
          * care while upstream sync*/
         // std::optional<pcie_device::PCIeTypes> pcieType =
@@ -86,12 +87,14 @@ inline void onPcieSlotGetAllDone(
 
         std::optional<std::string> pcieType =
             pcie_util::redfishPcieGenerationStringFromDbus(*generation);
+        // Nvidia code ends here
         if (!pcieType)
         {
             BMCWEB_LOG_WARNING("Unknown PCIe Slot Generation: {}", *generation);
         }
         else
         {
+            // Nvidia code starts here
             /*TODO: Add support for Gen6 once DMTF schema is updated, to be
              * taken care while upstream sync*/
             // if (*pcieType == pcie_device::PCIeTypes::Invalid)
@@ -99,6 +102,7 @@ inline void onPcieSlotGetAllDone(
             //     messages::internalError(asyncResp->res);
             //     return;
             // }
+            // Nvidia code ends here
             slot["PCIeType"] = *pcieType;
         }
     }

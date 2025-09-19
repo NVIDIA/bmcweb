@@ -48,13 +48,12 @@ class Server
     using self_t = Server<Handler, Adaptor>;
 
   public:
-    Server(Handler* handlerIn, std::vector<Acceptor>&& acceptorsIn,
-           std::shared_ptr<boost::asio::ssl::context> adaptorCtxIn,
-           boost::asio::io_context& io) :
+    Server(Handler* handlerIn, std::vector<Acceptor>&& acceptorsIn) :
         acceptors(std::move(acceptorsIn)),
+
         // NOLINTNEXTLINE(misc-include-cleaner)
-        signals(io, SIGINT, SIGTERM, SIGHUP), handler(handlerIn),
-        adaptorCtx(std::move(adaptorCtxIn)), fileWatcher(io)
+        signals(getIoContext(), SIGINT, SIGTERM, SIGHUP), handler(handlerIn),
+        adaptorCtx(nullptr), fileWatcher(getIoContext())
     {}
 
     void updateDateStr()
@@ -105,15 +104,7 @@ class Server
         {
             return;
         }
-        if constexpr (std::is_same<Adaptor,
-                                   boost::asio::ssl::stream<
-                                       boost::asio::ip::tcp::socket>>::value)
-        {
-            auto sslContext = ensuressl::getSslServerContext();
-
-            adaptorCtx = sslContext;
-            handler->ssl(std::move(sslContext));
-        }
+        adaptorCtx = ensuressl::getSslServerContext();
     }
 
     bool fileHasCredentials(const std::string& filename)
@@ -216,12 +207,12 @@ class Server
 
     void doAccept()
     {
-        SocketPtr socket = std::make_unique<AcceptSocket>(getIoContext());
-        // Keep a raw pointer so when the socket is moved, the pointer is still
-        // valid
-        AcceptSocket* socketPtr = socket.get();
         for (Acceptor& accept : acceptors)
         {
+            SocketPtr socket = std::make_unique<AcceptSocket>(getIoContext());
+            // Keep a raw pointer so when the socket is moved, the pointer is
+            // still valid
+            AcceptSocket* socketPtr = socket.get();
             accept.acceptor.async_accept(
                 *socketPtr,
                 std::bind_front(&self_t::afterAccept, this, std::move(socket),
@@ -233,6 +224,7 @@ class Server
     std::function<std::string()> getCachedDateStr;
     std::vector<Acceptor> acceptors;
     boost::asio::signal_set signals;
+
     std::string dateStr;
 
     Handler* handler;

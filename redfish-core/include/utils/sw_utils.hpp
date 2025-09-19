@@ -42,10 +42,11 @@ constexpr const char* biosPurpose =
 /* @brief String that indicates a BMC software instance */
 constexpr const char* bmcPurpose =
     "xyz.openbmc_project.Software.Version.VersionPurpose.BMC";
-
+// Nvidia code start
 /* @brief String that indicates other firmware instance */
 constexpr const char* otherPurpose =
     "xyz.openbmc_project.Software.Version.VersionPurpose.Other";
+// Nvidia code End
 
 inline std::optional<sdbusplus::message::object_path> getFunctionalSoftwarePath(
     const std::string& swType)

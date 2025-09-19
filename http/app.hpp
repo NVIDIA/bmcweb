@@ -8,7 +8,6 @@
 #include "http_server.hpp"
 #include "io_context_singleton.hpp"
 #include "logging.hpp"
-#include "nvidia_persistent_data.hpp"
 #include "routing.hpp"
 #include "routing/dynamicrule.hpp"
 #include "str_utility.hpp"
@@ -38,10 +37,7 @@ class App
 {
   public:
     using raw_socket_t = boost::asio::ip::tcp::socket;
-
     using server_type = Server<App, raw_socket_t>;
-    using ssl_server_type = Server<App, raw_socket_t>;
-    using raw_server_type = server_type;
 
     template <typename Adaptor>
     void handleUpgrade(const std::shared_ptr<Request>& req,
@@ -75,17 +71,12 @@ class App
 
     void loadCertificate()
     {
-        if constexpr (!BMCWEB_INSECURE_DISABLE_SSL)
+        BMCWEB_LOG_DEBUG("Loading certificate");
+        if (!server)
         {
-            if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
-            {
-                if (!sslServer)
-                {
-                    return;
-                }
-                sslServer->loadCertificate();
-            }
+            return;
         }
+        server->loadCertificate();
     }
 
     static HttpType getHttpType(std::string_view socketTypeString)
@@ -117,7 +108,7 @@ class App
         std::vector<Acceptor> acceptors;
         char** names = nullptr;
         int listenFdCount = sd_listen_fds_with_names(0, &names);
-        BMCWEB_LOG_DEBUG("Got {} sockets to open", listenFdCount);
+        BMCWEB_LOG_ERROR("Got {} sockets to open", listenFdCount);
 
         if (listenFdCount < 0)
         {
@@ -172,35 +163,13 @@ class App
 
         std::vector<Acceptor> acceptors = setupSocket();
 
-        if constexpr (!BMCWEB_INSECURE_DISABLE_SSL)
-        {
-            if (persistent_data::nvidia::getConfig().isTLSAuthEnabled())
-            {
-                BMCWEB_LOG_INFO("TLS RUN");
-                sslServer.emplace(this, std::move(acceptors), sslContext,
-                                  getIoContext());
-                sslServer->run();
-            }
-            else
-            {
-                BMCWEB_LOG_INFO("NON TLS RUN");
-                rawServer.emplace(this, std::move(acceptors), sslContext,
-                                  getIoContext());
-                rawServer->run();
-            }
-        }
-        else
-        {
-            BMCWEB_LOG_INFO("NON TLS RUN");
-            rawServer.emplace(this, std::move(acceptors), sslContext,
-                              getIoContext());
-            rawServer->run();
-        }
+        server.emplace(this, std::move(acceptors));
+        server->run();
     }
 
     void debugPrint()
     {
-        BMCWEB_LOG_DEBUG("Routing:");
+        BMCWEB_LOG_ERROR("Routing:");
         router.debugPrint();
     }
 
@@ -214,19 +183,9 @@ class App
         return router.getRoutes(parent);
     }
 
-    App& ssl(std::shared_ptr<boost::asio::ssl::context>&& ctx)
-    {
-        sslContext = std::move(ctx);
-        BMCWEB_LOG_INFO("app::ssl context use_count={}",
-                        sslContext.use_count());
-        return *this;
-    }
-
-    std::shared_ptr<boost::asio::ssl::context> sslContext = nullptr;
+    std::optional<server_type> server;
 
     Router router;
-    std::optional<ssl_server_type> sslServer;
-    std::optional<raw_server_type> rawServer;
 };
 } // namespace crow
 using App = crow::App;

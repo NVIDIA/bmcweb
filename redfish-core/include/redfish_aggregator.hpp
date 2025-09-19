@@ -1487,4 +1487,5 @@ class RedfishAggregator
         return Result::LocalHandle;
     }
 };
+
 } // namespace redfish

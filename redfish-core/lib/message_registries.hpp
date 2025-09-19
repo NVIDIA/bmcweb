@@ -172,6 +172,7 @@ inline void handleMessageRegistryGet(
     asyncResp->res.jsonValue["OwningEntity"] = header.owningEntity;
 
     nlohmann::json& messageObj = asyncResp->res.jsonValue["Messages"];
+
     // Go through the Message Registry and populate each Message
     const registries::MessageEntries registryEntries =
         registries::getRegistryMessagesFromPrefix(registry);
@@ -199,7 +200,7 @@ inline void handleMessageRegistryGet(
             }
         }
     }
-
+    // Nvidia code starts here
     if (registryMatch == "BiosAttributeRegistry")
     {
         if constexpr (BMCWEB_BIOS)
@@ -207,6 +208,7 @@ inline void handleMessageRegistryGet(
             handleBiosAttrRegistryGet(app, req, asyncResp);
         }
     }
+    // Nvidia code Ends here
 }
 
 inline void requestRoutesMessageRegistry(App& app)

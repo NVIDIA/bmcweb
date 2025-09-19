@@ -31,6 +31,7 @@ struct HeaderAndUrl
     const Header& header;
     const char* url;
 };
+// Nvidia code starts here
 // TODO:Rohit to add support for bios reg and diff with upstream
 inline std::optional<registries::HeaderAndUrl>
     getRegistryHeaderAndUrlFromPrefix(std::string_view registryName)
@@ -120,4 +121,5 @@ inline std::span<const MessageEntry> getRegistryFromPrefix(
 
     return {Openbmc::registry};
 }
+// Nvidia code ends here
 } // namespace redfish::registries

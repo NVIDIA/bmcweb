@@ -90,5 +90,20 @@ inline void updateCertIssuerOrSubject(nlohmann::json& out,
     }
 }
 
+inline std::string readFailureReason(sdbusplus::message::message& m)
+{
+    // Attempt to extract the reason from the error message
+    std::string reason;
+    try
+    {
+        m.read(reason);
+    }
+    catch (const std::exception& e)
+    {
+        BMCWEB_LOG_DEBUG("Failed to read the reason from the error message={}",
+                         e.what());
+    }
+    return reason;
+}
 } // namespace cert_utils
 } // namespace redfish

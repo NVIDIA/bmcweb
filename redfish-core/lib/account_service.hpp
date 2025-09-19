@@ -1338,10 +1338,12 @@ inline CertificateMappingAttribute getCertificateMapping(
         {
             return CertificateMappingAttribute::CommonName;
         }
+        break;
         case MTLSCommonNameParseMode::Whole:
         {
             return CertificateMappingAttribute::Whole;
         }
+        break;
         case MTLSCommonNameParseMode::UserPrincipalName:
         {
             return CertificateMappingAttribute::UserPrincipalName;
@@ -1351,6 +1353,7 @@ inline CertificateMappingAttribute getCertificateMapping(
         {
             return CertificateMappingAttribute::Invalid;
         }
+        break;
     }
 }
 
@@ -1769,11 +1772,12 @@ inline void handleAccountCollectionGet(
             for (const auto& userpath : users)
             {
                 std::string user = userpath.first.filename();
-                // Need to find the usecase for this.
+                // Nvidia code starts here.
                 if (user == "service")
                 {
                     continue;
                 }
+                // Nvidia code End here
                 if (user.empty())
                 {
                     messages::internalError(asyncResp->res);
@@ -1812,10 +1816,7 @@ inline void processAfterCreateUser(
         return;
     }
 
-    int retval = pamUpdatePassword(username, password);
-    BMCWEB_LOG_DEBUG("pamUpdatePassword retval={}", retval);
-
-    if (retval != PAM_SUCCESS)
+    if (pamUpdatePassword(username, password) != PAM_SUCCESS)
     {
         // At this point we have a user that's been
         // created, but the password set
@@ -2198,12 +2199,15 @@ inline void handleAccountDelete(
     tempObjPath /= username;
     const std::string userPath(tempObjPath);
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
+        asyncResp,
+        // Nvidia code start here
         [asyncResp, username](const boost::system::error_code& ec,
                               sdbusplus::message::message& m) {
             if (ec)
             {
                 handleNvidiaDeleteError(asyncResp, username, m);
+                // Nvidia code End here
                 return;
             }
 

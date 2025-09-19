@@ -80,7 +80,6 @@ const int invalidDataOutSizeErr = 0x116;
 // Forward declaration for functions from managers.hpp
 void doBMCGracefulRestart(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 
-
 /**
  * Helper to enable the AuthenticationTLSRequired
  */
