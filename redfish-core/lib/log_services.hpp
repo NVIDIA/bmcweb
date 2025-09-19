@@ -335,7 +335,7 @@ inline void parseDumpEntryFromDbusObject(
             }
         }
     }
-    
+
     // NVIDIA code starts here
     // Call NVIDIA extension function to parse NVIDIA-specific interfaces
     parseNvidiaDumpEntryFromDbusObject(
@@ -554,11 +554,13 @@ inline void getDumpEntryCollection(
                             notificationType;
                     }
                     // NVIDIA extension
-                    extendDumpEntryWithCPERProperties(thisEntry, dumpType, 
-                        sectionType, fruid, severity, nvipSignature, nvSeverity, 
-                        nvSocketNumber, pcieVendorID, pcieDeviceID, pcieClassCode, 
-                        pcieFunctionNumber, pcieDeviceNumber, pcieSegmentNumber, 
-                        pcieDeviceBusNumber, pcieSecondaryBusNumber, pcieSlotNumber);
+                    extendDumpEntryWithCPERProperties(
+                        thisEntry, dumpType, sectionType, fruid, severity,
+                        nvipSignature, nvSeverity, nvSocketNumber, pcieVendorID,
+                        pcieDeviceID, pcieClassCode, pcieFunctionNumber,
+                        pcieDeviceNumber, pcieSegmentNumber,
+                        pcieDeviceBusNumber, pcieSecondaryBusNumber,
+                        pcieSlotNumber);
                 }
                 // NVIDIA code ends here
                 entriesArray.emplace_back(std::move(thisEntry));
@@ -727,11 +729,13 @@ inline void getDumpEntryById(
                             notificationType;
                     }
                     // NVIDIA extension
-                    extendDumpEntryWithCPERProperties(asyncResp->res.jsonValue, dumpType,
-                        sectionType, fruid, severity, nvipSignature, nvSeverity, 
-                        nvSocketNumber, pcieVendorID, pcieDeviceID, pcieClassCode, 
-                        pcieFunctionNumber, pcieDeviceNumber, pcieSegmentNumber, 
-                        pcieDeviceBusNumber, pcieSecondaryBusNumber, pcieSlotNumber);
+                    extendDumpEntryWithCPERProperties(
+                        asyncResp->res.jsonValue, dumpType, sectionType, fruid,
+                        severity, nvipSignature, nvSeverity, nvSocketNumber,
+                        pcieVendorID, pcieDeviceID, pcieClassCode,
+                        pcieFunctionNumber, pcieDeviceNumber, pcieSegmentNumber,
+                        pcieDeviceBusNumber, pcieSecondaryBusNumber,
+                        pcieSlotNumber);
                     asyncResp->res.jsonValue["AdditionalDataSizeBytes"] = size;
                 }
                 // NVIDIA code ends here
@@ -1309,7 +1313,7 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         // NVIDIA code starts here
         [asyncResp, payload(task::Payload(req)), dumpPath,
          oemDiagnosticDataType](
-        // NVIDIA code ends here
+            // NVIDIA code ends here
             const boost::system::error_code& ec,
             const sdbusplus::message_t& msg,
             const sdbusplus::message::object_path& objPath) mutable {
@@ -1380,7 +1384,6 @@ inline void createDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "xyz.openbmc_project.Dump.Manager", getDumpPath(dumpType),
         "xyz.openbmc_project.Dump.Create", "CreateDump", createDumpParamVec);
 }
-
 
 inline void clearDump(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       const std::string& dumpType)
@@ -2659,7 +2662,6 @@ inline void handleLogServicesDumpEntryDownloadGet(
     downloadDumpEntry(asyncResp, dumpId, dumpType);
 }
 
-
 inline void handleDBusEventLogEntryDownloadGet(
     crow::App& app, const std::string& dumpType, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -2896,12 +2898,12 @@ inline void requestRoutesSystemDumpService(App& app)
         .privileges(redfish::privileges::getLogService)
         .methods(boost::beast::http::verb::get)(std::bind_front(
             handleLogServicesDumpServiceComputerSystemGet, std::ref(app)));
-// NVIDIA code starts here
+    // NVIDIA code starts here
     BMCWEB_ROUTE(app, "/redfish/v1/Systems/<str>/LogServices/Dump/")
         .privileges(redfish::privileges::patchLogService)
         .methods(boost::beast::http::verb::patch)(std::bind_front(
             handleLogServicesDumpServiceComputerSystemPatch, std::ref(app)));
-// NVIDIA code ends here
+    // NVIDIA code ends here
 }
 
 inline void requestRoutesSystemDumpEntryCollection(App& app)

@@ -182,6 +182,70 @@ class CertificateFile
 };
 
 /**
+ * @brief Parse and update Certificate Issue/Subject property
+ *
+ * @param[in] asyncResp Shared pointer to the response message
+ * @param[in] str  Issuer/Subject value in key=value pairs
+ * @param[in] type Issuer/Subject
+ * @return None
+ */
+inline void updateCertIssuerOrSubject(nlohmann::json& out,
+                                      std::string_view value)
+{
+    // example: O=openbmc-project.xyz,CN=localhost
+    std::string_view::iterator i = value.begin();
+    while (i != value.end())
+    {
+        std::string_view::iterator tokenBegin = i;
+        while (i != value.end() && *i != '=')
+        {
+            std::advance(i, 1);
+        }
+        if (i == value.end())
+        {
+            break;
+        }
+        std::string_view key(tokenBegin, static_cast<size_t>(i - tokenBegin));
+        std::advance(i, 1);
+        tokenBegin = i;
+        while (i != value.end() && *i != ',')
+        {
+            std::advance(i, 1);
+        }
+        std::string_view val(tokenBegin, static_cast<size_t>(i - tokenBegin));
+        if (key == "L")
+        {
+            out["City"] = val;
+        }
+        else if (key == "CN")
+        {
+            out["CommonName"] = val;
+        }
+        else if (key == "C")
+        {
+            out["Country"] = val;
+        }
+        else if (key == "O")
+        {
+            out["Organization"] = val;
+        }
+        else if (key == "OU")
+        {
+            out["OrganizationalUnit"] = val;
+        }
+        else if (key == "ST")
+        {
+            out["State"] = val;
+        }
+        // skip comma character
+        if (i != value.end())
+        {
+            std::advance(i, 1);
+        }
+    }
+}
+
+/**
  * @brief Retrieve the installed certificate list
  *
  * @param[in] asyncResp Shared pointer to the response message
@@ -328,14 +392,14 @@ inline void getCertificateProperties(
 
             if (issuer != nullptr)
             {
-                cert_utils::updateCertIssuerOrSubject(
-                    asyncResp->res.jsonValue["Issuer"], *issuer);
+                updateCertIssuerOrSubject(asyncResp->res.jsonValue["Issuer"],
+                                          *issuer);
             }
 
             if (subject != nullptr)
             {
-                cert_utils::updateCertIssuerOrSubject(
-                    asyncResp->res.jsonValue["Subject"], *subject);
+                updateCertIssuerOrSubject(asyncResp->res.jsonValue["Subject"],
+                                          *subject);
             }
 
             if (validNotAfter != nullptr)
@@ -443,22 +507,6 @@ inline void handleCertificateLocationsGet(
                        "/Links/Certificates@odata.count"_json_pointer);
 }
 
-inline std::string readFailureReason(sdbusplus::message::message& m)
-{
-    // Attempt to extract the reason from the error message
-    std::string reason;
-    try
-    {
-        m.read(reason);
-    }
-    catch (const std::exception& e)
-    {
-        BMCWEB_LOG_DEBUG("Failed to read the reason from the error message={}",
-                         e.what());
-    }
-    return reason;
-}
-
 inline void handleError(const std::string_view dbusErrorName,
                         const std::string& id, const std::string& certificate,
                         const std::string& reason,
@@ -474,11 +522,13 @@ inline void handleError(const std::string_view dbusErrorName,
         messages::propertyValueIncorrect(asyncResp->res, "Certificate",
                                          certificate);
     }
+    // Nvidia code handleError starts here
     else if (dbusErrorName == "xyz.openbmc_project.Common.Error.NotAllowed")
     {
         messages::resourceErrorsDetectedFormatError(asyncResp->res,
                                                     "Certificate", reason);
     }
+    // Nvidia code handleError ends here
     else
     {
         messages::internalError(asyncResp->res);
@@ -496,18 +546,18 @@ inline void handleReplaceCertificateAction(
     std::string certificate;
     std::string certURI;
     std::optional<std::string> certificateType = "PEM";
-    // clang-format off
-    if (!json_util::readJsonAction(         //
-        req, asyncResp->res,                //
-        "CertificateString", certificate,   //
-        "CertificateType", certificateType, //
-        "CertificateUri/@odata.id", certURI //
-        ))
+
+    if (!json_util::readJsonAction(             //
+            req, asyncResp->res,                //
+            "CertificateString", certificate,   //
+            "CertificateType", certificateType, //
+            "CertificateUri/@odata.id", certURI //
+            ))
     {
         BMCWEB_LOG_ERROR("Required parameters are missing");
         return;
     }
-    // clang-format on
+
     if (!certificateType)
     {
         // should never happen, but it never hurts to be paranoid.
@@ -582,11 +632,13 @@ inline void handleReplaceCertificateAction(
             {
                 BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
                 const sd_bus_error* dbusError = m.get_error();
+                // Nvidia code starts here
                 if (dbusError && dbusError->name)
                 {
-                    std::string reason = readFailureReason(m);
+                    std::string reason = cert_utils::readFailureReason(m);
                     handleError(dbusError->name, id, certificate, reason,
                                 asyncResp);
+                    // Nvidia code ends here
                 }
                 else
                 {
@@ -983,9 +1035,10 @@ inline void handleHTTPSCertificateCollectionPost(
             {
                 BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
                 const sd_bus_error* dbusError = m.get_error();
+                // Nvidia code starts here
                 if (dbusError && dbusError->name)
                 {
-                    std::string reason = readFailureReason(m);
+                    std::string reason = cert_utils::readFailureReason(m);
                     handleError(dbusError->name, "", certHttpBody, reason,
                                 asyncResp);
                 }
@@ -993,11 +1046,11 @@ inline void handleHTTPSCertificateCollectionPost(
                 {
                     messages::internalError(asyncResp->res);
                 }
+                // Nvidia code ends here
                 return;
             }
             sdbusplus::message::object_path path(objectPath);
             std::string certId = path.filename();
-
             const boost::urls::url certURL = boost::urls::format(
                 "/redfish/v1/Managers/{}/NetworkProtocol/HTTPS/Certificates/{}",
                 BMCWEB_REDFISH_MANAGER_URI_NAME, certId);
@@ -1109,10 +1162,11 @@ inline void handleLDAPCertificateCollectionPost(
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
+                // Nvidia code starts here
                 const sd_bus_error* dbusError = m.get_error();
                 if (dbusError && dbusError->name)
                 {
-                    std::string reason = readFailureReason(m);
+                    std::string reason = cert_utils::readFailureReason(m);
                     handleError(dbusError->name, "", certHttpBody, reason,
                                 asyncResp);
                 }
@@ -1120,6 +1174,7 @@ inline void handleLDAPCertificateCollectionPost(
                 {
                     messages::internalError(asyncResp->res);
                 }
+                // Nvidia code ends here
                 return;
             }
             sdbusplus::message::object_path path(objectPath);
@@ -1259,9 +1314,10 @@ inline void handleTrustStoreCertificateCollectionPost(
             {
                 BMCWEB_LOG_ERROR("DBUS response error: {}", ec);
                 const sd_bus_error* dbusError = m.get_error();
+                // Nvidia code starts here
                 if (dbusError && dbusError->name)
                 {
-                    std::string reason = readFailureReason(m);
+                    std::string reason = cert_utils::readFailureReason(m);
                     handleError(dbusError->name, "", certHttpBody, reason,
                                 asyncResp);
                 }
@@ -1269,8 +1325,10 @@ inline void handleTrustStoreCertificateCollectionPost(
                 {
                     messages::internalError(asyncResp->res);
                 }
+                // Nvidia code ends here
                 return;
             }
+
             sdbusplus::message::object_path path(objectPath);
             std::string certId = path.filename();
             const boost::urls::url certURL = boost::urls::format(

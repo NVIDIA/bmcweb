@@ -138,13 +138,14 @@ inline void afterPowerCapSettingGet(
             "/Power#/PowerControl/0";
         powerControl["Name"] = "Chassis Power Control";
         powerControl["MemberId"] = "0";
-        // Add missing properties to make
+        // Add missing properties to make  // Nvidia code starts here
         // OCPServerHardwareManagement.v1_0_0.json passed.
         // Power schema is deprecated and we won't maintain
         // it so properties are set to nullptr
         powerControl["PowerCapacityWatts"] = nullptr;
         powerControl["PowerConsumedWatts"] = nullptr;
         tempArray.push_back(std::move(powerControl));
+        // Nvidia code Ends here
     }
 
     nlohmann::json& sensorJson = tempArray.back();

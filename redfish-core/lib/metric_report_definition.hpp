@@ -1328,12 +1328,14 @@ inline void handleMetricReportDefinitionCollectionGet(
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/TelemetryService/MetricReportDefinitions";
     asyncResp->res.jsonValue["Name"] = "Metric Definition Collection";
+    // Nvidia code starts here
     if constexpr (BMCWEB_SHMEM_PLATFORM_METRICS)
     {
         redfish::nvidia_metric_report_def_utils::getMetricReportCollection(
             asyncResp);
         return;
     }
+    // Nvidia code ends here
     constexpr std::array<std::string_view, 1> interfaces{
         telemetry::reportInterface};
     collection_util::getCollectionMembers(
@@ -1499,6 +1501,7 @@ inline void handleMetricReportGet(
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/MetricReport/MetricReport.json>; rel=describedby");
+    // Nvidia code starts here
     if constexpr (BMCWEB_SHMEM_PLATFORM_METRICS)
     {
         redfish::nvidia_metric_report_def_utils::
@@ -1506,6 +1509,7 @@ inline void handleMetricReportGet(
     }
     else
     {
+        // Nvidia code ends here
         dbus::utility::getAllProperties(
             telemetry::service, telemetry::getDbusReportPath(id),
             telemetry::reportInterface,

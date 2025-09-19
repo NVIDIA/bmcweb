@@ -972,7 +972,7 @@ inline void handleChassisGet(
 inline void handleChassisPatch(
     App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& param)
+    const std::string& chassisId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
@@ -990,7 +990,7 @@ inline void handleChassisPatch(
     std::optional<double> temperature;
     std::optional<bool> hardwareWriteProtectEnable;
 
-    if (param.empty())
+    if (chassisId.empty())
     {
         return;
     }
@@ -1059,8 +1059,6 @@ inline void handleChassisPatch(
             boost::beast::http::field::warning,
             "299 - \"IndicatorLED is deprecated. Use LocationIndicatorActive instead.\"");
     }
-
-    const std::string& chassisId = param;
 
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/inventory", 0, chassisInterfaces,

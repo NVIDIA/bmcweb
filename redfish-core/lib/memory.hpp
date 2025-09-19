@@ -471,9 +471,11 @@ inline void assembleDimmProperties(
         channel, "MemoryController", memoryController, "Slot", slot, "Socket",
         socket, "SparePartNumber", sparePartNumber, "Model", model,
         "LocationCode", locationCode, "Functional", functional, "LocationType",
+        /* Nvidia Added Properties Start*/
         locationType, "LocationContext", locationContext,
         "RowRemappingFailureState", rowMappingFailureState,
         "RowRemappingPendingState", rowMappingPendingState);
+    /* Nvidia Added Properties End*/
 
     if (!success)
     {
@@ -645,10 +647,12 @@ inline void assembleDimmProperties(
 
     if (model != nullptr)
     {
+        /* Nvidia Added code start*/
         if (!(model->empty()))
         {
             asyncResp->res.jsonValue[jsonPtr]["Model"] = *model;
         }
+        /* Nvidia Added code end*/
     }
 
     if (locationCode != nullptr)
@@ -657,6 +661,7 @@ inline void assembleDimmProperties(
             .jsonValue[jsonPtr]["Location"]["PartLocation"]["ServiceLabel"] =
             *locationCode;
     }
+    /* Nvidia Added code start*/
     if (locationType != nullptr)
     {
         asyncResp->res
@@ -685,6 +690,7 @@ inline void assembleDimmProperties(
         asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
             "#NvidiaMemory.v1_0_0.NvidiaMemory";
     }
+    /* Nvidia Added code End*/
 
     getPersistentMemoryProperties(asyncResp, properties, jsonPtr);
 }
@@ -1097,6 +1103,7 @@ inline void requestRoutesMemory(App& app)
             std::bind_front(handleMemoryPatch, std::ref(app)));
 }
 
+// Nvidia : Added Code Start
 inline void requestRoutesMemoryMetrics(App& app)
 {
     /**
@@ -1116,5 +1123,6 @@ inline void requestRoutesMemoryMetrics(App& app)
                 redfish::nvidia_memory::getMemoryMetricsData(asyncResp, dimmId);
             });
 }
+// Nvidia : Added Code End
 
 } // namespace redfish

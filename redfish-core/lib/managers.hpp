@@ -399,7 +399,7 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
                 "/xyz/openbmc_project/software/bmc",
                 std::array<const char*, 1>{ifnameFactoryReset.c_str()});
         });
-        // NVIDIA code ends here
+    // NVIDIA code ends here
 }
 
 /**
@@ -1065,20 +1065,20 @@ inline void requestRoutesManager(App& app)
                 std::optional<bool> openocdValue;
                 std::optional<std::string> restrictionMode;
                 // Nvidia code ends here
-                if (!json_util::readJsonPatch(                             //
-                        req, asyncResp->res,                               //
-                        "DateTime", datetime,                              //
+                if (!json_util::readJsonPatch(                            //
+                        req, asyncResp->res,                              //
+                        "DateTime", datetime,                             //
                         "Links/ActiveSoftwareImage/@odata.id",
-                        activeSoftwareImageOdataId,                        //
+                        activeSoftwareImageOdataId,                       //
                         "LocationIndicatorActive",
-                        locationIndicatorActive,                           //
-                        "Oem/OpenBmc/Fan/FanControllers", fanControllers,  //
-                        "Oem/OpenBmc/Fan/FanZones", fanZones,              //
-                        "Oem/OpenBmc/Fan/PidControllers", pidControllers,  //
-                        "Oem/OpenBmc/Fan/Profile", profile,                //
+                        locationIndicatorActive,                          //
+                        "Oem/OpenBmc/Fan/FanControllers", fanControllers, //
+                        "Oem/OpenBmc/Fan/FanZones", fanZones,             //
+                        "Oem/OpenBmc/Fan/PidControllers", pidControllers, //
+                        "Oem/OpenBmc/Fan/Profile", profile,               //
                         "Oem/OpenBmc/Fan/StepwiseControllers",
-                        stepwiseControllers,                               //
-                        "ServiceIdentification", serviceIdentification,    //
+                        stepwiseControllers,                              //
+                        "ServiceIdentification", serviceIdentification,   //
                         // Nvidia code starts here
                         "Oem/Nvidia/SMBPBIFencingPrivilege", privilege,    //
                         "Oem/Nvidia/AuthenticationTLSRequired", tlsAuth,   //

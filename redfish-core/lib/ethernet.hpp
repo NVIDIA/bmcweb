@@ -185,21 +185,24 @@ inline std::string getDhcpEnabledEnumeration(bool isIPv4, bool isIPv6,
     }
     if (isIPv4)
     {
+        // Nvidia code starts here
         if (ipv6AcceptRa)
         {
             return "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.v4v6stateless";
         }
-
+        // Nvidia code edns here
         return "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.v4";
     }
     if (isIPv6)
     {
         return "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.v6";
     }
+    // Nvidia code starts here
     if (ipv6AcceptRa)
     {
         return "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.v6stateless";
     }
+    // Nvidia code edns here
     return "xyz.openbmc_project.Network.EthernetInterface.DHCPConf.none";
 }
 
@@ -1340,6 +1343,7 @@ inline void handleMACAddressPatch(
     const std::string& ifaceId, const std::string& macAddress,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    // Nvidia code starts here
     static constexpr const size_t macStringSize = 17;
     if (macAddress.size() > macStringSize)
     {
@@ -1347,7 +1351,7 @@ inline void handleMACAddressPatch(
                                            "MACAddress");
         return;
     }
-
+    // Nvidia code edns here
     setDbusProperty(
         asyncResp, "MACAddress", "xyz.openbmc_project.Network",
         sdbusplus::message::object_path("/xyz/openbmc_project/network") /
@@ -1360,6 +1364,7 @@ inline void setDHCPEnabled(const std::string& ifaceId,
                            const bool v6Value, const bool ipv6AcceptRa,
                            const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    // Nvidia code starts here
     const std::string dhcp =
         getDhcpEnabledEnumeration(v4Value, v6Value, ipv6AcceptRa);
     setDbusProperty(
@@ -1562,7 +1567,9 @@ inline bool parseAddresses(
 
         if (obj == nullptr)
         {
+            // Nvidia code starts here
             if (nicIpEntry == ipv4Data.cend())
+            // Nvidia code Ends here
             {
                 // Received a DELETE action on an entry not assigned to the NIC
                 messages::resourceCannotBeDeleted(res);
@@ -1603,7 +1610,9 @@ inline bool parseAddresses(
                 thisAddress.operation = AddrChange::Update;
                 thisAddress.address = *address;
             }
+            // Nvidia code starts here
             else if (nicIpEntry == ipv4Data.cend())
+            // Nvidia code Ends here
             {
                 messages::propertyMissing(res, pathString + "/Address");
                 return false;
@@ -1626,7 +1635,9 @@ inline bool parseAddresses(
                 thisAddress.prefixLength = prefixLength;
                 thisAddress.operation = AddrChange::Update;
             }
+            // Nvidia code starts here
             else if (nicIpEntry == ipv4Data.cend())
+            // Nvidia code Ends here
             {
                 messages::propertyMissing(res, pathString + "/SubnetMask");
                 return false;
@@ -1652,7 +1663,9 @@ inline bool parseAddresses(
                 thisAddress.operation = AddrChange::Update;
                 thisAddress.gateway = *gateway;
             }
+            // Nvidia code starts here
             else if (nicIpEntry == ipv4Data.cend())
+            // Nvidia code Ends here
             {
                 // Default to null gateway
                 gateway = "";
@@ -1765,13 +1778,16 @@ inline void handleIPv4StaticPatch(
             break;
         }
     }
+    // Nvidia code starts here
     // Defaultgateway was cleared in handleDHCPPatch function.
     bool dhcpCleared = translateDhcpEnabledToBool(ethData.dhcpEnabled, true);
-
+    // Nvidia code ends here
     // now update to the new gateway.
     // Default gateway is already empty, so no need to update if we're clearing
+    // Nvidia code starts here
     if ((!gatewayOut.empty() && ethData.defaultGateway != gatewayOut) ||
         (dhcpCleared))
+    // Nvidia code Ends here
     {
         updateIPv4DefaultGateway(ifaceId, gatewayOut, asyncResp);
     }
@@ -1919,7 +1935,9 @@ inline void parseInterfaceData(
             ethData.linkUp ? ethernet_interface::LinkStatus::LinkUp
                            : ethernet_interface::LinkStatus::LinkDown;
         jsonResponse["Status"]["State"] = resource::State::Enabled;
+        // Nvidia code starts here
         jsonResponse["Status"]["Health"] = resource::Health::OK;
+        // Nvidia code ends here
     }
     else
     {

@@ -49,16 +49,21 @@ void getNTPProtocolEnabled(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp);
 
 static constexpr std::string_view sshServiceName = "dropbear";
 static constexpr std::string_view httpsServiceName = "bmcweb";
+// Nvidia code starts here
 static constexpr std::string_view httpServiceName = "bmcweb";
+// Nvidia code ends here
 static constexpr std::string_view ipmiServiceName = "phosphor-ipmi-net";
 
 // Mapping from Redfish NetworkProtocol key name to backend service that hosts
 // that protocol.
 static constexpr std::array<std::pair<std::string_view, std::string_view>, 4>
-    networkProtocolToDbus = {{{"SSH", sshServiceName},
-                              {"HTTPS", httpsServiceName},
-                              {"HTTP", httpServiceName},
-                              {"IPMI", ipmiServiceName}}};
+    networkProtocolToDbus = {
+        {{"SSH", sshServiceName},
+         {"HTTPS", httpsServiceName},
+         // Nvidia code starts here
+         {"HTTP", httpServiceName},
+         // Nvidia code ends here
+         {"IPMI", ipmiServiceName}}};
 
 inline void extractNTPServersAndDomainNamesData(
     const dbus::utility::ManagedObjectType& dbusData,
@@ -177,6 +182,7 @@ inline void afterNetworkPortRequest(
 inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const crow::Request& req)
 {
+    // Nvidia code starts here
     if constexpr (!BMCWEB_TLS_AUTH_OPT_IN)
     {
         if (req.session == nullptr)
@@ -184,6 +190,7 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             messages::internalError(asyncResp->res);
             return;
         }
+        // Nvidia code ends here
     }
 
     asyncResp->res.addHeader(
@@ -215,6 +222,7 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     // defaults to ensure something is always returned.
     for (const auto& nwkProtocol : networkProtocolToDbus)
     {
+        // Nvidia code starts here
         if constexpr (!BMCWEB_IPMI)
         {
             if (nwkProtocol.first == "IPMI")
@@ -222,6 +230,7 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 continue;
             }
         }
+        // Nvidia code Ends here
         asyncResp->res.jsonValue[nwkProtocol.first]["Port"] = nullptr;
         asyncResp->res.jsonValue[nwkProtocol.first]["ProtocolEnabled"] = false;
     }
@@ -287,8 +296,7 @@ inline void getNetworkData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
     getPortStatusAndPath(std::span(networkProtocolToDbus),
                          std::bind_front(afterNetworkPortRequest, asyncResp));
-
-    // Populate Rsyslog client settings from D-Bus
+    // Populate Rsyslog client settings from D-Bus //Nvidia code
     if constexpr (BMCWEB_RSYSLOG_CLIENT)
     {
         redfish::rsyslog::populateRsyslogClientSettings(asyncResp);
@@ -529,6 +537,7 @@ inline void handleManagersNetworkProtocolPatch(
     std::optional<bool> ntpEnabled;
     std::optional<bool> ipmiEnabled;
     std::optional<bool> sshEnabled;
+    // Nvidia properties starts here
     std::optional<std::string> state;
     std::optional<std::string> address;
     std::optional<uint16_t> port;
@@ -536,6 +545,7 @@ inline void handleManagersNetworkProtocolPatch(
     std::optional<std::string> tls;
     std::optional<std::vector<std::string>> facility;
     std::optional<std::string> severity;
+    // Nvidia properties ends here
 
     if (!json_util::readJsonPatch(
             req, asyncResp->res,                 //
@@ -544,11 +554,13 @@ inline void handleManagersNetworkProtocolPatch(
             "NTP/ProtocolEnabled", ntpEnabled,   //
             "IPMI/ProtocolEnabled", ipmiEnabled, //
             "SSH/ProtocolEnabled", sshEnabled,   //
+            // Nvidia properties starts here
             "Oem/Nvidia/Rsyslog/State", state, "Oem/Nvidia/Rsyslog/Address",
             address, "Oem/Nvidia/Rsyslog/Port", port,
             "Oem/Nvidia/Rsyslog/Protocol", protocol, "Oem/Nvidia/Rsyslog/TLS",
             tls, "Oem/Nvidia/Rsyslog/Filter/Facilities", facility,
             "Oem/Nvidia/Rsyslog/Filter/LowestSeverity", severity))
+    // Nvidia properties ends here
     {
         return;
     }
@@ -560,7 +572,7 @@ inline void handleManagersNetworkProtocolPatch(
         return;
     }
 
-    if constexpr (BMCWEB_NTP)
+    if constexpr (BMCWEB_NTP) // Nvidia code
     {
         if (ntpEnabled)
         {
@@ -585,7 +597,7 @@ inline void handleManagersNetworkProtocolPatch(
         }
     }
 
-    if constexpr (BMCWEB_IPMI)
+    if constexpr (BMCWEB_IPMI) // Nvidia code
     {
         if (ipmiEnabled)
         {
@@ -595,7 +607,7 @@ inline void handleManagersNetworkProtocolPatch(
         }
     }
 
-    if constexpr (BMCWEB_PATCH_SSH)
+    if constexpr (BMCWEB_PATCH_SSH) // Nvidia code
     {
         if (sshEnabled)
         {
@@ -603,12 +615,13 @@ inline void handleManagersNetworkProtocolPatch(
                                   encodeServiceObjectPath(sshServiceName));
         }
     }
-
+    // Nvidia code starts here
     if constexpr (BMCWEB_RSYSLOG_CLIENT)
     {
         redfish::rsyslog::processRsyslogClientSettings(
             asyncResp, address, port, state, tls, facility, severity, protocol);
     }
+    // Nvidia code ends here
 }
 
 inline void handleManagersNetworkProtocolHead(
