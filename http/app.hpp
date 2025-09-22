@@ -108,7 +108,7 @@ class App
         std::vector<Acceptor> acceptors;
         char** names = nullptr;
         int listenFdCount = sd_listen_fds_with_names(0, &names);
-        BMCWEB_LOG_ERROR("Got {} sockets to open", listenFdCount);
+        BMCWEB_LOG_DEBUG("Got {} sockets to open", listenFdCount);
 
         if (listenFdCount < 0)
         {
@@ -169,7 +169,7 @@ class App
 
     void debugPrint()
     {
-        BMCWEB_LOG_ERROR("Routing:");
+        BMCWEB_LOG_DEBUG("Routing:");
         router.debugPrint();
     }
 
