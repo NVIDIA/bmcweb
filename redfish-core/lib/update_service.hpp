@@ -1100,21 +1100,21 @@ inline void setForceUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
  * successfully completed.
  */
 // Helper to extract the form field name from Content-Disposition header
-static inline std::optional<std::string> parseFormPartName(
-    const boost::beast::http::fields::const_iterator& it)
+inline std::optional<std::string> parseFormPartName(
+    const boost::beast::http::fields::const_iterator& contentDisposition)
 {
-    const auto& v = it->value();
-    auto semiPos = v.find(';');
-    if (semiPos == boost::beast::string_view::npos)
+    size_t semicolonPos = contentDisposition->value().find(';');
+    if (semicolonPos == std::string::npos)
     {
         return std::nullopt;
     }
-    boost::beast::http::param_list params(v.substr(semiPos + 1));
-    for (const auto& p : params)
+
+    for (const auto& param : boost::beast::http::param_list{
+             contentDisposition->value().substr(semicolonPos)})
     {
-        if (p.first == "name" && !p.second.empty())
+        if (param.first == "name" && !param.second.empty())
         {
-            return std::string(p.second);
+            return std::string(param.second);
         }
     }
     return std::nullopt;
@@ -1147,88 +1147,74 @@ inline bool parseMultipartForm(
             continue;
         }
 
-        const std::string cd = std::string(it->value());
-        const auto semi = cd.find(';');
-        boost::beast::string_view cdv(cd);
-        const std::size_t start =
-            (semi == std::string::npos) ? cdv.size() : semi + 1;
-        const boost::beast::string_view tail = cdv.substr(start);
-        boost::beast::http::param_list params(tail);
-        for (const auto& param : params)
+        const std::string& formFieldName = formFieldNameOpt.value();
+
+        if (formFieldName == "UpdateParameters")
         {
-            if (param.first != "name" || param.second.empty())
+            hasUpdateParameters = true;
+            nlohmann::json content =
+                nlohmann::json::parse(formpart.content, nullptr, false);
+            if (content.is_discarded())
             {
-                continue;
+                BMCWEB_LOG_INFO("UpdateParameters parse error:{}",
+                                formpart.content);
+                messages::unrecognizedRequestBody(asyncResp->res);
+
+                return false;
             }
 
-            if (param.second == "UpdateParameters")
+            try
             {
-                hasUpdateParameters = true;
-                nlohmann::json content =
-                    nlohmann::json::parse(formpart.content, nullptr, false);
-                if (content.is_discarded())
+                if constexpr (BMCWEB_NVIDIA_OEM_FW_UPDATE_STAGING)
                 {
-                    BMCWEB_LOG_INFO("UpdateParameters parse error:{}",
-                                    formpart.content);
-                    messages::unrecognizedRequestBody(asyncResp->res);
+                    std::optional<nlohmann::json> oemObject;
+                    json_util::readJson(content, asyncResp->res, "Targets",
+                                        targets, "@Redfish.OperationApplyTime",
+                                        applyTime, "ForceUpdate", forceUpdate,
+                                        "Oem", oemObject);
 
-                    return false;
-                }
-
-                try
-                {
-                    if constexpr (BMCWEB_NVIDIA_OEM_FW_UPDATE_STAGING)
+                    if (oemObject)
                     {
-                        std::optional<nlohmann::json> oemObject;
-                        json_util::readJson(
-                            content, asyncResp->res, "Targets", targets,
-                            "@Redfish.OperationApplyTime", applyTime,
-                            "ForceUpdate", forceUpdate, "Oem", oemObject);
-
-                        if (oemObject)
+                        std::optional<nlohmann::json> oemNvidiaObject;
+                        if (json_util::readJson(*oemObject, asyncResp->res,
+                                                "Nvidia", oemNvidiaObject))
                         {
-                            std::optional<nlohmann::json> oemNvidiaObject;
-                            if (json_util::readJson(*oemObject, asyncResp->res,
-                                                    "Nvidia", oemNvidiaObject))
-                            {
-                                json_util::readJson(
-                                    *oemNvidiaObject, asyncResp->res,
-                                    "UpdateOption", oemUpdateOption);
-                            }
+                            json_util::readJson(*oemNvidiaObject,
+                                                asyncResp->res, "UpdateOption",
+                                                oemUpdateOption);
                         }
                     }
-                    else
-                    {
-                        json_util::readJson(
-                            content, asyncResp->res, "Targets", targets,
-                            "@Redfish.OperationApplyTime", applyTime,
-                            "ForceUpdate", forceUpdate);
-                    }
                 }
-                catch (const std::exception& e)
+                else
                 {
-                    BMCWEB_LOG_ERROR(
-                        "Unable to parse JSON. Check the format of the request body. Exception caught: {}",
-                        e.what());
-                    messages::unrecognizedRequestBody(asyncResp->res);
-
-                    return false;
+                    json_util::readJson(content, asyncResp->res, "Targets",
+                                        targets, "@Redfish.OperationApplyTime",
+                                        applyTime, "ForceUpdate", forceUpdate);
                 }
             }
-            else if (param.second == "UpdateFile")
+            catch (const std::exception& e)
             {
-                boost::beast::http::fields::const_iterator contentTypeIt =
-                    formpart.fields.find("Content-Type");
-                if (contentTypeIt == formpart.fields.end() ||
-                    contentTypeIt->value() != "application/octet-stream")
-                {
-                    BMCWEB_LOG_ERROR(
-                        "UpdateFile parameter must be of type 'application/octet-stream'");
-                    messages::unsupportedMediaType(asyncResp->res);
-                    return false;
-                }
-                hasFile = true;
+                BMCWEB_LOG_ERROR(
+                    "Unable to parse JSON. Check the format of the request body. Exception caught: {}",
+                    e.what());
+                messages::unrecognizedRequestBody(asyncResp->res);
+
+                return false;
             }
+        }
+        else if (formFieldName == "UpdateFile")
+        {
+            boost::beast::http::fields::const_iterator contentTypeIt =
+                formpart.fields.find("Content-Type");
+            if (contentTypeIt == formpart.fields.end() ||
+                contentTypeIt->value() != "application/octet-stream")
+            {
+                BMCWEB_LOG_ERROR(
+                    "UpdateFile parameter must be of type 'application/octet-stream'");
+                messages::unsupportedMediaType(asyncResp->res);
+                return false;
+            }
+            hasFile = true;
         }
     }
 
@@ -1496,7 +1482,7 @@ inline void validateUpdatePolicyCallback(
     }
 
     crow::connections::systemBus->async_method_call(
-        [&req, asyncResp, objInfo,
+        [req, asyncResp, objInfo,
          oemUpdateOption](const boost::system::error_code ec) mutable {
             if (ec)
             {
@@ -1505,7 +1491,7 @@ inline void validateUpdatePolicyCallback(
             }
             setOemUpdateOption(
                 asyncResp, oemUpdateOption.value_or("StageAndActivate"),
-                [&req, asyncResp]() { uploadImageFile(req, asyncResp); });
+                [req, asyncResp]() { uploadImageFile(req, asyncResp); });
         },
         objInfo[0].first, "/xyz/openbmc_project/software",
         "org.freedesktop.DBus.Properties", "Set",
@@ -1576,7 +1562,7 @@ inline void areTargetsUpdateableCallback(
     }
 
     crow::connections::systemBus->async_method_call(
-        [&req, asyncResp, targets, oemUpdateOption](
+        [req, asyncResp, targets, oemUpdateOption](
             const boost::system::error_code errorCode,
             const dbus::utility::MapperServiceMap& objInfo) mutable {
             validateUpdatePolicyCallback(errorCode, objInfo, req, asyncResp,
@@ -1607,7 +1593,7 @@ inline void areTargetsUpdateable(
     const std::optional<std::string>& oemUpdateOption)
 {
     crow::connections::systemBus->async_method_call(
-        [&req, asyncResp, uriTargets,
+        [req, asyncResp, uriTargets,
          oemUpdateOption](const boost::system::error_code ec,
                           const std::vector<std::string>& swInvPaths) {
             if (ec)
@@ -1622,7 +1608,7 @@ inline void areTargetsUpdateable(
                 "xyz.openbmc_project.ObjectMapper",
                 "/xyz/openbmc_project/software/updateable",
                 "xyz.openbmc_project.Association", "endpoints",
-                [&req, asyncResp, uriTargets, swInvPaths,
+                [req, asyncResp, uriTargets, swInvPaths,
                  oemUpdateOption](const boost::system::error_code ec1,
                                   const std::vector<std::string>& objPaths) {
                     areTargetsUpdateableCallback(ec1, objPaths, req, asyncResp,
