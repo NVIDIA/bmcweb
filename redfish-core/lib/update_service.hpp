@@ -477,9 +477,18 @@ inline nlohmann::json getTaskMessage(const std::string_view state, size_t index)
     if (state == "Aborted")
     {
         fwUpdateInProgress = false;
+        return messages::taskAborted(std::to_string(index));
+    }
+    if (state == "Started")
+    {
+        return messages::taskStarted(std::to_string(index));
     }
 
-    return redfish::task::getMessage(state, index);
+    BMCWEB_LOG_INFO("get msg status not found");
+    return nlohmann::json{
+        {"@odata.type", "Unknown"}, {"MessageId", "Unknown"},
+        {"Message", "Unknown"},     {"MessageArgs", {}},
+        {"Severity", "Unknown"},    {"Resolution", "Unknown"}};
 }
 
 inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -490,8 +499,7 @@ inline void createTask(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         std::bind_front(handleCreateTask),
         "type='signal',interface='org.freedesktop.DBus.Properties',"
         "member='PropertiesChanged',path='" +
-            objPath.str + "'",
-        std::bind_front(getTaskMessage));
+            objPath.str + "'");
 
     task->startTimer(std::chrono::minutes(BMCWEB_UPDATE_SERVICE_TASK_TIMEOUT));
     task->populateResp(asyncResp->res);

@@ -52,6 +52,7 @@
 #include "nvidia_sweinj.hpp"
 #include "nvidia_system.hpp"
 #include "nvidia_system_variable_spi_erase.hpp"
+#include "nvidia_task.hpp"
 #include "nvidia_update_service.hpp"
 #include "nvidia_workload_power_profiles.hpp"
 #include "pcie.hpp"
@@ -336,6 +337,7 @@ void requestRoutesNvidia(crow::App& app)
             app);
         nvidia_oem_managed_entity::requestRoutesNvidiaManagedEntity(app);
     }
+    requestRoutesTaskUpdate(app);
     requestRoutesNvidiaChassisDriveName(app);
     requestRoutesNvidiaDrive(app);
 }

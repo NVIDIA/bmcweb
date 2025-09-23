@@ -56,9 +56,7 @@ namespace task
 constexpr size_t maxTaskCount = 100; // arbitrary limit
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-using TaskQueue = std::deque<std::shared_ptr<struct TaskData>>;
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-static TaskQueue tasks;
+static std::deque<std::shared_ptr<struct TaskData>> tasks;
 
 constexpr bool completed = true;
 
@@ -105,122 +103,28 @@ struct Payload
     nlohmann::json jsonBody;
 };
 
-/**
- * @brief Container to hold result of the operation for long running task. Once
- * task completes task response should be set, which will be returned by the
- * task monitor URI
- *
- */
-using TaskResponseCallback =
-    std::function<void(const std::shared_ptr<bmcweb::AsyncResp>&)>;
-
-/*
-A task response might have json, or a callback to get the binary data.
-*/
-using TaskResponse =
-    std::variant<std::monostate, nlohmann::json, TaskResponseCallback>;
-
-static nlohmann::json getMessage(const std::string_view state, size_t index)
-{
-    if (state == "Started")
-    {
-        return messages::taskStarted(std::to_string(index));
-    }
-    if (state == "Aborted")
-    {
-        return messages::taskAborted(std::to_string(index));
-    }
-    BMCWEB_LOG_INFO("get msg status not found");
-    return nlohmann::json{
-        {"@odata.type", "Unknown"}, {"MessageId", "Unknown"},
-        {"Message", "Unknown"},     {"MessageArgs", {}},
-        {"Severity", "Unknown"},    {"Resolution", "Unknown"}};
-}
-
 struct TaskData : std::enable_shared_from_this<TaskData>
 {
   private:
     TaskData(
         std::function<bool(boost::system::error_code, sdbusplus::message_t&,
                            const std::shared_ptr<TaskData>&)>&& handler,
-        const std::string& matchIn, size_t idx,
-        std::function<nlohmann::json(std::string_view, size_t)>&&
-            getMsgHandler) :
+        const std::string& matchIn, size_t idx) :
         callback(std::move(handler)), matchStr(matchIn), index(idx),
         startTime(std::chrono::system_clock::to_time_t(
             std::chrono::system_clock::now())),
         status("OK"), state("Running"), messages(nlohmann::json::array()),
-        timer(crow::connections::systemBus->get_io_context()),
-        getMsgCallback(std::move(getMsgHandler))
+        timer(crow::connections::systemBus->get_io_context())
 
     {}
 
   public:
     TaskData() = delete;
 
-    /**
-     * @brief This method identifies oldest completed task to remove in task
-     * queue. If all the tasks are in running state then oldest running task
-     * will be returned.
-     *
-     * @return TaskQueue::iterator
-     */
-    static TaskQueue::iterator getTaskToRemoveLegacy()
-    {
-        TaskQueue::iterator runningTask = tasks.end();
-        TaskQueue::iterator completedTask = tasks.end();
-        for (TaskQueue::iterator currentTask = tasks.begin();
-             currentTask != tasks.end(); currentTask++)
-        {
-            if ((*currentTask)->state == "Running")
-            {
-                // Running task is the first running task initially. When there
-                // are multiple running tasks, oldest running task will be
-                // chosen for removal
-                if (runningTask == tasks.end() ||
-                    (*runningTask)->startTime > (*currentTask)->startTime)
-                {
-                    runningTask = currentTask;
-                }
-            }
-            else // task is completed/failed
-            {
-                // Completed task is the first completed task initially. When
-                // there are multiple completed tasks, oldest completed task
-                // will be chosen for removal based on end time.
-                if (completedTask != tasks.end())
-                {
-                    auto& current = **currentTask;
-                    auto& completedTaskData = **completedTask;
-
-                    if (current.endTime.has_value() &&
-                        completedTaskData.endTime.has_value())
-                    {
-                        auto currentEndTime = current.endTime.value();
-                        auto completedEndTime =
-                            completedTaskData.endTime.value();
-
-                        if (completedEndTime > currentEndTime)
-                        {
-                            completedTask = currentTask;
-                        }
-                    }
-                }
-                else
-                {
-                    completedTask = currentTask;
-                }
-            }
-        }
-        return completedTask == tasks.end() ? runningTask : completedTask;
-    }
-
     static std::shared_ptr<TaskData>& createTask(
         std::function<bool(boost::system::error_code, sdbusplus::message_t&,
                            const std::shared_ptr<TaskData>&)>&& handler,
-        const std::string& match,
-        std::function<nlohmann::json(std::string_view, size_t)>&&
-            getMsgHandler = &getMessage)
+        const std::string& match)
     {
         static size_t lastTask = 0;
         struct MakeSharedHelper : public TaskData
@@ -229,76 +133,26 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                 std::function<bool(boost::system::error_code,
                                    sdbusplus::message_t&,
                                    const std::shared_ptr<TaskData>&)>&& handler,
-                const std::string& match2, size_t idx,
-                std::function<nlohmann::json(const std::string_view, size_t)>
-                    getMsgHandler) :
-                TaskData(std::move(handler), match2, idx,
-                         std::move(getMsgHandler))
+                const std::string& match2, size_t idx) :
+                TaskData(std::move(handler), match2, idx)
             {}
         };
 
         if (tasks.size() >= maxTaskCount)
         {
-            const auto taskToRemove = getTaskToRemoveLegacy();
+            const auto taskToRemove = getTaskToRemove();
 
             // destroy all references
             (*taskToRemove)
-                ->messages.emplace_back(
-                    (*taskToRemove)
-                        ->getMsgCallback("Aborted", (*taskToRemove)->index));
+                ->messages.emplace_back(messages::taskAborted(
+                    std::to_string((*taskToRemove)->index)));
             (*taskToRemove)->timer.cancel();
             (*taskToRemove)->match.reset();
             tasks.erase(taskToRemove);
         }
 
         return tasks.emplace_back(std::make_shared<MakeSharedHelper>(
-            std::move(handler), match, lastTask++, std::move(getMsgHandler)));
-    }
-
-    /**
-     * @brief Get the Task Status
-     *
-     * @return const std::string&
-     */
-    const std::string& getTaskStatus() const
-    {
-        return status;
-    }
-
-    /**
-     * @brief Set the Task Status. Order of severity is Critical > Warning > OK.
-     * Default is OK.
-     *
-     * @param[in] newStatus
-     */
-    void setTaskStatus()
-    {
-        for (const auto& message : messages)
-        {
-            std::string severity;
-            if (message.contains("Severity"))
-            {
-                // Severity is deprecated but there are still providers that
-                // use 1.0 schema.
-                severity = message["Severity"].get<std::string>();
-            }
-            else if (message.contains("MessageSeverity"))
-            {
-                severity = message["MessageSeverity"].get<std::string>();
-            }
-            if (!severity.empty())
-            {
-                if (severity == "Critical")
-                {
-                    status = "Critical";
-                    break;
-                }
-                if (severity == "Warning" && status != "Critical")
-                {
-                    status = "Warning";
-                }
-            }
-        }
+            std::move(handler), match, lastTask++));
     }
 
     /**
@@ -374,6 +228,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
     {
         endTime = std::chrono::system_clock::to_time_t(
             std::chrono::system_clock::now());
+        // nvidia code
         setTaskStatus();
     }
 
@@ -397,7 +252,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                 self->state = "Cancelled";
                 self->status = "Warning";
                 self->messages.emplace_back(
-                    self->getMsgCallback("Aborted", self->index));
+                    messages::taskAborted(std::to_string(self->index)));
                 // Send event :TaskAborted
                 sendTaskEvent(self->state, self->index);
                 self->callback(ec, msg, self);
@@ -498,11 +353,48 @@ struct TaskData : std::enable_shared_from_this<TaskData>
         }
 
         extendTimer(timeout);
-        messages.emplace_back(getMsgCallback("Started", index));
+        messages.emplace_back(messages::taskStarted(std::to_string(index)));
         // Send event : TaskStarted
         sendTaskEvent(state, index);
     }
 
+    // nvidia code start
+    /**
+     * @brief Set the Task Status. Order of severity is Critical > Warning > OK.
+     * Default is OK.
+     *
+     * @param[in] newStatus
+     */
+    void setTaskStatus()
+    {
+        for (const auto& message : messages)
+        {
+            std::string severity;
+            if (message.contains("Severity"))
+            {
+                // Severity is deprecated but there are still providers that
+                // use 1.0 schema.
+                severity = message["Severity"].get<std::string>();
+            }
+            else if (message.contains("MessageSeverity"))
+            {
+                severity = message["MessageSeverity"].get<std::string>();
+            }
+            if (!severity.empty())
+            {
+                if (severity == "Critical")
+                {
+                    status = "Critical";
+                    break;
+                }
+                if (severity == "Warning" && status != "Critical")
+                {
+                    status = "Warning";
+                }
+            }
+        }
+    }
+    // nvidia code end
     std::function<bool(boost::system::error_code, sdbusplus::message_t&,
                        const std::shared_ptr<TaskData>&)>
         callback;
@@ -516,13 +408,9 @@ struct TaskData : std::enable_shared_from_this<TaskData>
     std::unique_ptr<sdbusplus::bus::match_t> match;
     std::optional<time_t> endTime;
     std::optional<Payload> payload;
-    TaskResponse taskResponse;
     bool taskComplete = false;
     bool gave204 = false;
     int percentComplete = 0;
-    std::unique_ptr<sdbusplus::bus::match_t> loggingMatch;
-    std::function<nlohmann::json(const std::string_view, size_t)>
-        getMsgCallback;
 };
 
 } // namespace task
@@ -568,96 +456,6 @@ inline void requestRoutesTaskMonitor(App& app)
                 }
                 ptr->populateResp(asyncResp->res);
             });
-}
-
-inline void requestRoutesTaskUpdate(App& app)
-{
-    BMCWEB_ROUTE(app, "/redfish/v1/TaskService/Tasks/<str>/Update/")
-        .privileges(redfish::privileges::patchTask)
-        .methods(
-            boost::beast::http::verb::
-                patch)([&app](
-                           const crow::Request& req,
-                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                           const std::string& strParam) {
-            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-            {
-                return;
-            }
-
-            privilege_utils::isBiosPrivilege(
-                req.session->username,
-                [&req, asyncResp, strParam](const boost::system::error_code ec,
-                                            const bool isBios) {
-                    if (ec || !isBios)
-                    {
-                        asyncResp->res.addHeader(
-                            boost::beast::http::field::allow, "");
-                        messages::resourceNotFound(asyncResp->res, "",
-                                                   "Update");
-                        return;
-                    }
-
-                    auto find = std::find_if(
-                        task::tasks.begin(), task::tasks.end(),
-                        [&strParam](
-                            const std::shared_ptr<task::TaskData>& task) {
-                            if (!task)
-                            {
-                                return false;
-                            }
-
-                            // we compare against the string version as on
-                            // failure strtoul returns 0
-                            return std::to_string(task->index) == strParam;
-                        });
-
-                    if (find == task::tasks.end())
-                    {
-                        messages::resourceNotFound(asyncResp->res, "Tasks",
-                                                   strParam);
-                        return;
-                    }
-
-                    const std::shared_ptr<task::TaskData>& ptr = *find;
-
-                    std::optional<std::string> taskState;
-                    std::optional<nlohmann::json> messages;
-                    if (!json_util::readJsonPatch(req, asyncResp->res,
-                                                  "TaskState", taskState,
-                                                  "Messages", messages))
-                    {
-                        BMCWEB_LOG_DEBUG(
-                            "/redfish/v1/TaskService/Tasks/<str>/Update/ readJsonPatch error");
-                        return;
-                    }
-
-                    if (messages)
-                    {
-                        ptr->messages = *messages;
-                    }
-
-                    if (taskState && ptr->state != *taskState)
-                    {
-                        ptr->state = *taskState;
-                        if (ptr->state == "Completed" ||
-                            ptr->state == "Cancelled" ||
-                            ptr->state == "Exception" || ptr->state == "Killed")
-                        {
-                            ptr->timer.cancel();
-                            ptr->finishTask();
-                            if (ptr->state == "Completed")
-                            {
-                                ptr->percentComplete = 100;
-                            }
-                        }
-                        task::TaskData::sendTaskEvent(ptr->state, ptr->index);
-                    }
-
-                    asyncResp->res.result(
-                        boost::beast::http::status::no_content);
-                });
-        });
 }
 
 inline void requestRoutesTask(App& app)
@@ -737,8 +535,6 @@ inline void requestRoutesTask(App& app)
                 asyncResp->res.jsonValue["PercentComplete"] =
                     ptr->percentComplete;
             });
-
-    requestRoutesTaskUpdate(app);
 }
 
 inline void requestRoutesTaskCollection(App& app)

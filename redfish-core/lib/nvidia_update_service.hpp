@@ -916,21 +916,6 @@ inline void computeDigest(const crow::Request& req,
                 messages::internalError(asyncResp->res);
                 return;
             }
-            // callback to reset hash compute state for timeout scenario
-            auto timeoutCallback =
-                [](const std::string_view state, size_t index) {
-                    nlohmann::json message{};
-                    if (state == "Started")
-                    {
-                        message = messages::taskStarted(std::to_string(index));
-                    }
-                    else if (state == "Aborted")
-                    {
-                        computeDigestInProgress = false;
-                        message = messages::taskAborted(std::to_string(index));
-                    }
-                    return message;
-                };
             // create a task to wait for the hash digest property changed signal
             std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
                 [hashComputeObjPath, hashComputeService](
@@ -941,11 +926,23 @@ inline void computeDigest(const crow::Request& req,
                     {
                         if (ec1 != boost::asio::error::operation_aborted)
                         {
-                            taskData->state = "Aborted";
+                            // Real error occurred
+                            taskData->state = "Exception";
                             taskData->messages.emplace_back(
                                 messages::resourceErrorsDetectedFormatError(
                                     "NvidiaSoftwareInventory.ComputeDigest",
                                     ec1.message()));
+                            taskData->finishTask();
+                        }
+                        else
+                        {
+                            // Handle timeout scenario - matches original
+                            // timeoutCallback behavior
+                            taskData->state = "Aborted";
+                            computeDigestInProgress = false;
+                            taskData->messages.emplace_back(
+                                messages::taskAborted(
+                                    std::to_string(taskData->index)));
                             taskData->finishTask();
                         }
                         computeDigestInProgress = false;
@@ -1012,8 +1009,6 @@ inline void computeDigest(const crow::Request& req,
                                     jsonResponse
                                         ["FirmwareDigestHashingAlgorithm"] =
                                             *hashAlgoValue;
-                                    taskData->taskResponse
-                                        .emplace<nlohmann::json>(jsonResponse);
                                     std::string location =
                                         "Location: /redfish/v1/TaskService/Tasks/" +
                                         std::to_string(taskData->index) +
@@ -1049,8 +1044,7 @@ inline void computeDigest(const crow::Request& req,
                 "type='signal',member='PropertiesChanged',"
                 "interface='org.freedesktop.DBus.Properties',"
                 "path='" +
-                    hashComputeObjPath + "',",
-                timeoutCallback);
+                    hashComputeObjPath + "',");
             task->startTimer(std::chrono::seconds(retimerHashMaxTimeSec));
             task->populateResp(asyncResp->res);
             task::Payload payload(req);
