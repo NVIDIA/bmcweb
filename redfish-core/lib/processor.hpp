@@ -1358,7 +1358,13 @@ inline void getProcessorData(
         nvidia_processor_utils::populateErrorInjectionData(asyncResp,
                                                            processorId);
     }
-    // Nvidia Added Code End
+
+    if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+    {
+        redfish::conditions_utils::populateServiceConditions(asyncResp,
+                                                             processorId);
+    }
+    // Nvidia : Added Code End
 }
 
 /**
@@ -1479,14 +1485,6 @@ inline void handleProcessorGet(
     // Nvidia modified to use getProcessorObject from utils
     redfish::processor_utils::getProcessorObject(asyncResp, processorId,
                                                  getProcessorData);
-
-    // Nvidia : Added Code Start
-    if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
-    {
-        redfish::conditions_utils::populateServiceConditions(asyncResp,
-                                                             processorId);
-    }
-    // Nvidia : Added Code End
 }
 
 // Nvidia Added args: speedLimit, speedLocked, oemObject,

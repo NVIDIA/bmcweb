@@ -480,12 +480,23 @@ inline void populateServiceConditions(
     const std::string& chassisId)
 {
     BMCWEB_LOG_DEBUG("Populating service conditions for device {}", chassisId);
+    if (!asyncResp->res.jsonValue.contains("@odata.id"))
+    {
+        BMCWEB_LOG_DEBUG("Service conditions not found for device {}",
+                         chassisId);
+        return;
+    }
     std::string redfishUri =
         asyncResp->res.jsonValue.at("@odata.id").get<std::string>();
+    if (redfishUri.empty())
+    {
+        BMCWEB_LOG_DEBUG("Service conditions not found for device {}",
+                         chassisId);
+        return;
+    }
     BMCWEB_LOG_DEBUG("ON REDFISH URI {}", redfishUri);
     BMCWEB_LOG_DEBUG("PLATFORM DEVICE PREFIX IS {}",
                      BMCWEB_PLATFORM_DEVICE_PREFIX);
-
     std::string chasId = chassisId;
     if (!BMCWEB_PLATFORM_DEVICE_PREFIX.empty())
     {
