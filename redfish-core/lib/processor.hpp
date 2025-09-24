@@ -4243,7 +4243,8 @@ inline void getSensorMetric(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         std::variant<std::vector<std::string>>& resp1) {
             if (e)
             {
-                messages::internalError(aResp->res);
+                // No sensors are expected when Host is off
+                BMCWEB_LOG_DEBUG("No sensors attached for {}", chassisId);
                 return;
             }
             std::vector<std::string>* data1 =
