@@ -25,12 +25,6 @@ enum class Protocol{
     UDP,
 };
 
-enum class RFCFormat{
-    Invalid,
-    RFC3164,
-    RFC5424,
-};
-
 enum class FilterFacility{
     Invalid,
     Daemon,
@@ -44,6 +38,12 @@ enum class FilterSeverity{
     Warning,
     Info,
     All,
+};
+
+enum class RFCFormat{
+    Invalid,
+    RFC3164,
+    RFC5424,
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(ClientStatus, {
@@ -64,12 +64,6 @@ NLOHMANN_JSON_SERIALIZE_ENUM(Protocol, {
     {Protocol::UDP, "UDP"},
 });
 
-NLOHMANN_JSON_SERIALIZE_ENUM(RFCFormat, {
-    {RFCFormat::Invalid, "Invalid"},
-    {RFCFormat::RFC3164, "RFC3164"},
-    {RFCFormat::RFC5424, "RFC5424"},
-});
-
 NLOHMANN_JSON_SERIALIZE_ENUM(FilterFacility, {
     {FilterFacility::Invalid, "Invalid"},
     {FilterFacility::Daemon, "Daemon"},
@@ -83,6 +77,12 @@ NLOHMANN_JSON_SERIALIZE_ENUM(FilterSeverity, {
     {FilterSeverity::Warning, "Warning"},
     {FilterSeverity::Info, "Info"},
     {FilterSeverity::All, "All"},
+});
+
+NLOHMANN_JSON_SERIALIZE_ENUM(RFCFormat, {
+    {RFCFormat::Invalid, "Invalid"},
+    {RFCFormat::RFC3164, "RFC3164"},
+    {RFCFormat::RFC5424, "RFC5424"},
 });
 
 }
