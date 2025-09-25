@@ -63,6 +63,7 @@ class HTTP2Connection :
     public std::enable_shared_from_this<HTTP2Connection<Adaptor, Handler>>
 {
     using self_type = HTTP2Connection<Adaptor, Handler>;
+    static constexpr size_t frameSize = 65536;
 
   public:
     HTTP2Connection(
@@ -112,9 +113,18 @@ class HTTP2Connection :
         BMCWEB_LOG_DEBUG("send_server_connection_header()");
 
         uint32_t maxStreams = 4;
-        std::array<nghttp2_settings_entry, 2> iv = {
-            {{NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS, maxStreams},
-             {NGHTTP2_SETTINGS_ENABLE_PUSH, 0}}};
+        std::array<nghttp2_settings_entry, 4> iv = {{
+            {NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS, maxStreams},
+            {NGHTTP2_SETTINGS_ENABLE_PUSH, 0},
+            // Set an approximately 1MB window size
+            {NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE, frameSize * 31},
+            {NGHTTP2_SETTINGS_MAX_FRAME_SIZE, frameSize},
+        }};
+        if (ngSession.setLocalWindowSize(NGHTTP2_FLAG_NONE, 0,
+                                         frameSize * 31) != 0)
+        {
+            BMCWEB_LOG_ERROR("Failed to set local window size");
+        }
         int rv = ngSession.submitSettings(iv);
         if (rv != 0)
         {
@@ -364,7 +374,7 @@ class HTTP2Connection :
         nghttp2_session* /* session */, uint8_t flags, int32_t streamId,
         const uint8_t* data, size_t len, void* userData)
     {
-        BMCWEB_LOG_DEBUG("on_frame_recv_callback");
+        BMCWEB_LOG_DEBUG("onDataChunkRecvStatic");
         if (userData == nullptr)
         {
             BMCWEB_LOG_CRITICAL("user data was null?");
@@ -397,7 +407,8 @@ class HTTP2Connection :
                                          const nghttp2_frame* frame,
                                          void* userData)
     {
-        BMCWEB_LOG_DEBUG("on_frame_recv_callback");
+        BMCWEB_LOG_DEBUG("on_frame_recv_callback.  Frame type {}",
+                         static_cast<int>(frame->hd.type));
         if (userData == nullptr)
         {
             BMCWEB_LOG_CRITICAL("user data was null?");
@@ -530,6 +541,11 @@ class HTTP2Connection :
             BMCWEB_LOG_DEBUG("create stream for id {}", frame.hd.stream_id);
 
             streams[frame.hd.stream_id];
+            if (ngSession.setLocalWindowSize(
+                    NGHTTP2_FLAG_NONE, frame.hd.stream_id, frameSize * 31) != 0)
+            {
+                BMCWEB_LOG_ERROR("Failed to set local window size");
+            }
         }
         return 0;
     }
@@ -647,8 +663,9 @@ class HTTP2Connection :
 
     // A mapping from http2 stream ID to Stream Data
     std::map<int32_t, Http2StreamData> streams;
-
-    std::array<uint8_t, 8192> inBuffer{};
+    // Add the 9 octets for the frame header so we can unpack one full
+    // data frame at a time
+    std::array<uint8_t, frameSize + 9> inBuffer{};
 
     HttpType httpType = HttpType::BOTH;
     boost::asio::ssl::stream<Adaptor> adaptor;
