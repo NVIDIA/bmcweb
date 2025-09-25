@@ -141,6 +141,51 @@ inline static bool relatedItemAlreadyPresent(const nlohmann::json& relatedItem,
     return false;
 }
 
+inline void getDriveChassisID(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& driveId, const std::string& path,
+    const std::string& driveStorLink)
+{
+    dbus::utility::getAssociationEndPoints(
+        path + "/chassis",
+        [asyncResp, driveId, path,
+         driveStorLink](const boost::system::error_code& ec,
+                        const dbus::utility::MapperEndPoints& resp) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Error in chassis ID association ");
+                return;
+            }
+
+            if (resp.empty())
+            {
+                BMCWEB_LOG_DEBUG("No chassis ID association ");
+                return;
+            }
+
+            // Find the chassisId that contains this driveId
+            sdbusplus::message::object_path chassisPath(resp[0]);
+            auto chassisId = chassisPath.filename();
+
+            std::string driveLink = "/redfish/v1/Chassis/";
+            driveLink.append(chassisId).append("/Drives/").append(driveId);
+
+            nlohmann::json& relatedItem =
+                asyncResp->res.jsonValue["RelatedItem"];
+            nlohmann::json& relatedItemCount =
+                asyncResp->res.jsonValue["RelatedItem@odata.count"];
+
+            if (!relatedItemAlreadyPresent(relatedItem, driveStorLink))
+            {
+                // Add chassis drive link
+                relatedItem.push_back({{"@odata.id", driveLink}});
+                // Add storage drive link
+                relatedItem.push_back({{"@odata.id", driveStorLink}});
+            }
+            relatedItemCount = relatedItem.size();
+        });
+}
+
 inline static void getRelatedItemsDrive(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const sdbusplus::message::object_path& objPath)
@@ -155,29 +200,21 @@ inline static void getRelatedItemsDrive(
                 return;
             }
 
-            nlohmann::json& relatedItem = aResp->res.jsonValue["RelatedItem"];
-            nlohmann::json& relatedItemCount =
-                aResp->res.jsonValue["RelatedItem@odata.count"];
-
             for (const auto& object : objects)
             {
-                if (!validSubpath(objPath.str, object))
-                {
-                    continue;
-                }
-
                 sdbusplus::message::object_path path(object);
-                relatedItem.push_back(
-                    {{"@odata.id",
-                      "/redfish/v1/"
-                      "Systems/" +
-                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                          "/"
-                          "Storage/" +
-                          path.filename() + "/Drives/" + objPath.filename()}});
+                std::string itemPath =
+                    "/redfish/v1/"
+                    "Systems/" +
+                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                    "/"
+                    "Storage/" +
+                    path.filename() + "/Drives/" + objPath.filename();
+
+                getDriveChassisID(aResp, objPath.filename(), objPath.str,
+                                  itemPath);
                 break;
             }
-            relatedItemCount = relatedItem.size();
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
