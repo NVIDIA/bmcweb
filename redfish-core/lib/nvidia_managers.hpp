@@ -36,7 +36,7 @@
 #include "sub_request.hpp"
 #include "utils/conditions_utils.hpp"
 #include "utils/dbus_utils.hpp"
-#include "utils/json_utils.hpp"
+#include "utils/nvidia_json_utils.hpp"
 #include "utils/nvidia_hex_utils.hpp"
 #include "utils/nvidia_manager_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
