@@ -1613,9 +1613,9 @@ inline void getCpuEnvironmentMetricsDataByService(
                     std::variant<std::vector<std::string>>& sensorResp) {
                     if (e)
                     {
-                        BMCWEB_LOG_ERROR("Failed to get all sensors: {}",
-                                         e.message());
-                        messages::internalError(aResp->res);
+                        // No sensors are expected when Host is off
+                        BMCWEB_LOG_DEBUG("No sensors attached for {}",
+                                         chassisId);
                         return;
                     }
                     std::vector<std::string>* sensorData =
