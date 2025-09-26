@@ -33,6 +33,12 @@
 #include <variant>
 namespace redfish
 {
+// Forward declaration
+inline void getValidPowerSupplyPath(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& powerSupplyId,
+    std::function<void(const std::string& powerSupplyPath,
+                       const std::string& service)>&& callback);
 namespace nvidia_power_supply_utils
 {
 
@@ -186,6 +192,28 @@ inline void getNvidiaPowerSupplyMetrics(
                             "org.freedesktop.DBus.Properties", "GetAll", "");
                     });
             }
+        });
+}
+
+inline void doPowerSupplyMetricsGet(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& powerSupplyId,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    // Get the correct Path and Service that match the input parameters
+    getValidPowerSupplyPath(
+        asyncResp, chassisId, powerSupplyId,
+        [asyncResp, chassisId,
+         powerSupplyId](const std::string& powerSupplyPath,
+                        const std::string& /*service*/) {
+            redfish::nvidia_power_supply_utils::getNvidiaPowerSupplyMetrics(
+                asyncResp, chassisId, powerSupplyId, powerSupplyPath);
         });
 }
 

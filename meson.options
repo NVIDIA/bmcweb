@@ -1262,3 +1262,11 @@ option(
     value: 'enabled',
     description: 'nvidia Dbus log entry handling implementation',
 )
+
+# BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
+option(
+    'enable-unused-upstream-code', 
+    type: 'feature',
+    value: 'disabled', 
+    description: 'Enable unused upstream routes'
+)

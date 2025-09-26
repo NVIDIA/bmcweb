@@ -21,9 +21,12 @@
 #include "dbus_utility.hpp"
 #include "nvidia_error_messages.hpp"
 #include "query.hpp"
+#include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
+#include "utils/chassis_utils.hpp"
 #include "utils/collection.hpp"
 #include "utils/dbus_utils.hpp"
+#include "utils/health_utils.hpp"
 #include "utils/hex_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_pcie_utils.hpp"
@@ -3833,6 +3836,189 @@ inline void handleNvidiaOemIfRequested(
     patchReconfigPermissionsIfPresent(asyncResp, processorId,
                                       inbandReconfigPermissions,
                                       doeReconfigPermissions);
+}
+
+inline void handleNvidiaProcessorInterface(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId, const std::string& serviceName,
+    const std::string& objectPath, const std::string& interface,
+    [[maybe_unused]] const std::string& deviceType)
+{
+    // Non-OEM NVIDIA interfaces
+    if (interface == "xyz.openbmc_project.Inventory.Decorator.LocationContext")
+    {
+        getProcessorLocationContext(asyncResp, serviceName, objectPath);
+    }
+    else if (interface == "xyz.openbmc_project.Inventory.Decorator.Location")
+    {
+        getCpuLocationType(asyncResp, serviceName, objectPath);
+    }
+    else if (interface == "xyz.openbmc_project.Inventory.Item.PersistentMemory")
+    {
+        getProcessorMemoryData(asyncResp, processorId, serviceName, objectPath);
+    }
+    else if (interface == "xyz.openbmc_project.Memory.MemoryECC")
+    {
+        getProcessorEccModeData(asyncResp, processorId, serviceName,
+                                objectPath);
+    }
+    else if (interface == "xyz.openbmc_project.Inventory.Decorator.FpgaType")
+    {
+        getFpgaTypeData(asyncResp, serviceName, objectPath);
+    }
+    else if (interface == "xyz.openbmc_project.Control.Processor.Reset")
+    {
+        getProcessorResetTypeData(asyncResp, processorId, serviceName,
+                                  objectPath);
+    }
+    else if (interface == "xyz.openbmc_project.Inventory.Decorator.Replaceable")
+    {
+        getProcessorReplaceable(asyncResp, serviceName, objectPath);
+    }
+
+    // OEM-guarded NVIDIA interfaces
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        if (interface == "xyz.openbmc_project.Inventory.Item.Cpu")
+        {
+            getRemoteDebugState(asyncResp, serviceName, objectPath);
+        }
+        else if (interface == "com.nvidia.MigMode")
+        {
+            getMigModeData(asyncResp, processorId, serviceName, objectPath);
+        }
+        else if (interface == "com.nvidia.CCMode")
+        {
+            redfish::nvidia_processor_utils::getCCModeData(
+                asyncResp, processorId, serviceName, objectPath);
+        }
+        else if (interface == "com.nvidia.PowerSmoothing.PowerSmoothing")
+        {
+            redfish::nvidia_processor_utils::getPowerSmoothingInfo(
+                asyncResp, processorId, serviceName, objectPath);
+        }
+        else if (interface == "com.nvidia.NVLink.NvLinkTotalCount")
+        {
+            redfish::nvidia_processor_utils::getNvLinkTotalCount(
+                asyncResp, processorId, serviceName, objectPath);
+        }
+        else if (interface == "com.nvidia.PowerProfile.ProfileInfo")
+        {
+            redfish::nvidia_processor_utils::getWorkLoadPowerInfo(
+                asyncResp, processorId);
+        }
+        else if (interface == "com.nvidia.SysGUID.SysGUID")
+        {
+            redfish::nvidia_processor_utils::getSysGUID(asyncResp, serviceName,
+                                                        objectPath);
+        }
+        else if (interface == "com.nvidia.EgmMode")
+        {
+            redfish::nvidia_processor_utils::getEgmModeData(
+                asyncResp, processorId, serviceName, objectPath);
+        }
+        else if (interface == "com.nvidia.NVLink.MNNVLinkTopology")
+        {
+            redfish::nvidia_processor_utils::getMNNVLinkTopologyInfo(
+                asyncResp, processorId, serviceName, objectPath, interface);
+        }
+        else if (interface ==
+                 "com.nvidia.ResetCounters.ResetCounterMetricsSupported")
+        {
+            redfish::nvidia_processor_utils::getResetMetricsInfo(
+                asyncResp, processorId, serviceName, objectPath);
+        }
+    }
+}
+
+inline void populateNvidiaProcessorPostData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& processorId, const std::string& objectPath,
+    const dbus::utility::MapperServiceMap& serviceMap)
+{
+    getComponentFirmwareVersion(asyncResp, objectPath);
+    redfish::nvidia_processor_utils::getOperatingSpeedRange(
+        asyncResp, objectPath);
+
+    asyncResp->res.jsonValue["EnvironmentMetrics"] = {
+        {"@odata.id",
+         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+             "/Processors/" + processorId + "/EnvironmentMetrics"}};
+
+    asyncResp->res.jsonValue["@Redfish.Settings"]["@odata.type"] =
+        "#Settings.v1_3_3.Settings";
+    asyncResp->res.jsonValue["@Redfish.Settings"]["SettingsObject"] = {
+        {"@odata.id",
+         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+             "/Processors/" + processorId + "/Settings"}};
+
+    asyncResp->res.jsonValue["Ports"] = {
+        {"@odata.id",
+         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+             "/Processors/" + processorId + "/Ports"}};
+
+    getProcessorMemoryLinks(asyncResp, objectPath);
+
+    for (const auto& [serviceName, interfaceList] : serviceMap)
+    {
+        getProcessorChassisLink(asyncResp, objectPath, serviceName);
+    }
+
+    getProcessorSystemPCIeInterface(asyncResp, objectPath);
+    getProcessorFPGAPCIeInterface(asyncResp, objectPath);
+
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        nvidia_processor_utils::getReconfigPermissionsData(
+            asyncResp, processorId, objectPath);
+        nvidia_processor_utils::populateErrorInjectionData(asyncResp,
+                                                           processorId);
+    }
+    if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+    {
+        redfish::conditions_utils::populateServiceConditions(asyncResp,
+                                                             processorId);
+    }
+}
+
+inline void populateNvidiaOemHealthTypeAndPowerState(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& acceleratorId, const std::string* accType,
+    const std::string* operationalState)
+{
+    if constexpr (BMCWEB_NVIDIA_OEM_DEVICE_STATUS_FROM_FILE)
+    {
+        /** NOTES: This is a temporary solution to avoid performance
+         * issues may impact other Redfish services. Please call for
+         * architecture decisions from all NvBMC teams if want to use it
+         * in other places.
+         */
+        if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
+        {
+            // #error "Conflicts! Please set
+            // health-rollup-alternative=disabled."
+        }
+
+        if constexpr (BMCWEB_DISABLE_HEALTH_ROLLUP)
+        {
+            // #error "Conflicts! Please set
+            // disable-health-rollup=disabled."
+        }
+
+        health_utils::getDeviceHealthInfo(asyncResp->res, acceleratorId);
+
+        if (accType != nullptr && !accType->empty())
+        {
+            asyncResp->res.jsonValue["ProcessorType"] =
+                redfish::nvidia_processor::getProcessorType(*accType);
+        }
+
+        if (operationalState != nullptr && !operationalState->empty())
+        {
+            asyncResp->res.jsonValue["Status"]["State"] =
+                redfish::chassis_utils::getPowerStateType(*operationalState);
+        }
+    }
 }
 } // namespace nvidia_processor
 

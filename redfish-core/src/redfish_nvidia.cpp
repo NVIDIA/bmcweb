@@ -20,6 +20,7 @@
 #include "network_adapters.hpp"
 #include "network_adapters_generic.hpp"
 #include "nvidia_bios.hpp"
+#include "nvidia_chassis_env_metrics.hpp"
 #include "nvidia_debug_token.hpp"
 #include "nvidia_dpu_system_profiles.hpp"
 #include "nvidia_error_injection.hpp"
@@ -31,6 +32,7 @@
 #include "nvidia_log_services_sel.hpp"
 #include "nvidia_log_services_xid.hpp"
 #include "nvidia_managers.hpp"
+#include "nvidia_memory_env_metrics.hpp"
 #include "nvidia_oem_dpu.hpp"
 #include "nvidia_oem_managed_entity.hpp"
 #include "nvidia_oem_managed_entity_group.hpp"
@@ -44,9 +46,11 @@
 #include "nvidia_policy.hpp"
 #include "nvidia_power_reset_metrics.hpp"
 #include "nvidia_power_smoothing.hpp"
+#include "nvidia_processor_env_metrics.hpp"
 #include "nvidia_processor_port.hpp"
 #include "nvidia_processor_routes.hpp"
 #include "nvidia_protected_component.hpp"
+#include "nvidia_sensors.hpp"
 #include "nvidia_smbios_mdr.hpp"
 #include "nvidia_storage.hpp"
 #include "nvidia_sweinj.hpp"
@@ -68,6 +72,7 @@
 #include "update_service.hpp"
 #include "utils/nvidia_manager_utils.hpp"
 #include "utils/nvidia_pcie_utils.hpp"
+
 namespace redfish
 {
 void requestRoutesNvidia(crow::App& app)
