@@ -79,11 +79,12 @@ inline void onPcieSlotGetAllDone(
 
     if (generation != nullptr)
     {
-        // Nvidia code starts here
+        // Nvidia added code start
         /*TODO: Add support for Gen6 once DMTF schema is updated, to be taken
          * care while upstream sync*/
         // std::optional<pcie_device::PCIeTypes> pcieType =
         //     pcie_util::redfishPcieGenerationFromDbus(*generation);
+        // Nvidia added code end
 
         std::optional<std::string> pcieType =
             pcie_util::redfishPcieGenerationStringFromDbus(*generation);
@@ -94,7 +95,7 @@ inline void onPcieSlotGetAllDone(
         }
         else
         {
-            // Nvidia code starts here
+            // Nvidia added code start
             /*TODO: Add support for Gen6 once DMTF schema is updated, to be
              * taken care while upstream sync*/
             // if (*pcieType == pcie_device::PCIeTypes::Invalid)
@@ -102,7 +103,8 @@ inline void onPcieSlotGetAllDone(
             //     messages::internalError(asyncResp->res);
             //     return;
             // }
-            // Nvidia code ends here
+            // Nvidia added code end
+
             slot["PCIeType"] = *pcieType;
         }
     }

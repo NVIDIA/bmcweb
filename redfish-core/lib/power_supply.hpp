@@ -10,6 +10,7 @@
 #include "http_request.hpp"
 #include "led.hpp"
 #include "logging.hpp"
+#include "nvidia_power_supply.hpp"
 #include "query.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/chassis_utils.hpp"
@@ -554,44 +555,6 @@ inline void handlePowerSupplyGet(
         asyncResp, chassisId, powerSupplyId,
         std::bind_front(doPowerSupplyGet, asyncResp, chassisId, powerSupplyId));
 }
-// TODO: move to nvidia specific files
-inline void doPowerSupplyMetricsGet(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& powerSupplyId,
-    const std::optional<std::string>& validChassisPath)
-{
-    if (!validChassisPath)
-    {
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-        return;
-    }
-
-    // Get the correct Path and Service that match the input parameters
-    getValidPowerSupplyPath(
-        asyncResp, chassisId, powerSupplyId,
-        [asyncResp, chassisId,
-         powerSupplyId](const std::string& powerSupplyPath,
-                        const std::string& /*service*/) {
-            redfish::nvidia_power_supply_utils::getNvidiaPowerSupplyMetrics(
-                asyncResp, chassisId, powerSupplyId, powerSupplyPath);
-        });
-}
-// TODO: move to nvidia specific files
-inline void handlePowerSupplyMetricsGet(
-    App& app, const crow::Request& req,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const std::string& chassisId, const std::string& powerSupplyId)
-{
-    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
-    {
-        return;
-    }
-
-    redfish::chassis_utils::getValidChassisPath(
-        asyncResp, chassisId,
-        std::bind_front(doPowerSupplyMetricsGet, asyncResp, chassisId,
-                        powerSupplyId));
-}
 
 inline void doPatchPowerSupply(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -645,17 +608,14 @@ inline void requestRoutesPowerSupply(App& app)
             std::bind_front(handlePowerSupplyGet, std::ref(app)));
 
     BMCWEB_ROUTE(
-        app,
-        "/redfish/v1/Chassis/<str>/PowerSubsystem/PowerSupplies/<str>/Metrics/")
-        .privileges(redfish::privileges::getPowerSupplyMetrics)
-        .methods(boost::beast::http::verb::get)(
-            std::bind_front(handlePowerSupplyMetricsGet, std::ref(app)));
-
-    BMCWEB_ROUTE(
         app, "/redfish/v1/Chassis/<str>/PowerSubsystem/PowerSupplies/<str>/")
         .privileges(redfish::privileges::patchPowerSupply)
         .methods(boost::beast::http::verb::patch)(
             std::bind_front(handlePowerSupplyPatch, std::ref(app)));
+
+    // Nvidia Added route
+    requestRoutesPowerSupplyMetrics(app);
+    // Nvidia Added Code Start
 }
 
 } // namespace redfish

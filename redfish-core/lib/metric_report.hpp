@@ -17,6 +17,7 @@
 #include "thermal_metrics.hpp"
 #include "utils/collection.hpp"
 #include "utils/metric_report_utils.hpp"
+#include "utils/nvidia_thermal_metrics_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/telemetry_utils.hpp"
 #include "utils/time_utils.hpp"

@@ -41,7 +41,7 @@ inline void getPCIeDeviceList(
 {
     static constexpr std::array<std::string_view, 1> pcieDeviceInterface = {
         "xyz.openbmc_project.Inventory.Item.PCIeDevice"};
-    boost::urls::url pcieDeviceUrl = boost::urls::format(
+    const boost::urls::url pcieDeviceUrl = boost::urls::format(
         "/redfish/v1/Systems/{}/PCIeDevices", BMCWEB_REDFISH_SYSTEM_URI_NAME);
     collection_util::getCollectionToKey(
         asyncResp, pcieDeviceUrl, pcieDeviceInterface,
@@ -130,6 +130,7 @@ inline std::optional<pcie_device::PCIeTypes> redfishPcieGenerationFromDbus(
     {
         return pcie_device::PCIeTypes::Gen5;
     }
+    // Nvidia added code start
     /*TODO: Add support for Gen6 once DMTF schema is updated, to be taken care
      * while upstream sync*/
     // if (generationInUse ==
@@ -137,6 +138,8 @@ inline std::optional<pcie_device::PCIeTypes> redfishPcieGenerationFromDbus(
     // {
     //     return pcie_device::PCIeTypes::Gen6;
     // }
+    // Nvidia added code end
+
     if (generationInUse.empty() ||
         generationInUse ==
             "xyz.openbmc_project.Inventory.Item.PCIeSlot.Generations.Unknown")
@@ -147,6 +150,7 @@ inline std::optional<pcie_device::PCIeTypes> redfishPcieGenerationFromDbus(
     return pcie_device::PCIeTypes::Invalid;
 }
 
+// Nvidia added code start
 inline std::optional<std::string> redfishPcieGenerationStringFromDbus(
     const std::string& generationInUse)
 {
@@ -222,6 +226,6 @@ inline std::optional<std::string> redfishPcieTypeStringFromDbus(
     // The value is not unknown or Gen1-6, need return an internal error.
     return std::nullopt;
 }
-
+// Nvidia added code end
 } // namespace pcie_util
 } // namespace redfish

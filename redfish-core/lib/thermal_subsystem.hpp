@@ -40,6 +40,8 @@ inline void doThermalSubsystemCollection(
     asyncResp->res.addHeader(
         boost::beast::http::field::link,
         "</redfish/v1/JsonSchemas/ThermalSubsystem/ThermalSubsystem.json>; rel=describedby");
+
+    // Nvidia Updated odata type from v1_0_0 to v1_3_0
     asyncResp->res.jsonValue["@odata.type"] =
         "#ThermalSubsystem.v1_3_0.ThermalSubsystem";
     asyncResp->res.jsonValue["Name"] = "Thermal Subsystem";
@@ -47,16 +49,19 @@ inline void doThermalSubsystemCollection(
 
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/ThermalSubsystem", chassisId);
-    asyncResp->res.jsonValue["ThermalMetrics"]["@odata.id"] =
-        boost::urls::format(
-            "/redfish/v1/Chassis/{}/ThermalSubsystem/ThermalMetrics",
-            chassisId);
+
+    // Nvidia added if condition for BMCWEB_HOST_OS_FEATURES
     if constexpr (BMCWEB_HOST_OS_FEATURES)
     {
         asyncResp->res.jsonValue["Fans"]["@odata.id"] = boost::urls::format(
             "/redfish/v1/Chassis/{}/ThermalSubsystem/Fans", chassisId);
     }
+    asyncResp->res.jsonValue["ThermalMetrics"]["@odata.id"] =
+        boost::urls::format(
+            "/redfish/v1/Chassis/{}/ThermalSubsystem/ThermalMetrics",
+            chassisId);
 
+    // Nvidia added code start
     if constexpr (BMCWEB_REDFISH_LEAK_DETECT)
     {
         redfish::nvidia_chassis_utils::getValidLeakDetectionPath(
@@ -65,6 +70,7 @@ inline void doThermalSubsystemCollection(
                 redfish::nvidia_chassis_utils::doLeakDetectionUrlGet, asyncResp,
                 chassisId));
     }
+    // Nvidia added code end
 
     asyncResp->res.jsonValue["ThermalMetrics"]["@odata.id"] =
         boost::urls::format(

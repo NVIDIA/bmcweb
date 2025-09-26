@@ -1053,9 +1053,9 @@ inline void getPlatformMetrics(
                             BMCWEB_PLATFORM_METRICS_ID);
             asyncResp->res.jsonValue["MetricValues"] = nlohmann::json::array();
             // Identify sensor services for sensor readings
-            processSensorServices(asyncResp, chassisPath, "all",
-                                  BMCWEB_PLATFORM_METRICS_SENSING_INTERVAL,
-                                  requestTimestamp);
+            redfish::nvidia_thermal_metrics_utils::processSensorServices(
+                asyncResp, chassisPath, "all",
+                BMCWEB_PLATFORM_METRICS_SENSING_INTERVAL, requestTimestamp);
             return;
         }
         messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);

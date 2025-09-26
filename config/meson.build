@@ -160,6 +160,7 @@ feature_options = [
     'vm-nbdproxy',
     'vm-websocket',
     'xtoken-auth',
+    'enable-unused-upstream-code',
 ]
 
 string_options = [

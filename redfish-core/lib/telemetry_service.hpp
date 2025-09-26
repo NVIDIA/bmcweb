@@ -42,7 +42,7 @@ inline void handleTelemetryServiceGet(
     asyncResp->res.jsonValue["@odata.id"] = "/redfish/v1/TelemetryService";
     asyncResp->res.jsonValue["Id"] = "TelemetryService";
     asyncResp->res.jsonValue["Name"] = "Telemetry Service";
-
+    // Nvidia Added check for BMCWEB_NVIDIA_OEM_BF_PROPERTIES
     if constexpr (!BMCWEB_NVIDIA_OEM_BF_PROPERTIES)
     {
         asyncResp->res.jsonValue["MetricReportDefinitions"]["@odata.id"] =
@@ -50,6 +50,7 @@ inline void handleTelemetryServiceGet(
         asyncResp->res.jsonValue["MetricReports"]["@odata.id"] =
             "/redfish/v1/TelemetryService/MetricReports";
     }
+    // Nvidia Added check for BMCWEB_HOST_OS_FEATURES
     if constexpr (BMCWEB_HOST_OS_FEATURES)
     {
         asyncResp->res.jsonValue["Triggers"]["@odata.id"] =
