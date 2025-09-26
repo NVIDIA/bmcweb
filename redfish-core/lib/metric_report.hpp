@@ -101,7 +101,7 @@ inline void requestRoutesMetricReportCollection(App& app)
                 asyncResp->res.jsonValue["@odata.id"] =
                     "/redfish/v1/TelemetryService/MetricReports";
                 asyncResp->res.jsonValue["Name"] = "Metric Report Collection";
-                
+
                 // Nvidia code starts here
                 if constexpr (BMCWEB_SHMEM_PLATFORM_METRICS)
                 {
@@ -149,7 +149,7 @@ inline void requestRoutesMetricReport(App& app)
                     return;
                 }
                 // Nvidia code ends here
-                
+
                 const std::string reportPath = telemetry::getDbusReportPath(id);
                 dbus::utility::async_method_call(
                     asyncResp,

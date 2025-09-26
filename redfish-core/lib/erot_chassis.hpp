@@ -48,6 +48,7 @@
 #include <utils/conditions_utils.hpp>
 #include <utils/dbus_utils.hpp>
 #include <utils/json_utils.hpp>
+#include <utils/nvidia_chassis_util.hpp>
 
 namespace redfish
 {
@@ -562,7 +563,7 @@ inline void requestRoutesEROTChassisCertificate(App& app)
                 {
                     return;
                 }
-                redfish::chassis_utils::isEROTChassis(
+                redfish::nvidia_chassis_utils::isEROTChassis(
                     chassisID,
                     [&req, asyncResp, chassisID, certificateID](
                         bool isEROT, [[maybe_unused]] bool isCpuEROT) {

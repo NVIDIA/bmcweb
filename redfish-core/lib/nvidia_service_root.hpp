@@ -9,6 +9,7 @@
 #include "nvidia_managers.hpp"
 #include "registries/privilege_registry.hpp"
 #include "utils/manager_utils.hpp"
+
 #include <boost/beast/http/field.hpp>
 #include <boost/beast/http/verb.hpp>
 #include <boost/url/format.hpp>
@@ -147,4 +148,4 @@ inline void getBMCObject(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
             "xyz.openbmc_project.Inventory.Decorator.Asset"});
 }
 
-} //redfish namespace
+} // namespace redfish

@@ -1413,5 +1413,5 @@ inline void getPlatforMetrics(
         std::array<const char*, 1>{"xyz.openbmc_project.Sensor.Aggregation"});
 }
 
-}
-}
+} // namespace telemetry
+} // namespace redfish

@@ -17,9 +17,11 @@
 #pragma once
 
 #include "async_resp.hpp"
-#include <openbmc_dbus_rest.hpp>
 #include "trusted_components.hpp"
 #include "utils/chassis_utils.hpp"
+#include "utils/conditions_utils.hpp"
+#include "utils/health_utils.hpp"
+#include "utils/json_utils.hpp"
 
 #include <boost/container/flat_set.hpp>
 #include <boost/system/error_code.hpp>
@@ -27,6 +29,7 @@
 #include <boost/url/format.hpp>
 #include <health.hpp>
 #include <nlohmann/json.hpp>
+#include <openbmc_dbus_rest.hpp>
 
 #include <memory>
 #include <string>
@@ -36,6 +39,9 @@ namespace redfish
 {
 namespace nvidia_chassis_utils
 {
+
+using Associations =
+    std::vector<std::tuple<std::string, std::string, std::string>>;
 
 constexpr const size_t trayTopologyStringLength = 16;
 constexpr const size_t trayTopologyByteLength = 8;
@@ -2677,6 +2683,392 @@ inline void checkIndicatorChassis(const std::string& connectionName,
 
             callback(indicatorChassis);
         });
+}
+
+inline void populateHealthRollupAndDeviceStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objPath, const std::string& chassisId)
+{
+    if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
+    {
+        std::shared_ptr<HealthRollup> health = std::make_shared<HealthRollup>(
+            objPath, [asyncResp](const std::string& rootHealth,
+                                 const std::string& healthRollup) {
+                asyncResp->res.jsonValue["Status"]["Health"] = rootHealth;
+                if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
+                {
+                    asyncResp->res.jsonValue["Status"]["HealthRollup"] =
+                        healthRollup;
+                }
+            });
+        health->start();
+    }
+
+    if constexpr (BMCWEB_NVIDIA_OEM_DEVICE_STATUS_FROM_FILE)
+    {
+        /** NOTES: This is a temporary solution to avoid performance
+         * issues may impact other Redfish services. Please call for
+         * architecture decisions from all NvBMC teams if want to use it
+         * in other places.
+         */
+
+        if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
+        {
+            // #error "Conflicts! Please set
+            // health-rollup-alternative=disabled."
+        }
+
+        if constexpr (BMCWEB_DISABLE_HEALTH_ROLLUP)
+        {
+            // #error "Conflicts! Please set
+            // disable-health-rollup=disabled."
+        }
+
+        health_utils::getDeviceHealthInfo(asyncResp->res, chassisId);
+    }
+}
+
+template <typename InterfacesContainer>
+inline void populateChassisLinksOemAndStatus(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& objPath, const std::string& path,
+    const InterfacesContainer& interfaces2, const std::string& chassisId)
+{
+    if constexpr (!BMCWEB_DISABLE_CONDITIONS_ARRAY)
+    {
+        redfish::conditions_utils::populateServiceConditions(asyncResp,
+                                                             chassisId);
+    }
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        // Baseboard Chassis OEM properties if exist, search by
+        // association
+        redfish::nvidia_chassis_utils::getOemBaseboardChassisAssert(
+            asyncResp, objPath);
+    }
+    // Links association to underneath chassis
+    redfish::nvidia_chassis_utils::getChassisLinksContains(asyncResp, objPath);
+    // Links association to underneath processors
+    redfish::nvidia_chassis_utils::getChassisProcessorLinks(asyncResp, objPath);
+    redfish::nvidia_chassis_utils::getProtocolBridgeForDevices(
+        asyncResp, objPath);
+    // get boot status
+    redfish::nvidia_chassis_utils::getResetStatistics(asyncResp, objPath);
+    // Links association to connected fabric switches
+    redfish::nvidia_chassis_utils::getChassisFabricSwitchesLinks(
+        asyncResp, objPath);
+    // Link association to parent chassis
+    redfish::chassis_utils::getChassisLinksContainedBy(asyncResp, objPath);
+    redfish::nvidia_chassis_utils::getPhysicalSecurityData(asyncResp);
+    // get network adapter
+    redfish::nvidia_chassis_utils::getNetworkAdapters(asyncResp, path,
+                                                      interfaces2, chassisId);
+    if constexpr (BMCWEB_NVIDIA_DEVICE_STATUS_FROM_ASSOCIATION)
+    {
+        // get health for network adapter and nvswitches chassis by
+        // association
+        redfish::nvidia_chassis_utils::getHealthByAssociation(
+            asyncResp, path, "all_states", chassisId);
+    }
+}
+
+inline void parseOemNvidiaPatchPayload(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::optional<nlohmann::json>& oemJsonObj,
+    std::optional<std::string>& partNumber,
+    std::optional<std::string>& serialNumber,
+    std::optional<bool>& hardwareWriteProtectEnable,
+    std::optional<double>& cpuClockFrequency,
+    std::optional<double>& workloadFactor, std::optional<double>& temperature)
+{
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        if (oemJsonObj)
+        {
+            nlohmann::json mutableOemJson = *oemJsonObj;
+            std::optional<nlohmann::json> nvidiaJsonObj;
+            if (json_util::readJson(mutableOemJson, asyncResp->res, "Nvidia",
+                                    nvidiaJsonObj))
+            {
+                std::optional<nlohmann::json> staticPowerHintJsonObj;
+                json_util::readJson(
+                    *nvidiaJsonObj, asyncResp->res, "PartNumber", partNumber,
+                    "SerialNumber", serialNumber, "StaticPowerHint",
+                    staticPowerHintJsonObj, "HardwareWriteProtectEnable",
+                    hardwareWriteProtectEnable);
+
+                if (staticPowerHintJsonObj)
+                {
+                    std::optional<nlohmann::json> cpuClockFrequencyHzJsonObj;
+                    std::optional<nlohmann::json> temperatureCelsiusJsonObj;
+                    std::optional<nlohmann::json> workloadFactorJsonObj;
+                    json_util::readJson(
+                        *staticPowerHintJsonObj, asyncResp->res,
+                        "CpuClockFrequencyHz", cpuClockFrequencyHzJsonObj,
+                        "TemperatureCelsius", temperatureCelsiusJsonObj,
+                        "WorkloadFactor", workloadFactorJsonObj);
+                    if (cpuClockFrequencyHzJsonObj)
+                    {
+                        json_util::readJson(*cpuClockFrequencyHzJsonObj,
+                                            asyncResp->res, "SetPoint",
+                                            cpuClockFrequency);
+                    }
+                    if (temperatureCelsiusJsonObj)
+                    {
+                        json_util::readJson(*temperatureCelsiusJsonObj,
+                                            asyncResp->res, "SetPoint",
+                                            temperature);
+                    }
+                    if (workloadFactorJsonObj)
+                    {
+                        json_util::readJson(*workloadFactorJsonObj,
+                                            asyncResp->res, "SetPoint",
+                                            workloadFactor);
+                    }
+                }
+            }
+        }
+    }
+}
+
+inline void applyOemChassisPatch(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& path,
+    const std::optional<bool>& hardwareWriteProtectEnable,
+    const std::optional<std::string>& partNumber,
+    const std::optional<std::string>& serialNumber,
+    const std::optional<double>& cpuClockFrequency,
+    const std::optional<double>& workloadFactor,
+    const std::optional<double>& temperature)
+{
+    if (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        if (hardwareWriteProtectEnable)
+        {
+            redfish::nvidia_chassis_utils::oemChassisHardwareWriteProtectEnable(
+                asyncResp, chassisId, *hardwareWriteProtectEnable);
+        }
+        if (partNumber)
+        {
+            redfish::nvidia_chassis_utils::setOemBaseboardChassisAssert(
+                asyncResp, path, "PartNumber", *partNumber);
+        }
+        if (serialNumber)
+        {
+            redfish::nvidia_chassis_utils::setOemBaseboardChassisAssert(
+                asyncResp, path, "SerialNumber", *serialNumber);
+        }
+        if (cpuClockFrequency || workloadFactor || temperature)
+        {
+            if (cpuClockFrequency && workloadFactor && temperature)
+            {
+                redfish::nvidia_chassis_utils::setStaticPowerHintByChassis(
+                    asyncResp, path, *cpuClockFrequency, *workloadFactor,
+                    *temperature);
+            }
+            else
+            {
+                if (!cpuClockFrequency)
+                {
+                    messages::propertyMissing(asyncResp->res,
+                                              "CpuClockFrequencyHz");
+                }
+                if (!workloadFactor)
+                {
+                    messages::propertyMissing(asyncResp->res, "WorkloadFactor");
+                }
+                if (!temperature)
+                {
+                    messages::propertyMissing(asyncResp->res,
+                                              "TemperatureCelsius");
+                }
+            }
+        }
+    }
+}
+
+inline void handleAuxPowerResetAction(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
+{
+    std::string resetType;
+    if (!json_util::readJsonAction(req, asyncResp->res, "ResetType", resetType))
+    {
+        return;
+    }
+
+    if (resetType != "AuxPowerCycle" && resetType != "AuxPowerCycleForce")
+    {
+        messages::actionParameterValueError(asyncResp->res, "ResetType",
+                                            "NvidiaChassis.AuxPowerReset");
+        return;
+    }
+
+    if (resetType == "AuxPowerCycle")
+    {
+        // check power status
+        sdbusplus::asio::getProperty<std::string>(
+            *crow::connections::systemBus, "xyz.openbmc_project.State.Host",
+            "/xyz/openbmc_project/state/host0",
+            "xyz.openbmc_project.State.Host", "CurrentHostState",
+            [asyncResp](const boost::system::error_code& ec,
+                        const std::string& hostState) {
+                if (ec)
+                {
+                    if (ec == boost::system::errc::host_unreachable)
+                    {
+                        // Service not available, no error, just don't
+                        // return host state info
+                        BMCWEB_LOG_DEBUG("Service not available {}", ec);
+                        return;
+                    }
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+                if (hostState == "xyz.openbmc_project.State.Host.HostState.Off")
+                {
+                    crow::connections::systemBus->async_method_call(
+                        [asyncResp](const boost::system::error_code& ec2) {
+                            if (ec2)
+                            {
+                                BMCWEB_LOG_DEBUG("DBUS response error {}", ec2);
+                                messages::internalError(asyncResp->res);
+                                return;
+                            }
+                            messages::success(asyncResp->res);
+                        },
+                        "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+                        "org.freedesktop.systemd1.Manager", "StartUnit",
+                        "nvidia-aux-power.service", "replace");
+                }
+                else
+                {
+                    messages::chassisPowerStateOffRequired(asyncResp->res, "0");
+                }
+            });
+    }
+    else
+    {
+        crow::connections::systemBus->async_method_call(
+            [asyncResp](const boost::system::error_code& ec) {
+                if (ec)
+                {
+                    BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+            },
+            "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+            "org.freedesktop.systemd1.Manager", "StartUnit",
+            "nvidia-aux-power-force.service", "replace");
+    }
+}
+
+template <typename CallbackFunc>
+inline void isEROTChassis(const std::string& chassisID, CallbackFunc&& callback)
+{
+    const std::array<const char*, 1> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.SPDMResponder"};
+
+    crow::connections::systemBus->async_method_call(
+        [chassisID, callback](const boost::system::error_code& ec,
+                              const dbus::utility::GetSubTreeType& subtree) {
+            if (ec)
+            {
+                callback(false, false);
+                return;
+            }
+            const auto objIt = std::find_if(
+                subtree.begin(), subtree.end(),
+                [chassisID](
+                    const std::pair<
+                        std::string,
+                        std::vector<std::pair<
+                            std::string, std::vector<std::string>>>>& object) {
+                    return chassisID ==
+                           sdbusplus::message::object_path(object.first)
+                               .filename();
+                });
+            if (objIt == subtree.end())
+            {
+                BMCWEB_LOG_DEBUG("Dbus Object not found:{}", chassisID);
+                callback(false, false);
+                return;
+            }
+            std::string serviceName;
+            for (const auto& service : objIt->second)
+            {
+                if (!serviceName.empty())
+                {
+                    break;
+                }
+                for (const auto& interface : service.second)
+                {
+                    if (interface ==
+                        "xyz.openbmc_project.Association.Definitions")
+                    {
+                        serviceName = service.first;
+                        break;
+                    }
+                }
+            }
+            if (serviceName.empty())
+            {
+                callback(false, false);
+                return;
+            }
+            sdbusplus::asio::getProperty<Associations>(
+                *crow::connections::systemBus, serviceName, objIt->first,
+                "xyz.openbmc_project.Association.Definitions", "Associations",
+                [chassisID, callback](const boost::system::error_code& ec1,
+                                      const Associations& associations) {
+                    if (ec1)
+                    {
+                        callback(false, false);
+                        return;
+                    }
+                    for (const auto& assoc : associations)
+                    {
+                        if (std::get<1>(assoc) == "associated_ROT")
+                        {
+                            // check if it is CPU ERoT
+                            std::string path = std::get<2>(assoc);
+                            size_t rotNamePos = path.rfind('/');
+                            if (rotNamePos == std::string::npos ||
+                                rotNamePos == (path.size() - 1))
+                            {
+                                callback(true, false);
+                                return;
+                            }
+
+                            constexpr std::array<std::string_view, 1>
+                                cpuInterface = {
+                                    "xyz.openbmc_project.Inventory.Item.Cpu"};
+
+                            dbus::utility::getSubTreePaths(
+                                path.substr(0, rotNamePos), 0, cpuInterface,
+                                [callback](const boost::system::error_code& ec2,
+                                           const dbus::utility::
+                                               MapperGetSubTreePathsResponse&
+                                                   subtreePaths) {
+                                    if ((ec2) || (subtreePaths.empty()))
+                                    {
+                                        callback(true, false);
+                                        return;
+                                    }
+                                    // It's CPU ERoT for DOT actions
+                                    callback(true, true);
+                                });
+                            return;
+                        }
+                    }
+                    callback(false, false);
+                });
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetSubTree",
+        "/xyz/openbmc_project/inventory", 0, interfaces);
 }
 
 } // namespace nvidia_chassis_utils
