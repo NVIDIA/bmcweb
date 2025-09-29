@@ -961,13 +961,18 @@ inline void createPendingRequest(
 inline void handleTruststoreCertificatesCollectionPost(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::string& systemName)
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
     std::string certString;
     std::string certType;
     std::optional<std::string> owner;
@@ -1133,10 +1138,16 @@ inline void populateTruststoreCertificateInfo(
 inline void handleTruststoreCertificatesGet(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::string& systemName, const std::string& certId)
+    const std::string& systemName, const std::string& certId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
+        return;
+    }
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
         return;
     }
     asyncResp->res.jsonValue["@odata.id"] =
@@ -1160,13 +1171,18 @@ inline void handleTruststoreCertificatesGet(
 inline void handleTruststoreCertificatesDelete(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::string& systemName, const std::string& certId)
+    const std::string& systemName, const std::string& certId)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
     task::Payload payload(req);
     privilege_utils::isBiosPrivilege(
         req.session->username,
@@ -1206,13 +1222,18 @@ inline void handleTruststoreCertificatesDelete(
 inline void handleTruststoreCertificatesResetKeys(
     crow::App& app, const crow::Request& req,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::string& systemName)
+    const std::string& systemName)
 {
     if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }
-
+    if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+    {
+        messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                   systemName);
+        return;
+    }
     std::string resetKeysType;
     if (!json_util::readJsonAction(req, asyncResp->res, "ResetKeysType",
                                    resetKeysType))
@@ -1703,9 +1724,15 @@ inline void requestRoutesNvidiaOemBf(App& app)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName) {
+                   const std::string& systemName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 bluefield::getOemNvidiaSwitchStatus(asyncResp);
@@ -1715,9 +1742,15 @@ inline void requestRoutesNvidiaOemBf(App& app)
         .methods(boost::beast::http::verb::patch)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName) {
+                   const std::string& systemName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 std::optional<nlohmann::json> torSwitchMode;
@@ -1755,9 +1788,15 @@ inline void requestRoutesNvidiaOemBf(App& app)
         .methods(boost::beast::http::verb::post)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName) {
+                   const std::string& systemName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 bluefield::resetTorSwitch(asyncResp);
@@ -1805,9 +1844,15 @@ inline void requestRoutesNvidiaOemBf(App& app)
                 post)([&app](
                           const crow::Request& req,
                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                          [[maybe_unused]] const std::string& systemName) {
+                          const std::string& systemName) {
             if (!redfish::setUpRedfishRoute(app, req, asyncResp))
             {
+                return;
+            }
+            if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+            {
+                messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                           systemName);
                 return;
             }
             auto dataOut = std::make_shared<boost::process::ipstream>();
@@ -1877,9 +1922,15 @@ inline void requestRoutesNvidiaOemBf(App& app)
         .methods(boost::beast::http::verb::put)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName) {
+                   const std::string& systemName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 bluefield::handleSetOemFru(app, req, asyncResp);
@@ -1889,9 +1940,15 @@ inline void requestRoutesNvidiaOemBf(App& app)
         .methods(boost::beast::http::verb::get)(
             [&app](const crow::Request& req,
                    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   [[maybe_unused]] const std::string& systemName) {
+                   const std::string& systemName) {
                 if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
+                    return;
+                }
+                if (systemName != BMCWEB_REDFISH_SYSTEM_URI_NAME)
+                {
+                    messages::resourceNotFound(asyncResp->res, "ComputerSystem",
+                                               systemName);
                     return;
                 }
                 asyncResp->res.jsonValue["@odata.id"] =
