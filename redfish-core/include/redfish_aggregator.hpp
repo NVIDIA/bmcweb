@@ -522,8 +522,11 @@ class RedfishAggregator
                         satelliteInfo.clear();
                         return;
                     }
-
-                    addSatelliteConfig(interface.second, satelliteInfo);
+                    // Nvidia code starts here
+                    addSatelliteConfig(
+                        std::string(BMCWEB_REDFISH_AGGREGATION_PREFIX),
+                        interface.second, satelliteInfo);
+                    // Nvidia code ends here
                 }
             }
         }
@@ -532,11 +535,12 @@ class RedfishAggregator
     // Parse the properties of a satellite config object and add the
     // configuration if the properties are valid
     static void addSatelliteConfig(
+        const std::string& prefix,
         const dbus::utility::DBusPropertiesMap& properties,
         std::unordered_map<std::string, boost::urls::url>& satelliteInfo)
     {
         boost::urls::url url;
-        std::string prefix;
+        std::string upstreamPrefix; // Upstream code not used downstream
 
         for (const auto& prop : properties)
         {
@@ -590,13 +594,14 @@ class RedfishAggregator
                 }
                 url.set_scheme("http");
             }
-            else if (prop.first == "Name")
+            else if (prop.first ==
+                     "Name") // Upstream code not used downstream starts here
             {
                 const std::string* propVal =
                     std::get_if<std::string>(&prop.second);
                 if (propVal != nullptr && !propVal->empty())
                 {
-                    prefix = *propVal;
+                    upstreamPrefix = *propVal;
                     BMCWEB_LOG_DEBUG("Using Name property {} as prefix",
                                      prefix);
                 }
@@ -606,7 +611,7 @@ class RedfishAggregator
                         "Invalid or empty Name property, invalid satellite config");
                     return;
                 }
-            }
+            } // Upstream code not used downstream ends here
         } // Finished reading properties
 
         // Make sure all required config information was made available
@@ -923,9 +928,15 @@ class RedfishAggregator
         {
             url.set_query(targetURI.query());
         }
+        // Build minimal headers like curl to avoid servers that abort on
+        // extra/unknown headers. Also disable keep-alive on client side.
+        boost::beast::http::fields fwdHeaders;
+        fwdHeaders.set(boost::beast::http::field::host,
+                       url.encoded_host_address());
+        fwdHeaders.set(boost::beast::http::field::accept, "*/*");
         client.sendDataWithCallback(std::move(data), url,
                                     ensuressl::VerifyCertificate::Verify,
-                                    thisReq.fields(), thisReq.method(), cb);
+                                    fwdHeaders, thisReq.method(), cb);
     }
 
     // Forward a request for a collection URI to each known satellite BMC
@@ -956,9 +967,13 @@ class RedfishAggregator
                 }
             }
             std::string data = thisReq.body();
+            boost::beast::http::fields fwdHeaders;
+            fwdHeaders.set(boost::beast::http::field::host,
+                           url.encoded_host_address());
+            fwdHeaders.set(boost::beast::http::field::accept, "*/*");
             client.sendDataWithCallback(std::move(data), url,
                                         ensuressl::VerifyCertificate::Verify,
-                                        thisReq.fields(), thisReq.method(), cb);
+                                        fwdHeaders, thisReq.method(), cb);
         }
     }
 
@@ -982,10 +997,13 @@ class RedfishAggregator
             url.set_path(thisReq.url().path());
 
             std::string data = thisReq.body();
-
+            boost::beast::http::fields fwdHeaders;
+            fwdHeaders.set(boost::beast::http::field::host,
+                           url.encoded_host_address());
+            fwdHeaders.set(boost::beast::http::field::accept, "*/*");
             client.sendDataWithCallback(std::move(data), url,
                                         ensuressl::VerifyCertificate::Verify,
-                                        thisReq.fields(), thisReq.method(), cb);
+                                        fwdHeaders, thisReq.method(), cb);
         }
     }
 
