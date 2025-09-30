@@ -76,11 +76,110 @@ constexpr auto retimerHashMaxTimeSec =
 // Only allow one update at a time
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 static bool fwUpdateInProgress = false;
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
+static nlohmann::json preTaskMessages = {};
 
 // allowed firmware image size
 constexpr const size_t firmwareImageLimitBytes =
     // NOLINTNEXTLINE(bugprone-implicit-widening-of-multiplication-result)
     BMCWEB_FIRMWARE_IMAGE_LIMIT * 1024 * 1024;
+
+/**
+ * @brief A session for asynchronously writing image data to a file.
+ *
+ * This struct manages the asynchronous writing of image data to a specified
+ * file path using Boost.Asio. It handles writing data in chunks and ensures
+ * that the file is properly closed upon completion or error.
+ */
+struct AsyncImageWriteSession :
+    public std::enable_shared_from_this<AsyncImageWriteSession>
+{
+    /**
+     * @brief Constructs an AsyncImageWriteSession.
+     *
+     * @param asyncRespIn A shared pointer to the asynchronous response object.
+     * @param streamIn A shared pointer to the Boost.Asio stream descriptor.
+     * @param filepathIn The file path where the image data will be written.
+     * @param dataRefIn A reference to the string containing the image data.
+     * @param sharedReqIn An optional shared pointer to the request object.
+     */
+    AsyncImageWriteSession(
+        const std::shared_ptr<bmcweb::AsyncResp>& asyncRespIn,
+        std::shared_ptr<boost::asio::posix::stream_descriptor> streamIn,
+        const std::filesystem::path& filepathIn, const std::string& dataRefIn,
+        std::shared_ptr<const crow::Request> sharedReqIn = nullptr) :
+        asyncResp(asyncRespIn), stream(std::move(streamIn)),
+        filepath(filepathIn), dataRef(dataRefIn),
+        sharedReq(std::move(sharedReqIn))
+    {}
+
+    /**
+     * @brief Starts the asynchronous write operation.
+     *
+     * Initiates the process of writing the image data to the file in chunks.
+     */
+    void start()
+    {
+        writeChunk(0);
+    }
+
+  private:
+    /**
+     * @brief Writes a chunk of data to the file.
+     *
+     * @param offset The current offset in the data to start writing from.
+     */
+    void writeChunk(std::size_t offset)
+    {
+        if (offset >= dataRef.size())
+        {
+            boost::system::error_code ec;
+            stream->close(ec);
+            BMCWEB_LOG_INFO("Finished writing file to {}", filepath.string());
+            return;
+        }
+
+        static constexpr std::size_t chunkSize = 8192;
+        const std::size_t bytesToWrite =
+            std::min(chunkSize, dataRef.size() - offset);
+
+        std::string_view dataRefView{dataRef};
+        std::string_view chunk = dataRefView.substr(offset, bytesToWrite);
+
+        auto buffer = boost::asio::buffer(chunk.data(), chunk.size());
+
+        auto self = shared_from_this();
+        boost::asio::async_write(
+            *stream, buffer,
+            [self, offset,
+             bytesToWrite](const boost::system::error_code& ec,
+                           std::size_t /*bytesTransferred*/) mutable {
+                if (!ec)
+                {
+                    const std::size_t newOffset = offset + bytesToWrite;
+                    BMCWEB_LOG_DEBUG("Wrote {} bytes [offset={}] to {}",
+                                     bytesToWrite, newOffset,
+                                     self->filepath.string());
+                    self->writeChunk(newOffset);
+                }
+                else
+                {
+                    BMCWEB_LOG_ERROR("Write error on {}: {}",
+                                     self->filepath.string(), ec.message());
+                    boost::system::error_code closeEc;
+                    self->stream->close(closeEc);
+                    messages::internalError(self->asyncResp->res);
+                }
+            });
+    }
+
+    std::shared_ptr<bmcweb::AsyncResp> asyncResp;
+    std::shared_ptr<boost::asio::posix::stream_descriptor> stream;
+    std::filesystem::path filepath;
+    const std::string& dataRef;
+    std::shared_ptr<const crow::Request> sharedReq;
+};
+
 
 class BMCStatusAsyncResp
 {
@@ -123,6 +222,191 @@ class BMCStatusAsyncResp
     std::string bmcStateString;
     std::string hostStateString;
 };
+
+/**
+ * @brief Retrieve the task message in JSON format for a given task state and
+ * index.
+ *
+ * This function overrides the base function to handle firmware update state
+ * management. It is designed to manage the "Aborted" state and reset the global
+ * fwUpdateInProgress flag to false.
+ *
+ * @param state A string representing the task state
+ * @param index The index to identify the specific task message
+ *
+ * @return nlohmann::json The task message corresponding to the given state and
+ * index
+ */
+inline nlohmann::json getTaskMessage(const std::string_view state, size_t index)
+{
+    if (state == "Aborted")
+    {
+        fwUpdateInProgress = false;
+        return messages::taskAborted(std::to_string(index));
+    }
+    if (state == "Started")
+    {
+        return messages::taskStarted(std::to_string(index));
+    }
+
+    BMCWEB_LOG_INFO("get msg status not found");
+    return nlohmann::json{
+        {"@odata.type", "Unknown"}, {"MessageId", "Unknown"},
+        {"Message", "Unknown"},     {"MessageArgs", {}},
+        {"Severity", "Unknown"},    {"Resolution", "Unknown"}};
+}
+
+/**
+ * @brief Check the initial activation state of a software update
+ *
+ * This function checks if a software activation has already failed before
+ * the property change monitoring begins. This handles the race condition
+ * where PLDM or other update services might have already marked the
+ * activation as failed immediately after creating the software object.
+ *
+ * If the activation state is already "Failed" or "Invalid", the task is
+ * immediately marked as failed with appropriate status and messages.
+ *
+ * @param[in] task    The task object to update if activation has failed
+ * @param[in] objPath The D-Bus object path of the software activation
+ */
+inline void checkInitialActivationState(
+    const std::shared_ptr<task::TaskData>& task,
+    const sdbusplus::message::object_path& objPath)
+{
+    dbus::utility::getDbusObject(
+        objPath.str,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Software.Activation"},
+        [task, objPath](const boost::system::error_code& ec,
+                        const dbus::utility::MapperGetObject& mapperResponse) {
+            if (ec || mapperResponse.empty())
+            {
+                return;
+            }
+
+            sdbusplus::asio::getProperty<std::string>(
+                *crow::connections::systemBus, mapperResponse.begin()->first,
+                objPath.str, "xyz.openbmc_project.Software.Activation",
+                "Activation",
+                [task](const boost::system::error_code& ec2,
+                       const std::string& activation) {
+                    if (!ec2 && (activation.ends_with("Invalid") ||
+                                 activation.ends_with("Failed")))
+                    {
+                        std::string index = std::to_string(task->index);
+                        task->state = "Exception";
+                        task->status = "Warning";
+                        task->messages.emplace_back(
+                            messages::taskAborted(index));
+                        task->timer.cancel();
+                        task->finishTask();
+                        fwUpdateInProgress = false;
+                    }
+                });
+        });
+}
+
+
+inline void handleLogMatchCallback(sdbusplus::message_t& m,
+                                   nlohmann::json& messages)
+{
+    std::vector<std::pair<std::string, dbus::utility::DBusPropertiesMap>>
+        interfacesProperties;
+    sdbusplus::message::object_path objPath;
+    m.read(objPath, interfacesProperties);
+    const std::unordered_map<std::string, std::string>* additionalData =
+        nullptr;
+    for (auto interface : interfacesProperties)
+    {
+        if (interface.first == "xyz.openbmc_project.Logging.Entry")
+        {
+            std::string rfMessage;
+            std::string resolution;
+            std::string messageNamespace;
+            std::vector<std::string> rfArgs;
+            for (auto& propertyMap : interface.second)
+            {
+                if (propertyMap.first == "AdditionalData")
+                {
+                    additionalData = std::get_if<
+                        std::unordered_map<std::string, std::string>>(
+                        &propertyMap.second);
+
+                    if (additionalData != nullptr)
+                    {
+                        redfish::AdditionalData additional(*additionalData);
+
+                        if (additional.contains("REDFISH_MESSAGE_ID"))
+                        {
+                            rfMessage = additional["REDFISH_MESSAGE_ID"];
+                        }
+                        if (additional.contains("REDFISH_MESSAGE_ARGS"))
+                        {
+                            bmcweb::split(rfArgs,
+                                          additional["REDFISH_MESSAGE_ARGS"],
+                                          ',');
+                        }
+                        if (additional.contains("namespace"))
+                        {
+                            messageNamespace = additional["namespace"];
+                        }
+                    }
+                }
+                else if (propertyMap.first == "Resolution")
+                {
+                    const std::string* value =
+                        std::get_if<std::string>(&propertyMap.second);
+                    if (value != nullptr)
+                    {
+                        resolution = *value;
+                    }
+                }
+            }
+            /* we need to have found the id, data, this image needs to
+               correspond to the image we are working with right now and the
+               message should be update related */
+            if (additionalData == nullptr || messageNamespace != "FWUpdate")
+            {
+                // something is invalid
+                BMCWEB_LOG_DEBUG("Got invalid log message");
+            }
+            else
+            {
+                // Fallback: construct a basic message object when registry
+                // helper is unavailable
+                nlohmann::json msgObj;
+                msgObj["MessageId"] = rfMessage;
+                msgObj["Message"] = rfMessage;
+                if (!rfArgs.empty())
+                {
+                    msgObj["MessageArgs"] = rfArgs;
+                }
+                if (!resolution.empty())
+                {
+                    msgObj["Resolution"] = resolution;
+                }
+                messages.emplace_back(std::move(msgObj));
+            }
+        }
+    }
+}
+
+inline void loggingMatchCallback(const std::shared_ptr<task::TaskData>& task,
+                                 sdbusplus::message_t& m)
+{
+    if (task == nullptr)
+    {
+        return;
+    }
+    handleLogMatchCallback(m, task->messages);
+}
+
+inline void preTaskLoggingHandler(sdbusplus::message_t& m)
+{
+    handleLogMatchCallback(m, preTaskMessages);
+}
+
 
 inline static bool validSubpath([[maybe_unused]] const std::string& objPath,
                                 [[maybe_unused]] const std::string& objectPath)
@@ -628,6 +912,127 @@ inline static void getRelatedItemsOthers(
         std::array<const char*, 1>{"xyz.openbmc_project.Software.Version"});
 }
 
+/**
+ * @brief Check if the list of targets contains invalid and unupdateable
+ * targets. The function returns a list of valid targets in the parameter
+ * 'validTargets'
+ *
+ * @param[in] uriTargets  List of components delivered in HTTPRequest
+ * @param[in] updateables List of all unupdateable components in the system
+ * @param[in] swInvPaths  List of software inventory paths
+ * @param[out] validTargets  List of valid components delivered in HTTPRequest
+ *
+ * @return It returns true when a list of delivered components contains invalid
+ * or unupdateable components
+ */
+inline bool areTargetsInvalidOrUnupdatable(
+    const std::vector<std::string>& uriTargets,
+    const std::vector<std::string>& updateables,
+    const std::vector<std::string>& swInvPaths,
+    std::vector<sdbusplus::message::object_path>& validTargets)
+{
+    bool hasAnyInvalidOrUnupdateableTarget = false;
+    for (const std::string& target : uriTargets)
+    {
+        std::string componentName = std::filesystem::path(target).filename();
+        bool validTarget = false;
+        std::string softwarePath =
+            "/xyz/openbmc_project/software/" + componentName;
+
+        if (std::any_of(swInvPaths.begin(), swInvPaths.end(),
+                        [&](const std::string& path) {
+                            return path.find(softwarePath) != std::string::npos;
+                        }))
+        {
+            validTarget = true;
+
+            if (std::find(updateables.begin(), updateables.end(),
+                          componentName) != updateables.end())
+            {
+                validTargets.emplace_back(softwarePath);
+            }
+            else
+            {
+                hasAnyInvalidOrUnupdateableTarget = true;
+                BMCWEB_LOG_ERROR("Unupdatable Target: {}", target);
+            }
+        }
+
+        if (!validTarget)
+        {
+            hasAnyInvalidOrUnupdateableTarget = true;
+            BMCWEB_LOG_ERROR("Invalid Target: {}", target);
+        }
+    }
+
+    return hasAnyInvalidOrUnupdateableTarget;
+}
+
+/**
+ * @brief Check whether an update can be processed.
+ *
+ * @param[in] req  HTTP request
+ * @param[in] asyncResp Pointer to object holding response data
+ *
+ * @return Returns true when the firmware can be applied.
+ */
+inline bool preCheckMultipartUpdateServiceReq(
+    const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    bool enableFWInProgCheck)
+{
+    if (req.body().size() > (firmwareImageLimitBytes))
+    {
+        if (asyncResp)
+        {
+            BMCWEB_LOG_ERROR("Large image size: {}", req.body().size());
+            // std::string resolution =
+            //     "Firmware package size is greater than allowed "
+            //     "size. Make sure package size is less than "
+            //     "UpdateService.MaxImageSizeBytes property and "
+            //     "retry the firmware update operation.";
+            messages::payloadTooLarge(asyncResp->res);
+        }
+        return false;
+    }
+
+    // Only allow one FW update at a time
+    if (enableFWInProgCheck && fwUpdateInProgress)
+    {
+        if (asyncResp)
+        {
+            // don't copy the image, update already in progress.
+            std::string resolution =
+                "Another update is in progress. Retry"
+                " the update operation once it is complete.";
+            redfish::messages::updateInProgressMsg(asyncResp->res, resolution);
+            BMCWEB_LOG_ERROR("Update already in progress.");
+        }
+        return false;
+    }
+
+    std::error_code spaceInfoError;
+    const std::filesystem::space_info spaceInfo = std::filesystem::space(
+        std::string(BMCWEB_UPDATE_SERVICE_IMAGE_LOCATION), spaceInfoError);
+    if (!spaceInfoError)
+    {
+        if (spaceInfo.free < req.body().size())
+        {
+            BMCWEB_LOG_ERROR(
+                "Insufficient storage space. Required: {} Available: {}",
+                req.body().size(), spaceInfo.free);
+            // std::string resolution =
+            //     "Reset the baseboard and retry the operation.";
+            messages::insufficientStorage(asyncResp->res);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
+
 inline void extendUpdateServiceGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
@@ -767,14 +1172,13 @@ inline void extendUpdateServiceGet(
                 },
                 objInfo[0].first, "/xyz/openbmc_project/software",
                 "org.freedesktop.DBus.Properties", "GetAll",
-                "xyz.openbmc_project.Software.UpdatePolicy");
+                "xyz.openbmc_project.Software.Update");
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject",
         "/xyz/openbmc_project/software",
-        std::array<const char*, 1>{
-            "xyz.openbmc_project.Software.UpdatePolicy"});
+        std::array<const char*, 1>{"xyz.openbmc_project.Software.Update"});
 
     crow::connections::systemBus->async_method_call(
         [getUpdateStatus](
@@ -1875,7 +2279,7 @@ inline void forwardImage(
             if (param.second == "UpdateFile")
             {
                 data += "Content-Type: application/octet-stream\r\n\r\n";
-                data += formpart.content;
+                data += std::move(formpart.content);
                 data += "\r\n";
                 hasUpdateFile = true;
             }

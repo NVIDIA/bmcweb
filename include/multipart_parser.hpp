@@ -4,6 +4,8 @@
 
 #include "http_request.hpp"
 
+#include <unistd.h>
+
 #include <boost/beast/http/fields.hpp>
 
 #include <filesystem>
@@ -81,6 +83,12 @@ class MultipartParser
     explicit MultipartParser(const std::filesystem::path& filePathIn) :
         filePath(filePathIn)
     {}
+
+    /**
+     * @brief Constructor for direct writing to a file descriptor (e.g., memfd).
+     *        The parser will write UpdateFile content directly to this fd.
+     */
+    explicit MultipartParser(int fdIn) : targetFd(fdIn) {}
 
     [[nodiscard]] ParserError parse(const crow::Request& req)
     {
@@ -339,6 +347,16 @@ class MultipartParser
                         {
                             // skip storing big data
                         }
+                        else if (current.isUpdateFile && targetFd >= 0)
+                        {
+                            // Write directly to file descriptor (e.g., memfd)
+                            ssize_t written = write(
+                                targetFd, &buffer[partDataMark], chunkSize);
+                            if (written != static_cast<ssize_t>(chunkSize))
+                            {
+                                return ParserError::ERROR_FILE_WRITE;
+                            }
+                        }
                         else if (current.isUpdateFile &&
                                  current.fileOut.is_open())
                         {
@@ -428,6 +446,14 @@ class MultipartParser
             {
                 // skip
             }
+            else if (current.isUpdateFile && targetFd >= 0)
+            {
+                ssize_t written = write(targetFd, lookbehind.data(), prevIndex);
+                if (written != static_cast<ssize_t>(prevIndex))
+                {
+                    return ParserError::ERROR_FILE_WRITE;
+                }
+            }
             else if (current.isUpdateFile && current.fileOut.is_open())
             {
                 current.fileOut.write(lookbehind.data(),
@@ -481,6 +507,7 @@ class MultipartParser
 
     bool skipFileContent = false;
     std::filesystem::path filePath;
+    int targetFd = -1;
     std::string currentHeaderName;
 
     static constexpr char cr = '\r';
