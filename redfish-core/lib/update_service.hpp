@@ -748,9 +748,7 @@ inline void setApplyTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
 struct MultiPartUpdate
 {
-#ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
     std::string uploadData;
-#endif
     struct UpdateParameters
     {
         std::optional<std::string> applyTime;
@@ -829,6 +827,7 @@ inline std::optional<MultiPartUpdate::UpdateParameters> processUpdateParameters(
     }
 
     // Nvidia code starts here
+    std::vector<std::string> tempTargets;
     if (!json_util::readJsonObject(
             *obj, asyncResp->res, "@Redfish.OperationApplyTime",
             multiRet.applyTime, "Targets", multiRet.targets, "ForceUpdate",
@@ -838,28 +837,30 @@ inline std::optional<MultiPartUpdate::UpdateParameters> processUpdateParameters(
     }
     // Nvidia code ends here
 
-#ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
-    for (size_t urlIndex = 0; urlIndex < tempTargets.size(); urlIndex++)
+    if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
     {
-        const std::string& target = tempTargets[urlIndex];
-        boost::system::result<boost::urls::url_view> url =
-            boost::urls::parse_origin_form(target);
-        auto res = processUrl(url);
-        if (!res.has_value())
+        for (size_t urlIndex = 0; tempTargets.size(); urlIndex++)
         {
-            messages::propertyValueFormatError(
-                asyncResp->res, target, std::format("Targets/{}", urlIndex));
+            const std::string& target = tempTargets[urlIndex];
+            boost::system::result<boost::urls::url_view> url =
+                boost::urls::parse_origin_form(target);
+            auto res = processUrl(url);
+            if (!res.has_value())
+            {
+                messages::propertyValueFormatError(
+                    asyncResp->res, target,
+                    std::format("Targets/{}", urlIndex));
+                return std::nullopt;
+            }
+            multiRet.targets->emplace_back(res.value());
+        }
+        if (multiRet.targets->size() != 1)
+        {
+            messages::propertyValueFormatError(asyncResp->res,
+                                               *multiRet.targets, "Targets");
             return std::nullopt;
         }
-        multiRet.targets.emplace_back(res.value());
     }
-    if (multiRet.targets.size() != 1)
-    {
-        messages::propertyValueFormatError(asyncResp->res, multiRet.targets,
-                                           "Targets");
-        return std::nullopt;
-    }
-#endif
     return multiRet;
 }
 
@@ -898,9 +899,10 @@ inline std::optional<MultiPartUpdate> extractMultipartUpdateParameters(
             {
                 return std::nullopt;
             }
-#ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
-            multiRet.params = std::move(*params);
-#endif
+            if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
+            {
+                multiRet.params = std::move(*params);
+            }
             // Nvidia code starts here
             if (params->applyTime && !multiRet.params.applyTime)
             {
@@ -921,9 +923,10 @@ inline std::optional<MultiPartUpdate> extractMultipartUpdateParameters(
             // Nvidia code start
             hasUpdateFile = true;
             // Nvidia code end
-#ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
-            multiRet.uploadData = std::move(formpart.content);
-#endif
+            if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
+            {
+                multiRet.uploadData = std::move(formpart.content);
+            }
         }
     }
 
@@ -935,19 +938,20 @@ inline std::optional<MultiPartUpdate> extractMultipartUpdateParameters(
         return std::nullopt;
     }
     // Nvidia added code end
-#ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
-    if (multiRet.uploadData.empty())
+    if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
     {
-        BMCWEB_LOG_ERROR("Upload data is NULL");
-        messages::propertyMissing(asyncResp->res, "UpdateFile");
-        return std::nullopt;
+        if (multiRet.uploadData.empty())
+        {
+            BMCWEB_LOG_ERROR("Upload data is NULL");
+            messages::propertyMissing(asyncResp->res, "UpdateFile");
+            return std::nullopt;
+        }
+        if (!multiRet.params.targets || multiRet.params.targets->empty())
+        {
+            messages::propertyMissing(asyncResp->res, "Targets");
+            return std::nullopt;
+        }
     }
-    if (multiRet.params.targets.empty())
-    {
-        messages::propertyMissing(asyncResp->res, "Targets");
-        return std::nullopt;
-    }
-#endif
     return multiRet;
 }
 
@@ -995,8 +999,7 @@ inline void startUpdate(
         "StartUpdate", sdbusplus::message::unix_fd(memfd->fd), applyTime,
         forceUpdate, targets);
 }
-
-#ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
+// un used upstream code starts here
 inline void getSwInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                       task::Payload payload, const MemoryFileDescriptor& memfd,
                       const std::string& applyTime, const std::string& target,
@@ -1034,10 +1037,12 @@ inline void getSwInfo(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     BMCWEB_LOG_DEBUG("Found software version path {} serviceName {}",
                      swEntry->second.first.str, swEntry->second.second);
 
-    startUpdate(asyncResp, std::move(payload), memfd, applyTime,
-                swEntry->second.first.str, swEntry->second.second);
+    // Nvidia modified code to prevent compilation issues in unused code
+    (void)memfd;
+    startUpdate(asyncResp, std::move(payload), {}, applyTime, true, {});
+    // Nvidia modified code end
 }
-
+// un used upstream code ends here
 inline void handleBMCUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, task::Payload payload,
     const MemoryFileDescriptor& memfd, const std::string& applyTime,
@@ -1059,11 +1064,12 @@ inline void handleBMCUpdate(
         return;
     }
 
-    startUpdate(asyncResp, std::move(payload), memfd, applyTime,
-                functionalSoftware[0], "xyz.openbmc_project.Software.Manager");
+    // Nvidia modified code to prevent compilation issues in unused code
+    (void)memfd;
+    startUpdate(asyncResp, std::move(payload), {}, applyTime, {}, {});
+    // Nvidia modified code end
 }
-#endif
-
+// un used upstream code starts here
 inline void processUpdateRequest(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     task::Payload&& payload, const crow::Request& req,
@@ -1100,34 +1106,40 @@ inline void processUpdateRequest(
         return;
     }
 
-#ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
-    if (!targets.empty() && targets[0] == BMCWEB_REDFISH_MANAGER_URI_NAME)
+    if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
     {
-        dbus::utility::getAssociationEndPoints(
-            "/xyz/openbmc_project/software/bmc/updateable",
-            [asyncResp, payload = std::move(payload), memfd = std::move(memfd),
-             applyTime](
-                const boost::system::error_code& ec,
-                const dbus::utility::MapperEndPoints& objectPaths) mutable {
-                handleBMCUpdate(asyncResp, std::move(payload), memfd, applyTime,
-                                ec, objectPaths);
-            });
+        // Nvidia modified code to prevent compilation issues in unused code
+        std::vector<std::string> targets;
+        std::string applyTime;
+        // Nvidia modified code end
+        if (!targets.empty() && targets[0] == BMCWEB_REDFISH_MANAGER_URI_NAME)
+        {
+            dbus::utility::getAssociationEndPoints(
+                "/xyz/openbmc_project/software/bmc/updateable",
+                [asyncResp, payload = std::move(payload),
+                 memfd = std::move(memfd), applyTime](
+                    const boost::system::error_code& ec,
+                    const dbus::utility::MapperEndPoints& objectPaths) mutable {
+                    handleBMCUpdate(asyncResp, std::move(payload), *memfd,
+                                    applyTime, ec, objectPaths);
+                });
+        }
+        else
+        {
+            constexpr std::array<std::string_view, 1> interfaces = {
+                "xyz.openbmc_project.Software.Version"};
+            dbus::utility::getSubTree(
+                "/xyz/openbmc_project/software", 1, interfaces,
+                [asyncResp, payload = std::move(payload),
+                 memfd = std::move(memfd), applyTime,
+                 targets](const boost::system::error_code& ec,
+                          const dbus::utility::MapperGetSubTreeResponse&
+                              subtree) mutable {
+                    getSwInfo(asyncResp, std::move(payload), *memfd, applyTime,
+                              targets[0], ec, subtree);
+                });
+        }
     }
-    else
-    {
-        constexpr std::array<std::string_view, 1> interfaces = {
-            "xyz.openbmc_project.Software.Version"};
-        dbus::utility::getSubTree(
-            "/xyz/openbmc_project/software", 1, interfaces,
-            [asyncResp, payload = std::move(payload), memfd = std::move(memfd),
-             applyTime, targets](const boost::system::error_code& ec,
-                                 const dbus::utility::MapperGetSubTreeResponse&
-                                     subtree) mutable {
-                getSwInfo(asyncResp, std::move(payload), memfd, applyTime,
-                          targets[0], ec, subtree);
-            });
-    }
-#endif
 
     // Nvidia code starts here
     if (!uriTargets.empty())
@@ -1205,32 +1217,36 @@ inline void updateMultipartContext(
         return;
     }
 
-#ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
-    if constexpr (BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
+    if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
     {
-        std::string applyTimeNewVal;
-        if (!convertApplyTime(asyncResp->res, *multipart->params.applyTime,
-                              applyTimeNewVal))
+        if constexpr (BMCWEB_REDFISH_UPDATESERVICE_USE_DBUS)
         {
-            return;
+            std::string applyTimeNewVal;
+            if (!convertApplyTime(asyncResp->res, *multipart->params.applyTime,
+                                  applyTimeNewVal))
+            {
+                return;
+            }
+            task::Payload payload(req);
+
+            // Nvidia modified code to prevent compilation issues in unused code
+            processUpdateRequest(asyncResp, std::move(payload), {},
+                                 applyTimeNewVal, {}, {});
+            // Nvidia modified code end
         }
-        task::Payload payload(req);
+        else
+        {
+            setApplyTime(asyncResp, *multipart->params.applyTime);
 
-        processUpdateRequest(asyncResp, std::move(payload),
-                             multipart->uploadData, applyTimeNewVal,
-                             multipart->params.targets);
+            // Nvidia modified code to prevent compilation issues in unused code
+            // Setup callback for when new software detected
+            monitorForSoftwareAvailable(asyncResp, req, {},
+                                        "/redfish/v1/UpdateService");
+            // Nvidia modified code end
+
+            uploadImageFile(asyncResp->res, multipart->uploadData);
+        }
     }
-    else
-    {
-        setApplyTime(asyncResp, *multipart->params.applyTime);
-
-        // Setup callback for when new software detected
-        monitorForSoftwareAvailable(asyncResp, req,
-                                    "/redfish/v1/UpdateService");
-
-        uploadImageFile(asyncResp->res, multipart->uploadData);
-    }
-#endif
 
     // Nvidia code starts here
     std::vector<std::string> uriTargets;
@@ -1328,8 +1344,7 @@ inline void updateMultipartContext(
                          uriTargets);
     // Nvidia code ends here
 }
-
-#ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
+// Upstream unused code
 inline void doHTTPUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const crow::Request& req)
 {
@@ -1342,16 +1357,20 @@ inline void doHTTPUpdate(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         std::vector<std::string> targets;
         targets.emplace_back(BMCWEB_REDFISH_MANAGER_URI_NAME);
 
+        // Nvidia modified code to prevent compilation issues in unused code
         processUpdateRequest(
-            asyncResp, std::move(payload), req.body(),
+            asyncResp, std::move(payload), {},
             "xyz.openbmc_project.Software.ApplyTime.RequestedApplyTimes.Immediate",
-            targets);
+            {}, {});
+        // Nvidia modified code end
     }
     else
     {
+        // Nvidia modified code to prevent compilation issues in unused code
         // Setup callback for when new software detected
-        monitorForSoftwareAvailable(asyncResp, req,
+        monitorForSoftwareAvailable(asyncResp, req, {},
                                     "/redfish/v1/UpdateService");
+        // Nvidia modified code end
 
         uploadImageFile(asyncResp->res, req.body());
     }
@@ -1380,7 +1399,6 @@ inline void handleUpdateServicePost(
         asyncResp->res.result(boost::beast::http::status::bad_request);
     }
 }
-#endif
 
 inline void handleUpdateServiceMultipartUpdatePost(
     App& app, const crow::Request& req,
@@ -1620,6 +1638,7 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
     // Ensure we find our input swId, otherwise return an error
     bool foundVersionObject = false;
     bool foundStatusObject = false;
+    [[maybe_unused]] bool found = false;
     for (const std::pair<
              std::string,
              std::vector<std::pair<std::string, std::vector<std::string>>>>&
@@ -1640,12 +1659,14 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
         {
             continue;
         }
-#ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
-        found = true;
-        sw_util::getSwStatus(asyncResp, swId, obj.second[0].first);
-        sw_util::getSwMinimumVersion(asyncResp, swId, obj.second[0].first);
-        getSoftwareVersion(asyncResp, obj.second[0].first, obj.first, *swId);
-#endif
+        if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
+        {
+            found = true;
+            sw_util::getSwStatus(asyncResp, swId, obj.second[0].first);
+            sw_util::getSwMinimumVersion(asyncResp, swId, obj.second[0].first);
+            getSoftwareVersion(asyncResp, obj.second[0].first, obj.first,
+                               *swId);
+        }
         // Nvidia FirmwareInventoryGet start
         foundVersionObject = true;
 
@@ -1895,11 +1916,13 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
     asyncResp->res.jsonValue["@odata.type"] =
         "#SoftwareInventory.v1_4_0.SoftwareInventory";
     asyncResp->res.jsonValue["Name"] = "Software Inventory";
-#ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
-    asyncResp->res.jsonValue["Status"]["HealthRollup"] = resource::Health::OK;
-    asyncResp->res.jsonValue["Updateable"] = false;
-    sw_util::getSwUpdatableStatus(asyncResp, swId);
-#endif
+    if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
+    {
+        asyncResp->res.jsonValue["Status"]["HealthRollup"] =
+            resource::Health::OK;
+        asyncResp->res.jsonValue["Updateable"] = false;
+        sw_util::getSwUpdatableStatus(asyncResp, swId);
+    }
 
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
@@ -1953,12 +1976,13 @@ inline void requestRoutesUpdateService(App& app)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleUpdateServiceGet, std::ref(app)));
 
-#ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
-    BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/update/")
-        .privileges(redfish::privileges::postUpdateService)
-        .methods(boost::beast::http::verb::post)(
-            std::bind_front(handleUpdateServicePost, std::ref(app)));
-#endif
+    if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
+    {
+        BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/update/")
+            .privileges(redfish::privileges::postUpdateService)
+            .methods(boost::beast::http::verb::post)(
+                std::bind_front(handleUpdateServicePost, std::ref(app)));
+    }
 
     BMCWEB_ROUTE(app, "/redfish/v1/UpdateService/update-multipart/")
         .privileges(redfish::privileges::postUpdateService)
