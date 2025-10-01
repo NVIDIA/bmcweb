@@ -28,6 +28,7 @@
 #include <boost/url/url_view.hpp>
 #include <nlohmann/json.hpp>
 #include <sdbusplus/message/native_types.hpp>
+#include <utils/nvidia_http_utils.hpp>
 
 #include <algorithm>
 #include <array>
@@ -928,12 +929,10 @@ class RedfishAggregator
         {
             url.set_query(targetURI.query());
         }
-        // Build minimal headers like curl to avoid servers that abort on
-        // extra/unknown headers. Also disable keep-alive on client side.
-        boost::beast::http::fields fwdHeaders;
-        fwdHeaders.set(boost::beast::http::field::host,
-                       url.encoded_host_address());
-        fwdHeaders.set(boost::beast::http::field::accept, "*/*");
+        // Build filtered headers and drop HTTP/2 pseudo headers like :authority
+        boost::beast::http::fields fwdHeaders =
+            redfish::nvidia_http_utils::filterHeadersDropAuthority(
+                thisReq.fields(), url);
         client.sendDataWithCallback(std::move(data), url,
                                     ensuressl::VerifyCertificate::Verify,
                                     fwdHeaders, thisReq.method(), cb);
@@ -967,10 +966,9 @@ class RedfishAggregator
                 }
             }
             std::string data = thisReq.body();
-            boost::beast::http::fields fwdHeaders;
-            fwdHeaders.set(boost::beast::http::field::host,
-                           url.encoded_host_address());
-            fwdHeaders.set(boost::beast::http::field::accept, "*/*");
+            boost::beast::http::fields fwdHeaders =
+                redfish::nvidia_http_utils::filterHeadersDropAuthority(
+                    thisReq.fields(), url);
             client.sendDataWithCallback(std::move(data), url,
                                         ensuressl::VerifyCertificate::Verify,
                                         fwdHeaders, thisReq.method(), cb);
@@ -997,10 +995,9 @@ class RedfishAggregator
             url.set_path(thisReq.url().path());
 
             std::string data = thisReq.body();
-            boost::beast::http::fields fwdHeaders;
-            fwdHeaders.set(boost::beast::http::field::host,
-                           url.encoded_host_address());
-            fwdHeaders.set(boost::beast::http::field::accept, "*/*");
+            boost::beast::http::fields fwdHeaders =
+                redfish::nvidia_http_utils::filterHeadersDropAuthority(
+                    thisReq.fields(), url);
             client.sendDataWithCallback(std::move(data), url,
                                         ensuressl::VerifyCertificate::Verify,
                                         fwdHeaders, thisReq.method(), cb);
