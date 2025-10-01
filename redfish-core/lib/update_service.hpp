@@ -353,7 +353,7 @@ inline void softwareInterfaceAdded(
                     // xyz.openbmc_project.Software.Activation interface
                     // is added
                     fwAvailableTimer = nullptr;
-         // Nvidia code starts here
+                    // Nvidia code starts here
                     sdbusplus::message::object_path objectPath(objPath.str);
                     std::string swID = objectPath.filename();
                     if (swID.empty())
@@ -362,7 +362,7 @@ inline void softwareInterfaceAdded(
                         messages::internalError(asyncResp->res);
                         return;
                     }
-         // Nvidia code ends here
+                    // Nvidia code ends here
                     activateImage(objPath.str, objInfo[0].first);
                     if (asyncResp)
                     {
@@ -828,7 +828,7 @@ inline std::optional<MultiPartUpdate::UpdateParameters> processUpdateParameters(
         return std::nullopt;
     }
 
-    //Nvidia code starts here
+    // Nvidia code starts here
     if (!json_util::readJsonObject(
             *obj, asyncResp->res, "@Redfish.OperationApplyTime",
             multiRet.applyTime, "Targets", multiRet.targets, "ForceUpdate",
@@ -836,7 +836,7 @@ inline std::optional<MultiPartUpdate::UpdateParameters> processUpdateParameters(
     {
         return std::nullopt;
     }
-    //Nvidia code ends here
+    // Nvidia code ends here
 
 #ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
     for (size_t urlIndex = 0; urlIndex < tempTargets.size(); urlIndex++)
@@ -898,9 +898,9 @@ inline std::optional<MultiPartUpdate> extractMultipartUpdateParameters(
             {
                 return std::nullopt;
             }
- #ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
+#ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
             multiRet.params = std::move(*params);
- #endif
+#endif
             // Nvidia code starts here
             if (params->applyTime && !multiRet.params.applyTime)
             {
@@ -918,10 +918,10 @@ inline std::optional<MultiPartUpdate> extractMultipartUpdateParameters(
         }
         else if (formFieldName == "UpdateFile")
         {
-            //Nvidia code start
-                hasUpdateFile = true;
-            //Nvidia code end
- #ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
+            // Nvidia code start
+            hasUpdateFile = true;
+            // Nvidia code end
+#ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
             multiRet.uploadData = std::move(formpart.content);
 #endif
         }
@@ -1232,7 +1232,7 @@ inline void updateMultipartContext(
     }
 #endif
 
-// Nvidia code starts here
+    // Nvidia code starts here
     std::vector<std::string> uriTargets;
     if (multipart->params.targets.has_value())
     {
@@ -1326,7 +1326,7 @@ inline void updateMultipartContext(
     processUpdateRequest(asyncResp, std::move(payload), req, dbusApplyTime,
                          multipart->params.forceUpdate.value_or(false),
                          uriTargets);
-// Nvidia code ends here
+    // Nvidia code ends here
 }
 
 #ifdef BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
@@ -1411,9 +1411,9 @@ inline void handleUpdateServiceMultipartUpdatePost(
     // Make sure that content type is multipart/form-data
     if (contentType.starts_with("multipart/form-data"))
     {
-    // Nvidia code starts here
+        // Nvidia code starts here
         MultipartParser parser(true);
-    // Nvidia code ends here
+        // Nvidia code ends here
 
         ParserError ec = parser.parse(req);
         if (ec != ParserError::PARSER_SUCCESS)
@@ -1646,7 +1646,7 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
         sw_util::getSwMinimumVersion(asyncResp, swId, obj.second[0].first);
         getSoftwareVersion(asyncResp, obj.second[0].first, obj.first, *swId);
 #endif
-//Nvidia FirmwareInventoryGet start
+        // Nvidia FirmwareInventoryGet start
         foundVersionObject = true;
 
         std::string settingService{};
@@ -1869,7 +1869,7 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
         {
             asyncResp->res.jsonValue["Status"]["Health"] = "OK";
         }
-//Nvidia FirmwareInventoryGet end
+        // Nvidia FirmwareInventoryGet end
     }
 
     if (!foundVersionObject and !foundStatusObject)
@@ -1884,13 +1884,13 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/UpdateService/FirmwareInventory/{}", *swId);
 
-//Nvidia code start
+    // Nvidia code start
     if (foundVersionObject)
     {
         asyncResp->res.jsonValue["Updateable"] = false;
         fw_util::getFwUpdateableStatus(asyncResp, swId);
     }
-//Nvidia code end
+    // Nvidia code end
 
     asyncResp->res.jsonValue["@odata.type"] =
         "#SoftwareInventory.v1_4_0.SoftwareInventory";

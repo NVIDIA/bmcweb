@@ -25,6 +25,27 @@
 namespace redfish
 {
 
+inline void handleEnvironmentMetricsPatch(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+    redfish::nvidia_env_utils::handleEnvironmentMetricsPatchBody(
+        req, asyncResp, chassisId);
+}
+
+inline void requestRoutesEnvironmentMetricsPatch(App& app)
+{
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/EnvironmentMetrics/")
+        .privileges(redfish::privileges::patchChassis)
+        .methods(boost::beast::http::verb::patch)(
+            std::bind_front(handleEnvironmentMetricsPatch, std::ref(app)));
+}
+
 inline void requestRoutesChassisEnvironmentMetricsClearOOBSetPoint(App& app)
 {
     BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/EnvironmentMetrics/Actions/Oem"

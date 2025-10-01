@@ -23,6 +23,7 @@
 #include <nlohmann/json.hpp>
 #include <sdbusplus/message/native_types.hpp>
 #include <sdbusplus/unpack_properties.hpp>
+#include <utils/nvidia_pcie_utils.hpp>
 
 #include <array>
 #include <cstddef>

@@ -2337,5 +2337,24 @@ inline void handleEnvironmentMetricsPatchBody(
     }
 }
 
+inline void populateEnvironmentMetricsOemAndData(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& validChassisPath)
+{
+    if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+    {
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+            "#NvidiaEnvironmentMetrics.v1_2_0.NvidiaEnvironmentMetrics";
+    }
+
+    getfanSpeedsPercent(asyncResp, chassisId);
+    getPowerWattsEnergyJoules(asyncResp, chassisId, validChassisPath);
+
+    const std::array<std::string_view, 2> interfaces = {
+        "xyz.openbmc_project.Inventory.Item.Board",
+        "xyz.openbmc_project.Inventory.Item.Chassis"};
+    getPowerAndControlData(asyncResp, chassisId, interfaces);
+}
+
 } // namespace nvidia_env_utils
 } // namespace redfish

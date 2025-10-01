@@ -25,6 +25,7 @@
 #include <utils/conditions_utils.hpp>
 #include <utils/json_utils.hpp>
 #include <utils/nvidia_network_adapters_utils.hpp>
+#include <utils/nvidia_pcie_utils.hpp>
 #include <utils/nvidia_utils.hpp>
 #include <utils/pcie_util.hpp>
 #include <utils/port_utils.hpp>

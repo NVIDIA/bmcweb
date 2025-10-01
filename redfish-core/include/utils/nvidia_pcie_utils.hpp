@@ -17,10 +17,90 @@
 #include <boost/url/format.hpp>
 #include <nlohmann/json.hpp>
 
+#include <optional>
 #include <string>
 #include <variant>
 namespace redfish
 {
+
+namespace pcie_util
+{
+
+inline std::optional<std::string> redfishPcieGenerationStringFromDbus(
+    const std::string& generationInUse)
+{
+    if (generationInUse ==
+        "xyz.openbmc_project.Inventory.Item.PCIeSlot.Generations.Gen1")
+    {
+        return "Gen1";
+    }
+    if (generationInUse ==
+        "xyz.openbmc_project.Inventory.Item.PCIeSlot.Generations.Gen2")
+    {
+        return "Gen2";
+    }
+    if (generationInUse ==
+        "xyz.openbmc_project.Inventory.Item.PCIeSlot.Generations.Gen3")
+    {
+        return "Gen3";
+    }
+    if (generationInUse ==
+        "xyz.openbmc_project.Inventory.Item.PCIeSlot.Generations.Gen4")
+    {
+        return "Gen4";
+    }
+    if (generationInUse ==
+        "xyz.openbmc_project.Inventory.Item.PCIeSlot.Generations.Gen5")
+    {
+        return "Gen5";
+    }
+    if (generationInUse ==
+        "xyz.openbmc_project.Inventory.Item.PCIeSlot.Generations.Gen6")
+    {
+        return "Gen6";
+    }
+
+    return std::nullopt;
+}
+
+inline std::optional<std::string> redfishPcieTypeStringFromDbus(
+    const std::string& pcieType)
+{
+    if (pcieType ==
+        "xyz.openbmc_project.Inventory.Item.PCIeDevice.PCIeTypes.Gen1")
+    {
+        return "Gen1";
+    }
+    if (pcieType ==
+        "xyz.openbmc_project.Inventory.Item.PCIeDevice.PCIeTypes.Gen2")
+    {
+        return "Gen2";
+    }
+    if (pcieType ==
+        "xyz.openbmc_project.Inventory.Item.PCIeDevice.PCIeTypes.Gen3")
+    {
+        return "Gen3";
+    }
+    if (pcieType ==
+        "xyz.openbmc_project.Inventory.Item.PCIeDevice.PCIeTypes.Gen4")
+    {
+        return "Gen4";
+    }
+    if (pcieType ==
+        "xyz.openbmc_project.Inventory.Item.PCIeDevice.PCIeTypes.Gen5")
+    {
+        return "Gen5";
+    }
+    if (pcieType ==
+        "xyz.openbmc_project.Inventory.Item.PCIeDevice.PCIeTypes.Gen6")
+    {
+        return "Gen6";
+    }
+
+    return std::nullopt;
+}
+
+} // namespace pcie_util
 
 static constexpr const char* pcieService = "xyz.openbmc_project.PCIe";
 static constexpr const char* pciePath = "/xyz/openbmc_project/PCIe";

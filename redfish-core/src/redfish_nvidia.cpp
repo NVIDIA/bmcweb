@@ -113,6 +113,7 @@ void requestRoutesNvidia(crow::App& app)
     {
         requestRoutesProcessorEnvironmentMetrics(app);
         requestRoutesMemoryEnvironmentMetrics(app);
+        requestRoutesEnvironmentMetricsPatch(app);
     }
 
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)

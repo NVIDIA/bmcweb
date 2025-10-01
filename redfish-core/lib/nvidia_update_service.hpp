@@ -180,7 +180,6 @@ struct AsyncImageWriteSession :
     std::shared_ptr<const crow::Request> sharedReq;
 };
 
-
 class BMCStatusAsyncResp
 {
   public:
@@ -307,7 +306,6 @@ inline void checkInitialActivationState(
         });
 }
 
-
 inline void handleLogMatchCallback(sdbusplus::message_t& m,
                                    nlohmann::json& messages)
 {
@@ -406,7 +404,6 @@ inline void preTaskLoggingHandler(sdbusplus::message_t& m)
 {
     handleLogMatchCallback(m, preTaskMessages);
 }
-
 
 inline static bool validSubpath([[maybe_unused]] const std::string& objPath,
                                 [[maybe_unused]] const std::string& objectPath)
@@ -1030,8 +1027,6 @@ inline bool preCheckMultipartUpdateServiceReq(
 
     return true;
 }
-
-
 
 inline void extendUpdateServiceGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)

@@ -2555,7 +2555,6 @@ inline void handleSensorGetWithChassisValidation(
     nvidia_sensor_utils::handleSensorGetAfterSetup(asyncResp, chassisId,
                                                    sensorId, getSensorFromDbus);
 }
-
 // Nvidia added  end
 } // namespace sensors
 
