@@ -60,60 +60,20 @@ inline void handleSystemCollectionMembers(
     if (objects.empty())
     {
         // Add the local system if not already present
-        const std::string localId =
-            boost::urls::format("/redfish/v1/Systems/{}",
-                                BMCWEB_REDFISH_SYSTEM_URI_NAME)
-                .buffer();
-        bool localPresent = std::ranges::any_of(
-            membersArray, [&localId](const nlohmann::json& m) {
-                const nlohmann::json::object_t* obj =
-                    m.get_ptr<const nlohmann::json::object_t*>();
-                if (obj == nullptr)
-                {
-                    return false;
-                }
-                const auto it = obj->find("@odata.id");
-                if (it == obj->end())
-                {
-                    return false;
-                }
-                const std::string* s = it->second.get_ptr<const std::string*>();
-                return (s != nullptr) && (*s == localId);
-            });
-        if (!localPresent)
-        {
-            nlohmann::json::object_t system;
-            system["@odata.id"] = localId;
-            membersArray.emplace_back(std::move(system));
-        }
+        asyncResp->res.jsonValue["Members@odata.count"] = 1;
+        nlohmann::json::object_t system;
+        system["@odata.id"] = boost::urls::format(
+            "/redfish/v1/Systems/{}", BMCWEB_REDFISH_SYSTEM_URI_NAME);
+        membersArray.emplace_back(std::move(system));
 
         if constexpr (BMCWEB_HYPERVISOR_COMPUTER_SYSTEM)
         {
             BMCWEB_LOG_DEBUG("Hypervisor is available");
-            const std::string hyperId = "/redfish/v1/Systems/hypervisor";
-            bool hyperPresent = std::ranges::any_of(
-                membersArray, [&hyperId](const nlohmann::json& m) {
-                    const nlohmann::json::object_t* obj =
-                        m.get_ptr<const nlohmann::json::object_t*>();
-                    if (obj == nullptr)
-                    {
-                        return false;
-                    }
-                    const auto it = obj->find("@odata.id");
-                    if (it == obj->end())
-                    {
-                        return false;
-                    }
-                    const std::string* s =
-                        it->second.get_ptr<const std::string*>();
-                    return (s != nullptr) && (*s == hyperId);
-                });
-            if (!hyperPresent)
-            {
-                nlohmann::json::object_t hypervisor;
-                hypervisor["@odata.id"] = hyperId;
-                membersArray.emplace_back(std::move(hypervisor));
-            }
+            asyncResp->res.jsonValue["Members@odata.count"] = 2;
+
+            nlohmann::json::object_t hypervisor;
+            hypervisor["@odata.id"] = "/redfish/v1/Systems/hypervisor";
+            membersArray.emplace_back(std::move(hypervisor));
         }
         asyncResp->res.jsonValue["Members@odata.count"] = membersArray.size();
         return;
@@ -134,30 +94,10 @@ inline void handleSystemCollectionMembers(
 
     for (const std::string& systemName : pathNames)
     {
-        const std::string sysId =
-            boost::urls::format("/redfish/v1/Systems/{}", systemName).buffer();
-        bool present = std::ranges::any_of(
-            membersArray, [&sysId](const nlohmann::json& m) {
-                const nlohmann::json::object_t* obj =
-                    m.get_ptr<const nlohmann::json::object_t*>();
-                if (obj == nullptr)
-                {
-                    return false;
-                }
-                const auto it = obj->find("@odata.id");
-                if (it == obj->end())
-                {
-                    return false;
-                }
-                const std::string* s = it->second.get_ptr<const std::string*>();
-                return (s != nullptr) && (*s == sysId);
-            });
-        if (!present)
-        {
-            nlohmann::json::object_t member;
-            member["@odata.id"] = sysId;
-            membersArray.emplace_back(std::move(member));
-        }
+        nlohmann::json::object_t member;
+        member["@odata.id"] =
+            boost::urls::format("/redfish/v1/Systems/{}", systemName);
+        membersArray.emplace_back(std::move(member));
     }
     asyncResp->res.jsonValue["Members@odata.count"] = membersArray.size();
 }
