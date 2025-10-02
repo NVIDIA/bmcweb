@@ -957,6 +957,7 @@ inline void handleChassisPatch(
     std::optional<double> workloadFactor;
     std::optional<double> temperature;
     std::optional<bool> hardwareWriteProtectEnable;
+    std::optional<bool> hostNetworkEnable;
     std::optional<std::string> oemSKU;
     // Nvidia: added parameters end
 
@@ -983,8 +984,8 @@ inline void handleChassisPatch(
         {
             redfish::nvidia_chassis_utils::parseOemNvidiaPatchPayload(
                 asyncResp, oemJsonObj, partNumber, serialNumber,
-                hardwareWriteProtectEnable, cpuClockFrequency, workloadFactor,
-                temperature, oemSKU);
+                hardwareWriteProtectEnable, hostNetworkEnable,
+                cpuClockFrequency, workloadFactor, temperature, oemSKU);
         }
     }
     // Nvidia added code end
@@ -997,12 +998,12 @@ inline void handleChassisPatch(
     }
     // Nvidia added captured parameters  indicatorLed, partNumber,
     // serialNumber, cpuClockFrequency, workloadFactor,temperature,
-    // hardwareWriteProtectEnable, oemSKU
+    // hardwareWriteProtectEnable, hostNetworkEnable, oemSKU
     dbus::utility::getSubTree(
         "/xyz/openbmc_project/inventory", 0, chassisInterfaces,
         [asyncResp, chassisId, locationIndicatorActive, indicatorLed,
          partNumber, serialNumber, cpuClockFrequency, workloadFactor,
-         temperature, hardwareWriteProtectEnable,
+         temperature, hardwareWriteProtectEnable, hostNetworkEnable,
          oemSKU](const boost::system::error_code& ec,
                  const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
@@ -1080,8 +1081,8 @@ inline void handleChassisPatch(
                 // Nvidia: added code start
                 redfish::nvidia_chassis_utils::applyOemChassisPatch(
                     asyncResp, chassisId, path, hardwareWriteProtectEnable,
-                    partNumber, serialNumber, cpuClockFrequency, workloadFactor,
-                    temperature);
+                    hostNetworkEnable, partNumber, serialNumber,
+                    cpuClockFrequency, workloadFactor, temperature);
 
                 if (oemSKU)
                 {

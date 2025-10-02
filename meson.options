@@ -723,6 +723,12 @@ option(
     description: 'Enable UUID properties from platform chassis name.',
 )
 option(
+    'nvidia-host-management-network-access',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable OEM Host management NIC.',
+)
+option(
     'nvidia-bootentryid',
     type: 'feature',
     value: 'disabled',

@@ -2074,6 +2074,45 @@ inline void getChassisWriteProtectProtectEnable(
         });
 }
 
+inline void afterGetHostNetworkEnabled(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec, bool property)
+{
+    if (ec.value() == boost::system::linux_error::bad_request_descriptor)
+    {
+        BMCWEB_LOG_ERROR("Enabled property is not found");
+        messages::resourceNotFound(asyncResp->res,
+                                   "Enabled property is not found", "");
+        return;
+    }
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("getProperty Enabled error");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    asyncResp->res.jsonValue["Oem"]["Nvidia"]["HostManagementNetworkAccess"] =
+        property;
+}
+
+inline void getChassisHostNetworkEnable(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object)
+{
+    if (ec)
+    {
+        BMCWEB_LOG_INFO(
+            "No Chassis Dbus Object, Skip 'HostManagementNetworkAccess'");
+        return;
+    }
+    sdbusplus::asio::getProperty<bool>(
+        *crow::connections::systemBus, object[0].first,
+        "/xyz/openbmc_project/control/host0/HostManagementNetworkAccess",
+        "xyz.openbmc_project.Object.Enable", "Enabled",
+        std::bind_front(afterGetHostNetworkEnabled, asyncResp));
+}
+
 inline void setChassisWriteProtectProtectEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const boost::system::error_code& ec1, const std::string& chassisId,
@@ -2113,6 +2152,52 @@ inline void setChassisWriteProtectProtectEnable(
                 return;
             }
         });
+}
+
+inline void afterSetHostNetworkEnabled(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec)
+{
+    if (ec.value() == boost::system::linux_error::bad_request_descriptor)
+    {
+        BMCWEB_LOG_ERROR("Enabled property is not found");
+        messages::resourceNotFound(asyncResp->res,
+                                   "Enabled property is not found", "");
+        return;
+    }
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("setProperty Enabled error");
+        messages::internalError(asyncResp->res);
+        return;
+    }
+}
+
+inline void setChassisHostNetworkEnable(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::system::error_code& ec,
+    const dbus::utility::MapperGetObject& object, const bool value)
+{
+    if (ec == boost::system::errc::io_error)
+    {
+        BMCWEB_LOG_ERROR("Chassis Interface is not found");
+        messages::resourceNotFound(asyncResp->res,
+                                   "HostManagementNetworkAccess",
+                                   "Interface is not found");
+        return;
+    }
+    if (ec)
+    {
+        BMCWEB_LOG_ERROR("getDbusObject error: {}", ec);
+        messages::internalError(asyncResp->res);
+        return;
+    }
+    std::function<void(const boost::system::error_code&)> handler =
+        std::bind_front(afterSetHostNetworkEnabled, asyncResp);
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, object[0].first,
+        "/xyz/openbmc_project/control/host0/HostManagementNetworkAccess",
+        "xyz.openbmc_project.Object.Enable", "Enabled", value, handler);
 }
 
 template <typename Callback>
@@ -2464,6 +2549,18 @@ inline void handleChassisGetAllProperties(
                                                     object);
             });
 
+        if constexpr (BMCWEB_NVIDIA_HOST_MANAGEMENT_NETWORK_ACCESS)
+        {
+            dbus::utility::getDbusObject(
+                "/xyz/openbmc_project/control/host0/HostManagementNetworkAccess",
+                std::array<std::string_view, 1>{
+                    "xyz.openbmc_project.Object.Enable"},
+                [asyncResp](const boost::system::error_code& ec,
+                            const dbus::utility::MapperGetObject& object) {
+                    getChassisHostNetworkEnable(asyncResp, ec, object);
+                });
+        } // BMCWEB_NVIDIA_HOST_MANAGEMENT_NETWORK_ACCESS
+
         if (pCIeReferenceClockCount != nullptr)
         {
             asyncResp->res
@@ -2585,6 +2682,18 @@ inline void oemChassisHardwareWriteProtectEnable(
                 const dbus::utility::MapperGetObject& object) {
             setChassisWriteProtectProtectEnable(asyncResp, ec, chassisId,
                                                 object, value);
+        });
+}
+
+inline void oemChassisHostNetworkEnable(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const bool value)
+{
+    dbus::utility::getDbusObject(
+        "/xyz/openbmc_project/control/host0/HostManagementNetworkAccess",
+        std::array<std::string_view, 1>{"xyz.openbmc_project.Object.Enable"},
+        [asyncResp, value](const boost::system::error_code& ec,
+                           const dbus::utility::MapperGetObject& object) {
+            setChassisHostNetworkEnable(asyncResp, ec, object, value);
         });
 }
 
@@ -3263,6 +3372,7 @@ inline void parseOemNvidiaPatchPayload(
     std::optional<std::string>& partNumber,
     std::optional<std::string>& serialNumber,
     std::optional<bool>& hardwareWriteProtectEnable,
+    std::optional<bool>& hostNetworkEnable,
     std::optional<double>& cpuClockFrequency,
     std::optional<double>& workloadFactor, std::optional<double>& temperature,
     std::optional<std::string>& oemSKU)
@@ -3281,7 +3391,8 @@ inline void parseOemNvidiaPatchPayload(
                     *nvidiaJsonObj, asyncResp->res, "PartNumber", partNumber,
                     "SerialNumber", serialNumber, "StaticPowerHint",
                     staticPowerHintJsonObj, "HardwareWriteProtectEnable",
-                    hardwareWriteProtectEnable, "SKU", oemSKU);
+                    hardwareWriteProtectEnable, "HostManagementNetworkAccess",
+                    hostNetworkEnable, "SKU", oemSKU);
 
                 if (staticPowerHintJsonObj)
                 {
@@ -3321,6 +3432,7 @@ inline void applyOemChassisPatch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& path,
     const std::optional<bool>& hardwareWriteProtectEnable,
+    const std::optional<bool>& hostNetworkEnable,
     const std::optional<std::string>& partNumber,
     const std::optional<std::string>& serialNumber,
     const std::optional<double>& cpuClockFrequency,
@@ -3333,6 +3445,11 @@ inline void applyOemChassisPatch(
         {
             redfish::nvidia_chassis_utils::oemChassisHardwareWriteProtectEnable(
                 asyncResp, chassisId, *hardwareWriteProtectEnable);
+        }
+        if (hostNetworkEnable)
+        {
+            redfish::nvidia_chassis_utils::oemChassisHostNetworkEnable(
+                asyncResp, *hostNetworkEnable);
         }
         if (partNumber)
         {
