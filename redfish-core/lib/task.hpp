@@ -518,6 +518,27 @@ inline void requestRoutesTaskMonitor(App& app)
                     return;
                 }
                 std::shared_ptr<task::TaskData>& ptr = *find;
+                if (ptr->getTaskStatus() == "OK" && ptr->state == "Completed")
+                {
+                    nlohmann::json* resp =
+                        std::get_if<nlohmann::json>(&ptr->taskResponse);
+                    if (resp != nullptr)
+                    {
+                        asyncResp->res.jsonValue = *resp;
+                        return;
+                    }
+                    std::function<void(
+                        const std::shared_ptr<bmcweb::AsyncResp>&)>*
+                        getBodyCallback = std::get_if<std::function<void(
+                            const std::shared_ptr<bmcweb::AsyncResp>&)>>(
+                            &ptr->taskResponse);
+                    if (getBodyCallback != nullptr)
+                    {
+                        (*getBodyCallback)(asyncResp);
+                        return;
+                    }
+                }
+
                 // monitor expires after 204
                 if (ptr->gave204)
                 {
