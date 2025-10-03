@@ -1896,7 +1896,8 @@ inline void getWorkLoadPowerInfo(
         powerProfileURI;
 }
 
-inline std::string convertMsbToLsb(const std::string* ibGuid) {
+inline std::string convertMsbToLsb(const std::string* ibGuid)
+{
     std::string lsb = *ibGuid;
 
     if (lsb.size() % 2 != 0)
