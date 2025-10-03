@@ -303,8 +303,18 @@ inline void getVmResourceList(std::shared_ptr<bmcweb::AsyncResp> asyncResp,
 
                 for (const auto& interface : object.second)
                 {
-                    if (interface.first ==
-                        "xyz.openbmc_project.VirtualMedia.Legacy")
+                    // Both Legacy and Proxy virtual media devices should be
+                    // enumerated in the Redfish VirtualMedia collection.
+                    // While Proxy is often used via browser websockets, any
+                    // websocket-capable client can use it. Showing all VM
+                    // connections enables:
+                    // - Security auditing of connected devices
+                    // - Visibility for other users/sessions
+                    // - Administrative control (e.g., terminating connections)
+                    if ((interface.first ==
+                         "xyz.openbmc_project.VirtualMedia.Legacy") ||
+                        (interface.first ==
+                         "xyz.openbmc_project.VirtualMedia.Proxy"))
                     {
                         item["@odata.id"] = boost::urls::format(
                             "/redfish/v1/Managers/{}/VirtualMedia/{}", name,
