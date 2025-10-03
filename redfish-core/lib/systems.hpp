@@ -22,7 +22,6 @@
 #include "logging.hpp"
 #include "nvidia_bios.hpp"
 #include "nvidia_cpu_debug_token.hpp"
-#include "nvidia_system.hpp"
 #include "query.hpp"
 #include "redfish_util.hpp"
 #include "registries/privilege_registry.hpp"
@@ -3838,8 +3837,6 @@ inline void handleComputerSystemGet(
             "#NvidiaComputerSystem.v1_2_0.NvidiaComputerSystem";
         ist_mode_utils::getIstMode(asyncResp);
         debug_token::getSystemsCpuDebugToken(asyncResp, systemName);
-
-        getSystemsOemNvidiaProperties(asyncResp, systemName);
     }
 
     if constexpr (BMCWEB_HOST_OS_FEATURES)
