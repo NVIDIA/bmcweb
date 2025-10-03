@@ -1969,7 +1969,7 @@ inline void getMNNVLinkTopologyInfo(
             {
                 json["Oem"]["Nvidia"]["MNNVLinkTopology"]["IBGUID"] = *ibGuid;
                 json["Oem"]["Nvidia"]["MNNVLinkTopology"]["LsbIBGUID"] =
-					convertMsbToLsb(ibGuid);
+                    convertMsbToLsb(ibGuid);
             }
 
             if (traySerialNumber != nullptr)
