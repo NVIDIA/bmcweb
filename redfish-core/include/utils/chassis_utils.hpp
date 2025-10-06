@@ -55,8 +55,6 @@ using Associations =
 using GetObjectType =
     std::vector<std::pair<std::string, std::vector<std::string>>>;
 
-
-
 inline std::string getPowerStateType(const std::string& stateType)
 {
     if (stateType == "xyz.openbmc_project.State.Decorator.OperationalStatus."

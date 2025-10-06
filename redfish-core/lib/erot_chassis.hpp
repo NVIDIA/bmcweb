@@ -44,7 +44,6 @@
 #include <registries/privilege_registry.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <utils/chassis_utils.hpp>
-#include <utils/nvidia_chassis_util.hpp>
 #include <utils/collection.hpp>
 #include <utils/conditions_utils.hpp>
 #include <utils/dbus_utils.hpp>
@@ -493,11 +492,13 @@ inline void getEROTChassis(const crow::Request& req,
                             interface ==
                             "xyz.openbmc_project.Inventory.Decorator.Asset")
                         {
-                            redfish::nvidia_chassis_utils::getChassisManufacturer(
-                                asyncResp, connectionName.first, path);
+                            redfish::nvidia_chassis_utils::
+                                getChassisManufacturer(
+                                    asyncResp, connectionName.first, path);
 
-                            redfish::nvidia_chassis_utils::getChassisSerialNumber(
-                                asyncResp, connectionName.first, path);
+                            redfish::nvidia_chassis_utils::
+                                getChassisSerialNumber(
+                                    asyncResp, connectionName.first, path);
 
                             redfish::nvidia_chassis_utils::getChassisSKU(
                                 asyncResp, connectionName.first, path);

@@ -130,7 +130,6 @@ class DotCommandHandler
     boost::asio::readable_pipe subprocessOutput;
 
     int subprocessTimeout;
-    std::unique_ptr<boost::asio::steady_timer> subprocessTimer;
 
     void resultCallback(const std::string& data)
     {

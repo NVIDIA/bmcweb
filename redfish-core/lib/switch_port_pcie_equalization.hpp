@@ -552,7 +552,44 @@ inline void requestRoutesPCIeEqualization(App& app)
                 std::optional<uint32_t> txAmplitude;
                 if (txAmplitudeJson)
                 {
-                    txAmplitude = *txAmplitudeJson;
+                    // Accept numeric or numeric-string values
+                    if (txAmplitudeJson->is_number_unsigned())
+                    {
+                        txAmplitude = txAmplitudeJson->get<uint32_t>();
+                    }
+                    else if (txAmplitudeJson->is_number_integer())
+                    {
+                        auto v = txAmplitudeJson->get<int64_t>();
+                        if (v >= 0 && v <= static_cast<int64_t>(UINT32_MAX))
+                        {
+                            txAmplitude = static_cast<uint32_t>(v);
+                        }
+                    }
+                    else if (txAmplitudeJson->is_string())
+                    {
+                        const std::string& s =
+                            txAmplitudeJson->get_ref<const std::string&>();
+                        try
+                        {
+                            unsigned long ul = std::stoul(s);
+                            if (ul <= UINT32_MAX)
+                            {
+                                txAmplitude = static_cast<uint32_t>(ul);
+                            }
+                        }
+                        catch (...)
+                        {
+                            // fall through to type error
+                        }
+                    }
+
+                    if (!txAmplitude)
+                    {
+                        messages::propertyValueTypeError(
+                            asyncResp->res, *txAmplitudeJson, "TxAmplitude");
+                        return;
+                    }
+
                     portEqualizationData.emplace_back("TxAmplitude",
                                                       *txAmplitude);
                 }

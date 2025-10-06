@@ -23,6 +23,7 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
+#include "utils/nvidia_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <systemd/sd-id128.h>
@@ -115,7 +116,7 @@ static void generateMessageRegistry(
     // Trim leading and tailing whitespace of each arg.
     for (auto& f : fields)
     {
-        boost::trim(f);
+        redfish::trim(f);
     }
     std::span<std::string> msgArgs;
     msgArgs = {fields.data(), fields.size()};

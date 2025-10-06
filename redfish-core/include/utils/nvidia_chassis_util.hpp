@@ -2660,7 +2660,6 @@ enum class InBandOption
     setInBandEnabled,
 };
 
-
 inline AllowListMap getRoTChassisAllowListMap()
 {
     using Json = nlohmann::json;
@@ -2691,7 +2690,6 @@ inline AllowListMap getRoTChassisAllowListMap()
     allowListMap = data.get<std::map<std::string, std::vector<std::string>>>();
     return allowListMap;
 }
-
 
 /**
  *@brief Function to check if the chassis id belongs in
@@ -3127,7 +3125,6 @@ inline void getBackgroundCopyAndInBandInfo(
                             InBandOption::BackgroundCopyStatus, false,
                             chassisId);
 }
-
 
 /**
  * @brief Get the Chassis UUID
@@ -3671,6 +3668,7 @@ inline void isEROTChassis(const std::string& chassisID, CallbackFunc&& callback)
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
         "/xyz/openbmc_project/inventory", 0, interfaces);
+}
 
 inline void getChassisManufacturer(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,

@@ -229,11 +229,11 @@ bool DbusEventLogMonitor::redfishEventEntryToSendEvent(
             {
                 std::string args = additionalData["REDFISH_MESSAGE_ARGS"];
                 BMCWEB_LOG_DEBUG("Processing message args: {}", args);
-                boost::split(messageArgs, args, boost::is_any_of(","));
+                bmcweb::split(messageArgs, args, ',');
                 // Trim leading and tailing whitespace of each argument
                 for (auto& msgArg : messageArgs)
                 {
-                    boost::trim(msgArg);
+                    redfish::trim(msgArg);
                 }
 
                 if (!messageArgs[0].empty())
