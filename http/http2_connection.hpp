@@ -113,15 +113,19 @@ class HTTP2Connection :
         BMCWEB_LOG_DEBUG("send_server_connection_header()");
 
         uint32_t maxStreams = 4;
+        // Both of these settings were found experimentally to allow a single
+        // fast stream to upload at a rate equivalent to http1.1  They will
+        // likely be tuned in the future.
+        uint32_t maxFrameSize = 1 << 14;
+        uint32_t windowSize = 1 << 20;
         std::array<nghttp2_settings_entry, 4> iv = {{
             {NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS, maxStreams},
             {NGHTTP2_SETTINGS_ENABLE_PUSH, 0},
             // Set an approximately 1MB window size
-            {NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE, frameSize * 31},
-            {NGHTTP2_SETTINGS_MAX_FRAME_SIZE, frameSize},
+            {NGHTTP2_SETTINGS_INITIAL_WINDOW_SIZE, windowSize},
+            {NGHTTP2_SETTINGS_MAX_FRAME_SIZE, maxFrameSize},
         }};
-        if (ngSession.setLocalWindowSize(NGHTTP2_FLAG_NONE, 0,
-                                         frameSize * 31) != 0)
+        if (ngSession.setLocalWindowSize(NGHTTP2_FLAG_NONE, 0, 1 << 20) != 0)
         {
             BMCWEB_LOG_ERROR("Failed to set local window size");
         }
@@ -542,7 +546,7 @@ class HTTP2Connection :
 
             streams[frame.hd.stream_id];
             if (ngSession.setLocalWindowSize(
-                    NGHTTP2_FLAG_NONE, frame.hd.stream_id, frameSize * 31) != 0)
+                    NGHTTP2_FLAG_NONE, frame.hd.stream_id, 16384 * 32) != 0)
             {
                 BMCWEB_LOG_ERROR("Failed to set local window size");
             }

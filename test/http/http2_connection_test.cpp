@@ -133,18 +133,30 @@ TEST(http_connection, RequestPropogates)
         &handler, date, HttpType::HTTP, nullptr);
     conn->start();
 
-    std::string_view expectedPrefix =
-        // Settings frame size 13
-        "\x00\x00\x0c\x04\x00\x00\x00\x00\x00"
+    std::array<std::string_view, 9> expectedPrefix = {
+        // Settings frame size 24
+        "\x00\x00\x18\x04\x00\x00\x00\x00\x00"sv,
         // 4 max concurrent streams
-        "\x00\x03\x00\x00\x00\x04"
+        "\x00\x03\x00\x00\x00\x04"sv,
         // Enable push = false
-        "\x00\x02\x00\x00\x00\x00"
+        "\x00\x02\x00\x00\x00\x00"sv,
+        // Max window size 1 << 20
+        "\x00\x04\x00\x10\x00\x00"sv,
+        // Max frame size 1 << 14
+        "\x00\x05\x00\x00\x40\x00"sv,
+
+        // Frame window update stream 0
+        "\x00\x00\x04\x08\x00\x00\x00\x00\x00\x00\x0f\x00\x01"sv,
+
         // Settings ACK from server to client
-        "\x00\x00\x00\x04\x01\x00\x00\x00\x00"
+        "\x00\x00\x00\x04\x01\x00\x00\x00\x00"sv,
+
+        // Window update stream 1
+        "\x00\x00\x04\x08\x00\x00\x00\x00\x01\x00\x07\x00\x01"sv,
 
         // Start Headers frame stream 1, size 0x005f
-        "\x00\x00\x5f\x01\x04\x00\x00\x00\x01"sv;
+        "\x00\x00\x5f\x01\x04\x00\x00\x00\x01"sv,
+    };
 
     std::string_view expectedPostfix =
         // Data Frame, Length 12, Stream 1, End Stream flag set

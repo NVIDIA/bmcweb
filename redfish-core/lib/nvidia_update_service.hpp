@@ -2079,10 +2079,13 @@ inline void forwardCommitImagePost(
     std::string data = req.body();
     boost::urls::url url(sat->second);
     url.set_path(req.url().path());
-
-    client.sendDataWithCallback(
-        std::move(data), url, ensuressl::VerifyCertificate::Verify,
-        req.fields(), boost::beast::http::verb::post, cb);
+    // Build filtered headers and drop HTTP/2 pseudo headers like :authority
+    boost::beast::http::fields fwdHeaders =
+        redfish::nvidia_http_utils::filterHeadersDropAuthority(
+            req.fields(), url);
+    client.sendDataWithCallback(std::move(data), url,
+                                ensuressl::VerifyCertificate::Verify,
+                                fwdHeaders, boost::beast::http::verb::post, cb);
 }
 
 /**
@@ -2365,9 +2368,13 @@ inline void forwardImage(
         }
         BMCWEB_LOG_INFO("Expect header value {}",
                         sharedReq->getHeaderValue("Expect"));
+        // Build filtered headers and drop HTTP/2 pseudo headers like :authority
+        boost::beast::http::fields fwdHeaders =
+            redfish::nvidia_http_utils::filterHeadersDropAuthority(
+                sharedReq->fields(), url);
         client.sendDataWithCallback(
             std::move(data), url, ensuressl::VerifyCertificate::Verify,
-            sharedReq->fields(), boost::beast::http::verb::post, cb);
+            fwdHeaders, boost::beast::http::verb::post, cb);
     }
 }
 
@@ -2482,10 +2489,13 @@ inline void forwardCommitImageActionInfo(
     std::string data;
     boost::urls::url url(sat->second);
     url.set_path(req.url().path());
-
-    client.sendDataWithCallback(
-        std::move(data), url, ensuressl::VerifyCertificate::Verify,
-        req.fields(), boost::beast::http::verb::get, cb);
+    // Build filtered headers and drop HTTP/2 pseudo headers like :authority
+    boost::beast::http::fields fwdHeaders =
+        redfish::nvidia_http_utils::filterHeadersDropAuthority(
+            req.fields(), url);
+    client.sendDataWithCallback(std::move(data), url,
+                                ensuressl::VerifyCertificate::Verify,
+                                fwdHeaders, boost::beast::http::verb::get, cb);
 }
 
 inline void handleCommitImageActionInfoGet(

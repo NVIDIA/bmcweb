@@ -184,11 +184,16 @@ bool Subscription::sendEventToSubscriber(uint64_t eventId, std::string&& msg)
         boost::beast::http::fields httpHeadersCopy(userSub->httpHeaders);
         httpHeadersCopy.set(boost::beast::http::field::content_type,
                             "application/json");
+        // Build filtered headers and drop HTTP/2 pseudo headers like :authority
+        boost::beast::http::fields fwdHeaders =
+            redfish::nvidia_http_utils::filterHeadersDropAuthority(
+                httpHeadersCopy, userSub->destinationUrl);
+
         client->sendDataWithCallback(
             std::move(msg), userSub->destinationUrl,
             static_cast<ensuressl::VerifyCertificate>(
                 userSub->verifyCertificate),
-            httpHeadersCopy, boost::beast::http::verb::post,
+            fwdHeaders, boost::beast::http::verb::post,
             std::bind_front(&Subscription::resHandler, this,
                             shared_from_this()));
         return true;
