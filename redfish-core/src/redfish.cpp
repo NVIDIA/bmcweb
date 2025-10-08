@@ -222,8 +222,6 @@ RedfishService::RedfishService(App& app)
         requestRoutesBiosReset(app);
     }
 
-    requestRoutesOemBiosResetService(app);
-
     if constexpr (BMCWEB_VM_NBDPROXY)
     {
         requestNBDVirtualMediaRoutes(app);
