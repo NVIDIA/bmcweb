@@ -78,7 +78,7 @@ inline void handleSecureBootGet(crow::App& app, const crow::Request& req,
                     secureBootCurrentBoot =
                         std::get<std::string>(propertyVariant);
                 }
-                else if (propertyName == "Enable" &&
+                else if (propertyName == "PendingEnable" &&
                          std::holds_alternative<bool>(propertyVariant))
                 {
                     secureBootEnable = std::get<bool>(propertyVariant);
@@ -113,25 +113,23 @@ inline void handleSecureBootGet(crow::App& app, const crow::Request& req,
             aResp->res.jsonValue["SecureBootEnable"] = secureBootEnable;
 
             if (secureBootMode ==
-                "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.SetupMode")
+                "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.Setup")
             {
                 aResp->res.jsonValue["SecureBootMode"] = "SetupMode";
             }
-            else if (
-                secureBootMode ==
-                "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.UserMode")
+            else if (secureBootMode ==
+                     "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.User")
             {
                 aResp->res.jsonValue["SecureBootMode"] = "UserMode";
             }
-            else if (
-                secureBootMode ==
-                "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.AuditMode")
+            else if (secureBootMode ==
+                     "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.Audit")
             {
                 aResp->res.jsonValue["SecureBootMode"] = "AuditMode";
             }
             else if (
                 secureBootMode ==
-                "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.DeployedMode")
+                "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.Deployed")
             {
                 aResp->res.jsonValue["SecureBootMode"] = "DeployedMode";
             }
@@ -263,7 +261,7 @@ inline void handleSecureBootPatch(
                 "xyz.openbmc_project.BIOSConfigManager",
                 "/xyz/openbmc_project/bios_config/manager",
                 "org.freedesktop.DBus.Properties", "Set",
-                "xyz.openbmc_project.BIOSConfig.SecureBoot", "Enable",
+                "xyz.openbmc_project.BIOSConfig.SecureBoot", "PendingEnable",
                 dbus::utility::DbusVariantType(*secureBootEnable));
         }
 
