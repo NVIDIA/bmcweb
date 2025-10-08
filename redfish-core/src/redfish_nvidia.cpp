@@ -238,6 +238,7 @@ void requestRoutesNvidia(crow::App& app)
 
     if constexpr (BMCWEB_BIOS)
     {
+        requestRoutesOemBios(app);
         requestRoutesBiosChangePassword(app);
         requestRoutesBiosSettings(app);
         requestRoutesBootOptions(app);

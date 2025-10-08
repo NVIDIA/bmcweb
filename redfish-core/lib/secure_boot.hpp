@@ -202,22 +202,22 @@ inline void handleSecureBootPatch(
             if (*secureBootMode == "SetupMode")
             {
                 secureBootModeStr =
-                    "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.SetupMode";
+                    "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.Setup";
             }
             else if (*secureBootMode == "UserMode")
             {
                 secureBootModeStr =
-                    "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.UserMode";
+                    "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.User";
             }
             else if (*secureBootMode == "AuditMode")
             {
                 secureBootModeStr =
-                    "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.AuditMode";
+                    "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.Audit";
             }
             else if (*secureBootMode == "DeployedMode")
             {
                 secureBootModeStr =
-                    "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.DeployedMode";
+                    "xyz.openbmc_project.BIOSConfig.SecureBoot.ModeType.Deployed";
             }
             else
             {

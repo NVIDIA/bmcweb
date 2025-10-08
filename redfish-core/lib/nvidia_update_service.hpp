@@ -1200,14 +1200,14 @@ inline void extendUpdateServiceGet(
                     }
                     return;
                 },
-                objInfo[0].first, "/xyz/openbmc_project/software",
+                objInfo[0].first, "/xyz/openbmc_project/software/pldm",
                 "org.freedesktop.DBus.Properties", "GetAll",
                 "xyz.openbmc_project.Software.Update");
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject",
-        "/xyz/openbmc_project/software",
+        "/xyz/openbmc_project/software/pldm",
         std::array<const char*, 1>{"xyz.openbmc_project.Software.Update"});
 
     crow::connections::systemBus->async_method_call(
@@ -1220,7 +1220,7 @@ inline void extendUpdateServiceGet(
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/mctp/0", 0,
+        "/au/com/codeconstruct/mctp1/networks/1/endpoints/", 0,
         std::array<const char*, 1>{"xyz.openbmc_project.MCTP.Endpoint"});
 
     sdbusplus::asio::getProperty<std::string>(
