@@ -1508,6 +1508,7 @@ inline void requestRoutesProcessorPowerSmoothing(App& app)
             param["Required"] = true;
             param["MaximumValue"] = 4;
             param["MinimumValue"] = 0;
+            param["DataType"] = "Number";
             parameters.push_back(param);
         });
 }
