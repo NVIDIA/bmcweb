@@ -37,6 +37,7 @@
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <utils/conditions_utils.hpp>
+#include <utils/nvidia_power_smoothing_util.hpp>
 
 #include <array>
 #include <string>
@@ -1779,14 +1780,9 @@ inline void requestRoutesProcessorPowerSmoothing(App& app)
             asyncResp->res.jsonValue["Id"] = "ActivatePresetProfileActionInfo";
             asyncResp->res.jsonValue["Name"] =
                 "ActivatePresetProfile Action Info";
-            nlohmann::json& parameters = asyncResp->res.jsonValue["Parameters"];
-            nlohmann::json param = nlohmann::json::object();
-            param["Name"] = "ProfileId";
-            param["Required"] = true;
-            param["MaximumValue"] = 4;
-            param["MinimumValue"] = 0;
-            param["DataType"] = "Number";
-            parameters.push_back(param);
+            nvidia_power_smoothing_utils::
+                getPowerSmoothingPresetProfileParameters(processorId,
+                                                         asyncResp);
         });
 }
 
