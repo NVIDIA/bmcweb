@@ -221,39 +221,6 @@ class BMCStatusAsyncResp
 };
 
 /**
- * @brief Retrieve the task message in JSON format for a given task state and
- * index.
- *
- * This function overrides the base function to handle firmware update state
- * management. It is designed to manage the "Aborted" state and reset the global
- * fwUpdateInProgress flag to false.
- *
- * @param state A string representing the task state
- * @param index The index to identify the specific task message
- *
- * @return nlohmann::json The task message corresponding to the given state and
- * index
- */
-inline nlohmann::json getTaskMessage(const std::string_view state, size_t index)
-{
-    if (state == "Aborted")
-    {
-        fwUpdateInProgress = false;
-        return messages::taskAborted(std::to_string(index));
-    }
-    if (state == "Started")
-    {
-        return messages::taskStarted(std::to_string(index));
-    }
-
-    BMCWEB_LOG_INFO("get msg status not found");
-    return nlohmann::json{
-        {"@odata.type", "Unknown"}, {"MessageId", "Unknown"},
-        {"Message", "Unknown"},     {"MessageArgs", {}},
-        {"Severity", "Unknown"},    {"Resolution", "Unknown"}};
-}
-
-/**
  * @brief Check the initial activation state of a software update
  *
  * This function checks if a software activation has already failed before

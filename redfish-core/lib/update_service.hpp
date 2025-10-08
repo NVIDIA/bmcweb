@@ -149,8 +149,10 @@ inline bool handleCreateTask(const boost::system::error_code& ec2,
                              sdbusplus::message_t& msg,
                              const std::shared_ptr<task::TaskData>& taskData)
 {
-    if (ec2)
+    if (ec2 or !msg)
     {
+        // Callback called with an empty message implying the timer has expired
+        fwUpdateInProgress = false;
         return task::completed;
     }
 
