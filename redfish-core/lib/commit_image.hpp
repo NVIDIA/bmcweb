@@ -89,7 +89,7 @@ inline std::vector<CommitImageValueEntry> getAllowableValues()
         return allowableValues;
     }
 
-    std::string configPath("BMCWEB_FW_UUID_MAPPING_JSON");
+    std::string configPath(BMCWEB_FW_UUID_MAPPING_JSON);
 
     if (!fs::exists(configPath))
     {
