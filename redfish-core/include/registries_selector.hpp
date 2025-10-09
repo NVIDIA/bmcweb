@@ -69,7 +69,8 @@ inline std::optional<registries::HeaderAndUrl>
     }
     if (BiosAttributeRegistry::header.registryPrefix == registryName)
     {
-        return HeaderAndUrl{BiosAttributeRegistry::header, BiosAttributeRegistry::url};
+        return HeaderAndUrl{BiosAttributeRegistry::header,
+                            BiosAttributeRegistry::url};
     }
     return std::nullopt;
 }

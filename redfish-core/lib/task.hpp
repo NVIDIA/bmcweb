@@ -211,7 +211,8 @@ struct TaskData : std::enable_shared_from_this<TaskData>
                 if (p.jsonBody.is_object())
                 {
                     payloadObj["JsonBody"] = p.jsonBody.dump(
-                        -1, ' ', true, nlohmann::json::error_handler_t::replace);
+                        -1, ' ', true,
+                        nlohmann::json::error_handler_t::replace);
                 }
                 res.jsonValue["Payload"] = std::move(payloadObj);
             }
