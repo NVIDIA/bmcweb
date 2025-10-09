@@ -289,6 +289,113 @@ inline std::string getPortType(const std::string& portType)
     return "";
 }
 
+/*
+ * @brief Add OEM PCIe port type to the response.
+ *
+ * @param[in,out]   asyncResp   Async HTTP response.
+ * @param[in]       properties  Properties map.
+ */
+
+inline void addOEMPCIePortProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    [[maybe_unused]] const boost::container::flat_map<
+        std::string, std::variant<std::string, bool, uint8_t, uint16_t, double,
+                                  size_t, std::vector<std::string>>>&
+        properties)
+{
+    bool addNvidiaType = false;
+
+    // Add OEM PCIe port properties to the response.
+    for (const auto& property : properties)
+    {
+        const std::string& propertyName = property.first;
+        if (propertyName == "TargetSpeed")
+        {
+            const double* value = std::get_if<double>(&property.second);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_DEBUG("Null value returned "
+                                 "for TargetSpeed");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["TargetSpeedGbps"] =
+                *value;
+            addNvidiaType = true;
+        }
+        else if (propertyName == "FCTimeoutErrors")
+        {
+            const double* value = std::get_if<double>(&property.second);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_DEBUG("Null value returned "
+                                 "for FCTimeoutErrors");
+                messages::internalError(asyncResp->res);
+                return;
+            }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["FCTimeoutErrors"] =
+                *value;
+            addNvidiaType = true;
+        }
+    }
+
+    if (addNvidiaType)
+    {
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+            "#NvidiaPort.v1_4_0.NvidiaPCIePort";
+    }
+}
+
+/*
+ * @brief Add OEM NVLink port type to the response.
+ *
+ * @param[in,out]   asyncResp   Async HTTP response.
+ * @param[in]       properties  Properties map.
+ */
+inline void addOEMNVLinkPortProperties(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const boost::container::flat_map<
+        std::string, std::variant<std::string, bool, uint8_t, uint16_t, double,
+                                  size_t, std::vector<std::string>>>&
+        properties)
+{
+    bool addNvidiaType = false;
+
+    // Add OEM NVLink port properties to the response.
+    for (const auto& property : properties)
+    {
+        const std::string& propertyName = property.first;
+        if (propertyName == "TXWidth")
+        {
+            const uint16_t* value = std::get_if<uint16_t>(&property.second);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_DEBUG("Null value returned "
+                                 "for TXWidth");
+            }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["TXWidth"] = *value;
+            addNvidiaType = true;
+        }
+        else if (propertyName == "RXWidth")
+        {
+            const uint16_t* value = std::get_if<uint16_t>(&property.second);
+            if (value == nullptr)
+            {
+                BMCWEB_LOG_DEBUG("Null value returned "
+                                 "for RXWidth");
+            }
+            asyncResp->res.jsonValue["Oem"]["Nvidia"]["RXWidth"] = *value;
+            addNvidiaType = true;
+        }
+    }
+
+    if (addNvidiaType)
+    {
+        asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+            "#NvidiaPort.v1_2_0.NvidiaNVLinkPort";
+    }
+}
+
 /**
  * @brief Get all switch info by requesting data
  * from the given D-Bus object.
@@ -313,11 +420,7 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 messages::internalError(asyncResp->res);
                 return;
             }
-            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-            {
-                asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaPort.v1_4_0.NvidiaPCIePort";
-            }
+            std::string portProtocol;
             for (const auto& property : properties)
             {
                 const std::string& propertyName = property.first;
@@ -334,69 +437,6 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     }
                     asyncResp->res.jsonValue["PortType"] = getPortType(*value);
                 }
-
-                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
-                {
-                    if (propertyName == "TXWidth")
-                    {
-                        const uint16_t* value =
-                            std::get_if<uint16_t>(&property.second);
-                        if (value == nullptr)
-                        {
-                            BMCWEB_LOG_DEBUG("Null value returned "
-                                             "for TXWidth");
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-
-                        asyncResp->res.jsonValue["Oem"]["Nvidia"]["TXWidth"] =
-                            *value;
-                    }
-                    else if (propertyName == "RXWidth")
-                    {
-                        const uint16_t* value =
-                            std::get_if<uint16_t>(&property.second);
-                        if (value == nullptr)
-                        {
-                            BMCWEB_LOG_DEBUG("Null value returned "
-                                             "for RXWidth");
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-                        asyncResp->res.jsonValue["Oem"]["Nvidia"]["RXWidth"] =
-                            *value;
-                    }
-                    else if (propertyName == "TargetSpeed")
-                    {
-                        const double* value =
-                            std::get_if<double>(&property.second);
-                        if (value == nullptr)
-                        {
-                            BMCWEB_LOG_DEBUG("Null value returned "
-                                             "for TargetSpeed");
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-                        asyncResp->res
-                            .jsonValue["Oem"]["Nvidia"]["TargetSpeedGbps"] =
-                            *value;
-                    }
-                    else if (propertyName == "FCTimeoutErrors")
-                    {
-                        const double* value =
-                            std::get_if<double>(&property.second);
-                        if (value == nullptr)
-                        {
-                            BMCWEB_LOG_DEBUG("Null value returned "
-                                             "for FCTimeoutErrors");
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-                        asyncResp->res
-                            .jsonValue["Oem"]["Nvidia"]["FCTimeoutErrors"] =
-                            *value;
-                    }
-                }
                 if (propertyName == "Protocol")
                 {
                     const std::string* value =
@@ -409,7 +449,7 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         return;
                     }
 
-                    std::string portProtocol = getPortProtocol(*value);
+                    portProtocol = getPortProtocol(*value);
                     if (portProtocol.find(nvlinkToken) != std::string::npos &&
                         portProtocol.size() > nvlinkToken.size())
                     {
@@ -526,6 +566,17 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         asyncResp->res.jsonValue["Status"]["State"] =
                             "StandbyOffline";
                     }
+                }
+            }
+            if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+            {
+                if (portProtocol == "PCIe")
+                {
+                    addOEMPCIePortProperties(asyncResp, properties);
+                }
+                else
+                {
+                    addOEMNVLinkPortProperties(asyncResp, properties);
                 }
             }
         },
