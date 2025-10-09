@@ -271,6 +271,112 @@ inline void checkInitialActivationState(
         });
 }
 
+inline nlohmann::json getUpdateMessage(const std::string& msgId,
+                                       std::vector<std::string>& args)
+{
+    std::string arg1;
+    std::string arg2;
+    if (!args.empty())
+    {
+        arg1 = args[0];
+    }
+    if (args.size() >= 2)
+    {
+        arg2 = args[1];
+    }
+
+    if (msgId == "Update.1.0.TargetDetermined")
+    {
+        return messages::targetDetermined(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.AllTargetsDetermined")
+    {
+        return messages::allTargetsDetermined();
+    }
+    if (msgId == "Update.1.0.UpdateInProgress")
+    {
+        return messages::updateInProgress();
+    }
+    if (msgId == "Update.1.0.TransferringToComponent")
+    {
+        return messages::transferringToComponent(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.VerifyingAtComponent")
+    {
+        return messages::verifyingAtComponent(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.InstallingOnComponent")
+    {
+        return messages::installingOnComponent(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.ApplyingOnComponent")
+    {
+        return messages::applyingOnComponent(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.TransferFailed")
+    {
+        return messages::transferFailed(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.VerificationFailed")
+    {
+        return messages::verificationFailed(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.ApplyFailed")
+    {
+        return messages::applyFailed(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.ActivateFailed")
+    {
+        return messages::activateFailed(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.AwaitToUpdate")
+    {
+        return messages::awaitToUpdate(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.AwaitToActivate")
+    {
+        return messages::awaitToActivate(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.UpdateSuccessful")
+    {
+        return messages::updateSuccessful(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.OperationTransitionedToJob")
+    {
+        return messages::operationTransitionedToJob(arg1);
+    }
+    if (msgId == "ResourceEvent.1.0.ResourceErrorsDetected")
+    {
+        return messages::resourceErrorsDetectedFormatError(arg1, arg2);
+    }
+    if (msgId == "NvidiaUpdate.1.0.ComponentUpdateSkipped")
+    {
+        return messages::componentUpdateSkipped(arg1, arg2);
+    }
+    if (msgId == "NvidiaUpdate.1.0.RecoveryStarted")
+    {
+        return messages::recoveryStarted(arg1);
+    }
+    if (msgId == "NvidiaUpdate.1.0.RecoverySuccessful")
+    {
+        return messages::recoverySuccessful(arg1);
+    }
+    if (msgId == "NvidiaUpdate.1.0.FirmwareNotInRecovery")
+    {
+        return messages::firmwareNotInRecovery(arg1);
+    }
+    if (msgId == "NvidiaUpdate.1.0.StageSuccessful")
+    {
+        return messages::stageSuccessful(arg1, arg2);
+    }
+    if (msgId == "NvidiaUpdate.1.0.DebugTokenEraseFailed")
+    {
+        return messages::debugTokenEraseFailed(arg1, arg2);
+    }
+
+    return {};
+}
+
 inline void handleLogMatchCallback(sdbusplus::message_t& m,
                                    nlohmann::json& messages)
 {
@@ -336,15 +442,7 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
             }
             else
             {
-                // Fallback: construct a basic message object when registry
-                // helper is unavailable
-                nlohmann::json msgObj;
-                msgObj["MessageId"] = rfMessage;
-                msgObj["Message"] = rfMessage;
-                if (!rfArgs.empty())
-                {
-                    msgObj["MessageArgs"] = rfArgs;
-                }
+                auto msgObj = getUpdateMessage(rfMessage, rfArgs);
                 if (!resolution.empty())
                 {
                     msgObj["Resolution"] = resolution;
