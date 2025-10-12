@@ -267,13 +267,23 @@ void requestRoutesNvidia(crow::App& app)
     requestRoutesNVSwitchReset(app);
     requestRoutesSwitchMetrics(app);
     requestRoutesPCIeEqualization(app);
-    requestRoutesPortCollection(app);
-    requestRoutesPort(app);
-    requestRoutesPortMetrics(app);
-    requestRoutesEndpointCollection(app);
-    requestRoutesEndpoint(app);
-    requestRoutesZoneCollection(app);
-    requestRoutesZone(app);
+
+    if constexpr (BMCWEB_REDFISH_ROUTES_PORT)
+    {
+        requestRoutesPortCollection(app);
+        requestRoutesPort(app);
+        requestRoutesPortMetrics(app);
+    }
+    if constexpr (BMCWEB_REDFISH_ROUTES_ENDPOINT)
+    {
+        requestRoutesEndpointCollection(app);
+        requestRoutesEndpoint(app);
+    }
+    if constexpr (BMCWEB_REDFISH_ROUTES_ZONE)
+    {
+        requestRoutesZoneCollection(app);
+        requestRoutesZone(app);
+    }
 
     requestRoutesEROTChassisCertificate(app);
 

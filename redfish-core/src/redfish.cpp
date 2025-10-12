@@ -281,11 +281,19 @@ RedfishService::RedfishService(App& app)
         requestRoutesHypervisorSystems(app);
     }
 
-    requestRoutesTelemetryService(app);
-    requestRoutesMetricReportDefinitionCollection(app);
-    requestRoutesMetricReportDefinition(app);
-    requestRoutesMetricReportCollection(app);
-    requestRoutesMetricReport(app);
+    if constexpr (BMCWEB_REDFISH_ROUTES_TELEMETRY)
+    {
+        requestRoutesTelemetryService(app);
+    }
+
+    if constexpr (BMCWEB_REDFISH_ROUTES_METRICREPORT)
+    {
+        requestRoutesMetricReportDefinitionCollection(app);
+        requestRoutesMetricReportCollection(app);
+        requestRoutesMetricReportDefinition(app);
+        requestRoutesMetricReport(app);
+    }
+
     if constexpr (BMCWEB_HOST_OS_FEATURES)
     {
         requestRoutesTriggerCollection(app);

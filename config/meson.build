@@ -162,6 +162,11 @@ feature_options = [
     'vm-websocket',
     'xtoken-auth',
     'enable-unused-upstream-code',
+    'redfish-routes-telemetry',
+    'redfish-routes-metricreport',
+    'redfish-routes-port',
+    'redfish-routes-endpoint',
+    'redfish-routes-zone',
 ]
 
 string_options = [

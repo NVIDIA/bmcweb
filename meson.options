@@ -1277,3 +1277,59 @@ option(
     value: 'disabled',
     description: 'Enable/Disable Rshim management',
 )
+
+# BMCWEB_REDFISH_ROUTES_TELEMETRY
+option(
+    'redfish-routes-telemetry',
+    type: 'feature',
+    value: 'enabled',
+    description: '''enable the redfish route
+    /redfish/v1/TelemetryService
+    ''',
+)
+
+# BMCWEB_REDFISH_ROUTES_METRICREPORT
+option(
+    'redfish-routes-metricreport',
+    type: 'feature',
+    value: 'enabled',
+    description: '''enable the redfish route 
+    /redfish/v1/TelemetryService/MetricReportDefinitions/
+    /redfish/v1/TelemetryService/MetricReportDefinitions/<str>
+    /redfish/v1/TelemetryService/MetricReports/
+    /redfish/v1/TelemetryService/MetricReports/<str>
+    ''',
+)
+
+# BMCWEB_REDFISH_ROUTES_PORT
+option(
+    'redfish-routes-port',
+    type: 'feature',
+    value: 'enabled',
+    description: '''enable the redfish route
+    /redfish/v1/Fabrics/<str>/Switches/<str>/Ports/
+    /redfish/v1/Fabrics/<str>/Switches/<str>/Ports/<str>/
+    /redfish/v1/Fabrics/<str>/Switches/<str>/Ports/<str>/Metrics/
+    ''',
+)
+
+# BMCWEB_REDFISH_ROUTES_ENDPOINT
+option(
+    'redfish-routes-endpoint',
+    type: 'feature',
+    value: 'enabled',
+    description: '''enable the redfish route
+    /redfish/v1/Fabrics/<str>/Endpoints/
+    /redfish/v1/Fabrics/<str>/Endpoints/<str>/ ''',
+)
+
+# BMCWEB_REDFISH_ROUTES_ZONE
+option(
+    'redfish-routes-zone',
+    type: 'feature',
+    value: 'enabled',
+    description: '''enable the redfish route
+    /redfish/v1/Fabrics/<str>/Zones/
+    /redfish/v1/Fabrics/<str>/Zones/<str>/
+    ''',
+)

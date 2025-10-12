@@ -45,10 +45,13 @@ inline void handleTelemetryServiceGet(
     // Nvidia Added check for BMCWEB_NVIDIA_OEM_BF_PROPERTIES
     if constexpr (!BMCWEB_NVIDIA_OEM_BF_PROPERTIES)
     {
-        asyncResp->res.jsonValue["MetricReportDefinitions"]["@odata.id"] =
-            "/redfish/v1/TelemetryService/MetricReportDefinitions";
-        asyncResp->res.jsonValue["MetricReports"]["@odata.id"] =
-            "/redfish/v1/TelemetryService/MetricReports";
+        if constexpr (BMCWEB_REDFISH_ROUTES_METRICREPORT)
+        {
+            asyncResp->res.jsonValue["MetricReportDefinitions"]["@odata.id"] =
+                "/redfish/v1/TelemetryService/MetricReportDefinitions";
+            asyncResp->res.jsonValue["MetricReports"]["@odata.id"] =
+                "/redfish/v1/TelemetryService/MetricReports";
+        }
     }
     // Nvidia Added check for BMCWEB_HOST_OS_FEATURES
     if constexpr (BMCWEB_HOST_OS_FEATURES)

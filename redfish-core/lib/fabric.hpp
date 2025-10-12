@@ -1084,15 +1084,24 @@ inline void requestRoutesFabric(App& app)
                         asyncResp->res.jsonValue["Id"] = fabricId;
                         asyncResp->res.jsonValue["Name"] =
                             fabricId + " Resource";
-                        asyncResp->res.jsonValue["Endpoints"] = {
-                            {"@odata.id",
-                             "/redfish/v1/Fabrics/" + fabricId + "/Endpoints"}};
+
+                        if constexpr (BMCWEB_REDFISH_ROUTES_ENDPOINT)
+                        {
+                            asyncResp->res.jsonValue["Endpoints"] = {
+                                {"@odata.id", "/redfish/v1/Fabrics/" +
+                                                  fabricId + "/Endpoints"}};
+                        }
+
                         asyncResp->res.jsonValue["Switches"] = {
                             {"@odata.id",
                              "/redfish/v1/Fabrics/" + fabricId + "/Switches"}};
-                        asyncResp->res.jsonValue["Zones"] = {
-                            {"@odata.id",
-                             "/redfish/v1/Fabrics/" + fabricId + "/Zones"}};
+
+                        if constexpr (BMCWEB_REDFISH_ROUTES_ZONE)
+                        {
+                            asyncResp->res.jsonValue["Zones"] = {
+                                {"@odata.id",
+                                 "/redfish/v1/Fabrics/" + fabricId + "/Zones"}};
+                        }
 
                         const std::string& connectionName =
                             connectionNames[0].first;
@@ -1608,8 +1617,13 @@ inline void requestRoutesSwitch(App& app)
                                     asyncResp->res.jsonValue["Id"] = switchId;
                                     asyncResp->res.jsonValue["Name"] =
                                         switchId + " Resource";
-                                    asyncResp->res.jsonValue["Ports"] = {
-                                        {"@odata.id", portsURI}};
+
+                                    if constexpr (BMCWEB_REDFISH_ROUTES_PORT)
+                                    {
+                                        asyncResp->res.jsonValue["Ports"] = {
+                                            {"@odata.id", portsURI}};
+                                    }
+
                                     asyncResp->res.jsonValue["Metrics"] = {
                                         {"@odata.id", switchMetricURI}};
                                     std::string switchResetURI =

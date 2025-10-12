@@ -107,8 +107,13 @@ inline void handleServiceRootGetImpl(
     asyncResp->res.jsonValue["Tasks"]["@odata.id"] = "/redfish/v1/TaskService";
     asyncResp->res.jsonValue["EventService"]["@odata.id"] =
         "/redfish/v1/EventService";
-    asyncResp->res.jsonValue["TelemetryService"]["@odata.id"] =
-        "/redfish/v1/TelemetryService";
+
+    if constexpr (BMCWEB_REDFISH_ROUTES_TELEMETRY)
+    {
+        asyncResp->res.jsonValue["TelemetryService"]["@odata.id"] =
+            "/redfish/v1/TelemetryService";
+    }
+
     manager_utils::getServiceIdentification(asyncResp, true);
     asyncResp->res.jsonValue["Cables"]["@odata.id"] = "/redfish/v1/Cables";
 
