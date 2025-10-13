@@ -196,9 +196,7 @@ inline void getProcessorCurrentProfileData(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res
-                        .jsonValue["PrimaryFloorActivationWindowMultiplier"] =
-                        *value;
+                    aResp->res.jsonValue["PFAWindowMultiplier"] = *value;
                 }
                 else if (property.first ==
                          "PrimaryFloorActivationWindowMultiplierApplied")
@@ -211,9 +209,8 @@ inline void getProcessorCurrentProfileData(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue
-                        ["AdminOverrideActiveMask"]
-                        ["PrimaryFloorActivationWindowMultiplierApplied"] =
+                    aResp->res.jsonValue["AdminOverrideActiveMask"]
+                                        ["PFAWindowMultiplierSettingApplied"] =
                         *value;
                 }
                 else if (property.first == "PrimaryFloorTargetWindowMultiplier")
@@ -226,7 +223,21 @@ inline void getProcessorCurrentProfileData(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["PrimaryFloorTargetWindowMultiplier"] =
+                    aResp->res.jsonValue["PFTWindowMultiplier"] = *value;
+                }
+                else if (property.first ==
+                         "PrimaryFloorTargetWindowMultiplierApplied")
+                {
+                    const bool* value = std::get_if<bool>(&property.second);
+                    if (value == nullptr)
+                    {
+                        BMCWEB_LOG_ERROR(
+                            "PrimaryFloorTargetWindowMultiplierApplied nullptr");
+                        messages::internalError(aResp->res);
+                        return;
+                    }
+                    aResp->res.jsonValue["AdminOverrideActiveMask"]
+                                        ["PFTWindowMultiplierSettingApplied"] =
                         *value;
                 }
                 else if (property.first ==
@@ -240,24 +251,9 @@ inline void getProcessorCurrentProfileData(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue
-                        ["AdminOverrideActiveMask"]
-                        ["PrimaryFloorTargetWindowMultiplierApplied"] = *value;
-                }
-                else if (property.first ==
-                         "PrimaryFloorTargetWindowMultiplierApplied")
-                {
-                    const bool* value = std::get_if<bool>(&property.second);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "PrimaryFloorTargetWindowMultiplierApplied nullptr");
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    aResp->res.jsonValue
-                        ["AdminOverrideActiveMask"]
-                        ["PrimaryFloorTargetWindowMultiplierApplied"] = *value;
+                    aResp->res.jsonValue["AdminOverrideActiveMask"]
+                                        ["PFTWindowMultiplierSettingApplied"] =
+                        *value;
                 }
                 else if (property.first == "PrimaryFloorActivationOffset")
                 {
@@ -269,8 +265,7 @@ inline void getProcessorCurrentProfileData(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["PrimaryFloorActivationOffsetWatts"] =
-                        *value;
+                    aResp->res.jsonValue["PFAOffsetWatts"] = *value;
                 }
                 else if (property.first ==
                          "PrimaryFloorActivationOffsetApplied")
@@ -283,10 +278,8 @@ inline void getProcessorCurrentProfileData(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res
-                        .jsonValue["AdminOverrideActiveMask"]
-                                  ["PrimaryFloorActivationOffsetApplied"] =
-                        *value;
+                    aResp->res.jsonValue["AdminOverrideActiveMask"]
+                                        ["PFAOffsetSettingApplied"] = *value;
                 }
                 else if (property.first == "AppliedProfilePath")
                 {
@@ -448,7 +441,8 @@ inline void getProcessorPowerSmoothingControlData(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["FloorWindowMultiplier"] = *value;
+                    aResp->res.jsonValue["FloorWindowMultiplierPeriod"] =
+                        *value;
                 }
                 else if (property.first == "MinPrimaryFloorActivationOffset")
                 {
@@ -460,9 +454,7 @@ inline void getProcessorPowerSmoothingControlData(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res
-                        .jsonValue["MinAllowedPrimaryFloorActivationOffset"] =
-                        *value;
+                    aResp->res.jsonValue["MinAllowedPFAOffsetWatts"] = *value;
                 }
                 else if (property.first == "MinPrimaryFloorActivationPoint")
                 {
@@ -474,9 +466,7 @@ inline void getProcessorPowerSmoothingControlData(
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res
-                        .jsonValue["MinAllowedPrimaryFloorActivationPoint"] =
-                        *value;
+                    aResp->res.jsonValue["MinAllowedPFAPointWatts"] = *value;
                 }
             }
         },
@@ -679,9 +669,7 @@ inline void getAdminProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res
-                        .jsonValue["PrimaryFloorActivationWindowMultiplier"] =
-                        *value;
+                    aResp->res.jsonValue["PFAWindowMultiplier"] = *value;
                 }
                 else if (property.first == "PrimaryFloorTargetWindowMultiplier")
                 {
@@ -693,8 +681,7 @@ inline void getAdminProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["PrimaryFloorTargetWindowMultiplier"] =
-                        *value;
+                    aResp->res.jsonValue["PFTWindowMultiplier"] = *value;
                 }
                 else if (property.first == "PrimaryFloorActivationOffset")
                 {
@@ -706,8 +693,7 @@ inline void getAdminProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["PrimaryFloorActivationOffsetWatts"] =
-                        *value;
+                    aResp->res.jsonValue["PFAOffsetWatts"] = *value;
                 }
             }
         },
@@ -918,9 +904,7 @@ inline void getProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res
-                        .jsonValue["PrimaryFloorActivationWindowMultiplier"] =
-                        *value;
+                    aResp->res.jsonValue["PFAWindowMultiplier"] = *value;
                 }
                 else if (property.first == "PrimaryFloorTargetWindowMultiplier")
                 {
@@ -930,8 +914,7 @@ inline void getProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["PrimaryFloorTargetWindowMultiplier"] =
-                        *value;
+                    aResp->res.jsonValue["PFTWindowMultiplier"] = *value;
                 }
                 else if (property.first == "PrimaryFloorActivationOffset")
                 {
@@ -941,8 +924,7 @@ inline void getProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         messages::internalError(aResp->res);
                         return;
                     }
-                    aResp->res.jsonValue["PrimaryFloorActivationOffsetWatts"] =
-                        *value;
+                    aResp->res.jsonValue["PFAOffsetWatts"] = *value;
                 }
             }
         },
@@ -1835,11 +1817,10 @@ inline void requestRoutesProcessorPowerSmoothingAdminProfile(App& app)
                         "RampDownWattsPerSecond", rampDownWattsPerSecond,
                         "RampDownHysteresisSeconds", rampDownHysteresisSeconds,
                         "SecondaryPowerFloorWatts", secondaryPowerFloorSetting,
-                        "PrimaryFloorActivationWindowMultiplier",
+                        "PFAWindowMultiplier",
                         primaryFloorActivationWindowMultiplier,
-                        "PrimaryFloorTargetWindowMultiplier",
-                        primaryFloorTargetWindowMultiplier,
-                        "PrimaryFloorActivationOffsetWatts",
+                        "PFTWindowMultiplier",
+                        primaryFloorTargetWindowMultiplier, "PFAOffsetWatts",
                         primaryFloorActivationOffset))
                 {
                     return;
@@ -1972,11 +1953,10 @@ inline void requestRoutesProcessorPowerSmoothingPresetProfile(App& app)
                         "RampDownWattsPerSecond", rampDownWattsPerSecond,
                         "RampDownHysteresisSeconds", rampDownHysteresisSeconds,
                         "SecondaryPowerFloorWatts", secondaryPowerFloorSetting,
-                        "PrimaryFloorActivationWindowMultiplier",
+                        "PFAWindowMultiplier",
                         primaryFloorActivationWindowMultiplier,
-                        "PrimaryFloorTargetWindowMultiplier",
-                        primaryFloorTargetWindowMultiplier,
-                        "PrimaryFloorActivationOffsetWatts",
+                        "PFTWindowMultiplier",
+                        primaryFloorTargetWindowMultiplier, "PFAOffsetWatts",
                         primaryFloorActivationOffset))
                 {
                     return;

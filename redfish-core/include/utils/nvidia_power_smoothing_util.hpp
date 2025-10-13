@@ -76,7 +76,7 @@ inline void getPowerSmoothingPresetProfileParameters(
                         param["Required"] = true;
                         param["MinimumValue"] = 0;
                         param["MaximumValue"] = data->size();
-			param["DataType"] = "Number";
+                        param["DataType"] = "Number";
                         parameters.push_back(param);
                     },
                     "xyz.openbmc_project.ObjectMapper", path + "/power_profile",
