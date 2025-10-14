@@ -1327,7 +1327,8 @@ inline void getSwitchChassisLink(
                     if (ec1)
                     {
                         BMCWEB_LOG_ERROR(
-                            "Chassis has no connected PCIe devices");
+                            "Chassis {} has no connected PCIe devices",
+                            chassisName);
                         return; // no pciedevices = no failures
                     }
                     std::vector<std::string>* data1 =
@@ -3325,13 +3326,14 @@ inline void getEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             }
 
             crow::connections::systemBus->async_method_call(
-                [aResp, processorPath, serviceName,
+                [aResp, chassisName, processorPath, serviceName,
                  entityLink](const boost::system::error_code& ec1,
                              std::variant<std::vector<std::string>>& resp2) {
                     if (ec1)
                     {
                         BMCWEB_LOG_ERROR(
-                            "Chassis has no connected PCIe devices");
+                            "Chassis {} has no connected PCIe devices",
+                            chassisName);
                         return; // no pciedevices = no failures
                     }
                     std::vector<std::string>* data2 =

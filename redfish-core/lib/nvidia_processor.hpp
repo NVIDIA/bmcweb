@@ -970,7 +970,8 @@ inline void getProcessorChassisLink(
                     if (getEndpointsError)
                     {
                         BMCWEB_LOG_ERROR(
-                            "Chassis has no connected PCIe devices");
+                            "Chassis {} has no connected PCIe devices",
+                            chassisName);
                         return; // no pciedevices = no failures
                     }
                     std::vector<std::string>* data1 =
