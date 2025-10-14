@@ -210,7 +210,20 @@ class Handler : public std::enable_shared_from_this<Handler>
                              exitCode);
         }
         boost::asio::streambuf buf;
-        boost::asio::read(subprocessOutput, buf, boost::asio::transfer_all());
+        boost::system::error_code readEc;
+        boost::asio::read(subprocessOutput, buf, boost::asio::transfer_all(),
+                          readEc);
+        if (readEc && readEc != boost::asio::error::eof)
+        {
+            BMCWEB_LOG_ERROR("Error reading subprocess output: {}",
+                             readEc.message());
+            for (const auto& eid : eids)
+            {
+                results.emplace_back(eid, EndpointState::Error,
+                                     std::monostate());
+            }
+            return;
+        }
         std::map<int, VdmTokenStatus> outputMap =
             parseVdmUtilWrapperOutput(buf);
         for (const auto& eid : eids)

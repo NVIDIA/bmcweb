@@ -108,8 +108,20 @@ inline void mfgTestProcExitHandler(const std::error_code& ec, int exitCode)
                                                std::string::traits_type,
                                                std::string::allocator_type>
                 buf(output);
+
+            boost::system::error_code readEc;
             boost::asio::read(*mfgTestProcOutput, buf,
-                              boost::asio::transfer_all());
+                              boost::asio::transfer_all(), readEc);
+            if (readEc && readEc != boost::asio::error::eof)
+            {
+                BMCWEB_LOG_ERROR("Error reading subprocess output: {}",
+                                 readEc.message());
+                t->state = "Exception";
+                t->messages.emplace_back(
+                    messages::taskAborted(std::to_string(t->index)));
+                return;
+            }
+
             int id = copyMfgTestOutputFile(output);
             if (id != -1)
             {

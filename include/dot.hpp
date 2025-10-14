@@ -170,8 +170,22 @@ class DotCommandHandler
             std::string txLine;
             std::string output;
             boost::asio::streambuf buf;
+
+            // Read from pipe, handling EOF gracefully
+            boost::system::error_code readEc;
             boost::asio::read(subprocessOutput, buf,
-                              boost::asio::transfer_all());
+                              boost::asio::transfer_all(), readEc);
+
+            // EOF is expected when the process exits, so it's not an error
+            if (readEc && readEc != boost::asio::error::eof)
+            {
+                BMCWEB_LOG_ERROR("Error reading subprocess output: {}",
+                                 readEc.message());
+                errorCallback(desc,
+                              "Failed to read output: " + readEc.message());
+                return;
+            }
+
             std::istream outputStream(&buf);
             while (std::getline(outputStream, line) && output.empty())
             {
