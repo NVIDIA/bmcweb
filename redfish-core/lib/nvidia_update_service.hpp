@@ -46,6 +46,7 @@
 #include <sdbusplus/bus/match.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <update_messages.hpp>
+#include <nvidia_messages.hpp>
 #include <utils/conditions_utils.hpp>
 #include <utils/dbus_log_utils.hpp>
 #include <utils/fw_utils.hpp>
@@ -2346,7 +2347,7 @@ inline void forwardImage(
             if (param.second == "UpdateFile")
             {
                 data += "Content-Type: application/octet-stream\r\n\r\n";
-                data += std::move(formpart.content);
+                data += formpart.content;
                 data += "\r\n";
                 hasUpdateFile = true;
             }

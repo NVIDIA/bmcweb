@@ -841,7 +841,7 @@ inline std::optional<MultiPartUpdate::UpdateParameters> processUpdateParameters(
 
     if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
     {
-        for (size_t urlIndex = 0; tempTargets.size(); urlIndex++)
+        for (size_t urlIndex = 0; !tempTargets.empty(); urlIndex++)
         {
             const std::string& target = tempTargets[urlIndex];
             boost::system::result<boost::urls::url_view> url =
@@ -915,7 +915,7 @@ inline std::optional<MultiPartUpdate> extractMultipartUpdateParameters(
             }
             if (params->forceUpdate && !multiRet.params.forceUpdate)
             {
-                multiRet.params.forceUpdate = std::move(params->forceUpdate);
+                multiRet.params.forceUpdate = params->forceUpdate;
             }
             // Nvidia code ends here
         }
@@ -926,7 +926,7 @@ inline std::optional<MultiPartUpdate> extractMultipartUpdateParameters(
             // Nvidia code end
             if constexpr (BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE)
             {
-                multiRet.uploadData = std::move(formpart.content);
+                multiRet.uploadData = formpart.content;
             }
         }
         else if (formFieldName == "UpdateFile")
@@ -983,7 +983,7 @@ inline void handleStartUpdate(
 
 inline void startUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, task::Payload payload,
-    std::shared_ptr<MemoryFileDescriptor> memfd, const std::string& applyTime,
+    const std::shared_ptr<MemoryFileDescriptor>& memfd, const std::string& applyTime,
     bool forceUpdate,
     const std::vector<sdbusplus::message::object_path>& targets)
 {
@@ -1116,12 +1116,15 @@ inline void processUpdateRequest(
         // Nvidia modified code to prevent compilation issues in unused code
         std::vector<std::string> targets;
         std::string applyTime;
+        // Use a separate payload instance for upstream-only branches to avoid
+        // consuming the primary 'payload' rvalue used later below.
+        task::Payload payloadForUpstream(req);
         // Nvidia modified code end
         if (!targets.empty() && targets[0] == BMCWEB_REDFISH_MANAGER_URI_NAME)
         {
             dbus::utility::getAssociationEndPoints(
                 "/xyz/openbmc_project/software/bmc/updateable",
-                [asyncResp, payload = std::move(payload),
+                [asyncResp, payload = std::move(payloadForUpstream),
                  memfd = std::move(memfd), applyTime](
                     const boost::system::error_code& ec,
                     const dbus::utility::MapperEndPoints& objectPaths) mutable {
@@ -1135,7 +1138,7 @@ inline void processUpdateRequest(
                 "xyz.openbmc_project.Software.Version"};
             dbus::utility::getSubTree(
                 "/xyz/openbmc_project/software", 1, interfaces,
-                [asyncResp, payload = std::move(payload),
+                [asyncResp, payload = std::move(payloadForUpstream),
                  memfd = std::move(memfd), applyTime,
                  targets](const boost::system::error_code& ec,
                           const dbus::utility::MapperGetSubTreeResponse&
@@ -1442,13 +1445,13 @@ inline void handleUpdateServiceMultipartUpdatePost(
         if (ec != ParserError::PARSER_SUCCESS)
         {
             // handle error
-            BMCWEB_LOG_ERROR("MIME parse failed, ec : {}",
+            BMCWEB_LOG_ERROR("MIME parse failed, ec: {}",
                              static_cast<int>(ec));
             messages::internalError(asyncResp->res);
             return;
         }
 
-        updateMultipartContext(req, asyncResp, std::move(parser));
+        updateMultipartContext(req, asyncResp, parser);
     }
     else
     {

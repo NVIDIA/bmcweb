@@ -577,8 +577,9 @@ inline void requestRoutesPCIeEqualization(App& app)
                                 txAmplitude = static_cast<uint32_t>(ul);
                             }
                         }
-                        catch (...)
+                        catch (const std::exception&)
                         {
+                            BMCWEB_LOG_DEBUG("Invalid TxAmplitude string value; falling back to type error");
                             // fall through to type error
                         }
                     }
