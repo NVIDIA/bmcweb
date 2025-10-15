@@ -305,7 +305,11 @@ inline void convertDbusObjectToOriginOfCondition(
         BMCWEB_LOG_WARNING("Empty path/OriginOfCondition");
         return;
     }
-
+    if (deviceName.empty())
+    {
+        BMCWEB_LOG_WARNING("Empty device name");
+        return;
+    }
     // if redfish URI is already provided in path, no need to compute, just use
     // it
     if (path.starts_with(redfishPrefix))
@@ -347,6 +351,11 @@ inline void convertDbusObjectToOriginOfCondition(
 
 inline std::string getDeviceRedfishURI(const std::string& device)
 {
+    if (device.empty())
+    {
+        BMCWEB_LOG_ERROR("Empty device path");
+        return "";
+    }
     // if 'device' is already a redfish URI, return it directly.
     if (std::string_view(device).starts_with(redfishPrefix))
     {

@@ -240,6 +240,7 @@ class ConfigFile
             systemUuid = bmcweb::getRandomUUID();
             needWrite = true;
         }
+
         if (fileRevision < jsonRevision)
         {
             needWrite = true;

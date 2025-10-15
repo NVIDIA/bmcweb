@@ -23,13 +23,13 @@
 #include "utils/dbus_utils.hpp"
 #include "utils/json_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
+#include "utils/nvidia_utils.hpp"
 #include "utils/time_utils.hpp"
 
 #include <systemd/sd-id128.h>
 #include <tinyxml2.h>
 #include <unistd.h>
 
-#include <boost/beast/http.hpp>
 #include <boost/beast/http/verb.hpp>
 #include <boost/container/flat_map.hpp>
 #include <boost/process.hpp>
@@ -116,7 +116,7 @@ static void generateMessageRegistry(
     // Trim leading and tailing whitespace of each arg.
     for (auto& f : fields)
     {
-        boost::trim(f);
+        redfish::trim(f);
     }
     std::span<std::string> msgArgs;
     msgArgs = {fields.data(), fields.size()};
@@ -962,9 +962,9 @@ inline std::vector<std::pair<std::string, std::variant<std::string, uint64_t>>>
     bmcweb::split(tokens, oemData, ';');
     if (!tokens.empty())
     {
-        std::vector<std::string> subTokens;
         for (auto& token : tokens)
         {
+            std::vector<std::string> subTokens;
             bmcweb::split(subTokens, token, '=');
             // Include only <key,value> pair with '=' delimiter
             if (subTokens.size() == 2)

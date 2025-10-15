@@ -24,7 +24,6 @@
 #include "utils/pcie_util.hpp"
 
 #include <app.hpp>
-#include <boost/format.hpp>
 #include <utils/collection.hpp>
 #include <utils/conditions_utils.hpp>
 #include <utils/nvidia_async_set_utils.hpp>
@@ -481,6 +480,53 @@ inline void updateSwitchPortLinks(
         "xyz.openbmc_project.ObjectMapper", objPath + "/associated_switch",
         "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
+}
+
+/**
+ * @brief Get PCIe Equalization info by requesting data
+ * from the given D-Bus object.
+ *
+ * @param[in,out]   aResp   Async HTTP response.
+ * @param[in]       objPath     D-Bus object to query.
+ * @param[in]       fabricId    fabric id for redfish URI.
+ * @param[in]       switchId    switch id for redfish URI.
+ * @param[in]       portId      port id for redfish URI.
+ */
+inline void updatePCIeEqualization(
+    const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath,
+    const std::string& fabricId, const std::string& switchId,
+    const std::string& portId)
+{
+    BMCWEB_LOG_DEBUG("Get PCIe Equalization");
+    crow::connections::systemBus->async_method_call(
+        [aResp, objPath, fabricId, switchId, portId](
+            const boost::system::error_code& ec,
+            const std::vector<std::pair<std::string, std::vector<std::string>>>&
+                object) {
+            if (ec || object.empty())
+            {
+                BMCWEB_LOG_DEBUG("No PCIe Equalization found {}", objPath);
+                return;
+            }
+
+            std::string portEqualizationURI = "/redfish/v1/Fabrics/";
+            portEqualizationURI += fabricId;
+            portEqualizationURI += "/Switches/";
+            portEqualizationURI += switchId;
+            portEqualizationURI += "/Ports/";
+            portEqualizationURI += portId;
+            portEqualizationURI += "/Oem/Nvidia/PCIeEqualization";
+            aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
+                "#NvidiaPort.v1_3_0.NvidiaPCIePort";
+            aResp->res
+                .jsonValue["Oem"]["Nvidia"]["PCIeEqualization"]["@odata.id"] =
+                portEqualizationURI;
+        },
+        "xyz.openbmc_project.ObjectMapper",
+        "/xyz/openbmc_project/object_mapper",
+        "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
+        std::array<std::string, 1>(
+            {"xyz.openbmc_project.PCIe.PCIePortConfigurationInfo"}));
 }
 
 /**
@@ -1597,8 +1643,7 @@ inline void requestRoutesSwitch(App& app)
                                             {
                                                 redfish::nvidia_fabric_utils::
                                                     getSwitchPowerModeLink(
-                                                        asyncResp,
-                                                        object2.front().second,
+                                                        asyncResp, path,
                                                         switchURI);
                                                 if (std::find(
                                                         object2.front()
@@ -2513,14 +2558,12 @@ inline void requestRoutesPort(App& app)
                                                                     systemBus
                                                                         ->async_method_call(
                                                                             [asyncResp,
-                                                                             fabricId, switchId, portId](const boost::
-                                                                                                             system::error_code
-                                                                                                                 ec4,
-                                                                                                         std::
-                                                                                                             variant<std::vector<
-                                                                                                                 std::
-                                                                                                                     string>>&
-                                                                                                                 resp4) {
+                                                                             fabricId,
+                                                                             switchId,
+                                                                             portId](const boost::
+                                                                                         system::error_code
+                                                                                             ec4,
+                                                                                     std::variant<std::vector<std::string>>& resp4) {
                                                                                 if (ec4)
                                                                                 {
                                                                                     BMCWEB_LOG_ERROR(
@@ -2554,7 +2597,8 @@ inline void requestRoutesPort(App& app)
                                                                                             portPath :
                                                                                     *data4)
                                                                                 {
-                                                                                    // Get the portId object
+                                                                                    // Get the portId
+                                                                                    // object
                                                                                     sdbusplus::
                                                                                         message::object_path
                                                                                             pPath(
@@ -2620,11 +2664,13 @@ inline void requestRoutesPort(App& app)
                                                                                                             const boost::
                                                                                                                 system::error_code
                                                                                                                     ec6,
-                                                                                                            const std::vector<std::pair<
-                                                                                                                std::
-                                                                                                                    string,
-                                                                                                                std::vector<
-                                                                                                                    std::string>>>& object) {
+                                                                                                            const std::vector<
+                                                                                                                std::pair<
+                                                                                                                    std::
+                                                                                                                        string,
+                                                                                                                    std::vector<
+                                                                                                                        std::
+                                                                                                                            string>>>& object) {
                                                                                                             if (ec6)
                                                                                                             {
                                                                                                                 // the path does not
@@ -2689,7 +2735,7 @@ inline void requestRoutesPort(App& app)
                                                                                                                         asyncResp,
                                                                                                                         portURI,
                                                                                                                         portPath,
-                                                                                                                        "#NvidiaPort.v1_2_0.NvidiaNVLinkPort");
+                                                                                                                        "#NvidiaPort.v1_3_0.NvidiaPCIePort");
                                                                                                             }
 
                                                                                                             redfish::port_utils::getPortData(
@@ -2721,6 +2767,12 @@ inline void requestRoutesPort(App& app)
                                                                                                     asyncResp,
                                                                                                     portPath,
                                                                                                     fabricId);
+                                                                                                updatePCIeEqualization(
+                                                                                                    asyncResp,
+                                                                                                    portPath,
+                                                                                                    fabricId,
+                                                                                                    switchId,
+                                                                                                    portId);
                                                                                             },
                                                                                             "xyz.openbmc_project.ObjectMapper",
                                                                                             portPath +
@@ -2731,7 +2783,8 @@ inline void requestRoutesPort(App& app)
                                                                                             "endpoints");
                                                                                     return;
                                                                                 }
-                                                                                // Couldn't find an object with that
+                                                                                // Couldn't find an
+                                                                                // object with that
                                                                                 // name. Return an error
                                                                                 messages::resourceNotFound(
                                                                                     asyncResp
@@ -3439,12 +3492,9 @@ inline void getConnectedPortsLinks(
                     sdbusplus::message::object_path portObjPath(portPath);
                     const std::string& portId = portObjPath.filename();
                     {
-                        std::string portURI =
-                            (boost::format(
-                                 "/redfish/v1/Fabrics/%s/Switches/%s/Ports/"
-                                 "%s") %
-                             fabricId % switchId % portId)
-                                .str();
+                        boost::urls::url portURI = boost::urls::format(
+                            "/redfish/v1/Fabrics/{}/Switches/{}/Ports/{}",
+                            fabricId, switchId, portId);
                         linksConnectedPortsArray.push_back(
                             {{"@odata.id", portURI}});
                     }
@@ -3926,11 +3976,9 @@ inline void getFabricsPortMetricsData(
 {
     BMCWEB_LOG_DEBUG("Access port metrics data");
 
-    std::string portMetricsURI =
-        (boost::format("/redfish/v1/Fabrics/%s/Switches/%s/Ports/"
-                       "%s/Metrics") %
-         fabricId % switchId % portId)
-            .str();
+    boost::urls::url portMetricsURI = boost::urls::format(
+        "/redfish/v1/Fabrics/{}/Switches/{}/Ports/{}/Metrics", fabricId,
+        switchId, portId);
     asyncResp->res.jsonValue = {
         {"@odata.type", "#PortMetrics.v1_3_0.PortMetrics"},
         {"@odata.id", portMetricsURI},
@@ -4520,13 +4568,13 @@ inline void requestRoutesPortMetrics(App& app)
                                                                 portPath);
                                                             return;
                                                         }
-                                                        std::string portMetricsURI =
-                                                            (boost::format(
-                                                                 "/redfish/v1/Fabrics/%s/Switches/%s/Ports/"
-                                                                 "%s/Metrics") %
-                                                             fabricId %
-                                                             switchId % portId)
-                                                                .str();
+                                                        boost::urls::url
+                                                            portMetricsURI = boost::
+                                                                urls::format(
+                                                                    "/redfish/v1/Fabrics/{}/Switches/{}/Ports/{}/Metrics",
+                                                                    fabricId,
+                                                                    switchId,
+                                                                    portId);
                                                         asyncResp->res
                                                             .jsonValue = {
                                                             {"@odata.type",
@@ -4744,92 +4792,35 @@ inline void requestRoutesSwitchPowerMode(App& app)
                     return;
                 }
 
-                std::vector<
-                    std::tuple<std::string, std::variant<bool, uint32_t>>>
-                    properties;
-
-                // Define the mapping between JSON property names and D-Bus
-                // property names
-                const std::map<std::string, std::string> propertyNameMap = {
-                    {"L1HWModeEnabled", "HWModeControl"},
-                    {"L1FWThermalThrottlingModeEnabled", "FWThrottlingMode"},
-                    {"L1PredictionModeEnabled", "PredictionMode"},
-                    {"L1HWThresholdBytes", "HWThreshold"},
-                    {"L1HWActiveTimeMicroseconds", "HWActiveTime"},
-                    {"L1HWInactiveTimeMicroseconds", "HWInactiveTime"},
-                    {"L1PredictionInactiveTimeMicroseconds",
-                     "HWPredictionInactiveTime"}};
-
-                // Parse JSON body and extract properties
-                nlohmann::json requestJson;
-                if (!redfish::json_util::processJsonFromRequest(
-                        asyncResp->res, req, requestJson))
+                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
                 {
                     return;
                 }
-
-                bool propertyFound = false;
-                std::string propertyName;
-                for (const auto& [jsonProperty, dbusProperty] : propertyNameMap)
+                std::optional<bool> l1PredictionModeEnabled;
+                if (!redfish::json_util::readJsonAction(
+                        req, asyncResp->res, "L1PredictionModeEnabled",
+                        l1PredictionModeEnabled))
                 {
-                    auto it = requestJson.find(jsonProperty);
-                    if (it == requestJson.end())
-                    {
-                        continue;
-                    }
-
-                    propertyFound = true;
-
-                    try
-                    {
-                        if (jsonProperty == "L1HWThresholdBytes" ||
-                            jsonProperty == "L1HWActiveTimeMicroseconds" ||
-                            jsonProperty == "L1HWInactiveTimeMicroseconds" ||
-                            jsonProperty ==
-                                "L1PredictionInactiveTimeMicroseconds")
-                        {
-                            uint32_t value = it->get<uint32_t>();
-                            properties.emplace_back(
-                                dbusProperty,
-                                std::variant<bool, uint32_t>(value));
-                        }
-                        else
-                        {
-                            bool value = it->get<bool>();
-                            properties.emplace_back(
-                                dbusProperty,
-                                std::variant<bool, uint32_t>(value));
-                        }
-                        propertyName = dbusProperty;
-                    }
-                    catch (const std::exception& e)
-                    {
-                        messages::propertyValueTypeError(
-                            asyncResp->res, jsonProperty, e.what());
-                        return;
-                    }
-                }
-
-                if (!propertyFound)
-                {
-                    messages::propertyMissing(asyncResp->res, "PowerMode");
                     return;
                 }
-
-                // Get switch object and update properties
-                redfish::nvidia_fabric_utils::getSwitchObject(
-                    asyncResp, fabricId, switchId,
-                    [properties, propertyName](
-                        const std::shared_ptr<bmcweb::AsyncResp>& asyncResp1,
-                        const std::string& fabricId1,
-                        const std::string& switchId1,
-                        const std::string& objectPath,
-                        [[maybe_unused]] const dbus::utility::MapperServiceMap&
-                            serviceMap) {
-                        redfish::nvidia_fabric_utils::patchL1PowerMode(
-                            asyncResp1, fabricId1, switchId1, properties,
-                            propertyName, objectPath, serviceMap);
-                    });
+                if (l1PredictionModeEnabled)
+                {
+                    // Get switch object and update properties
+                    redfish::nvidia_fabric_utils::getSwitchObject(
+                        asyncResp, fabricId, switchId,
+                        [l1PredictionModeEnabled](
+                            const std::shared_ptr<bmcweb::AsyncResp>&
+                                asyncResp1,
+                            [[maybe_unused]] const std::string& fabricId1,
+                            [[maybe_unused]] const std::string& switchId1,
+                            const std::string& objectPath,
+                            [[maybe_unused]] const dbus::utility::
+                                MapperServiceMap& serviceMap) {
+                            redfish::nvidia_fabric_utils::patchL1PowerMode(
+                                asyncResp1, *l1PredictionModeEnabled,
+                                objectPath, serviceMap);
+                        });
+                }
             });
 }
 

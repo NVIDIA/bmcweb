@@ -1270,3 +1270,9 @@ option(
     value: 'disabled', 
     description: 'Enable unused upstream routes'
 )
+option(
+    'rshim-support',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enable/Disable Rshim management',
+)

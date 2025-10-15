@@ -151,7 +151,6 @@ inline void handleServiceRootGet(
     handleServiceRootGetImpl(asyncResp);
     // Nvidia code starts here
     getBMCObject(asyncResp);
-    getServiceIdentification(asyncResp);
     // Nvidia code ends here
 }
 

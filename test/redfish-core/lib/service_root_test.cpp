@@ -110,6 +110,12 @@ void assertServiceRootGet(crow::Response& res)
 
     size_t expectedSize = 24;
 
+    // handle ServiceIdentification when empty
+    if (json.contains("ServiceIdentification"))
+    {
+        expectedSize++;
+    }
+
     if (BMCWEB_REDFISH_AGGREGATION)
     {
         EXPECT_EQ(json["AggregationService"]["@odata.id"],

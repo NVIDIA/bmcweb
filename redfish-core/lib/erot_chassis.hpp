@@ -457,7 +457,7 @@ inline void getEROTChassis(const crow::Request& req,
                     {
                         if (interface == "xyz.openbmc_project.Common.UUID")
                         {
-                            redfish::chassis_utils::getChassisUUID(
+                            redfish::nvidia_chassis_utils::getChassisUUID(
                                 req, asyncResp, connectionName.first, path,
                                 true);
                         }
@@ -485,20 +485,22 @@ inline void getEROTChassis(const crow::Request& req,
                         else if (interface ==
                                  "xyz.openbmc_project.Inventory.Item.Chassis")
                         {
-                            redfish::chassis_utils::getChassisType(
+                            redfish::nvidia_chassis_utils::getChassisType(
                                 asyncResp, connectionName.first, path);
                         }
                         else if (
                             interface ==
                             "xyz.openbmc_project.Inventory.Decorator.Asset")
                         {
-                            redfish::chassis_utils::getChassisManufacturer(
-                                asyncResp, connectionName.first, path);
+                            redfish::nvidia_chassis_utils::
+                                getChassisManufacturer(
+                                    asyncResp, connectionName.first, path);
 
-                            redfish::chassis_utils::getChassisSerialNumber(
-                                asyncResp, connectionName.first, path);
+                            redfish::nvidia_chassis_utils::
+                                getChassisSerialNumber(
+                                    asyncResp, connectionName.first, path);
 
-                            redfish::chassis_utils::getChassisSKU(
+                            redfish::nvidia_chassis_utils::getChassisSKU(
                                 asyncResp, connectionName.first, path);
                         }
                         else if (
@@ -789,7 +791,7 @@ inline void handleEROTChassisPatch(
 
                             if (backgroundCopyEnabled.has_value())
                             {
-                                redfish::chassis_utils::
+                                redfish::nvidia_chassis_utils::
                                     setBackgroundCopyEnabled(
                                         req, asyncResp, chassisId, chassisUUID,
                                         backgroundCopyEnabled.value());
@@ -797,7 +799,7 @@ inline void handleEROTChassisPatch(
 
                             if (inBandEnabled.has_value())
                             {
-                                redfish::chassis_utils::setInBandEnabled(
+                                redfish::nvidia_chassis_utils::setInBandEnabled(
                                     req, asyncResp, chassisId, chassisUUID,
                                     inBandEnabled.value());
                             }

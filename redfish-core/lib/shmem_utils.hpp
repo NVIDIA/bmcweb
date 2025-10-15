@@ -154,6 +154,8 @@ const static std::string processorModule =
     platformDevicePrefix + "ProcessorModule_";
 const static std::string cpu = platformDevicePrefix + "CPU_";
 constexpr const std::string_view nvLink = "NVLink_";
+constexpr const std::string_view nvLinkType =
+    "(NVLink|InterswitchPort|NVLinkManagement)_";
 constexpr const std::string_view cpuProcessor = "CPU_";
 constexpr const std::string_view processor = "ProcessorModule_";
 constexpr const std::string_view pcieLink = "PCIeLink_";
@@ -231,10 +233,9 @@ inline const MetricsReplacement gpuTempPlatformEnvironmentMetrics(
     gpuTemp, "{GTWild}", "GTWild");
 
 inline void replaceNumber(const std::string& input, const std::string& key,
-                          const std::string& value,
+                          const std::regex& pattern, const std::string& value,
                           std::set<std::string>& replacedName)
 {
-    std::regex pattern(key + "(\\d+)");
     std::smatch match;
     const std::string& res = input;
     if (value == "{BSWild}" || value == "{PDBWild}" || value == "{BFSWild}")
@@ -266,8 +267,7 @@ inline void replaceNumber(const std::string& input, const std::string& key,
     {
         if (std::regex_search(res, match, pattern))
         {
-            std::string number = match[1].str();
-            replacedName.insert(number);
+            replacedName.insert(match[1].str());
         }
     }
 }
@@ -280,6 +280,7 @@ inline void metricsReplacementsNonPlatformMetrics(
     // Precompute allowed flags based on the wildcards present in
     // "MetricProperties"
     bool allowNVSwitchId = (wildcardSet.contains("NVSwitchId"));
+    bool allowLinkType = (wildcardSet.contains("LinkType"));
     bool allowNvlinkId = (wildcardSet.contains("NvlinkId"));
     bool allowGpuId = (wildcardSet.contains("GpuId"));
     bool allowCpuId = (wildcardSet.contains("CpuId"));
@@ -297,6 +298,7 @@ inline void metricsReplacementsNonPlatformMetrics(
     std::smatch match;
     std::set<int> nvSwitchIdType1;
     std::set<int> nvlinkIdType1;
+    std::set<std::string> nvlinkType1;
     std::set<int> gpuId;
     std::set<int> gpmInstance;
     std::set<int> networkAdapterNId;
@@ -324,13 +326,21 @@ inline void metricsReplacementsNonPlatformMetrics(
                     nvSwitchIdType1.insert(number);
                 }
             }
-            if (allowNvlinkId)
+            if (allowLinkType || allowNvlinkId)
             {
-                std::regex nvLinkPattern(std::string(nvLink) + "(\\d+)");
-                if (std::regex_search(property, match, nvLinkPattern))
+                std::regex nvLinkPattern(std::string(nvLinkType) + "(\\d+)");
+                if (std::regex_search(property, match, nvLinkPattern) &&
+                    match.size() > 2)
                 {
-                    int number = std::stoi(match[1].str());
-                    nvlinkIdType1.insert(number);
+                    if (allowLinkType)
+                    {
+                        nvlinkType1.insert(match[1].str());
+                    }
+                    if (allowNvlinkId)
+                    {
+                        int number = std::stoi(match[2].str());
+                        nvlinkIdType1.insert(number);
+                    }
                 }
             }
         }
@@ -560,6 +570,18 @@ inline void metricsReplacementsNonPlatformMetrics(
             wildCards.push_back({
                 {"Name", "NVSwitchId"},
                 {"Values", devCountSwitchType1},
+            });
+        }
+        if (allowLinkType)
+        {
+            nlohmann::json devNVlinkType1 = nlohmann::json::array();
+            for (const auto& item : nvlinkType1)
+            {
+                devNVlinkType1.push_back(item);
+            }
+            wildCards.push_back({
+                {"Name", "LinkType"},
+                {"Values", devNVlinkType1},
             });
         }
         if (allowNvlinkId)
@@ -802,8 +824,7 @@ inline void metricsReplacementsNonPlatformMetrics(
 }
 
 inline void metricsReplacements(
-    const MetricsReplacement& replacement,
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const MetricsReplacement& replacement, nlohmann::json& wildCards,
     const std::vector<std::string>& inputMetricProperties)
 {
     // Only process if enabled
@@ -812,12 +833,13 @@ inline void metricsReplacements(
         return;
     }
 
-    nlohmann::json& wildCards = asyncResp->res.jsonValue["Wildcards"];
     std::set<std::string> wildCardValues;
+    // Compile regex once instead of recreating it in replaceNumber
+    std::regex pattern(replacement.searchPattern + "(\\d+)");
 
     for (const auto& property : inputMetricProperties)
     {
-        replaceNumber(property, replacement.searchPattern,
+        replaceNumber(property, replacement.searchPattern, pattern,
                       replacement.wildcardPattern, wildCardValues);
     }
 
@@ -871,8 +893,7 @@ inline void getShmemMetricsDefinitionWildCard(
 
     std::vector<std::string> inputMetricProperties;
     std::unordered_set<std::string> inputMetricPropertiesSet;
-    nlohmann::json wildCards = nlohmann::json::array();
-    asyncResp->res.jsonValue["Wildcards"] = wildCards;
+    asyncResp->res.jsonValue["Wildcards"] = nlohmann::json::array();
 
     try
     {
@@ -880,6 +901,7 @@ inline void getShmemMetricsDefinitionWildCard(
         BMCWEB_LOG_CRITICAL("Attempt to access tal but not available");
         return;
 #else
+        nlohmann::json& wildCards = asyncResp->res.jsonValue["Wildcards"];
         const auto& values = tal::TelemetryAggregator::getAllMrds(metricId);
         for (const auto& e : values)
         {
@@ -973,54 +995,55 @@ inline void getShmemMetricsDefinitionWildCard(
                                   allowedWildcards);
             updateReplacementFlag(gpuTempPlatformEnvironmentMetrics,
                                   allowedWildcards);
-            metricsReplacements(chassisPlatformEnvironmentMetrics, asyncResp,
+
+            metricsReplacements(chassisPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
-            metricsReplacements(processorPlatformEnvironmentMetrics, asyncResp,
+            metricsReplacements(processorPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
-            metricsReplacements(cpuPlatformEnvironmentMetrics, asyncResp,
+            metricsReplacements(cpuPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
-            metricsReplacements(fpgaPlatformEnvironmentMetrics, asyncResp,
+            metricsReplacements(fpgaPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
-            metricsReplacements(gpuPlatformEnvironmentMetrics, asyncResp,
+            metricsReplacements(gpuPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
-            metricsReplacements(nvSwitchPlatformEnvironmentMetrics, asyncResp,
+            metricsReplacements(nvSwitchPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
             metricsReplacements(pcieRetimerPlatformEnvironmentMetrics,
-                                asyncResp, inputMetricProperties);
-            metricsReplacements(pcieSwitchPlatformEnvironmentMetrics, asyncResp,
+                                wildCards, inputMetricProperties);
+            metricsReplacements(pcieSwitchPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
             metricsReplacements(nvLinkManagementNICPlatformEnvironmentMetrics,
-                                asyncResp, inputMetricProperties);
+                                wildCards, inputMetricProperties);
             metricsReplacements(
-                nvLinkManagementNICPortPlatformEnvironmentMetrics, asyncResp,
+                nvLinkManagementNICPortPlatformEnvironmentMetrics, wildCards,
                 inputMetricProperties);
-            metricsReplacements(ioBoardPlatformEnvironmentMetrics, asyncResp,
+            metricsReplacements(ioBoardPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
-            metricsReplacements(pdbPlatformEnvironmentMetrics, asyncResp,
+            metricsReplacements(pdbPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
-            metricsReplacements(blueFieldPlatformEnvironmentMetrics, asyncResp,
+            metricsReplacements(blueFieldPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
             metricsReplacements(blueFieldSensorsPlatformEnvironmentMetrics,
-                                asyncResp, inputMetricProperties);
+                                wildCards, inputMetricProperties);
             metricsReplacements(storageBPSensorsPlatformEnvironmentMetrics,
-                                asyncResp, inputMetricProperties);
+                                wildCards, inputMetricProperties);
             metricsReplacements(storageBPDevicePlatformEnvironmentMetrics,
-                                asyncResp, inputMetricProperties);
-            metricsReplacements(inletPlatformEnvironmentMetrics, asyncResp,
+                                wildCards, inputMetricProperties);
+            metricsReplacements(inletPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
-            metricsReplacements(pcbPlatformEnvironmentMetrics, asyncResp,
+            metricsReplacements(pcbPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
-            metricsReplacements(hscPlatformEnvironmentMetrics, asyncResp,
+            metricsReplacements(hscPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
-            metricsReplacements(sxmPlatformEnvironmentMetrics, asyncResp,
+            metricsReplacements(sxmPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
-            metricsReplacements(connectXPlatformEnvironmentMetrics, asyncResp,
+            metricsReplacements(connectXPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
-            metricsReplacements(sxmSmaPlatformEnvironmentMetrics, asyncResp,
+            metricsReplacements(sxmSmaPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
-            metricsReplacements(cxSmaPlatformEnvironmentMetrics, asyncResp,
+            metricsReplacements(cxSmaPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
-            metricsReplacements(gpuTempPlatformEnvironmentMetrics, asyncResp,
+            metricsReplacements(gpuTempPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
         }
         else

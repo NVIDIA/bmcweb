@@ -34,6 +34,7 @@
 #include "network_adapters.hpp"
 #include "network_adapters_generic.hpp"
 #include "network_protocol.hpp"
+#include "nvidia_bios.hpp"
 #include "nvidia_debug_token.hpp"
 #include "nvidia_dpu_system_profiles.hpp"
 #include "nvidia_error_injection.hpp"

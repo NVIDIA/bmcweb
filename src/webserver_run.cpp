@@ -68,6 +68,9 @@ int run()
 
     iface->initialize();
 
+    // Enable SystemD service watchdog kicking. Service file has timeout of 60s.
+    // crow::watchdog::ServiceWD watchdog;
+
     // Load the peristent data
     persistent_data::getConfig();
 

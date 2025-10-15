@@ -603,7 +603,7 @@ inline void getSysGUID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 return;
             }
             asyncResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaProcessor.v1_6_0.NvidiaGPU";
+                "#NvidiaProcessor.v1_7_0.NvidiaGPU";
             asyncResp->res
                 .jsonValue["Oem"]["Nvidia"]["MNNVLinkTopology"]["SystemGUID"] =
                 property;
@@ -637,7 +637,7 @@ inline void getCCModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             for (const auto& property : properties)
             {
                 json["Oem"]["Nvidia"]["@odata.type"] =
-                    "#NvidiaProcessor.v1_6_0.NvidiaGPU";
+                    "#NvidiaProcessor.v1_7_0.NvidiaGPU";
                 if (property.first == "CCModeEnabled")
                 {
                     const bool* ccModeEnabled =
@@ -692,7 +692,7 @@ inline void getReconfigPermissionsData(
             auto reconfigPermissionsName =
                 sdbusplus::message::object_path(objPath).filename();
             aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaProcessor.v1_6_0.NvidiaGPU";
+                "#NvidiaProcessor.v1_7_0.NvidiaGPU";
             std::string reconfigPermissionsType;
             if (objPath.find("InbandReconfigPermissions") != std::string::npos)
             {
@@ -818,7 +818,7 @@ inline void populateErrorInjectionData(
                             continue;
                         }
                         aResp2->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
-                            "#NvidiaProcessor.v1_6_0.NvidiaGPU";
+                            "#NvidiaProcessor.v1_7_0.NvidiaGPU";
                         aResp2->res
                             .jsonValue["Oem"]["Nvidia"]["ErrorInjection"] = {
                             {"@odata.id",
@@ -862,7 +862,7 @@ inline void getCCModePendingData(
             }
             nlohmann::json& json = aResp->res.jsonValue;
             json["Oem"]["Nvidia"]["@odata.type"] =
-                "#NvidiaProcessor.v1_6_0.NvidiaGPU";
+                "#NvidiaProcessor.v1_7_0.NvidiaGPU";
             for (const auto& property : properties)
             {
                 if (property.first == "PendingCCModeState")
@@ -1896,6 +1896,27 @@ inline void getWorkLoadPowerInfo(
         powerProfileURI;
 }
 
+inline std::string convertMsbToLsb(const std::string* ibGuid)
+{
+    std::string lsb = *ibGuid;
+
+    if (lsb.size() % 2 != 0)
+    {
+        BMCWEB_LOG_ERROR("Invalid IBGUID size");
+        return "";
+    }
+
+    for (uint32_t i = 0; i < lsb.size(); i += 2)
+    {
+        std::swap(lsb[i], lsb[i + 1]);
+    }
+
+    // Reverse entire string
+    std::reverse(lsb.begin(), lsb.end());
+
+    return lsb;
+}
+
 inline void getMNNVLinkTopologyInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
     const std::string& service, const std::string& objPath,
@@ -1948,6 +1969,8 @@ inline void getMNNVLinkTopologyInfo(
             if (ibGuid != nullptr)
             {
                 json["Oem"]["Nvidia"]["MNNVLinkTopology"]["IBGUID"] = *ibGuid;
+                json["Oem"]["Nvidia"]["MNNVLinkTopology"]["LsbIBGUID"] =
+                    convertMsbToLsb(ibGuid);
             }
 
             if (traySerialNumber != nullptr)
@@ -2529,7 +2552,7 @@ static void getEgmModePendingDataHandler(
     }
 
     nlohmann::json& json = aResp->res.jsonValue;
-    json["Oem"]["Nvidia"]["@odata.type"] = "#NvidiaProcessor.v1_6_0.NvidiaGPU";
+    json["Oem"]["Nvidia"]["@odata.type"] = "#NvidiaProcessor.v1_7_0.NvidiaGPU";
     for (const auto& property : properties)
     {
         if (property.first == "PendingEGMModeState")
@@ -2587,7 +2610,7 @@ inline void getEgmModeDataHandler(
     for (const auto& property : properties)
     {
         json["Oem"]["Nvidia"]["@odata.type"] =
-            "#NvidiaProcessor.v1_6_0.NvidiaGPU";
+            "#NvidiaProcessor.v1_7_0.NvidiaGPU";
         if (property.first == "EGMModeEnabled")
         {
             const bool* egmModeEnabled = std::get_if<bool>(&property.second);

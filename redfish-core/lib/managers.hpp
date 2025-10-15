@@ -901,6 +901,7 @@ inline void requestRoutesManager(App& app)
                 boost::urls::format(
                     "/redfish/v1/Managers/{}/EthernetInterfaces",
                     BMCWEB_REDFISH_MANAGER_URI_NAME);
+            manager_utils::getServiceIdentification(asyncResp, false);
 
             manager_utils::getServiceIdentification(asyncResp, false);
 

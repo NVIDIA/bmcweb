@@ -205,6 +205,8 @@ inline void handleMessageRegistryGet(
     {
         if constexpr (BMCWEB_BIOS)
         {
+            asyncResp->res.jsonValue.erase("RegistryPrefix");
+            asyncResp->res.jsonValue.erase("Messages");
             handleBiosAttrRegistryGet(app, req, asyncResp);
         }
     }

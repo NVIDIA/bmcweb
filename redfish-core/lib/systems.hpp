@@ -20,6 +20,7 @@
 #include "hypervisor_system.hpp"
 #include "led.hpp"
 #include "logging.hpp"
+#include "nvidia_bios.hpp"
 #include "nvidia_cpu_debug_token.hpp"
 #include "nvidia_system.hpp"
 #include "query.hpp"
@@ -3767,6 +3768,7 @@ inline void handleComputerSystemGet(
             "/redfish/v1/Systems/" +
             std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) + "/ResetActionInfo";
     }
+    handleOemResetBiosGet(asyncResp);
 
     asyncResp->res.jsonValue["LogServices"]["@odata.id"] =
         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
@@ -3991,6 +3993,7 @@ inline void handleComputerSystemGet(
     if constexpr (BMCWEB_HOST_OS_FEATURES)
     {
         getPowerRestorePolicy(asyncResp);
+        getPowerOnDelaySeconds(asyncResp);
         getStopBootOnFault(asyncResp);
         getAutomaticRetryPolicy(asyncResp);
     }

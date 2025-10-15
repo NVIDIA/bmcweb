@@ -22,6 +22,7 @@
 
 #include <boost/asio/local/stream_protocol.hpp>
 #include <boost/asio/write.hpp>
+#include <boost/beast/core/buffers_to_string.hpp>
 #include <boost/beast/core/flat_static_buffer.hpp> // For flat_static_buffer
 #include <boost/container/flat_map.hpp>
 

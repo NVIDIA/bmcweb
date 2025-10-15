@@ -87,6 +87,8 @@ class MultipartParser
     /**
      * @brief Constructor for direct writing to a file descriptor (e.g., memfd).
      *        The parser will write UpdateFile content directly to this fd.
+     *
+     * @param fdIn File descriptor to write UpdateFile content to
      */
     explicit MultipartParser(int fdIn) : targetFd(fdIn) {}
 

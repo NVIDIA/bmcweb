@@ -1577,10 +1577,15 @@ inline void requestRoutesMetricReportDefinitionCollection(App& app)
             telemetry::handleMetricReportDefinitionCollectionGet,
             std::ref(app)));
 
-    BMCWEB_ROUTE(app, "/redfish/v1/TelemetryService/MetricReportDefinitions/")
-        .privileges(redfish::privileges::postMetricReportDefinitionCollection)
-        .methods(boost::beast::http::verb::post)(
-            std::bind_front(handleMetricReportDefinitionsPost, std::ref(app)));
+    if constexpr (!BMCWEB_SHMEM_PLATFORM_METRICS)
+    {
+        BMCWEB_ROUTE(app,
+                     "/redfish/v1/TelemetryService/MetricReportDefinitions/")
+            .privileges(
+                redfish::privileges::postMetricReportDefinitionCollection)
+            .methods(boost::beast::http::verb::post)(std::bind_front(
+                handleMetricReportDefinitionsPost, std::ref(app)));
+    }
 }
 
 inline void requestRoutesMetricReportDefinition(App& app)
@@ -1597,16 +1602,19 @@ inline void requestRoutesMetricReportDefinition(App& app)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleMetricReportGet, std::ref(app)));
 
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/TelemetryService/MetricReportDefinitions/<str>/")
-        .privileges(redfish::privileges::deleteMetricReportDefinition)
-        .methods(boost::beast::http::verb::delete_)(
-            std::bind_front(handleMetricReportDelete, std::ref(app)));
+    if constexpr (!BMCWEB_SHMEM_PLATFORM_METRICS)
+    {
+        BMCWEB_ROUTE(
+            app, "/redfish/v1/TelemetryService/MetricReportDefinitions/<str>/")
+            .privileges(redfish::privileges::deleteMetricReportDefinition)
+            .methods(boost::beast::http::verb::delete_)(
+                std::bind_front(handleMetricReportDelete, std::ref(app)));
 
-    BMCWEB_ROUTE(app,
-                 "/redfish/v1/TelemetryService/MetricReportDefinitions/<str>/")
-        .privileges(redfish::privileges::patchMetricReportDefinition)
-        .methods(boost::beast::http::verb::patch)(
-            std::bind_front(telemetry::handleReportPatch, std::ref(app)));
+        BMCWEB_ROUTE(
+            app, "/redfish/v1/TelemetryService/MetricReportDefinitions/<str>/")
+            .privileges(redfish::privileges::patchMetricReportDefinition)
+            .methods(boost::beast::http::verb::patch)(
+                std::bind_front(telemetry::handleReportPatch, std::ref(app)));
+    }
 }
 } // namespace redfish

@@ -581,43 +581,6 @@ inline void getBMCAssetData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         "Asset");
 }
 
-inline void setServiceIdentification(std::shared_ptr<bmcweb::AsyncResp> aResp,
-                                     std::string sysId)
-{
-    sdbusplus::asio::setProperty(
-        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
-        "/xyz/openbmc_project/Software/Settings/ServiceIdentification",
-        "xyz.openbmc_project.Inventory.Decorator.AssetTag", "AssetTag", sysId,
-        [aResp{std::move(aResp)}](const boost::system::error_code ec) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR(
-                    "DBUS response error on ServiceIdentification setProperty: {}",
-                    ec);
-                return;
-            }
-        });
-}
-
-inline void getServiceIdentification(
-    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
-{
-    sdbusplus::asio::getProperty<std::string>(
-        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
-        "/xyz/openbmc_project/Software/Settings/ServiceIdentification",
-        "xyz.openbmc_project.Inventory.Decorator.AssetTag", "AssetTag",
-        [asyncResp](const boost::system::error_code& ec,
-                    const std::string& sysId) {
-            if (ec)
-            {
-                BMCWEB_LOG_DEBUG(
-                    "DBUS response error for ServiceIdentification {}", ec);
-                return;
-            }
-            asyncResp->res.jsonValue["ServiceIdentification"] = sysId;
-        });
-}
-
 inline void getLinkManagerForSwitches(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objPath)
@@ -1625,8 +1588,6 @@ inline void extendManagerGet(
         "/xyz/openbmc_project/inventory", int32_t(0),
         std::array<const char*, 1>{"xyz.openbmc_project.Inventory."
                                    "Item.ManagementService"});
-
-    getServiceIdentification(asyncResp);
 }
 
 inline void extendManagerOEM(
@@ -1815,6 +1776,16 @@ inline void extendManagerOEMActions(
         oemActionsEinj["@Redfish.ActionInfo"] = boost::urls::format(
             "/redfish/v1/Managers/{}/Oem/Nvidia/SWErrorInjectionActionInfo",
             BMCWEB_REDFISH_MANAGER_URI_NAME);
+    }
+
+    if constexpr (BMCWEB_RSHIM_SUPPORT)
+    {
+        nlohmann::json& oemActionsRshim = oemActions["#NvidiaManager.SetRshim"];
+        oemActionsRshim["target"] = boost::urls::format(
+            "/redfish/v1/Managers/{}/Actions/Oem/NvidiaManager.SetRshim",
+            BMCWEB_REDFISH_MANAGER_URI_NAME);
+        oemActionsRshim["Rshim"]["@Redfish.AllowableValues"] = {
+            "Enabled", "Disabled", "Forced"};
     }
 }
 

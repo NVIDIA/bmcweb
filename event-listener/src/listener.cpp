@@ -4,7 +4,11 @@
 #include "utils/dbus_log_utils.hpp"
 #include "utils/json_utils.hpp"
 
-#include <boost/beast/core.hpp>
+#include <boost/asio/dispatch.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/ip/address.hpp>
+#include <boost/asio/socket_base.hpp>
+#include <boost/beast/core/tcp_stream.hpp>
 #include <boost/beast/http/message.hpp>
 #include <boost/beast/http/message_generator.hpp>
 #include <boost/beast/http/parser.hpp>
@@ -12,7 +16,6 @@
 #include <boost/beast/http/string_body.hpp>
 #include <boost/beast/http/write.hpp>
 #include <boost/beast/version.hpp>
-#include <boost/config.hpp>
 #include <nlohmann/json.hpp>
 #include <phosphor-logging/lg2.hpp>
 #include <sdbusplus/asio/connection.hpp>
@@ -280,9 +283,8 @@ class session : public std::enable_shared_from_this<session>
             // Write the response
             boost::beast::http::async_write(
                 self_.stream_, *sp,
-                beast::bind_front_handler(&session::on_write,
-                                          self_.shared_from_this(),
-                                          sp->need_eof()));
+                std::bind_front(&session::on_write, &self_, sp->need_eof(),
+                                self_.shared_from_this()));
         }
     };
 
@@ -316,10 +318,10 @@ class session : public std::enable_shared_from_this<session>
         // code is written to be thread-safe by default.
         net::dispatch(
             stream_.get_executor(),
-            beast::bind_front_handler(&session::do_read, shared_from_this()));
+            std::bind_front(&session::do_read, this, shared_from_this()));
     }
 
-    void do_read()
+    void do_read(const std::shared_ptr<session>& /*self*/)
     {
         // Make the request empty before reading,
         // otherwise the operation behavior is undefined.
@@ -331,10 +333,11 @@ class session : public std::enable_shared_from_this<session>
         // Read a request
         http::async_read(
             stream_, buffer_, req_,
-            beast::bind_front_handler(&session::on_read, shared_from_this()));
+            std::bind_front(&session::on_read, this, shared_from_this()));
     }
 
-    void on_read(beast::error_code ec, std::size_t bytes_transferred)
+    void on_read(const std::shared_ptr<session> /*self*/, beast::error_code ec,
+                 std::size_t bytes_transferred)
     {
         boost::ignore_unused(bytes_transferred);
 
@@ -359,8 +362,8 @@ class session : public std::enable_shared_from_this<session>
         handle_request(bus_, std::move(req_), lambda_);
     }
 
-    void on_write(bool close, beast::error_code ec,
-                  std::size_t bytes_transferred)
+    void on_write(bool close, const std::shared_ptr<session>& /*self*/,
+                  boost::beast::error_code ec, std::size_t bytes_transferred)
     {
         boost::ignore_unused(bytes_transferred);
 
@@ -384,7 +387,7 @@ class session : public std::enable_shared_from_this<session>
         res_ = nullptr;
 
         // Read another request
-        do_read();
+        do_read(shared_from_this());
     }
 
     void do_close()
@@ -465,12 +468,12 @@ class listener : public std::enable_shared_from_this<listener>
         lg2::debug("the current number of sessions: {NUM}", "NUM",
                    redfishEventMgr::getSessNum());
         // The new connection gets its own strand
-        acceptor_.async_accept(ioc_,
-                               beast::bind_front_handler(&listener::on_accept,
-                                                         shared_from_this()));
+        acceptor_.async_accept(ioc_, std::bind_front(&listener::on_accept, this,
+                                                     shared_from_this()));
     }
 
-    void on_accept(beast::error_code ec, tcp::socket socket)
+    void on_accept(const std::shared_ptr<listener>& /*self*/,
+                   const boost::system::error_code& ec, tcp::socket socket)
     {
         if (ec)
         {

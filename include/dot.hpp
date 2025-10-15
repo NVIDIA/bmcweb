@@ -19,18 +19,20 @@
 #include "nvidia_error_messages.hpp"
 #include "nvidia_messages.hpp"
 #include "utils/mctp_utils.hpp"
+#include "utils/nvidia_utils.hpp"
 
 #include <openssl/bio.h>
 #include <openssl/core_names.h>
 #include <openssl/evp.h>
 #include <openssl/params.h>
 
-#include <boost/algorithm/string/join.hpp>
-#include <boost/asio.hpp>
-#include <boost/asio/connect_pipe.hpp>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/post.hpp>
+#include <boost/asio/read.hpp>
 #include <boost/asio/readable_pipe.hpp>
-#include <boost/asio/writable_pipe.hpp>
-#include <boost/interprocess/streams/bufferstream.hpp>
+#include <boost/asio/steady_timer.hpp>
+#include <boost/asio/streambuf.hpp>
 #include <boost/process/v2/process.hpp>
 #include <boost/process/v2/stdio.hpp>
 
@@ -86,6 +88,7 @@ class DotCommandHandler
                       ErrorCallback&& errorCallbackIn, int timeoutSec = 3) :
         externalResultCallback(std::move(resultCallbackIn)),
         externalErrorCallback(std::move(errorCallbackIn)),
+        subprocessOutput(crow::connections::systemBus->get_io_context()),
         subprocessTimeout(timeoutSec)
     {
         mctp_utils::enumerateMctpEndpoints(
@@ -122,12 +125,9 @@ class DotCommandHandler
     ResultCallback externalResultCallback;
     ErrorCallback externalErrorCallback;
 
-    std::optional<boost::process::v2::process> subprocess;
-    std::unique_ptr<boost::asio::readable_pipe> outRead;
-    std::vector<char> subprocessOutput;
-    std::array<char, 4096> outBuf{};
-    bool readDone{false};
-    int lastExitCode{0};
+    std::unique_ptr<boost::process::v2::process> subprocess;
+    std::unique_ptr<boost::asio::steady_timer> subprocessTimer;
+    boost::asio::readable_pipe subprocessOutput;
 
     int subprocessTimeout;
     std::unique_ptr<boost::asio::steady_timer> subprocessTimer;
@@ -166,12 +166,14 @@ class DotCommandHandler
         }
         else if (exitCode == 0)
         {
-            boost::interprocess::bufferstream outputStream(
-                subprocessOutput.data(), subprocessOutput.size());
             std::string line;
             std::string rxLine;
             std::string txLine;
             std::string output;
+            boost::asio::streambuf buf;
+            boost::asio::read(subprocessOutput, buf,
+                              boost::asio::transfer_all());
+            std::istream outputStream(&buf);
             while (std::getline(outputStream, line) && output.empty())
             {
                 if (line.starts_with("RX: "))
@@ -230,92 +232,25 @@ class DotCommandHandler
                << std::setfill('0') << static_cast<int>(byte);
             args.emplace_back(ss.str());
         }
-        BMCWEB_LOG_DEBUG("mctp-vdm-util {}", boost::algorithm::join(args, " "));
-        try
-        {
-            namespace bpv2 = boost::process::v2;
-            auto& io = crow::connections::systemBus->get_io_context();
+        BMCWEB_LOG_DEBUG("mctp-vdm-util {}", join(args, " "));
 
-            // Prepare output buffer (reserve extra for hex payload)
-            size_t hexDataSize = data.size() * 3; // hex representation + space
-            subprocessOutput.clear();
-            subprocessOutput.reserve(mctpVdmUtilOutputSize + hexDataSize);
-
-            // Pipe for stdout
-            boost::asio::readable_pipe rp(io);
-            boost::asio::writable_pipe wp(io);
-            boost::asio::connect_pipe(rp, wp);
-            outRead =
-                std::make_unique<boost::asio::readable_pipe>(std::move(rp));
-
-            // Configure stdio (ignore stderr as before)
-            bpv2::process_stdio stdio{
-                .in = nullptr,
-                .out = std::move(wp),
-                .err = nullptr,
-            };
-
-            // Launch process
-            subprocess.emplace(io, "/usr/bin/mctp-vdm-util", args, stdio);
-
-            // Async read all stdout
-            auto* self = this;
-            std::function<void()> readLoop;
-            readLoop = [self, &readLoop]() {
-                self->outRead->async_read_some(
-                    boost::asio::buffer(self->outBuf),
-                    [self, &readLoop](const boost::system::error_code& ec,
-                                      std::size_t n) {
-                        if (!ec)
-                        {
-                            std::span<const char> chunk(self->outBuf.data(), n);
-                            self->subprocessOutput.insert(
-                                self->subprocessOutput.end(), chunk.begin(),
-                                chunk.end());
-                            readLoop();
-                            return;
-                        }
-                        // done or error – mark read complete
-                        self->readDone = true;
-                        // Try finish if process already exited
-                        if (!self->subprocess.has_value())
-                        {
-                            self->subprocessExitCallback(self->lastExitCode,
-                                                         std::error_code{});
-                        }
-                    });
-            };
-            readLoop();
-
-            // Wait for process to exit
-            subprocess->async_wait([this](const boost::system::error_code& ec,
-                                          int code) {
-                lastExitCode = code;
-                // Clear process to indicate exit happened
-                subprocess.reset();
-                if (readDone)
-                {
-                    // both read and exit done
-                    subprocessExitCallback(
-                        code,
-                        std::error_code(ec.value(), std::generic_category()));
-                }
+        subprocess = std::make_unique<boost::process::v2::process>(
+            crow::connections::systemBus->get_io_context(),
+            "/usr/bin/mctp-vdm-util", args,
+            boost::process::v2::process_stdio{
+                .in = nullptr, .out = subprocessOutput, .err = nullptr});
+        subprocess->async_wait(
+            [this](const boost::system::error_code& ec, int exitCode) {
+                subprocessExitCallback(exitCode, ec);
             });
-        }
-        catch (const std::runtime_error& e)
-        {
-            errorCallback(desc, e.what());
-        }
     }
 
     void cleanup()
     {
         boost::asio::post(crow::connections::systemBus->get_io_context(),
                           [this] {
-                              subprocessOutput.resize(0);
-                              outRead.reset(nullptr);
-                              subprocess.reset();
-                              subprocessTimer.reset();
+                              subprocess.reset(nullptr);
+                              subprocessTimer.reset(nullptr);
                               externalErrorCallback = nullptr;
                               externalResultCallback = nullptr;
                           });
@@ -386,15 +321,8 @@ inline std::string getCompletionCodeDescription(int code)
         {21, "Unset CAK in FLASH failed"},
         {22, "Seting DOT enabled failed"},
         {23, "Optional meta signature write failed"},
-        {24, "Key write failed"},
-        {25, "AP FW metadata slot 0 failed"},
-        {26, "AP FW metadata slot 1 failed"},
-        {27, "AP FW metadata slot 0 and 1 failed"},
-        {28, "CAK lock value invalid"},
-        {29, "General error"}};
     try
     {
-        return cc.at(code);
     }
     catch (...)
     {

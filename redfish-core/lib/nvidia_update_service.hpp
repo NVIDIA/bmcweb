@@ -40,14 +40,13 @@
 #include <boost/container/flat_map.hpp>
 #include <boost/system/error_code.hpp>
 #include <boost/url/format.hpp>
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
 #include <http_client.hpp>
 #include <http_connection.hpp>
 #include <sdbusplus/asio/property.hpp>
 #include <sdbusplus/bus/match.hpp>
 #include <sdbusplus/unpack_properties.hpp>
 #include <update_messages.hpp>
+#include <nvidia_messages.hpp>
 #include <utils/conditions_utils.hpp>
 #include <utils/dbus_log_utils.hpp>
 #include <utils/fw_utils.hpp>
@@ -223,39 +222,6 @@ class BMCStatusAsyncResp
 };
 
 /**
- * @brief Retrieve the task message in JSON format for a given task state and
- * index.
- *
- * This function overrides the base function to handle firmware update state
- * management. It is designed to manage the "Aborted" state and reset the global
- * fwUpdateInProgress flag to false.
- *
- * @param state A string representing the task state
- * @param index The index to identify the specific task message
- *
- * @return nlohmann::json The task message corresponding to the given state and
- * index
- */
-inline nlohmann::json getTaskMessage(const std::string_view state, size_t index)
-{
-    if (state == "Aborted")
-    {
-        fwUpdateInProgress = false;
-        return messages::taskAborted(std::to_string(index));
-    }
-    if (state == "Started")
-    {
-        return messages::taskStarted(std::to_string(index));
-    }
-
-    BMCWEB_LOG_INFO("get msg status not found");
-    return nlohmann::json{
-        {"@odata.type", "Unknown"}, {"MessageId", "Unknown"},
-        {"Message", "Unknown"},     {"MessageArgs", {}},
-        {"Severity", "Unknown"},    {"Resolution", "Unknown"}};
-}
-
-/**
  * @brief Check the initial activation state of a software update
  *
  * This function checks if a software activation has already failed before
@@ -304,6 +270,112 @@ inline void checkInitialActivationState(
                     }
                 });
         });
+}
+
+inline nlohmann::json getUpdateMessage(const std::string& msgId,
+                                       std::vector<std::string>& args)
+{
+    std::string arg1;
+    std::string arg2;
+    if (!args.empty())
+    {
+        arg1 = args[0];
+    }
+    if (args.size() >= 2)
+    {
+        arg2 = args[1];
+    }
+
+    if (msgId == "Update.1.0.TargetDetermined")
+    {
+        return messages::targetDetermined(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.AllTargetsDetermined")
+    {
+        return messages::allTargetsDetermined();
+    }
+    if (msgId == "Update.1.0.UpdateInProgress")
+    {
+        return messages::updateInProgress();
+    }
+    if (msgId == "Update.1.0.TransferringToComponent")
+    {
+        return messages::transferringToComponent(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.VerifyingAtComponent")
+    {
+        return messages::verifyingAtComponent(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.InstallingOnComponent")
+    {
+        return messages::installingOnComponent(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.ApplyingOnComponent")
+    {
+        return messages::applyingOnComponent(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.TransferFailed")
+    {
+        return messages::transferFailed(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.VerificationFailed")
+    {
+        return messages::verificationFailed(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.ApplyFailed")
+    {
+        return messages::applyFailed(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.ActivateFailed")
+    {
+        return messages::activateFailed(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.AwaitToUpdate")
+    {
+        return messages::awaitToUpdate(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.AwaitToActivate")
+    {
+        return messages::awaitToActivate(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.UpdateSuccessful")
+    {
+        return messages::updateSuccessful(arg1, arg2);
+    }
+    if (msgId == "Update.1.0.OperationTransitionedToJob")
+    {
+        return messages::operationTransitionedToJob(arg1);
+    }
+    if (msgId == "ResourceEvent.1.0.ResourceErrorsDetected")
+    {
+        return messages::resourceErrorsDetectedFormatError(arg1, arg2);
+    }
+    if (msgId == "NvidiaUpdate.1.0.ComponentUpdateSkipped")
+    {
+        return messages::componentUpdateSkipped(arg1, arg2);
+    }
+    if (msgId == "NvidiaUpdate.1.0.RecoveryStarted")
+    {
+        return messages::recoveryStarted(arg1);
+    }
+    if (msgId == "NvidiaUpdate.1.0.RecoverySuccessful")
+    {
+        return messages::recoverySuccessful(arg1);
+    }
+    if (msgId == "NvidiaUpdate.1.0.FirmwareNotInRecovery")
+    {
+        return messages::firmwareNotInRecovery(arg1);
+    }
+    if (msgId == "NvidiaUpdate.1.0.StageSuccessful")
+    {
+        return messages::stageSuccessful(arg1, arg2);
+    }
+    if (msgId == "NvidiaUpdate.1.0.DebugTokenEraseFailed")
+    {
+        return messages::debugTokenEraseFailed(arg1, arg2);
+    }
+
+    return {};
 }
 
 inline void handleLogMatchCallback(sdbusplus::message_t& m,
@@ -371,15 +443,7 @@ inline void handleLogMatchCallback(sdbusplus::message_t& m,
             }
             else
             {
-                // Fallback: construct a basic message object when registry
-                // helper is unavailable
-                nlohmann::json msgObj;
-                msgObj["MessageId"] = rfMessage;
-                msgObj["Message"] = rfMessage;
-                if (!rfArgs.empty())
-                {
-                    msgObj["MessageArgs"] = rfArgs;
-                }
+                auto msgObj = getUpdateMessage(rfMessage, rfArgs);
                 if (!resolution.empty())
                 {
                     msgObj["Resolution"] = resolution;
@@ -424,6 +488,51 @@ inline static bool relatedItemAlreadyPresent(const nlohmann::json& relatedItem,
     return false;
 }
 
+inline void getDriveChassisID(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& driveId, const std::string& path,
+    const std::string& driveStorLink)
+{
+    dbus::utility::getAssociationEndPoints(
+        path + "/chassis",
+        [asyncResp, driveId, path,
+         driveStorLink](const boost::system::error_code& ec,
+                        const dbus::utility::MapperEndPoints& resp) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("Error in chassis ID association ");
+                return;
+            }
+
+            if (resp.empty())
+            {
+                BMCWEB_LOG_DEBUG("No chassis ID association ");
+                return;
+            }
+
+            // Find the chassisId that contains this driveId
+            sdbusplus::message::object_path chassisPath(resp[0]);
+            auto chassisId = chassisPath.filename();
+
+            std::string driveLink = "/redfish/v1/Chassis/";
+            driveLink.append(chassisId).append("/Drives/").append(driveId);
+
+            nlohmann::json& relatedItem =
+                asyncResp->res.jsonValue["RelatedItem"];
+            nlohmann::json& relatedItemCount =
+                asyncResp->res.jsonValue["RelatedItem@odata.count"];
+
+            if (!relatedItemAlreadyPresent(relatedItem, driveStorLink))
+            {
+                // Add chassis drive link
+                relatedItem.push_back({{"@odata.id", driveLink}});
+                // Add storage drive link
+                relatedItem.push_back({{"@odata.id", driveStorLink}});
+            }
+            relatedItemCount = relatedItem.size();
+        });
+}
+
 inline static void getRelatedItemsDrive(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const sdbusplus::message::object_path& objPath)
@@ -438,29 +547,21 @@ inline static void getRelatedItemsDrive(
                 return;
             }
 
-            nlohmann::json& relatedItem = aResp->res.jsonValue["RelatedItem"];
-            nlohmann::json& relatedItemCount =
-                aResp->res.jsonValue["RelatedItem@odata.count"];
-
             for (const auto& object : objects)
             {
-                if (!validSubpath(objPath.str, object))
-                {
-                    continue;
-                }
-
                 sdbusplus::message::object_path path(object);
-                relatedItem.push_back(
-                    {{"@odata.id",
-                      "/redfish/v1/"
-                      "Systems/" +
-                          std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
-                          "/"
-                          "Storage/" +
-                          path.filename() + "/Drives/" + objPath.filename()}});
+                std::string itemPath =
+                    "/redfish/v1/"
+                    "Systems/" +
+                    std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+                    "/"
+                    "Storage/" +
+                    path.filename() + "/Drives/" + objPath.filename();
+
+                getDriveChassisID(aResp, objPath.filename(), objPath.str,
+                                  itemPath);
                 break;
             }
-            relatedItemCount = relatedItem.size();
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -1165,14 +1266,14 @@ inline void extendUpdateServiceGet(
                     }
                     return;
                 },
-                objInfo[0].first, "/xyz/openbmc_project/software",
+                objInfo[0].first, "/xyz/openbmc_project/software/pldm",
                 "org.freedesktop.DBus.Properties", "GetAll",
                 "xyz.openbmc_project.Software.Update");
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetObject",
-        "/xyz/openbmc_project/software",
+        "/xyz/openbmc_project/software/pldm",
         std::array<const char*, 1>{"xyz.openbmc_project.Software.Update"});
 
     crow::connections::systemBus->async_method_call(
@@ -1185,7 +1286,7 @@ inline void extendUpdateServiceGet(
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
-        "/xyz/openbmc_project/mctp/0", 0,
+        "/au/com/codeconstruct/mctp1/networks/1/endpoints/", 0,
         std::array<const char*, 1>{"xyz.openbmc_project.MCTP.Endpoint"});
 
     sdbusplus::asio::getProperty<std::string>(
@@ -1906,23 +2007,6 @@ inline void handleRevokeAllRemoteServerPublicKeysPost(
 }
 
 /**
- * @brief retry handler of the aggregation post request.
- *
- * @param[in] respCode HTTP response status code
- *
- * @return None
- */
-inline boost::system::error_code aggregationPostRetryHandler(
-    unsigned int respCode)
-{
-    // Allow all response codes because we want to surface any satellite
-    // issue to the client
-    BMCWEB_LOG_DEBUG(
-        "Received {} response of the firmware update from satellite", respCode);
-    return boost::system::errc::make_error_code(boost::system::errc::success);
-}
-
-/**
  * @brief process the response from satellite BMC.
  *
  * @param[in] prefix the prefix of the url
@@ -2021,16 +2105,6 @@ inline void handleSatBMCResponse(
     }
 }
 
-inline crow::ConnectionPolicy getPostAggregationPolicy()
-{
-    return {.maxRetryAttempts = 0,
-            .requestByteLimit = firmwareImageLimitBytes,
-            .maxConnections = 20,
-            .retryPolicyAction = "TerminateAfterRetries",
-            .retryIntervalSecs = std::chrono::seconds(0),
-            .invalidResp = aggregationPostRetryHandler};
-}
-
 /**
  * @brief forward Commit Image Post Request to satBMC.
  *
@@ -2063,9 +2137,7 @@ inline void forwardCommitImagePost(
         return;
     }
 
-    crow::HttpClient client(
-        crow::connections::systemBus->get_io_context(),
-        std::make_shared<crow::ConnectionPolicy>(getPostAggregationPolicy()));
+    crow::HttpClient& client = RedfishAggregator::getInstance().getClient();
 
     std::function<void(crow::Response&)> cb =
         std::bind_front(handleSatBMCResponse, asyncResp);
@@ -2073,10 +2145,13 @@ inline void forwardCommitImagePost(
     std::string data = req.body();
     boost::urls::url url(sat->second);
     url.set_path(req.url().path());
-
-    client.sendDataWithCallback(
-        std::move(data), url, ensuressl::VerifyCertificate::Verify,
-        req.fields(), boost::beast::http::verb::post, cb);
+    // Build filtered headers and drop HTTP/2 pseudo headers like :authority
+    boost::beast::http::fields fwdHeaders =
+        redfish::nvidia_http_utils::filterHeadersDropAuthority(
+            req.fields(), url);
+    client.sendDataWithCallback(std::move(data), url,
+                                ensuressl::VerifyCertificate::Verify,
+                                fwdHeaders, boost::beast::http::verb::post, cb);
 }
 
 /**
@@ -2223,9 +2298,7 @@ inline void forwardImage(
         return;
     }
 
-    crow::HttpClient client(
-        crow::connections::systemBus->get_io_context(),
-        std::make_shared<crow::ConnectionPolicy>(getPostAggregationPolicy()));
+    crow::HttpClient& client = RedfishAggregator::getInstance().getClient();
 
     std::function<void(crow::Response&)> cb =
         std::bind_front(handleSatBMCResponse, asyncResp);
@@ -2361,9 +2434,13 @@ inline void forwardImage(
         }
         BMCWEB_LOG_INFO("Expect header value {}",
                         sharedReq->getHeaderValue("Expect"));
+        // Build filtered headers and drop HTTP/2 pseudo headers like :authority
+        boost::beast::http::fields fwdHeaders =
+            redfish::nvidia_http_utils::filterHeadersDropAuthority(
+                sharedReq->fields(), url);
         client.sendDataWithCallback(
             std::move(data), url, ensuressl::VerifyCertificate::Verify,
-            sharedReq->fields(), boost::beast::http::verb::post, cb);
+            fwdHeaders, boost::beast::http::verb::post, cb);
     }
 }
 
@@ -2470,9 +2547,7 @@ inline void forwardCommitImageActionInfo(
         return;
     }
 
-    crow::HttpClient client(
-        crow::connections::systemBus->get_io_context(),
-        std::make_shared<crow::ConnectionPolicy>(getPostAggregationPolicy()));
+    crow::HttpClient& client = RedfishAggregator::getInstance().getClient();
 
     std::function<void(crow::Response&)> cb =
         std::bind_front(commitImageActionInfoResp, asyncResp);
@@ -2480,10 +2555,13 @@ inline void forwardCommitImageActionInfo(
     std::string data;
     boost::urls::url url(sat->second);
     url.set_path(req.url().path());
-
-    client.sendDataWithCallback(
-        std::move(data), url, ensuressl::VerifyCertificate::Verify,
-        req.fields(), boost::beast::http::verb::get, cb);
+    // Build filtered headers and drop HTTP/2 pseudo headers like :authority
+    boost::beast::http::fields fwdHeaders =
+        redfish::nvidia_http_utils::filterHeadersDropAuthority(
+            req.fields(), url);
+    client.sendDataWithCallback(std::move(data), url,
+                                ensuressl::VerifyCertificate::Verify,
+                                fwdHeaders, boost::beast::http::verb::get, cb);
 }
 
 inline void handleCommitImageActionInfoGet(

@@ -18,6 +18,7 @@
 
 #include <endian.h>
 
+#include <boost/asio/streambuf.hpp>
 #include <boost/interprocess/streams/bufferstream.hpp>
 #include <logging.hpp>
 #include <nlohmann/json.hpp>
@@ -861,13 +862,12 @@ struct VdmTokenStatus
  * @return Map of EID to VDM token status
  */
 inline std::map<int, VdmTokenStatus> parseVdmUtilWrapperOutput(
-    std::vector<char>& output)
+    boost::asio::streambuf& output)
 {
-    boost::interprocess::bufferstream outputStream(output.data(),
-                                                   output.size());
-    std::string line;
     std::map<int, VdmTokenStatus> outputMap;
-    while (std::getline(outputStream, line))
+    std::string line;
+    std::istream is(&output);
+    while (std::getline(is, line))
     {
         if (line.empty())
         {

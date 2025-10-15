@@ -125,6 +125,22 @@ inline nvidia_network_protocol::Protocol dbusToProtocol(
     return nvidia_network_protocol::Protocol::Invalid;
 }
 
+inline nvidia_network_protocol::RFCFormat dbusToRfcFormat(
+    const std::string& rfcFormatStr)
+{
+    if (rfcFormatStr ==
+        "xyz.openbmc_project.Logging.RsyslogClient.RfcFormatType.RFC3164")
+    {
+        return nvidia_network_protocol::RFCFormat::RFC3164;
+    }
+    if (rfcFormatStr ==
+        "xyz.openbmc_project.Logging.RsyslogClient.RfcFormatType.RFC5424")
+    {
+        return nvidia_network_protocol::RFCFormat::RFC5424;
+    }
+    return nvidia_network_protocol::RFCFormat::Invalid;
+}
+
 inline std::optional<bool> isEnabled(const std::optional<std::string>& input)
 {
     if (!input)
@@ -178,13 +194,13 @@ inline void populateRsyslogClientSettings(
             std::optional<std::vector<std::string>> facility;
             std::optional<std::string> severity;
             std::optional<std::string> transportProtocol;
-
+            std::optional<std::string> rfcformat;
             // Unpack properties from the map
             const bool success = sdbusplus::unpackPropertiesNoThrow(
                 dbus_utils::UnpackErrorPrinter(), properties, "Enabled",
                 enabled, "Address", address, "Port", port, "Tls", tls,
                 "Facility", facility, "Severity", severity, "TransportProtocol",
-                transportProtocol);
+                transportProtocol, "Rfcformat", rfcformat);
 
             if (!success)
             {
@@ -234,6 +250,12 @@ inline void populateRsyslogClientSettings(
                     dbusToProtocol(*transportProtocol);
                 rsyslog["TransportProtocol"] = proto;
             }
+            if (rfcformat)
+            {
+                nvidia_network_protocol::RFCFormat rfc =
+                    dbusToRfcFormat(*rfcformat);
+                rsyslog["RFCFormat"] = rfc;
+            }
         });
 }
 
@@ -245,11 +267,11 @@ inline void processRsyslogClientSettings(
     const std::optional<std::string>& tls = std::nullopt,
     const std::optional<std::vector<std::string>>& facilities = std::nullopt,
     const std::optional<std::string>& severity = std::nullopt,
-    const std::optional<std::string>& transportProtocol = std::nullopt)
+    const std::optional<std::string>& transportProtocol = std::nullopt,
+    const std::optional<std::string>& rfcformat = std::nullopt)
 {
     const std::string path = "/xyz/openbmc_project/logging/config/remote";
     const std::string service = "xyz.openbmc_project.Syslog.Config";
-
     // Set State
     if (state)
     {
@@ -301,23 +323,39 @@ inline void processRsyslogClientSettings(
         std::vector<std::string> facilityDbus;
         for (const auto& f : *facilities)
         {
-            if (f == "All")
+            try
             {
-                // If "All" is found, clear the array and only add "All"
-                facilityDbus.clear();
-                facilityDbus.emplace_back(
-                    "xyz.openbmc_project.Logging.RsyslogClient.FacilityType.All");
-                break; // Exit the loop as "All" supersedes other values
+                nvidia_network_protocol::FilterFacility facEnum =
+                    nlohmann::json(f)
+                        .get<nvidia_network_protocol::FilterFacility>();
+
+                if (facEnum == nvidia_network_protocol::FilterFacility::All)
+                {
+                    // If "All" is found, clear the array and only add "All"
+                    facilityDbus.clear();
+                    facilityDbus.emplace_back(
+                        "xyz.openbmc_project.Logging.RsyslogClient.FacilityType.All");
+                    break; // Exit the loop as "All" supersedes other values
+                }
+                if (facEnum ==
+                        nvidia_network_protocol::FilterFacility::Daemon ||
+                    facEnum == nvidia_network_protocol::FilterFacility::Kern)
+                {
+                    facilityDbus.push_back(
+                        "xyz.openbmc_project.Logging.RsyslogClient.FacilityType." +
+                        f);
+                }
+                else
+                {
+                    BMCWEB_LOG_ERROR("Invalid facility: {}", f);
+                    messages::propertyValueFormatError(asyncResp->res, f,
+                                                       "Filter/Facilities");
+                    return;
+                }
             }
-            if (f == "Daemon" || f == "Kern")
+            catch (const nlohmann::json::exception&)
             {
-                facilityDbus.push_back(
-                    "xyz.openbmc_project.Logging.RsyslogClient.FacilityType." +
-                    f);
-            }
-            else
-            {
-                BMCWEB_LOG_ERROR("Invalid facility: {}", f);
+                BMCWEB_LOG_ERROR("Invalid facility (parse): {}", f);
                 messages::propertyValueFormatError(asyncResp->res, f,
                                                    "Filter/Facilities");
                 return;
@@ -332,20 +370,35 @@ inline void processRsyslogClientSettings(
     // Validate and Set Severity
     if (severity)
     {
-        if (*severity == "Error" || *severity == "Warning" ||
-            *severity == "Info" || *severity == "All")
+        try
         {
-            std::string severityDbus =
-                "xyz.openbmc_project.Logging.RsyslogClient.SeverityType." +
-                *severity;
-            setDbusProperty(asyncResp,
-                            "Oem/Nvidia/Rsyslog/Filter/LowestSeverity", service,
-                            path, "xyz.openbmc_project.Logging.RsyslogClient",
-                            "Severity", severityDbus);
+            nvidia_network_protocol::FilterSeverity sevEnum =
+                nlohmann::json(*severity)
+                    .get<nvidia_network_protocol::FilterSeverity>();
+            if (sevEnum == nvidia_network_protocol::FilterSeverity::Error ||
+                sevEnum == nvidia_network_protocol::FilterSeverity::Warning ||
+                sevEnum == nvidia_network_protocol::FilterSeverity::Info ||
+                sevEnum == nvidia_network_protocol::FilterSeverity::All)
+            {
+                std::string severityDbus =
+                    "xyz.openbmc_project.Logging.RsyslogClient.SeverityType." +
+                    *severity;
+                setDbusProperty(
+                    asyncResp, "Oem/Nvidia/Rsyslog/Filter/LowestSeverity",
+                    service, path, "xyz.openbmc_project.Logging.RsyslogClient",
+                    "Severity", severityDbus);
+            }
+            else
+            {
+                BMCWEB_LOG_ERROR("Invalid severity: {}", *severity);
+                messages::propertyValueFormatError(asyncResp->res, *severity,
+                                                   "Filter/LowestSeverity");
+                return;
+            }
         }
-        else
+        catch (const nlohmann::json::exception&)
         {
-            BMCWEB_LOG_ERROR("Invalid severity: {}", *severity);
+            BMCWEB_LOG_ERROR("Invalid severity (parse): {}", *severity);
             messages::propertyValueFormatError(asyncResp->res, *severity,
                                                "Filter/LowestSeverity");
             return;
@@ -355,21 +408,73 @@ inline void processRsyslogClientSettings(
     // Set Transport Protocol
     if (transportProtocol)
     {
-        if (*transportProtocol == "TCP" || *transportProtocol == "UDP")
+        try
         {
-            std::string protocolDbus =
-                "xyz.openbmc_project.Network.Client.TransportProtocol." +
-                *transportProtocol;
-            setDbusProperty(asyncResp, "Oem/Nvidia/Rsyslog/Protocol", service,
-                            path, "xyz.openbmc_project.Network.Client",
-                            "TransportProtocol", protocolDbus);
+            nvidia_network_protocol::Protocol protoEnum =
+                nlohmann::json(*transportProtocol)
+                    .get<nvidia_network_protocol::Protocol>();
+
+            if (protoEnum == nvidia_network_protocol::Protocol::TCP ||
+                protoEnum == nvidia_network_protocol::Protocol::UDP)
+            {
+                std::string protocolDbus =
+                    "xyz.openbmc_project.Network.Client.TransportProtocol." +
+                    *transportProtocol;
+                setDbusProperty(asyncResp, "Oem/Nvidia/Rsyslog/Protocol",
+                                service, path,
+                                "xyz.openbmc_project.Network.Client",
+                                "TransportProtocol", protocolDbus);
+            }
+            else
+            {
+                BMCWEB_LOG_ERROR("Invalid transport protocol: {}",
+                                 *transportProtocol);
+                messages::propertyValueFormatError(
+                    asyncResp->res, *transportProtocol, "TransportProtocol");
+                return;
+            }
         }
-        else
+        catch (const nlohmann::json::exception&)
         {
-            BMCWEB_LOG_ERROR("Invalid transport protocol: {}",
+            BMCWEB_LOG_ERROR("Invalid transport protocol (parse): {}",
                              *transportProtocol);
             messages::propertyValueFormatError(
                 asyncResp->res, *transportProtocol, "TransportProtocol");
+            return;
+        }
+    }
+    // Add code here for RFCFROMAT 3164 and RFCFROMAT 5424
+    if (rfcformat)
+    {
+        try
+        {
+            nvidia_network_protocol::RFCFormat rfcEnum =
+                nlohmann::json(*rfcformat)
+                    .get<nvidia_network_protocol::RFCFormat>();
+            if (rfcEnum == nvidia_network_protocol::RFCFormat::RFC3164 ||
+                rfcEnum == nvidia_network_protocol::RFCFormat::RFC5424)
+            {
+                std::string rfcDbus =
+                    "xyz.openbmc_project.Logging.RsyslogClient.RfcFormatType." +
+                    *rfcformat;
+                setDbusProperty(asyncResp, "Oem/Nvidia/Rsyslog/RFCFORMAT",
+                                service, path,
+                                "xyz.openbmc_project.Logging.RsyslogClient",
+                                "Rfcformat", rfcDbus);
+            }
+            else
+            {
+                BMCWEB_LOG_ERROR("Invalid RFC format: {}", *rfcformat);
+                messages::propertyValueFormatError(asyncResp->res, *rfcformat,
+                                                   "RFCFORMAT");
+                return;
+            }
+        }
+        catch (const nlohmann::json::exception&)
+        {
+            BMCWEB_LOG_ERROR("Invalid RFC format (parse): {}", *rfcformat);
+            messages::propertyValueFormatError(asyncResp->res, *rfcformat,
+                                               "RFCFORMAT");
             return;
         }
     }

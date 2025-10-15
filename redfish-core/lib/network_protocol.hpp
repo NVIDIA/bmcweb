@@ -545,7 +545,7 @@ inline void handleManagersNetworkProtocolPatch(
     std::optional<std::string> tls;
     std::optional<std::vector<std::string>> facility;
     std::optional<std::string> severity;
-    // Nvidia properties ends here
+    std::optional<std::string> rfcformat;
 
     if (!json_util::readJsonPatch(
             req, asyncResp->res,                 //
@@ -559,8 +559,8 @@ inline void handleManagersNetworkProtocolPatch(
             address, "Oem/Nvidia/Rsyslog/Port", port,
             "Oem/Nvidia/Rsyslog/Protocol", protocol, "Oem/Nvidia/Rsyslog/TLS",
             tls, "Oem/Nvidia/Rsyslog/Filter/Facilities", facility,
-            "Oem/Nvidia/Rsyslog/Filter/LowestSeverity", severity))
-    // Nvidia properties ends here
+            "Oem/Nvidia/Rsyslog/Filter/LowestSeverity", severity,
+            "Oem/Nvidia/Rsyslog/RFCFormat", rfcformat))
     {
         return;
     }
@@ -619,7 +619,8 @@ inline void handleManagersNetworkProtocolPatch(
     if constexpr (BMCWEB_RSYSLOG_CLIENT)
     {
         redfish::rsyslog::processRsyslogClientSettings(
-            asyncResp, address, port, state, tls, facility, severity, protocol);
+            asyncResp, address, port, state, tls, facility, severity, protocol,
+            rfcformat);
     }
     // Nvidia code ends here
 }

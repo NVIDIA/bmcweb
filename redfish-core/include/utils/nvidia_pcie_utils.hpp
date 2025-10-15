@@ -100,6 +100,32 @@ inline std::optional<std::string> redfishPcieTypeStringFromDbus(
     return std::nullopt;
 }
 
+inline std::string redfishPcieDeviceTypeStringFromDbus(
+    const std::string& deviceType)
+{
+    if (deviceType ==
+        "xyz.openbmc_project.Inventory.Item.PCIeDevice.DeviceTypes.SingleFunction")
+    {
+        return "SingleFunction";
+    }
+    if (deviceType ==
+        "xyz.openbmc_project.Inventory.Item.PCIeDevice.DeviceTypes.MultiFunction")
+    {
+        return "MultiFunction";
+    }
+    if (deviceType ==
+        "xyz.openbmc_project.Inventory.Item.PCIeDevice.DeviceTypes.Simulated")
+    {
+        return "Simulated";
+    }
+    if (deviceType ==
+        "xyz.openbmc_project.Inventory.Item.PCIeDevice.DeviceTypes.Retimer")
+    {
+        return "Retimer";
+    }
+    return "Unknown";
+}
+
 } // namespace pcie_util
 
 static constexpr const char* pcieService = "xyz.openbmc_project.PCIe";
@@ -426,14 +452,24 @@ static inline void getPCIeDevice(
                  propertiesList)
             {
                 const std::string& propertyName = property.first;
-                if ((propertyName == "Manufacturer") ||
-                    (propertyName == "DeviceType"))
+                if (propertyName == "Manufacturer")
                 {
                     const std::string* value =
                         std::get_if<std::string>(&property.second);
                     if (value != nullptr)
                     {
                         asyncResp->res.jsonValue[propertyName] = *value;
+                    }
+                }
+                else if (propertyName == "DeviceType")
+                {
+                    const std::string* value =
+                        std::get_if<std::string>(&property.second);
+                    if (value != nullptr)
+                    {
+                        asyncResp->res.jsonValue[propertyName] =
+                            pcie_util::redfishPcieDeviceTypeStringFromDbus(
+                                *value);
                     }
                 }
                 else if (propertyName == "MaxLanes")

@@ -3,9 +3,12 @@
 
 #include <array>
 
-namespace redfish::registries::bios
+// clang-format off
+namespace redfish::registries
 {
-const Header header = {
+struct BiosAttributeRegistry
+{
+static constexpr Header header = {
     "Copyright 2022 OpenBMC. All rights reserved.",
     "#MessageRegistry.v1_4_0.MessageRegistry",
     1,
@@ -18,8 +21,13 @@ const Header header = {
     "OpenBMC",
 };
 
-constexpr const char* url =
+static constexpr const char* url =
     "/redfish/v1/Registries/BiosAttributeRegistry/BiosAttributeRegistry";
 
-constexpr std::array<MessageEntry, 0> registry = {};
-} // namespace redfish::registries::bios
+static constexpr std::array<MessageEntry, 0> registry = {};
+};
+
+[[gnu::constructor]] inline void registerBiosAttributeRegistry()
+{ registerRegistry<BiosAttributeRegistry>(); }
+
+} // namespace redfish::registries

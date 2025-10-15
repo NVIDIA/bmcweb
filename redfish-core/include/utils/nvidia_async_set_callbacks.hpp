@@ -91,12 +91,13 @@ class PatchGenericCallback
 using PatchMigModeCallback = PatchGenericCallback;
 using PatchEccModeCallback = PatchGenericCallback;
 using PatchPortDisableCallback = PatchGenericCallback;
-using PatchPowerModeCallback = PatchGenericCallback;
+using PatchL1PredictionModeCallback = PatchGenericCallback;
 using PatchIsolationModeCallback = PatchGenericCallback;
 using PatchEdppSetPointCallback = PatchGenericCallback;
 using PatchCCModeCallback = PatchGenericCallback;
 using PatchEgmModeCallback = PatchGenericCallback;
 using PatchErrorInjectionPayloadCallback = PatchGenericCallback;
+using PatchPCIeEqualizationCallback = PatchGenericCallback;
 class PatchSpeedConfigCallback
 {
   public:

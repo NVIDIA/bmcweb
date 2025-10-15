@@ -73,12 +73,17 @@ void actionInfoResponse(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
           {"Required", true},
           {"DataType", "Number"},
           {"MinimumValue", 0},
-          {"MaximumValue", 255}},
+          {"MaximumValue", 65535}},
          {{"Name", "Data"},
           {"Required", false},
           {"DataType", "NumberArray"},
           {"MinimumValue", 0},
-          {"MaximumValue", 255}}});
+          {"MaximumValue", 255}},
+         {{"Name", "MsgFormatVersion"},
+          {"Required", false},
+          {"DataType", "Number"},
+          {"AllowableValues", {1, 2}},
+          {"DefaultValue", 1}}});
 }
 
 bool parseRequestJson(const crow::Request& req,
@@ -86,26 +91,60 @@ bool parseRequestJson(const crow::Request& req,
                       uint8_t& commandCode, uint8_t& deviceIdentificationId,
                       uint8_t& deviceRoleId, uint8_t& deviceInstanceId,
                       uint8_t& messageType, bool& isLongRunning,
-                      uint16_t& dataSizeInBytes, std::vector<uint8_t>& data)
+                      uint16_t& dataSizeInBytes, std::vector<uint8_t>& data,
+                      uint8_t& msgFormatVersion)
 {
     std::optional<bool> optionalIsLongRunning;
     std::optional<std::vector<uint8_t>> optionalData;
     std::optional<uint8_t> optionalDeviceRoleId;
+    std::optional<uint8_t> optionalMsgFormatVersion;
 
     if (!redfish::json_util::readJsonAction(
             req, asyncResp->res, "CommandCode", commandCode, "Data",
             optionalData, "DataSizeBytes", dataSizeInBytes,
             "DeviceIdentificationId", deviceIdentificationId, "DeviceRoleId",
             optionalDeviceRoleId, "DeviceInstanceId", deviceInstanceId,
-            "IsLongRunning", optionalIsLongRunning, "MessageType", messageType))
+            "IsLongRunning", optionalIsLongRunning, "MessageType", messageType,
+            "MsgFormatVersion", optionalMsgFormatVersion))
     {
         BMCWEB_LOG_ERROR("Failed to parse JSON body.");
         return false;
     }
 
     isLongRunning = optionalIsLongRunning.value_or(false);
+    msgFormatVersion = optionalMsgFormatVersion.value_or(1);
     data = optionalData.value_or(std::vector<uint8_t>(dataSizeInBytes));
     deviceRoleId = optionalDeviceRoleId.value_or(0);
+
+    // Validate DataSizeBytes and Data length based on format
+    uint16_t maxAllowedDataSize = 0;
+    if (msgFormatVersion == 1)
+    {
+        maxAllowedDataSize = 255; // 2^(8 * sizeof(dataSizeBytes)) - 1
+    }
+    else if (msgFormatVersion == 2)
+    {
+        maxAllowedDataSize = 65535; // 2^(8 * sizeof(dataSizeBytes)) - 1
+    }
+    if (dataSizeInBytes > maxAllowedDataSize)
+    {
+        BMCWEB_LOG_ERROR(
+            "DataSizeBytes exceeds max allowed size {} bytes for format {}",
+            maxAllowedDataSize, msgFormatVersion);
+        messages::propertyValueFormatError(
+            asyncResp->res, std::to_string(dataSizeInBytes), "DataSizeBytes");
+        return false;
+    }
+    if (data.size() > maxAllowedDataSize)
+    {
+        BMCWEB_LOG_ERROR(
+            "Data array size exceeds max allowed size {} bytes for format {}",
+            maxAllowedDataSize, msgFormatVersion);
+        messages::propertyValueFormatError(asyncResp->res,
+                                           std::to_string(data.size()), "Data");
+        return false;
+    }
+
     return true;
 }
 
@@ -153,7 +192,7 @@ void callSendRequest(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                      uint8_t deviceIdentificationId, uint8_t deviceRoleId,
                      uint8_t deviceInstanceId, bool isLongRunning,
                      uint8_t messageType, uint8_t commandCode,
-                     const std::vector<uint8_t>& data)
+                     const std::vector<uint8_t>& data, uint8_t msgFormatVersion)
 {
     MemoryFD memFd;
     sdbusplus::message::unix_fd fd(memFd.fd);
@@ -173,7 +212,7 @@ void callSendRequest(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             messages::internalError(asyncResp->res);
         },
         deviceIdentificationId, deviceRoleId, deviceInstanceId, isLongRunning,
-        messageType, commandCode, fd);
+        messageType, commandCode, fd, msgFormatVersion);
 }
 
 } // namespace nsm_command_support

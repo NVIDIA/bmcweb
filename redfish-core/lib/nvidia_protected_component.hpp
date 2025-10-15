@@ -21,6 +21,7 @@
 #include "utils/chassis_utils.hpp"
 #include "utils/dbus_utils.hpp"
 #include "utils/hex_utils.hpp"
+#include "utils/nvidia_chassis_util.hpp"
 
 #include <string>
 
@@ -1391,7 +1392,7 @@ inline void handleNvidiaRoTProtectedComponent(
                                                                                        ["ActiveSlotId"] =
                                                                                    *slotID;
                                                                            }
-                                                                           redfish::chassis_utils::
+                                                                           redfish::nvidia_chassis_utils::
                                                                                getOemBootStatus(
                                                                                    asyncResp,
                                                                                    chassisId);

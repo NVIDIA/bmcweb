@@ -147,6 +147,7 @@ feature_options = [
     'reset-bios-by-clear-nonvolatile',
     'rest',
     'rmedia',
+    'rshim-support',
     'rsyslog-client',
     'scp-update',
     'session-auth',
