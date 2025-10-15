@@ -103,7 +103,7 @@ def nvidia_local_getter():
     ) as json_file:
         json_file = json.load(json_file)
 
-    path = os.path.join(include_path, "oem", "nvidia_message_registry.hpp")
+    path = os.path.join(INCLUDE_PATH, "oem", "nvidia_message_registry.hpp")
     return (path, json_file, "nvidia", url)
 
 

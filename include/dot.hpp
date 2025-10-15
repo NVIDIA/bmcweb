@@ -130,7 +130,6 @@ class DotCommandHandler
     boost::asio::readable_pipe subprocessOutput;
 
     int subprocessTimeout;
-    std::unique_ptr<boost::asio::steady_timer> subprocessTimer;
 
     void resultCallback(const std::string& data)
     {
@@ -321,8 +320,15 @@ inline std::string getCompletionCodeDescription(int code)
         {21, "Unset CAK in FLASH failed"},
         {22, "Seting DOT enabled failed"},
         {23, "Optional meta signature write failed"},
+        {24, "Key write failed"},
+        {25, "AP FW metadata slot 0 failed"},
+        {26, "AP FW metadata slot 1 failed"},
+        {27, "AP FW metadata slot 0 and 1 failed"},
+        {28, "CAK lock value invalid"},
+        {29, "General error"}};
     try
     {
+        return cc.at(code);
     }
     catch (...)
     {

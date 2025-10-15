@@ -18,6 +18,7 @@
 #include "logging.hpp"
 #include "nvidia_managers.hpp"
 #include "nvidia_oem_managers_pmc.hpp"
+#include "openbmc/openbmc_managers.hpp"
 #include "persistent_data.hpp"
 #include "query.hpp"
 #include "redfish.hpp"
@@ -901,8 +902,6 @@ inline void requestRoutesManager(App& app)
                 boost::urls::format(
                     "/redfish/v1/Managers/{}/EthernetInterfaces",
                     BMCWEB_REDFISH_MANAGER_URI_NAME);
-            manager_utils::getServiceIdentification(asyncResp, false);
-
             manager_utils::getServiceIdentification(asyncResp, false);
 
             if constexpr (BMCWEB_VM_NBDPROXY)

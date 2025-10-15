@@ -1,6 +1,6 @@
 # Nvidia Bmcweb development
 
-### Motivation
+## Motivation
 
 - Upstream Nvidia’s bmcweb contribution to Openbmc bmcweb repo
 - Ease the process of performing upstream sync and reduce merge conflicts
@@ -76,16 +76,16 @@ inline void
 
 ```
 
-4. As much as possible keep all the new routes handlers in
+1. As much as possible keep all the new routes handlers in
    nvidia\_\<schema\>.hpp. The only exception can be too much functional
    dependency with the util codes used by the original handler.
-5. If the schmea does not exist in upstream then it can be still added with
+2. If the schmea does not exist in upstream then it can be still added with
    nvidia file prefix. This helps us identify later in the upstream merge if the
    code is added by nvidia vs upstream.
-6. Create [gerrit](https://gerrit.openbmc.org/q/project:openbmc%252Fbmcweb) MR
+3. Create [gerrit](https://gerrit.openbmc.org/q/project:openbmc%252Fbmcweb) MR
    for the code enhanced. Follow up with community to get the MR merged
    upstream.
-7. Once Upstream MR is merged, ensure downstream code is aligned by migrating
+4. Once Upstream MR is merged, ensure downstream code is aligned by migrating
    code back to original schema from nvidia\_\<schema\>.hpp file.
 
 ## Testing

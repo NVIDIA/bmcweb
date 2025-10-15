@@ -983,8 +983,8 @@ inline void handleStartUpdate(
 
 inline void startUpdate(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, task::Payload payload,
-    const std::shared_ptr<MemoryFileDescriptor>& memfd, const std::string& applyTime,
-    bool forceUpdate,
+    const std::shared_ptr<MemoryFileDescriptor>& memfd,
+    const std::string& applyTime, bool forceUpdate,
     const std::vector<sdbusplus::message::object_path>& targets)
 {
     // PLDM UA is the only service implementing StartUpdate
@@ -1445,8 +1445,7 @@ inline void handleUpdateServiceMultipartUpdatePost(
         if (ec != ParserError::PARSER_SUCCESS)
         {
             // handle error
-            BMCWEB_LOG_ERROR("MIME parse failed, ec: {}",
-                             static_cast<int>(ec));
+            BMCWEB_LOG_ERROR("MIME parse failed, ec: {}", static_cast<int>(ec));
             messages::internalError(asyncResp->res);
             return;
         }
@@ -1460,7 +1459,11 @@ inline void handleUpdateServiceMultipartUpdatePost(
     }
 }
 
+inline void handleUpdateServiceGet(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
     {
         return;
     }

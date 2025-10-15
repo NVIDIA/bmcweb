@@ -158,7 +158,8 @@ TEST(http_connection, RequestPropogates)
         "\x00\x00\x5f\x01\x04\x00\x00\x00\x01"sv,
     };
 
-    // Flatten expectedPrefix into a single contiguous byte string for comparison
+    // Flatten expectedPrefix into a single contiguous byte string for
+    // comparison
     size_t expectedPrefixTotalSize = 0;
     for (std::string_view s : expectedPrefix)
     {

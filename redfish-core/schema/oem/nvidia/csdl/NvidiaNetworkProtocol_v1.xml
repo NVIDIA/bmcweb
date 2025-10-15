@@ -51,14 +51,6 @@
           <Annotation Term="OData.Description" String="User Datagram Protocol (UDP)."/>
         </Member>
       </EnumType>
-      <EnumType Name="RFCFormat">
-        <Member Name="RFC3164">
-          <Annotation Term="OData.Description" String="Syslog protocol as defined in RFC3164."/>
-        </Member>
-        <Member Name="RFC5424">
-          <Annotation Term="OData.Description" String="Structured syslog protocol as defined in RFC5424."/>
-        </Member>
-      </EnumType>
       <EnumType Name="FilterFacility">
         <Member Name="Daemon">
           <Annotation Term="OData.Description" String="System daemons."/>
@@ -106,11 +98,6 @@
           <Annotation Term="OData.Description" String="The transport protocol used to connect to the rsyslog server."/>
           <Annotation Term="OData.LongDescription" String="This property shall indicate the transport protocol (TCP/UDP) used to connect to the rsyslog server"/>
         </Property>
-        <Property Name="RFCFormat" Type="NvidiaNetworkProtocol.v1_0_0.RfcFormat" DefaultValue="RFC3164">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
-          <Annotation Term="OData.Description" String="The RFC format used for syslog messages sent to the server."/>
-          <Annotation Term="OData.LongDescription" String="This property shall indicate the RFC format used for syslog messages (RFC3164 or RFC5424)."/>
-        </Property>
         <Property Name="TLS" Type="NvidiaNetworkProtocol.v1_0_0.TLSStatus">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
           <Annotation Term="OData.Description" String="The TLS configuration of the transport layer."/>
@@ -140,6 +127,24 @@
           <Annotation Term="OData.LongDescription" String="The object shall indicate the rsyslog client configuration setting of the BMC."/>
         </Property>
       </ComplexType>      
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkProtocol.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EnumType Name="RFCFormat">
+        <Member Name="RFC3164">
+          <Annotation Term="OData.Description" String="Syslog protocol as defined in RFC3164."/>
+        </Member>
+        <Member Name="RFC5424">
+          <Annotation Term="OData.Description" String="Structured syslog protocol as defined in RFC5424."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="Rsyslog" BaseType="NvidiaNetworkProtocol.v1_0_0.Rsyslog">
+        <Property Name="RFCFormat" Type="NvidiaNetworkProtocol.v1_1_0.RFCFormat">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The RFC format used for syslog messages sent to the server."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the RFC format used for syslog messages (RFC3164 or RFC5424). The default is RFC3164."/>
+        </Property>
+      </ComplexType>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

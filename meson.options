@@ -888,6 +888,12 @@ option(
     value: 'enabled',
     description: 'Enable HTTP/2 protocol support using nghttp2.',
 )
+option(
+    'manual-boot-mode-support',
+    type: 'feature',
+    value: 'disabled',
+    description: 'Enables support for ERoT manual boot mode',
+)
 
 # BMCWEB_WATCHDOG_TIMEOUT
 option(
@@ -898,12 +904,6 @@ option(
     value: 120,
     description: '''Specifies the systemd watchdog timeout interval in seconds.
                     Set to 0 to disable the watchdog.''',
-)
-option(
-    'manual-boot-mode-support',
-    type: 'feature',
-    value: 'disabled',
-    description: 'Enables support for ERoT manual boot mode',
 )
 
 # Insecure options. Every option that starts with a `insecure` flag should
@@ -1265,11 +1265,12 @@ option(
 
 # BMCWEB_ENABLE_UNUSED_UPSTREAM_CODE
 option(
-    'enable-unused-upstream-code', 
+    'enable-unused-upstream-code',
     type: 'feature',
-    value: 'disabled', 
-    description: 'Enable unused upstream routes'
+    value: 'disabled',
+    description: 'Enable unused upstream routes',
 )
+
 option(
     'rshim-support',
     type: 'feature',

@@ -528,141 +528,143 @@ inline void requestRoutesPCIeEqualization(App& app)
         app,
         "/redfish/v1/Fabrics/<str>/Switches/<str>/Ports/<str>/Oem/Nvidia/PCIeEqualization")
         .privileges({{"Login"}})
-        .methods(boost::beast::http::verb::patch)(
-            [&app](const crow::Request& req,
-                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-                   const std::string& fabricId, const std::string& switchId,
-                   const std::string& portId) {
-                if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+        .methods(
+            boost::beast::http::verb::
+                patch)([&app](
+                           const crow::Request& req,
+                           const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+                           const std::string& fabricId,
+                           const std::string& switchId,
+                           const std::string& portId) {
+            if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+            {
+                return;
+            }
+            std::vector<std::tuple<std::string, uint32_t>> portEqualizationData;
+            std::optional<nlohmann::json> txPresets;
+            std::optional<nlohmann::json> txAmplitudeJson;
+            if (!redfish::json_util::readJsonAction(
+                    req, asyncResp->res, "TxAmplitude", txAmplitudeJson,
+                    "TxPresets", txPresets))
+            {
+                BMCWEB_LOG_ERROR("Missing property TxAmplitude or TxPresets");
+                return;
+            }
+            std::optional<uint32_t> txAmplitude;
+            if (txAmplitudeJson)
+            {
+                // Accept numeric or numeric-string values
+                if (txAmplitudeJson->is_number_unsigned())
                 {
-                    return;
+                    txAmplitude = txAmplitudeJson->get<uint32_t>();
                 }
-                std::vector<std::tuple<std::string, uint32_t>>
-                    portEqualizationData;
-                std::optional<nlohmann::json> txPresets;
-                std::optional<nlohmann::json> txAmplitudeJson;
-                if (!redfish::json_util::readJsonAction(
-                        req, asyncResp->res, "TxAmplitude", txAmplitudeJson,
-                        "TxPresets", txPresets))
+                else if (txAmplitudeJson->is_number_integer())
                 {
-                    BMCWEB_LOG_ERROR(
-                        "Missing property TxAmplitude or TxPresets");
-                    return;
-                }
-                std::optional<uint32_t> txAmplitude;
-                if (txAmplitudeJson)
-                {
-                    // Accept numeric or numeric-string values
-                    if (txAmplitudeJson->is_number_unsigned())
+                    auto v = txAmplitudeJson->get<int64_t>();
+                    if (v >= 0 && v <= static_cast<int64_t>(UINT32_MAX))
                     {
-                        txAmplitude = txAmplitudeJson->get<uint32_t>();
+                        txAmplitude = static_cast<uint32_t>(v);
                     }
-                    else if (txAmplitudeJson->is_number_integer())
+                }
+                else if (txAmplitudeJson->is_string())
+                {
+                    const std::string& s =
+                        txAmplitudeJson->get_ref<const std::string&>();
+                    try
                     {
-                        auto v = txAmplitudeJson->get<int64_t>();
-                        if (v >= 0 && v <= static_cast<int64_t>(UINT32_MAX))
+                        unsigned long ul = std::stoul(s);
+                        if (ul <= UINT32_MAX)
                         {
-                            txAmplitude = static_cast<uint32_t>(v);
+                            txAmplitude = static_cast<uint32_t>(ul);
                         }
                     }
-                    else if (txAmplitudeJson->is_string())
+                    catch (const std::exception&)
                     {
-                        const std::string& s =
-                            txAmplitudeJson->get_ref<const std::string&>();
-                        try
-                        {
-                            unsigned long ul = std::stoul(s);
-                            if (ul <= UINT32_MAX)
-                            {
-                                txAmplitude = static_cast<uint32_t>(ul);
-                            }
-                        }
-                        catch (const std::exception&)
-                        {
-                            BMCWEB_LOG_DEBUG("Invalid TxAmplitude string value; falling back to type error");
-                            // fall through to type error
-                        }
-                    }
-
-                    if (!txAmplitude)
-                    {
-                        messages::propertyValueTypeError(
-                            asyncResp->res, *txAmplitudeJson, "TxAmplitude");
-                        return;
-                    }
-
-                    portEqualizationData.emplace_back("TxAmplitude",
-                                                      *txAmplitude);
-                }
-
-                std::optional<std::vector<std::string>> txPresetGen3;
-                std::optional<std::vector<std::string>> txPresetGen4;
-                std::optional<std::vector<std::string>> txPresetGen5;
-                std::optional<std::vector<std::string>> txPresetGen6;
-                if (txPresets && redfish::json_util::readJson(
-                                     *txPresets, asyncResp->res, "Gen3",
-                                     txPresetGen3, "Gen4", txPresetGen4, "Gen5",
-                                     txPresetGen5, "Gen6", txPresetGen6))
-                {
-                    if (txPresetGen3)
-                    {
-                        uint32_t txPresetGen3Value = 0;
-                        uint8_t gen3Preset0 =
-                            getPresetfromRedfishString(txPresetGen3->at(0));
-                        uint8_t gen3Preset1 =
-                            getPresetfromRedfishString(txPresetGen3->at(1));
-                        uint8_t presetValue = static_cast<uint8_t>(
-                            (gen3Preset1 << 4) | (gen3Preset0 & 0x0F));
-                        txPresetGen3Value = static_cast<uint32_t>(presetValue);
-                        portEqualizationData.emplace_back("PresetGen3",
-                                                          txPresetGen3Value);
-                    }
-                    if (txPresetGen4)
-                    {
-                        uint32_t txPresetGen4Value = 0;
-                        uint8_t gen4Preset0 =
-                            getPresetfromRedfishString(txPresetGen4->at(0));
-                        uint8_t gen4Preset1 =
-                            getPresetfromRedfishString(txPresetGen4->at(1));
-                        uint8_t presetValue = static_cast<uint8_t>(
-                            (gen4Preset1 << 4) | (gen4Preset0 & 0x0F));
-                        txPresetGen4Value = static_cast<uint32_t>(presetValue);
-                        portEqualizationData.emplace_back("PresetGen4",
-                                                          txPresetGen4Value);
-                    }
-                    if (txPresetGen5)
-                    {
-                        uint32_t txPresetGen5Value = 0;
-                        uint8_t gen5Preset0 =
-                            getPresetfromRedfishString(txPresetGen5->at(0));
-                        uint8_t gen5Preset1 =
-                            getPresetfromRedfishString(txPresetGen5->at(1));
-                        uint8_t presetValue = static_cast<uint8_t>(
-                            (gen5Preset1 << 4) | (gen5Preset0 & 0x0F));
-                        txPresetGen5Value = static_cast<uint32_t>(presetValue);
-                        portEqualizationData.emplace_back("PresetGen5",
-                                                          txPresetGen5Value);
-                    }
-                    if (txPresetGen6)
-                    {
-                        uint32_t txPresetGen6Value = 0;
-                        uint8_t gen6Preset0 =
-                            getPresetfromRedfishString(txPresetGen6->at(0));
-                        uint8_t gen6Preset1 =
-                            getPresetfromRedfishString(txPresetGen6->at(1));
-                        uint8_t presetValue = static_cast<uint8_t>(
-                            (gen6Preset1 << 4) | (gen6Preset0 & 0x0F));
-                        txPresetGen6Value = static_cast<uint32_t>(presetValue);
-                        portEqualizationData.emplace_back("PresetGen6",
-                                                          txPresetGen6Value);
+                        BMCWEB_LOG_DEBUG(
+                            "Invalid TxAmplitude string value; falling back to type error");
+                        // fall through to type error
                     }
                 }
-                if (portEqualizationData.empty())
+
+                if (!txAmplitude)
                 {
-                    BMCWEB_LOG_ERROR("Missing property TxAmplitude, TxPreset");
+                    messages::propertyValueTypeError(
+                        asyncResp->res, *txAmplitudeJson, "TxAmplitude");
                     return;
                 }
-                crow::connections::
+
+                portEqualizationData.emplace_back("TxAmplitude", *txAmplitude);
+            }
+
+            std::optional<std::vector<std::string>> txPresetGen3;
+            std::optional<std::vector<std::string>> txPresetGen4;
+            std::optional<std::vector<std::string>> txPresetGen5;
+            std::optional<std::vector<std::string>> txPresetGen6;
+            if (txPresets &&
+                redfish::json_util::readJson(
+                    *txPresets, asyncResp->res, "Gen3", txPresetGen3, "Gen4",
+                    txPresetGen4, "Gen5", txPresetGen5, "Gen6", txPresetGen6))
+            {
+                if (txPresetGen3)
+                {
+                    uint32_t txPresetGen3Value = 0;
+                    uint8_t gen3Preset0 =
+                        getPresetfromRedfishString(txPresetGen3->at(0));
+                    uint8_t gen3Preset1 =
+                        getPresetfromRedfishString(txPresetGen3->at(1));
+                    uint8_t presetValue = static_cast<uint8_t>(
+                        (gen3Preset1 << 4) | (gen3Preset0 & 0x0F));
+                    txPresetGen3Value = static_cast<uint32_t>(presetValue);
+                    portEqualizationData.emplace_back("PresetGen3",
+                                                      txPresetGen3Value);
+                }
+                if (txPresetGen4)
+                {
+                    uint32_t txPresetGen4Value = 0;
+                    uint8_t gen4Preset0 =
+                        getPresetfromRedfishString(txPresetGen4->at(0));
+                    uint8_t gen4Preset1 =
+                        getPresetfromRedfishString(txPresetGen4->at(1));
+                    uint8_t presetValue = static_cast<uint8_t>(
+                        (gen4Preset1 << 4) | (gen4Preset0 & 0x0F));
+                    txPresetGen4Value = static_cast<uint32_t>(presetValue);
+                    portEqualizationData.emplace_back("PresetGen4",
+                                                      txPresetGen4Value);
+                }
+                if (txPresetGen5)
+                {
+                    uint32_t txPresetGen5Value = 0;
+                    uint8_t gen5Preset0 =
+                        getPresetfromRedfishString(txPresetGen5->at(0));
+                    uint8_t gen5Preset1 =
+                        getPresetfromRedfishString(txPresetGen5->at(1));
+                    uint8_t presetValue = static_cast<uint8_t>(
+                        (gen5Preset1 << 4) | (gen5Preset0 & 0x0F));
+                    txPresetGen5Value = static_cast<uint32_t>(presetValue);
+                    portEqualizationData.emplace_back("PresetGen5",
+                                                      txPresetGen5Value);
+                }
+                if (txPresetGen6)
+                {
+                    uint32_t txPresetGen6Value = 0;
+                    uint8_t gen6Preset0 =
+                        getPresetfromRedfishString(txPresetGen6->at(0));
+                    uint8_t gen6Preset1 =
+                        getPresetfromRedfishString(txPresetGen6->at(1));
+                    uint8_t presetValue = static_cast<uint8_t>(
+                        (gen6Preset1 << 4) | (gen6Preset0 & 0x0F));
+                    txPresetGen6Value = static_cast<uint32_t>(presetValue);
+                    portEqualizationData.emplace_back("PresetGen6",
+                                                      txPresetGen6Value);
+                }
+            }
+            if (portEqualizationData.empty())
+            {
+                BMCWEB_LOG_ERROR("Missing property TxAmplitude, TxPreset");
+                return;
+            }
+            crow::
+                connections::
                     systemBus
                         ->async_method_call(
                             [asyncResp{asyncResp}, fabricId, switchId, portId,
@@ -898,6 +900,6 @@ inline void requestRoutesPCIeEqualization(App& app)
                             0,
                             std::array<const char*, 1>{
                                 "xyz.openbmc_project.Inventory.Item.Fabric"});
-            });
+        });
 }
 } // namespace redfish

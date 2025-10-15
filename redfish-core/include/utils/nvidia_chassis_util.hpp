@@ -42,10 +42,7 @@ namespace nvidia_chassis_utils
 
 using Associations =
     std::vector<std::tuple<std::string, std::string, std::string>>;
-<<<<<<< HEAD
-=======
 constexpr const char* bootStatusIntf = "com.nvidia.RoT.BootStatus";
->>>>>>> origin/third_sync_branch
 
 constexpr const size_t trayTopologyStringLength = 16;
 constexpr const size_t trayTopologyByteLength = 8;

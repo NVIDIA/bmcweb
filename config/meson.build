@@ -206,7 +206,7 @@ int_options = [
     'rfa-delay-subscribe-time',
     'stalesensor-upper-limit-milisecond',
     'update-service-task-timeout',
-    'watchdog-timeout-seconds'
+    'watchdog-timeout-seconds',
 ]
 
 feature_options_string = '\n// Feature options\n'

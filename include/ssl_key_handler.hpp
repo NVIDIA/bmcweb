@@ -10,6 +10,8 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <system_error>
+#include <utility>
 
 namespace ensuressl
 {
