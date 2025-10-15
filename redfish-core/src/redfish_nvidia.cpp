@@ -329,7 +329,7 @@ void requestRoutesNvidia(crow::App& app)
     if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
         requestRoutesProcessorResetMetrics(app);
-        requestRoutesSystemOemNvidiaProcessorVariableSpiActions(app);
+        requestRoutesChassisOemNvidiaProcessorVariableSpiActions(app);
     }
 
     if constexpr (BMCWEB_NVIDIA_OEM_PMC)
