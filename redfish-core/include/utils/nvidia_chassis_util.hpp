@@ -2002,7 +2002,7 @@ inline void getChassisWriteProtectProtectEnable(
         *crow::connections::systemBus, object[0].first,
         sdbusplus::message::object_path("/xyz/openbmc_project/software") /=
         chassisId,
-        object[0].second[0], "WriteProtected",
+        "xyz.openbmc_project.Software.Settings", "WriteProtected",
         [asyncResp](const boost::system::error_code& ec2,
                     const bool& property) {
             if (ec2.value() ==
@@ -2047,7 +2047,7 @@ inline void setChassisWriteProtectProtectEnable(
         *crow::connections::systemBus, object[0].first,
         sdbusplus::message::object_path("/xyz/openbmc_project/software") /=
         chassisId,
-        object[0].second[0], "WriteProtected", value,
+        "xyz.openbmc_project.Software.Settings", "WriteProtected", value,
         [asyncResp](const boost::system::error_code& ec2) {
             if (ec2.value() ==
                 boost::system::linux_error::bad_request_descriptor)
