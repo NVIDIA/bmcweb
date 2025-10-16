@@ -590,7 +590,8 @@ inline void requestRoutesComponentIntegrity(App& app)
                         boost::urls::url chassisURI = boost::urls::format(
                             "/redfish/v1/Chassis/{}", objName);
                         boost::urls::url certificateURI = boost::urls::format(
-                            "/redfish/v1/Chassis/{}/Certificates/CertChain");
+                            "/redfish/v1/Chassis/{}/Certificates/CertChain",
+                            objName);
                         asyncResp->res.jsonValue["TargetComponentURI"] =
                             chassisURI;
                         asyncResp->res
