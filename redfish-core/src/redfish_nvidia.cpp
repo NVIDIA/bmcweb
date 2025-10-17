@@ -244,8 +244,8 @@ void requestRoutesNvidia(crow::App& app)
         requestRoutesBootOptions(app);
         requestRoutesSecureBoot(app);
         requestRoutesSecureBootDatabase(app);
-        requestRoutesOemBiosResetService(app);
     }
+    requestRoutesOemBiosResetService(app);
     if constexpr (BMCWEB_DPU_BIOS)
     {
         requestRoutesBiosAttrRegistryService(app);
