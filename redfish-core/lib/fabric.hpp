@@ -929,7 +929,7 @@ inline void updateSwitchData(
 
     asyncResp->res.jsonValue["Status"]["Health"] = "OK";
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
-    if constexpr (BMCWEB_DISABLE_HEALTH_ROLLUP)
+    if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
     {
         asyncResp->res.jsonValue["Status"]["HealthRollup"] = "OK";
     }
