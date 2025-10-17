@@ -2496,11 +2496,7 @@ inline void requestEthernetInterfacesRoutes(App& app)
                         handleStaticNameServersPatch(
                             ifaceId, *staticNameServers, asyncResp);
                     }
-                    if (ipv4StaticAddresses)
-                    {
-                        handleIPv4StaticPatch(ifaceId, *ipv4StaticAddresses,
-                                              ethData, ipv4Data, asyncResp);
-                    }
+
                     if (ipv6DefaultGateway)
                     {
                         messages::propertyNotWritable(asyncResp->res,
