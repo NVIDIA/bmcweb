@@ -673,6 +673,70 @@ inline void getLldpInformationWithIndex(
 }
 
 /**
+ * @brief Get list of physical (non-VLAN) Ethernet interfaces
+ * @param callback - Function to call with the list of physical interfaces
+ *
+ * This function queries D-Bus to get all Ethernet interfaces and filters out
+ * VLAN interfaces by checking if they expose the
+ * xyz.openbmc_project.Network.VLAN D-Bus interface. Only physical interfaces
+ * (without VLAN interface) are returned.
+ */
+template <typename CallbackFunc>
+void getPhysicalEthernetIfaceList(CallbackFunc&& callback)
+{
+    sdbusplus::message::object_path path("/xyz/openbmc_project/network");
+    dbus::utility::getManagedObjects(
+        "xyz.openbmc_project.Network", path,
+        [callback = std::forward<CallbackFunc>(callback)](
+            const boost::system::error_code& ec,
+            const dbus::utility::ManagedObjectType& resp) {
+            std::vector<std::string> physicalIfaceList;
+            physicalIfaceList.reserve(resp.size());
+
+            if (ec)
+            {
+                callback(false, physicalIfaceList);
+                return;
+            }
+
+            // Iterate over all network objects
+            for (const auto& objpath : resp)
+            {
+                bool hasEthernetInterface = false;
+                bool hasVlanInterface = false;
+
+                // Check what interfaces this object exposes
+                for (const auto& interface : objpath.second)
+                {
+                    if (interface.first ==
+                        "xyz.openbmc_project.Network.EthernetInterface")
+                    {
+                        hasEthernetInterface = true;
+                    }
+                    else if (interface.first ==
+                             "xyz.openbmc_project.Network.VLAN")
+                    {
+                        hasVlanInterface = true;
+                    }
+                }
+
+                // Only include interfaces that are Ethernet but NOT VLAN
+                if (hasEthernetInterface && !hasVlanInterface)
+                {
+                    std::string ifaceId = objpath.first.filename();
+                    if (!ifaceId.empty())
+                    {
+                        physicalIfaceList.emplace_back(ifaceId);
+                    }
+                }
+            }
+
+            std::ranges::sort(physicalIfaceList, AlphanumLess<std::string>());
+            callback(true, physicalIfaceList);
+        });
+}
+
+/**
  * @brief Set up routes for dedicated network ports
  * @param app - The application instance
  */
@@ -700,9 +764,9 @@ inline void requestDedicatedPortsInterfacesRoutes(App& app)
                 asyncResp->res.jsonValue["Description"] =
                     "The dedicated network ports of the manager";
 
-                // Get eth interface list, and call the below callback for JSON
-                // preparation
-                getEthernetIfaceList(
+                // Get physical interface list (excludes VLANs based on D-Bus
+                // interface)
+                getPhysicalEthernetIfaceList(
                     [asyncResp](const bool& success,
                                 const std::vector<std::string>& ifaceList) {
                         if (!success)
@@ -710,26 +774,19 @@ inline void requestDedicatedPortsInterfacesRoutes(App& app)
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        int entryIdx = 1;
                         nlohmann::json& ifaceArray =
                             asyncResp->res.jsonValue["Members"];
                         ifaceArray = nlohmann::json::array();
-                        std::string tag = "vlan";
-                        for (const std::string& ifaceItem : ifaceList)
+                        for (size_t entryIdx = 1; entryIdx <= ifaceList.size();
+                             ++entryIdx)
                         {
-                            std::size_t found = ifaceItem.find(tag);
-                            if (found == std::string::npos)
-                            {
-                                nlohmann::json::object_t iface;
-                                iface["@odata.id"] =
-                                    "/redfish/v1/Managers/" +
-                                    std::string(
-                                        BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                                    "/DedicatedNetworkPorts/" +
-                                    std::to_string(entryIdx);
-                                ifaceArray.push_back(std::move(iface));
-                                ++entryIdx;
-                            }
+                            nlohmann::json::object_t iface;
+                            iface["@odata.id"] =
+                                "/redfish/v1/Managers/" +
+                                std::string(BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                                "/DedicatedNetworkPorts/" +
+                                std::to_string(entryIdx);
+                            ifaceArray.push_back(std::move(iface));
                         }
                         asyncResp->res.jsonValue["Members@odata.count"] =
                             ifaceArray.size();
@@ -755,7 +812,7 @@ inline void requestDedicatedPortsInterfacesRoutes(App& app)
                 asyncResp->res.jsonValue["Name"] =
                     "Manager Dedicated Network Port";
                 asyncResp->res.jsonValue["Id"] = entryIdx;
-                getEthernetIfaceList(
+                getPhysicalEthernetIfaceList(
                     [asyncResp,
                      entryIdx](const bool& success,
                                const std::vector<std::string>& ifaceList) {
@@ -766,33 +823,27 @@ inline void requestDedicatedPortsInterfacesRoutes(App& app)
                         }
                         int entryIdxInt = std::stoi(entryIdx);
                         int count = 1;
-                        std::string tag = "vlan";
                         nlohmann::json& ifaceArray =
                             asyncResp->res
                                 .jsonValue["Links"]["EthernetInterfaces"];
                         for (const std::string& ifaceItem : ifaceList)
                         {
-                            // take only none vlan interfaces
-                            std::size_t found = ifaceItem.find(tag);
-                            if (found == std::string::npos)
+                            if (count == entryIdxInt)
                             {
-                                if (count == entryIdxInt)
-                                {
-                                    // Pass entryIdx to getLldpInformation for
-                                    // error reporting
-                                    getLldpInformationWithIndex(
-                                        asyncResp, ifaceItem, entryIdx);
-                                    nlohmann::json::object_t iface;
-                                    iface["@odata.id"] =
-                                        "/redfish/v1/Managers/" +
-                                        std::string(
-                                            BMCWEB_REDFISH_MANAGER_URI_NAME) +
-                                        "/EthernetInterfaces/" + ifaceItem;
-                                    ifaceArray.push_back(std::move(iface));
-                                    return;
-                                }
-                                ++count;
+                                // Get LLDP information for the dedicated
+                                // network port
+                                getLldpInformationWithIndex(
+                                    asyncResp, ifaceItem, entryIdx);
+                                nlohmann::json::object_t iface;
+                                iface["@odata.id"] =
+                                    "/redfish/v1/Managers/" +
+                                    std::string(
+                                        BMCWEB_REDFISH_MANAGER_URI_NAME) +
+                                    "/EthernetInterfaces/" + ifaceItem;
+                                ifaceArray.push_back(std::move(iface));
+                                return;
                             }
+                            ++count;
                         }
                         BMCWEB_LOG_ERROR("No internet interface was found ");
                     });
@@ -823,7 +874,7 @@ inline void requestDedicatedPortsInterfacesRoutes(App& app)
                     {
                         commandType = LldpTlv::ENABLE_ADMIN_STATUS;
                     }
-                    getEthernetIfaceList(
+                    getPhysicalEthernetIfaceList(
                         [asyncResp, ifaceInx, commandType](
                             const bool& success,
                             const std::vector<std::string>& ifaceList) {
@@ -834,21 +885,15 @@ inline void requestDedicatedPortsInterfacesRoutes(App& app)
                             }
                             int entryIdxInt = std::stoi(ifaceInx);
                             int count = 1;
-                            std::string tag = "vlan";
                             for (const std::string& ifaceItem : ifaceList)
                             {
-                                std::size_t found = ifaceItem.find(tag);
-                                // Take only none vlan interfaces
-                                if (found == std::string::npos)
+                                if (count == entryIdxInt)
                                 {
-                                    if (count == entryIdxInt)
-                                    {
-                                        setLldpStatus(asyncResp, ifaceItem,
-                                                      commandType);
-                                        return;
-                                    }
-                                    ++count;
+                                    setLldpStatus(asyncResp, ifaceItem,
+                                                  commandType);
+                                    return;
                                 }
+                                ++count;
                             }
                             BMCWEB_LOG_ERROR(
                                 "No internet interface was found ");
