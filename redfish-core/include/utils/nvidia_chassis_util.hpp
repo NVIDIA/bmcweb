@@ -37,6 +37,49 @@
 
 namespace redfish
 {
+
+/**
+ * @brief Get list of chassis that support in-band updates
+ *
+ * @param asyncResp - Pointer to object holding response data
+ * @param callback Function to call with the list of chassis paths
+ *                 The callback should accept std::vector<std::string> parameter
+ * @return None
+ */
+template <typename CallbackFunc>
+void getChassisListForInBand(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    CallbackFunc&& callback)
+{
+    constexpr std::array<std::string_view, 1> interfaces = {
+        "com.nvidia.InbandUpdatePolicy"};
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory/system/chassis", 0, interfaces,
+        [asyncResp, callback = std::forward<CallbackFunc>(callback)](
+            const boost::system::error_code& ec,
+            const dbus::utility::MapperGetSubTreeResponse& subtree) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("error_code = {}", ec);
+                BMCWEB_LOG_ERROR("error msg = {}", ec.message());
+                messages::internalError(asyncResp->res);
+                callback(std::vector<std::string>());
+                return;
+            }
+
+            std::vector<std::string> chassisList;
+            for (const auto& object : subtree)
+            {
+                const std::string& path = object.first;
+                sdbusplus::message::object_path objectPath(path);
+                const std::string chassisName = objectPath.filename();
+                chassisList.push_back(chassisName);
+            }
+
+            callback(chassisList);
+        });
+}
+
 namespace nvidia_chassis_utils
 {
 
@@ -2739,6 +2782,59 @@ inline void handleMctpInBandActions(
     constexpr std::array<std::string_view, 1> interfaces = {
         "org.freedesktop.DBus.ObjectManager"};
 
+    switch (option)
+    {
+        case InBandOption::BackgroundCopyStatus:
+        {
+            nlohmann::json& oem = asyncResp->res.jsonValue["Oem"]["Nvidia"];
+            oem["@odata.type"] = "#NvidiaChassis.v1_3_0.NvidiaRoTChassis";
+
+            redfish::getChassisListForInBand(
+                asyncResp,
+                [asyncResp, chassisId](const std::vector<std::string>&
+                                           inbandUpdatePolicyAllowList) {
+                    updateInBandEnabled(asyncResp, inbandUpdatePolicyAllowList,
+                                        chassisId);
+                });
+
+            break;
+        }
+        case InBandOption::setInBandEnabled:
+        {
+            redfish::getChassisListForInBand(
+                asyncResp, [asyncResp, enabled, chassisId](
+                               const std::vector<std::string>&
+                                   inbandUpdatePolicyAllowList) {
+                    auto itAllowList =
+                        std::find(inbandUpdatePolicyAllowList.begin(),
+                                  inbandUpdatePolicyAllowList.end(), chassisId);
+                    if (itAllowList != inbandUpdatePolicyAllowList.end())
+                    {
+                        enableInBand(asyncResp, enabled, chassisId);
+                    }
+                    else
+                    {
+                        messages::propertyUnknown(asyncResp->res,
+                                                  "InbandUpdatePolicyEnabled");
+                    }
+                });
+            return;
+        }
+        case InBandOption::setBackgroundCopyEnabled:
+        {
+            // This case is handled in the nested switch statement below
+            break;
+        }
+        default:
+        {
+            // Handle unexpected enum values
+            BMCWEB_LOG_DEBUG("Unexpected InBandOption enum value: {}",
+                             static_cast<int>(option));
+            messages::internalError(asyncResp->res);
+            return;
+        }
+    }
+
     dbus::utility::getDbusObject(
         "/au/com/codeconstruct/mctp1", interfaces,
         [&req, asyncResp, chassisId, chassisUUID, option,
@@ -2886,19 +2982,12 @@ inline void handleMctpInBandActions(
                                     {
                                         break;
                                     }
-                                    std::vector<std::string>
-                                        inbandUpdatePolicyAllowList{};
+
                                     std::vector<std::string>
                                         automaticBackgroundCopyAllowList{};
                                     std::vector<std::string>
                                         backgroundCopyStatusAllowList{};
-                                    if (allowListMap.contains(
-                                            "InbandUpdatePolicyEnabled"))
-                                    {
-                                        inbandUpdatePolicyAllowList =
-                                            allowListMap.at(
-                                                "InbandUpdatePolicyEnabled");
-                                    }
+
                                     if (allowListMap.contains(
                                             "AutomaticBackgroundCopyEnabled"))
                                     {
@@ -2913,26 +3002,17 @@ inline void handleMctpInBandActions(
                                             allowListMap.at(
                                                 "BackgroundCopyStatus");
                                     }
-                                    updateInBandEnabled(
+                                    updateBackgroundCopyEnabled(
                                         req, asyncResp, endpointId,
-                                        inbandUpdatePolicyAllowList, chassisId,
+                                        automaticBackgroundCopyAllowList,
+                                        chassisId,
                                         [&req, asyncResp, endpointId,
-                                         automaticBackgroundCopyAllowList,
                                          backgroundCopyStatusAllowList,
                                          chassisId]() {
-                                            updateBackgroundCopyEnabled(
+                                            updateBackgroundCopyStatus(
                                                 req, asyncResp, endpointId,
-                                                automaticBackgroundCopyAllowList,
-                                                chassisId,
-                                                [&req, asyncResp, endpointId,
-                                                 backgroundCopyStatusAllowList,
-                                                 chassisId]() {
-                                                    updateBackgroundCopyStatus(
-                                                        req, asyncResp,
-                                                        endpointId,
-                                                        backgroundCopyStatusAllowList,
-                                                        chassisId);
-                                                });
+                                                backgroundCopyStatusAllowList,
+                                                chassisId);
                                         });
                                     break;
                                 }
@@ -2951,17 +3031,6 @@ inline void handleMctpInBandActions(
                                         "AutomaticBackgroundCopyEnabled");
                                     return;
                                 case InBandOption::setInBandEnabled:
-                                    if (isChassisIdInAllowList(
-                                            chassisId,
-                                            "InbandUpdatePolicyEnabled"))
-                                    {
-                                        enableInBand(req, asyncResp, *eid,
-                                                     enabled, chassisId);
-                                        break;
-                                    }
-                                    messages::propertyUnknown(
-                                        asyncResp->res,
-                                        "InbandUpdatePolicyEnabled");
                                     return;
                                 default:
                                     BMCWEB_LOG_DEBUG(
