@@ -6,6 +6,7 @@
 
 #include "forward_unauthorized.hpp"
 #include "logging.hpp"
+#include "lsp.hpp"
 #include "ossl_random.hpp"
 #include "sessions.hpp"
 
@@ -156,7 +157,10 @@ std::string verifyOpensslKeyCert(const std::string& filepath)
 
     BIO* bufio = BIO_new_mem_buf(static_cast<void*>(fileContents.data()),
                                  static_cast<int>(fileContents.size()));
-    EVP_PKEY* pkey = PEM_read_bio_PrivateKey(bufio, nullptr, nullptr, nullptr);
+    // Nvidia code starts here for argument lsp::passwordCallback
+    EVP_PKEY* pkey =
+        PEM_read_bio_PrivateKey(bufio, nullptr, lsp::passwordCallback, nullptr);
+    // Nvidia code ends here
     BIO_free(bufio);
     if (pkey != nullptr)
     {
@@ -496,7 +500,10 @@ static bool getSslContext(boost::asio::ssl::context& mSslContext,
         boost::asio::ssl::context::single_dh_use |
         boost::asio::ssl::context::no_tlsv1 |
         boost::asio::ssl::context::no_tlsv1_1);
-
+    // Nvidia code starts here
+    SSL_CTX_set_default_passwd_cb(mSslContext.native_handle(),
+                                  lsp::passwordCallback);
+    // Nvidia code ends here
     BMCWEB_LOG_DEBUG("Using default TrustStore location: {}", trustStorePath);
     mSslContext.add_verify_path(trustStorePath);
 
