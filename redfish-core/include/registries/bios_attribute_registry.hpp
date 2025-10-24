@@ -28,6 +28,11 @@ static constexpr std::array<MessageEntry, 0> registry = {};
 };
 
 [[gnu::constructor]] inline void registerBiosAttributeRegistry()
-{ registerRegistry<BiosAttributeRegistry>(); }
+{
+    if constexpr (BMCWEB_BIOS)
+    {
+        registerRegistry<BiosAttributeRegistry>();
+    }
+}
 
 } // namespace redfish::registries

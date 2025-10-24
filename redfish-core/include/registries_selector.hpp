@@ -67,10 +67,13 @@ inline std::optional<registries::HeaderAndUrl>
     {
         return HeaderAndUrl{Update::header, Update::url};
     }
-    if (BiosAttributeRegistry::header.registryPrefix == registryName)
+    if constexpr (BMCWEB_BIOS)
     {
-        return HeaderAndUrl{BiosAttributeRegistry::header,
-                            BiosAttributeRegistry::url};
+        if (BiosAttributeRegistry::header.registryPrefix == registryName)
+        {
+            return HeaderAndUrl{BiosAttributeRegistry::header,
+                                BiosAttributeRegistry::url};
+        }
     }
     return std::nullopt;
 }
@@ -114,9 +117,12 @@ inline std::span<const MessageEntry> getRegistryFromPrefix(
     {
         return {SensorEvent::registry};
     }
-    if (BiosAttributeRegistry::header.registryPrefix == registryName)
+    if constexpr (BMCWEB_BIOS)
     {
-        return {BiosAttributeRegistry::registry};
+        if (BiosAttributeRegistry::header.registryPrefix == registryName)
+        {
+            return {BiosAttributeRegistry::registry};
+        }
     }
 
     return {Openbmc::registry};
