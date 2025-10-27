@@ -145,7 +145,7 @@ inline bool onSpiEvent(const boost::system::error_code& ec,
 inline void afterSpiEventStarted(
     SpiEventType spiEventType, task::Payload&& payload,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const std::string& serviceName,
+    const std::string& serviceName,
     const sdbusplus::message::object_path& eraseObjPath,
     const boost::system::error_code& ec)
 {
@@ -158,22 +158,19 @@ inline void afterSpiEventStarted(
     std::string match = sdbusplus::bus::match::rules::propertiesChanged(
         eraseObjPath.str, "xyz.openbmc_project.Common.Progress");
 
-    std::shared_ptr<task::TaskData> task = task::TaskData::createTask(
-        [spiEventType, serviceName, eraseObjPath, asyncResp](
-            const boost::system::error_code& ec1, sdbusplus::message_t& msg,
-            const std::shared_ptr<task::TaskData>& taskData) {
-            // Handle progress updates
-            bool completed = onSpiEvent(ec1, msg, taskData);
+    std::shared_ptr<task::TaskData> task =
+        task::TaskData::createTask(onSpiEvent, match);
 
-            // If task completed and it was a SPI read, handle the read data
-            if (completed && spiEventType == SpiEventType::SpiRead)
-            {
-                getSpiReadData(serviceName, eraseObjPath, asyncResp);
-            }
-
-            return completed;
-        },
-        match);
+    if (spiEventType == SpiEventType::SpiRead)
+    {
+        task::TaskResponseCallback callback =
+            [eraseObjPath,
+             serviceName](const std::shared_ptr<bmcweb::AsyncResp>& aResp) {
+                getSpiReadData(serviceName, eraseObjPath, aResp);
+            };
+        task->taskResponse.emplace<task::TaskResponseCallback>(
+            std::move(callback));
+    }
 
     task->startTimer(std::chrono::seconds(300));
     task->populateResp(asyncResp->res);

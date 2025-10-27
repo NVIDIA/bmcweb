@@ -103,6 +103,21 @@ struct Payload
     nlohmann::json jsonBody;
 };
 
+/**
+ * @brief Container to hold result of the operation for long running task. Once
+ * task completes task response should be set, which will be returned by the
+ * task monitor URI
+ *
+ */
+using TaskResponseCallback =
+    std::move_only_function<void(const std::shared_ptr<bmcweb::AsyncResp>&)>;
+
+/*
+A task response might have json, or a callback to get the binary data.
+*/
+using TaskResponse =
+    std::variant<std::monostate, nlohmann::json, TaskResponseCallback>;
+
 struct TaskData : std::enable_shared_from_this<TaskData>
 {
   private:
@@ -412,6 +427,7 @@ struct TaskData : std::enable_shared_from_this<TaskData>
     bool taskComplete = false;
     bool gave204 = false;
     int percentComplete = 0;
+    TaskResponse taskResponse;
 };
 
 } // namespace task
@@ -448,6 +464,26 @@ inline void requestRoutesTaskMonitor(App& app)
                     return;
                 }
                 std::shared_ptr<task::TaskData>& ptr = *find;
+                if (ptr->status == "OK" && ptr->state == "Completed")
+                {
+                    nlohmann::json* resp =
+                        std::get_if<nlohmann::json>(&ptr->taskResponse);
+                    if (resp != nullptr)
+                    {
+                        asyncResp->res.jsonValue = *resp;
+                        return;
+                    }
+                    std::move_only_function<void(
+                        const std::shared_ptr<bmcweb::AsyncResp>&)>*
+                        getBodyCallback =
+                            std::get_if<task::TaskResponseCallback>(
+                                &ptr->taskResponse);
+                    if (getBodyCallback != nullptr)
+                    {
+                        (*getBodyCallback)(asyncResp);
+                        return;
+                    }
+                }
                 // monitor expires after 204
                 if (ptr->gave204)
                 {
