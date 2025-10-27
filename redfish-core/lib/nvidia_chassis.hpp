@@ -172,13 +172,6 @@ inline void afterChassisSpiInterfacesFound(
         return;
     }
     BMCWEB_LOG_DEBUG("spi interfaces found");
-    // Only add actions for ProcessorModule chassis
-    if (!chassisId.starts_with("HGX_ProcessorModule_"))
-    {
-        BMCWEB_LOG_DEBUG("Not a ProcessorModule chassis");
-        return;
-    }
-    BMCWEB_LOG_DEBUG("ProcessorModule chassis found");
 
     nlohmann::json& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
     BMCWEB_LOG_DEBUG("oemActions: {}", oemActions.dump());

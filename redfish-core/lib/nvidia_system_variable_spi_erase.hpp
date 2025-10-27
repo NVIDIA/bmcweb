@@ -236,11 +236,6 @@ inline void handleChassisOemNvidiaVariableSpi(
     {
         return;
     }
-    if (!chassisId.starts_with("HGX_ProcessorModule_"))
-    {
-        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
-        return;
-    }
     task::Payload payload(req);
 
     std::array<std::string_view, 1> interfaces{"com.nvidia.GraceSPI"};
