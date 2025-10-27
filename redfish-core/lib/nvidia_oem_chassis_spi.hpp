@@ -24,7 +24,7 @@
 
 namespace redfish
 {
-namespace nvidia_system_variable_spi_erase
+namespace nvidia_oem_chassis_spi
 {
 
 inline void afterSpiReadFdFound(
@@ -247,20 +247,20 @@ inline void handleChassisOemNvidiaVariableSpi(
                         std::move(payload), asyncResp, chassisId));
 }
 
-} // namespace nvidia_system_variable_spi_erase
+} // namespace nvidia_oem_chassis_spi
 
 /**
  * ChassisProcessorVariableSpiActions derived class for delivering Chassis
  */
 inline void requestRoutesChassisOemNvidiaProcessorVariableSpiActions(App& app)
 {
-    using enum nvidia_system_variable_spi_erase::SpiEventType;
+    using enum nvidia_oem_chassis_spi::SpiEventType;
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Chassis/<str>/Actions/Oem/NvidiaChassis.VariableSpiErase/")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(std::bind_front(
-            nvidia_system_variable_spi_erase::handleChassisOemNvidiaVariableSpi,
+            nvidia_oem_chassis_spi::handleChassisOemNvidiaVariableSpi,
             std::ref(app), SpiErase));
 
     BMCWEB_ROUTE(
@@ -268,7 +268,7 @@ inline void requestRoutesChassisOemNvidiaProcessorVariableSpiActions(App& app)
         "/redfish/v1/Chassis/<str>/Actions/Oem/NvidiaChassis.VariableSpiRead/")
         .privileges(redfish::privileges::postComputerSystem)
         .methods(boost::beast::http::verb::post)(std::bind_front(
-            nvidia_system_variable_spi_erase::handleChassisOemNvidiaVariableSpi,
+            nvidia_oem_chassis_spi::handleChassisOemNvidiaVariableSpi,
             std::ref(app), SpiRead));
 }
 

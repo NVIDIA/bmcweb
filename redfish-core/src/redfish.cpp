@@ -31,6 +31,7 @@
 #include "nvidia_log_services.hpp"
 #include "nvidia_managers.hpp"
 #include "nvidia_nic_debug_token.hpp"
+#include "nvidia_oem_chassis_spi.hpp"
 #include "nvidia_persistent_data.hpp"
 #include "odata.hpp"
 #include "openbmc/openbmc_managers.hpp"
