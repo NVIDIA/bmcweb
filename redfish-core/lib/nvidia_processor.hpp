@@ -3943,6 +3943,11 @@ inline void populateNvidiaProcessorPostData(
     redfish::nvidia_processor_utils::getOperatingSpeedRange(
         asyncResp, objectPath);
 
+    asyncResp->res.jsonValue["Metrics"] = {
+        {"@odata.id",
+         "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
+             "/Processors/" + processorId + "/ProcessorMetrics"}};
+
     asyncResp->res.jsonValue["EnvironmentMetrics"] = {
         {"@odata.id",
          "/redfish/v1/Systems/" + std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
