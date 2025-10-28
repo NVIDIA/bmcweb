@@ -156,6 +156,10 @@ inline void doThermalMetrics(
     // Metrics";
     asyncResp->res.jsonValue["Name"] = "Chassis Thermal Metrics";
 
+    // Initialize TemperatureReadingsCelsius array
+    asyncResp->res.jsonValue["TemperatureReadingsCelsius"] =
+        nlohmann::json::array_t();
+
     // Upstream code commented for calling getTemperatureReadingsCelsius
     // getTemperatureReadingsCelsius(asyncResp, *validChassisPath, chassisId);
 
