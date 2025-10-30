@@ -162,7 +162,7 @@ inline void powerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 inline void afterChassisSpiInterfacesFound(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const boost::system::error_code& ec,
-    const dbus::utility::MapperGetSubTreePathsResponse& /*paths*/)
+    const dbus::utility::MapperGetSubTreePathsResponse& paths)
 {
     BMCWEB_LOG_DEBUG("afterChassisSpiInterfacesFound");
     if (ec)
@@ -171,11 +171,31 @@ inline void afterChassisSpiInterfacesFound(
         BMCWEB_LOG_DEBUG("NO spi interfaces found. This is fine.");
         return;
     }
-    BMCWEB_LOG_DEBUG("spi interfaces found");
+
+    if (paths.empty())
+    {
+        BMCWEB_LOG_ERROR(
+            "No SPI interface object paths found for chassisId: {}", chassisId);
+        return;
+    }
+
+    int objPathCount = 0;
+    for (const auto& path : paths)
+    {
+        if (path.find(chassisId) != std::string::npos)
+        {
+            objPathCount++;
+        }
+    }
+    if (objPathCount != 1)
+    {
+        BMCWEB_LOG_ERROR(
+            "Multiple SPI interface object paths {} found for chassisId: {}",
+            objPathCount, chassisId);
+        return;
+    }
 
     nlohmann::json& oemActions = asyncResp->res.jsonValue["Actions"]["Oem"];
-    BMCWEB_LOG_DEBUG("oemActions: {}", oemActions.dump());
-    BMCWEB_LOG_DEBUG("chassisId: {}", chassisId);
     oemActions["#NvidiaChassis.VariableSpiErase"]["target"] =
         boost::urls::format(
             "/redfish/v1/Chassis/{}/Actions/Oem/NvidiaChassis.VariableSpiErase",
@@ -192,22 +212,16 @@ inline void getChassisOemNvidiaProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId)
 {
-    BMCWEB_LOG_DEBUG("getChassisOemNvidiaProperties");
     if constexpr (!BMCWEB_NVIDIA_OEM_PROPERTIES)
     {
         // Nothing to do if the option isn't enabled
         return;
     }
 
-    BMCWEB_LOG_DEBUG("Checking for SPI interfaces");
-
     // Add SPI interface detection
     std::array<std::string_view, 1> interfaces{"com.nvidia.GraceSPI"};
-    std::string inventoryPath =
-        "/xyz/openbmc_project/inventory/system/" + chassisId;
-    BMCWEB_LOG_DEBUG("inventoryPath: {}", inventoryPath);
     dbus::utility::getSubTreePaths(
-        inventoryPath, 0, interfaces,
+        "/xyz/openbmc_project/inventory", 0, interfaces,
         std::bind_front(&afterChassisSpiInterfacesFound, asyncResp, chassisId));
 }
 

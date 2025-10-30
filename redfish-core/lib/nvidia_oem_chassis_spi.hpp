@@ -199,15 +199,33 @@ inline void afterSpiInterfacesFound(
         return;
     }
 
-    if (paths.size() != 1 || paths.front().second.size() != 1)
+    std::string objectPath;
+    std::string service;
+    int objPathCount = 0;
+    for (const auto& [path, serviceMap] : paths)
     {
-        messages::internalError(asyncResp->res);
+        if (path.find(chassisId) != std::string::npos)
+        {
+            objPathCount++;
+            objectPath = path;
+            service = serviceMap.front().first;
+        }
+    }
+    if (objPathCount != 1)
+    {
+        BMCWEB_LOG_ERROR(
+            "Multiple SPI interface object paths {} found for chassisId: {}",
+            objPathCount, chassisId);
+        return;
+    }
+    if (objectPath.empty() || service.empty())
+    {
+        BMCWEB_LOG_ERROR(
+            "SPI interface object path {} or service {} not found for chassisId: {}",
+            objectPath, service, chassisId);
         return;
     }
 
-    const std::string& service = paths.front().second.front().first;
-    const std::string& path = paths.front().first;
-    BMCWEB_LOG_DEBUG("Calling spi on service {} path {}", service, path);
     std::string method;
     if (spiEventType == SpiEventType::SpiErase)
     {
@@ -217,6 +235,7 @@ inline void afterSpiInterfacesFound(
     {
         method = "ReadSpi";
     }
+    sdbusplus::message::object_path path(objectPath);
     crow::connections::systemBus->async_method_call(
         [asyncResp, payload = std::move(payload), chassisId, spiEventType,
          service](const boost::system::error_code& ec2,
@@ -239,10 +258,8 @@ inline void handleChassisOemNvidiaVariableSpi(
     task::Payload payload(req);
 
     std::array<std::string_view, 1> interfaces{"com.nvidia.GraceSPI"};
-    std::string inventoryPath =
-        "/xyz/openbmc_project/inventory/system/" + chassisId;
     dbus::utility::getSubTree(
-        inventoryPath, 0, interfaces,
+        "/xyz/openbmc_project/inventory", 0, interfaces,
         std::bind_front(&afterSpiInterfacesFound, spiEventType,
                         std::move(payload), asyncResp, chassisId));
 }
