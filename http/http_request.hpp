@@ -112,7 +112,12 @@ struct Request
     {
         req.erase(key);
     }
-
+    // NVIDIA code starts here
+    void clearHeader(std::string_view key)
+    {
+        req.erase(key);
+    }
+    // NVIDIA code ends here
     std::string_view methodString() const
     {
         return req.method_string();

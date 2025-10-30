@@ -27,8 +27,8 @@
 #include <boost/url/url.hpp>
 #include <boost/url/url_view.hpp>
 #include <nlohmann/json.hpp>
+#include <nvidia_redfish_aggregator.hpp>
 #include <sdbusplus/message/native_types.hpp>
-#include <utils/nvidia_http_utils.hpp>
 
 #include <algorithm>
 #include <array>
@@ -719,22 +719,9 @@ class RedfishAggregator
             }
             localReq->target(urlNew.buffer());
         }
-
-        // Only allow Host,Accept and ContentType from the request's header
-        auto fields = localReq->fields();
-        for (const auto& it : fields)
-        {
-            auto h = it.name();
-            if (h == boost::beast::http::field::content_type ||
-                h == boost::beast::http::field::host)
-            {
-                continue;
-            }
-            localReq->clearHeader(h);
-        }
-        localReq->addHeader(boost::beast::http::field::accept,
-                            "application/json, application/octet-stream");
-
+        // NVIDIA code starts here
+        redfish::nvidia_redfish_aggregator::filterHeaders(localReq);
+        // NVIDIA code ends here
         getSatelliteConfigs(
             std::bind_front(aggregateAndHandle, aggType, localReq, asyncResp));
     }
@@ -929,13 +916,9 @@ class RedfishAggregator
         {
             url.set_query(targetURI.query());
         }
-        // Build filtered headers and drop HTTP/2 pseudo headers like :authority
-        boost::beast::http::fields fwdHeaders =
-            redfish::nvidia_http_utils::filterHeadersDropAuthority(
-                thisReq.fields(), url);
         client.sendDataWithCallback(std::move(data), url,
                                     ensuressl::VerifyCertificate::Verify,
-                                    fwdHeaders, thisReq.method(), cb);
+                                    thisReq.fields(), thisReq.method(), cb);
     }
 
     // Forward a request for a collection URI to each known satellite BMC
@@ -966,12 +949,9 @@ class RedfishAggregator
                 }
             }
             std::string data = thisReq.body();
-            boost::beast::http::fields fwdHeaders =
-                redfish::nvidia_http_utils::filterHeadersDropAuthority(
-                    thisReq.fields(), url);
             client.sendDataWithCallback(std::move(data), url,
                                         ensuressl::VerifyCertificate::Verify,
-                                        fwdHeaders, thisReq.method(), cb);
+                                        thisReq.fields(), thisReq.method(), cb);
         }
     }
 
@@ -995,12 +975,9 @@ class RedfishAggregator
             url.set_path(thisReq.url().path());
 
             std::string data = thisReq.body();
-            boost::beast::http::fields fwdHeaders =
-                redfish::nvidia_http_utils::filterHeadersDropAuthority(
-                    thisReq.fields(), url);
             client.sendDataWithCallback(std::move(data), url,
                                         ensuressl::VerifyCertificate::Verify,
-                                        fwdHeaders, thisReq.method(), cb);
+                                        thisReq.fields(), thisReq.method(), cb);
         }
     }
 

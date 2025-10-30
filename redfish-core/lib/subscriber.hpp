@@ -165,14 +165,9 @@ inline void doSubscribe(std::shared_ptr<crow::HttpClient> client,
 
                 auto data = postJson.dump();
                 url.set_path(path);
-                // Build filtered headers and drop HTTP/2 pseudo headers like
-                // :authority
-                boost::beast::http::fields fwdHeaders =
-                    redfish::nvidia_http_utils::filterHeadersDropAuthority(
-                        httpHeader, url);
                 client->sendDataWithCallback(
                     std::move(data), url, ensuressl::VerifyCertificate::Verify,
-                    fwdHeaders, boost::beast::http::verb::post, callback);
+                    httpHeader, boost::beast::http::verb::post, callback);
             }
         }
     };
@@ -204,14 +199,9 @@ inline void doUnsubscribe(std::shared_ptr<crow::HttpClient> client,
                     std::string data;
                     boost::beast::http::fields httpHeader;
                     url.set_path(subscriptionId);
-                    // Build filtered headers and drop HTTP/2 pseudo headers
-                    // like :authority
-                    boost::beast::http::fields fwdHeaders =
-                        redfish::nvidia_http_utils::filterHeadersDropAuthority(
-                            httpHeader, url);
                     client->sendDataWithCallback(
                         std::move(data), url,
-                        ensuressl::VerifyCertificate::Verify, fwdHeaders,
+                        ensuressl::VerifyCertificate::Verify, httpHeader,
                         boost::beast::http::verb::delete_, callback);
                 }
             }
@@ -253,11 +243,9 @@ inline void querySubscriptionList(
 
     std::string path("/redfish/v1/EventService/Subscriptions");
     url.set_path(path);
-    // Build filtered headers and drop HTTP/2 pseudo headers like :authority
-    boost::beast::http::fields fwdHeaders =
-        redfish::nvidia_http_utils::filterHeadersDropAuthority(httpHeader, url);
+
     client->sendDataWithCallback(
-        std::move(data), url, ensuressl::VerifyCertificate::Verify, fwdHeaders,
+        std::move(data), url, ensuressl::VerifyCertificate::Verify, httpHeader,
         boost::beast::http::verb::get, callback);
     auto subscribeTimer = SubscribeSatBmc::getInstance().getTimer();
     // check HMC subscription periodically in case of HMC
@@ -351,11 +339,9 @@ inline void unSubscribe(
 
     std::function<void(crow::Response&)> callback =
         std::bind_front(doUnsubscribe, client, url);
-    // Build filtered headers and drop HTTP/2 pseudo headers like :authority
-    boost::beast::http::fields fwdHeaders =
-        redfish::nvidia_http_utils::filterHeadersDropAuthority(httpHeader, url);
+
     client->sendDataWithCallback(
-        std::move(data), url, ensuressl::VerifyCertificate::Verify, fwdHeaders,
+        std::move(data), url, ensuressl::VerifyCertificate::Verify, httpHeader,
         boost::beast::http::verb::get, callback);
 }
 
