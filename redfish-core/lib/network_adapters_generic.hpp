@@ -1882,6 +1882,57 @@ inline void getPortMetricsData(
                                           property.second, addNvidiaType);
                 }
 
+                if constexpr (BMCWEB_NVIDIA_OEM_PROPERTIES)
+                {
+                    if (property.first == "SymbolErrorRXBytes")
+                    {
+                        const auto* value =
+                            std::get_if<uint64_t>(&property.second);
+                        if (value == nullptr)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "Null value returned for ECC Counter SymbolErrors");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        asyncResp->res.jsonValue["Oem"]["Nvidia"]["ECC"]
+                                                ["SymbolErrorRXBytes"] = *value;
+                        addNvidiaType = true;
+                    }
+                    else if (property.first == "CorrectedBits")
+                    {
+                        const auto* value =
+                            std::get_if<uint64_t>(&property.second);
+                        if (value == nullptr)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "Null value returned for ECC Counter CorrectedBits");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+                        asyncResp->res.jsonValue["Oem"]["Nvidia"]["ECC"]
+                                                ["CorrectedBits"] = *value;
+                        addNvidiaType = true;
+                    }
+                    else if (property.first == "RawErrorsPerLane")
+                    {
+                        const auto* value = std::get_if<std::vector<uint64_t>>(
+                            &property.second);
+                        if (value == nullptr)
+                        {
+                            BMCWEB_LOG_ERROR(
+                                "Null value returned for ECC Counter"
+                                " RawErrorsPerLane");
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
+
+                        asyncResp->res.jsonValue["Oem"]["Nvidia"]["ECC"]
+                                                ["RawErrorsPerLane"] = *value;
+                        addNvidiaType = true;
+                    }
+                }
+
                 for (const auto& [pdiPropertyName, fixedPropertyName] :
                      pcieErrorsProperties)
                 {
