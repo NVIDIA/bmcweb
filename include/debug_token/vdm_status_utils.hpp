@@ -36,8 +36,6 @@
 namespace redfish::debug_token
 {
 
-using json = nlohmann::json;
-
 static std::string setOrAppend(const std::string& str, const std::string& in)
 {
     if (str.empty())

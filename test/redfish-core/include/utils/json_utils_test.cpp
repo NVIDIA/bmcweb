@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright OpenBMC Authors
 #include "http_request.hpp"
 #include "http_response.hpp"
+#include "utils/json_utils.hpp"
 #include "utils/nvidia_json_utils.hpp"
 
 #include <boost/beast/http/field.hpp>

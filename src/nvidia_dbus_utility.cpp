@@ -1,5 +1,15 @@
 #include "nvidia_dbus_utility.hpp"
 
+#include "dbus_singleton.hpp"
+#include "dbus_utility.hpp"
+
+#include <sdbusplus/message/native_types.hpp>
+
+#include <functional>
+#include <string>
+#include <string_view>
+#include <utility>
+
 namespace dbus
 {
 

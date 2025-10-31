@@ -1,11 +1,17 @@
 #include "dbus_log_watcher.hpp"
 
+#include "bmcweb_config.h"
+
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
 #include "event_logs_object_type.hpp"
 #include "event_service_manager.hpp"
 #include "logging.hpp"
 #include "metric_report.hpp"
+#include "nvidia_event_service_manager.hpp"
+#include "str_utility.hpp"
+#include "utils/dbus_event_log_entry.hpp"
+#include "utils/dbus_log_utils.hpp"
 #include "utils/nvidia_time_utils.hpp"
 #include "utils/nvidia_utils.hpp"
 #include "utils/time_utils.hpp"
