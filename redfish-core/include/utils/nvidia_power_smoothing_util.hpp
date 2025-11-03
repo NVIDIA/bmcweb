@@ -36,7 +36,7 @@ inline void getPowerSmoothingPresetProfileParameters(
     const std::string& processorId,
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [processorId, asyncResp](
             const boost::system::error_code ec,
             const boost::container::flat_map<
@@ -55,7 +55,7 @@ inline void getPowerSmoothingPresetProfileParameters(
                     continue;
                 }
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp, processorId](
                         const boost::system::error_code ec2,
                         std::variant<std::vector<std::string>>& resp) {

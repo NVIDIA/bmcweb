@@ -53,7 +53,7 @@ inline void populateErrorInjectionLink(
     const std::string& chassisId, const std::string& networkAdapterId,
     const std::string& networkAdapterPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, chassisId, networkAdapterId, networkAdapterPath](
             const boost::system::error_code ec,
             const dbus::utility::MapperServiceMap& serviceMap) {

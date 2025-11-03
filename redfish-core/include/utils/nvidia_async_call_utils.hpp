@@ -63,7 +63,8 @@ void callAsyncGetValue(std::shared_ptr<CallAsyncStatusInfo> statusInfo,
     if (status != asyncStatusValueInProgress)
     {
         std::weak_ptr<CallAsyncStatusInfo> weakStatusInfo{statusInfo};
-        crow::connections::systemBus->async_method_call(
+
+        dbus::utility::async_method_call(
             [weakStatusInfo,
              status](const boost::system::error_code ec,
                      const std::variant<typename CallAsyncStatusInfo::Value>&
@@ -279,7 +280,7 @@ class CallAsyncMethodCall
                 statusInfo->object, statusInfo->statusInterface),
             CallAsyncStatusChanged<CallAsyncStatusInfo>{statusInfo});
 
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             CallAsyncGetStatus<CallAsyncStatusInfo>{statusInfo},
             statusInfo->service, statusInfo->object,
             "org.freedesktop.DBus.Properties", "Get",
@@ -317,7 +318,7 @@ void doCallAsyncAndGatherResult(
             crow::connections::systemBus->get_io_context()),
         .completed{}});
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         CallAsyncMethodCall<CallAsyncStatusInfo>{statusInfo},
         statusInfo->service, object, interface, method,
         std::forward<Params>(params)...);

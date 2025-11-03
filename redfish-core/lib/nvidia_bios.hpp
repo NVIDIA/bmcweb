@@ -64,7 +64,7 @@ enum class SecureSelector
     const bool& resetBiosToDefaultsPending)
 {
     BMCWEB_LOG_DEBUG("Set Reset Bios Settings to Defaults Pending Status");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, resetBiosToDefaultsPending](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetObject& objType) {
@@ -88,7 +88,7 @@ enum class SecureSelector
                     "xyz.openbmc_project.BIOSConfig.Manager.ResetFlag.NoAction";
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](const boost::system::error_code& ec2) {
                     if (ec2)
                     {
@@ -118,7 +118,7 @@ inline void setClearVariables(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& path, const bool requestToClear)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, path, service](const boost::system::error_code& ec,
                                sdbusplus::message::message& msg) {
             if (!ec)
@@ -199,7 +199,7 @@ inline void handleClearSecureStateSubtree(
                 continue;
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp, secure, requestToClear, clearService,
                  clearPath](const boost::system::error_code& ec,
                             const std::variant<bool>& resp) {
@@ -243,7 +243,7 @@ inline void handleClearNonVolatileVariablesSubtree(
         return;
     }
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, secure, requestToClear,
          clearSubtree](boost::system::error_code& ec,
                        const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -269,7 +269,7 @@ inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                            const SecureSelector secure,
                            const bool requestToClear)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, secure, requestToClear](
             boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -290,7 +290,7 @@ inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         std::array<const char*, 1>{
             "xyz.openbmc_project.Control.Boot.ClearNonVolatileVariables"});
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -306,7 +306,7 @@ inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         "xyz.openbmc_project.Control.Boot.Flags", "CMOSClear",
         dbus::utility::DbusVariantType(true));
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -726,7 +726,7 @@ inline void getResetBiosSettings(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get Reset Bios Settings to Defaults Pending Status");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
@@ -737,7 +737,7 @@ inline void getResetBiosSettings(
 
             const std::string& biosService = objType.begin()->first;
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](
                     const boost::system::error_code& ec2,
                     const std::variant<std::string>& resetBiosSettingsMode) {
@@ -799,7 +799,7 @@ inline void getResetBiosSettings(
 inline void getBiosAttributes(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
@@ -809,7 +809,7 @@ inline void getBiosAttributes(
             }
 
             const std::string& biosService = objType.begin()->first;
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](
                     const boost::system::error_code& ec2,
                     const std::variant<BaseBIOSTable>& baseBiosTableResp) {
@@ -1234,7 +1234,7 @@ inline void fillBiosTable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
     }
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, baseBiosTable](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -1263,7 +1263,7 @@ inline void fillBiosTable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 inline void getBiosSettingsAttr(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
@@ -1273,7 +1273,7 @@ inline void getBiosSettingsAttr(
             }
 
             const std::string& biosService = objType.begin()->first;
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](
                     const boost::system::error_code& ec2,
                     const std::variant<PendingAttrType>& pendingAttrsResp) {
@@ -1398,7 +1398,7 @@ inline void setBiosCurrentOrPendingAttr(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const nlohmann::json& pendingAttrJson, bool biosFlag)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, pendingAttrJson,
          biosFlag](const boost::system::error_code& ec,
                    const dbus::utility::MapperGetObject& objType) {
@@ -1409,7 +1409,7 @@ inline void setBiosCurrentOrPendingAttr(
             }
 
             const std::string& biosService = objType.begin()->first;
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, pendingAttrJson, biosService, biosFlag](
                     const boost::system::error_code& ec2,
                     const std::variant<BaseBIOSTable>& baseBiosTableResp) {
@@ -1674,7 +1674,7 @@ inline void setBiosCurrentOrPendingAttr(
                     }
                     if (biosFlag)
                     {
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, baseBiosTable](
                                 const boost::system::error_code& ec1) {
                                 if (ec1)
@@ -1694,7 +1694,7 @@ inline void setBiosCurrentOrPendingAttr(
                             "BaseBIOSTable",
                             std::variant<BaseBIOSTable>(*baseBiosTable));
                     }
-                    crow::connections::systemBus->async_method_call(
+                    dbus::utility::async_method_call(
                         [asyncResp](const boost::system::error_code& ec3) {
                             if (ec3)
                             {
@@ -1763,7 +1763,7 @@ inline void setBiosServicCurrentAttr(
 [[maybe_unused]] static void getBiosAttributeRegistry(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
@@ -1773,7 +1773,7 @@ inline void setBiosServicCurrentAttr(
             }
 
             const std::string& biosService = objType.begin()->first;
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](
                     const boost::system::error_code& ec2,
                     const std::variant<BaseBIOSTable>& baseBiosTableResp) {
@@ -2140,7 +2140,7 @@ inline void setBiosServicCurrentAttr(
 static void updateBiosAttrRegistry(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
@@ -2150,7 +2150,7 @@ static void updateBiosAttrRegistry(
             }
 
             const std::string& biosService = objType.begin()->first;
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](
                     const boost::system::error_code& ec2,
                     const std::variant<BaseBIOSTable>& baseBiosTableResp) {
@@ -2278,7 +2278,7 @@ inline void handleBiosServicePut(
         messages::insufficientPrivilege(asyncResp->res);
         return;
     }
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [&req,
          asyncResp](const boost::system::error_code& ec,
                     const std::map<std::string, dbus::utility::DbusVariantType>&
@@ -2354,7 +2354,7 @@ inline void handleBiosServicePatch(
         messages::insufficientPrivilege(asyncResp->res);
         return;
     }
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [&req,
          asyncResp](const boost::system::error_code& ec,
                     const std::map<std::string, dbus::utility::DbusVariantType>&
@@ -2537,7 +2537,7 @@ inline void handleBiosChangePasswordPost(
         return;
     }
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, passwordName, oldPassword,
          newPassword](boost::system::error_code& ec,
                       const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -2557,7 +2557,7 @@ inline void handleBiosChangePasswordPost(
             }
             const auto& [service, interfaces] = services[0];
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](boost::system::error_code& ec1,
                             sdbusplus::message_t& msg) {
                     if (ec1)
@@ -2672,7 +2672,7 @@ inline void handleBiosAttrRegistryPut(
         messages::insufficientPrivilege(asyncResp->res);
         return;
     }
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [&req,
          asyncResp](const boost::system::error_code& ec,
                     const std::map<std::string, dbus::utility::DbusVariantType>&

@@ -801,7 +801,7 @@ constexpr const char* metricReportUri =
 inline void addMetricReportMembers(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](boost::system::error_code& ec,
                     const std::vector<std::string>& metricPaths) mutable {
             if (ec)
@@ -1061,7 +1061,7 @@ inline void getPlatformMetrics(
         messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
     };
     // Get the Chassis Collection
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         respHandler, "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
@@ -1274,7 +1274,7 @@ inline void getManagedObjectForMetrics(
 
     asyncResp->res.jsonValue["MetricReportDefinition"]["@odata.id"] =
         metricDefinitionUri;
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp,
          deviceType](const boost::system::error_code& ec,
                      const dbus::utility::ManagedObjectType& objects) {
@@ -1359,7 +1359,7 @@ inline void getPlatforMetrics(
     // Map of object paths to MapperServiceMaps
     using MapperGetSubTreeResponse =
         std::vector<std::pair<std::string, MapperServiceMapType>>;
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, metricId,
          requestTimestamp](boost::system::error_code& ec,
                            const MapperGetSubTreeResponse& subtree) mutable {

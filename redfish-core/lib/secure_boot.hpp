@@ -237,7 +237,7 @@ inline void handleSecureBootPatch(
 
         if (!secureBootCurrentBootStr.empty())
         {
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp](const boost::system::error_code& ec1) {
                     if (ec1)
                     {
@@ -255,7 +255,7 @@ inline void handleSecureBootPatch(
 
         if (secureBootEnable)
         {
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp](const boost::system::error_code& ec1) {
                     if (ec1)
                     {
@@ -273,7 +273,7 @@ inline void handleSecureBootPatch(
 
         if (!secureBootModeStr.empty())
         {
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp](const boost::system::error_code& ec1) {
                     if (ec1)
                     {

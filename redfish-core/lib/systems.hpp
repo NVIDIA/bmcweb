@@ -2154,7 +2154,7 @@ inline void getUefiPropertySettingsHost(
             "None", "Pxe", "Hdd", "Cd", "Diags", "BiosSetup", "Usb"};
     }
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, addSourcesList](
             const boost::system::error_code& ec,
             const std::variant<std::vector<std::string>>& sourcesListVariant) {
@@ -2196,7 +2196,7 @@ inline void getUefiPropertySettingsHost(
                         ["BootSourceOverrideTarget@Redfish.AllowableValues"] =
                         sourcesList;
                 }
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [aResp, isIncludeUefiTarget, isIncludeUefiBootNext,
                      isIncludeUefiHttp](
                         const boost::system::error_code& ec1,
@@ -2277,7 +2277,7 @@ void setDbusProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                      const std::string& interface, const std::string& property,
                      T& value)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, property, value, path, service,
          interface](const boost::system::error_code& ec) {
             if (ec)
@@ -3973,7 +3973,7 @@ inline void handleComputerSystemGet(
             aRsp->res.jsonValue["Links"]["Chassis"] = std::move(chassisArray);
         });
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](
             const boost::system::error_code& ec,
             const std::vector<std::pair<

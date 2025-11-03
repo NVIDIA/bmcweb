@@ -85,7 +85,7 @@ inline void getResetMetricsInterfaceProperties(
     BMCWEB_LOG_DEBUG("Get ResetMetrics interface properties for path: {}",
                      objPath);
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, objPath](
             const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -205,7 +205,7 @@ inline void getProcessorResetMetricsData(
     std::shared_ptr<bmcweb::AsyncResp> aResp, const std::string& processorId)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [processorId, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
             const boost::container::flat_map<
@@ -226,7 +226,7 @@ inline void getProcessorResetMetricsData(
                     continue;
                 }
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [aResp, processorId](
                         const boost::system::error_code& ec2,
                         const std::variant<std::vector<std::string>>& resp) {

@@ -54,7 +54,7 @@ inline void getProcessorWorkloadPowerInfo(
     const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get processor smoothing control data.");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp{std::move(aResp)}](const boost::system::error_code& ec,
                                   const DbusProperties& properties) {
             if (ec)
@@ -213,7 +213,7 @@ inline void getWorkLoadProfileData(
     const std::string& objPath, const std::string& processorId)
 {
     BMCWEB_LOG_DEBUG("Get processor current profile data.");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [processorId,
          aResp{std::move(aResp)}](const boost::system::error_code& ec,
                                   const DbusProperties& properties) {
@@ -306,7 +306,7 @@ inline void validateProcessorWorkloadPowerProfile(
                 aResp->res.jsonValue["@odata.id"] = profileURI;
                 aResp->res.jsonValue["Id"] = profileId;
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [aResp, profileId, processorId](
                         const boost::system::error_code& ecInner,
                         std::variant<std::vector<std::string>>& resp) {
@@ -335,7 +335,7 @@ inline void validateProcessorWorkloadPowerProfile(
                             profileExists = true;
                             const std::string& objectPathToGetProfileData =
                                 profilePath;
-                            crow::connections::systemBus->async_method_call(
+                            dbus::utility::async_method_call(
                                 [processorId, objectPathToGetProfileData,
                                  aResp{aResp}](
                                     const boost::system::error_code ec,
@@ -425,7 +425,7 @@ inline void getProcessorWorkloadPowerProfileCollectionData(
                 aResp->res.jsonValue["Members"] = nlohmann::json::array();
                 aResp->res.jsonValue["Members@odata.count"] = 0;
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [aResp, profileCollectionURI, processorId](
                         const boost::system::error_code& ec2,
                         std::variant<std::vector<std::string>>& resp) {

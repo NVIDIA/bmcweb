@@ -283,7 +283,7 @@ inline void patchCCMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
             }
 
             // Set the property, with handler to check error responses
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [resp, processorId](boost::system::error_code ec2,
                                     sdbusplus::message::message& msg) {
                     if (!ec2)
@@ -391,7 +391,7 @@ inline void patchCCDevMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
             }
 
             // Set the property, with handler to check error responses
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [resp, processorId](boost::system::error_code ec2,
                                     sdbusplus::message::message& msg) {
                     if (!ec2)
@@ -523,7 +523,7 @@ static void egmGetDbusObjectHandler(
     BMCWEB_LOG_DEBUG("Performing Patch using set-property Call");
 
     // Set the property, with handler to check error responses
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [resp, processorId](boost::system::error_code ec2,
                             sdbusplus::message::message& msg) {
             egmAsyncRespHandler(resp, processorId, ec2, msg);
@@ -624,7 +624,7 @@ inline void getCCModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                           const std::string& cpuId, const std::string& service,
                           const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, cpuId](const boost::system::error_code& ec,
                        const OperatingConfigProperties& properties) {
             if (ec)
@@ -680,7 +680,7 @@ inline void getReconfigPermissionsData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
     const std::string& service, const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, cpuId, objPath](const boost::system::error_code& ec,
                                 const OperatingConfigProperties& properties) {
             if (ec)
@@ -761,7 +761,7 @@ inline void getReconfigPermissionsData(
 {
     // Ask for all objects implementing OperatingConfig so we can search
     // for one with a matching name
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, cpuId](boost::system::error_code ec,
                        const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)
@@ -799,7 +799,7 @@ inline void populateErrorInjectionData(
            const std::string& procId, const std::string& path,
            [[maybe_unused]] const dbus::utility::MapperServiceMap& serviceMap,
            [[maybe_unused]] const std::string& deviceType) {
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp2, procId,
                  path](const boost::system::error_code& ec,
                        const dbus::utility::MapperServiceMap& serviceMap2) {
@@ -851,7 +851,7 @@ inline void getCCModePendingData(
     const std::string& service, const std::string& objPath)
 
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, cpuId](const boost::system::error_code& ec,
                        const OperatingConfigProperties& properties) {
             if (ec)
@@ -911,7 +911,7 @@ inline void getSMUtilizationData(
     const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get processor metrics SMUtilizationPercent data.");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code& ec,
                 const OperatingConfigProperties& properties) {
             if (ec)
@@ -948,7 +948,7 @@ inline void getNvLinkTotalCount(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& cpuId,
     const std::string& service, const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, cpuId](const boost::system::error_code& ec,
                        const OperatingConfigProperties& properties) {
             if (ec)
@@ -1017,7 +1017,7 @@ inline void getResetMetricsInfo(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                 [[maybe_unused]] const std::string& service,
                                 const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp,
          processorId](const boost::system::error_code& ec,
                       const std::variant<std::vector<std::string>>& resp) {
@@ -1070,7 +1070,7 @@ inline void getClearablePcieCounters(
     const std::string& service, const std::string& objPath,
     const std::string& interface)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](
             const boost::system::error_code& ec,
             const std::vector<
@@ -1125,7 +1125,7 @@ inline void getClearPCIeCountersActionInfo(
     const std::string& processorId, const std::string& portId)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [processorId, portId, asyncResp](
             const boost::system::error_code& ec,
             const boost::container::flat_map<
@@ -1145,7 +1145,7 @@ inline void getClearPCIeCountersActionInfo(
                 {
                     continue;
                 }
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp, processorId,
                      portId](const boost::system::error_code& e,
                              std::variant<std::vector<std::string>>& resp) {
@@ -1175,7 +1175,7 @@ inline void getClearPCIeCountersActionInfo(
                             BMCWEB_LOG_DEBUG(
                                 "processor state sensor object path {}",
                                 sensorpath);
-                            crow::connections::systemBus->async_method_call(
+                            dbus::utility::async_method_call(
                                 [asyncResp, sensorpath, processorId, portId](
                                     const boost::system::error_code ec3,
                                     const std::vector<std::pair<
@@ -1280,7 +1280,7 @@ inline void getPortLinkStatusSetting(
         std::variant<std::string, bool, size_t, std::vector<uint8_t>>;
     using PropertiesMap = boost::container::flat_map<std::string, PropertyType>;
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, portsToDisable](const boost::system::error_code& ec,
                                 const PropertiesMap& properties) {
             if (ec)
@@ -1360,7 +1360,7 @@ inline void getPortDisableFutureStatus(
         std::variant<std::string, bool, size_t, std::vector<uint8_t>>;
     using PropertiesMap = boost::container::flat_map<std::string, PropertyType>;
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, processorId, portId,
          objectPath](const boost::system::error_code& ec,
                      const PropertiesMap& properties) {
@@ -1389,7 +1389,7 @@ inline void getPortDisableFutureStatus(
                 }
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp, processorId, portId,
                  portsToDisable](const boost::system::error_code ec1,
                                  std::variant<std::vector<std::string>>& resp) {
@@ -1416,7 +1416,7 @@ inline void getPortDisableFutureStatus(
                             continue;
                         }
 
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [aResp, processorId, portId, portPath,
                              portsToDisable](
                                 const boost::system::error_code ec2,
@@ -1461,7 +1461,7 @@ inline void getPortNumberAndCallSetAsync(
         std::variant<std::string, bool, size_t, std::vector<uint8_t>>;
     using PropertiesMap = boost::container::flat_map<std::string, PropertyType>;
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, processorId, portId, propertyValue, propertyName, processorPath,
          processorService, portsToDisable](const boost::system::error_code& ec,
                                            const PropertiesMap& properties) {
@@ -1593,7 +1593,7 @@ inline void patchPortDisableFuture(
         std::variant<std::string, bool, size_t, std::vector<uint8_t>>;
     using PropertiesMap = boost::container::flat_map<std::string, PropertyType>;
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, processorId, portId, propertyValue, propertyName, objectPath,
          service = *inventoryService](const boost::system::error_code& ec,
                                       const PropertiesMap& properties) {
@@ -1622,7 +1622,7 @@ inline void patchPortDisableFuture(
                     portsToDisable = *value;
                 }
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp, processorId, portId, propertyValue, propertyName,
                  objectPath, service,
                  portsToDisable](const boost::system::error_code ec1,
@@ -1651,7 +1651,7 @@ inline void patchPortDisableFuture(
                             continue;
                         }
 
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [aResp, processorId, portId, portPath,
                              propertyValue, propertyName, objectPath, service,
                              portsToDisable](
@@ -2072,7 +2072,7 @@ inline void postPCIeClearCounter(
     const std::string& counterType)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [processorId, portId, asyncResp, counterType](
             const boost::system::error_code& ec,
             const boost::container::flat_map<
@@ -2092,7 +2092,7 @@ inline void postPCIeClearCounter(
                 {
                     continue;
                 }
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp, processorId, portId, counterType](
                         const boost::system::error_code& e,
                         std::variant<std::vector<std::string>>& resp) {
@@ -2129,7 +2129,7 @@ inline void postPCIeClearCounter(
                                 continue;
                             }
 
-                            crow::connections::systemBus->async_method_call(
+                            dbus::utility::async_method_call(
                                 [asyncResp, sensorpath, portId, counterType](
                                     const boost::system::error_code ec1,
                                     const std::vector<std::pair<
@@ -2185,7 +2185,7 @@ inline void setOperatingSpeedRange(
     const std::variant<uint32_t, std::tuple<uint32_t, uint32_t>>& value,
     const std::string& patchProp, const std::string& path)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, path, value, patchProp](
             const boost::system::error_code errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -2295,7 +2295,7 @@ inline void patchOperatingSpeedRangeMHz(
     const std::variant<uint32_t, std::tuple<uint32_t, uint32_t>>& value,
     const std::string& patchProp, const std::string& processorObjPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, value, patchProp, processorId,
          processorObjPath](const boost::system::error_code& ec,
                            std::variant<std::vector<std::string>>& resp) {
@@ -2312,7 +2312,7 @@ inline void patchOperatingSpeedRangeMHz(
             {
                 for (const auto& chassisPath : *data)
                 {
-                    crow::connections::systemBus->async_method_call(
+                    dbus::utility::async_method_call(
                         [asyncResp, value, patchProp, processorId, chassisPath](
                             const boost::system::error_code ec2,
                             std::variant<std::vector<std::string>>& resp2) {
@@ -2357,7 +2357,7 @@ inline void getOperatingSpeedRangeData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& path)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, path](
             const boost::system::error_code errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -2377,7 +2377,7 @@ inline void getOperatingSpeedRangeData(
                     if (interface ==
                         "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig")
                     {
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, path, interface](
                                 const boost::system::error_code errono1,
                                 const std::vector<std::pair<
@@ -2489,7 +2489,7 @@ inline void getOperatingSpeedRangeData(
 inline void getOperatingSpeedRange(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath](const boost::system::error_code& ec,
                          std::variant<std::vector<std::string>>& resp) {
             if (ec)
@@ -2501,7 +2501,7 @@ inline void getOperatingSpeedRange(
 
             for (const auto& chassisPath : *data)
             {
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [aResp, chassisPath](
                         const boost::system::error_code ec1,
                         std::variant<std::vector<std::string>>& chassisResp) {
@@ -2585,7 +2585,7 @@ inline void getEgmModePendingData(
 {
     BMCWEB_LOG_DEBUG("Get pending egmMode path:{}, id:{}", objPath, cpuId);
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, cpuId](const boost::system::error_code& ec,
                        const OperatingConfigProperties& properties) {
             getEgmModePendingDataHandler(aResp, ec, properties);
@@ -2640,7 +2640,7 @@ inline void getEgmModeData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 {
     BMCWEB_LOG_DEBUG("Get egmMode path:{}, id:{}", objPath, cpuId);
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, cpuId](const boost::system::error_code& ec,
                        const OperatingConfigProperties& properties) {
             getEgmModeDataHandler(aResp, ec, properties);

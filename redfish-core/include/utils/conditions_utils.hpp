@@ -41,7 +41,7 @@ inline void handleDeviceServiceConditions(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp{asyncResp}, chassisId(std::string(chassisId))](
             const boost::system::error_code ec,
             const dbus::utility::ManagedObjectType& resp) {
@@ -168,7 +168,7 @@ inline void handleDeviceServiceConditions(
 inline void handleServiceConditionsURI(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp{asyncResp}](const boost::system::error_code ec,
                                const dbus::utility::ManagedObjectType& resp) {
             if (ec)

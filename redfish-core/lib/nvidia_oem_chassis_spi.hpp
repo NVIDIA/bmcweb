@@ -130,7 +130,7 @@ inline void afterSpiInterfacesFound(
         method = "ReadSpi";
     }
     sdbusplus::message::object_path path(objectPath);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, payload = std::move(payload), chassisId, spiEventType,
          service](const boost::system::error_code& ec2,
                   const sdbusplus::message::object_path& objPath) mutable {

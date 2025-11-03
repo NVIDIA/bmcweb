@@ -52,7 +52,7 @@ inline void getProcessorCurrentProfileData(
     const std::string& objPath, const std::string& presetProfileURI)
 {
     BMCWEB_LOG_DEBUG("Get processor current profile data.");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp{std::move(aResp)}, objPath,
          presetProfileURI](const boost::system::error_code& ec,
                            const DbusProperties& properties) {
@@ -317,7 +317,7 @@ inline void getProcessorPowerSmoothingControlData(
     const std::string& objPath, const std::string& presetProfileURI)
 {
     BMCWEB_LOG_DEBUG("Get processor smoothing control data.");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp{std::move(aResp)}, objPath, service,
          presetProfileURI](const boost::system::error_code& ec,
                            const DbusProperties& properties) {
@@ -591,7 +591,7 @@ inline void getAdminProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                 const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get processor current profile data.");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp{std::move(aResp)}](const boost::system::error_code& ec,
                                   const DbusProperties& properties) {
             if (ec)
@@ -741,7 +741,7 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
                 aResp->res.jsonValue["Name"] =
                     processorId + " PowerSmoothing AdminOverrideProfile";
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [aResp, processorId](
                         const boost::system::error_code& ec1,
                         std::variant<std::vector<std::string>>& resp) {
@@ -766,7 +766,7 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
                                 messages::internalError(aResp->res);
                                 return;
                             }
-                            crow::connections::systemBus->async_method_call(
+                            dbus::utility::async_method_call(
                                 [processorId, profilePath, aResp{aResp}](
                                     const boost::system::error_code ec2,
                                     const boost::container::flat_map<
@@ -833,7 +833,7 @@ inline void getProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                            const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get processor current profile data.");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp{std::move(aResp)}](const boost::system::error_code& ec,
                                   const DbusProperties& properties) {
             if (ec)
@@ -977,7 +977,7 @@ inline void getProcessorPowerSmoothingPresetProfileData(
                 profileName += profileId;
                 aResp->res.jsonValue["Name"] = profileName;
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [aResp, profileId, processorId](
                         const boost::system::error_code& ec1,
                         std::variant<std::vector<std::string>>& resp) {
@@ -1005,7 +1005,7 @@ inline void getProcessorPowerSmoothingPresetProfileData(
                             profileExists = true;
                             std::string objectPathToGetProfileData =
                                 profilePath;
-                            crow::connections::systemBus->async_method_call(
+                            dbus::utility::async_method_call(
                                 [processorId, objectPathToGetProfileData,
                                  aResp{aResp}](
                                     const boost::system::error_code&
@@ -1096,7 +1096,7 @@ inline void getProcessorPowerSmoothingPresetProfileCollectionData(
                 aResp->res.jsonValue["Members"] = nlohmann::json::array();
                 aResp->res.jsonValue["Members@odata.count"] = 0;
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [aResp, profileCollectionURI, processorId](
                         const boost::system::error_code& ec1,
                         std::variant<std::vector<std::string>>& resp) {
@@ -1243,7 +1243,7 @@ inline void patchAdminOverrideProfile(
                     continue;
                 }
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [aResp, processorId, propName,
                      propValue](const boost::system::error_code& ec1,
                                 std::variant<std::vector<std::string>>& resp) {
@@ -1272,7 +1272,7 @@ inline void patchAdminOverrideProfile(
                             }
                             const std::array<const char*, 1> adminProfileIface =
                                 {"com.nvidia.PowerSmoothing.AdminPowerProfile"};
-                            crow::connections::systemBus->async_method_call(
+                            dbus::utility::async_method_call(
                                 [processorId, propName, profilePath, propValue,
                                  aResp{aResp}](
                                     const boost::system::error_code ec2,
@@ -1349,7 +1349,7 @@ inline void patchPresetProfile(
                 {
                     continue;
                 }
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [aResp, profileId, propName, propValue, processorId](
                         const boost::system::error_code& ec1,
                         std::variant<std::vector<std::string>>& resp) {
@@ -1378,7 +1378,7 @@ inline void patchPresetProfile(
                             profileExists = true;
                             const std::array<const char*, 1> powerProfileIface =
                                 {"com.nvidia.PowerSmoothing.PowerProfile"};
-                            crow::connections::systemBus->async_method_call(
+                            dbus::utility::async_method_call(
                                 [processorId, profileId, propName, propValue,
                                  profilePath, aResp{aResp}](
                                     const boost::system::error_code&

@@ -63,7 +63,7 @@ inline void requestRoutesChassisEnvironmentMetricsClearOOBSetPoint(App& app)
                 const std::array<const char*, 1> interfaces = {
                     "xyz.openbmc_project.Inventory.Item.Chassis"};
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp,
                      chassisId](const boost::system::error_code& ec,
                                 const dbus::utility::GetSubTreeType& subtree) {
@@ -99,7 +99,7 @@ inline void requestRoutesChassisEnvironmentMetricsClearOOBSetPoint(App& app)
 
                             const std::string& connectionName =
                                 connectionNames[0].first;
-                            crow::connections::systemBus->async_method_call(
+                            dbus::utility::async_method_call(
                                 [asyncResp, connectionName, chassisId](
                                     const boost::system::error_code& ec1,
                                     std::variant<std::vector<std::string>>&

@@ -136,7 +136,7 @@ class MctpEndpoint
   protected:
     void getDbusMctpProperties(const AssociationCallback& callback)
     {
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             [this, callback](const boost::system::error_code& ec,
                              const GetObjectType& response) {
                 if (ec || response.empty())
@@ -151,7 +151,7 @@ class MctpEndpoint
                     {
                         continue;
                     }
-                    crow::connections::systemBus->async_method_call(
+                    dbus::utility::async_method_call(
                         [this, callback](
                             const boost::system::error_code& ec2,
                             const boost::container::flat_map<
@@ -241,7 +241,7 @@ inline void enumerateMctpEndpoints(
         std::vector<std::string>(),
     uint64_t timeoutUs = 0)
 {
-    crow::connections::systemBus->async_method_call_timed(
+    dbus::utility::async_method_call_timed(
         [endpointCallback{std::move(endpointCallback)},
          errorCallback{std::move(errorCallback)},
          spdmObjectFilter](const boost::system::error_code& ec,

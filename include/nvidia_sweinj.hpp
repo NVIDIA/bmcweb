@@ -247,7 +247,7 @@ static void createRequest(App& app, const crow::Request& req,
             createRequestCallback(std::move(payload), asyncResp,
                                   fullSWEinjInjection, ec);
         };
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         std::move(createRequestHandler), "com.Nvidia.Software.Error.Injection",
         "/com/nvidia/software/error/injection",
         "com.Nvidia.Software.Error.Injection.Request", "CreateRequest",

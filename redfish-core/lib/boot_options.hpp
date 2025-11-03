@@ -42,7 +42,7 @@ namespace boot_options
 template <typename Callback>
 void createBootOption(const std::string& id, Callback&& callback)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         callback, "xyz.openbmc_project.BIOSConfigManager",
         "/xyz/openbmc_project/bios_config/manager",
         "xyz.openbmc_project.BIOSConfig.BootOrder", "CreateBootOption", id);
@@ -57,7 +57,7 @@ template <typename Callback>
 void deleteBootOption(const std::string& id, Callback&& callback)
 {
     std::string path = "/xyz/openbmc_project/bios_config/bootOptions/" + id;
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         callback, "xyz.openbmc_project.BIOSConfigManager", path,
         "xyz.openbmc_project.Object.Delete", "Delete");
 }
@@ -101,7 +101,7 @@ void setBootOption(const std::string& id,
     auto holdTask = dbus_utils::deferTask(std::forward<Callback>(callback));
     for (const auto& [propertyName, propertyVariant] : properties)
     {
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             [holdTask](const boost::system::error_code& ec) {
                 if (ec)
                 {

@@ -179,7 +179,7 @@ class DpuGetProperties : virtual public DpuCommonProperties
                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                   const std::string& name, const ObjectInfo& objectInfo) const
     {
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             [&, json, asyncResp,
              name](const boost::system::error_code ec,
                    const std::variant<std::string, bool>& variant) {
@@ -328,7 +328,7 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
             }
 
             // Single method call implementation
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](const boost::system::error_code& errorCode) {
                     if (errorCode)
                     {
@@ -674,7 +674,7 @@ inline void requestOemNvidiaRshim(
         state = "com.nvidia.BF.Rshim.State.Disabled";
     }
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& errorCode) {
             if (errorCode)
             {
@@ -753,7 +753,7 @@ inline void getOemNvidiaSwitchStatus(
     // and are constant.
     asyncResp->res.jsonValue["LinkStatus"]["BMC"] = port::LinkStatus::LinkUp;
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     std::variant<std::string>& resp) {
             if (ec)
@@ -856,7 +856,7 @@ inline void requestOemNvidiaSwitch(
 
     std::variant<std::string> variantValue(strValue);
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -866,7 +866,7 @@ inline void requestOemNvidiaSwitch(
                 return;
             }
             // Reload switch service to make the new configuration take effect
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](const boost::system::error_code& errorCode) {
                     if (errorCode)
                     {
@@ -913,7 +913,7 @@ inline void resetTorSwitch(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     // Restore the Dbus property after the switch reset successful
     std::variant<std::string> variantValue(
         "xyz.openbmc_project.Control.TorSwitchPortsMode.Modes.All");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& errorCode) {
             if (errorCode)
             {
@@ -1033,7 +1033,7 @@ inline void handleTruststoreCertificatesCollectionPost(
             std::shared_ptr<CertificateFile> certFile =
                 std::make_shared<CertificateFile>(certString);
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, owner,
                  certFile](const boost::system::error_code& ec2,
                            const std::string& objectPath) {
@@ -1054,7 +1054,7 @@ inline void handleTruststoreCertificatesCollectionPost(
 
                     if (owner)
                     {
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp](const boost::system::error_code& ec3) {
                                 if (ec3)
                                 {
@@ -1220,7 +1220,7 @@ inline void handleTruststoreCertificatesDelete(
                 createPendingRequest(std::move(payload), asyncResp);
                 return;
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, certId](const boost::system::error_code ec1) {
                     if (ec1.value() == EBADR)
                     {
@@ -1424,7 +1424,7 @@ inline void setOemFruProperty(
     const std::string& value)
 {
     std::variant<std::string> variantValue(value);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, dbusProperty, lastProperty,
          value](const boost::system::error_code& ec) {
             if (ec)
@@ -1441,7 +1441,7 @@ inline void setOemFruProperty(
                 // Make an asynchronous DBUS call to sync the OEM FRU
                 // data The FRU DBUS object and config flash will be
                 // updated
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp](const boost::system::error_code& errorCode) {
                         if (errorCode)
                         {

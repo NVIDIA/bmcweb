@@ -127,7 +127,7 @@ inline void deassertPowerBrake(
     std::function<void(const boost::system::error_code&)> callback =
         std::bind_front(&afterInvokePowerComplianceManagerAction, asyncResp);
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         callback, "com.Nvidia.RackPowerCompliance",
         "/com/nvidia/state/power_compliance",
         "com.Nvidia.State.PowerCompliance", "DeassertPowerBrake");
@@ -153,7 +153,7 @@ inline void assertPowerBrake(
     std::function<void(const boost::system::error_code&)> callback =
         std::bind_front(&afterInvokePowerComplianceManagerAction, asyncResp);
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         callback, "com.Nvidia.RackPowerCompliance",
         "/com/nvidia/state/power_compliance",
         "com.Nvidia.State.PowerCompliance", "AssertPowerBrake");

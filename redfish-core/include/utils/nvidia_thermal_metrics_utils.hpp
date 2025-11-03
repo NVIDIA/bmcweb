@@ -343,7 +343,7 @@ inline void processChassisSensors(
                                 allChassisPaths));
         };
     // Get all chassis
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         getAllChassisHandler, "xyz.openbmc_project.ObjectMapper",
         chassisPath + "/all_chassis", "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
@@ -355,7 +355,7 @@ inline void getServiceRootManagedObjects(
     const std::string& metricsType, const uint64_t& sensingInterval = 0,
     const uint64_t& requestTimestamp = 0)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, connection, chassisPath, sensingInterval, requestTimestamp,
          metricsType](const boost::system::error_code& ec,
                       ManagedObjectsVectorType& resp) {
@@ -383,7 +383,7 @@ inline void getServiceManagedObjects(
     const std::string& metricsType, const uint64_t& sensingInterval = 0,
     const uint64_t& requestTimestamp = 0)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, connection, chassisPath, sensingInterval, requestTimestamp,
          metricsType](const boost::system::error_code& ec,
                       ManagedObjectsVectorType& resp) {
@@ -457,7 +457,7 @@ inline void processSensorServices(
                                      requestTimestamp);
         }
     };
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         getAllSensors, "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",

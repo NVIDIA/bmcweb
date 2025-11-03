@@ -121,7 +121,7 @@ inline void populateXIDLogServiceFromSubtree(
                 BMCWEB_LOG_DEBUG("PrettyName: {}", chassisName);
                 // Call Phosphor-logging GetStats method to get
                 // LatestEntryTimestamp and LatestEntryID
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp](
                         const boost::system::error_code& latestEntryError,
                         const std::tuple<uint32_t, uint64_t>& reqData) {

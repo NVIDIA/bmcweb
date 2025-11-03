@@ -71,7 +71,7 @@ inline void updateAssemblies(
         memberId = assemblyId;
     }
     // Get interface properties
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp{asyncResp}, chassisId, memberId, objPath](
             const boost::system::error_code& ec,
             const std::vector<
@@ -244,7 +244,7 @@ inline void requestAssemblyRoutes(App& app)
             const std::array<const char*, 1> interface = {
                 "xyz.openbmc_project.Inventory.Item.Chassis"};
             // Get chassis collection
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, chassisId(std::string(chassisId))](
                     const boost::system::error_code& ec,
                     const dbus::utility::GetSubTreeType& subtree) {
@@ -286,7 +286,7 @@ inline void requestAssemblyRoutes(App& app)
                         asyncResp->res.jsonValue["Name"] =
                             "Assembly data for " + chassisId;
                         // Get Chassis assembly through association
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, path, chassisId(std::string(chassisId)),
                              connectionName](
                                 const boost::system::error_code& ec1,

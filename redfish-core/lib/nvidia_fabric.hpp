@@ -67,7 +67,7 @@ inline void requestRoutesSwitchHistogramBuckets(App& app)
                 return;
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, fabricId, switchId,
                  histogramId](const boost::system::error_code ec,
                               const std::vector<std::string>& objects) {
@@ -87,7 +87,7 @@ inline void requestRoutesSwitchHistogramBuckets(App& app)
                         {
                             continue;
                         }
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, fabricId, switchId, histogramId](
                                 const boost::system::error_code ec1,
                                 std::variant<std::vector<std::string>>& resp2) {
@@ -118,7 +118,7 @@ inline void requestRoutesSwitchHistogramBuckets(App& app)
                                     {
                                         continue;
                                     }
-                                    crow::connections::systemBus->async_method_call(
+                                    dbus::utility::async_method_call(
                                         [asyncResp, fabricId, switchId,
                                          histogramId](
                                             const boost::system::error_code ec2,
@@ -241,7 +241,7 @@ inline void requestRoutesSwitchHistogram(App& app)
                 return;
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, fabricId, switchId,
                  histogramId](const boost::system::error_code ec,
                               const std::vector<std::string>& objects) {
@@ -261,7 +261,7 @@ inline void requestRoutesSwitchHistogram(App& app)
                         {
                             continue;
                         }
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, fabricId, switchId, histogramId](
                                 const boost::system::error_code ec1,
                                 std::variant<std::vector<std::string>>& resp) {
@@ -367,7 +367,7 @@ inline void requestRoutesSwitchHistogramCollection(App& app)
                 return;
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, fabricId,
                  switchId](const boost::system::error_code ec,
                            const std::vector<std::string>& objects) {
@@ -387,7 +387,7 @@ inline void requestRoutesSwitchHistogramCollection(App& app)
                         {
                             continue;
                         }
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, fabricId, switchId](
                                 const boost::system::error_code ec2,
                                 std::variant<std::vector<std::string>>& resp) {
@@ -491,7 +491,7 @@ inline void requestRoutesSwitchPortHistogramBuckets(App& app)
                 return;
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, fabricId, switchId, portId,
                  histogramId](const boost::system::error_code ec,
                               const std::vector<std::string>& objects) {
@@ -511,7 +511,7 @@ inline void requestRoutesSwitchPortHistogramBuckets(App& app)
                         {
                             continue;
                         }
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, fabricId, switchId, portId,
                              histogramId](
                                 const boost::system::error_code ec1,
@@ -779,7 +779,7 @@ inline void requestRoutesSwitchPortHistogram(App& app)
                 return;
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, fabricId, switchId, portId,
                  histogramId](const boost::system::error_code ec,
                               const std::vector<std::string>& objects) {
@@ -799,7 +799,7 @@ inline void requestRoutesSwitchPortHistogram(App& app)
                         {
                             continue;
                         }
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, fabricId, switchId, portId,
                              histogramId](
                                 const boost::system::error_code ec2,
@@ -831,7 +831,7 @@ inline void requestRoutesSwitchPortHistogram(App& app)
                                     {
                                         continue;
                                     }
-                                    crow::connections::systemBus->async_method_call(
+                                    dbus::utility::async_method_call(
                                         [asyncResp, fabricId, switchId, portId,
                                          histogramId](
                                             const boost::system::error_code ec3,
@@ -965,7 +965,7 @@ inline void requestRoutesSwitchPortHistogramCollection(App& app)
                 return;
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, fabricId, switchId,
                  portId](const boost::system::error_code ec,
                          const std::vector<std::string>& objects) {
@@ -985,7 +985,7 @@ inline void requestRoutesSwitchPortHistogramCollection(App& app)
                         {
                             continue;
                         }
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, fabricId, switchId, portId](
                                 const boost::system::error_code ec2,
                                 std::variant<std::vector<std::string>>& resp) {
@@ -1016,7 +1016,7 @@ inline void requestRoutesSwitchPortHistogramCollection(App& app)
                                     {
                                         continue;
                                     }
-                                    crow::connections::systemBus->async_method_call(
+                                    dbus::utility::async_method_call(
                                         [asyncResp, fabricId, switchId, portId](
                                             const boost::system::error_code ec3,
                                             std::variant<std::vector<

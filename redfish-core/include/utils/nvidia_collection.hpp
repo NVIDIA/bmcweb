@@ -48,7 +48,7 @@ inline void getCollectionMembersByAssociation(
 {
     BMCWEB_LOG_DEBUG("Get collection members by association for: {}",
                      collectionPath);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, collectionPath,
          interfaces](const boost::system::error_code& e,
                      std::variant<std::vector<std::string>>& resp) {
@@ -75,7 +75,7 @@ inline void getCollectionMembersByAssociation(
             for (const std::string& sensorpath : *data)
             {
                 // Check Interface in Object or not
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [aResp, collectionPath, sensorpath, &members](
                         const boost::system::error_code& ec,
                         const std::vector<

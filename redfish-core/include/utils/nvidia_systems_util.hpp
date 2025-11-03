@@ -26,7 +26,7 @@ static const std::string& card1Path =
 inline void populateFromEntityManger(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code& ec,
                 const std::vector<std::pair<
                     std::string, std::variant<std::string>>>& propertiesList) {
@@ -70,7 +70,7 @@ inline void populateFromEntityManger(
         },
         entityMangerService, card1Path, "org.freedesktop.DBus.Properties",
         "GetAll", "xyz.openbmc_project.Inventory.Decorator.Asset");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code& ec,
                 const std::variant<std::string>& sku) {
             if (ec)
@@ -300,7 +300,7 @@ inline void getSecureBoot(const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
     BMCWEB_LOG_DEBUG("Get SecureBoot parameters");
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreeResponse& subtree) {
             if (ec)

@@ -153,7 +153,7 @@ inline void getPCIeErrorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                              const std::string& service,
                              const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code& ec,
                 const OperatingConfigProperties& properties) {
             if (ec)

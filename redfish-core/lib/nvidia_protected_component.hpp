@@ -107,7 +107,7 @@ inline void updateSlotProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& service, const std::string& objectPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](
             const boost::system::error_code ec,
             const boost::container::flat_map<
@@ -761,7 +761,7 @@ inline void updateSigningKeyProperties(
             }
             const auto& valueIface = *mapperResponse.begin();
             const std::string& service = valueIface.first;
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, chassisId,
                  componentId](const boost::system::error_code ec1,
                               const boost::container::flat_map<
@@ -961,7 +961,7 @@ inline void updatePendingProperties(
             }
             const auto& valueIface = *mapperResponse.begin();
             const std::string& service = valueIface.first;
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](const boost::system::error_code ec1,
                             const boost::container::flat_map<
                                 std::string, dbus::utility::DbusVariantType>&
@@ -1444,7 +1444,7 @@ inline void setIrreversibleConfig(
                     "member='PropertiesChanged',path='" +
                         chassisCfgPath + "'",
                     callback);
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](const boost::system::error_code& ec1) {
                     if (ec1)
                     {
@@ -1671,7 +1671,7 @@ inline void updateMinSecurityVersion(
                     "member='PropertiesChanged',path='" +
                         securityPath + "'",
                     callback);
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](const boost::system::error_code& ec1) {
                     if (ec1)
                     {
@@ -1906,7 +1906,7 @@ inline void revokeKeys(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 "member='PropertiesChanged',path='" +
                     securityPath + "'",
                 callback);
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](const boost::system::error_code& ec1) {
                     if (ec1)
                     {

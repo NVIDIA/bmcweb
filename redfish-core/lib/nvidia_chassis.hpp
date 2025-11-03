@@ -115,7 +115,7 @@ inline void powerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
             {
                 objectPath = "/xyz/openbmc_project/state/host0";
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp,
                  objectPath](const boost::system::error_code& ec2,
                              const std::variant<std::string>& state) {
@@ -131,7 +131,7 @@ inline void powerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                     if (*hostState ==
                         "xyz.openbmc_project.State.Host.HostState.Running")
                     {
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp,
                              objectPath](const boost::system::error_code& ec3) {
                                 // Use "Set" method to set the property

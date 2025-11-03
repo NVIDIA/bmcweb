@@ -229,7 +229,7 @@ inline void LldpUtil::getTlvValue(
     }
 
     // Get property value using a single D-Bus call
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, responseCallback](
             const boost::system::error_code& ec,
             const std::variant<std::string, bool, uint16_t,

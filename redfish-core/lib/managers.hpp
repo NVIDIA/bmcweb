@@ -359,7 +359,7 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
                 sendFactoryResetEvent(req);
             }
             // NVIDIA code starts here
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, ifnameFactoryReset](
                     const boost::system::error_code& ec,
                     const std::vector<
@@ -375,7 +375,7 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
                     for (const std::pair<std::string, std::vector<std::string>>&
                              object : interfaceNames)
                     {
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp,
                              object](const boost::system::error_code& ec2) {
                                 if (ec2)
@@ -671,7 +671,7 @@ inline void setDateTime(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     // Set the absolute datetime
     bool relative = false;
     bool interactive = false;
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const sdbusplus::message_t& msg) {
             afterSetDateTime(asyncResp, ec, msg);

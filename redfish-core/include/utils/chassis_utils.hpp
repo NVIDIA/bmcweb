@@ -139,7 +139,7 @@ inline void resetPowerLimit(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
             BMCWEB_LOG_DEBUG("Performing Post using Sync Method Call");
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](boost::system::error_code& ec1,
                             const int retValue) {
                     if (!ec1)
@@ -270,7 +270,7 @@ void getValidChassisID(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     };
 
     // Get the Chassis Collection
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         respHandler, "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
@@ -399,7 +399,7 @@ inline void getChassisLinksContainedBy(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get parent chassis link");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code& ec2,
                 std::variant<std::vector<std::string>>& resp) {
             if (ec2)
@@ -548,7 +548,7 @@ template <typename CallbackFunc>
 inline void getAssociationEndpoint(const std::string& objPath,
                                    CallbackFunc&& callback)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [callback = std::forward<CallbackFunc>(callback),
          objPath](const boost::system::error_code& ec,
                   const std::variant<std::vector<std::string>>& resp) {
@@ -601,7 +601,7 @@ inline void getRedfishURL(const std::filesystem::path& invObjPath,
                           CallbackFunc&& callback)
 {
     BMCWEB_LOG_DEBUG("getRedfishURL({})", invObjPath.string());
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [invObjPath, callback](const boost::system::error_code& ec,
                                const GetObjectType& resp) {
             std::string urlStr;

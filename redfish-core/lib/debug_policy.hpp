@@ -202,7 +202,7 @@ inline void findDebugInterface(
             }
             dbgCallback(asyncResp, "", "");
         };
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         respHandler, "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTree",
@@ -232,7 +232,7 @@ inline void debugCapabilitiesProcess(
     const std::string& path, const std::string& method,
     const std::vector<std::string>& caps)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, method, caps](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -251,7 +251,7 @@ inline void debugPropertySet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& svc,
     const std::string& path, const std::string& prop, unsigned value)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, prop](const boost::system::error_code& ec) {
             if (ec)
             {

@@ -144,7 +144,7 @@ inline void handleSecureBootDatabaseCollectionGet(
         "#SecureBootDatabaseCollection.SecureBootDatabaseCollection";
     aResp->res.jsonValue["Name"] = "UEFI SecureBoot Database Collection";
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
             if (ec == boost::system::errc::io_error)
@@ -246,7 +246,7 @@ inline void handleSecureBootDatabaseGet(
 
         // Add "ResetAllKeysToDefault" type if and only if we have PKDefault
         // certificate
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             [aResp](
                 const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
@@ -429,7 +429,7 @@ inline void handleCertificateCollectionPost(
             std::shared_ptr<CertificateFile> certFile =
                 std::make_shared<CertificateFile>(certString);
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp, databaseId, owner,
                  certFile](const boost::system::error_code ec2,
                            const std::string& objectPath) {
@@ -452,7 +452,7 @@ inline void handleCertificateCollectionPost(
 
                     if (owner)
                     {
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [aResp](const boost::system::error_code ec3) {
                                 if (ec3)
                                 {
@@ -608,7 +608,7 @@ inline void handleCertificateDelete(
                 return;
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp](const boost::system::error_code& ec1) {
                     if (ec1)
                     {
@@ -735,7 +735,7 @@ inline void handleSignatureCollectionPost(
                 return;
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp, databaseId, owner](const boost::system::error_code& ec1,
                                            const std::string& objectPath) {
                     if (ec1)
@@ -757,7 +757,7 @@ inline void handleSignatureCollectionPost(
 
                     if (owner)
                     {
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [aResp](const boost::system::error_code& ec2) {
                                 if (ec2)
                                 {
@@ -894,7 +894,7 @@ inline void handleSignatureDelete(
                 return;
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp](const boost::system::error_code& ec1) {
                     if (ec1)
                     {

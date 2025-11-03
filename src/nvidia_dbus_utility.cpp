@@ -22,7 +22,7 @@ void getAllNameSpaceObjects(
     std::function<void(const boost::system::error_code&,
                        const ManagedObjectType&)>&& callback)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [callback{std::move(callback)}](const boost::system::error_code& ec,
                                         const ManagedObjectType& objects) {
             callback(ec, objects);

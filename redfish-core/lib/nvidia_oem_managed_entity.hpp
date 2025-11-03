@@ -354,7 +354,7 @@ inline void handleManagedEntityCollectionPostRequest(
                         dbusPath, newIPv4Address, newIPv6Address, newPort,
                         newProtocol);
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         std::move(callback), "com.Nvidia.RackPowerCompliance", dbusGroupPath,
         "com.Nvidia.State.PowerCompliance.PowerProfileCollection",
         "CreateMember", entityId, entityGroupId, *newName);
@@ -383,7 +383,7 @@ inline void handleManagedEntityDeleteRequest(
     dbusGroupPath /= entityGroupId;
     dbusGroupPath /= "managed_entity";
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, entityGroupId,
          entityId](const boost::system::error_code ec) {
             if (ec)

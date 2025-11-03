@@ -161,7 +161,7 @@ inline void getPCIeEqualization(
     const std::vector<std::pair<std::string, std::vector<std::string>>>& object)
 {
     BMCWEB_LOG_DEBUG("Get PCIe Equalization");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, portObjectPath, object](
             const boost::system::error_code& ec2,
             const boost::container::flat_map<

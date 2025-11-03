@@ -146,7 +146,7 @@ inline void getConnectedPortLinks(
 {
     BMCWEB_LOG_DEBUG("Get Connected Port Links");
     BMCWEB_LOG_DEBUG("{}", objPath);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, processorId](const boost::system::error_code& ec,
                              std::variant<std::vector<std::string>>& resp) {
             if (ec)
@@ -195,7 +195,7 @@ inline void updateProcessorPortLinks(
     const std::string& fabricId)
 {
     BMCWEB_LOG_DEBUG("Get Processor Port Links");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath,
          fabricId](const boost::system::error_code& ec,
                    std::variant<std::vector<std::string>>& resp) {
@@ -236,7 +236,7 @@ inline void getNetworkAdapterPorts(
 {
     BMCWEB_LOG_DEBUG("Get connected network adapter ports on {}",
                      networkAdapterName);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, portPath, networkAdapterChassisId,
          networkAdapterName](const boost::system::error_code& ec,
                              std::variant<std::vector<std::string>>& resp) {
@@ -288,7 +288,7 @@ inline void getConnectedNetworkAdapter(
     const std::string& networkAdapterName)
 {
     BMCWEB_LOG_DEBUG("Get connected network adapter on{}", networkAdapterName);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, networkAdapterPath, portPath,
          networkAdapterName](const boost::system::error_code& ec,
                              std::variant<std::vector<std::string>>& resp) {
@@ -339,7 +339,7 @@ inline void updateNetworkAdapterPortLinks(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get NetworkAdapter Port Links");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath](const boost::system::error_code& ec,
                          std::variant<std::vector<std::string>>& resp) {
             if (ec)
@@ -381,7 +381,7 @@ inline void getConnectedSwitchPort(
     const std::string& switchName)
 {
     BMCWEB_LOG_DEBUG("Get connected switch ports on {}", switchName);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, portPath, fabricId,
          switchName](const boost::system::error_code& ec,
                      std::variant<std::vector<std::string>>& resp) {
@@ -437,7 +437,7 @@ inline void updateSwitchPortLinks(
     const std::string& fabricId)
 {
     BMCWEB_LOG_DEBUG("Get Switch Port Links");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath,
          fabricId](const boost::system::error_code& ec,
                    std::variant<std::vector<std::string>>& resp) {
@@ -498,7 +498,7 @@ inline void updatePCIeEqualization(
     const std::string& portId)
 {
     BMCWEB_LOG_DEBUG("Get PCIe Equalization");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath, fabricId, switchId, portId](
             const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -545,7 +545,7 @@ inline void updateSwitchDataByAssociation(
                                       std::vector<std::string>>;
     using PropertiesMap = boost::container::flat_map<std::string, PropertyType>;
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath](const boost::system::error_code& ec,
                          std::variant<std::vector<std::string>>& resp) {
             if (ec)
@@ -566,7 +566,7 @@ inline void updateSwitchDataByAssociation(
             {
                 // make onject call to get service
                 //  then get all the data
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [aResp, switchPath](
                         const boost::system::error_code& ec1,
                         const std::vector<std::pair<
@@ -582,7 +582,7 @@ inline void updateSwitchDataByAssociation(
                         auto service = object.front().first;
 
                         // Get interface properties
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [aResp,
                              switchPath](const boost::system::error_code& ec2,
                                          const PropertiesMap& properties) {
@@ -724,7 +724,7 @@ inline void updateSwitchData(
                                       std::vector<std::string>>;
     using PropertiesMap = boost::container::flat_map<std::string, PropertyType>;
     // Get interface properties
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, objPath](const boost::system::error_code& ec,
                              const PropertiesMap& properties) {
             if (ec)
@@ -959,7 +959,7 @@ inline void updateZoneData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         std::variant<std::string, bool, size_t, std::vector<std::string>>;
     using PropertiesMap = boost::container::flat_map<std::string, PropertyType>;
     // Get interface properties
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const PropertiesMap& properties) {
             if (ec)
@@ -1046,7 +1046,7 @@ inline void requestRoutesFabric(App& app)
             {
                 return;
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, fabricId(std::string(fabricId))](
                     const boost::system::error_code& ec,
                     const dbus::utility::GetSubTreeType& subtree) {
@@ -1107,7 +1107,7 @@ inline void requestRoutesFabric(App& app)
                             connectionNames[0].first;
 
                         // Fabric item properties
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp](
                                 const boost::system::error_code ec3,
                                 const std::vector<
@@ -1184,7 +1184,7 @@ inline void requestRoutesSwitchCollection(App& app)
                 "/redfish/v1/Fabrics/" + fabricId + "/Switches";
             asyncResp->res.jsonValue["Name"] = "Switch Collection";
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, fabricId](const boost::system::error_code& ec,
                                       const std::vector<std::string>& objects) {
                     if (ec)
@@ -1234,7 +1234,7 @@ inline void getSwitchParentChassisPCIeDeviceLink(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath,
     const std::string& chassisName)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, chassisName](const boost::system::error_code& ec,
                              std::variant<std::vector<std::string>>& resp) {
             if (ec)
@@ -1256,7 +1256,7 @@ inline void getSwitchParentChassisPCIeDeviceLink(
                 messages::internalError(aResp->res);
                 return;
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp, chassisName, parentChassisName](
                     const boost::system::error_code& ec2,
                     const dbus::utility::GetSubTreeType& subtree) {
@@ -1303,7 +1303,7 @@ inline void getSwitchChassisLink(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get parent chassis link");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath](const boost::system::error_code& ec,
                          std::variant<std::vector<std::string>>& resp) {
             if (ec)
@@ -1329,7 +1329,7 @@ inline void getSwitchChassisLink(
                 {"@odata.id", "/redfish/v1/Chassis/" + chassisName}};
 
             // Get PCIeDevice on this chassis
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp,
                  chassisName](const boost::system::error_code& ec1,
                               std::variant<std::vector<std::string>>& resp2) {
@@ -1388,7 +1388,7 @@ inline void getSwitchEndpointsLink(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath,
     const std::string& fabricId)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, fabricId](const boost::system::error_code ec,
                           std::variant<std::vector<std::string>>& resp) {
             if (ec)
@@ -1431,7 +1431,7 @@ inline void getManagerLink(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                            const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get managed_by links");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code ec,
                 std::variant<std::vector<std::string>>& resp) {
             if (ec)
@@ -1472,7 +1472,7 @@ inline void getHealthByAssociatedChassis(
     const std::string& objId)
 {
     BMCWEB_LOG_DEBUG("Get health by association");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objId](const boost::system::error_code ec,
                        std::variant<std::vector<std::string>>& resp) {
             if (ec)
@@ -1509,7 +1509,7 @@ inline void getZoneEndpointsLink(
     const std::string& fabricId)
 {
     BMCWEB_LOG_DEBUG("Get zone endpoint links");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, fabricId](const boost::system::error_code ec,
                           std::variant<std::vector<std::string>>& resp) {
             if (ec)
@@ -1557,7 +1557,7 @@ inline void requestRoutesSwitch(App& app)
             {
                 return;
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, fabricId,
                  switchId](const boost::system::error_code ec,
                            const std::vector<std::string>& objects) {
@@ -1574,7 +1574,7 @@ inline void requestRoutesSwitch(App& app)
                         {
                             continue;
                         }
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, fabricId, switchId](
                                 const boost::system::error_code ec1,
                                 std::variant<std::vector<std::string>>& resp) {
@@ -1638,7 +1638,7 @@ inline void requestRoutesSwitch(App& app)
                                          {"ResetType@Redfish.AllowableValues",
                                           {"ForceRestart"}}};
 
-                                    crow::connections::systemBus->async_method_call(
+                                    dbus::utility::async_method_call(
                                         [asyncResp, switchURI, path](
                                             const boost::system::error_code ec2,
                                             const std::vector<std::pair<
@@ -1826,7 +1826,7 @@ inline void getInternalMemoryMetrics(
     const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get memory ecc data.");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code ec,
                 const DimmProperties& properties) {
             if (ec)
@@ -1882,7 +1882,7 @@ inline void requestRoutesSwitchMetrics(App& app)
             {
                 return;
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, fabricId,
                  switchId](const boost::system::error_code ec,
                            const std::vector<std::string>& objects) {
@@ -1899,7 +1899,7 @@ inline void requestRoutesSwitchMetrics(App& app)
                         {
                             continue;
                         }
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, fabricId, switchId](
                                 const boost::system::error_code ec1,
                                 std::variant<std::vector<std::string>>& resp) {
@@ -1926,7 +1926,7 @@ inline void requestRoutesSwitchMetrics(App& app)
                                         continue;
                                     }
 
-                                    crow::connections::systemBus->async_method_call(
+                                    dbus::utility::async_method_call(
                                         [asyncResp, fabricId, switchId, path](
                                             const boost::system::error_code ec2,
                                             const std::vector<std::pair<
@@ -2216,7 +2216,7 @@ inline void switchPostResetType(
                 BMCWEB_LOG_DEBUG("Performing Post using Sync Method Call");
 
                 // Set the property, with handler to check error responses
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [resp, switchId](boost::system::error_code ec2,
                                      const int retValue) {
                         if (!ec2)
@@ -2274,7 +2274,7 @@ inline void requestRoutesNVSwitchReset(App& app)
             }
             if (resetType)
             {
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp, fabricId, switchId,
                      resetType](const boost::system::error_code ec,
                                 const std::vector<std::string>& objects) {
@@ -2292,7 +2292,7 @@ inline void requestRoutesNVSwitchReset(App& app)
                             {
                                 continue;
                             }
-                            crow::connections::systemBus->async_method_call(
+                            dbus::utility::async_method_call(
                                 [asyncResp, fabricId, switchId, resetType](
                                     const boost::system::error_code ec1,
                                     std::variant<std::vector<std::string>>&
@@ -2321,7 +2321,7 @@ inline void requestRoutesNVSwitchReset(App& app)
                                             continue;
                                         }
 
-                                        crow::connections::systemBus->async_method_call(
+                                        dbus::utility::async_method_call(
                                             [asyncResp, switchId, resetType,
                                              objectPath](
                                                 const boost::system::error_code
@@ -2404,7 +2404,7 @@ inline void requestRoutesPortCollection(App& app)
             asyncResp->res.jsonValue["@odata.id"] = portsURI;
             asyncResp->res.jsonValue["Name"] = "Port Collection";
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, fabricId, switchId,
                  portsURI](const boost::system::error_code ec,
                            const std::vector<std::string>& objects) {
@@ -2421,7 +2421,7 @@ inline void requestRoutesPortCollection(App& app)
                         {
                             continue;
                         }
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, fabricId, switchId, portsURI](
                                 const boost::system::error_code ec2,
                                 std::variant<std::vector<std::string>>& resp2) {
@@ -2834,7 +2834,7 @@ inline void requestRoutesZoneCollection(App& app)
                     "/redfish/v1/Fabrics/" + fabricId + "/Zones";
                 asyncResp->res.jsonValue["Name"] = "Zone Collection";
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp,
                      fabricId](const boost::system::error_code& ec,
                                const std::vector<std::string>& objects) {
@@ -2888,7 +2888,7 @@ inline void requestRoutesZone(App& app)
             {
                 return;
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, fabricId,
                  zoneId](const boost::system::error_code& ec,
                          const std::vector<std::string>& objects) {
@@ -2905,7 +2905,7 @@ inline void requestRoutesZone(App& app)
                         {
                             continue;
                         }
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, fabricId, zoneId](
                                 const boost::system::error_code ec1,
                                 const dbus::utility::GetSubTreeType& subtree) {
@@ -3009,7 +3009,7 @@ inline void requestRoutesEndpointCollection(App& app)
                     "/redfish/v1/Fabrics/" + fabricId + "/Endpoints";
                 asyncResp->res.jsonValue["Name"] = "Endpoint Collection";
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp,
                      fabricId](const boost::system::error_code& ec,
                                const std::vector<std::string>& objects) {
@@ -3061,7 +3061,7 @@ inline void getProcessorPCIeDeviceData(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& objPath, const std::string& entityLink)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, entityLink](
             const boost::system::error_code& ec,
             const boost::container::flat_map<
@@ -3142,7 +3142,7 @@ inline void getProcessorEndpointHealth(
     aResp->res.jsonValue["Status"]["State"] = "Enabled";
     aResp->res.jsonValue["Status"]["Health"] = "OK";
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code& ec,
                 const boost::container::flat_map<
                     std::string, std::variant<std::string, uint32_t, uint16_t,
@@ -3202,7 +3202,7 @@ inline void getProcessorParentEndpointData(
     const std::string& chassisName, const std::string& entityLink,
     const std::string& processorPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, chassisName, entityLink,
          processorPath](const boost::system::error_code& ec,
                         std::variant<std::vector<std::string>>& resp) {
@@ -3225,7 +3225,7 @@ inline void getProcessorParentEndpointData(
                 messages::internalError(aResp->res);
                 return;
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp, chassisName, parentChassisName, entityLink,
                  processorPath](const boost::system::error_code ec1,
                                 const dbus::utility::GetSubTreeType& subtree) {
@@ -3282,7 +3282,7 @@ inline void getEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             const std::string& entityLink,
                             const std::string& serviceName)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, processorPath, serviceName,
          entityLink](const boost::system::error_code& ec,
                      std::variant<std::vector<std::string>>& resp) {
@@ -3306,7 +3306,7 @@ inline void getEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 return;
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp, chassisName, processorPath, serviceName,
                  entityLink](const boost::system::error_code& ec1,
                              std::variant<std::vector<std::string>>& resp2) {
@@ -3361,7 +3361,7 @@ inline void getEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath](const boost::system::error_code& ec,
                          std::variant<std::vector<std::string>>& response) {
             std::string objectPathToGetPortData = objPath;
@@ -3377,7 +3377,7 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     }
                 }
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp, objectPathToGetPortData](
                     const boost::system::error_code& ec1,
                     const std::vector<std::pair<
@@ -3388,7 +3388,7 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                          objectPathToGetPortData);
                         return;
                     }
-                    crow::connections::systemBus->async_method_call(
+                    dbus::utility::async_method_call(
                         [aResp](const boost::system::error_code& ec2,
                                 const boost::container::flat_map<
                                     std::string,
@@ -3452,7 +3452,7 @@ inline void getConnectedPortsLinks(
     const std::vector<std::string>& portPaths, const std::string& fabricId,
     const std::string& switchPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, portPaths, fabricId,
          switchPath](const boost::system::error_code& ec,
                      const std::vector<std::string>& objects) {
@@ -3503,7 +3503,7 @@ inline void getEndpointZoneData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                 const std::string& fabricId)
 {
     // Get connected zone link
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, fabricId](const boost::system::error_code& ec,
                           std::variant<std::vector<std::string>>& resp) {
             if (ec)
@@ -3553,7 +3553,7 @@ inline void getEndpointPortData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                 const std::string& fabricId)
 {
     // Endpoint protocol
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, processorPath,
          fabricId](const boost::system::error_code& ec,
                    std::variant<std::vector<std::string>>& resp) {
@@ -3574,7 +3574,7 @@ inline void getEndpointPortData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
             }
             const std::vector<std::string> portPaths = *data;
             // Get connected switches port links
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp, portPaths,
                  fabricId](const boost::system::error_code& ec1,
                            std::variant<std::vector<std::string>>& resp1) {
@@ -3621,7 +3621,7 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                const std::string& fabricId)
 {
     BMCWEB_LOG_DEBUG("Get Endpoint Data");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath,
          fabricId](const boost::system::error_code& ec,
                    std::variant<std::vector<std::string>>& resp) {
@@ -3647,7 +3647,7 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 std::string entityInventoryPath =
                     entityPath.substr(0, separator);
                 // Get entity subtree
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [aResp, objPath, entityPath,
                      fabricId](const boost::system::error_code& ec1,
                                const dbus::utility::GetSubTreeType& subtree) {
@@ -3722,7 +3722,7 @@ inline void updateEndpointData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                     std::string entityName =
                                         objectPath.filename();
                                     // get switch type endpint
-                                    crow::connections::systemBus->async_method_call(
+                                    dbus::utility::async_method_call(
                                         [aResp, objPath, entityPath, entityName,
                                          servName, fabricId](
                                             const boost::system::error_code&
@@ -3846,7 +3846,7 @@ inline void requestRoutesEndpoint(App& app)
                 {
                     return;
                 }
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp, fabricId,
                      endpointId](const boost::system::error_code& ec,
                                  const std::vector<std::string>& objects) {
@@ -3863,7 +3863,7 @@ inline void requestRoutesEndpoint(App& app)
                             {
                                 continue;
                             }
-                            crow::connections::systemBus->async_method_call(
+                            dbus::utility::async_method_call(
                                 [asyncResp, fabricId, endpointId](
                                     const boost::system::error_code& ec1,
                                     const dbus::utility::GetSubTreeType&
@@ -4720,7 +4720,7 @@ inline void requestRoutesPortMetrics(App& app)
                 return;
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp{asyncResp}, fabricId, switchId,
                  portId](const boost::system::error_code& ec,
                          const std::vector<std::string>& objects) {
@@ -4738,7 +4738,7 @@ inline void requestRoutesPortMetrics(App& app)
                         {
                             continue;
                         }
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, fabricId, switchId, portId](
                                 const boost::system::error_code& ec1,
                                 std::variant<std::vector<std::string>>& resp1) {
@@ -4766,7 +4766,7 @@ inline void requestRoutesPortMetrics(App& app)
                                         continue;
                                     }
 
-                                    crow::connections::systemBus->async_method_call(
+                                    dbus::utility::async_method_call(
                                         [asyncResp, fabricId, switchId, portId](
                                             const boost::system::error_code&
                                                 ec2,
@@ -4802,7 +4802,7 @@ inline void requestRoutesPortMetrics(App& app)
                                                 {
                                                     continue;
                                                 }
-                                                crow::connections::systemBus->async_method_call(
+                                                dbus::utility::async_method_call(
                                                     [asyncResp, fabricId,
                                                      switchId, portId,
                                                      portPath](
@@ -4917,7 +4917,7 @@ inline void requestRoutesSwitchPowerMode(App& app)
                 return;
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, fabricId,
                  switchId](const boost::system::error_code& ec,
                            const std::vector<std::string>& objects) {
@@ -4936,7 +4936,7 @@ inline void requestRoutesSwitchPowerMode(App& app)
                         {
                             continue;
                         }
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, fabricId, switchId](
                                 const boost::system::error_code& ec1,
                                 std::variant<std::vector<std::string>>& resp1) {
@@ -4983,7 +4983,7 @@ inline void requestRoutesSwitchPowerMode(App& app)
                                     asyncResp->res.jsonValue["Name"] =
                                         switchId + " PowerMode Resource";
 
-                                    crow::connections::systemBus->async_method_call(
+                                    dbus::utility::async_method_call(
                                         [asyncResp,
                                          path](const boost::system::error_code&
                                                    ec2,

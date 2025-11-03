@@ -175,7 +175,7 @@ inline void getErrorInjectionCapabilityData(
     const std::string& objPath)
 
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, capability](const boost::system::error_code ec,
                             const OperatingConfigProperties& properties) {
             if (ec)
@@ -230,7 +230,7 @@ inline void getErrorInjectionPayloadData(
     const std::string& objPath, const std::string& chassisName)
 
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, capability,
          chassisName](const boost::system::error_code ec,
                       const OperatingConfigProperties& properties) {
@@ -297,7 +297,7 @@ inline void getErrorInjectionData(
     const std::string& service, const std::string& objPath)
 
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, baseUri, service,
          objPath](const boost::system::error_code ec,
                   const OperatingConfigProperties& properties) {
@@ -463,7 +463,7 @@ inline void getErrorInjectionService(
 {
     std::string eiPath = path;
     eiPath += "/ErrorInjection";
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, eiPath, handler{std::forward<Handler>(handler)}](
             const boost::system::error_code& ec,
             const dbus::utility::MapperServiceMap& serviceMap) {
@@ -496,7 +496,7 @@ template <typename Handler>
 inline void getProcessor(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                          const std::string& processorId, Handler&& handler)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [processorId, aResp, handler{std::forward<Handler>(handler)}](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& paths) {
@@ -545,7 +545,7 @@ template <typename Handler>
 inline void getChassis(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                        const std::string& chassisId, Handler&& handler)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [chassisId, aResp, handler{std::forward<Handler>(handler)}](
             const boost::system::error_code ec,
             const dbus::utility::MapperGetSubTreePathsResponse& paths) {
@@ -664,7 +664,7 @@ inline void getNetworkAdapter(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                               const std::string& networkAdapterId,
                               Handler&& handler)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [chassisId, networkAdapterId, aResp,
          handler{std::forward<Handler>(handler)}](
             const boost::system::error_code& ec,
@@ -751,7 +751,7 @@ inline void getSwitch(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                       const std::string& fabricId, const std::string& switchId,
                       Handler&& handler)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [fabricId, switchId, aResp, handler{std::forward<Handler>(handler)}](
             const boost::system::error_code ec,
             const dbus::utility::MapperGetSubTreePathsResponse& paths) {
@@ -881,10 +881,14 @@ inline void getActivateCapableErrorTypes(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     const std::string& eiObjPath, Handler&& handler)
 {
-    crow::connections::systemBus->async_method_call(
-        [aResp, handler{std::forward<Handler>(handler)}](
-            const boost::system::error_code& ec,
-            const dbus::utility::MapperGetSubTreePathsResponse& paths) {
+    if (!redfish::setUpRedfishRoute(app, req, aResp))
+    {
+        return;
+    }
+    dbus::utility::async_method_call(
+        [chassisId,
+         aResp](const boost::system::error_code ec,
+                const dbus::utility::MapperGetSubTreePathsResponse& paths) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -902,7 +906,6 @@ inline void getActivateCapableErrorTypes(
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", eiObjPath, 0,
         std::array<const char*, 1>{
             "com.nvidia.ErrorInjection.ActivateErrorInjectionPayloadAsync"});
 }

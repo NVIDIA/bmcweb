@@ -19,7 +19,6 @@
 #include "async_resp.hpp"
 #include "dbus_singleton.hpp"
 #include "dbus_utility.hpp"
-#include "error_messages.hpp"
 
 #include <systemd/sd-bus.h>
 
@@ -311,7 +310,7 @@ class SetAsyncMethodCall
                 statusInfo->object, statusInfo->interface),
             SetAsyncStatusChanged<SetAsyncStatusInfo>{statusInfo});
 
-        crow::connections::systemBus->async_method_call(
+        ::dbus::utility::async_method_call(
             SetAsyncGetStatus<SetAsyncStatusInfo>{statusInfo},
             statusInfo->service, statusInfo->object,
             "org.freedesktop.DBus.Properties", "Get", statusInfo->interface,
@@ -347,7 +346,7 @@ void doSetAsyncAndGatherResult(
             crow::connections::systemBus->get_io_context()),
         .completed{}});
 
-    crow::connections::systemBus->async_method_call(
+    ::dbus::utility::async_method_call(
         SetAsyncMethodCall<SetAsyncStatusInfo>{statusInfo}, statusInfo->service,
         object, setAsyncInterface, setAsyncMethod, interface, property,
         std::forward<Value>(value));

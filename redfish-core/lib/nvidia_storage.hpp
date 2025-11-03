@@ -657,7 +657,7 @@ inline void handleDriveSanitizePost(
                 "xyz.openbmc_project.Nvme.SecureErase.EraseMethod." +
                 sanitizeType;
             // execute drive sanitize operation
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [&req, asyncResp, service, path,
                  driveId](const boost::system::error_code& ec,
                           sdbusplus::message::message& msg) {

@@ -509,7 +509,7 @@ inline void handleGetProfilesCollection(
     }
     BMCWEB_LOG_DEBUG("Start get profile Collection");
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code& ec,
                 const dbus::utility::MapperGetSubTreePathsResponse& objects) {
             if (ec)
@@ -1202,7 +1202,7 @@ inline void handleProfileUpdateCall(
         messages::internalError(aResp->res);
         return;
     }
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [payload = std::move(payload), aResp,
          isBiosUser](const boost::system::error_code& ec2,
                      sdbusplus::message::message& msg,
@@ -1674,7 +1674,7 @@ static void installCACert(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         messages::unrecognizedRequestBody(asyncResp->res);
         return;
     }
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, certFile, truststoreName,
          service](const boost::system::error_code& ec,
                   const std::string& objectPath) {

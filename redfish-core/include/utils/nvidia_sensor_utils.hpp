@@ -90,7 +90,7 @@ inline void getRelatedNetworkAdapterData(
     BMCWEB_LOG_DEBUG("Sensor get related network adapter item");
 
     // Check chassis link
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, objPath](const boost::system::error_code ec,
                              std::variant<std::vector<std::string>>& resp) {
             if (ec)
@@ -112,7 +112,7 @@ inline void getRelatedNetworkAdapterData(
                 const std::string chassisId = objectPath.filename();
 
                 // Now check the network adapter link
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp, chassisId, objectPath](
                         const boost::system::error_code ec1,
                         std::variant<std::vector<std::string>>& resp1) {
@@ -156,13 +156,13 @@ inline void getRelatedItemData(
     BMCWEB_LOG_DEBUG("Sensor get related item");
 
     // Check fabric switch link
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, objPath](const boost::system::error_code& ec,
                              std::variant<std::vector<std::string>>& resp) {
             if (ec)
             {
                 // Check processor link
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp,
                      objPath](const boost::system::error_code& ec1,
                               std::variant<std::vector<std::string>>& resp1) {
@@ -209,7 +209,7 @@ inline void getRelatedItemData(
             {
                 sdbusplus::message::object_path objectPath(fabricPath);
                 const std::string fabricId = objectPath.filename();
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp,
                      fabricId](const boost::system::error_code& ec1,
                                std::variant<std::vector<std::string>>& resp1) {
@@ -292,7 +292,7 @@ inline void setThresholdReadingProperty(
     const std::string& propertyName, const std::string& serviceName,
     const std::string& objectPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, serviceName, objectPath, interfaceName,
          propertyName](const boost::system::error_code& ec) {
             if (ec)
@@ -665,7 +665,7 @@ inline void getChassisSensors(
             }
             messages::resourceNotFound(asyncResp->res, "Sensor", sensorName);
         };
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         getAllChassisSensors, "xyz.openbmc_project.ObjectMapper",
         chassisPath + "/all_sensors", "org.freedesktop.DBus.Properties", "Get",
         "xyz.openbmc_project.Association", "endpoints");
@@ -714,7 +714,7 @@ inline void handleSensorGetAfterSetup(
         messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
     };
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         chassisHandler, "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",

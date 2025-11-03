@@ -179,7 +179,7 @@ template <typename CallbackFunc>
 inline void asyncGetSPDMMeasurementData(const std::string& objectPath,
                                         CallbackFunc&& callback)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [objectPath, callback](const boost::system::error_code ec,
                                GetManagedPropertyType& resp) {
             SPDMMeasurementData config{};
@@ -422,7 +422,7 @@ inline void handleSPDMGETSignedMeasurement(
     task::Payload payload(req);
     task->payload.emplace(std::move(payload));
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [objPath, task](const boost::system::error_code ec) {
             if (ec)
             {
@@ -462,7 +462,7 @@ inline void requestRoutesComponentIntegrity(App& app)
             const std::array<const char*, 1> interface = {
                 "xyz.openbmc_project.SPDM.Responder"};
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](const boost::system::error_code& ec,
                             const dbus::utility::GetSubTreeType& subtree) {
                     if (ec)

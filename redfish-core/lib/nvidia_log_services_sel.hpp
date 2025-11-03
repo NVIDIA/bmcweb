@@ -409,7 +409,7 @@ inline void requestRoutesDBusSELLogEntryCollection(App& app)
             // DBus implementation of SEL/Entries
             // Make call to Logging Service to find all log entry
             // objects
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](const boost::system::error_code& ec,
                             GetManagedObjectsType& resp) {
                     if (ec)
@@ -475,7 +475,7 @@ inline void deleteDbusLogEntry(
         }
         asyncResp->res.result(boost::beast::http::status::no_content);
     };
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         respHandler, "xyz.openbmc_project.Logging",
         "/xyz/openbmc_project/logging/entry/" + entryId,
         "xyz.openbmc_project.Object.Delete", "Delete");
@@ -484,7 +484,7 @@ inline void deleteDbusLogEntry(
 inline void deleteDbusSELEntry(
     std::string& entryID, const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, entryID](const boost::system::error_code& ec,
                              GetManagedPropertyType& resp) {
             if (ec.value() == EBADR)
@@ -705,7 +705,7 @@ inline void requestRoutesDBusSELLogEntry(App& app)
                 // DBus implementation of EventLog/Entries
                 // Make call to Logging Service to find all log entry
                 // objects
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp, entryID](const boost::system::error_code& ec,
                                          GetManagedPropertyType& resp) {
                         if (ec.value() == EBADR)
@@ -785,7 +785,7 @@ inline void requestRoutesDBusSELLogServiceActionsClear(App& app)
                                            systemName);
                 return;
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](const boost::system::error_code ec) {
                     if (ec)
                     {

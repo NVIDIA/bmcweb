@@ -254,7 +254,7 @@ inline void executeRawSynCommand(
     uint8_t arg2, uint32_t dataIn, uint32_t extDataIn)
 {
     BMCWEB_LOG_DEBUG("executeRawSynCommand fn");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [resp, type,
          id](boost::system::error_code ec, sdbusplus::message::message& msg,
              const std::tuple<int, uint32_t, uint32_t, uint32_t>& res) {
@@ -372,7 +372,7 @@ inline void executeRawAsynCommand(
     const std::vector<uint32_t>& asyncDataInRaw, uint32_t requestedDataOutBytes)
 {
     BMCWEB_LOG_DEBUG("executeRawAsynCommand fn");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [resp, type, requestedDataOutBytes,
          id](boost::system::error_code ec, sdbusplus::message::message& msg,
              const std::tuple<int, uint32_t, uint32_t, std::vector<uint32_t>>&
@@ -470,7 +470,7 @@ inline void getDbusSelCapacity(
         }
         asyncResp->res.jsonValue["ErrorInfoCap"] = *capacityValue;
     };
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         respHandler, "xyz.openbmc_project.Logging",
         "/xyz/openbmc_project/logging", "org.freedesktop.DBus.Properties",
         "Get", "xyz.openbmc_project.Logging.Capacity", "InfoLogCapacity");
@@ -494,7 +494,7 @@ inline void setDbusSelCapacity(
 
         asyncResp->res.result(boost::beast::http::status::no_content);
     };
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         respHandler, "xyz.openbmc_project.Logging",
         "/xyz/openbmc_project/logging", "xyz.openbmc_project.Logging.Capacity",
         "SetInfoLogCapacity", capacity);
@@ -514,7 +514,7 @@ inline void getManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 {
     BMCWEB_LOG_DEBUG("Get manager service state.");
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code& ec,
                 const std::vector<std::pair<
                     std::string, std::variant<std::string>>>& propertiesList) {
@@ -569,7 +569,7 @@ inline void getBMCAssetData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             const std::string& path)
 {
     BMCWEB_LOG_DEBUG("Get BMC manager asset data.");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code& ec,
                 const std::vector<std::pair<
                     std::string, std::variant<std::string>>>& propertiesList) {
@@ -612,7 +612,7 @@ inline void getLinkManagerForSwitches(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     std::variant<std::vector<std::string>>& resp) {
             if (ec)
@@ -631,7 +631,7 @@ inline void getLinkManagerForSwitches(
             {
                 sdbusplus::message::object_path path(fabric);
                 std::string fabricId = path.filename();
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp, fabric,
                      fabricId](const boost::system::error_code& ec2,
                                const dbus::utility::GetSubTreeType& subtree) {
@@ -674,7 +674,7 @@ inline void getLinkManagerForSwitches(
 inline void getFencingPrivilege(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const MapperGetSubTreeResponse& subtree) {
             if (ec)
@@ -693,7 +693,7 @@ inline void getFencingPrivilege(
                 }
                 const std::string& serviceName = serviceMap[0].first;
                 // Get SMBPBI Fencing Privilege
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp](
                         const boost::system::error_code& getPropertyError,
                         const std::vector<std::pair<
@@ -759,7 +759,7 @@ inline void patchFencingPrivilege(
     }
 
     // Set the property, with handler to check error responses
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [resp, privilegeType](boost::system::error_code& ec,
                               sdbusplus::message::message& msg) {
             if (!ec)
@@ -1138,7 +1138,7 @@ inline void requestRouteSyncRawOobCommand(App& app)
                     return;
                 }
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp, targetType, targetId, opCodeRaw, arg1Raw,
                      arg2Raw, dataInRaw,
                      extDataInRaw](const boost::system::error_code& ec,
@@ -1234,7 +1234,7 @@ inline void requestRouteAsyncRawOobCommand(App& app)
                     return;
                 }
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp, targetType, targetId, argRaw, asyncDataInRaw,
                      requestedDataOutBytes](
                         const boost::system::error_code& ec,
@@ -1276,7 +1276,7 @@ inline void handleGenericManager(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& managerId)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, managerId](
             const boost::system::error_code& ec,
             const std::vector<std::pair<
@@ -1396,7 +1396,7 @@ inline void extendManagerPatchOEM(
         {
             if (privilege)
             {
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp,
                      privilege](const boost::system::error_code& ec,
                                 const MapperGetSubTreeResponse& subtree) {
@@ -1514,7 +1514,7 @@ inline void extendManagerGet(
         getIsCommandShellEnable(asyncResp);
     }
     // Get Managers Chassis ID
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, managerId](
             const boost::system::error_code& ec,
             const std::vector<std::pair<
@@ -1876,7 +1876,7 @@ inline void requestRoutesNvidiaManagerResetToDefaultsAction(App& app)
                 std::string ifnameCompleteReset =
                     "com.nvidia.Common.CompleteReset";
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp, ifnameCompleteReset](
                         const boost::system::error_code& ec,
                         const std::vector<
@@ -1893,7 +1893,7 @@ inline void requestRoutesNvidiaManagerResetToDefaultsAction(App& app)
                                              std::vector<std::string>>& object :
                              interfaceNames)
                         {
-                            crow::connections::systemBus->async_method_call(
+                            dbus::utility::async_method_call(
                                 [asyncResp,
                                  object](const boost::system::error_code& ec1) {
                                     if (ec1)

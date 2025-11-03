@@ -239,7 +239,7 @@ struct PersistentStorageUtil
 inline void populatePersistentStorageSettingStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const std::variant<int32_t>& property) {
             if (ec)

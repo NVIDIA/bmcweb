@@ -39,7 +39,7 @@ inline void getClockLimitControlObjects(
 {
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
     members = nlohmann::json::array();
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, chassisID,
          &members](const boost::system::error_code,
                    std::variant<std::vector<std::string>>& resp) {
@@ -67,7 +67,7 @@ inline void getChassisClockLimit(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& path, const std::string& /*chassisPath*/)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, path](
             const boost::system::error_code& errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -90,7 +90,7 @@ inline void getChassisClockLimit(
                         (interface ==
                          "xyz.openbmc_project.Inventory.Decorator.Area"))
                     {
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, path, interface](
                                 const boost::system::error_code& errorno2,
                                 const std::vector<std::pair<
@@ -236,7 +236,7 @@ inline void getClockLimitControl(
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Chassis/" + chassisID + "/Controls/" + controlID;
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, chassisID, controlID, validChassisPath,
          processorName](const boost::system::error_code& ec,
                         std::variant<std::vector<std::string>>& resp) {
@@ -314,7 +314,7 @@ inline void changeClockLimitControl(
     const std::variant<uint32_t, std::tuple<uint32_t, uint32_t>>& value,
     const std::string& patchProp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, path, value, patchProp](
             const boost::system::error_code& errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -404,7 +404,7 @@ inline void patchClockLimitControl(
         messages::resourceNotFound(asyncResp->res, "Chassis", chassisID);
         return;
     }
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, chassisID, controlID, validChassisPath, processorName,
          &req](const boost::system::error_code& ec,
                std::variant<std::vector<std::string>>& resp) {
@@ -535,7 +535,7 @@ inline void postClockLimitControl(
         messages::resourceNotFound(asyncResp->res, "Chassis", chassisID);
         return;
     }
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, chassisID, controlID,
          validChassisPath](const boost::system::error_code& ec,
                            std::variant<std::vector<std::string>>& resp) {
@@ -559,7 +559,7 @@ inline void postClockLimitControl(
 
             for (const auto& sensorpath : *data)
             {
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp, sensorpath](
                         const boost::system::error_code& ec1,
                         const std::vector<std::pair<
@@ -631,7 +631,7 @@ inline void getControlCpuObjects(
                 objPath = resp.front();
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, getControlCpu, objPath, validChassisPath](
                     const boost::system::error_code& ec1,
                     const dbus::utility::MapperGetObject& objType) {

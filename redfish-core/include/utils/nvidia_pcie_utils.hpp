@@ -220,7 +220,7 @@ static inline void getPCIeDeviceAssetData(
         };
     std::string escapedPath = std::string(path) + "/" + device;
     dbus::utility::escapePathForDbus(escapedPath);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         std::move(getPCIeDeviceAssetCallback), service, escapedPath,
         "org.freedesktop.DBus.Properties", "GetAll", assetInterface);
 }
@@ -248,7 +248,7 @@ static inline void getPCIeDeviceUUID(
         };
     std::string escapedPath = std::string(path) + "/" + device;
     dbus::utility::escapePathForDbus(escapedPath);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         std::move(getPCIeDeviceUUIDCallback), service, escapedPath,
         "org.freedesktop.DBus.Properties", "Get", uuidInterface, "UUID");
 }
@@ -289,7 +289,7 @@ static inline void getPCIeDeviceClkRefOem(
     };
     std::string escapedPath = std::string(path) + "/" + device;
     dbus::utility::escapePathForDbus(escapedPath);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         std::move(getPCIeDeviceOemCallback), service, escapedPath,
         "org.freedesktop.DBus.Properties", "GetAll", pcieClockReferenceIntf);
 }
@@ -330,7 +330,7 @@ static inline void getPCIeDeviceNvLinkClkRefOem(
     };
     std::string escapedPath = std::string(path) + "/" + device;
     dbus::utility::escapePathForDbus(escapedPath);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         std::move(getPCIeDeviceOemCallback), service, escapedPath,
         "org.freedesktop.DBus.Properties", "GetAll", nvlinkClockReferenceIntf);
 }
@@ -346,7 +346,7 @@ static inline void getPCIeLTssmState(
     std::string escapedPath = std::string(path) + "/" + device;
     dbus::utility::escapePathForDbus(escapedPath);
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, service](const boost::system::error_code& ec,
                              std::variant<std::vector<std::string>>& resp) {
             if (ec)
@@ -408,7 +408,7 @@ static inline void getPCIeLTssmState(
                         }
                     }
                 };
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     std::move(getPCIeLtssmCallback), service, portPath,
                     "org.freedesktop.DBus.Properties", "GetAll", pcieLtssmIntf);
             }
@@ -550,7 +550,7 @@ static inline void getPCIeDevice(
         };
     std::string escapedPath = std::string(path) + "/" + device;
     dbus::utility::escapePathForDbus(escapedPath);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         std::move(getPCIeDeviceCallback), service, escapedPath,
         "org.freedesktop.DBus.Properties", "GetAll", deviceIntf);
 }
@@ -627,7 +627,7 @@ static inline void getPCIeDeviceFunctionsList(
         };
     std::string escapedPath = std::string(path) + "/" + device;
     dbus::utility::escapePathForDbus(escapedPath);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         std::move(getPCIeDeviceCallback), service, escapedPath,
         "org.freedesktop.DBus.Properties", "GetAll", deviceIntf);
 }
@@ -799,7 +799,7 @@ static inline void getPCIeDeviceFunction(
     };
     std::string escapedPath = std::string(path) + "/" + device;
     dbus::utility::escapePathForDbus(escapedPath);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         std::move(getPCIeDeviceCallback), service, escapedPath,
         "org.freedesktop.DBus.Properties", "GetAll", deviceIntf);
 }
@@ -859,7 +859,7 @@ inline void getPCIeDeviceList(
         }
         asyncResp->res.jsonValue[name + "@odata.count"] = pcieDeviceList.size();
     };
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         std::move(getPCIeMapCallback), "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
         "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths",
@@ -917,7 +917,7 @@ inline void getAerErrorStatusOem(
     };
     std::string escapedPath = std::string(path) + "/" + device;
     dbus::utility::escapePathForDbus(escapedPath);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         std::move(getAerErrorStatusOemCallback), service, escapedPath,
         "org.freedesktop.DBus.Properties", "GetAll", pcieAerErrorStatusIntf);
 }
@@ -973,7 +973,7 @@ inline void postClearAerErrorStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& chassisId, const std::string& device)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, chassisId,
          device](const boost::system::error_code& ec,
                  const std::vector<std::string>& chassisPaths) {
@@ -1000,7 +1000,7 @@ inline void postClearAerErrorStatus(
                 const std::array<const char*, 1> interface = {
                     "xyz.openbmc_project.Inventory.Item.PCIeDevice"};
                 // Get Inventory Service
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp, device, chassisPCIePath, chassisId,
                      chassisPCIeDevicePath, chassisPath](
                         const boost::system::error_code& ec1,
@@ -1064,7 +1064,7 @@ inline void postClearAerErrorStatus(
 inline void getFabricSwitchLink(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                 const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath](const boost::system::error_code& ec,
                          std::variant<std::vector<std::string>>& resp) {
             if (ec)
@@ -1088,7 +1088,7 @@ inline void getFabricSwitchLink(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 return;
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp,
                  fabricId](const boost::system::error_code& ec1,
                            std::variant<std::vector<std::string>>& resp1) {
@@ -1203,7 +1203,7 @@ static inline void getPCIeDeviceState(
                 *s);
         }
     };
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         std::move(getPCIeDeviceStateCallback), service, escapedPath,
         "org.freedesktop.DBus.Properties", "Get", stateInterface,
         "CurrentPowerState");
@@ -1226,7 +1226,7 @@ inline void requestRoutesChassisPCIeFunctionCollection(App& app)
             {
                 return;
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, chassisId,
                  device](const boost::system::error_code& ec,
                          const std::vector<std::string>& chassisPaths) {
@@ -1269,7 +1269,7 @@ inline void requestRoutesChassisPCIeFunctionCollection(App& app)
                              "Collection of PCIe Functions for PCIe Device " +
                                  device}};
                         // Get Inventory Service
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, device, chassisPCIePath, interface,
                              chassisId, chassisPCIeDevicePath](
                                 const boost::system::error_code& ec1,
@@ -1347,7 +1347,7 @@ inline void requestRoutesChassisPCIeFunction(App& app)
             {
                 return;
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, chassisId, device,
                  function](const boost::system::error_code& ec,
                            const std::vector<std::string>& chassisPaths) {
@@ -1376,7 +1376,7 @@ inline void requestRoutesChassisPCIeFunction(App& app)
                         const std::array<const char*, 1> interface = {
                             "xyz.openbmc_project.Inventory.Item.PCIeDevice"};
                         // Get Inventory Service
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, device, function, chassisPCIePath,
                              interface, chassisId, chassisPCIeDevicePath](
                                 const boost::system::error_code& ec1,
@@ -1561,7 +1561,7 @@ inline void requestRoutesChassisPCIeDeviceCollection(App& app)
             {
                 return;
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp,
                  chassisId](const boost::system::error_code& ec,
                             const std::vector<std::string>& chassisPaths) {
@@ -1620,7 +1620,7 @@ inline void requestRoutesChassisPCIeDevice(App& app)
             {
                 return;
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, chassisId,
                  device](const boost::system::error_code& ecOuter,
                          const std::vector<std::string>& chassisPaths) {
@@ -1649,7 +1649,7 @@ inline void requestRoutesChassisPCIeDevice(App& app)
                         const std::array<const char*, 1> interface = {
                             "xyz.openbmc_project.Inventory.Item.PCIeDevice"};
                         // Get Inventory Service
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, device, chassisPCIePath, interface,
                              chassisId, chassisPCIeDevicePath, chassisPath](
                                 const boost::system::error_code& ecInner,

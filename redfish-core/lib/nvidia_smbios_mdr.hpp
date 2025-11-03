@@ -77,7 +77,7 @@ inline void pushSmbiosTable(const crow::Request& req,
 
     BMCWEB_LOG_DEBUG("Uploading SMBIOS blob...");
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         // In the lambda capture, we move the blobFd to transfer ownership to
         // the callback in order to keep the shared pointer alive until the dbus
         // method call completes and returns

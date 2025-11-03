@@ -127,7 +127,7 @@ inline void getNvidiaPowerSupplyMetrics(
                         }
                         const std::string& serviceName = object.begin()->first;
                         // Fetch sensor data
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, chassisId, sensorPath](
                                 const boost::system::error_code& ec3,
                                 const boost::container::flat_map<

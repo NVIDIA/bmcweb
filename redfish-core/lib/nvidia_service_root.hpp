@@ -87,7 +87,7 @@ inline void getBMCObject(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     BMCWEB_LOG_DEBUG("Get available BMC resources.");
 
     // GetSubTree on all interfaces which provide info about BMC
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](
             boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) mutable {

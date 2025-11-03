@@ -214,7 +214,7 @@ inline void doUnsubscribe(std::shared_ptr<crow::HttpClient> client,
 
 inline void invokeRedfishEventListener()
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -365,7 +365,7 @@ inline int stopRedfishEventListener(boost::asio::io_context& ioc)
         std::bind_front(unSubscribe, std::ref(ioc)));
 
     // stop redfish event listener
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [](const boost::system::error_code& ec) {
             if (ec)
             {

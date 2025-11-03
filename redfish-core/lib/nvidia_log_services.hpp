@@ -299,7 +299,7 @@ inline void requestRoutesChassisLogServiceCollection(App& app)
                 "xyz.openbmc_project.Inventory.Item.Board",
                 "xyz.openbmc_project.Inventory.Item.Chassis"};
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, chassisId(std::string(chassisId))](
                     const boost::system::error_code& ec,
                     const dbus::utility::GetSubTreeType& subtree) {
@@ -359,7 +359,7 @@ inline void requestRoutesChassisLogServiceCollection(App& app)
                                         BMCWEB_LOG_DEBUG(
                                             "XID Looking for Namespace on {}_XID",
                                             chassisName);
-                                        crow::connections::systemBus->async_method_call(
+                                        dbus::utility::async_method_call(
                                             [asyncResp,
                                              chassisId(std::string(chassisId))](
                                                 const boost::system::error_code&
@@ -923,7 +923,7 @@ inline void extendSystemLogServicesGet(
 {
     // Call Phosphor-logging GetStats method to get
     // LatestEntryTimestamp and LatestEntryID
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& outerEc,
                     const std::tuple<uint32_t, uint64_t>& reqData) {
             if (outerEc)
@@ -956,7 +956,7 @@ inline void extendSystemLogServicesGet(
             populateBootEntryId(asyncResp->res);
         }
 
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             [asyncResp](const boost::system::error_code& innerEc,
                         std::variant<bool>& resp) {
                 if (innerEc)
@@ -1296,7 +1296,7 @@ inline void requestRoutesEventLogServicePatch(App& app)
 
                     if (autoClearResolvedLogEnabled)
                     {
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp](const boost::system::error_code& ec) {
                                 if (ec)
                                 {

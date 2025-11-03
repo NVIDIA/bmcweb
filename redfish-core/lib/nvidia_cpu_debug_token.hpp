@@ -552,7 +552,7 @@ inline void handleCpuGenerateToken(
                 }
             });
         std::vector<uint8_t> indices{cpuTokenGenerationMeasIndex};
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             [asyncResp](const boost::system::error_code ec4) {
                 if (ec4)
                 {

@@ -39,7 +39,7 @@ inline void getInterfaceStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ifaceId)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const std::variant<bool>& nicStatus) {
             if (ec)
@@ -64,7 +64,7 @@ inline void getInterfaceStatus(
             nlohmann::json& jsonResponse = asyncResp->res.jsonValue;
             auto health = std::make_shared<HealthPopulate>(asyncResp);
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [health](const boost::system::error_code& ec1,
                          const std::vector<std::string>& resp) {
                     if (ec1)
@@ -99,7 +99,7 @@ inline void getInterfaceStatus(
 inline void getCredentialsBootStrap(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const GetObjectType& objType) {
             if (ec || objType.empty())
@@ -111,7 +111,7 @@ inline void getCredentialsBootStrap(
             }
 
             const std::string& biosService = objType.begin()->first;
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](
                     const boost::system::error_code& ec1,
                     const std::vector<std::pair<
@@ -179,7 +179,7 @@ inline void setCredentialBootstrap(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& property, const bool& flag)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, property, flag](const boost::system::error_code& ec,
                                     const GetObjectType& objType) {
             if (ec || objType.empty())
@@ -192,7 +192,7 @@ inline void setCredentialBootstrap(
 
             const std::string& biosService = objType.begin()->first;
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](const boost::system::error_code& ec1) {
                     if (ec1)
                     {
@@ -215,7 +215,7 @@ inline void setInterfaceEnabled(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ifaceId, const bool& interfaceEnabled)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -250,7 +250,7 @@ inline void requestHostInterfacesRoutes(App& app)
             asyncResp->res.jsonValue["Description"] =
                 "Collection of HostInterfaces for this Manager";
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](const boost::system::error_code& errorCode,
                             dbus::utility::ManagedObjectType& resp) {
                     boost::container::flat_set<std::string> ifaceList;

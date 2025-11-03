@@ -288,7 +288,7 @@ inline void handleAccountLocked(
     const crow::Request& req)
 {
     const std::string user(username);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, &req,
          user](const boost::system::error_code& ec,
                const std::map<std::string, dbus::utility::DbusVariantType>&

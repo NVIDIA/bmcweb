@@ -114,7 +114,7 @@ inline void requestRoutesSystemFDREntryDownload(App& app)
                 sdbusplus::message::object_path entry(
                     "/xyz/openbmc_project/dump/fdr/entry");
                 entry /= entryID;
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     std::move(downloadDumpEntryHandler),
                     "xyz.openbmc_project.Dump.Manager", entry,
                     "xyz.openbmc_project.Dump.Entry", "GetFileHandle");
@@ -174,7 +174,7 @@ void inline requestRoutesSystemFDRClear(App& app)
                 createDumpParamVec.emplace_back("DiagnosticType", "FDR");
                 createDumpParamVec.emplace_back("Action", "Clean");
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp](const boost::system::error_code& ec,
                                 const sdbusplus::message::message& msg,
                                 const sdbusplus::message::object_path&
@@ -322,7 +322,7 @@ inline void handleFDRServicePatch(
     if (*enabled)
     {
         // Attempting to reset failed
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             [asyncResp, fdrServiceName](const boost::system::error_code& ec) {
                 if (ec)
                 {
@@ -335,7 +335,7 @@ inline void handleFDRServicePatch(
                 constexpr bool runtime = false;
                 constexpr bool force = false;
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp,
                      fdrServiceName](const boost::system::error_code ec2) {
                         if (ec2)
@@ -353,7 +353,7 @@ inline void handleFDRServicePatch(
                         // Start the service
                         constexpr const char* mode = "replace";
 
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, fdrServiceName](
                                 const boost::system::error_code ec3) {
                                 if (ec3)
@@ -382,7 +382,7 @@ inline void handleFDRServicePatch(
         // Try to stop service
         constexpr const char* mode = "replace";
 
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             [asyncResp](const boost::system::error_code ec) {
                 if (ec)
                 {
@@ -397,7 +397,7 @@ inline void handleFDRServicePatch(
         // Try to disable service persistently
         constexpr bool runtime = false;
 
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             [asyncResp](const boost::system::error_code ec) {
                 if (ec)
                 {
@@ -446,7 +446,7 @@ void inline requestRoutesSystemFDRGenBirthCert(App& app)
                 createDumpParamVec.emplace_back("DiagnosticType", "FDR");
                 createDumpParamVec.emplace_back("Action", "GenBirthCert");
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp](
                         const boost::system::error_code& ec,
                         [[maybe_unused]] const sdbusplus::message::message& msg,

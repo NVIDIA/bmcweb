@@ -96,7 +96,7 @@ inline void isRedfishHostInterfaceUser(const std::string& username,
             callback({}, true);
         };
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         respHandler, "xyz.openbmc_project.User.Manager",
         "/xyz/openbmc_project/user", "xyz.openbmc_project.User.Manager",
         "GetUserInfo", username);

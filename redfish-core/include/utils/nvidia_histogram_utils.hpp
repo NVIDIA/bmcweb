@@ -91,7 +91,7 @@ inline void getHistogramLink(
     const std::string& formedURI, const std::string& objectPath,
     const std::string& odataType)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, formedURI,
          odataType](const boost::system::error_code ec,
                     std::variant<std::vector<std::string>>& resp) {
@@ -132,7 +132,7 @@ inline void updateHistogramData(
         boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
 
     // Get interface properties
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, objPath](const boost::system::error_code ec,
                              const PropertiesMap& properties) {
             if (ec)
@@ -232,7 +232,7 @@ inline void getHistogramDataByAssociation(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& histogramId, const std::string& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, histogramId](const boost::system::error_code ec,
                                  std::variant<std::vector<std::string>>& resp) {
             if (ec)
@@ -260,7 +260,7 @@ inline void getHistogramDataByAssociation(
                     continue;
                 }
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp, histoPath, histogramId](
                         const boost::system::error_code ec2,
                         const std::vector<std::pair<
@@ -302,7 +302,7 @@ inline void updateHistogramBucketData(
     using PropertiesMap =
         boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, objPath](
             const boost::system::error_code ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -316,7 +316,7 @@ inline void updateHistogramBucketData(
                 return;
             }
             // Get interface properties
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp](const boost::system::error_code ec3,
                             const PropertiesMap& properties) {
                     if (ec3)

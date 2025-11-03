@@ -1804,7 +1804,7 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
 
         if (!versionService.empty())
         {
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp,
                  swId](const boost::system::error_code errorCode,
                        const boost::container::flat_map<

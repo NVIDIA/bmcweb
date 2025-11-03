@@ -76,7 +76,7 @@ struct NbdProxyServer : public std::enable_shared_from_this<NbdProxyServer>
         BMCWEB_LOG_DEBUG("std::remove({})", socketId);
         std::remove(socketId.c_str());
 
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             dbus::utility::logError, "xyz.openbmc_project.VirtualMedia", path,
             "xyz.openbmc_project.VirtualMedia.Proxy", "Unmount");
     }
@@ -128,7 +128,7 @@ struct NbdProxyServer : public std::enable_shared_from_this<NbdProxyServer>
             }
         };
 
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             std::move(mountHandler), "xyz.openbmc_project.VirtualMedia", path,
             "xyz.openbmc_project.VirtualMedia.Proxy", "Mount");
     }

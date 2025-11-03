@@ -784,7 +784,7 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
     {
         // assert(state == ROOT_Q_ASSOCS);
         std::shared_ptr<HealthRollup> self = shared_from_this();
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             [self, serviceManager,
              objPath](const boost::system::error_code& ec,
                       const std::variant<Association>& result) mutable {
@@ -1067,7 +1067,7 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
         //        state == ROOT_Q_ASSOCS_SERVICE ||
         //        state == ASSOC_Q_HEALTH_SERVICE); // (2)
         std::shared_ptr<HealthRollup> self = shared_from_this();
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             [self, objPath, interface](
                 const boost::system::error_code& ec,
                 const std::map<std::string, std::vector<std::string>>& result) {
@@ -1318,7 +1318,7 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
     {
         // assert(state == ROOT_Q_HEALTH || state == ASSOC_Q_HEALTH); // (1)
         std::shared_ptr<HealthRollup> self = shared_from_this();
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             [self, serviceManager,
              objPath](const boost::system::error_code& ec,
                       const std::variant<std::string>& result) {

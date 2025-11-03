@@ -138,7 +138,7 @@ inline void getConnectedSwitchPorts(
     const std::string& switchName)
 {
     BMCWEB_LOG_DEBUG("Get connected switch ports on {}", switchName);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, portPath, fabricId,
          switchName](const boost::system::error_code& ec,
                      std::variant<std::vector<std::string>>& resp) {
@@ -185,7 +185,7 @@ inline void getConnectedSwitches(
     const std::string& switchName)
 {
     BMCWEB_LOG_DEBUG("Get connected switch on{}", switchName);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, switchPath, portPath,
          switchName](const boost::system::error_code& ec,
                      std::variant<std::vector<std::string>>& resp) {
@@ -233,7 +233,7 @@ inline void getConnectedProcessorPorts(
     const std::string& portPath, std::vector<std::string>& portNames)
 {
     // This is for when the ports are connected to another processor
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, portPath,
          portNames](const boost::system::error_code& ec,
                     std::variant<std::vector<std::string>>& resp) {
@@ -316,7 +316,7 @@ inline void getProcessorPortLinks(
     BMCWEB_LOG_DEBUG("Get associated ports on{}", port);
 
     // This is for when the ports are connected to a switch
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, portPath, processorId,
          port](const boost::system::error_code& ec,
                std::variant<std::vector<std::string>>& resp) {
@@ -355,7 +355,7 @@ inline void getProcessorPortLinks(
         "xyz.openbmc_project.Association", "endpoints");
 
     // This is for when the ports are connected to another processor
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, portPath, processorId,
          port](const boost::system::error_code& ec,
                std::variant<std::vector<std::string>>& resp) {
@@ -401,7 +401,7 @@ inline void getProcessorPortData(
     const std::string& processorId, const std::string& portId)
 {
     BMCWEB_LOG_DEBUG("Get processor port data");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, processorId,
          portId](const boost::system::error_code& e,
                  std::variant<std::vector<std::string>>& resp) {
@@ -425,7 +425,7 @@ inline void getProcessorPortData(
                 // Check Interface in Object or not
                 BMCWEB_LOG_DEBUG("processor state sensor object path {}",
                                  sensorpath);
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [aResp, sensorpath, processorId, portId](
                         const boost::system::error_code& ec,
                         const std::vector<std::pair<
@@ -482,7 +482,7 @@ inline void getProcessorAcceleratorPortData(
     const std::string& processorId, const std::string& portId)
 {
     BMCWEB_LOG_DEBUG("Get processor port data");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp, objPath, processorId,
          portId](const boost::system::error_code& e,
                  std::variant<std::vector<std::string>>& resp) {
@@ -613,7 +613,7 @@ inline void requestRoutesProcessorPort(App& app)
                 return;
             }
             BMCWEB_LOG_DEBUG("Get available system processor resource");
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [processorId, port,
                  asyncResp](const boost::system::error_code& ec,
                             const dbus::utility::GetSubTreeType& subtree) {
@@ -673,7 +673,7 @@ inline void getProcessorPortMetricsData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& service, const std::string& path)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, service,
          path](const boost::system::error_code& ec,
                // const boost::container::flat_map<std::string,
@@ -1377,7 +1377,7 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                         {
                             continue;
                         }
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [asyncResp, processorId, portId](
                                 const boost::system::error_code& e,
                                 std::variant<std::vector<std::string>>& resp) {
@@ -1403,7 +1403,7 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                                     BMCWEB_LOG_DEBUG(
                                         "processor state sensor object path {}",
                                         sensorpath);
-                                    crow::connections::systemBus->async_method_call(
+                                    dbus::utility::async_method_call(
                                         [asyncResp, sensorpath, processorId,
                                          portId](
                                             const boost::system::error_code&

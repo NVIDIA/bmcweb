@@ -35,7 +35,7 @@ inline void getNetworkAdapterCollectionMembers(
     const char* subtree = "/xyz/openbmc_project/inventory")
 {
     BMCWEB_LOG_DEBUG("Get collection members for: {}", collectionPath);
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [collectionPath, isNDF, aResp{std::move(aResp)}](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& objects) {
@@ -116,7 +116,7 @@ inline void doNetworkAdaptersCollection(
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/NetworkAdapters", chassisId);
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [chassisId, asyncResp](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreePathsResponse& objects) {
@@ -319,7 +319,7 @@ inline void doPort(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     using GetManagedPropertyTypeAlias = boost::container::flat_map<
         std::string,
         std::variant<std::string, bool, double, uint64_t, uint32_t>>;
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const GetManagedPropertyTypeAlias& properties) {
             if (ec)
@@ -408,7 +408,7 @@ inline void doNDF(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     using GetManagedPropertyTypeAlias = boost::container::flat_map<
         std::string,
         std::variant<std::string, bool, double, uint64_t, uint32_t>>;
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const GetManagedPropertyTypeAlias& properties) {
             if (ec)
@@ -505,7 +505,7 @@ inline void handleGet(App& app, const crow::Request& req,
     const std::array<const char*, 1> interfaces = {
         "xyz.openbmc_project.Network.EthernetInterface"};
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, chassisId, id,
          isNDF](const boost::system::error_code& ec,
                 const dbus::utility::GetSubTreeType& subtree) {

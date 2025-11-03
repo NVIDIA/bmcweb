@@ -141,7 +141,7 @@ inline void populateFirmwareInformation(
                 functionalFwIds.push_back(leaf);
             }
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp, fwVersionPurpose, activeVersionPropName,
                  populateLinkToImages, functionalFwIds](
                     const boost::system::error_code& ec2,
@@ -188,7 +188,7 @@ inline void populateFirmwareInformation(
                         }
 
                         // Now grab its version info
-                        crow::connections::systemBus->async_method_call(
+                        dbus::utility::async_method_call(
                             [aResp, swId, runningImage, fwVersionPurpose,
                              activeVersionPropName, populateLinkToImages](
                                 const boost::system::error_code& ec3,
@@ -396,7 +396,7 @@ inline void getFwRecoveryStatus(
 
     BMCWEB_LOG_DEBUG("getFwRecoveryStatus: swId {} svc {}", *swId, dbusSvc);
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, swId, &getLastSegnmentFromDotterString](
             const boost::system::error_code& ec,
             const boost::container::flat_map<
@@ -432,7 +432,7 @@ inline void getFwRecoveryStatus(
         "org.freedesktop.DBus.Properties", "GetAll",
         "xyz.openbmc_project.State.Decorator.Health");
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, swId, &getLastSegnmentFromDotterString](
             const boost::system::error_code& ec,
             const boost::container::flat_map<
@@ -487,7 +487,7 @@ inline void getFwStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     BMCWEB_LOG_DEBUG("getFwStatus: swId {} svc {}", *swId, dbusSvc);
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, swId](
             const boost::system::error_code& ec,
             const boost::container::flat_map<
@@ -546,7 +546,7 @@ inline void getFwWriteProtectedStatus(
     BMCWEB_LOG_DEBUG("getFwWriteProtectedStatus: swId {} serviceName {}", swId,
                      dbusSvc);
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, swId](
             const boost::system::error_code errorCode,
             const boost::container::flat_map<
@@ -595,7 +595,7 @@ inline void populateSlotInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& slotObjPath, const std::string& slotType)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, slotObjPath,
          slotType](const boost::system::error_code& ec,
                    const dbus::utility::MapperGetObject& subtree) {
@@ -622,7 +622,7 @@ inline void populateSlotInfo(
 
             if (!slotService.empty())
             {
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp, slotService, slotObjPath,
                      slotType](const boost::system::error_code& ec1,
                                const boost::container::flat_map<

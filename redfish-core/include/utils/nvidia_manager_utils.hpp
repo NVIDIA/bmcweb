@@ -70,7 +70,7 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     using namespace std::chrono_literals;
     uint64_t timeout =
         std::chrono::duration_cast<std::chrono::microseconds>(1s).count();
-    crow::connections::systemBus->async_method_call_timed(
+    dbus::utility::async_method_call_timed(
         [aResp](const boost::system::error_code ec,
                 const std::vector<std::pair<
                     std::string, std::variant<std::string>>>& propertiesList) {
@@ -142,7 +142,7 @@ inline void getOemReadyState(
     const std::string& bmcId)
 {
     // call to get telemtery Ready status
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, bmcId](
             const boost::system::error_code ec,
             const std::vector<std::pair<
@@ -207,7 +207,7 @@ inline void isServiceActive(boost::system::error_code& ec1,
     std::string* loadState = std::get_if<std::string>(&property1);
     if (*loadState == "loaded")
     {
-        crow::connections::systemBus->async_method_call(
+        dbus::utility::async_method_call(
             [callback{std::forward<Callback>(callbackIn)}](
                 boost::system::error_code& ec2,
                 std::variant<std::string>& property2) {
@@ -224,7 +224,7 @@ inline void isServiceActive(boost::system::error_code& ec1,
 template <typename Callback>
 inline void isLoaded(const std::string_view& unit, Callback&& callbackIn)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [unit, callback{std::forward<Callback>(callbackIn)}](
             boost::system::error_code& ec,
             std::variant<std::string>& property) {
@@ -335,7 +335,7 @@ inline void getFabricManagerInformation(
 {
     BMCWEB_LOG_DEBUG("Get fabric manager state information.");
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](
             const boost::system::error_code& ec,
             const std::vector<

@@ -212,7 +212,7 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
                         persistency = *powerLimitPersistency;
                     }
 
-                    crow::connections::systemBus->async_method_call(
+                    dbus::utility::async_method_call(
                         [asyncResp, processorId, setPoint, persistency](
                             const boost::system::error_code& ec,
                             const dbus::utility::GetSubTreeType& subtree) {
@@ -380,7 +380,7 @@ inline void requestRoutesProcessorEnvironmentMetricsClearOOBSetPoint(App& app)
                 const std::array<const char*, 1> interfaces = {
                     "com.nvidia.Common.ClearPowerCap"};
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [asyncResp, processorId](
                         const boost::system::error_code& ec,
                         const dbus::utility::GetSubTreeType& subtree) {

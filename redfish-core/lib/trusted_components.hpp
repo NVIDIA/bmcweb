@@ -126,7 +126,7 @@ inline void checkTPMComponentsAndAddLink(
         return;
     }
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp,
          chassisID](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -197,7 +197,7 @@ inline void trustedComponentGetAllProperties(
     const std::string& service, const std::string& path,
     const std::string& interface)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const std::vector<
                         std::pair<std::string, dbus::utility::DbusVariantType>>&
@@ -255,7 +255,7 @@ inline void handleTpmComponentsCollectionGet(
         return;
     }
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, chassisID,
          &memberArray](const boost::system::error_code& ec,
                        const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -310,7 +310,7 @@ inline void updateTPMCollection(
         return;
     }
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, chassisID, validChassisPath,
          &memberArray](const boost::system::error_code& ec,
                        const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -500,7 +500,7 @@ inline void fetchInventoryProperties(
     const std::array<const char*, 1> interfaces = {
         "xyz.openbmc_project.Inventory.Decorator.Asset"};
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, chassisID, componentInventoryPath](
             const boost::system::error_code ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -523,7 +523,7 @@ inline void fetchInventoryProperties(
 
             const std::string& service = servicesToInterfaces[0].first;
 
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, chassisID, service, componentInventoryPath](
                     const boost::system::error_code ecInv,
                     const std::vector<std::pair<
@@ -702,7 +702,7 @@ inline void fetchComponentTypeAndAssociations(
         return;
     }
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, chassisID, componentID, spdmService,
          spdmPath](const boost::system::error_code ecType,
                    const dbus::utility::DbusVariantType& typeVal) {
@@ -799,7 +799,7 @@ inline void handleTpmComponentGet(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [asyncResp, chassisID, componentID](
                     const boost::system::error_code& ec,
                     const dbus::utility::MapperGetSubTreeResponse& subtree) {
@@ -882,7 +882,7 @@ static void constructCertificateResponse(
     const std::string& certificateID, const std::string& certPath,
     const CertificateData& certData)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, chassisID, componentID, certificateID, certPath, certData](
             const boost::system::error_code& ec,
             const boost::container::flat_map<
@@ -1100,7 +1100,7 @@ inline void getTrustedComponentCertificate(
     certPath.append(endpointComponent);
     // Construct the D-Bus path for the SPDM certificate object
     CertificateData certData;
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, chassisID, componentID, certificateID, certPath, certData](
             const boost::system::error_code& ec,
             const boost::container::flat_map<std::string,

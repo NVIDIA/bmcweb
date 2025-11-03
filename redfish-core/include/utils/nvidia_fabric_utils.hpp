@@ -56,7 +56,7 @@ inline void patchL1PowerMode(
     const bool& l1PredictionModeEnabled, const std::string& objectPath,
     [[maybe_unused]] const dbus::utility::MapperServiceMap& serviceMap)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [resp, l1PredictionModeEnabled,
          objectPath](const boost::system::error_code& ec,
                      std::variant<std::vector<std::string>>& respData) {
@@ -152,7 +152,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 {
     BMCWEB_LOG_DEBUG("Get available switch on fabric resources.");
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [resp, fabricId, switchId, handler = std::forward<Handler>(handler)](
             boost::system::error_code& ec,
             const dbus::utility::MapperGetSubTreeResponse& subtree) mutable {
@@ -173,7 +173,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                     continue;
                 }
 
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::async_method_call(
                     [resp, fabricId, switchId, handler](
                         const boost::system::error_code& ec2,
                         std::variant<std::vector<std::string>>& response) {
@@ -205,7 +205,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                                 continue;
                             }
 
-                            crow::connections::systemBus->async_method_call(
+                            dbus::utility::async_method_call(
                                 [resp, fabricId, switchId, path, handler](
                                     const boost::system::error_code& ec3,
                                     const std::vector<std::pair<
@@ -273,7 +273,7 @@ inline void populateErrorInjectionData(
            [[maybe_unused]] const dbus::utility::MapperServiceMap& serviceMap) {
             std::string errorInjectionObjPath = path;
             errorInjectionObjPath += "/ErrorInjection";
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp, fabricId2, switchId2,
                  path](const boost::system::error_code& ec4,
                        const dbus::utility::MapperServiceMap& serviceMap2) {
@@ -318,7 +318,7 @@ inline void updateSwitchPowerModeData(
     const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Switch Power mode Data");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, service,
          objPath](const boost::system::error_code& ec,
                   std::variant<std::vector<std::string>>& resp) {
@@ -386,7 +386,7 @@ inline void getSwitchPowerModeLink(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objectPath, const std::string& switchURI)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, objectPath,
          switchURI](const boost::system::error_code& ec,
                     std::variant<std::vector<std::string>>& resp) {
@@ -502,7 +502,7 @@ inline void getSwitchIsolationMode(
 {
     using PropertiesMap =
         boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const PropertiesMap& properties) {
             if (ec)
@@ -542,7 +542,7 @@ inline void getFabricManagerState(
 {
     using PropertiesMap =
         boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const PropertiesMap& properties) {
             if (ec)
@@ -622,7 +622,7 @@ inline void getSwitchHistogramLink(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& switchURI, const std::string& objectPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp, switchURI](const boost::system::error_code& ec,
                                std::variant<std::vector<std::string>>& resp) {
             if (ec)

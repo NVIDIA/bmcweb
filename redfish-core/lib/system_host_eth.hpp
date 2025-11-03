@@ -335,7 +335,7 @@ template <typename CallbackFunc>
 void getEthernetIfaceListHost(CallbackFunc&& callback,
                               const std::vector<const char*>& interfaces)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [callback{std::forward<CallbackFunc>(callback)}](
             const boost::system::error_code& ec,
             const std::vector<std::string>& objects) {
@@ -375,7 +375,7 @@ void getEthernetIfaceService(
     const std::vector<const char*>& interfaces = {
         "xyz.openbmc_project.Network.EthernetInterface"})
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [ethifaceId{std::string{ethifaceId}},
          callback{std::forward<CallbackFunc>(callback)}](
             const boost::system::error_code& ec,
@@ -432,7 +432,7 @@ void getEthernetIfaceDataHost(
                 callback(false, ethData, ipv4Data, ipv6Data);
                 return;
             }
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [ethifaceId,
                  callback](const boost::system::error_code& ec,
                            const dbus::utility::ManagedObjectType& resp) {

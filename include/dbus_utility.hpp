@@ -141,6 +141,18 @@ void async_method_call(const std::shared_ptr<bmcweb::AsyncResp>& /*asyncResp*/,
         a...);
 }
 
+template <typename MessageHandler, typename... InputArgs>
+// NOLINTNEXTLINE(readability-identifier-naming)
+void async_method_call_timed(
+    MessageHandler&& handler, const std::string& service,
+    const std::string& objpath, const std::string& interf,
+    const std::string& method, uint64_t timeout, const InputArgs&... a)
+{
+    crow::connections::systemBus->async_method_call_timed(
+        std::forward<MessageHandler>(handler), service, objpath, interf, method,
+        timeout, a...);
+}
+
 template <typename PropertyType>
 void getProperty(const std::string& service, const std::string& objectPath,
                  const std::string& interface, const std::string& propertyName,

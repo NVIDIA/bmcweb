@@ -52,7 +52,7 @@ constexpr auto diagServiceList = "cpu-diag-status.timer "
 inline void handleDiagSysConfigGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const std::variant<std::string>& res) {
             if (ec)
@@ -82,7 +82,7 @@ inline void handleDiagSysConfigGet(
 inline void handleDiagTidConfigGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const std::variant<std::string>& res) {
             if (ec)
@@ -111,7 +111,7 @@ inline void handleDiagTidConfigGet(
 inline void handleDiagResultGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const std::variant<std::string>& res) {
             if (ec)
@@ -165,7 +165,7 @@ inline void handleDiagResultGet(
 inline void handleDiagStatusGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const std::variant<uint8_t>& res) {
             if (ec)
@@ -212,7 +212,7 @@ inline void handleDiagStatusGet(
 inline void handleDiagModeGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec,
                     const std::variant<bool>& resp) {
             if (ec)
@@ -256,7 +256,7 @@ inline bool initDiagStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     std::uint8_t diagStatus = 4;
     std::variant<std::uint8_t> variantData = diagStatus;
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -284,7 +284,7 @@ inline bool clearDiagResult(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     std::string jsonString = R"([])";
     std::variant<std::string> variantData = jsonString;
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -355,7 +355,7 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         return false;
     }
     bool value = val.value();
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [aResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -465,7 +465,7 @@ inline bool handleDiagSysConfigPostReq(
     std::string jsonString = diagSysConfigCap.dump();
     std::variant<std::string> variantData = jsonString;
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -602,7 +602,7 @@ inline bool handleDiagTidConfigPostReq(
     std::string jsonString = diagTidConfigCap.dump();
     std::variant<std::string> variantData = jsonString;
 
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {

@@ -26,7 +26,7 @@ void getAllNameSpaceObjects(
 template <typename Callback>
 inline void findAssociations(const std::string& path, Callback&& callbackIn)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::async_method_call(
         [callback{std::forward<Callback>(callbackIn)}](
             const boost::system::error_code ec,
             std::variant<std::vector<std::string>>& resp) {

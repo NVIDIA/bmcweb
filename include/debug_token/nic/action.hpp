@@ -249,9 +249,9 @@ class Handler : public std::enable_shared_from_this<Handler>
         {
             case Operation::DisableTokens:
             {
-                crow::connections::systemBus->async_method_call(
-                    handler, service, objectPath, std::string(debugTokenIntf),
-                    "DisableTokens");
+                dbus::utility::async_method_call(handler, service, objectPath,
+                                                 std::string(debugTokenIntf),
+                                                 "DisableTokens");
                 break;
             }
 
@@ -266,9 +266,9 @@ class Handler : public std::enable_shared_from_this<Handler>
                 }
                 std::string arg =
                     std::string(debugTokenOpcodesEnumPrefix) + *tokenOpcode;
-                crow::connections::systemBus->async_method_call(
-                    handler, service, objectPath, std::string(debugTokenIntf),
-                    "GetRequest", arg);
+                dbus::utility::async_method_call(handler, service, objectPath,
+                                                 std::string(debugTokenIntf),
+                                                 "GetRequest", arg);
                 break;
             }
 
@@ -283,9 +283,9 @@ class Handler : public std::enable_shared_from_this<Handler>
                 }
                 std::string arg =
                     std::string(debugTokenTypesEnumPrefix) + *tokenType;
-                crow::connections::systemBus->async_method_call(
-                    handler, service, objectPath, std::string(debugTokenIntf),
-                    "GetStatus", arg);
+                dbus::utility::async_method_call(handler, service, objectPath,
+                                                 std::string(debugTokenIntf),
+                                                 "GetStatus", arg);
                 break;
             }
 
@@ -299,9 +299,9 @@ class Handler : public std::enable_shared_from_this<Handler>
                     generalErrorHandler();
                     return;
                 }
-                crow::connections::systemBus->async_method_call(
-                    handler, service, objectPath, std::string(debugTokenIntf),
-                    "InstallToken", *token);
+                dbus::utility::async_method_call(handler, service, objectPath,
+                                                 std::string(debugTokenIntf),
+                                                 "InstallToken", *token);
                 break;
             }
 
