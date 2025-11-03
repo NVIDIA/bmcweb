@@ -39,21 +39,16 @@ inline void getInterfaceStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ifaceId)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<bool>(
+        "xyz.openbmc_project.Network",
+        "/xyz/openbmc_project/network/" + ifaceId,
+        "xyz.openbmc_project.Network.EthernetInterface", "NICEnabled",
         [asyncResp](const boost::system::error_code& ec,
-                    const std::variant<bool>& nicStatus) {
+                    const bool& nicEnabled) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG(
                     "DBUS response error for Get NICEnabled Status for the host interface.");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            const bool* nicEnabled = std::get_if<bool>(&nicStatus);
-            if (nicEnabled == nullptr)
-            {
-                BMCWEB_LOG_DEBUG(
-                    "Error reading NICEnabled Status for the host interface.");
                 messages::internalError(asyncResp->res);
                 return;
             }
@@ -79,7 +74,7 @@ inline void getInterfaceStatus(
                 "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", "/",
                 int32_t(0), inventoryForEthernet);
             health->populate();
-            if (*nicEnabled)
+            if (nicEnabled)
             {
                 jsonResponse["Status"]["State"] = "Enabled";
                 asyncResp->res.jsonValue["InterfaceEnabled"] = true;
@@ -89,11 +84,7 @@ inline void getInterfaceStatus(
                 jsonResponse["Status"]["State"] = "Disabled";
                 asyncResp->res.jsonValue["InterfaceEnabled"] = false;
             }
-        },
-        "xyz.openbmc_project.Network",
-        "/xyz/openbmc_project/network/" + ifaceId,
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Network.EthernetInterface", "NICEnabled");
+        });
 }
 
 inline void getCredentialsBootStrap(

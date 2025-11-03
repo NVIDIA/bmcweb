@@ -26,15 +26,12 @@ void getAllNameSpaceObjects(
 template <typename Callback>
 inline void findAssociations(const std::string& path, Callback&& callbackIn)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", path,
+        "xyz.openbmc_project.Association", "endpoints",
         [callback{std::forward<Callback>(callbackIn)}](
             const boost::system::error_code ec,
-            std::variant<std::vector<std::string>>& resp) {
-            callback(ec, resp);
-        },
-        "xyz.openbmc_project.ObjectMapper", path,
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+            const std::vector<std::string>& resp) { callback(ec, resp); });
 }
 
 void systemdReload();

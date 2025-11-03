@@ -2154,18 +2154,18 @@ inline void getUefiPropertySettingsHost(
             "None", "Pxe", "Hdd", "Cd", "Diags", "BiosSetup", "Usb"};
     }
 
-    dbus::utility::async_method_call(
-        [aResp, addSourcesList](
-            const boost::system::error_code& ec,
-            const std::variant<std::vector<std::string>>& sourcesListVariant) {
+    dbus::utility::getProperty<std::vector<std::string>>(
+        settingsService, host0BootPath,
+        "xyz.openbmc_project.Control.Boot.Source", "AllowedSources",
+        [aResp,
+         addSourcesList](const boost::system::error_code& ec,
+                         const std::vector<std::string>& dbusSourcesList) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for "
                                  "Get source list ");
                 return;
             }
-            std::vector<std::string> dbusSourcesList =
-                std::get<std::vector<std::string>>(sourcesListVariant);
             if (!dbusSourcesList.empty())
             {
                 bool isIncludeUefiTarget = false;
@@ -2254,9 +2254,7 @@ inline void getUefiPropertySettingsHost(
                     "org.freedesktop.DBus.Properties", "GetAll",
                     "xyz.openbmc_project.Control.Boot.UEFI");
             }
-        },
-        settingsService, host0BootPath, "org.freedesktop.DBus.Properties",
-        "Get", "xyz.openbmc_project.Control.Boot.Source", "AllowedSources");
+        });
 }
 
 /**

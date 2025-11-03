@@ -39,17 +39,12 @@ inline void getClockLimitControlObjects(
 {
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
     members = nlohmann::json::array();
-    dbus::utility::async_method_call(
-        [asyncResp, chassisID,
-         &members](const boost::system::error_code,
-                   std::variant<std::vector<std::string>>& resp) {
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                return;
-            }
-            for (const auto& object : *data)
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", chassisPath + "/clock_controls",
+        "xyz.openbmc_project.Association", "endpoints",
+        [asyncResp, chassisID, &members](const boost::system::error_code,
+                                         const std::vector<std::string>& resp) {
+            for (const auto& object : resp)
             {
                 sdbusplus::message::object_path objPath(object);
                 members.push_back(
@@ -57,10 +52,7 @@ inline void getClockLimitControlObjects(
                                        "/Controls/" + objPath.filename()}});
             }
             asyncResp->res.jsonValue["Members@odata.count"] = members.size();
-        },
-        "xyz.openbmc_project.ObjectMapper", chassisPath + "/clock_controls",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getChassisClockLimit(
@@ -236,10 +228,13 @@ inline void getClockLimitControl(
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
     asyncResp->res.jsonValue["@odata.id"] =
         "/redfish/v1/Chassis/" + chassisID + "/Controls/" + controlID;
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper",
+        *validChassisPath + "/clock_controls",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, chassisID, controlID, validChassisPath,
          processorName](const boost::system::error_code& ec,
-                        std::variant<std::vector<std::string>>& resp) {
+                        const std::vector<std::string>& resp) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -248,18 +243,9 @@ inline void getClockLimitControl(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR("control id resource not found");
-                messages::resourceNotFound(asyncResp->res, "ControlID",
-                                           controlID);
-                return;
-            }
 
             auto validendpoint = false;
-            for (const auto& object : *data)
+            for (const auto& object : resp)
             {
                 sdbusplus::message::object_path objPath(object);
                 if (objPath.filename() == controlID)
@@ -301,11 +287,7 @@ inline void getClockLimitControl(
                 messages::resourceNotFound(asyncResp->res, "ControlID",
                                            controlID);
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        *validChassisPath + "/clock_controls",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 };
 
 inline void changeClockLimitControl(
@@ -404,25 +386,19 @@ inline void patchClockLimitControl(
         messages::resourceNotFound(asyncResp->res, "Chassis", chassisID);
         return;
     }
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper",
+        *validChassisPath + "/clock_controls",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, chassisID, controlID, validChassisPath, processorName,
          &req](const boost::system::error_code& ec,
-               std::variant<std::vector<std::string>>& resp) {
+               const std::vector<std::string>& resp) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
                     "ObjectMapper::Get Associated clock control object call failed: {}",
                     ec);
                 messages::internalError(asyncResp->res);
-                return;
-            }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR("control id resource not found");
-                messages::resourceNotFound(asyncResp->res, "ControlID",
-                                           controlID);
                 return;
             }
 
@@ -435,7 +411,7 @@ inline void patchClockLimitControl(
             {
                 return;
             }
-            for (const auto& object : *data)
+            for (const auto& object : resp)
             {
                 sdbusplus::message::object_path objPath(object);
                 if (objPath.filename() == controlID)
@@ -469,11 +445,7 @@ inline void patchClockLimitControl(
                 messages::resourceNotFound(asyncResp->res, "ControlID",
                                            controlID);
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        *validChassisPath + "/clock_controls",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 };
 
 inline void resetClockLimitControl(
@@ -535,10 +507,13 @@ inline void postClockLimitControl(
         messages::resourceNotFound(asyncResp->res, "Chassis", chassisID);
         return;
     }
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper",
+        *validChassisPath + "/clock_controls",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, chassisID, controlID,
          validChassisPath](const boost::system::error_code& ec,
-                           std::variant<std::vector<std::string>>& resp) {
+                           const std::vector<std::string>& resp) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -547,17 +522,8 @@ inline void postClockLimitControl(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR("control id resource not found");
-                messages::resourceNotFound(asyncResp->res, "ControlID",
-                                           controlID);
-                return;
-            }
 
-            for (const auto& sensorpath : *data)
+            for (const auto& sensorpath : resp)
             {
                 dbus::utility::async_method_call(
                     [asyncResp, sensorpath](
@@ -585,11 +551,7 @@ inline void postClockLimitControl(
                     std::array<std::string, 1>(
                         {"com.nvidia.Common.ClearClockLimAsync"}));
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        *validChassisPath + "/clock_controls",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 };
 
 inline void getControlSettingRelatedItems(

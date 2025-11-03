@@ -119,21 +119,21 @@ inline void resetPowerLimit(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 BMCWEB_LOG_DEBUG("Performing Post using Async Method Call");
 
                 nvidia_async_operation_utils::doGenericCallAsyncAndGatherResult<
-                    int>(asyncResp, std::chrono::seconds(60), serv, path,
-                         clearPowerCapAsyncIntf, "ClearPowerCap",
-                         [asyncResp](const std::string& status,
-                                     [[maybe_unused]] const int* retValue) {
-                             if (status == nvidia_async_operation_utils::
-                                               asyncStatusValueSuccess)
-                             {
-                                 BMCWEB_LOG_DEBUG("PowerLimit Reset Succeeded");
-                                 messages::success(asyncResp->res);
-                                 return;
-                             }
-                             BMCWEB_LOG_ERROR("resetPowerLimit error {}",
-                                              status);
-                             messages::internalError(asyncResp->res);
-                         });
+                    int32_t>(
+                    asyncResp, std::chrono::seconds(60), serv, path,
+                    clearPowerCapAsyncIntf, "ClearPowerCap",
+                    [asyncResp](const std::string& status,
+                                [[maybe_unused]] const int32_t* retValue) {
+                        if (status == nvidia_async_operation_utils::
+                                          asyncStatusValueSuccess)
+                        {
+                            BMCWEB_LOG_DEBUG("PowerLimit Reset Succeeded");
+                            messages::success(asyncResp->res);
+                            return;
+                        }
+                        BMCWEB_LOG_ERROR("resetPowerLimit error {}", status);
+                        messages::internalError(asyncResp->res);
+                    });
                 return;
             }
 
@@ -399,21 +399,22 @@ inline void getChassisLinksContainedBy(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get parent chassis link");
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/parent_chassis",
+        "xyz.openbmc_project.Association", "endpoints",
         [aResp](const boost::system::error_code& ec2,
-                std::variant<std::vector<std::string>>& resp) {
+                const std::vector<std::string>& data) {
             if (ec2)
             {
                 return; // no chassis = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr || data->size() > 1)
+
+            if (data.size() > 1)
             {
                 // There must be single parent chassis
                 return;
             }
-            const std::string& chassisPath = data->front();
+            const std::string& chassisPath = data.front();
             sdbusplus::message::object_path objectPath(chassisPath);
             std::string chassisName = objectPath.filename();
             if (chassisName.empty())
@@ -423,10 +424,7 @@ inline void getChassisLinksContainedBy(
             }
             aResp->res.jsonValue["Links"]["ContainedBy"] = {
                 {"@odata.id", "/redfish/v1/Chassis/" + chassisName}};
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/parent_chassis",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getChassisLocationType(
@@ -548,10 +546,11 @@ template <typename CallbackFunc>
 inline void getAssociationEndpoint(const std::string& objPath,
                                    CallbackFunc&& callback)
 {
-    dbus::utility::async_method_call(
-        [callback = std::forward<CallbackFunc>(callback),
-         objPath](const boost::system::error_code& ec,
-                  const std::variant<std::vector<std::string>>& resp) {
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath,
+        "xyz.openbmc_project.Association", "endpoints",
+        [callback, objPath](const boost::system::error_code& ec,
+                            const std::vector<std::string>& resp) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -562,13 +561,11 @@ inline void getAssociationEndpoint(const std::string& objPath,
                 callback(false, std::string(""));
                 return; // should have associated inventory object.
             }
-            const std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr || data->empty())
+
+            if (resp.empty())
             {
                 BMCWEB_LOG_ERROR(
-                    "{}(busctl call {} {} {} Get ss {} endpoints)",
-                    ((data == nullptr) ? "Data is null. " : "Data is empty"),
+                    "Data is empty (busctl call {} {} {} Get ss {} endpoints)",
                     dbus_utils::mapperBusName, objPath,
                     dbus_utils::propertyInterface,
                     dbus_utils::associationInterface);
@@ -589,11 +586,9 @@ inline void getAssociationEndpoint(const std::string& objPath,
             }
             // Getting only the first endpoint as we have 1*1 relationship
             // with ERoT and the inventory backed by it.
-            std::string endpointPath = data->front();
+            std::string endpointPath = resp.front();
             callback(true, endpointPath);
-        },
-        dbus_utils::mapperBusName, objPath, dbus_utils::propertyInterface,
-        "Get", dbus_utils::associationInterface, "endpoints");
+        });
 }
 
 template <typename CallbackFunc>

@@ -226,10 +226,12 @@ inline void getProcessorResetMetricsData(
                     continue;
                 }
 
-                dbus::utility::async_method_call(
-                    [aResp, processorId](
-                        const boost::system::error_code& ec2,
-                        const std::variant<std::vector<std::string>>& resp) {
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    path + "/reset_statistics",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [aResp, processorId](const boost::system::error_code& ec2,
+                                         const std::vector<std::string>& resp) {
                         if (ec2)
                         {
                             BMCWEB_LOG_ERROR(
@@ -237,16 +239,6 @@ inline void getProcessorResetMetricsData(
                                 ec2.message());
                             messages::internalError(aResp->res);
                             // No associated ResetMetrics found
-                            return;
-                        }
-
-                        const std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr || data->empty())
-                        {
-                            BMCWEB_LOG_INFO(
-                                "No associated ResetMetrics found for processor: {}",
-                                processorId);
                             return;
                         }
 
@@ -264,15 +256,11 @@ inline void getProcessorResetMetricsData(
                         aResp->res.jsonValue["Name"] =
                             processorId + " Processor Reset Metrics";
 
-                        for (const std::string& linkPath : *data)
+                        for (const std::string& linkPath : resp)
                         {
                             getResetMetricsInterfaceProperties(aResp, linkPath);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    path + "/reset_statistics",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
                 return;
             }
             // Object not found

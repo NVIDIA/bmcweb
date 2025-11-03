@@ -447,33 +447,25 @@ inline void executeRawAsynCommand(
 inline void getDbusSelCapacity(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    auto respHandler = [asyncResp](const boost::system::error_code& ec,
-                                   const std::variant<size_t>& capacity) {
-        if (ec.value() == EBADR)
-        {
-            messages::resourceNotFound(asyncResp->res,
-                                       "#Manager.v1_15_0.Manager", "Capacity");
-            return;
-        }
-        if (ec)
-        {
-            asyncResp->res.result(
-                boost::beast::http::status::internal_server_error);
-            return;
-        }
-        const size_t* capacityValue = std::get_if<size_t>(&capacity);
-        if (capacityValue == nullptr)
-        {
-            BMCWEB_LOG_ERROR("dbuserror nullptr error");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-        asyncResp->res.jsonValue["ErrorInfoCap"] = *capacityValue;
-    };
-    dbus::utility::async_method_call(
-        respHandler, "xyz.openbmc_project.Logging",
-        "/xyz/openbmc_project/logging", "org.freedesktop.DBus.Properties",
-        "Get", "xyz.openbmc_project.Logging.Capacity", "InfoLogCapacity");
+    dbus::utility::getProperty<size_t>(
+        "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
+        "xyz.openbmc_project.Logging.Capacity", "InfoLogCapacity",
+        [asyncResp](const boost::system::error_code& ec, size_t capacity) {
+            if (ec.value() == EBADR)
+            {
+                messages::resourceNotFound(
+                    asyncResp->res, "#Manager.v1_15_0.Manager", "Capacity");
+                return;
+            }
+            if (ec)
+            {
+                asyncResp->res.result(
+                    boost::beast::http::status::internal_server_error);
+                return;
+            }
+
+            asyncResp->res.jsonValue["ErrorInfoCap"] = capacity;
+        });
 }
 
 inline void setDbusSelCapacity(
@@ -612,22 +604,19 @@ inline void getLinkManagerForSwitches(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objPath)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/fabric",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp](const boost::system::error_code& ec,
-                    std::variant<std::vector<std::string>>& resp) {
+                    const std::vector<std::string>& resp) {
             if (ec)
             {
                 return; // no fabric = no failures
             }
-            std::vector<std::string>* objects =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (objects == nullptr)
-            {
-                return;
-            }
+
             asyncResp->res.jsonValue["Links"]["ManagerForSwitches"] =
                 nlohmann::json::array();
-            for (const std::string& fabric : *objects)
+            for (const std::string& fabric : resp)
             {
                 sdbusplus::message::object_path path(fabric);
                 std::string fabricId = path.filename();
@@ -665,10 +654,7 @@ inline void getLinkManagerForSwitches(
                         "xyz.openbmc_project.Inventory.Item.NvSwitch",
                         "xyz.openbmc_project.Inventory.Item.Switch"});
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/fabric",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getFencingPrivilege(

@@ -702,33 +702,29 @@ inline void fetchComponentTypeAndAssociations(
         return;
     }
 
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::string>(
+        spdmService, spdmPath,
+        "xyz.openbmc_project.Inventory.Item.TrustedComponent",
+        "TrustedComponentType",
         [asyncResp, chassisID, componentID, spdmService,
          spdmPath](const boost::system::error_code ecType,
-                   const dbus::utility::DbusVariantType& typeVal) {
+                   const std::string& typeVal) {
             if (ecType)
             {
                 BMCWEB_LOG_ERROR("Error reading property 'Type': {}", ecType);
                 messages::internalError(asyncResp->res);
                 return;
             }
-            const std::string* strVal = std::get_if<std::string>(&typeVal);
-            if (!strVal)
-            {
-                BMCWEB_LOG_ERROR("'Type' property not returned as string");
-                messages::internalError(asyncResp->res);
-                return;
-            }
 
-            size_t pos = strVal->rfind('.');
-            if (pos != std::string::npos && pos + 1 < strVal->size())
+            size_t pos = typeVal.rfind('.');
+            if (pos != std::string::npos && pos + 1 < typeVal.size())
             {
                 asyncResp->res.jsonValue["TrustedComponentType"] =
-                    strVal->substr(pos + 1);
+                    typeVal.substr(pos + 1);
             }
             else
             {
-                asyncResp->res.jsonValue["TrustedComponentType"] = *strVal;
+                asyncResp->res.jsonValue["TrustedComponentType"] = typeVal;
             }
 
             asyncResp->res.jsonValue["Certificates"]["@odata.id"] =
@@ -737,10 +733,7 @@ inline void fetchComponentTypeAndAssociations(
 
             fetchAssociations(asyncResp, chassisID, componentID, spdmService,
                               spdmPath);
-        },
-        spdmService, spdmPath, "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Inventory.Item.TrustedComponent",
-        "TrustedComponentType");
+        });
 }
 
 /**

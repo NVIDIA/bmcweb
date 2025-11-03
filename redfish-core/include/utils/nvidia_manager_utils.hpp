@@ -195,8 +195,8 @@ inline void getOemReadyState(
 }
 
 template <typename Callback>
-inline void isServiceActive(boost::system::error_code& ec1,
-                            std::variant<std::string>& property1,
+inline void isServiceActive(const boost::system::error_code& ec1,
+                            const std::variant<std::string>& property1,
                             const std::string_view& unit, Callback&& callbackIn)
 {
     if (ec1)
@@ -204,52 +204,46 @@ inline void isServiceActive(boost::system::error_code& ec1,
         BMCWEB_LOG_WARNING("No OpenOCD service");
         return;
     }
-    std::string* loadState = std::get_if<std::string>(&property1);
+    const std::string* loadState = std::get_if<std::string>(&property1);
     if (*loadState == "loaded")
     {
-        dbus::utility::async_method_call(
-            [callback{std::forward<Callback>(callbackIn)}](
-                boost::system::error_code& ec2,
-                std::variant<std::string>& property2) {
-                callback(ec2, property2);
-            },
+        dbus::utility::getProperty<std::string>(
             "org.freedesktop.systemd1",
             sdbusplus::message::object_path("/org/freedesktop/systemd1/unit") /=
             unit,
-            "org.freedesktop.DBus.Properties", "Get",
-            "org.freedesktop.systemd1.Unit", "ActiveState");
+            "org.freedesktop.systemd1.Unit", "ActiveState",
+            [callback{std::forward<Callback>(callbackIn)}](
+                const boost::system::error_code& ec2,
+                const std::string& property2) { callback(ec2, property2); });
     }
 }
 
 template <typename Callback>
-inline void isLoaded(const std::string_view& unit, Callback&& callbackIn)
+inline void isLoaded(std::string_view unit, Callback&& callbackIn)
 {
-    dbus::utility::async_method_call(
-        [unit, callback{std::forward<Callback>(callbackIn)}](
-            boost::system::error_code& ec,
-            std::variant<std::string>& property) {
-            isServiceActive(ec, property, unit, callback);
-        },
+    dbus::utility::getProperty<std::string>(
         "org.freedesktop.systemd1",
         sdbusplus::message::object_path("/org/freedesktop/systemd1/unit") /=
         unit,
-        "org.freedesktop.DBus.Properties", "Get",
-        "org.freedesktop.systemd1.Unit", "LoadState");
+        "org.freedesktop.systemd1.Unit", "LoadState",
+        [unit, callback{std::forward<Callback>(callbackIn)}](
+            const boost::system::error_code& ec, const std::string& property) {
+            isServiceActive(ec, property, unit, std::move(callback));
+        });
 }
 
 inline void getOemNvidiaOpenOCD(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     isLoaded("openocdon_2eservice", [asyncResp](
-                                        boost::system::error_code& ec,
-                                        std::variant<std::string>& property) {
+                                        const boost::system::error_code& ec,
+                                        const std::string& serviceStatus) {
         if (ec)
         {
             messages::internalError(asyncResp->res);
             return;
         }
-        std::string* serviceStatus = std::get_if<std::string>(&property);
-        if (*serviceStatus == "active")
+        if (serviceStatus == "active")
         {
             asyncResp->res.jsonValue["OpenOCD"]["Status"]["State"] = "Enabled";
             asyncResp->res.jsonValue["OpenOCD"]["Enable"] = true;

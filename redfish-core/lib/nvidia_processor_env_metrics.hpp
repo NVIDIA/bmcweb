@@ -268,45 +268,35 @@ inline void requestRoutesProcessorEnvironmentMetrics(App& app)
                                         "xyz.openbmc_project.Inventory.Item.Cpu") !=
                                     lambdaInterfaces.end())
                                 {
-                                    crow::connections::systemBus
-                                        ->async_method_call(
-                                            [asyncResp, processorId, setPoint](
-                                                const boost::system::error_code&
-                                                    ec1,
-                                                std::variant<std::vector<
-                                                    std::string>>& resp) {
-                                                if (ec1)
-                                                {
-                                                    messages::internalError(
-                                                        asyncResp->res);
-                                                    return;
-                                                }
-                                                std::vector<std::string>* data =
-                                                    std::get_if<std::vector<
-                                                        std::string>>(&resp);
-                                                if (data == nullptr)
-                                                {
-                                                    return;
-                                                }
-                                                for (const std::string&
-                                                         ctrlPath : *data)
-                                                {
-                                                    std::string resourceType =
-                                                        "Cpu";
-                                                    redfish::nvidia_env_utils::
-                                                        patchPowerLimit(
-                                                            asyncResp,
-                                                            processorId,
-                                                            *setPoint, ctrlPath,
-                                                            resourceType);
-                                                }
-                                            },
-                                            "xyz.openbmc_project.ObjectMapper",
-                                            path + "/power_controls",
-                                            "org.freedesktop.DBus.Properties",
-                                            "Get",
-                                            "xyz.openbmc_project.Association",
-                                            "endpoints");
+                                    dbus::utility::getProperty<
+                                        std::vector<std::string>>(
+                                        "xyz.openbmc_project.ObjectMapper",
+                                        path + "/power_controls",
+                                        "xyz.openbmc_project.Association",
+                                        "endpoints",
+                                        [asyncResp, processorId, setPoint](
+                                            const boost::system::error_code&
+                                                ec1,
+                                            const std::vector<std::string>&
+                                                resp) {
+                                            if (ec1)
+                                            {
+                                                messages::internalError(
+                                                    asyncResp->res);
+                                                return;
+                                            }
+                                            for (const std::string& ctrlPath :
+                                                 resp)
+                                            {
+                                                std::string resourceType =
+                                                    "Cpu";
+                                                redfish::nvidia_env_utils::
+                                                    patchPowerLimit(
+                                                        asyncResp, processorId,
+                                                        *setPoint, ctrlPath,
+                                                        resourceType);
+                                            }
+                                        });
                                     return;
                                 }
                                 return;

@@ -56,10 +56,12 @@ inline void patchL1PowerMode(
     const bool& l1PredictionModeEnabled, const std::string& objectPath,
     [[maybe_unused]] const dbus::utility::MapperServiceMap& serviceMap)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objectPath + "/l1_prediction_mode",
+        "xyz.openbmc_project.Association", "endpoints",
         [resp, l1PredictionModeEnabled,
          objectPath](const boost::system::error_code& ec,
-                     std::variant<std::vector<std::string>>& respData) {
+                     const std::vector<std::string>& respData) {
             if (ec)
             {
                 // no associated histograms = no failure
@@ -67,17 +69,8 @@ inline void patchL1PowerMode(
                                  objectPath);
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&respData);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR(
-                    "Null data error while getting L1 Prediction Mode");
-                messages::internalError(resp->res);
-                return;
-            }
 
-            for (const auto& path : *data)
+            for (const auto& path : respData)
             {
                 dbus::utility::getDbusObject(
                     path,
@@ -128,10 +121,7 @@ inline void patchL1PowerMode(
                         }
                     });
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objectPath + "/l1_prediction_mode",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 /**
@@ -173,10 +163,13 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                     continue;
                 }
 
-                dbus::utility::async_method_call(
-                    [resp, fabricId, switchId, handler](
-                        const boost::system::error_code& ec2,
-                        std::variant<std::vector<std::string>>& response) {
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    objectPath + "/all_switches",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [resp, fabricId, switchId,
+                     handler](const boost::system::error_code& ec2,
+                              const std::vector<std::string>& response) {
                         if (ec2)
                         {
                             BMCWEB_LOG_ERROR(
@@ -185,19 +178,10 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                             messages::internalError(resp->res);
                             return;
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&response);
-                        if (data == nullptr)
-                        {
-                            BMCWEB_LOG_ERROR(
-                                "Response error data null while getting switch");
-                            messages::internalError(resp->res);
-                            return;
-                        }
 
                         bool isFoundSwitchObject = false;
                         // Iterate over all retrieved ObjectPaths.
-                        for (const std::string& path : *data)
+                        for (const std::string& path : response)
                         {
                             sdbusplus::message::object_path objPath(path);
                             if (objPath.filename() != switchId)
@@ -232,11 +216,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                             messages::resourceNotFound(resp->res, "Switch",
                                                        switchId);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    objectPath + "/all_switches",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
 
                 isFoundFabricObject = true;
             }
@@ -318,10 +298,11 @@ inline void updateSwitchPowerModeData(
     const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Switch Power mode Data");
-    dbus::utility::async_method_call(
-        [asyncResp, service,
-         objPath](const boost::system::error_code& ec,
-                  std::variant<std::vector<std::string>>& resp) {
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/l1_prediction_mode",
+        "xyz.openbmc_project.Association", "endpoints",
+        [asyncResp, service, objPath](const boost::system::error_code& ec,
+                                      const std::vector<std::string>& resp) {
             if (ec)
             {
                 // no associated histograms = no failure
@@ -329,17 +310,7 @@ inline void updateSwitchPowerModeData(
                                  objPath);
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR(
-                    "Null data error while getting L1 Prediction Mode");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            for (const auto& path : *data)
+            for (const auto& path : resp)
             {
                 sdbusplus::asio::getAllProperties(
                     *crow::connections::systemBus, service, path,
@@ -376,34 +347,24 @@ inline void updateSwitchPowerModeData(
                         }
                     });
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/l1_prediction_mode",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getSwitchPowerModeLink(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objectPath, const std::string& switchURI)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objectPath + "/l1_prediction_mode",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, objectPath,
          switchURI](const boost::system::error_code& ec,
-                    std::variant<std::vector<std::string>>& resp) {
+                    const std::vector<std::string>& /*resp*/) {
             if (ec)
             {
                 // no associated histograms = no failure
                 BMCWEB_LOG_DEBUG("No associated L1 Prediction Mode on {}",
                                  switchURI);
-                return;
-            }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR(
-                    "Null data error while getting L1 Prediction Mode");
-                messages::internalError(asyncResp->res);
                 return;
             }
 
@@ -414,10 +375,7 @@ inline void getSwitchPowerModeLink(
             asyncResp->res
                 .jsonValue["Oem"]["Nvidia"]["PowerMode"]["@odata.id"] =
                 switchPowerModeURI;
-        },
-        "xyz.openbmc_project.ObjectMapper", objectPath + "/l1_prediction_mode",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 /**
@@ -622,21 +580,15 @@ inline void getSwitchHistogramLink(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& switchURI, const std::string& objectPath)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objectPath + "/histograms",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, switchURI](const boost::system::error_code& ec,
-                               std::variant<std::vector<std::string>>& resp) {
+                               const std::vector<std::string>& /*resp*/) {
             if (ec)
             {
                 // no associated histograms = no failure
                 BMCWEB_LOG_DEBUG("No associated histograms on {}", switchURI);
-                return;
-            }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR("Null data error while getting histograms");
-                messages::internalError(asyncResp->res);
                 return;
             }
 
@@ -647,10 +599,7 @@ inline void getSwitchHistogramLink(
             asyncResp->res
                 .jsonValue["Oem"]["Nvidia"]["Histograms"]["@odata.id"] =
                 switchHistogramURI;
-        },
-        "xyz.openbmc_project.ObjectMapper", objectPath + "/histograms",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 } // namespace nvidia_fabric_utils

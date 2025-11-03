@@ -53,7 +53,7 @@ class MctpEndpoint
             spdmObject + "/transport_object",
             [this, spdmObject,
              callback](const boost::system::error_code& ec1,
-                       std::variant<std::vector<std::string>>& association) {
+                       const std::vector<std::string>& association) {
                 BMCWEB_LOG_DEBUG("findAssociations callback for {}",
                                  spdmObject);
                 if (ec1)
@@ -62,15 +62,13 @@ class MctpEndpoint
                     callback(false, ec1.message());
                     return;
                 }
-                std::vector<std::string>* data =
-                    std::get_if<std::vector<std::string>>(&association);
-                if (data == nullptr || data->empty())
+                if (association.empty())
                 {
                     callback(false,
                              spdmObj + ": no SPDM / MCTP association found");
                     return;
                 }
-                mctpObj = data->front();
+                mctpObj = association.front();
                 if (mctpObj.starts_with(mctpObjectPrefix))
                 {
                     std::vector<std::string> v;

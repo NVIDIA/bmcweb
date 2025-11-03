@@ -138,25 +138,21 @@ inline void getConnectedSwitchPorts(
     const std::string& switchName)
 {
     BMCWEB_LOG_DEBUG("Get connected switch ports on {}", switchName);
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", portPath + "/switch_port",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, portPath, fabricId,
          switchName](const boost::system::error_code& ec,
-                     std::variant<std::vector<std::string>>& resp) {
+                     const std::vector<std::string>& data) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Get connected switch failed on{}",
                                  switchName);
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                return;
-            }
             nlohmann::json& switchlinksArray =
                 asyncResp->res.jsonValue["Links"]["ConnectedSwitchPorts"];
-            for (const std::string& portPath1 : *data)
+            for (const std::string& portPath1 : data)
             {
                 sdbusplus::message::object_path objectPath(portPath1);
                 std::string portId = objectPath.filename();
@@ -173,10 +169,7 @@ inline void getConnectedSwitchPorts(
                 thisPort["@odata.id"] = portUri;
                 switchlinksArray.push_back(std::move(thisPort));
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", portPath + "/switch_port",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getConnectedSwitches(
@@ -185,23 +178,17 @@ inline void getConnectedSwitches(
     const std::string& switchName)
 {
     BMCWEB_LOG_DEBUG("Get connected switch on{}", switchName);
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", switchPath + "/fabrics",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, switchPath, portPath,
          switchName](const boost::system::error_code& ec,
-                     std::variant<std::vector<std::string>>& resp) {
+                     const std::vector<std::string>& data) {
             if (ec)
             {
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_DEBUG("Get connected switch failed on: {}",
-                                 switchName);
-                return;
-            }
-            for (const std::string& fabricPath : *data)
+            for (const std::string& fabricPath : data)
             {
                 sdbusplus::message::object_path objectPath(fabricPath);
                 std::string fabricId = objectPath.filename();
@@ -222,10 +209,7 @@ inline void getConnectedSwitches(
                 getConnectedSwitchPorts(asyncResp, portPath, fabricId,
                                         switchName);
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", switchPath + "/fabrics",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getConnectedProcessorPorts(
@@ -233,20 +217,15 @@ inline void getConnectedProcessorPorts(
     const std::string& portPath, std::vector<std::string>& portNames)
 {
     // This is for when the ports are connected to another processor
-    dbus::utility::async_method_call(
-        [asyncResp, portPath,
-         portNames](const boost::system::error_code& ec,
-                    std::variant<std::vector<std::string>>& resp) {
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", portPath + "/associated_processor",
+        "xyz.openbmc_project.Association", "endpoints",
+        [asyncResp, portPath, portNames](const boost::system::error_code& ec,
+                                         const std::vector<std::string>& data) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Get connected processor ports failed on: {}",
                                  portPath);
-                return;
-            }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
                 return;
             }
 
@@ -255,7 +234,7 @@ inline void getConnectedProcessorPorts(
 
             unsigned int i = 0;
 
-            for (const std::string& processorPath : *data)
+            for (const std::string& processorPath : data)
             {
                 if (!processorPath.empty())
                 {
@@ -302,10 +281,7 @@ inline void getConnectedProcessorPorts(
                     i++;
                 }
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", portPath + "/associated_processor",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getProcessorPortLinks(
@@ -316,19 +292,15 @@ inline void getProcessorPortLinks(
     BMCWEB_LOG_DEBUG("Get associated ports on{}", port);
 
     // This is for when the ports are connected to a switch
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", portPath + "/associated_switch",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, portPath, processorId,
          port](const boost::system::error_code& ec,
-               std::variant<std::vector<std::string>>& resp) {
+               const std::vector<std::string>& data) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Get associated switch failed on: {}", port);
-                return;
-            }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
                 return;
             }
             nlohmann::json& switchlinksArray =
@@ -337,7 +309,7 @@ inline void getProcessorPortLinks(
             nlohmann::json& portlinksArray =
                 asyncResp->res.jsonValue["Links"]["ConnectedSwitchPorts"];
             portlinksArray = nlohmann::json::array();
-            for (const std::string& switchPath : *data)
+            for (const std::string& switchPath : data)
             {
                 sdbusplus::message::object_path objectPath(switchPath);
                 std::string switchName = objectPath.filename();
@@ -349,33 +321,27 @@ inline void getProcessorPortLinks(
                 getConnectedSwitches(asyncResp, switchPath, portPath,
                                      switchName);
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", portPath + "/associated_switch",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 
     // This is for when the ports are connected to another processor
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper",
+        portPath + "/associated_processor_ports",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, portPath, processorId,
          port](const boost::system::error_code& ec,
-               std::variant<std::vector<std::string>>& resp) {
+               const std::vector<std::string>& data) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Get associated processor ports failed on: {}",
                                  port);
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                return;
-            }
             nlohmann::json& connectedPortslinksArray =
                 asyncResp->res.jsonValue["Links"]["ConnectedPorts"];
             connectedPortslinksArray = nlohmann::json::array();
             std::vector<std::string> portNames;
-            for (const std::string& connectedPort : *data)
+            for (const std::string& connectedPort : data)
             {
                 sdbusplus::message::object_path connectedPortPath(
                     connectedPort);
@@ -389,11 +355,7 @@ inline void getProcessorPortLinks(
                 portNames.push_back(portName);
             }
             getConnectedProcessorPorts(asyncResp, portPath, portNames);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        portPath + "/associated_processor_ports",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getProcessorPortData(
@@ -401,10 +363,11 @@ inline void getProcessorPortData(
     const std::string& processorId, const std::string& portId)
 {
     BMCWEB_LOG_DEBUG("Get processor port data");
-    dbus::utility::async_method_call(
-        [aResp, processorId,
-         portId](const boost::system::error_code& e,
-                 std::variant<std::vector<std::string>>& resp) {
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/all_states",
+        "xyz.openbmc_project.Association", "endpoints",
+        [aResp, processorId, portId](const boost::system::error_code& e,
+                                     const std::vector<std::string>& data) {
             if (e)
             {
                 // no state sensors attached.
@@ -412,15 +375,7 @@ inline void getProcessorPortData(
                 return;
             }
 
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                messages::internalError(aResp->res);
-                return;
-            }
-
-            for (const std::string& sensorpath : *data)
+            for (const std::string& sensorpath : data)
             {
                 // Check Interface in Object or not
                 BMCWEB_LOG_DEBUG("processor state sensor object path {}",
@@ -471,10 +426,7 @@ inline void getProcessorPortData(
                     std::array<std::string, 1>(
                         {"xyz.openbmc_project.Inventory.Item.Port"}));
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/all_states",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getProcessorAcceleratorPortData(
@@ -482,10 +434,12 @@ inline void getProcessorAcceleratorPortData(
     const std::string& processorId, const std::string& portId)
 {
     BMCWEB_LOG_DEBUG("Get processor port data");
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/all_states",
+        "xyz.openbmc_project.Association", "endpoints",
         [aResp, objPath, processorId,
          portId](const boost::system::error_code& e,
-                 std::variant<std::vector<std::string>>& resp) {
+                 const std::vector<std::string>& data) {
             if (e)
             {
                 // no state sensors attached.
@@ -494,16 +448,7 @@ inline void getProcessorAcceleratorPortData(
                 return;
             }
 
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR("No response error while getting ports");
-                messages::internalError(aResp->res);
-                return;
-            }
-
-            for (const std::string& sensorpath : *data)
+            for (const std::string& sensorpath : data)
             {
                 // Check Interface in Object or not
                 BMCWEB_LOG_DEBUG("processor state sensor object path {}",
@@ -587,10 +532,7 @@ inline void getProcessorAcceleratorPortData(
                         }
                     });
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/all_states",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void requestRoutesProcessorPort(App& app)
@@ -1377,10 +1319,13 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                         {
                             continue;
                         }
-                        dbus::utility::async_method_call(
-                            [asyncResp, processorId, portId](
-                                const boost::system::error_code& e,
-                                std::variant<std::vector<std::string>>& resp) {
+                        dbus::utility::getProperty<std::vector<std::string>>(
+                            "xyz.openbmc_project.ObjectMapper",
+                            path + "/all_states",
+                            "xyz.openbmc_project.Association", "endpoints",
+                            [asyncResp, processorId,
+                             portId](const boost::system::error_code& e,
+                                     const std::vector<std::string>& resp) {
                                 if (e)
                                 {
                                     // no state sensors attached.
@@ -1388,16 +1333,7 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                                     return;
                                 }
 
-                                std::vector<std::string>* data =
-                                    std::get_if<std::vector<std::string>>(
-                                        &resp);
-                                if (data == nullptr)
-                                {
-                                    messages::internalError(asyncResp->res);
-                                    return;
-                                }
-
-                                for (const std::string& sensorpath : *data)
+                                for (const std::string& sensorpath : resp)
                                 {
                                     // Check Interface in Object or not
                                     BMCWEB_LOG_DEBUG(
@@ -1490,11 +1426,7 @@ inline void requestRoutesProcessorPortMetrics(App& app)
                                         std::array<std::string, 1>(
                                             {"xyz.openbmc_project.Inventory.Item.Port"}));
                                 }
-                            },
-                            "xyz.openbmc_project.ObjectMapper",
-                            path + "/all_states",
-                            "org.freedesktop.DBus.Properties", "Get",
-                            "xyz.openbmc_project.Association", "endpoints");
+                            });
                         return;
                     }
                     // Object not found

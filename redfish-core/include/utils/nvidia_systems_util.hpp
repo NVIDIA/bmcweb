@@ -70,32 +70,32 @@ inline void populateFromEntityManger(
         },
         entityMangerService, card1Path, "org.freedesktop.DBus.Properties",
         "GetAll", "xyz.openbmc_project.Inventory.Decorator.Asset");
-    dbus::utility::async_method_call(
-        [aResp](const boost::system::error_code& ec,
-                const std::variant<std::string>& sku) {
+    dbus::utility::getProperty<std::string>(
+        entityMangerService, card1Path,
+        "xyz.openbmc_project.Inventory.Decorator.SKU", "SKU",
+        [aResp](const boost::system::error_code& ec, const std::string& sku) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for "
                                  "Trying to get SKU");
                 return;
             }
-            aResp->res.jsonValue["SKU"] = *std::get_if<std::string>(&sku);
-        },
-        entityMangerService, card1Path, "org.freedesktop.DBus.Properties",
-        "Get", "xyz.openbmc_project.Inventory.Decorator.SKU", "SKU");
-    crow::connections::systemBus->async_method_call(
-        [aResp](const boost::system::error_code& ec,
-                const std::variant<std::string>& uuid) {
+            aResp->res.jsonValue["SKU"] = sku;
+        }
+
+    );
+    dbus::utility::getProperty<std::string>(
+        entityMangerService, card1Path, "xyz.openbmc_project.Common.UUID",
+        "UUID",
+        [aResp](const boost::system::error_code& ec, const std::string& uuid) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for "
                                  "Trying to get UUID");
                 return;
             }
-            aResp->res.jsonValue["UUID"] = *std::get_if<std::string>(&uuid);
-        },
-        entityMangerService, card1Path, "org.freedesktop.DBus.Properties",
-        "Get", "xyz.openbmc_project.Common.UUID", "UUID");
+            aResp->res.jsonValue["UUID"] = uuid;
+        });
 }
 
 /**

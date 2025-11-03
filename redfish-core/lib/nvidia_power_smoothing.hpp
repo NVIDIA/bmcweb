@@ -741,22 +741,18 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
                 aResp->res.jsonValue["Name"] =
                     processorId + " PowerSmoothing AdminOverrideProfile";
 
-                dbus::utility::async_method_call(
-                    [aResp, processorId](
-                        const boost::system::error_code& ec1,
-                        std::variant<std::vector<std::string>>& resp) {
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    path + "/admin_override", "xyz.openbmc_project.Association",
+                    "endpoints",
+                    [aResp, processorId](const boost::system::error_code& ec1,
+                                         const std::vector<std::string>& resp) {
                         if (ec1)
                         {
                             return; // no processors = no failures
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            return;
-                        }
 
-                        for (const std::string& profilePath : *data)
+                        for (const std::string& profilePath : resp)
                         {
                             sdbusplus::message::object_path objectPath(
                                 profilePath);
@@ -815,10 +811,7 @@ inline void getProcessorPowerSmoothingAdminOverrideData(
                                 std::array<const char*, 1>{
                                     "com.nvidia.PowerSmoothing.AdminPowerProfile"});
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    path + "/admin_override", "org.freedesktop.DBus.Properties",
-                    "Get", "xyz.openbmc_project.Association", "endpoints");
+                    });
                 return;
             }
             // Object not found
@@ -977,23 +970,19 @@ inline void getProcessorPowerSmoothingPresetProfileData(
                 profileName += profileId;
                 aResp->res.jsonValue["Name"] = profileName;
 
-                dbus::utility::async_method_call(
-                    [aResp, profileId, processorId](
-                        const boost::system::error_code& ec1,
-                        std::variant<std::vector<std::string>>& resp) {
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper", path + "/power_profile",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [aResp, profileId,
+                     processorId](const boost::system::error_code& ec1,
+                                  const std::vector<std::string>& resp) {
                         if (ec1)
                         {
                             return; // no processors = no failures
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            return;
-                        }
                         bool profileExists = false;
 
-                        for (const std::string& profilePath : *data)
+                        for (const std::string& profilePath : resp)
                         {
                             sdbusplus::message::object_path objectPath(
                                 profilePath);
@@ -1039,10 +1028,7 @@ inline void getProcessorPowerSmoothingPresetProfileData(
                                 "#NvidiaPowerSmoothingPresetProfile.v1_1_0.NvidiaPowerSmoothingPresetProfile",
                                 profileId);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper", path + "/power_profile",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
                 return;
             }
             // Object not found
@@ -1096,23 +1082,19 @@ inline void getProcessorPowerSmoothingPresetProfileCollectionData(
                 aResp->res.jsonValue["Members"] = nlohmann::json::array();
                 aResp->res.jsonValue["Members@odata.count"] = 0;
 
-                dbus::utility::async_method_call(
-                    [aResp, profileCollectionURI, processorId](
-                        const boost::system::error_code& ec1,
-                        std::variant<std::vector<std::string>>& resp) {
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper", path + "/power_profile",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [aResp, profileCollectionURI,
+                     processorId](const boost::system::error_code& ec1,
+                                  const std::vector<std::string>& resp) {
                         if (ec1)
                         {
                             return; // no processors = no failures
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            return;
-                        }
                         nlohmann::json& addMembers =
                             aResp->res.jsonValue["Members"];
-                        for (const std::string& profilePath : *data)
+                        for (const std::string& profilePath : resp)
                         {
                             sdbusplus::message::object_path objectPath(
                                 profilePath);
@@ -1123,10 +1105,7 @@ inline void getProcessorPowerSmoothingPresetProfileCollectionData(
                         }
                         aResp->res.jsonValue["Members@odata.count"] =
                             addMembers.size();
-                    },
-                    "xyz.openbmc_project.ObjectMapper", path + "/power_profile",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
                 return;
             }
             // Object not found
@@ -1243,23 +1222,20 @@ inline void patchAdminOverrideProfile(
                     continue;
                 }
 
-                dbus::utility::async_method_call(
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    path + "/admin_override", "xyz.openbmc_project.Association",
+                    "endpoints",
                     [aResp, processorId, propName,
                      propValue](const boost::system::error_code& ec1,
-                                std::variant<std::vector<std::string>>& resp) {
+                                const std::vector<std::string>& resp) {
                         if (ec1)
                         {
                             return; // no processors = no
                                     // failures
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            return;
-                        }
 
-                        for (const std::string& profilePath : *data)
+                        for (const std::string& profilePath : resp)
                         {
                             sdbusplus::message::object_path objectPath(
                                 profilePath);
@@ -1308,10 +1284,7 @@ inline void patchAdminOverrideProfile(
                                 "xyz.openbmc_project.ObjectMapper", "GetObject",
                                 profilePath, adminProfileIface);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    path + "/admin_override", "org.freedesktop.DBus.Properties",
-                    "Get", "xyz.openbmc_project.Association", "endpoints");
+                    });
                 return;
             }
             // Object not found
@@ -1349,24 +1322,20 @@ inline void patchPresetProfile(
                 {
                     continue;
                 }
-                dbus::utility::async_method_call(
-                    [aResp, profileId, propName, propValue, processorId](
-                        const boost::system::error_code& ec1,
-                        std::variant<std::vector<std::string>>& resp) {
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper", path + "/power_profile",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [aResp, profileId, propName, propValue,
+                     processorId](const boost::system::error_code& ec1,
+                                  const std::vector<std::string>& resp) {
                         if (ec1)
                         {
                             return; // no processors = no
                                     // failures
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            return;
-                        }
                         bool profileExists = false;
 
-                        for (const std::string& profilePath : *data)
+                        for (const std::string& profilePath : resp)
                         {
                             sdbusplus::message::object_path objectPath(
                                 profilePath);
@@ -1423,10 +1392,7 @@ inline void patchPresetProfile(
                                 "#NvidiaPowerSmoothingPresetProfile.v1_0_0.NvidiaPowerSmoothingPresetProfile",
                                 profileId);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper", path + "/power_profile",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
                 return;
             }
             // Object not found

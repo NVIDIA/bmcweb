@@ -199,33 +199,25 @@ inline void handleClearSecureStateSubtree(
                 continue;
             }
 
-            dbus::utility::async_method_call(
+            dbus::utility::getProperty<bool>(
+                secureService, closestSecurePath,
+                "xyz.openbmc_project.State.Decorator.SecureState", "secure",
                 [aResp, secure, requestToClear, clearService,
                  clearPath](const boost::system::error_code& ec,
-                            const std::variant<bool>& resp) {
+                            const bool& secureState) {
                     if (ec)
                     {
                         messages::internalError(aResp->res);
                         return;
                     }
 
-                    const bool* secureState = std::get_if<bool>(&resp);
-                    if (secureState == nullptr)
-                    {
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-
-                    if ((*secureState && secure == SecureSelector::secure) ||
-                        (!*secureState && secure == SecureSelector::nonSecure))
+                    if ((secureState && secure == SecureSelector::secure) ||
+                        (!secureState && secure == SecureSelector::nonSecure))
                     {
                         setClearVariables(aResp, clearService, clearPath,
                                           requestToClear);
                     }
-                },
-                secureService, closestSecurePath,
-                "org.freedesktop.DBus.Properties", "Get",
-                "xyz.openbmc_project.State.Decorator.SecureState", "secure");
+                });
         }
     }
 }
@@ -737,10 +729,11 @@ inline void getResetBiosSettings(
 
             const std::string& biosService = objType.begin()->first;
 
-            dbus::utility::async_method_call(
-                [asyncResp](
-                    const boost::system::error_code& ec2,
-                    const std::variant<std::string>& resetBiosSettingsMode) {
+            dbus::utility::getProperty<std::string>(
+                biosService, biosConfigObj, biosConfigIface,
+                "ResetBIOSSettings",
+                [asyncResp](const boost::system::error_code& ec2,
+                            const std::string& resetBiosSettingsMode) {
                     if (ec2)
                     {
                         BMCWEB_LOG_DEBUG(
@@ -749,17 +742,9 @@ inline void getResetBiosSettings(
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    const std::string* value =
-                        std::get_if<std::string>(&resetBiosSettingsMode);
-                    if (value == nullptr)
-                    {
-                        BMCWEB_LOG_DEBUG(
-                            "Null value returned for Reset BIOS Settings status");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
 
-                    std::string biosMode = getBiosDefaultSettingsMode(*value);
+                    std::string biosMode =
+                        getBiosDefaultSettingsMode(resetBiosSettingsMode);
 
                     if (biosMode == "NoAction")
                     {
@@ -778,9 +763,7 @@ inline void getResetBiosSettings(
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                },
-                biosService, biosConfigObj, "org.freedesktop.DBus.Properties",
-                "Get", biosConfigIface, "ResetBIOSSettings");
+                });
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -809,10 +792,10 @@ inline void getBiosAttributes(
             }
 
             const std::string& biosService = objType.begin()->first;
-            dbus::utility::async_method_call(
-                [asyncResp](
-                    const boost::system::error_code& ec2,
-                    const std::variant<BaseBIOSTable>& baseBiosTableResp) {
+            dbus::utility::getProperty<BaseBIOSTable>(
+                biosService, biosConfigObj, biosConfigIface, "BaseBIOSTable",
+                [asyncResp](const boost::system::error_code& ec2,
+                            const BaseBIOSTable& baseBiosTable) {
                     if (ec2)
                     {
                         BMCWEB_LOG_ERROR(
@@ -821,18 +804,9 @@ inline void getBiosAttributes(
                         return;
                     }
 
-                    const BaseBIOSTable* baseBiosTable =
-                        std::get_if<BaseBIOSTable>(&baseBiosTableResp);
-
                     nlohmann::json& attributesJson =
                         asyncResp->res.jsonValue["Attributes"];
-                    if (baseBiosTable == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Empty BaseBIOSTable");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    for (const BaseBIOSTableItem& attrIt : *baseBiosTable)
+                    for (const BaseBIOSTableItem& attrIt : baseBiosTable)
                     {
                         const std::string& attr = attrIt.first;
 
@@ -903,9 +877,7 @@ inline void getBiosAttributes(
                             BMCWEB_LOG_ERROR("Attribute type not supported");
                         }
                     }
-                },
-                biosService, biosConfigObj, "org.freedesktop.DBus.Properties",
-                "Get", biosConfigIface, "BaseBIOSTable");
+                });
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -1273,10 +1245,11 @@ inline void getBiosSettingsAttr(
             }
 
             const std::string& biosService = objType.begin()->first;
-            dbus::utility::async_method_call(
-                [asyncResp](
-                    const boost::system::error_code& ec2,
-                    const std::variant<PendingAttrType>& pendingAttrsResp) {
+            dbus::utility::getProperty<PendingAttrType>(
+                biosService, biosConfigObj, biosConfigIface,
+                "PendingAttributes",
+                [asyncResp](const boost::system::error_code& ec2,
+                            const PendingAttrType& pendingAttrs) {
                     if (ec2)
                     {
                         BMCWEB_LOG_ERROR(
@@ -1285,19 +1258,10 @@ inline void getBiosSettingsAttr(
                         return;
                     }
 
-                    const PendingAttrType* pendingAttrs =
-                        std::get_if<PendingAttrType>(&pendingAttrsResp);
-
                     nlohmann::json& attributesJson =
                         asyncResp->res.jsonValue["Attributes"];
-                    if (pendingAttrs == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Empty Pending Attributes");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
 
-                    for (const PendingAttrItemType& attrIt : *pendingAttrs)
+                    for (const PendingAttrItemType& attrIt : pendingAttrs)
                     {
                         const std::string& attr = attrIt.first;
 
@@ -1368,9 +1332,7 @@ inline void getBiosSettingsAttr(
                             BMCWEB_LOG_ERROR("Attribute type not supported");
                         }
                     }
-                },
-                biosService, biosConfigObj, "org.freedesktop.DBus.Properties",
-                "Get", biosConfigIface, "PendingAttributes");
+                });
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -1409,10 +1371,11 @@ inline void setBiosCurrentOrPendingAttr(
             }
 
             const std::string& biosService = objType.begin()->first;
-            dbus::utility::async_method_call(
-                [asyncResp, pendingAttrJson, biosService, biosFlag](
-                    const boost::system::error_code& ec2,
-                    const std::variant<BaseBIOSTable>& baseBiosTableResp) {
+            dbus::utility::getProperty<BaseBIOSTable>(
+                biosService, biosConfigObj, biosConfigIface, "BaseBIOSTable",
+                [asyncResp, pendingAttrJson, biosService,
+                 biosFlag](const boost::system::error_code& ec2,
+                           const BaseBIOSTable& baseBiosTableResp) {
                     if (ec2)
                     {
                         BMCWEB_LOG_ERROR(
@@ -1420,15 +1383,8 @@ inline void setBiosCurrentOrPendingAttr(
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    const BaseBIOSTable* p =
-                        std::get_if<BaseBIOSTable>(&baseBiosTableResp);
-                    if (p == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR("Empty BaseBIOSTable");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-                    auto baseBiosTable = std::make_shared<BaseBIOSTable>(*p);
+                    auto baseBiosTable =
+                        std::make_shared<BaseBIOSTable>(baseBiosTableResp);
                     PendingAttrType pendingAttrs{};
                     for (const auto& pendingAttrIt : pendingAttrJson.items())
                     {
@@ -1710,9 +1666,7 @@ inline void setBiosCurrentOrPendingAttr(
                         "org.freedesktop.DBus.Properties", "Set",
                         biosConfigIface, "PendingAttributes",
                         std::variant<PendingAttrType>(pendingAttrs));
-                },
-                biosService, biosConfigObj, "org.freedesktop.DBus.Properties",
-                "Get", biosConfigIface, "BaseBIOSTable");
+                });
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -1773,10 +1727,10 @@ inline void setBiosServicCurrentAttr(
             }
 
             const std::string& biosService = objType.begin()->first;
-            dbus::utility::async_method_call(
-                [asyncResp](
-                    const boost::system::error_code& ec2,
-                    const std::variant<BaseBIOSTable>& baseBiosTableResp) {
+            dbus::utility::getProperty<BaseBIOSTable>(
+                biosService, biosConfigObj, biosConfigIface, "BaseBIOSTable",
+                [asyncResp](const boost::system::error_code& ec2,
+                            const BaseBIOSTable& baseBiosTableResp) {
                     if (ec2)
                     {
                         BMCWEB_LOG_ERROR(
@@ -1785,8 +1739,7 @@ inline void setBiosServicCurrentAttr(
                         return;
                     }
 
-                    const BaseBIOSTable* baseBiosTable =
-                        std::get_if<BaseBIOSTable>(&baseBiosTableResp);
+                    const BaseBIOSTable* baseBiosTable = &baseBiosTableResp;
 
                     nlohmann::json& attributeArray =
                         asyncResp->res
@@ -2119,9 +2072,7 @@ inline void setBiosServicCurrentAttr(
                         }
                         attributeArray.push_back(attributeIt);
                     }
-                },
-                biosService, biosConfigObj, "org.freedesktop.DBus.Properties",
-                "Get", biosConfigIface, "BaseBIOSTable");
+                });
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -2150,10 +2101,10 @@ static void updateBiosAttrRegistry(
             }
 
             const std::string& biosService = objType.begin()->first;
-            dbus::utility::async_method_call(
-                [asyncResp](
-                    const boost::system::error_code& ec2,
-                    const std::variant<BaseBIOSTable>& baseBiosTableResp) {
+            dbus::utility::getProperty<BaseBIOSTable>(
+                biosService, biosConfigObj, biosConfigIface, "BaseBIOSTable",
+                [asyncResp](const boost::system::error_code& ec2,
+                            const BaseBIOSTable& baseBiosTableResp) {
                     if (ec2)
                     {
                         BMCWEB_LOG_ERROR(
@@ -2162,8 +2113,7 @@ static void updateBiosAttrRegistry(
                         return;
                     }
 
-                    const BaseBIOSTable* baseBiosTable =
-                        std::get_if<BaseBIOSTable>(&baseBiosTableResp);
+                    const BaseBIOSTable* baseBiosTable = &baseBiosTableResp;
 
                     if (baseBiosTable == nullptr)
                     {
@@ -2244,9 +2194,7 @@ static void updateBiosAttrRegistry(
                         biosRegistryJson = nlohmann::json();
                     }
                     asyncResp->res.jsonValue = biosRegistryJson;
-                },
-                biosService, biosConfigObj, "org.freedesktop.DBus.Properties",
-                "Get", biosConfigIface, "BaseBIOSTable");
+                });
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",

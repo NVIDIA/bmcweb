@@ -956,9 +956,12 @@ inline void extendSystemLogServicesGet(
             populateBootEntryId(asyncResp->res);
         }
 
-        dbus::utility::async_method_call(
+        dbus::utility::getProperty<bool>(
+            "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
+            "xyz.openbmc_project.Logging.Namespace",
+            "AutoClearResolvedLogEnabled",
             [asyncResp](const boost::system::error_code& innerEc,
-                        std::variant<bool>& resp) {
+                        const bool& state) {
                 if (innerEc)
                 {
                     BMCWEB_LOG_ERROR(
@@ -967,15 +970,10 @@ inline void extendSystemLogServicesGet(
                     messages::internalError(asyncResp->res);
                     return;
                 }
-                const bool* state = std::get_if<bool>(&resp);
                 asyncResp->res
                     .jsonValue["Oem"]["Nvidia"]["AutoClearResolvedLogEnabled"] =
-                    *state;
-            },
-            "xyz.openbmc_project.Logging", "/xyz/openbmc_project/logging",
-            "org.freedesktop.DBus.Properties", "Get",
-            "xyz.openbmc_project.Logging.Namespace",
-            "AutoClearResolvedLogEnabled");
+                    state;
+            });
     } /* BMCWEB_NVIDIA_OEM_PROPERTIES */
 }
 

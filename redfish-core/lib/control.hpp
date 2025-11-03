@@ -72,17 +72,12 @@ inline void getPowercontrolObjects(
 {
     nlohmann::json& members = asyncResp->res.jsonValue["Members"];
     members = nlohmann::json::array();
-    dbus::utility::async_method_call(
-        [asyncResp, chassisID,
-         &members](const boost::system::error_code&,
-                   std::variant<std::vector<std::string>>& resp) {
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                return;
-            }
-            for (const auto& object : *data)
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", chassisPath + "/power_controls",
+        "xyz.openbmc_project.Association", "endpoints",
+        [asyncResp, chassisID, &members](const boost::system::error_code&,
+                                         const std::vector<std::string>& resp) {
+            for (const auto& object : resp)
             {
                 sdbusplus::message::object_path objPath(object);
                 members.push_back(
@@ -90,10 +85,7 @@ inline void getPowercontrolObjects(
                                        "/Controls/" + objPath.filename()}});
             }
             asyncResp->res.jsonValue["Members@odata.count"] = members.size();
-        },
-        "xyz.openbmc_project.ObjectMapper", chassisPath + "/power_controls",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -303,10 +295,12 @@ inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 const std::string& serviceName = connectionNames[0].first;
 
                 // Read Sensor value
-                dbus::utility::async_method_call(
+                dbus::utility::getProperty<double>(
+                    serviceName, path, "xyz.openbmc_project.Sensor.Value",
+                    "Value",
                     [asyncResp, chassisID, sensorName, serviceName,
                      path](const boost::system::error_code& ec1,
-                           const std::variant<double>& totalPower) {
+                           const double& totalPower) {
                         if (ec1)
                         {
                             BMCWEB_LOG_ERROR("Get Sensor value failed: {}",
@@ -315,45 +309,31 @@ inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             return;
                         }
 
-                        const auto* value = std::get_if<double>(&totalPower);
-                        if (value == nullptr)
-                        {
-                            BMCWEB_LOG_ERROR("Get Sensor value failed: {}",
-                                             ec1);
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-                        asyncResp->res.jsonValue["Sensor"]["Reading"] = *value;
+                        asyncResp->res.jsonValue["Sensor"]["Reading"] =
+                            totalPower;
                         asyncResp->res.jsonValue["Sensor"]["DataSourceUri"] =
                             ("/redfish/v1/Chassis/" + chassisID + "/Sensors/")
                                 .append(sensorName);
-                    },
-                    serviceName, path, "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Sensor.Value", "Value");
+                    });
 
                 // Read related items
-                dbus::utility::async_method_call(
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    path + "/all_processors", "xyz.openbmc_project.Association",
+                    "endpoints",
                     [asyncResp,
-                     chassisID](const boost::system::error_code& errCode,
-                                std::variant<std::vector<std::string>>& resp) {
-                        if (errCode)
+                     chassisID](const boost::system::error_code& ec2,
+                                const std::vector<std::string>& resp) {
+                        if (ec2)
                         {
                             BMCWEB_LOG_DEBUG("Get Related Items failed: {}",
-                                             errCode);
+                                             ec2);
                             return; // no gpus = no failures
-                        }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            BMCWEB_LOG_DEBUG(
-                                "Null value returned for Related Items ");
-                            return;
                         }
                         nlohmann::json& relatedItemsArray =
                             asyncResp->res.jsonValue["RelatedItem"];
                         relatedItemsArray = nlohmann::json::array();
-                        for (const std::string& gpuPath : *data)
+                        for (const std::string& gpuPath : resp)
                         {
                             sdbusplus::message::object_path objectPath(gpuPath);
                             std::string gpuName = objectPath.filename();
@@ -368,10 +348,7 @@ inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                           BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                                       "/Processors/" + gpuName}});
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    path + "/all_processors", "org.freedesktop.DBus.Properties",
-                    "Get", "xyz.openbmc_project.Association", "endpoints");
+                    });
             }
         },
         "xyz.openbmc_project.ObjectMapper",
@@ -489,27 +466,22 @@ inline void getControlSettings(
                     "GetAll", "xyz.openbmc_project.Inventory.Decorator.Area");
 
                 // Read related items
-                dbus::utility::async_method_call(
-                    [asyncResp](const boost::system::error_code& errCode,
-                                std::variant<std::vector<std::string>>& resp) {
-                        if (errCode)
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper", path + "/chassis",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [asyncResp](const boost::system::error_code& ec4,
+                                const std::vector<std::string>& resp) {
+                        if (ec4)
                         {
                             BMCWEB_LOG_DEBUG("Get Related Items failed: {}",
-                                             errCode);
+                                             ec4);
                             return;
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            BMCWEB_LOG_DEBUG(
-                                "Null value returned for Related Items ");
-                            return;
-                        }
+
                         nlohmann::json& relatedItemsArray =
                             asyncResp->res.jsonValue["RelatedItem"];
                         relatedItemsArray = nlohmann::json::array();
-                        for (const std::string& chassisPath : *data)
+                        for (const std::string& chassisPath : resp)
                         {
                             sdbusplus::message::object_path objectPath(
                                 chassisPath);
@@ -524,10 +496,7 @@ inline void getControlSettings(
                                     redfish::nvidia_control_utils::
                                         getControlSettingRelatedItems);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper", path + "/chassis",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
             }
         },
         "xyz.openbmc_project.ObjectMapper",
@@ -982,10 +951,13 @@ inline void requestRoutesChassisControls(App& app)
                 asyncResp->res.jsonValue["@odata.id"] =
                     "/redfish/v1/Chassis/" + chassisID + "/Controls/" +
                     controlID;
-                dbus::utility::async_method_call(
-                    [asyncResp, chassisID, controlID, validChassisPath](
-                        const boost::system::error_code& ec,
-                        std::variant<std::vector<std::string>>& resp) {
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    *validChassisPath + "/power_controls",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [asyncResp, chassisID, controlID,
+                     validChassisPath](const boost::system::error_code& ec,
+                                       const std::vector<std::string>& resp) {
                         if (ec)
                         {
                             BMCWEB_LOG_ERROR(
@@ -993,18 +965,9 @@ inline void requestRoutesChassisControls(App& app)
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            BMCWEB_LOG_ERROR("control id resource not found");
-                            messages::resourceNotFound(asyncResp->res,
-                                                       "ControlID", controlID);
-                            return;
-                        }
 
                         auto validendpoint = false;
-                        for (const auto& object : *data)
+                        for (const auto& object : resp)
                         {
                             sdbusplus::message::object_path objPath(object);
                             if (objPath.filename() == controlID)
@@ -1031,11 +994,7 @@ inline void requestRoutesChassisControls(App& app)
                             messages::resourceNotFound(asyncResp->res,
                                                        "ControlID", controlID);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    *validChassisPath + "/power_controls",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
             };
 
             auto getControlCpu = [asyncResp, chassisID, controlID](
@@ -1056,29 +1015,21 @@ inline void requestRoutesChassisControls(App& app)
                 asyncResp->res.jsonValue["@odata.id"] =
                     "/redfish/v1/Chassis/" + chassisID + "/Controls/" +
                     controlID;
-                dbus::utility::async_method_call(
-                    [asyncResp, chassisID, controlID, validChassisPath](
-                        const boost::system::error_code& ec,
-                        std::variant<std::vector<std::string>>& resp) {
-                        if (ec)
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    *validChassisPath + "/power_controls",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [asyncResp, chassisID, controlID,
+                     validChassisPath](const boost::system::error_code& ec2,
+                                       const std::vector<std::string>& resp) {
+                        if (ec2)
                         {
-                            BMCWEB_LOG_ERROR(
-                                "ObjectMapper::GetObject call failed: {}", ec);
-                            messages::internalError(asyncResp->res);
+                            BMCWEB_LOG_ERROR("Get Related Items failed: {}",
+                                             ec2);
                             return;
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            BMCWEB_LOG_ERROR("control id resource not found");
-                            messages::resourceNotFound(asyncResp->res,
-                                                       "ControlID", controlID);
-                            return;
-                        }
-
                         auto validendpoint = false;
-                        for (const auto& object : *data)
+                        for (const auto& object : resp)
                         {
                             sdbusplus::message::object_path objPath(object);
                             if (objPath.filename() == controlID)
@@ -1113,11 +1064,7 @@ inline void requestRoutesChassisControls(App& app)
                             messages::resourceNotFound(asyncResp->res,
                                                        "ControlID", controlID);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    *validChassisPath + "/power_controls",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
             };
 
             auto getChassisControl = [asyncResp, chassisID, controlID,
@@ -1132,11 +1079,13 @@ inline void requestRoutesChassisControls(App& app)
                     return;
                 }
 
-                dbus::utility::async_method_call(
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    *validChassisPath + "/all_processors",
+                    "xyz.openbmc_project.Association", "endpoints",
                     [asyncResp, controlID, chassisID, validChassisPath,
-                     getControlSystem](
-                        const boost::system::error_code& ec,
-                        std::variant<std::vector<std::string>>& resp) {
+                     getControlSystem](const boost::system::error_code& ec,
+                                       const std::vector<std::string>& resp) {
                         if (ec)
                         {
                             BMCWEB_LOG_DEBUG(
@@ -1145,18 +1094,8 @@ inline void requestRoutesChassisControls(App& app)
                             getControlSystem(validChassisPath);
                             return;
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            BMCWEB_LOG_DEBUG(
-                                "The Chassis path {} doesn't have processor",
-                                *validChassisPath);
-                            getControlSystem(validChassisPath);
-                            return;
-                        }
 
-                        for (const auto& processorPath : *data)
+                        for (const auto& processorPath : resp)
                         {
                             dbus::utility::async_method_call(
                                 [asyncResp, controlID, chassisID, processorPath,
@@ -1206,11 +1145,7 @@ inline void requestRoutesChassisControls(App& app)
                                 "xyz.openbmc_project.ObjectMapper", "GetObject",
                                 processorPath, std::array<const char*, 0>{});
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    *validChassisPath + "/all_processors",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
             };
 
             auto getControl = [asyncResp, chassisID, getControlSystem,
@@ -1287,10 +1222,13 @@ inline void requestRoutesChassisControls(App& app)
                                                chassisID);
                     return;
                 }
-                dbus::utility::async_method_call(
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    *validChassisPath + "/power_controls",
+                    "xyz.openbmc_project.Association", "endpoints",
                     [asyncResp, chassisID, controlID,
                      &req](const boost::system::error_code& ec,
-                           std::variant<std::vector<std::string>>& resp) {
+                           const std::vector<std::string>& resp) {
                         if (ec)
                         {
                             BMCWEB_LOG_ERROR(
@@ -1298,17 +1236,8 @@ inline void requestRoutesChassisControls(App& app)
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            BMCWEB_LOG_ERROR("control id resource not found");
-                            messages::resourceNotFound(asyncResp->res,
-                                                       "ControlID", controlID);
-                            return;
-                        }
                         auto validendpoint = false;
-                        for (const auto& object : *data)
+                        for (const auto& object : resp)
                         {
                             sdbusplus::message::object_path objPath(object);
                             if (objPath.filename() == controlID)
@@ -1367,11 +1296,7 @@ inline void requestRoutesChassisControls(App& app)
                             messages::resourceNotFound(asyncResp->res,
                                                        "ControlID", controlID);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    *validChassisPath + "/power_controls",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
             };
 
             auto patchChassisControl = [asyncResp, chassisID, controlID,
@@ -1386,11 +1311,13 @@ inline void requestRoutesChassisControls(App& app)
                     return;
                 }
 
-                dbus::utility::async_method_call(
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    *validChassisPath + "/all_processors",
+                    "xyz.openbmc_project.Association", "endpoints",
                     [asyncResp, controlID, validChassisPath, patchControlSystem,
-                     chassisID,
-                     &req](const boost::system::error_code& ec,
-                           std::variant<std::vector<std::string>>& resp) {
+                     chassisID, &req](const boost::system::error_code& ec,
+                                      const std::vector<std::string>& resp) {
                         if (ec)
                         {
                             BMCWEB_LOG_DEBUG(
@@ -1399,18 +1326,8 @@ inline void requestRoutesChassisControls(App& app)
                             patchControlSystem(validChassisPath);
                             return;
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            BMCWEB_LOG_DEBUG(
-                                "The Chassis path {} doesn't have processor",
-                                *validChassisPath);
-                            patchControlSystem(validChassisPath);
-                            return;
-                        }
 
-                        for (const auto& processorPath : *data)
+                        for (const auto& processorPath : resp)
                         {
                             dbus::utility::async_method_call(
                                 [asyncResp, controlID, chassisID, processorPath,
@@ -1461,11 +1378,7 @@ inline void requestRoutesChassisControls(App& app)
                                 "xyz.openbmc_project.ObjectMapper", "GetObject",
                                 processorPath, std::array<const char*, 0>{});
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    *validChassisPath + "/all_processors",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
             };
 
             auto patchControlCpu = [asyncResp, chassisID, controlID,
@@ -1478,10 +1391,13 @@ inline void requestRoutesChassisControls(App& app)
                                                chassisID);
                     return;
                 }
-                dbus::utility::async_method_call(
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    *validChassisPath + "/power_controls",
+                    "xyz.openbmc_project.Association", "endpoints",
                     [asyncResp, chassisID, controlID,
                      &req](const boost::system::error_code& ec,
-                           std::variant<std::vector<std::string>>& resp) {
+                           const std::vector<std::string>& resp) {
                         if (ec)
                         {
                             BMCWEB_LOG_ERROR(
@@ -1489,17 +1405,8 @@ inline void requestRoutesChassisControls(App& app)
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            BMCWEB_LOG_ERROR("control id resource not found");
-                            messages::resourceNotFound(asyncResp->res,
-                                                       "ControlID", controlID);
-                            return;
-                        }
                         auto validendpoint = false;
-                        for (const auto& object : *data)
+                        for (const auto& object : resp)
                         {
                             sdbusplus::message::object_path objPath(object);
                             if (objPath.filename() == controlID)
@@ -1561,11 +1468,7 @@ inline void requestRoutesChassisControls(App& app)
                             messages::resourceNotFound(asyncResp->res,
                                                        "ControlID", controlID);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    *validChassisPath + "/power_controls",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
             };
 
             auto patchControl = [asyncResp, chassisID, patchChassisControl,
@@ -1650,11 +1553,13 @@ inline void requestRoutesChassisControlsReset(App& app)
                                                chassisId);
                     return;
                 }
-                dbus::utility::async_method_call(
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    *validChassisPath + "/clock_controls",
+                    "xyz.openbmc_project.Association", "endpoints",
                     [asyncResp, chassisId, controlId, validChassisPath,
-                     processorName](
-                        const boost::system::error_code& ec,
-                        std::variant<std::vector<std::string>>& resp) {
+                     processorName](const boost::system::error_code& ec,
+                                    const std::vector<std::string>& resp) {
                         if (ec)
                         {
                             BMCWEB_LOG_ERROR(
@@ -1666,18 +1571,9 @@ inline void requestRoutesChassisControlsReset(App& app)
                         BMCWEB_LOG_DEBUG(
                             "Call Reset Clock Limit Control for processor: {}",
                             processorName);
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            BMCWEB_LOG_ERROR("control id resource not found");
-                            messages::resourceNotFound(asyncResp->res,
-                                                       "ControlId", controlId);
-                            return;
-                        }
 
                         auto validendpoint = false;
-                        for (const auto& object : *data)
+                        for (const auto& object : resp)
                         {
                             sdbusplus::message::object_path objPath(object);
                             if (objPath.filename() == controlId)
@@ -1695,11 +1591,7 @@ inline void requestRoutesChassisControlsReset(App& app)
                             messages::resourceNotFound(asyncResp->res,
                                                        "ControlID", controlId);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    *validChassisPath + "/clock_controls",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
             };
 
             auto postChassisControl = [asyncResp, chassisId, controlId,
@@ -1714,11 +1606,14 @@ inline void requestRoutesChassisControlsReset(App& app)
                     return;
                 }
 
-                dbus::utility::async_method_call(
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    *validChassisPath + "/all_processors",
+                    "xyz.openbmc_project.Association", "endpoints",
                     [asyncResp, controlId, validChassisPath,
                      postChassisClockLimitControl](
                         const boost::system::error_code& ec,
-                        std::variant<std::vector<std::string>>& resp) {
+                        const std::vector<std::string>& resp) {
                         if (ec)
                         {
                             BMCWEB_LOG_DEBUG(
@@ -1726,17 +1621,8 @@ inline void requestRoutesChassisControlsReset(App& app)
                                 ec);
                             return;
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            BMCWEB_LOG_DEBUG(
-                                "The Chassis path {} doesn't have processor",
-                                *validChassisPath);
-                            return;
-                        }
 
-                        for (const auto& processorPath : *data)
+                        for (const auto& processorPath : resp)
                         {
                             dbus::utility::async_method_call(
                                 [asyncResp, controlId, processorPath,
@@ -1785,11 +1671,7 @@ inline void requestRoutesChassisControlsReset(App& app)
                                 "xyz.openbmc_project.ObjectMapper", "GetObject",
                                 processorPath, std::array<const char*, 0>{});
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    *validChassisPath + "/all_processors",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
             };
 
             // check for CPU

@@ -784,10 +784,10 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
     {
         // assert(state == ROOT_Q_ASSOCS);
         std::shared_ptr<HealthRollup> self = shared_from_this();
-        dbus::utility::async_method_call(
-            [self, serviceManager,
-             objPath](const boost::system::error_code& ec,
-                      const std::variant<Association>& result) mutable {
+        dbus::utility::getProperty<Association>(
+            serviceManager, objPath, dbusIntfDefinitions, dbusPropAssociations,
+            [self, serviceManager, objPath](const boost::system::error_code& ec,
+                                            const Association& result) mutable {
                 if (ec)
                 {
                     redfish::HealthRollup::getPropertyFailFeedback(
@@ -799,30 +799,16 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
                 }
                 else // ! ec
                 {
-                    const Association* associations =
-                        get_if<Association>(&result);
-                    if (associations == nullptr)
+                    for (const auto& tup : result)
                     {
-                        redfish::HealthRollup::invalidPropertyTypeFeedback(
-                            serviceManager, objPath, dbusIntfDefinitions,
-                            dbusPropAssociations, "a(sss)");
-                        self->stopRollup(STOP_ERROR);
-                    }
-                    else // ! associations == nullptr
-                    {
-                        for (const auto& tup : *associations)
+                        if (get<0>(tup) == dbusAssocHealthCategory)
                         {
-                            if (get<0>(tup) == dbusAssocHealthCategory)
-                            {
-                                self->devicesToVisit.push_back(get<2>(tup));
-                            }
+                            self->devicesToVisit.push_back(get<2>(tup));
                         }
-                        self->assocQueryForService();
                     }
+                    self->assocQueryForService();
                 }
-            },
-            serviceManager, objPath, dbusIntfProperties, "Get",
-            dbusIntfDefinitions, dbusPropAssociations);
+            });
     }
 
     /** @brief Pop first element from @devicesToVisit; obtain its managing
@@ -1170,8 +1156,7 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
     }
 
     const health_state::Type* determineNodeHealth(
-        const boost::system::error_code& ec,
-        const std::variant<std::string>& result,
+        const boost::system::error_code& ec, const std::string& result,
         const std::string& serviceManager, const std::string& objPath)
     {
         const health_state::Type* nodeHealth = nullptr;
@@ -1183,30 +1168,16 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
         }
         else
         {
-            const std::string* dbusHealthState = get_if<std::string>(&result);
-            if (dbusHealthState == nullptr)
+            if (!health_state::dbusNameMapHealthState.contains(result))
             {
-                invalidPropertyTypeFeedback(serviceManager, objPath,
-                                            dbusIntfDefinitions,
-                                            dbusPropAssociations, "s");
+                BMCWEB_LOG_ERROR("Unrecognized health value: '{}'", result);
                 nodeHealth = nullptr;
             }
             else
             {
-                if (!health_state::dbusNameMapHealthState.contains(
-                        *dbusHealthState))
-                {
-                    BMCWEB_LOG_ERROR("Unrecognized health value: '{}'",
-                                     *dbusHealthState);
-                    nodeHealth = nullptr;
-                }
-                else
-                {
-                    nodeHealth = health_state::dbusNameMapHealthState.at(
-                        *dbusHealthState);
-                    BMCWEB_LOG_INFO("Health of '{}': '{}'", objPath,
-                                    nodeHealth->jsonHealthName);
-                }
+                nodeHealth = health_state::dbusNameMapHealthState.at(result);
+                BMCWEB_LOG_INFO("Health of '{}': '{}'", objPath,
+                                nodeHealth->jsonHealthName);
             }
         }
         return nodeHealth;
@@ -1318,17 +1289,15 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
     {
         // assert(state == ROOT_Q_HEALTH || state == ASSOC_Q_HEALTH); // (1)
         std::shared_ptr<HealthRollup> self = shared_from_this();
-        dbus::utility::async_method_call(
-            [self, serviceManager,
-             objPath](const boost::system::error_code& ec,
-                      const std::variant<std::string>& result) {
+        dbus::utility::getProperty<std::string>(
+            serviceManager, objPath, dbusIntfHealth, dbusPropHealth,
+            [self, serviceManager, objPath](const boost::system::error_code& ec,
+                                            const std::string& result) {
                 const health_state::Type* nodeHealth =
                     self->determineNodeHealth(ec, result, serviceManager,
                                               objPath);
                 self->proceedWithCurrentNodeHealth(nodeHealth, objPath);
-            },
-            serviceManager, objPath, dbusIntfProperties, "Get", dbusIntfHealth,
-            dbusPropHealth);
+            });
     }
 
     /** @brief -> STOP_ERROR | STOP_OK **/

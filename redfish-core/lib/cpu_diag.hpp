@@ -52,9 +52,11 @@ constexpr auto diagServiceList = "cpu-diag-status.timer "
 inline void handleDiagSysConfigGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::string>(
+        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
+        "xyz.openbmc_project.Control.Diag", "DiagSystemConfig",
         [asyncResp](const boost::system::error_code& ec,
-                    const std::variant<std::string>& res) {
+                    const std::string& jsonString) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec);
@@ -70,21 +72,19 @@ inline void handleDiagSysConfigGet(
             BMCWEB_LOG_DEBUG("Get Diag Config update done.");
 
             nlohmann::json& json = asyncResp->res.jsonValue;
-            const std::string& jsonString = std::get<std::string>(res);
             nlohmann::json data = nlohmann::json::parse(jsonString);
             json["Oem"]["Nvidia"]["ProcessorDiagSysConfig"] = data;
-        },
-        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Control.Diag", "DiagSystemConfig");
+        });
 }
 
 inline void handleDiagTidConfigGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::string>(
+        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
+        "xyz.openbmc_project.Control.Diag", "DiagConfig",
         [asyncResp](const boost::system::error_code& ec,
-                    const std::variant<std::string>& res) {
+                    const std::string& jsonString) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec);
@@ -100,20 +100,18 @@ inline void handleDiagTidConfigGet(
             BMCWEB_LOG_DEBUG("Get Diag Config update done.");
 
             nlohmann::json& json = asyncResp->res.jsonValue;
-            const std::string& jsonString = std::get<std::string>(res);
             nlohmann::json data = nlohmann::json::parse(jsonString);
             json["Oem"]["Nvidia"]["ProcessorDiagTidConfig"] = data;
-        },
-        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Control.Diag", "DiagConfig");
+        });
 }
 inline void handleDiagResultGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::string>(
+        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
+        "xyz.openbmc_project.Control.Diag", "DiagResult",
         [asyncResp](const boost::system::error_code& ec,
-                    const std::variant<std::string>& res) {
+                    const std::string& jsonString) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec);
@@ -129,7 +127,6 @@ inline void handleDiagResultGet(
             BMCWEB_LOG_DEBUG("Get Diag result update done.");
 
             nlohmann::json& json = asyncResp->res.jsonValue;
-            const std::string& jsonString = std::get<std::string>(res);
             nlohmann::json data = nlohmann::json::parse(jsonString);
             json["Oem"]["Nvidia"]["ProcessorDiagResult"] =
                 nlohmann::json::array();
@@ -157,17 +154,15 @@ inline void handleDiagResultGet(
                 json["Oem"]["Nvidia"]["ProcessorDiagResult"].push_back(
                     jsonObject);
             }
-        },
-        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Control.Diag", "DiagResult");
+        });
 }
 inline void handleDiagStatusGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::async_method_call(
-        [asyncResp](const boost::system::error_code& ec,
-                    const std::variant<uint8_t>& res) {
+    dbus::utility::getProperty<uint8_t>(
+        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
+        "xyz.openbmc_project.Control.Diag", "DiagStatus",
+        [asyncResp](const boost::system::error_code& ec, const uint8_t& value) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec);
@@ -183,7 +178,6 @@ inline void handleDiagStatusGet(
             BMCWEB_LOG_DEBUG("Get Diag Status update done.");
 
             nlohmann::json& json = asyncResp->res.jsonValue;
-            uint8_t value = std::get<uint8_t>(res);
             if ((value == 0x1) || (value == 0x0))
             {
                 json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
@@ -204,17 +198,15 @@ inline void handleDiagStatusGet(
                 json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]
                     ["DiagStatus"] = "Not Started";
             }
-        },
-        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Control.Diag", "DiagStatus");
+        });
 }
 inline void handleDiagModeGet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::async_method_call(
-        [asyncResp](const boost::system::error_code& ec,
-                    const std::variant<bool>& resp) {
+    dbus::utility::getProperty<bool>(
+        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
+        "xyz.openbmc_project.Control.Diag", "DiagMode",
+        [asyncResp](const boost::system::error_code& ec, const bool& diagMode) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec);
@@ -229,7 +221,6 @@ inline void handleDiagModeGet(
             }
             BMCWEB_LOG_DEBUG("Diag mode update done.");
             nlohmann::json& json = asyncResp->res.jsonValue;
-            bool diagMode = std::get<bool>(resp);
             if (static_cast<int>(diagMode) == 0)
             {
                 json["Oem"]["Nvidia"]["ProcessorDiagCapabilities"]["DiagMode"] =
@@ -244,10 +235,7 @@ inline void handleDiagModeGet(
                 handleDiagTidConfigGet(asyncResp);
                 handleDiagResultGet(asyncResp);
             }
-        },
-        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Control.Diag", "DiagMode");
+        });
 }
 
 inline bool initDiagStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)

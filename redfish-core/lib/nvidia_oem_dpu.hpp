@@ -179,7 +179,9 @@ class DpuGetProperties : virtual public DpuCommonProperties
                   const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                   const std::string& name, const ObjectInfo& objectInfo) const
     {
-        dbus::utility::async_method_call(
+        dbus::utility::getProperty<std::variant<std::string, bool>>(
+            objectInfo.service, objectInfo.obj, objectInfo.propertyInfo.intf,
+            objectInfo.propertyInfo.prop,
             [&, json, asyncResp,
              name](const boost::system::error_code ec,
                    const std::variant<std::string, bool>& variant) {
@@ -204,10 +206,7 @@ class DpuGetProperties : virtual public DpuCommonProperties
                 }
 
                 (*json)[name] = toRedfish(var, name);
-            },
-            objectInfo.service, objectInfo.obj,
-            "org.freedesktop.DBus.Properties", "Get",
-            objectInfo.propertyInfo.intf, objectInfo.propertyInfo.prop);
+            });
 
         return 0;
     }

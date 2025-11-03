@@ -1017,10 +1017,11 @@ inline void getResetMetricsInfo(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                 [[maybe_unused]] const std::string& service,
                                 const std::string& objPath)
 {
-    dbus::utility::async_method_call(
-        [aResp,
-         processorId](const boost::system::error_code& ec,
-                      const std::variant<std::vector<std::string>>& resp) {
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/reset_statistics",
+        "xyz.openbmc_project.Association", "endpoints",
+        [aResp, processorId](const boost::system::error_code& ec,
+                             const std::vector<std::string>& /*resp*/) {
             if (ec)
             {
                 if (ec == boost::system::errc::no_such_file_or_directory)
@@ -1040,16 +1041,6 @@ inline void getResetMetricsInfo(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 return;
             }
 
-            const std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr || data->empty())
-            {
-                BMCWEB_LOG_INFO(
-                    "No associated ResetMetrics found for processor: {}",
-                    processorId);
-                return;
-            }
-
             // Construct the ResetMetrics URI and add it to the response
             std::string resetMetricsURI = std::format(
                 "/redfish/v1/Systems/{}/Processors/{}/Oem/Nvidia/ProcessorResetMetrics",
@@ -1059,10 +1050,7 @@ inline void getResetMetricsInfo(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                 ["@odata.id"] = resetMetricsURI;
 
             BMCWEB_LOG_DEBUG("Added ResetMetrics URI: {}", resetMetricsURI);
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/reset_statistics",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getClearablePcieCounters(
@@ -1145,10 +1133,12 @@ inline void getClearPCIeCountersActionInfo(
                 {
                     continue;
                 }
-                dbus::utility::async_method_call(
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper", path + "/all_states",
+                    "xyz.openbmc_project.Association", "endpoints",
                     [asyncResp, processorId,
                      portId](const boost::system::error_code& e,
-                             std::variant<std::vector<std::string>>& resp) {
+                             const std::vector<std::string>& resp) {
                         if (e)
                         {
                             // no state sensors attached.
@@ -1159,17 +1149,7 @@ inline void getClearPCIeCountersActionInfo(
                             return;
                         }
 
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            BMCWEB_LOG_ERROR(
-                                "No Association for all_states found");
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-
-                        for (const std::string& sensorpath : *data)
+                        for (const std::string& sensorpath : resp)
                         {
                             // Check Interface in Object or not
                             BMCWEB_LOG_DEBUG(
@@ -1252,10 +1232,7 @@ inline void getClearPCIeCountersActionInfo(
                                 std::array<std::string, 1>(
                                     {"xyz.openbmc_project.Inventory.Item.Port"}));
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper", path + "/all_states",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
                 return;
             }
             // Object not found
@@ -1389,26 +1366,20 @@ inline void getPortDisableFutureStatus(
                 }
             }
 
-            dbus::utility::async_method_call(
+            dbus::utility::getProperty<std::vector<std::string>>(
+                "xyz.openbmc_project.ObjectMapper", objectPath + "/all_states",
+                "xyz.openbmc_project.Association", "endpoints",
                 [aResp, processorId, portId,
                  portsToDisable](const boost::system::error_code ec1,
-                                 std::variant<std::vector<std::string>>& resp) {
+                                 const std::vector<std::string>& resp) {
                     if (ec1)
                     {
                         BMCWEB_LOG_ERROR("DBUS response error");
                         messages::internalError(aResp->res);
                         return;
                     }
-                    std::vector<std::string>* data =
-                        std::get_if<std::vector<std::string>>(&resp);
-                    if (data == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "DBUS response error while getting ports");
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    for (const std::string& portPath : *data)
+
+                    for (const std::string& portPath : resp)
                     {
                         sdbusplus::message::object_path pPath(portPath);
                         if (pPath.filename() != portId)
@@ -1440,10 +1411,7 @@ inline void getPortDisableFutureStatus(
                             std::array<std::string, 1>(
                                 {"xyz.openbmc_project.Inventory.Item.Port"}));
                     }
-                },
-                "xyz.openbmc_project.ObjectMapper", objectPath + "/all_states",
-                "org.freedesktop.DBus.Properties", "Get",
-                "xyz.openbmc_project.Association", "endpoints");
+                });
         },
         *inventoryService, objectPath, "org.freedesktop.DBus.Properties",
         "GetAll", "com.nvidia.NVLink.NVLinkDisableFuture");
@@ -1622,27 +1590,21 @@ inline void patchPortDisableFuture(
                     portsToDisable = *value;
                 }
             }
-            dbus::utility::async_method_call(
+            dbus::utility::getProperty<std::vector<std::string>>(
+                "xyz.openbmc_project.ObjectMapper", objectPath + "/all_states",
+                "xyz.openbmc_project.Association", "endpoints",
                 [aResp, processorId, portId, propertyValue, propertyName,
                  objectPath, service,
                  portsToDisable](const boost::system::error_code ec1,
-                                 std::variant<std::vector<std::string>>& resp) {
+                                 const std::vector<std::string>& resp) {
                     if (ec1)
                     {
                         BMCWEB_LOG_ERROR("DBUS response error");
                         messages::internalError(aResp->res);
                         return;
                     }
-                    std::vector<std::string>* data =
-                        std::get_if<std::vector<std::string>>(&resp);
-                    if (data == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "DBUS response error while getting ports");
-                        messages::internalError(aResp->res);
-                        return;
-                    }
-                    for (const std::string& portPath : *data)
+
+                    for (const std::string& portPath : resp)
                     {
                         // Get the portId object
                         sdbusplus::message::object_path pPath(portPath);
@@ -1679,10 +1641,7 @@ inline void patchPortDisableFuture(
                             std::array<std::string, 1>(
                                 {"xyz.openbmc_project.Inventory.Item.Port"}));
                     }
-                },
-                "xyz.openbmc_project.ObjectMapper", objectPath + "/all_states",
-                "org.freedesktop.DBus.Properties", "Get",
-                "xyz.openbmc_project.Association", "endpoints");
+                });
         },
         *inventoryService, objectPath, "org.freedesktop.DBus.Properties",
         "GetAll", "com.nvidia.NVLink.NVLinkDisableFuture");
@@ -2092,10 +2051,12 @@ inline void postPCIeClearCounter(
                 {
                     continue;
                 }
-                dbus::utility::async_method_call(
-                    [asyncResp, processorId, portId, counterType](
-                        const boost::system::error_code& e,
-                        std::variant<std::vector<std::string>>& resp) {
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper", path + "/all_states",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [asyncResp, processorId, portId,
+                     counterType](const boost::system::error_code& e,
+                                  const std::vector<std::string>& resp) {
                         if (e)
                         {
                             // no state sensors attached.
@@ -2106,17 +2067,7 @@ inline void postPCIeClearCounter(
                             return;
                         }
 
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            BMCWEB_LOG_ERROR(
-                                "No Association for all_states found");
-                            messages::internalError(asyncResp->res);
-                            return;
-                        }
-
-                        for (const std::string& sensorpath : *data)
+                        for (const std::string& sensorpath : resp)
                         {
                             // Check Interface in Object or not
                             BMCWEB_LOG_DEBUG(
@@ -2161,10 +2112,7 @@ inline void postPCIeClearCounter(
                                     {"xyz.openbmc_project.Inventory.Item.Port",
                                      "xyz.openbmc_project.PCIe.ClearPCIeCounters"}));
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper", path + "/all_states",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
                 return;
             }
             // Object not found
@@ -2295,62 +2243,43 @@ inline void patchOperatingSpeedRangeMHz(
     const std::variant<uint32_t, std::tuple<uint32_t, uint32_t>>& value,
     const std::string& patchProp, const std::string& processorObjPath)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper",
+        processorObjPath + "/parent_chassis", "xyz.openbmc_project.Association",
+        "endpoints",
         [asyncResp, value, patchProp, processorId,
          processorObjPath](const boost::system::error_code& ec,
-                           std::variant<std::vector<std::string>>& resp) {
+                           const std::vector<std::string>& resp) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("ObjectMapper call failed with error {}", ec);
                 messages::internalError(asyncResp->res);
                 return;
             }
-            const std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
 
-            if (data)
+            for (const auto& chassisPath : resp)
             {
-                for (const auto& chassisPath : *data)
-                {
-                    dbus::utility::async_method_call(
-                        [asyncResp, value, patchProp, processorId, chassisPath](
-                            const boost::system::error_code ec2,
-                            std::variant<std::vector<std::string>>& resp2) {
-                            if (ec2)
-                            {
-                                return; // no clock Limit Path for the chassis
-                                        // path
-                            }
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    chassisPath + "/clock_controls",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [asyncResp, value, patchProp, processorId,
+                     chassisPath](const boost::system::error_code& ec2,
+                                  const std::vector<std::string>& resp2) {
+                        if (ec2)
+                        {
+                            return; // no clock Limit Path for the chassis
+                                    // path
+                        }
 
-                            std::vector<std::string>* data1 =
-                                std::get_if<std::vector<std::string>>(&resp2);
-
-                            for (const auto& clockLimitPath : *data1)
-                            {
-                                setOperatingSpeedRange(asyncResp, value,
-                                                       patchProp,
-                                                       clockLimitPath);
-                            }
-                        },
-
-                        "xyz.openbmc_project.ObjectMapper",
-                        chassisPath + "/clock_controls",
-                        "org.freedesktop.DBus.Properties", "Get",
-                        "xyz.openbmc_project.Association", "endpoints");
-                }
+                        for (const auto& clockLimitPath : resp2)
+                        {
+                            setOperatingSpeedRange(asyncResp, value, patchProp,
+                                                   clockLimitPath);
+                        }
+                    });
             }
-            else
-            {
-                BMCWEB_LOG_ERROR("Chassis Path not found for processorId {}",
-                                 processorId);
-                messages::internalError(asyncResp->res);
-                return;
-            }
-        },
-
-        "xyz.openbmc_project.ObjectMapper",
-        processorObjPath + "/parent_chassis", "org.freedesktop.DBus.Properties",
-        "Get", "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getOperatingSpeedRangeData(
@@ -2489,30 +2418,30 @@ inline void getOperatingSpeedRangeData(
 inline void getOperatingSpeedRange(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/parent_chassis",
+        "xyz.openbmc_project.Association", "endpoints",
         [aResp, objPath](const boost::system::error_code& ec,
-                         std::variant<std::vector<std::string>>& resp) {
+                         const std::vector<std::string>& resp) {
             if (ec)
             {
                 return; // no chassis = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
 
-            for (const auto& chassisPath : *data)
+            for (const auto& chassisPath : resp)
             {
-                dbus::utility::async_method_call(
-                    [aResp, chassisPath](
-                        const boost::system::error_code ec1,
-                        std::variant<std::vector<std::string>>& chassisResp) {
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    chassisPath + "/clock_controls",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [aResp,
+                     chassisPath](const boost::system::error_code ec1,
+                                  const std::vector<std::string>& chassisResp) {
                         if (ec1)
                         {
                             return; // no chassis = no failures
                         }
-                        std::vector<std::string>* chassisData =
-                            std::get_if<std::vector<std::string>>(&chassisResp);
-
-                        for (const auto& clockControlPath : *chassisData)
+                        for (const auto& clockControlPath : chassisResp)
                         {
                             aResp->res.jsonValue["OperatingSpeedRangeMHz"]
                                                 ["DataSourceUri"] =
@@ -2524,18 +2453,9 @@ inline void getOperatingSpeedRange(
                                     clockControlPath.find_last_of('/') + 1);
                             getOperatingSpeedRangeData(aResp, clockControlPath);
                         }
-                    },
-
-                    "xyz.openbmc_project.ObjectMapper",
-                    chassisPath + "/clock_controls",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
             }
-        },
-
-        "xyz.openbmc_project.ObjectMapper", objPath + "/parent_chassis",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 // Function to handle the getEgmModePendingData async method call response

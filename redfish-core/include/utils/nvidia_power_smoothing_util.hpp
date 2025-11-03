@@ -55,33 +55,27 @@ inline void getPowerSmoothingPresetProfileParameters(
                     continue;
                 }
 
-                dbus::utility::async_method_call(
-                    [asyncResp, processorId](
-                        const boost::system::error_code ec2,
-                        std::variant<std::vector<std::string>>& resp) {
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper", path + "/power_profile",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [asyncResp,
+                     processorId](const boost::system::error_code ec2,
+                                  const std::vector<std::string>& resp) {
                         if (ec2)
                         {
                             return; // no processors = no failures
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            return;
-                        }
+
                         nlohmann::json& parameters =
                             asyncResp->res.jsonValue["Parameters"];
                         nlohmann::json param = nlohmann::json::object();
                         param["Name"] = "ProfileId";
                         param["Required"] = true;
                         param["MinimumValue"] = 0;
-                        param["MaximumValue"] = data->size();
+                        param["MaximumValue"] = resp.size();
                         param["DataType"] = "Number";
                         parameters.push_back(param);
-                    },
-                    "xyz.openbmc_project.ObjectMapper", path + "/power_profile",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
                 return;
             }
         },

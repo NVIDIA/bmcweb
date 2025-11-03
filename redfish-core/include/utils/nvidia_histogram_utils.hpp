@@ -91,22 +91,16 @@ inline void getHistogramLink(
     const std::string& formedURI, const std::string& objectPath,
     const std::string& odataType)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objectPath + "/histograms",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, formedURI,
          odataType](const boost::system::error_code ec,
-                    std::variant<std::vector<std::string>>& resp) {
+                    const std::vector<std::string>& /*resp*/) {
             if (ec)
             {
                 // no associated histograms = no failure
                 BMCWEB_LOG_DEBUG("No associated histograms on {}", formedURI);
-                return;
-            }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR("Null data error while getting histograms");
-                messages::internalError(asyncResp->res);
                 return;
             }
 
@@ -118,10 +112,7 @@ inline void getHistogramLink(
             asyncResp->res
                 .jsonValue["Oem"]["Nvidia"]["Histograms"]["@odata.id"] =
                 histogramURI;
-        },
-        "xyz.openbmc_project.ObjectMapper", objectPath + "/histograms",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void updateHistogramData(
@@ -232,9 +223,11 @@ inline void getHistogramDataByAssociation(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& histogramId, const std::string& objPath)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/histograms",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, histogramId](const boost::system::error_code ec,
-                                 std::variant<std::vector<std::string>>& resp) {
+                                 const std::vector<std::string>& resp) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -243,16 +236,9 @@ inline void getHistogramDataByAssociation(
                 messages::internalError(asyncResp->res);
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR("Null data response while getting histogram");
-                messages::internalError(asyncResp->res);
-                return;
-            }
+
             // Iterate over all retrieved ObjectPaths.
-            for (const std::string& histoPath : *data)
+            for (const std::string& histoPath : resp)
             {
                 sdbusplus::message::object_path histoObjPath(histoPath);
                 if (histoObjPath.filename() != histogramId)
@@ -288,10 +274,7 @@ inline void getHistogramDataByAssociation(
             messages::resourceNotFound(
                 asyncResp->res, "#NvidiaHistogram.v1_1_0.NvidiaHistogram",
                 histogramId);
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/histograms",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void updateHistogramBucketData(

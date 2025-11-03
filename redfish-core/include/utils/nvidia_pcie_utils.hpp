@@ -233,24 +233,21 @@ static inline void getPCIeDeviceUUID(
 {
     auto getPCIeDeviceUUIDCallback =
         [asyncResp{asyncResp}](const boost::system::error_code& ec,
-                               const std::variant<std::string>& uuid) {
+                               const std::string& uuid) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
                 messages::internalError(asyncResp->res);
                 return;
             }
-            const std::string* s = std::get_if<std::string>(&uuid);
-            if (s != nullptr)
-            {
-                asyncResp->res.jsonValue["UUID"] = *s;
-            }
+
+            asyncResp->res.jsonValue["UUID"] = uuid;
         };
     std::string escapedPath = std::string(path) + "/" + device;
     dbus::utility::escapePathForDbus(escapedPath);
-    dbus::utility::async_method_call(
-        std::move(getPCIeDeviceUUIDCallback), service, escapedPath,
-        "org.freedesktop.DBus.Properties", "Get", uuidInterface, "UUID");
+    dbus::utility::getProperty<std::string>(
+        service, escapedPath, uuidInterface, "UUID",
+        std::move(getPCIeDeviceUUIDCallback));
 }
 
 //  PCIeDevice getPCIeDeviceClkRefOem
@@ -346,22 +343,18 @@ static inline void getPCIeLTssmState(
     std::string escapedPath = std::string(path) + "/" + device;
     dbus::utility::escapePathForDbus(escapedPath);
 
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", escapedPath + "/connected_port",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, service](const boost::system::error_code& ec,
-                             std::variant<std::vector<std::string>>& resp) {
+                             const std::vector<std::string>& resp) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Failed to get connected_port");
                 return; // no ports = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                return;
-            }
 
-            for (const std::string& portPath : *data)
+            for (const std::string& portPath : resp)
             {
                 auto getPCIeLtssmCallback = [asyncResp{asyncResp}](
                                                 const boost::system::error_code&
@@ -412,10 +405,7 @@ static inline void getPCIeLTssmState(
                     std::move(getPCIeLtssmCallback), service, portPath,
                     "org.freedesktop.DBus.Properties", "GetAll", pcieLtssmIntf);
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", escapedPath + "/connected_port",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 static inline void getPCIeDevice(
@@ -1064,21 +1054,21 @@ inline void postClearAerErrorStatus(
 inline void getFabricSwitchLink(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                 const std::string& objPath)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/fabrics",
+        "xyz.openbmc_project.Association", "endpoints",
         [aResp, objPath](const boost::system::error_code& ec,
-                         std::variant<std::vector<std::string>>& resp) {
+                         const std::vector<std::string>& resp) {
             if (ec)
             {
                 return; // no fabric = no failures
             }
-            std::vector<std::string>* dataFabric =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (dataFabric == nullptr || dataFabric->size() > 1)
+            if (resp.size() > 1)
             {
                 // There must be single fabric
                 return;
             }
-            const std::string& fabricPath = dataFabric->front();
+            const std::string& fabricPath = resp.front();
             sdbusplus::message::object_path objectPath(fabricPath);
             std::string fabricId = objectPath.filename();
             if (fabricId.empty())
@@ -1088,23 +1078,23 @@ inline void getFabricSwitchLink(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 return;
             }
 
-            dbus::utility::async_method_call(
-                [aResp,
-                 fabricId](const boost::system::error_code& ec1,
-                           std::variant<std::vector<std::string>>& resp1) {
+            dbus::utility::getProperty<std::vector<std::string>>(
+                "xyz.openbmc_project.ObjectMapper", objPath + "/all_switches",
+                "xyz.openbmc_project.Association", "endpoints",
+                [aResp, fabricId](const boost::system::error_code& ec1,
+                                  const std::vector<std::string>& resp1) {
                     if (ec1)
                     {
                         return; // no switches = no failures
                     }
-                    std::vector<std::string>* dataSwitch =
-                        std::get_if<std::vector<std::string>>(&resp1);
-                    if (dataSwitch == nullptr || dataSwitch->size() > 1)
+
+                    if (resp1.size() > 1)
                     {
                         // There must be single fabric
                         return;
                     }
 
-                    const std::string& switchPath = dataSwitch->front();
+                    const std::string& switchPath = resp1.front();
                     sdbusplus::message::object_path objectPath1(switchPath);
                     std::string switchId = objectPath1.filename();
                     if (switchId.empty())
@@ -1121,14 +1111,8 @@ inline void getFabricSwitchLink(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     aResp->res.jsonValue["Links"]["Switch"]["@odata.id"] =
                         switchLink;
                     return;
-                },
-                "xyz.openbmc_project.ObjectMapper", objPath + "/all_switches",
-                "org.freedesktop.DBus.Properties", "Get",
-                "xyz.openbmc_project.Association", "endpoints");
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/fabrics",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+                });
+        });
 }
 
 // PCIeDevice State
@@ -1141,23 +1125,15 @@ static inline void getPCIeDeviceState(
     dbus::utility::escapePathForDbus(escapedPath);
     auto getPCIeDeviceStateCallback = [escapedPath, asyncResp{asyncResp}](
                                           const boost::system::error_code& ec,
-                                          const std::variant<std::string>&
-                                              deviceState) {
+                                          const std::string& deviceState) {
         if (ec)
         {
             BMCWEB_LOG_DEBUG("DBUS response error");
             messages::internalError(asyncResp->res);
             return;
         }
-        const std::string* s = std::get_if<std::string>(&deviceState);
-        if (s == nullptr)
-        {
-            BMCWEB_LOG_DEBUG("Device state of illegal, non-strig type");
-            messages::internalError(asyncResp->res);
-            return;
-        }
 
-        if (*s == "xyz.openbmc_project.State.Chassis.PowerState.On")
+        if (deviceState == "xyz.openbmc_project.State.Chassis.PowerState.On")
         {
             asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
             if constexpr (BMCWEB_HEALTH_ROLLUP_ALTERNATIVE)
@@ -1187,7 +1163,8 @@ static inline void getPCIeDeviceState(
                 }
             }
         }
-        else if (*s == "xyz.openbmc_project.State.Chassis.PowerState.Off")
+        else if (deviceState ==
+                 "xyz.openbmc_project.State.Chassis.PowerState.Off")
         {
             asyncResp->res.jsonValue["Status"]["State"] = "Disabled";
             asyncResp->res.jsonValue["Status"]["Health"] = "Critical";
@@ -1200,13 +1177,12 @@ static inline void getPCIeDeviceState(
         {
             BMCWEB_LOG_DEBUG(
                 "Unrecognized 'CurrentPowerState' value: '{}'. Omitting 'Status' entry in the response",
-                *s);
+                deviceState);
         }
     };
-    dbus::utility::async_method_call(
-        std::move(getPCIeDeviceStateCallback), service, escapedPath,
-        "org.freedesktop.DBus.Properties", "Get", stateInterface,
-        "CurrentPowerState");
+    dbus::utility::getProperty<std::string>(
+        service, escapedPath, stateInterface, "CurrentPowerState",
+        std::move(getPCIeDeviceStateCallback));
 }
 
 } // namespace nvidia_pcie_utils

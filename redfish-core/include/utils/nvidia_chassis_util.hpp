@@ -376,24 +376,21 @@ inline void getChassisLinksContains(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get underneath chassis links");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/all_chassis",
+        "xyz.openbmc_project.Association", "endpoints",
         [aResp](const boost::system::error_code& ec2,
-                std::variant<std::vector<std::string>>& resp) {
+                const std::vector<std::string>& resp) {
             if (ec2)
             {
                 return; // no chassis = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                return;
-            }
+
             nlohmann::json& linksArray =
                 aResp->res.jsonValue["Links"]["Contains"];
             linksArray = nlohmann::json::array();
             boost::container::flat_set<std::string> chassisNames;
-            for (const std::string& chassisPath : *data)
+            for (const std::string& chassisPath : resp)
             {
                 sdbusplus::message::object_path objectPath(chassisPath);
                 std::string chassisName = objectPath.filename();
@@ -409,10 +406,7 @@ inline void getChassisLinksContains(
                 linksArray.push_back(
                     {{"@odata.id", "/redfish/v1/Chassis/" + chassisName}});
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/all_chassis",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 /* * @brief Fill out links association to underneath chassis by
@@ -425,19 +419,16 @@ inline void getChassisProcessorProtocolBridgeForDevices(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get underneath chassis links");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/bridging_processor",
+        "xyz.openbmc_project.Association", "endpoints",
         [aResp](const boost::system::error_code& ec2,
-                std::variant<std::vector<std::string>>& resp) {
+                const std::vector<std::string>& resp) {
             if (ec2)
             {
                 return; // no chassis = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                return;
-            }
+
             aResp->res.jsonValue["Links"]["Oem"]["Nvidia"]["@odata.type"] =
                 "#NvidiaChassis.v1_7_0.NvidiaSMAChassis";
             nlohmann::json& protocalBridgeArray =
@@ -445,7 +436,7 @@ inline void getChassisProcessorProtocolBridgeForDevices(
                                     ["ProtocolBridgeForDevices"];
             protocalBridgeArray = nlohmann::json::array();
             boost::container::flat_set<std::string> chassisNames;
-            for (const std::string& chassisPath : *data)
+            for (const std::string& chassisPath : resp)
             {
                 sdbusplus::message::object_path objectPath(chassisPath);
                 std::string chassisName = objectPath.filename();
@@ -467,10 +458,7 @@ inline void getChassisProcessorProtocolBridgeForDevices(
                           std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                           "/Processors/" + chassisName}});
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/bridging_processor",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 /* * @brief Fill out links association to underneath chassis by
@@ -483,42 +471,37 @@ inline void getChassisNetworkAdapterProtocolBridgeForDevices(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get underneath chassis links");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/bridging_chassis",
+        "xyz.openbmc_project.Association", "endpoints",
         [aResp](const boost::system::error_code ec,
-                std::variant<std::vector<std::string>>& resp) {
+                const std::vector<std::string>& resp) {
             if (ec)
             {
                 return; // no chassis = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                return;
-            }
+
             aResp->res.jsonValue["Links"]["Oem"]["Nvidia"]["@odata.type"] =
                 "#NvidiaChassis.v1_7_0.NvidiaSMAChassis";
             nlohmann::json& protocalBridgeArray =
                 aResp->res.jsonValue["Links"]["Oem"]["Nvidia"]
                                     ["ProtocolBridgeForDevices"];
             protocalBridgeArray = nlohmann::json::array();
-            for (const std::string& chassisPath : *data)
+            for (const std::string& chassisPath : resp)
             {
-                crow::connections::systemBus->async_method_call(
-                    [aResp, &protocalBridgeArray, chassisPath](
-                        const boost::system::error_code& ec2,
-                        std::variant<std::vector<std::string>>& resp2) {
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    chassisPath + "/network_adapters",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [aResp, &protocalBridgeArray,
+                     chassisPath](const boost::system::error_code& ec2,
+                                  const std::vector<std::string>& resp2) {
                         if (ec2)
                         {
                             return; // no chassis = no failures
                         }
-                        std::vector<std::string>* data2 =
-                            std::get_if<std::vector<std::string>>(&resp2);
-                        if (data2 == nullptr)
-                        {
-                            return;
-                        }
-                        for (const std::string& networkAdapterPath : *data2)
+
+                        for (const std::string& networkAdapterPath : resp2)
                         {
                             sdbusplus::message::object_path objectPath(
                                 networkAdapterPath);
@@ -548,16 +531,9 @@ inline void getChassisNetworkAdapterProtocolBridgeForDevices(
                             protocalBridgeArray.push_back(
                                 {{"@odata.id", odataId}});
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    chassisPath + "/network_adapters",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/bridging_chassis",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 /* * @brief Fill out links association to underneath chassis by
@@ -715,30 +691,24 @@ inline void getResetStatistics(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get reset statistics on chassis");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/reset_statistics",
+        "xyz.openbmc_project.Association", "endpoints",
         [aResp](const boost::system::error_code& ec,
-                std::variant<std::vector<std::string>>& resp) {
+                const std::vector<std::string>& resp) {
             if (ec)
             {
                 return; // no association = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                return;
-            }
+
             aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                 "#NvidiaChassis.v1_10_0.NvidiaSMAChassis";
 
-            for (const std::string& resetObjPath : *data)
+            for (const std::string& resetObjPath : resp)
             {
                 getResetCounterMetricsObject(aResp, resetObjPath);
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/reset_statistics",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getHealthByAssociation(
@@ -746,24 +716,18 @@ inline void getHealthByAssociation(
     const std::string& objPath, const std::string& association,
     const std::string& objId)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/" + association,
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, objId](const boost::system::error_code& ec,
-                           std::variant<std::vector<std::string>>& resp) {
+                           const std::vector<std::string>& resp) {
             if (ec)
             {
                 // no state sensors attached.
                 return;
             }
 
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            for (const std::string& sensorPath : *data)
+            for (const std::string& sensorPath : resp)
             {
                 if (!sensorPath.ends_with(objId))
                 {
@@ -893,10 +857,7 @@ inline void getHealthByAssociation(
                     std::array<std::string, 1>(
                         {"xyz.openbmc_project.State.Decorator.Health"}));
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/" + association,
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 /**
@@ -910,23 +871,19 @@ inline void getChassisProcessorLinks(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get underneath processor links");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/all_processors",
+        "xyz.openbmc_project.Association", "endpoints",
         [aResp](const boost::system::error_code& ec2,
-                std::variant<std::vector<std::string>>& resp) {
+                const std::vector<std::string>& resp) {
             if (ec2)
             {
                 return; // no processors = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                return;
-            }
             nlohmann::json& linksArray =
                 aResp->res.jsonValue["Links"]["Processors"];
             linksArray = nlohmann::json::array();
-            for (const std::string& processorPath : *data)
+            for (const std::string& processorPath : resp)
             {
                 sdbusplus::message::object_path objectPath(processorPath);
                 std::string processorName = objectPath.filename();
@@ -941,10 +898,7 @@ inline void getChassisProcessorLinks(
                           std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                           "/Processors/" + processorName}});
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/all_processors",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 /**
@@ -958,21 +912,22 @@ inline void getChassisFabricSwitchesLinks(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get fabric switches links");
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/fabrics",
+        "xyz.openbmc_project.Association", "endpoints",
         [aResp, objPath](const boost::system::error_code& ec2,
-                         std::variant<std::vector<std::string>>& resp) {
+                         const std::vector<std::string>& resp) {
             if (ec2)
             {
                 return; // no fabric = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr || data->size() > 1)
+
+            if (resp.size() > 1)
             {
                 // There must be single fabric
                 return;
             }
-            const std::string& fabricPath = data->front();
+            const std::string& fabricPath = resp.front();
             sdbusplus::message::object_path objectPath(fabricPath);
             std::string fabricId = objectPath.filename();
             if (fabricId.empty())
@@ -981,26 +936,22 @@ inline void getChassisFabricSwitchesLinks(
                 return;
             }
             // Get the switches
-            crow::connections::systemBus->async_method_call(
-                [aResp,
-                 fabricId](const boost::system::error_code& ec1,
-                           std::variant<std::vector<std::string>>& resp1) {
+            dbus::utility::getProperty<std::vector<std::string>>(
+                "xyz.openbmc_project.ObjectMapper", objPath + "/all_switches",
+                "xyz.openbmc_project.Association", "endpoints",
+                [aResp, fabricId](const boost::system::error_code& ec1,
+                                  const std::vector<std::string>& resp1) {
                     if (ec1)
                     {
                         return; // no switches = no failures
                     }
-                    std::vector<std::string>* data1 =
-                        std::get_if<std::vector<std::string>>(&resp1);
-                    if (data1 == nullptr)
-                    {
-                        return;
-                    }
                     // Sort the switches links
-                    std::sort(data1->begin(), data1->end());
+                    std::vector<std::string> sortedData(resp1);
+                    std::sort(sortedData.begin(), sortedData.end());
                     nlohmann::json& linksArray =
                         aResp->res.jsonValue["Links"]["Switches"];
                     linksArray = nlohmann::json::array();
-                    for (const std::string& switchPath : *data1)
+                    for (const std::string& switchPath : sortedData)
                     {
                         sdbusplus::message::object_path objectPath1(switchPath);
                         std::string switchId = objectPath1.filename();
@@ -1015,14 +966,8 @@ inline void getChassisFabricSwitchesLinks(
                                                .append("/Switches/")
                                                .append(switchId)}});
                     }
-                },
-                "xyz.openbmc_project.ObjectMapper", objPath + "/all_switches",
-                "org.freedesktop.DBus.Properties", "Get",
-                "xyz.openbmc_project.Association", "endpoints");
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/fabrics",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+                });
+        });
 }
 
 /**
@@ -1111,20 +1056,14 @@ inline void getOemBaseboardChassisAssert(
     dbus::utility::findAssociations(
         objPath + "/associated_fru",
         [aResp](const boost::system::error_code& ec,
-                std::variant<std::vector<std::string>>& assoc) {
+                const std::vector<std::string>& assoc) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Cannot get association");
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&assoc);
-            if (data == nullptr)
-            {
-                return;
-            }
             const std::string& fruPath = data->front();
-            crow::connections::systemBus->async_method_call(
+            dbus::utility::async_method_call(
                 [aResp{aResp},
                  fruPath](const boost::system::error_code& ec2,
                           const std::vector<
@@ -1212,20 +1151,14 @@ inline void setOemBaseboardChassisAssert(
     dbus::utility::findAssociations(
         objPath + "/associated_fru",
         [aResp, prop, value](const boost::system::error_code& ec,
-                             std::variant<std::vector<std::string>>& assoc) {
+                             const std::vector<std::string>& assoc) {
             if (ec)
             {
                 messages::internalError(aResp->res);
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&assoc);
-            if (data == nullptr)
-            {
-                return;
-            }
-            const std::string& fruPath = data->front();
-            crow::connections::systemBus->async_method_call(
+            const std::string& fruPath = assoc.front();
+            dbus::utility::async_method_call(
                 [aResp{aResp}, fruPath, prop,
                  value](const boost::system::error_code& ec4,
                         const std::vector<std::pair<
@@ -1311,20 +1244,14 @@ inline void getOemAssemblyAssert(
     dbus::utility::findAssociations(
         objPath + "/associated_fru",
         [aResp, assemblyId](const boost::system::error_code& ec,
-                            std::variant<std::vector<std::string>>& assoc) {
+                            const std::vector<std::string>& assoc) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Cannot get association");
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&assoc);
-            if (data == nullptr)
-            {
-                return;
-            }
-            const std::string& fruPath = data->front();
-            crow::connections::systemBus->async_method_call(
+            const std::string& fruPath = assoc.front();
+            dbus::utility::async_method_call(
                 [aResp{aResp}, fruPath, assemblyId](
                     const boost::system::error_code& ec1,
                     const std::vector<std::pair<
@@ -1731,26 +1658,19 @@ inline void setStaticPowerHintByChassis(
     double workloadFactor, double temperature)
 {
     // get endpoints of chassisId/all_controls
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", chassisObjPath + "/all_controls",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, chassisObjPath, cpuClockFrequency, workloadFactor,
          temperature](const boost::system::error_code&,
-                      std::variant<std::vector<std::string>>& resp) {
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                return;
-            }
-            for (const auto& objPath : *data)
+                      const std::vector<std::string>& resp) {
+            for (const auto& objPath : resp)
             {
                 setStaticPowerHintByObjPath(asyncResp, objPath,
                                             cpuClockFrequency, workloadFactor,
                                             temperature);
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", chassisObjPath + "/all_controls",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getStaticPowerHintByObjPath(
@@ -1885,24 +1805,16 @@ inline void getStaticPowerHintByChassis(
     const std::string& chassisObjPath)
 {
     // get endpoints of chassisId/all_controls
-    crow::connections::systemBus->async_method_call(
-        [asyncResp,
-         chassisObjPath](const boost::system::error_code&,
-                         std::variant<std::vector<std::string>>& resp) {
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                return;
-            }
-            for (const auto& objPath : *data)
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", chassisObjPath + "/all_controls",
+        "xyz.openbmc_project.Association", "endpoints",
+        [asyncResp, chassisObjPath](const boost::system::error_code&,
+                                    const std::vector<std::string>& resp) {
+            for (const auto& objPath : resp)
             {
                 getStaticPowerHintByObjPath(asyncResp, objPath);
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", chassisObjPath + "/all_controls",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void maybePopulateStaticPowerHint(
@@ -2053,8 +1965,7 @@ inline void getChassisWriteProtectProtectEnable(
         sdbusplus::message::object_path("/xyz/openbmc_project/software") /=
         chassisId,
         "xyz.openbmc_project.Software.Settings", "WriteProtected",
-        [asyncResp](const boost::system::error_code& ec2,
-                    const bool& property) {
+        [asyncResp](const boost::system::error_code& ec2, bool property) {
             if (ec2.value() ==
                 boost::system::linux_error::bad_request_descriptor)
             {

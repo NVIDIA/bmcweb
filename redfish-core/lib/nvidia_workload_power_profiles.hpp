@@ -306,24 +306,21 @@ inline void validateProcessorWorkloadPowerProfile(
                 aResp->res.jsonValue["@odata.id"] = profileURI;
                 aResp->res.jsonValue["Id"] = profileId;
 
-                dbus::utility::async_method_call(
-                    [aResp, profileId, processorId](
-                        const boost::system::error_code& ecInner,
-                        std::variant<std::vector<std::string>>& resp) {
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    path + "/workload_power_profile",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [aResp, profileId,
+                     processorId](const boost::system::error_code& ecInner,
+                                  const std::vector<std::string>& resp) {
                         if (ecInner)
                         {
                             return; // no processors = no failures
                         }
 
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            return;
-                        }
                         bool profileExists = false;
 
-                        for (const std::string& profilePath : *data)
+                        for (const std::string& profilePath : resp)
                         {
                             sdbusplus::message::object_path objectPath(
                                 profilePath);
@@ -370,11 +367,7 @@ inline void validateProcessorWorkloadPowerProfile(
                                 "#NvidiaWorkloadPowerProfile.v1_0_0.NvidiaWorkloadPowerProfile",
                                 profileId);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    path + "/workload_power_profile",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
                 return;
             }
             // Object not found
@@ -425,23 +418,20 @@ inline void getProcessorWorkloadPowerProfileCollectionData(
                 aResp->res.jsonValue["Members"] = nlohmann::json::array();
                 aResp->res.jsonValue["Members@odata.count"] = 0;
 
-                dbus::utility::async_method_call(
-                    [aResp, profileCollectionURI, processorId](
-                        const boost::system::error_code& ec2,
-                        std::variant<std::vector<std::string>>& resp) {
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    path + "/workload_power_profile",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [aResp, profileCollectionURI,
+                     processorId](const boost::system::error_code& ec2,
+                                  const std::vector<std::string>& resp) {
                         if (ec2)
                         {
                             return; // no processors = no failures
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if (data == nullptr)
-                        {
-                            return;
-                        }
                         nlohmann::json& addMembers =
                             aResp->res.jsonValue["Members"];
-                        for (const std::string& profilePath : *data)
+                        for (const std::string& profilePath : resp)
                         {
                             sdbusplus::message::object_path objectPath(
                                 profilePath);
@@ -452,11 +442,7 @@ inline void getProcessorWorkloadPowerProfileCollectionData(
                         }
                         aResp->res.jsonValue["Members@odata.count"] =
                             addMembers.size();
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    path + "/workload_power_profile",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
                 return;
             }
             // Object not found

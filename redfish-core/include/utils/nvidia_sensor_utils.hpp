@@ -55,21 +55,17 @@ inline void populateRelatedNetworkAdapterData(
     dbus::utility::findAssociations(
         objPath + "/parent_chassis",
         [asyncResp, objPath](const boost::system::error_code ec,
-                             std::variant<std::vector<std::string>>& resp) {
+                             const std::vector<std::string>& resp) {
             if (ec)
             {
                 // default
                 defaultSystemURI(asyncResp);
                 return;
             }
-            auto* data = std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                return;
-            }
+
             nlohmann::json& itemsArray =
                 asyncResp->res.jsonValue["RelatedItem"];
-            for (const std::string& chassisPath : *data)
+            for (const std::string& chassisPath : resp)
             {
                 sdbusplus::message::object_path adapterPath(objPath);
                 std::string adapterId = adapterPath.filename();
@@ -90,32 +86,31 @@ inline void getRelatedNetworkAdapterData(
     BMCWEB_LOG_DEBUG("Sensor get related network adapter item");
 
     // Check chassis link
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/chassis",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, objPath](const boost::system::error_code ec,
-                             std::variant<std::vector<std::string>>& resp) {
+                             const std::vector<std::string>& resp) {
             if (ec)
             {
                 // If chassis link fails, fallback to default system URI
                 defaultSystemURI(asyncResp);
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                defaultSystemURI(asyncResp);
-                return;
-            }
-            for (const std::string& chassisPath : *data)
+
+            for (const std::string& chassisPath : resp)
             {
                 sdbusplus::message::object_path objectPath(chassisPath);
                 const std::string chassisId = objectPath.filename();
 
                 // Now check the network adapter link
-                dbus::utility::async_method_call(
-                    [asyncResp, chassisId, objectPath](
-                        const boost::system::error_code ec1,
-                        std::variant<std::vector<std::string>>& resp1) {
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    objPath + "/network_adapter",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [asyncResp, chassisId,
+                     objectPath](const boost::system::error_code ec1,
+                                 const std::vector<std::string>& resp1) {
                         if (ec1)
                         {
                             // If network adapter call fails,
@@ -126,27 +121,15 @@ inline void getRelatedNetworkAdapterData(
                                 handleChassisRedfishURL);
                             return;
                         }
-                        std::vector<std::string>* data1 =
-                            std::get_if<std::vector<std::string>>(&resp1);
-                        if (data1 == nullptr)
-                        {
-                            return;
-                        }
-                        for (const std::string& adapterPath : *data1)
+
+                        for (const std::string& adapterPath : resp1)
                         {
                             populateRelatedNetworkAdapterData(asyncResp,
                                                               adapterPath);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    objPath + "/network_adapter",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/chassis",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getRelatedItemData(
@@ -156,16 +139,20 @@ inline void getRelatedItemData(
     BMCWEB_LOG_DEBUG("Sensor get related item");
 
     // Check fabric switch link
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/fabric",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, objPath](const boost::system::error_code& ec,
-                             std::variant<std::vector<std::string>>& resp) {
+                             const std::vector<std::string>& resp) {
             if (ec)
             {
                 // Check processor link
-                dbus::utility::async_method_call(
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper", objPath + "/processor",
+                    "xyz.openbmc_project.Association", "endpoints",
                     [asyncResp,
                      objPath](const boost::system::error_code& ec1,
-                              std::variant<std::vector<std::string>>& resp1) {
+                              const std::vector<std::string>& resp1) {
                         nlohmann::json& itemsArray1 =
                             asyncResp->res.jsonValue["RelatedItem"];
                         if (ec1)
@@ -176,13 +163,7 @@ inline void getRelatedItemData(
                                 asyncResp, objPath);
                             return;
                         }
-                        std::vector<std::string>* data =
-                            std::get_if<std::vector<std::string>>(&resp1);
-                        if (data == nullptr)
-                        {
-                            return;
-                        }
-                        for (const std::string& processorPath : *data)
+                        for (const std::string& processorPath : resp1)
                         {
                             sdbusplus::message::object_path objectPath(
                                 processorPath);
@@ -193,39 +174,27 @@ inline void getRelatedItemData(
                             itemsArray1.push_back(
                                 {{"@odata.id", processorURI}});
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper", objPath + "/processor",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                return;
-            }
-            for (const std::string& fabricPath : *data)
+            for (const std::string& fabricPath : resp)
             {
                 sdbusplus::message::object_path objectPath(fabricPath);
                 const std::string fabricId = objectPath.filename();
-                dbus::utility::async_method_call(
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper", objPath + "/switch",
+                    "xyz.openbmc_project.Association", "endpoints",
                     [asyncResp,
                      fabricId](const boost::system::error_code& ec1,
-                               std::variant<std::vector<std::string>>& resp1) {
+                               const std::vector<std::string>& resp1) {
                         if (ec1)
                         {
                             return; // no switch = no failures
                         }
-                        std::vector<std::string>* data1 =
-                            std::get_if<std::vector<std::string>>(&resp1);
-                        if (data1 == nullptr)
-                        {
-                            return;
-                        }
+
                         nlohmann::json& itemsArray1 =
                             asyncResp->res.jsonValue["RelatedItem"];
-                        for (const std::string& switchPath : *data1)
+                        for (const std::string& switchPath : resp1)
                         {
                             sdbusplus::message::object_path objectPath1(
                                 switchPath);
@@ -237,15 +206,9 @@ inline void getRelatedItemData(
                                     .buffer();
                             itemsArray1.push_back({{"@odata.id", switchURI}});
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper", objPath + "/switch",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/fabric",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline const char* toImplementation(const std::string& implementation)
@@ -606,22 +569,15 @@ inline void getChassisSensors(
     auto getAllChassisSensors =
         [asyncResp, sensorName, chassisId, handleMapperResponse](
             const boost::system::error_code& ec,
-            const std::variant<std::vector<std::string>>& variantEndpoints) {
+            const std::vector<std::string>& variantEndpoints) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("getAllChassisSensors DBUS error: {}", ec);
                 messages::internalError(asyncResp->res);
                 return;
             }
-            const std::vector<std::string>* sensorPaths =
-                std::get_if<std::vector<std::string>>(&(variantEndpoints));
-            if (sensorPaths == nullptr)
-            {
-                BMCWEB_LOG_ERROR("getAllChassisSensors empty sensors list");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            for (const std::string& sensorPath : *sensorPaths)
+
+            for (const std::string& sensorPath : variantEndpoints)
             {
                 sdbusplus::message::object_path path(sensorPath);
                 const std::string& sensorId = path.filename();
@@ -665,10 +621,9 @@ inline void getChassisSensors(
             }
             messages::resourceNotFound(asyncResp->res, "Sensor", sensorName);
         };
-    dbus::utility::async_method_call(
-        getAllChassisSensors, "xyz.openbmc_project.ObjectMapper",
-        chassisPath + "/all_sensors", "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", chassisPath + "/all_sensors",
+        "xyz.openbmc_project.Association", "endpoints", getAllChassisSensors);
 }
 
 inline void handleSensorGetAfterSetup(

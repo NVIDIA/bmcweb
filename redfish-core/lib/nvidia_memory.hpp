@@ -51,23 +51,20 @@ inline void getMemoryProcessorLink(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get parent processor link");
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/parent_processor",
+        "xyz.openbmc_project.Association", "endpoints",
         [aResp](const boost::system::error_code& ec2,
-                std::variant<std::vector<std::string>>& resp) {
+                const std::vector<std::string>& resp) {
             if (ec2)
             {
                 return; // no processors = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                return;
-            }
+
             nlohmann::json& linksArray =
                 aResp->res.jsonValue["Links"]["Processors"];
             linksArray = nlohmann::json::array();
-            for (const std::string& processorPath : *data)
+            for (const std::string& processorPath : resp)
             {
                 sdbusplus::message::object_path objectPath(processorPath);
                 std::string processorName = objectPath.filename();
@@ -82,10 +79,7 @@ inline void getMemoryProcessorLink(
                           std::string(BMCWEB_REDFISH_SYSTEM_URI_NAME) +
                           "/Processors/" + processorName}});
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/parent_processor",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 /**
@@ -99,21 +93,22 @@ inline void getMemoryChassisLink(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get parent chassis link");
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/parent_chassis",
+        "xyz.openbmc_project.Association", "endpoints",
         [aResp](const boost::system::error_code& ec2,
-                std::variant<std::vector<std::string>>& resp) {
+                const std::vector<std::string>& resp) {
             if (ec2)
             {
                 return; // no chassis = no failures
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr || data->size() > 1)
+
+            if (resp.size() > 1)
             {
                 // Memory must have single parent chassis
                 return;
             }
-            const std::string& chassisPath = data->front();
+            const std::string& chassisPath = resp.front();
             sdbusplus::message::object_path objectPath(chassisPath);
             std::string chassisName = objectPath.filename();
             if (chassisName.empty())
@@ -123,10 +118,7 @@ inline void getMemoryChassisLink(
             }
             aResp->res.jsonValue["Links"]["Chassis"] = {
                 {"@odata.id", "/redfish/v1/Chassis/" + chassisName}};
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/parent_chassis",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getMemoryDataByService(std::shared_ptr<bmcweb::AsyncResp> aResp,

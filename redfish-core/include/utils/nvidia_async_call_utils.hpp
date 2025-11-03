@@ -50,7 +50,8 @@ template <typename CallAsyncStatusInfo>
 void callAsyncGetValue(std::shared_ptr<CallAsyncStatusInfo> statusInfo,
                        const std::string& status)
 {
-    if constexpr (std::is_same_v<typename CallAsyncStatusInfo::Value, void>)
+    using ValueType = CallAsyncStatusInfo::Value;
+    if constexpr (std::is_same_v<ValueType, void>)
     {
         if (status != asyncStatusValueInProgress)
         {
@@ -64,11 +65,11 @@ void callAsyncGetValue(std::shared_ptr<CallAsyncStatusInfo> statusInfo,
     {
         std::weak_ptr<CallAsyncStatusInfo> weakStatusInfo{statusInfo};
 
-        dbus::utility::async_method_call(
-            [weakStatusInfo,
-             status](const boost::system::error_code ec,
-                     const std::variant<typename CallAsyncStatusInfo::Value>&
-                         value) {
+        dbus::utility::getProperty<ValueType>(
+            statusInfo->service, statusInfo->object, statusInfo->valueInterface,
+            statusInfo->valueProperty,
+            [weakStatusInfo, status](const boost::system::error_code& ec,
+                                     const ValueType& value) {
                 auto statInfo = weakStatusInfo.lock();
                 if (!statInfo || statInfo->completed)
                 {
@@ -84,9 +85,7 @@ void callAsyncGetValue(std::shared_ptr<CallAsyncStatusInfo> statusInfo,
                     reportErrorAndCancel(statInfo);
                     return;
                 }
-                const auto valuePtr =
-                    std::get_if<typename CallAsyncStatusInfo::Value>(&value);
-                if (valuePtr == nullptr && status != asyncStatusValueSuccess)
+                if (status != asyncStatusValueSuccess)
                 {
                     BMCWEB_LOG_INFO(
                         "Call Async: Failed to get value from variant for non-success status");
@@ -94,12 +93,9 @@ void callAsyncGetValue(std::shared_ptr<CallAsyncStatusInfo> statusInfo,
                     return;
                 }
                 statInfo->completed = true;
-                statInfo->callback(status, valuePtr);
+                statInfo->callback(status, &value);
                 statInfo->timeoutTimer.cancel();
-            },
-            statusInfo->service, statusInfo->object,
-            "org.freedesktop.DBus.Properties", "Get",
-            statusInfo->valueInterface, statusInfo->valueProperty);
+            });
     }
 }
 
@@ -280,11 +276,10 @@ class CallAsyncMethodCall
                 statusInfo->object, statusInfo->statusInterface),
             CallAsyncStatusChanged<CallAsyncStatusInfo>{statusInfo});
 
-        dbus::utility::async_method_call(
-            CallAsyncGetStatus<CallAsyncStatusInfo>{statusInfo},
+        dbus::utility::getProperty<std::string>(
             statusInfo->service, statusInfo->object,
-            "org.freedesktop.DBus.Properties", "Get",
-            statusInfo->statusInterface, statusInfo->statusProperty);
+            statusInfo->statusInterface, statusInfo->statusProperty,
+            CallAsyncGetStatus<CallAsyncStatusInfo>{statusInfo});
     }
 
   private:

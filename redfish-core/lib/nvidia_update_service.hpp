@@ -659,9 +659,11 @@ inline static void getRelatedItemsPowerSupply(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const sdbusplus::message::object_path& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath.str + "/chassis",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, objPath](const boost::system::error_code& errorCode,
-                             std::variant<std::vector<std::string>>& resp) {
+                             const std::vector<std::string>& data) {
             if (errorCode)
             {
                 BMCWEB_LOG_DEBUG("error_code = {}", errorCode);
@@ -669,14 +671,7 @@ inline static void getRelatedItemsPowerSupply(
                 return;
             }
             std::string chassisName = "chassis";
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR("Invalid Object.");
-                return;
-            }
-            for (const std::string& path : *data)
+            for (const std::string& path : data)
             {
                 sdbusplus::message::object_path myLocalPath(path);
                 chassisName = myLocalPath.filename();
@@ -692,19 +687,18 @@ inline static void getRelatedItemsPowerSupply(
 
             relatedItemCount = relatedItem.size();
             asyncResp->res.jsonValue["Description"] = "Power Supply image";
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath.str + "/chassis",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline static void getRelatedItemsPCIeDevice(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const sdbusplus::message::object_path& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath.str + "/chassis",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, objPath](const boost::system::error_code& errorCode,
-                             std::variant<std::vector<std::string>>& resp) {
+                             const std::vector<std::string>& data) {
             if (errorCode)
             {
                 BMCWEB_LOG_DEBUG("error_code = {}", errorCode);
@@ -712,14 +706,7 @@ inline static void getRelatedItemsPCIeDevice(
                 return;
             }
             std::string chassisName = "chassis";
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR("Invalid Object.");
-                return;
-            }
-            for (const std::string& path : *data)
+            for (const std::string& path : data)
             {
                 sdbusplus::message::object_path myLocalPath(path);
                 chassisName = myLocalPath.filename();
@@ -733,19 +720,18 @@ inline static void getRelatedItemsPCIeDevice(
                                    "/PCIeDevices/" + objPath.filename()}});
 
             relatedItemCount = relatedItem.size();
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath.str + "/chassis",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline static void getRelatedItemsSwitch(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const sdbusplus::message::object_path& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath.str + "/fabrics",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, objPath](const boost::system::error_code& errorCode,
-                             std::variant<std::vector<std::string>>& resp) {
+                             const std::vector<std::string>& data) {
             if (errorCode)
             {
                 BMCWEB_LOG_DEBUG("error_code = {}", errorCode);
@@ -753,14 +739,7 @@ inline static void getRelatedItemsSwitch(
                 return;
             }
             std::string fabricName = "fabric";
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR("Invalid Object.");
-                return;
-            }
-            for (const std::string& path : *data)
+            for (const std::string& path : data)
             {
                 sdbusplus::message::object_path myLocalPath(path);
                 fabricName = myLocalPath.filename();
@@ -774,19 +753,18 @@ inline static void getRelatedItemsSwitch(
                                    "/Switches/" + objPath.filename()}});
 
             relatedItemCount = relatedItem.size();
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath.str + "/fabrics",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline static void getRelatedItemsNetworkAdapter(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const sdbusplus::message::object_path& objPath)
 {
-    crow::connections::systemBus->async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath.str + "/parent_chassis",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, objPath](const boost::system::error_code& errorCode,
-                             std::variant<std::vector<std::string>>& resp) {
+                             const std::vector<std::string>& data) {
             if (errorCode)
             {
                 BMCWEB_LOG_ERROR("error_code = {}", errorCode);
@@ -794,16 +772,9 @@ inline static void getRelatedItemsNetworkAdapter(
                 return;
             }
             std::string networAdapterChassisName = "Networkadapter";
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+            if (!data.empty())
             {
-                BMCWEB_LOG_ERROR("Invalid Object.");
-                return;
-            }
-            if (!data->empty())
-            {
-                sdbusplus::message::object_path myLocalPath(data->front());
+                sdbusplus::message::object_path myLocalPath(data.front());
                 networAdapterChassisName = myLocalPath.filename();
             }
             nlohmann::json& relatedItem =
@@ -816,10 +787,7 @@ inline static void getRelatedItemsNetworkAdapter(
                       "/NetworkAdapters/" + objPath.filename()}});
 
             relatedItemCount = relatedItem.size();
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath.str + "/parent_chassis",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline static void getRelatedItemsOther(
@@ -978,9 +946,11 @@ inline static void getRelatedItemsOthers(
                 {
                     continue;
                 }
-                crow::connections::systemBus->async_method_call(
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper", path.str + "/inventory",
+                    "xyz.openbmc_project.Association", "endpoints",
                     [aResp](const boost::system::error_code& errCodeAssoc,
-                            std::variant<std::vector<std::string>>& resp) {
+                            const std::vector<std::string>& resp) {
                         if (errCodeAssoc)
                         {
                             BMCWEB_LOG_ERROR("error_code = {}, error msg = {}",
@@ -989,17 +959,7 @@ inline static void getRelatedItemsOthers(
                             return;
                         }
 
-                        std::vector<std::string>* associations =
-                            std::get_if<std::vector<std::string>>(&resp);
-                        if ((associations == nullptr) ||
-                            (associations->empty()))
-                        {
-                            BMCWEB_LOG_ERROR(
-                                "Zero association for the software");
-                            return;
-                        }
-
-                        for (const std::string& association : *associations)
+                        for (const std::string& association : resp)
                         {
                             if (association.empty())
                             {
@@ -1010,10 +970,7 @@ inline static void getRelatedItemsOthers(
 
                             getRelatedItemsOther(aResp, associationPath);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper", path.str + "/inventory",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
             }
         },
         "xyz.openbmc_project.ObjectMapper",
@@ -1405,27 +1362,16 @@ inline void computeDigest(const crow::Request& req,
                         if (!(value->empty()))
                         {
                             std::string hashDigestValue = *value;
-                            crow::connections::systemBus->async_method_call(
+                            dbus::utility::getProperty<std::string>(
+                                hashComputeService, hashComputeObjPath,
+                                hashComputeInterface, "Algorithm",
                                 [taskData, hashDigestValue](
                                     const boost::system::error_code& ec2,
-                                    const std::variant<std::string>& property) {
+                                    const std::string& hashAlgoValue) {
                                     if (ec2)
                                     {
                                         BMCWEB_LOG_ERROR(
                                             "DBUS response error for Algorithm");
-                                        taskData->state = "Exception";
-                                        taskData->messages.emplace_back(
-                                            messages::taskAborted(
-                                                std::to_string(
-                                                    taskData->index)));
-                                        return;
-                                    }
-                                    const std::string* hashAlgoValue =
-                                        std::get_if<std::string>(&property);
-                                    if (hashAlgoValue == nullptr)
-                                    {
-                                        BMCWEB_LOG_ERROR(
-                                            "Null value returned for Algorithm");
                                         taskData->state = "Exception";
                                         taskData->messages.emplace_back(
                                             messages::taskAborted(
@@ -1439,7 +1385,7 @@ inline void computeDigest(const crow::Request& req,
                                         hashDigestValue;
                                     jsonResponse
                                         ["FirmwareDigestHashingAlgorithm"] =
-                                            *hashAlgoValue;
+                                            hashAlgoValue;
                                     std::string location =
                                         "Location: /redfish/v1/TaskService/Tasks/" +
                                         std::to_string(taskData->index) +
@@ -1452,10 +1398,7 @@ inline void computeDigest(const crow::Request& req,
                                         messages::taskCompletedOK(
                                             std::to_string(taskData->index)));
                                     taskData->finishTask();
-                                },
-                                hashComputeService, hashComputeObjPath,
-                                "org.freedesktop.DBus.Properties", "Get",
-                                hashComputeInterface, "Algorithm");
+                                });
                             computeDigestInProgress = false;
                             return task::completed;
                         }

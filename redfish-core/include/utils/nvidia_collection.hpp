@@ -48,10 +48,12 @@ inline void getCollectionMembersByAssociation(
 {
     BMCWEB_LOG_DEBUG("Get collection members by association for: {}",
                      collectionPath);
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath,
+        "xyz.openbmc_project.Association", "endpoints",
         [aResp, collectionPath,
          interfaces](const boost::system::error_code& e,
-                     std::variant<std::vector<std::string>>& resp) {
+                     const std::vector<std::string>& resp) {
             if (e)
             {
                 // no members attached.
@@ -60,19 +62,11 @@ inline void getCollectionMembersByAssociation(
                 return;
             }
 
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                messages::internalError(aResp->res);
-                return;
-            }
-
             // Collection members
             nlohmann::json& members = aResp->res.jsonValue["Members"];
 
             members = nlohmann::json::array();
-            for (const std::string& sensorpath : *data)
+            for (const std::string& sensorpath : resp)
             {
                 // Check Interface in Object or not
                 dbus::utility::async_method_call(
@@ -103,10 +97,7 @@ inline void getCollectionMembersByAssociation(
                     "xyz.openbmc_project.ObjectMapper", "GetObject", sensorpath,
                     interfaces);
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath,
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 } // namespace collection_util

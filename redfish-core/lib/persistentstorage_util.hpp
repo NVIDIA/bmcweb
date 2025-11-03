@@ -239,9 +239,12 @@ struct PersistentStorageUtil
 inline void populatePersistentStorageSettingStatus(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<int32_t>(
+        "org.freedesktop.systemd1",
+        "/org/freedesktop/systemd1/unit/nvidia_2demmc_2dpartition_2eservice",
+        "org.freedesktop.systemd1.Service", "ExecMainStatus",
         [asyncResp](const boost::system::error_code& ec,
-                    const std::variant<int32_t>& property) {
+                    const int32_t& serviceStatus) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -250,20 +253,14 @@ inline void populatePersistentStorageSettingStatus(
                 redfish::messages::internalError(asyncResp->res);
                 return;
             }
-            const int32_t* serviceStatus = std::get_if<int32_t>(&property);
-            if (serviceStatus == nullptr)
-            {
-                BMCWEB_LOG_ERROR("Invalid service exit status code");
-                redfish::messages::internalError(asyncResp->res);
-                return;
-            }
-            if (*serviceStatus == emmcPartitionMounted)
+
+            if (serviceStatus == emmcPartitionMounted)
             {
                 asyncResp->res
                     .jsonValue["PersistentStorageSettings"]["Status"]["State"] =
                     "Enabled";
             }
-            else if (*serviceStatus == eudaProgrammedNotActivated)
+            else if (serviceStatus == eudaProgrammedNotActivated)
             {
                 asyncResp->res
                     .jsonValue["PersistentStorageSettings"]["Status"]["State"] =
@@ -275,11 +272,7 @@ inline void populatePersistentStorageSettingStatus(
                     .jsonValue["PersistentStorageSettings"]["Status"]["State"] =
                     "Disabled";
             }
-        },
-        "org.freedesktop.systemd1",
-        "/org/freedesktop/systemd1/unit/nvidia_2demmc_2dpartition_2eservice",
-        "org.freedesktop.DBus.Properties", "Get",
-        "org.freedesktop.systemd1.Service", "ExecMainStatus");
+        });
 }
 
 } // namespace redfish

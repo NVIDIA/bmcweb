@@ -94,20 +94,13 @@ inline void getStateSensorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 
 inline void getStateSensorHandler(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp,
-    const boost::system::error_code& ec,
-    const std::variant<std::vector<std::string> /*unused*/>& assoc)
+    const boost::system::error_code& ec, const std::vector<std::string>& assoc)
 {
     if (ec)
     {
         return;
     }
-    const std::vector<std::string>* data =
-        std::get_if<std::vector<std::string>>(&assoc);
-    if (data == nullptr)
-    {
-        return;
-    }
-    for (const std::string& sensorPath : *data)
+    for (const std::string& sensorPath : assoc)
     {
         dbus::utility::getDbusObject(
             sensorPath,
@@ -126,7 +119,7 @@ inline void getStateSensors(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
     dbus::utility::findAssociations(
         objPath + "/all_states",
         [aResp](const boost::system::error_code& ec,
-                std::variant<std::vector<std::string>>& assoc) {
+                const std::vector<std::string>& assoc) {
             getStateSensorHandler(aResp, ec, assoc);
         });
 }

@@ -105,11 +105,14 @@ void getValidNetworkAdapterPath(
     }
     else
     {
-        dbus::utility::async_method_call(
+        dbus::utility::getProperty<std::vector<std::string>>(
+            "xyz.openbmc_project.ObjectMapper",
+            chassisObjPath + "/network_adapters",
+            "xyz.openbmc_project.Association", "endpoints",
             [callback{std::forward<Callback>(callback)}, asyncResp,
              chassisObjPath,
              networkAdapterId](const boost::system::error_code ec,
-                               std::variant<std::vector<std::string>>& resp) {
+                               const std::vector<std::string>& resp) {
                 if (ec)
                 {
                     BMCWEB_LOG_ERROR(
@@ -118,18 +121,9 @@ void getValidNetworkAdapterPath(
                     messages::internalError(asyncResp->res);
                     return;
                 }
-                std::vector<std::string>* data =
-                    std::get_if<std::vector<std::string>>(&resp);
-                if (data == nullptr)
-                {
-                    BMCWEB_LOG_ERROR("no network_adapter found {}",
-                                     chassisObjPath);
-                    messages::internalError(asyncResp->res);
-                    return;
-                }
 
                 std::optional<std::string> validNetworkAdapterPath;
-                for (const std::string& networkAdapterPath : *data)
+                for (const std::string& networkAdapterPath : resp)
                 {
                     sdbusplus::message::object_path networkAdapterObjPath(
                         networkAdapterPath);
@@ -148,11 +142,7 @@ void getValidNetworkAdapterPath(
                     }
                 }
                 callback(validNetworkAdapterPath);
-            },
-            "xyz.openbmc_project.ObjectMapper",
-            chassisObjPath + "/network_adapters",
-            "org.freedesktop.DBus.Properties", "Get",
-            "xyz.openbmc_project.Association", "endpoints");
+            });
     }
 }
 
@@ -231,9 +221,11 @@ inline void doNetworkAdaptersCollectionGeneric(
     }
 
     // get network adapter on chassis by association
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", path + "/network_adapters",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, chassisId](const boost::system::error_code ec,
-                               std::variant<std::vector<std::string>>& resp) {
+                               const std::vector<std::string>& resp) {
             if (ec == boost::system::errc::io_error)
             {
                 asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
@@ -245,18 +237,9 @@ inline void doNetworkAdaptersCollectionGeneric(
             {
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR("DBUS response error");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
             nlohmann::json& members = asyncResp->res.jsonValue["Members"];
             members = nlohmann::json::array();
-            for (const std::string& networkAdapterPath : *data)
+            for (const std::string& networkAdapterPath : resp)
             {
                 sdbusplus::message::object_path networkAdapterObjPath(
                     networkAdapterPath);
@@ -275,10 +258,7 @@ inline void doNetworkAdaptersCollectionGeneric(
             }
             asyncResp->res.jsonValue["Members@odata.count"] = members.size();
             return;
-        },
-        "xyz.openbmc_project.ObjectMapper", path + "/network_adapters",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline std::string convertHealthToRF(const std::string& health)
@@ -346,27 +326,27 @@ inline void getHealthByAssociation(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& objPath, const std::string& networkAdapterId)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/parent_chassis",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, objPath,
          networkAdapterId](const boost::system::error_code& ec,
-                           std::variant<std::vector<std::string>>& response) {
+                           const std::vector<std::string>& response) {
             std::string objectPathOfChassis = objPath;
             if (!ec)
             {
-                std::vector<std::string>* pathData =
-                    std::get_if<std::vector<std::string>>(&response);
-                if (pathData != nullptr)
+                for (const std::string& parentChassisPath : response)
                 {
-                    for (const std::string& parentChassisPath : *pathData)
-                    {
-                        objectPathOfChassis = parentChassisPath;
-                    }
+                    objectPathOfChassis = parentChassisPath;
                 }
             }
-            dbus::utility::async_method_call(
-                [asyncResp, networkAdapterId](
-                    const boost::system::error_code& ec1,
-                    std::variant<std::vector<std::string>>& resp) {
+            dbus::utility::getProperty<std::vector<std::string>>(
+                "xyz.openbmc_project.ObjectMapper",
+                objectPathOfChassis + "/all_states",
+                "xyz.openbmc_project.Association", "endpoints",
+                [asyncResp,
+                 networkAdapterId](const boost::system::error_code& ec1,
+                                   const std::vector<std::string>& resp) {
                     if (ec1)
                     {
                         // no state sensors attached.
@@ -374,17 +354,7 @@ inline void getHealthByAssociation(
                         return;
                     }
 
-                    std::vector<std::string>* data =
-                        std::get_if<std::vector<std::string>>(&resp);
-                    if (data == nullptr)
-                    {
-                        BMCWEB_LOG_ERROR(
-                            "DBUS response error while getting all_states");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-
-                    for (const std::string& sensorPath : *data)
+                    for (const std::string& sensorPath : resp)
                     {
                         if (!sensorPath.ends_with(networkAdapterId))
                         {
@@ -415,15 +385,8 @@ inline void getHealthByAssociation(
                             std::array<std::string, 1>(
                                 {"xyz.openbmc_project.State.Decorator.Health"}));
                     }
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                objectPathOfChassis + "/all_states",
-                "org.freedesktop.DBus.Properties", "Get",
-                "xyz.openbmc_project.Association", "endpoints");
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/parent_chassis",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+                });
+        });
 }
 
 inline void getAssetData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -640,27 +603,27 @@ inline void getPCIeData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     BMCWEB_LOG_DEBUG("Get PCIe interface data and PCIe device on {}",
                      networkAdapterId);
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", devicePath + "/parent_chassis",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, chassisId, networkAdapterId,
          controllerObject](const boost::system::error_code ec,
-                           std::variant<std::vector<std::string>>& resp) {
+                           const std::vector<std::string>& resp) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Get chassis failed on{}", networkAdapterId);
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
+
+            for (const std::string& chassisPath : resp)
             {
-                return;
-            }
-            for (const std::string& chassisPath : *data)
-            {
-                dbus::utility::async_method_call(
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    chassisPath + "/pciedevice",
+                    "xyz.openbmc_project.Association", "endpoints",
                     [asyncResp, chassisId, networkAdapterId, controllerObject](
                         const boost::system::error_code ec1,
-                        std::variant<std::vector<std::string>>& pcieResp) {
+                        const std::vector<std::string>& pcieResp) {
                         if (ec1)
                         {
                             BMCWEB_LOG_DEBUG(
@@ -668,15 +631,9 @@ inline void getPCIeData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                 networkAdapterId);
                             return;
                         }
-                        std::vector<std::string>* data2 =
-                            std::get_if<std::vector<std::string>>(&pcieResp);
-                        if (data2 == nullptr)
-                        {
-                            return;
-                        }
                         std::string pcieDeviceId;
                         std::string pcieDevicePath;
-                        for (const std::string& path : *data2)
+                        for (const std::string& path : pcieResp)
                         {
                             sdbusplus::message::object_path objectPath(path);
                             std::string deviceId = objectPath.filename();
@@ -701,16 +658,9 @@ inline void getPCIeData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
                         getPCIeInterfaceData(asyncResp, pcieDeviceId,
                                              pcieDevicePath, controllerObject);
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    chassisPath + "/pciedevice",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", devicePath + "/parent_chassis",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getControllersData(
@@ -726,23 +676,19 @@ inline void getControllersData(
     (*controllerObject)["PCIeInterface"] = nlohmann::json::object();
 
     BMCWEB_LOG_DEBUG("Get ports available on {}", networkAdapterId);
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", devicePath + "/all_states",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, chassisId, devicePath, networkAdapterId,
          controllerObject](const boost::system::error_code ec,
-                           std::variant<std::vector<std::string>>& resp) {
+                           const std::vector<std::string>& resp) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Get ports failed on{}", networkAdapterId);
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                return;
-            }
 
-            for (const std::string& portPath : *data)
+            for (const std::string& portPath : resp)
             {
                 sdbusplus::message::object_path objectPath(portPath);
                 std::string portId = objectPath.filename();
@@ -761,10 +707,7 @@ inline void getControllersData(
             }
             getPCIeData(asyncResp, devicePath, chassisId, networkAdapterId,
                         controllerObject);
-        },
-        "xyz.openbmc_project.ObjectMapper", devicePath + "/all_states",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void populateNDFURI(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -781,28 +724,14 @@ inline void populateNDFURI(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                                                 system::
                                                                     error_code&
                                                                         ec,
-                                                            std::variant<
-                                                                std::vector<
-                                                                    std::
-                                                                        string>>&
-                                                                resp) {
+                                                            const std::vector<
+                                                                std::string>&
+                                                            /*resp*/) {
         if (ec)
         {
             BMCWEB_LOG_DEBUG(
                 "network_device_functions association not found for network adapter {} : {}",
                 networkAdapterId, ec.message());
-            return;
-        }
-
-        std::vector<std::string>* data =
-            std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr)
-        {
-            BMCWEB_LOG_ERROR(
-                "populateNDFURI: No NDF association data found for adapter {}.",
-                networkAdapterId);
-            messages::resourceNotFound(asyncResp->res, "NetworkDeviceFunction",
-                                       networkAdapterId);
             return;
         }
 
@@ -1283,27 +1212,22 @@ inline void getSwitchPorts(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& switchName)
 {
     BMCWEB_LOG_DEBUG("Get connected switch ports on {}", switchName);
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", portPath + "/switch_port",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, portPath, fabricId,
          switchName](const boost::system::error_code ec,
-                     std::variant<std::vector<std::string>>& resp) {
+                     const std::vector<std::string>& resp) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Get connected switch failed on{}",
                                  switchName);
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_DEBUG(
-                    "No response data on {} switch_port association", portPath);
-                return;
-            }
+
             nlohmann::json& switchlinksArray =
                 asyncResp->res.jsonValue["Links"]["ConnectedSwitchPorts"];
-            for (const std::string& portPath1 : *data)
+            for (const std::string& portPath1 : resp)
             {
                 sdbusplus::message::object_path objectPath(portPath1);
                 std::string portId = objectPath.filename();
@@ -1320,10 +1244,7 @@ inline void getSwitchPorts(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 thisPort["@odata.id"] = portUri;
                 switchlinksArray.push_back(std::move(thisPort));
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", portPath + "/switch_port",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getConnectedSwitch(
@@ -1332,24 +1253,18 @@ inline void getConnectedSwitch(
     const std::string& switchName)
 {
     BMCWEB_LOG_DEBUG("Get connected switch on{}", switchName);
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", switchPath + "/fabrics",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, switchPath, portPath,
          switchName](const boost::system::error_code ec,
-                     std::variant<std::vector<std::string>>& resp) {
+                     const std::vector<std::string>& resp) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Dbus response error");
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_DEBUG("Get connected switch failed on: {}",
-                                 switchName);
-                return;
-            }
-            for (const std::string& fabricPath : *data)
+            for (const std::string& fabricPath : resp)
             {
                 sdbusplus::message::object_path objectPath(fabricPath);
                 std::string fabricId = objectPath.filename();
@@ -1370,10 +1285,7 @@ inline void getConnectedSwitch(
                 switchlinksArray.push_back(std::move(thisSwitch));
                 getSwitchPorts(asyncResp, portPath, fabricId, switchName);
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", switchPath + "/fabrics",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void updatePortLink(
@@ -1382,22 +1294,16 @@ inline void updatePortLink(
     const std::string& portId)
 {
     BMCWEB_LOG_DEBUG("Get associated Port Links");
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/associated_switch",
+        "xyz.openbmc_project.Association", "endpoints",
         [aResp, objPath, chassisId, networkAdapterId,
          portId](const boost::system::error_code ec,
-                 std::variant<std::vector<std::string>>& resp) {
+                 const std::vector<std::string>& resp) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Get associated switch failed on: {}",
                                  objPath);
-                return;
-            }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_DEBUG(
-                    "No data when getting associated switch on: {}", objPath);
                 return;
             }
             nlohmann::json& switchlinksArray =
@@ -1406,7 +1312,7 @@ inline void updatePortLink(
             nlohmann::json& portlinksArray =
                 aResp->res.jsonValue["Links"]["ConnectedSwitchPorts"];
             portlinksArray = nlohmann::json::array();
-            for (const std::string& switchPath : *data)
+            for (const std::string& switchPath : resp)
             {
                 sdbusplus::message::object_path objectPath(switchPath);
                 std::string switchName = objectPath.filename();
@@ -1418,10 +1324,7 @@ inline void updatePortLink(
                 }
                 getConnectedSwitch(aResp, switchPath, objPath, switchName);
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/associated_switch",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void getPortDataByAssociation(
@@ -1429,10 +1332,12 @@ inline void getPortDataByAssociation(
     const std::string& objPath, const std::string& chassisId,
     const std::string& networkAdapterId, const std::string& portId)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/all_states",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, chassisId, networkAdapterId,
          portId](const boost::system::error_code& ec,
-                 std::variant<std::vector<std::string>>& resp) {
+                 const std::vector<std::string>& resp) {
             if (ec)
             {
                 // no state sensors attached.
@@ -1441,16 +1346,7 @@ inline void getPortDataByAssociation(
                 return;
             }
 
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR("DBUS response error while getting ports");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            for (const std::string& sensorPath : *data)
+            for (const std::string& sensorPath : resp)
             {
                 sdbusplus::message::object_path pPath(sensorPath);
                 if (pPath.filename() != portId)
@@ -1458,25 +1354,20 @@ inline void getPortDataByAssociation(
                     continue;
                 }
 
-                dbus::utility::async_method_call(
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper",
+                    sensorPath + "/associated_port",
+                    "xyz.openbmc_project.Association", "endpoints",
                     [asyncResp, chassisId, networkAdapterId, portId,
-                     sensorPath](
-                        const boost::system::error_code& ec1,
-                        std::variant<std::vector<std::string>>& response) {
+                     sensorPath](const boost::system::error_code& ec1,
+                                 const std::vector<std::string>& response) {
                         std::string objectPathToGetPortData = sensorPath;
                         if (!ec1)
                         {
-                            std::vector<std::string>* pathData =
-                                std::get_if<std::vector<std::string>>(
-                                    &response);
-                            if (pathData != nullptr)
+                            for (const std::string& associatedPortPath :
+                                 response)
                             {
-                                for (const std::string& associatedPortPath :
-                                     *pathData)
-                                {
-                                    objectPathToGetPortData =
-                                        associatedPortPath;
-                                }
+                                objectPathToGetPortData = associatedPortPath;
                             }
                         }
                         // Check Interface in Object or not
@@ -1515,20 +1406,13 @@ inline void getPortDataByAssociation(
                             objectPathToGetPortData,
                             std::array<std::string, 1>(
                                 {"xyz.openbmc_project.Inventory.Item.Port"}));
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    sensorPath + "/associated_port",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    "xyz.openbmc_project.Association", "endpoints");
+                    });
 
                 updatePortLink(asyncResp, sensorPath, chassisId,
                                networkAdapterId, portId);
                 return;
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/all_states",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void doPortGeneric(
@@ -2062,10 +1946,12 @@ inline void getPortMetricsDataByAssociation(
     const std::string& objPath, const std::string& chassisId,
     const std::string& networkAdapterId, const std::string& portId)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<std::vector<std::string>>(
+        "xyz.openbmc_project.ObjectMapper", objPath + "/all_states",
+        "xyz.openbmc_project.Association", "endpoints",
         [asyncResp, chassisId, networkAdapterId,
          portId](const boost::system::error_code& ec,
-                 std::variant<std::vector<std::string>>& resp) {
+                 const std::vector<std::string>& resp) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -2073,16 +1959,7 @@ inline void getPortMetricsDataByAssociation(
                 return;
             }
 
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR("No response data while getting ports");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-
-            for (const std::string& sensorPath : *data)
+            for (const std::string& sensorPath : resp)
             {
                 // Check Interface in Object or not
                 dbus::utility::async_method_call(
@@ -2125,10 +2002,7 @@ inline void getPortMetricsDataByAssociation(
                     std::array<std::string, 1>(
                         {"xyz.openbmc_project.Inventory.Item.Port"}));
             }
-        },
-        "xyz.openbmc_project.ObjectMapper", objPath + "/all_states",
-        "org.freedesktop.DBus.Properties", "Get",
-        "xyz.openbmc_project.Association", "endpoints");
+        });
 }
 
 inline void doPortMetrics(
@@ -2397,59 +2271,42 @@ inline void doNDFCollection(
                      collectionOdataId);
     std::string ndfAssociationPath =
         adapterDbusPath + "/network_device_functions";
-    dbus::utility::findAssociations(ndfAssociationPath, [asyncResp,
-                                                         collectionOdataId](
-                                                            const boost::
-                                                                system::
-                                                                    error_code&
-                                                                        e,
-                                                            std::variant<
-                                                                std::vector<
-                                                                    std::
-                                                                        string>>&
-                                                                resp) {
-        if (e)
-        {
-            asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
-            asyncResp->res.jsonValue["Members@odata.count"] = 0;
-            return;
-        }
-
-        std::vector<std::string>* data =
-            std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr)
-        {
-            BMCWEB_LOG_ERROR(
-                "doNDFCollection: No NDF association data found for network adapter.");
-            messages::internalError(asyncResp->res);
-            return;
-        }
-
-        nlohmann::json& members = asyncResp->res.jsonValue["Members"];
-        members = nlohmann::json::array();
-        for (const std::string& sensorpath : *data)
-        {
-            sdbusplus::message::object_path ndfPath(sensorpath);
-            if (!ndfPath.filename().empty())
+    dbus::utility::findAssociations(
+        ndfAssociationPath,
+        [asyncResp, collectionOdataId](const boost::system::error_code& e,
+                                       const std::vector<std::string>& resp) {
+            if (e)
             {
-                std::string dbusNDFId = ndfPath.filename();
-                size_t lastUnderscorePos = dbusNDFId.rfind('_');
-                BMCWEB_LOG_ERROR(
-                    "Testlog: dbusNDFId: {}, lastUnderscorePos: {}", dbusNDFId,
-                    lastUnderscorePos);
-                if (lastUnderscorePos != std::string::npos &&
-                    lastUnderscorePos < dbusNDFId.length() - 1)
+                asyncResp->res.jsonValue["Members"] = nlohmann::json::array();
+                asyncResp->res.jsonValue["Members@odata.count"] = 0;
+                return;
+            }
+
+            nlohmann::json& members = asyncResp->res.jsonValue["Members"];
+            members = nlohmann::json::array();
+            for (const std::string& sensorpath : resp)
+            {
+                sdbusplus::message::object_path ndfPath(sensorpath);
+                if (!ndfPath.filename().empty())
                 {
-                    dbusNDFId = dbusNDFId.substr(lastUnderscorePos + 1);
-                    std::string odataId = collectionOdataId;
-                    odataId += "/";
-                    odataId += dbusNDFId;
-                    members.push_back({{"@odata.id", std::move(odataId)}});
+                    std::string dbusNDFId = ndfPath.filename();
+                    size_t lastUnderscorePos = dbusNDFId.rfind('_');
+                    BMCWEB_LOG_ERROR(
+                        "Testlog: dbusNDFId: {}, lastUnderscorePos: {}",
+                        dbusNDFId, lastUnderscorePos);
+                    if (lastUnderscorePos != std::string::npos &&
+                        lastUnderscorePos < dbusNDFId.length() - 1)
+                    {
+                        dbusNDFId = dbusNDFId.substr(lastUnderscorePos + 1);
+                        std::string odataId = collectionOdataId;
+                        odataId += "/";
+                        odataId += dbusNDFId;
+                        members.push_back({{"@odata.id", std::move(odataId)}});
+                    }
                 }
             }
-        }
-        asyncResp->res.jsonValue["Members@odata.count"] = members.size();
-    });
+            asyncResp->res.jsonValue["Members@odata.count"] = members.size();
+        });
 }
 
 inline void doNDFCollectionWithValidChassisId(
@@ -2543,23 +2400,13 @@ inline void getPortAddressDataByAssociation(
 {
     dbus::utility::findAssociations(
         sensorPath + "/" + associationName,
-        [asyncResp,
-         connectionName](const boost::system::error_code& e,
-                         std::variant<std::vector<std::string>>& resp) {
+        [asyncResp, connectionName](const boost::system::error_code& e,
+                                    const std::vector<std::string>& resp) {
             if (e)
             {
                 return;
             }
-            std::vector<std::string>* data =
-                std::get_if<std::vector<std::string>>(&resp);
-            if (data == nullptr)
-            {
-                BMCWEB_LOG_ERROR(
-                    "getPortAddressDataByAssociation: No network device function association found");
-                messages::internalError(asyncResp->res);
-                return;
-            }
-            for (const std::string& portAddressPath : *data)
+            for (const std::string& portAddressPath : resp)
             {
                 getPortAddressData(asyncResp, connectionName, portAddressPath);
             }
@@ -2696,10 +2543,8 @@ inline void getNDFDataByAssociation(
                                                                 system::
                                                                     error_code&
                                                                         ec,
-                                                            std::variant<
-                                                                std::vector<
-                                                                    std::
-                                                                        string>>&
+                                                            const std::vector<
+                                                                std::string>&
                                                                 resp) {
         if (ec)
         {
@@ -2708,19 +2553,7 @@ inline void getNDFDataByAssociation(
             return;
         }
 
-        std::vector<std::string>* data =
-            std::get_if<std::vector<std::string>>(&resp);
-        if (data == nullptr)
-        {
-            BMCWEB_LOG_ERROR(
-                "getNDFDataByAssociation: No NDF association data found for adapter {}.",
-                networkAdapterId);
-            messages::resourceNotFound(asyncResp->res, "NetworkDeviceFunction",
-                                       ndfId);
-            return;
-        }
-
-        for (const std::string& sensorPath : *data)
+        for (const std::string& sensorPath : resp)
         {
             sdbusplus::message::object_path ndfPath(sensorPath);
             if (!ndfPath.filename().empty())

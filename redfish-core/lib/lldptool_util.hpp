@@ -229,7 +229,9 @@ inline void LldpUtil::getTlvValue(
     }
 
     // Get property value using a single D-Bus call
-    dbus::utility::async_method_call(
+    dbus::utility::getProperty<
+        std::variant<std::string, bool, uint16_t, std::vector<std::string>>>(
+        "xyz.openbmc_project.LLDP", path, interface, property,
         [asyncResp, responseCallback](
             const boost::system::error_code& ec,
             const std::variant<std::string, bool, uint16_t,
@@ -270,9 +272,7 @@ inline void LldpUtil::getTlvValue(
 
             responseCallback(asyncResp, value, "", boost::system::error_code{},
                              0);
-        },
-        "xyz.openbmc_project.LLDP", path, "org.freedesktop.DBus.Properties",
-        "Get", interface, property);
+        });
 }
 
 // Set TLVs
