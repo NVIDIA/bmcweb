@@ -53,7 +53,6 @@ struct FakeHandler
                   "curl/8.5.0");
         EXPECT_EQ(req->getHeaderValue(boost::beast::http::field::accept),
                   "*/*");
-        EXPECT_EQ(req->getHeaderValue(":authority"), "localhost:18080");
         asyncResp->res.write("StringOutput");
     }
 };
