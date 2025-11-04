@@ -183,6 +183,8 @@ constexpr const std::string_view hsc = "Chassis_0_HSC_";
 constexpr const std::string_view sxm = "GPU_SXM_";
 constexpr const std::string_view sxmSma = "SXM_SMA_";
 constexpr const std::string_view cxSma = "ConnectX_SMA_";
+constexpr const std::string_view gpuSma = "GPU_SMA_";
+constexpr const std::string_view pmSma = "ProcessorModule_SMA_";
 constexpr const std::string_view gpuTemp = "GPU_\\d+_TEMP_";
 constexpr const std::string_view hscc = "Chassis_0_HSCC_";
 
@@ -234,6 +236,10 @@ inline const MetricsReplacement sxmSmaPlatformEnvironmentMetrics(
     sxmSma, "{SSMAWild}", "SSMAWild");
 inline const MetricsReplacement cxSmaPlatformEnvironmentMetrics(
     cxSma, "{CSMAWild}", "CSMAWild");
+inline const MetricsReplacement gpuSmaPlatformEnvironmentMetrics(
+    gpuSma, "{GSMAWild}", "GSMAWild");
+inline const MetricsReplacement pmSmaPlatformEnvironmentMetrics(
+    pmSma, "{PSMAWild}", "PSMAWild");
 inline const MetricsReplacement gpuTempPlatformEnvironmentMetrics(
     gpuTemp, "{GTWild}", "GTWild");
 inline const MetricsReplacement hsccPlatformEnvironmentMetrics(hscc, "{HCWild}",
@@ -1000,6 +1006,10 @@ inline void getShmemMetricsDefinitionWildCard(
                                   allowedWildcards);
             updateReplacementFlag(cxSmaPlatformEnvironmentMetrics,
                                   allowedWildcards);
+            updateReplacementFlag(gpuSmaPlatformEnvironmentMetrics,
+                                  allowedWildcards);
+            updateReplacementFlag(pmSmaPlatformEnvironmentMetrics,
+                                  allowedWildcards);
             updateReplacementFlag(gpuTempPlatformEnvironmentMetrics,
                                   allowedWildcards);
             updateReplacementFlag(hsccPlatformEnvironmentMetrics,
@@ -1051,6 +1061,10 @@ inline void getShmemMetricsDefinitionWildCard(
             metricsReplacements(sxmSmaPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
             metricsReplacements(cxSmaPlatformEnvironmentMetrics, wildCards,
+                                inputMetricProperties);
+            metricsReplacements(gpuSmaPlatformEnvironmentMetrics, wildCards,
+                                inputMetricProperties);
+            metricsReplacements(pmSmaPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
             metricsReplacements(gpuTempPlatformEnvironmentMetrics, wildCards,
                                 inputMetricProperties);
