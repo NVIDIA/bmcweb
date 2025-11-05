@@ -118,9 +118,11 @@ inline void setClearVariables(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp, const std::string& service,
     const std::string& path, const bool requestToClear)
 {
-    dbus::utility::async_method_call(
-        [aResp, path, service](const boost::system::error_code& ec,
-                               sdbusplus::message::message& msg) {
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, service, path,
+        "xyz.openbmc_project.Control.Boot.ClearNonVolatileVariables", "Clear",
+        requestToClear,
+        [aResp, path, service](const boost::system::error_code& ec) {
             if (!ec)
             {
                 BMCWEB_LOG_DEBUG("Set ClearUefiVariable successed");
@@ -128,29 +130,8 @@ inline void setClearVariables(
             }
 
             BMCWEB_LOG_DEBUG("Set ClearUefiVariable failed: {}", ec.what());
-
-            // Read and convert dbus error message to redfish error
-            const sd_bus_error* dbusError = msg.get_error();
-            if (dbusError == nullptr)
-            {
-                messages::internalError(aResp->res);
-                return;
-            }
-
-            if (strcmp(dbusError->name, "xyz.openbmc_project.Common."
-                                        "Device.Error.WriteFailure") == 0)
-            {
-                // Service failed to change the config
-                messages::operationFailed(aResp->res);
-            }
-            else
-            {
-                messages::internalError(aResp->res);
-            }
-        },
-        service, path, "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.Control.Boot.ClearNonVolatileVariables", "Clear",
-        std::variant<bool>(requestToClear));
+            messages::internalError(aResp->res);
+        });
 }
 
 inline void handleClearSecureStateSubtree(
@@ -282,7 +263,10 @@ inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         std::array<const char*, 1>{
             "xyz.openbmc_project.Control.Boot.ClearNonVolatileVariables"});
 
-    dbus::utility::async_method_call(
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+        "/xyz/openbmc_project/control/host0/boot",
+        "xyz.openbmc_project.Control.Boot.Flags", "CMOSClear", true,
         [aResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -291,14 +275,12 @@ inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 return;
             }
             BMCWEB_LOG_DEBUG("Boot override CMOSClear update done.");
-        },
-        "xyz.openbmc_project.Settings",
-        "/xyz/openbmc_project/control/host0/boot",
-        "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.Control.Boot.Flags", "CMOSClear",
-        dbus::utility::DbusVariantType(true));
+        });
 
-    dbus::utility::async_method_call(
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+        "/xyz/openbmc_project/control/host0/boot",
+        "xyz.openbmc_project.Object.Enable", "Enabled", true,
         [aResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -307,12 +289,7 @@ inline void clearVariables(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 return;
             }
             BMCWEB_LOG_DEBUG("Boot override enable update done.");
-        },
-        "xyz.openbmc_project.Settings",
-        "/xyz/openbmc_project/control/host0/boot",
-        "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.Object.Enable", "Enabled",
-        dbus::utility::DbusVariantType(true));
+        });
 }
 
 inline void afterOemResetBiosGet(
@@ -1206,7 +1183,11 @@ inline void fillBiosTable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         }
     }
 
-    dbus::utility::async_method_call(
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.BIOSConfigManager",
+        "/xyz/openbmc_project/bios_config/manager",
+        "xyz.openbmc_project.BIOSConfig.Manager", "BaseBIOSTable",
+        baseBiosTable,
         [asyncResp, baseBiosTable](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -1216,12 +1197,7 @@ inline void fillBiosTable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             }
 
             messages::success(asyncResp->res);
-        },
-        "xyz.openbmc_project.BIOSConfigManager",
-        "/xyz/openbmc_project/bios_config/manager",
-        "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.BIOSConfig.Manager", "BaseBIOSTable",
-        std::variant<BaseBIOSTable>(baseBiosTable));
+        });
 }
 
 /**
@@ -1630,7 +1606,12 @@ inline void setBiosCurrentOrPendingAttr(
                     }
                     if (biosFlag)
                     {
-                        dbus::utility::async_method_call(
+                        sdbusplus::asio::setProperty(
+                            *crow::connections::systemBus,
+                            "xyz.openbmc_project.BIOSConfigManager",
+                            "/xyz/openbmc_project/bios_config/manager",
+                            "xyz.openbmc_project.BIOSConfig.Manager",
+                            "BaseBIOSTable", *baseBiosTable,
                             [asyncResp, baseBiosTable](
                                 const boost::system::error_code& ec1) {
                                 if (ec1)
@@ -1642,15 +1623,12 @@ inline void setBiosCurrentOrPendingAttr(
                                 }
 
                                 messages::success(asyncResp->res);
-                            },
-                            "xyz.openbmc_project.BIOSConfigManager",
-                            "/xyz/openbmc_project/bios_config/manager",
-                            "org.freedesktop.DBus.Properties", "Set",
-                            "xyz.openbmc_project.BIOSConfig.Manager",
-                            "BaseBIOSTable",
-                            std::variant<BaseBIOSTable>(*baseBiosTable));
+                            });
                     }
-                    dbus::utility::async_method_call(
+                    sdbusplus::asio::setProperty(
+                        *crow::connections::systemBus, biosService,
+                        biosConfigObj, biosConfigIface, "PendingAttributes",
+                        pendingAttrs,
                         [asyncResp](const boost::system::error_code& ec3) {
                             if (ec3)
                             {
@@ -1661,11 +1639,7 @@ inline void setBiosCurrentOrPendingAttr(
                             }
 
                             messages::success(asyncResp->res);
-                        },
-                        biosService, biosConfigObj,
-                        "org.freedesktop.DBus.Properties", "Set",
-                        biosConfigIface, "PendingAttributes",
-                        std::variant<PendingAttrType>(pendingAttrs));
+                        });
                 });
         },
         "xyz.openbmc_project.ObjectMapper",

@@ -949,16 +949,16 @@ inline void setReadingParams(
         }
     }
 
-    dbus::utility::async_method_call(
-        asyncResp,
-        [asyncResp, reportId](const boost::system::error_code& ec,
-                              const sdbusplus::message_t& msg) {
-            afterSetReadingParams(asyncResp, reportId, ec, msg);
-        },
-        "xyz.openbmc_project.Telemetry", getDbusReportPath(reportId),
-        "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.Telemetry.Report", "ReadingParameters",
-        dbus::utility::DbusVariantType{readingParams});
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Telemetry",
+        getDbusReportPath(reportId), "xyz.openbmc_project.Telemetry.Report",
+        "ReadingParameters", readingParams,
+        [asyncResp, reportId](const boost::system::error_code& ec) {
+            if (ec)
+            {
+                formatMessageOnError(asyncResp->res, reportId, ec);
+            }
+        });
 }
 
 class UpdateMetrics
@@ -1017,15 +1017,13 @@ inline void setReportEnabled(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, std::string_view id,
     bool enabled)
 {
-    dbus::utility::async_method_call(
-        asyncResp,
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Telemetry",
+        getDbusReportPath(id), "xyz.openbmc_project.Telemetry.Report",
+        "Enabled", enabled,
         [asyncResp, id = std::string(id)](const boost::system::error_code& ec) {
             formatMessageOnError(asyncResp->res, id, ec);
-        },
-        "xyz.openbmc_project.Telemetry", getDbusReportPath(id),
-        "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.Telemetry.Report", "Enabled",
-        dbus::utility::DbusVariantType{enabled});
+        });
 }
 
 inline void afterSetReportingProperties(
@@ -1132,16 +1130,16 @@ inline void setReportUpdates(
                                          "ReportUpdates");
         return;
     }
-    dbus::utility::async_method_call(
-        asyncResp,
-        [asyncResp, id = std::string(id)](const boost::system::error_code& ec,
-                                          const sdbusplus::message_t& msg) {
-            afterSetReportUpdates(asyncResp, id, ec, msg);
-        },
-        "xyz.openbmc_project.Telemetry", getDbusReportPath(id),
-        "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.Telemetry.Report", "ReportUpdates",
-        dbus::utility::DbusVariantType{dbusReportUpdates});
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Telemetry",
+        getDbusReportPath(id), "xyz.openbmc_project.Telemetry.Report",
+        "ReportUpdates", dbusReportUpdates,
+        [asyncResp, id = std::string(id)](const boost::system::error_code& ec) {
+            if (!formatMessageOnError(asyncResp->res, id, ec))
+            {
+                asyncResp->res.result(boost::beast::http::status::no_content);
+            }
+        });
 }
 
 inline void afterSetReportActions(
@@ -1180,16 +1178,16 @@ inline void setReportActions(
         return;
     }
 
-    dbus::utility::async_method_call(
-        asyncResp,
-        [asyncResp, id = std::string(id)](const boost::system::error_code& ec,
-                                          const sdbusplus::message_t& msg) {
-            afterSetReportActions(asyncResp, id, ec, msg);
-        },
-        "xyz.openbmc_project.Telemetry", getDbusReportPath(id),
-        "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.Telemetry.Report", "ReportActions",
-        dbus::utility::DbusVariantType{dbusReportActions});
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Telemetry",
+        getDbusReportPath(id), "xyz.openbmc_project.Telemetry.Report",
+        "ReportActions", dbusReportActions,
+        [asyncResp, id = std::string(id)](const boost::system::error_code& ec) {
+            if (!formatMessageOnError(asyncResp->res, id, ec))
+            {
+                asyncResp->res.result(boost::beast::http::status::no_content);
+            }
+        });
 }
 
 inline void setReportMetrics(

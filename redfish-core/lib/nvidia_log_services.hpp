@@ -1294,7 +1294,13 @@ inline void requestRoutesEventLogServicePatch(App& app)
 
                     if (autoClearResolvedLogEnabled)
                     {
-                        dbus::utility::async_method_call(
+                        sdbusplus::asio::setProperty(
+                            *crow::connections::systemBus,
+                            "xyz.openbmc_project.Logging",
+                            "/xyz/openbmc_project/logging",
+                            "xyz.openbmc_project.Logging.Namespace",
+                            "AutoClearResolvedLogEnabled",
+                            *autoClearResolvedLogEnabled,
                             [asyncResp](const boost::system::error_code& ec) {
                                 if (ec)
                                 {
@@ -1303,14 +1309,7 @@ inline void requestRoutesEventLogServicePatch(App& app)
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
-                            },
-                            "xyz.openbmc_project.Logging",
-                            "/xyz/openbmc_project/logging",
-                            "org.freedesktop.DBus.Properties", "Set",
-                            "xyz.openbmc_project.Logging.Namespace",
-                            "AutoClearResolvedLogEnabled",
-                            dbus::utility::DbusVariantType(
-                                *autoClearResolvedLogEnabled));
+                            });
                     }
                 });
     }

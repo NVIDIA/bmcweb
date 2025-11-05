@@ -101,18 +101,17 @@ void setBootOption(const std::string& id,
     auto holdTask = dbus_utils::deferTask(std::forward<Callback>(callback));
     for (const auto& [propertyName, propertyVariant] : properties)
     {
-        dbus::utility::async_method_call(
-            [holdTask](const boost::system::error_code& ec) {
+        sdbusplus::asio::setProperty(
+            *crow::connections::systemBus,
+            "xyz.openbmc_project.BIOSConfigManager", path,
+            "xyz.openbmc_project.BIOSConfig.BootOption", propertyName,
+            propertyVariant, [holdTask](const boost::system::error_code& ec) {
                 if (ec)
                 {
                     holdTask->ec = ec;
                     BMCWEB_LOG_DEBUG(" setBootOption D-BUS error");
                 }
-            },
-            "xyz.openbmc_project.BIOSConfigManager", path,
-            "org.freedesktop.DBus.Properties", "Set",
-            "xyz.openbmc_project.BIOSConfig.BootOption", propertyName,
-            propertyVariant);
+            });
     }
 }
 

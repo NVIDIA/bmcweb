@@ -735,44 +735,18 @@ inline void patchFencingPrivilege(
     }
 
     // Set the property, with handler to check error responses
-    dbus::utility::async_method_call(
-        [resp, privilegeType](boost::system::error_code& ec,
-                              sdbusplus::message::message& msg) {
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, serviceName, objPath,
+        "xyz.openbmc_project.GpuOobRecovery.Server", "SMBPBIFencingState",
+        privilege, [resp, privilegeType](boost::system::error_code& ec) {
             if (!ec)
             {
                 BMCWEB_LOG_DEBUG("Set SMBPBI privilege  property succeeded");
                 return;
             }
             BMCWEB_LOG_DEBUG(" set SMBPBI privilege  property failed: {}", ec);
-            // Read and convert dbus error message to redfish error
-            const sd_bus_error* dbusError = msg.get_error();
-            if (dbusError == nullptr)
-            {
-                messages::internalError(resp->res);
-                return;
-            }
-            if (strcmp(dbusError->name,
-                       "xyz.openbmc_project.Common.Error.InvalidArgument") == 0)
-            {
-                // Invalid value
-                messages::propertyValueIncorrect(
-                    resp->res, "SMBPBIFencingPrivilege", privilegeType);
-            }
-
-            if (strcmp(dbusError->name, "xyz.openbmc_project.Common."
-                                        "Device.Error.WriteFailure") == 0)
-            {
-                // Service failed to change the config
-                messages::operationFailed(resp->res);
-            }
-            else
-            {
-                messages::internalError(resp->res);
-            }
-        },
-        serviceName, objPath, "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.GpuOobRecovery.Server", "SMBPBIFencingState",
-        std::variant<uint8_t>(privilege));
+            messages::internalError(resp->res);
+        });
 }
 
 inline void getFabricManagerInfo(

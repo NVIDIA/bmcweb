@@ -255,7 +255,9 @@ inline void setThresholdReadingProperty(
     const std::string& propertyName, const std::string& serviceName,
     const std::string& objectPath)
 {
-    dbus::utility::async_method_call(
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, serviceName, objectPath, interfaceName,
+        propertyName, readingValue,
         [asyncResp, serviceName, objectPath, interfaceName,
          propertyName](const boost::system::error_code& ec) {
             if (ec)
@@ -264,9 +266,7 @@ inline void setThresholdReadingProperty(
                 return;
             }
             messages::success(asyncResp->res);
-        },
-        serviceName, objectPath, "org.freedesktop.DBus.Properties", "Set",
-        interfaceName, propertyName, std::variant<double>(readingValue));
+        });
 }
 
 inline void processSensorThresholdValues(

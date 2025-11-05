@@ -195,18 +195,20 @@ inline void getPowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const std::string& connectionName,
                          const std::string& objPath)
 {
-    dbus::utility::getAllProperties(
-        connectionName, objPath, "xyz.openbmc_project.Control.Power.Mode",
+    dbus::utility::async_method_call(
         [asyncResp, connectionName,
          objPath](const boost::system::error_code& ec,
-                  const dbus::utility::DBusPropertiesMap& propertiesList) {
+                  const std::vector<
+                      std::pair<std::string, std::variant<std::string>>>&
+                      propertiesList) {
             if (ec || propertiesList.empty())
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for "
                                  "Chassis properties");
                 return;
             }
-            for (const auto& property : propertiesList)
+            for (const std::pair<std::string, std::variant<std::string>>&
+                     property : propertiesList)
             {
                 const std::string& propertyName = property.first;
                 if (propertyName == "PowerMode")
@@ -231,7 +233,9 @@ inline void getPowerMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         oemPowerMode;
                 }
             }
-        });
+        },
+        connectionName, objPath, "org.freedesktop.DBus.Properties", "GetAll",
+        "xyz.openbmc_project.Control.Power.Mode");
 }
 
 inline void getClearPowerCap(
@@ -738,11 +742,12 @@ inline void getDefaultPowerCap(
 
             for (const auto& element : objInfo)
             {
-                dbus::utility::getAllProperties(
-                    element.first, objPath, "com.nvidia.Common.ClearPowerCap",
-                    [asyncResp, objPath](const boost::system::error_code& ec,
-                                         const dbus::utility::DBusPropertiesMap&
-                                             propertiesList) {
+                dbus::utility::async_method_call(
+                    [asyncResp,
+                     objPath](const boost::system::error_code& ec,
+                              const std::vector<std::pair<
+                                  std::string, std::variant<uint32_t, bool>>>&
+                                  propertiesList) {
                         if (ec)
                         {
                             BMCWEB_LOG_ERROR("DBUS response error for "
@@ -750,7 +755,9 @@ inline void getDefaultPowerCap(
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        for (const auto& property : propertiesList)
+                        for (const std::pair<std::string,
+                                             std::variant<uint32_t, bool>>&
+                                 property : propertiesList)
                         {
                             const std::string& propertyName = property.first;
                             if (propertyName == "DefaultPowerCap")
@@ -769,7 +776,9 @@ inline void getDefaultPowerCap(
                                     *value;
                             }
                         }
-                    });
+                    },
+                    element.first, objPath, "org.freedesktop.DBus.Properties",
+                    "GetAll", "com.nvidia.Common.ClearPowerCap");
             }
         },
         "xyz.openbmc_project.ObjectMapper",
@@ -799,12 +808,12 @@ inline void getPowerCap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
             for (const auto& element : objInfo)
             {
-                dbus::utility::getAllProperties(
-                    element.first, objPath,
-                    "xyz.openbmc_project.Control.Power.Cap",
-                    [asyncResp, objPath](const boost::system::error_code& ec,
-                                         const dbus::utility::DBusPropertiesMap&
-                                             propertiesList) {
+                dbus::utility::async_method_call(
+                    [asyncResp,
+                     objPath](const boost::system::error_code& ec,
+                              const std::vector<std::pair<
+                                  std::string, std::variant<uint32_t, bool>>>&
+                                  propertiesList) {
                         if (ec)
                         {
                             BMCWEB_LOG_DEBUG("DBUS response error for "
@@ -812,7 +821,9 @@ inline void getPowerCap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             messages::internalError(asyncResp->res);
                             return;
                         }
-                        for (const auto& property : propertiesList)
+                        for (const std::pair<std::string,
+                                             std::variant<uint32_t, bool>>&
+                                 property : propertiesList)
                         {
                             const std::string& propertyName = property.first;
                             if (propertyName == "PowerCap")
@@ -901,7 +912,9 @@ inline void getPowerCap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                     *value;
                             }
                         }
-                    });
+                    },
+                    element.first, objPath, "org.freedesktop.DBus.Properties",
+                    "GetAll", "xyz.openbmc_project.Control.Power.Cap");
             }
         },
         "xyz.openbmc_project.ObjectMapper",
@@ -915,11 +928,10 @@ inline void getEDPpData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& connectionName,
                         const std::string& objPath)
 {
-    dbus::utility::getAllProperties(
-        connectionName, objPath, "com.nvidia.Edpp",
+    dbus::utility::async_method_call(
         [asyncResp, connectionName,
          objPath](const boost::system::error_code& ec,
-                  const dbus::utility::DBusPropertiesMap& properties) {
+                  const SetPointProperties& properties) {
             if (ec || properties.empty())
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for "
@@ -971,19 +983,19 @@ inline void getEDPpData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                             ["AllowableMin"] = *value;
                 }
             }
-        });
+        },
+        connectionName, objPath, "org.freedesktop.DBus.Properties", "GetAll",
+        "com.nvidia.Edpp");
 }
 
 inline void getPowerLimitPersistency(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& connectionName, const std::string& objPath)
 {
-    dbus::utility::getAllProperties(
-        connectionName, objPath,
-        "xyz.openbmc_project.Control.Power.Persistency",
+    dbus::utility::async_method_call(
         [asyncResp, connectionName,
          objPath](const boost::system::error_code& ec,
-                  const dbus::utility::DBusPropertiesMap& properties) {
+                  const SetPointProperties& properties) {
             if (ec || properties.empty())
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for "
@@ -1039,19 +1051,20 @@ inline void getPowerLimitPersistency(
                                   ["RequestedOneshotPowerLimitWatts"] = *value;
                 }
             }
-        });
+        },
+        connectionName, objPath, "org.freedesktop.DBus.Properties", "GetAll",
+        "xyz.openbmc_project.Control.Power.Persistency");
 }
 
 inline void getPowerLimits(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& connectionName,
                            const std::string& objPath)
 {
-    dbus::utility::getAllProperties(
-        connectionName, objPath,
-        "xyz.openbmc_project.Inventory.Decorator.PowerLimit",
-        [asyncResp, connectionName,
-         objPath](const boost::system::error_code& ec,
-                  const dbus::utility::DBusPropertiesMap& propertiesList) {
+    dbus::utility::async_method_call(
+        [asyncResp, connectionName, objPath](
+            const boost::system::error_code& ec,
+            const std::vector<std::pair<std::string, std::variant<uint32_t>>>&
+                propertiesList) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for "
@@ -1059,7 +1072,8 @@ inline void getPowerLimits(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 messages::internalError(asyncResp->res);
                 return;
             }
-            for (const auto& property : propertiesList)
+            for (const std::pair<std::string, std::variant<uint32_t>>&
+                     property : propertiesList)
             {
                 const std::string& propertyName = property.first;
                 if (propertyName == "MaxPowerWatts")
@@ -1091,7 +1105,9 @@ inline void getPowerLimits(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         .jsonValue["PowerLimitWatts"]["AllowableMin"] = *value;
                 }
             }
-        });
+        },
+        connectionName, objPath, "org.freedesktop.DBus.Properties", "GetAll",
+        "xyz.openbmc_project.Inventory.Decorator.PowerLimit");
 }
 
 inline void getPowerLimitDataSourceUri(
@@ -1108,11 +1124,11 @@ inline void getControlMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& connectionName,
                            const std::string& objPath)
 {
-    dbus::utility::getAllProperties(
-        connectionName, objPath, "xyz.openbmc_project.Control.Mode",
+    dbus::utility::async_method_call(
         [asyncResp, connectionName,
          objPath](const boost::system::error_code& ec,
-                  const dbus::utility::DBusPropertiesMap& propertiesList) {
+                  const std::vector<std::pair<std::string, std::variant<bool>>>&
+                      propertiesList) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for "
@@ -1120,7 +1136,8 @@ inline void getControlMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 messages::internalError(asyncResp->res);
                 return;
             }
-            for (const auto& property : propertiesList)
+            for (const std::pair<std::string, std::variant<bool>>& property :
+                 propertiesList)
             {
                 const std::string& propertyName = property.first;
                 if (propertyName == "Manual")
@@ -1142,7 +1159,9 @@ inline void getControlMode(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         controlMode;
                 }
             }
-        });
+        },
+        connectionName, objPath, "org.freedesktop.DBus.Properties", "GetAll",
+        "xyz.openbmc_project.Control.Mode");
 }
 
 template <std::size_t SIZE>
@@ -1337,7 +1356,10 @@ inline void patchPowerLimit(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 
                         // Set the property, with handler to check error
                         // responses
-                        crow::connections::systemBus->async_method_call(
+                        sdbusplus::asio::setProperty(
+                            *crow::connections::systemBus, element.first,
+                            objectPath, "xyz.openbmc_project.Control.Power.Cap",
+                            "PowerCap", static_cast<uint32_t>(powerLimit),
                             [resp, resourceId, powerLimit,
                              resourceType](const boost::system::error_code& ec1,
                                            sdbusplus::message::message& msg) {
@@ -1410,12 +1432,7 @@ inline void patchPowerLimit(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                                 {
                                     messages::internalError(resp->res);
                                 }
-                            },
-                            element.first, objectPath,
-                            "org.freedesktop.DBus.Properties", "Set",
-                            "xyz.openbmc_project.Control.Power.Cap", "PowerCap",
-                            std::variant<uint32_t>(
-                                static_cast<uint32_t>(powerLimit)));
+                            });
                     });
             }
         },
@@ -1534,12 +1551,13 @@ inline void getSensorDataByService(
     const std::string& resourceType, bool isSupportPowerLimit = false)
 {
     BMCWEB_LOG_DEBUG("Get sensor data.");
-
-    dbus::utility::getAllProperties(
-        service, objPath, "",
-        [aResp, chassisId, resourceType, objPath, isSupportPowerLimit](
-            const boost::system::error_code& ec,
-            const dbus::utility::DBusPropertiesMap& properties) {
+    using PropertyType =
+        std::variant<std::string, double, uint64_t, std::vector<std::string>>;
+    using PropertiesMap = boost::container::flat_map<std::string, PropertyType>;
+    dbus::utility::async_method_call(
+        [aResp, chassisId, resourceType, objPath,
+         isSupportPowerLimit](const boost::system::error_code& ec,
+                              const PropertiesMap& properties) {
             if (ec || properties.empty())
             {
                 BMCWEB_LOG_DEBUG("Can't get sensor reading for {}", objPath);
@@ -1618,7 +1636,8 @@ inline void getSensorDataByService(
                     }
                 }
             }
-        });
+        },
+        service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
 }
 
 inline void getSensorDataService(

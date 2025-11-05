@@ -452,7 +452,10 @@ inline void handleCertificateCollectionPost(
 
                     if (owner)
                     {
-                        dbus::utility::async_method_call(
+                        sdbusplus::asio::setProperty(
+                            *crow::connections::systemBus,
+                            getServiceName(databaseId), objectPath,
+                            "xyz.openbmc_project.Common.UUID", "UUID", *owner,
                             [aResp](const boost::system::error_code ec3) {
                                 if (ec3)
                                 {
@@ -461,11 +464,7 @@ inline void handleCertificateCollectionPost(
                                     messages::internalError(aResp->res);
                                     return;
                                 }
-                            },
-                            getServiceName(databaseId), objectPath,
-                            "org.freedesktop.DBus.Properties", "Set",
-                            "xyz.openbmc_project.Common.UUID", "UUID",
-                            dbus::utility::DbusVariantType(*owner));
+                            });
                     }
                 },
                 getServiceName(databaseId), getCertObjectPath(databaseId),
@@ -757,7 +756,10 @@ inline void handleSignatureCollectionPost(
 
                     if (owner)
                     {
-                        dbus::utility::async_method_call(
+                        sdbusplus::asio::setProperty(
+                            *crow::connections::systemBus,
+                            getServiceName(databaseId), objectPath,
+                            "xyz.openbmc_project.Common.UUID", "UUID", *owner,
                             [aResp](const boost::system::error_code& ec2) {
                                 if (ec2)
                                 {
@@ -766,11 +768,7 @@ inline void handleSignatureCollectionPost(
                                     messages::internalError(aResp->res);
                                     return;
                                 }
-                            },
-                            getServiceName(databaseId), objectPath,
-                            "org.freedesktop.DBus.Properties", "Set",
-                            "xyz.openbmc_project.Common.UUID", "UUID",
-                            dbus::utility::DbusVariantType(*owner));
+                            });
                     }
                 },
                 getServiceName(databaseId), getSigObjectPath(databaseId),

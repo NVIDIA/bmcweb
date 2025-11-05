@@ -2272,7 +2272,9 @@ void setDbusProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                      const std::string& interface, const std::string& property,
                      T& value)
 {
-    dbus::utility::async_method_call(
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, service, path, interface, property,
+        value,
         [aResp, property, value, path, service,
          interface](const boost::system::error_code& ec) {
             if (ec)
@@ -2282,9 +2284,7 @@ void setDbusProperty(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     service, path, interface, property, ec.message());
                 return;
             }
-        },
-        service, path, "org.freedesktop.DBus.Properties", "Set", interface,
-        property, dbus::utility::DbusVariantType(value));
+        });
 }
 
 // TODO: move to new file

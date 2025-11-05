@@ -746,10 +746,13 @@ inline void changePowerCapEnable(
             }
             for (const auto& element : objInfo)
             {
-                dbus::utility::async_method_call(
+                sdbusplus::asio::setProperty(
+                    *crow::connections::systemBus, element.first, path,
+                    "xyz.openbmc_project.Control.Power.Cap", "PowerCapEnable",
+                    enabled,
                     [asyncResp, path,
                      element](const boost::system::error_code& ec2,
-                              sdbusplus::message::message& msg) {
+                              const sdbusplus::message::message& msg) {
                         if (!ec2)
                         {
                             BMCWEB_LOG_DEBUG(
@@ -784,10 +787,7 @@ inline void changePowerCapEnable(
                         {
                             messages::internalError(asyncResp->res);
                         }
-                    },
-                    element.first, path, "org.freedesktop.DBus.Properties",
-                    "Set", "xyz.openbmc_project.Control.Power.Cap",
-                    "PowerCapEnable", dbus::utility::DbusVariantType(enabled));
+                    });
             }
         },
         "xyz.openbmc_project.ObjectMapper",

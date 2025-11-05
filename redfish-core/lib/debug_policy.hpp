@@ -251,7 +251,9 @@ inline void debugPropertySet(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp, const std::string& svc,
     const std::string& path, const std::string& prop, unsigned value)
 {
-    dbus::utility::async_method_call(
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, svc, path,
+        "xyz.openbmc_project.Control.Processor.RemoteDebug", prop, value,
         [asyncResp, prop](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -261,10 +263,7 @@ inline void debugPropertySet(
             }
             asyncResp->res.result(boost::beast::http::status::ok);
             messages::success(asyncResp->res, prop);
-        },
-        svc, path, "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.Control.Processor.RemoteDebug", prop,
-        dbus::utility::DbusVariantType(value));
+        });
 }
 
 inline bool fetchDebugPropertyFromJson(

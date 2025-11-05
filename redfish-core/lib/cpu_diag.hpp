@@ -244,7 +244,10 @@ inline bool initDiagStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     std::uint8_t diagStatus = 4;
     std::variant<std::uint8_t> variantData = diagStatus;
 
-    dbus::utility::async_method_call(
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+        "/xyz/openbmc_project/Control/Diag", "xyz.openbmc_project.Control.Diag",
+        "DiagStatus", variantData,
         [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -259,10 +262,7 @@ inline bool initDiagStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                 return;
             }
             BMCWEB_LOG_DEBUG("DiagStatus done.");
-        },
-        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
-        "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.Control.Diag", "DiagStatus", variantData);
+        });
 
     return true;
 }
@@ -272,7 +272,10 @@ inline bool clearDiagResult(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
     std::string jsonString = R"([])";
     std::variant<std::string> variantData = jsonString;
 
-    dbus::utility::async_method_call(
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+        "/xyz/openbmc_project/Control/Diag", "xyz.openbmc_project.Control.Diag",
+        "DiagResult", variantData,
         [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -287,10 +290,7 @@ inline bool clearDiagResult(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                 return;
             }
             BMCWEB_LOG_DEBUG("DiagConfig done.");
-        },
-        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
-        "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.Control.Diag", "DiagResult", variantData);
+        });
 
     return true;
 }
@@ -343,8 +343,10 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
         return false;
     }
     bool value = val.value();
-    dbus::utility::async_method_call(
-        [aResp](const boost::system::error_code& ec) {
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+        "/xyz/openbmc_project/Control/Diag", "xyz.openbmc_project.Control.Diag",
+        "DiagMode", value, [aResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec);
@@ -357,11 +359,7 @@ inline bool setDiagMode(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                 return;
             }
             BMCWEB_LOG_DEBUG("DiagMode update done.");
-        },
-        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
-        "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.Control.Diag", "DiagMode",
-        dbus::utility::DbusVariantType(value));
+        });
 
     return true;
 }
@@ -453,7 +451,10 @@ inline bool handleDiagSysConfigPostReq(
     std::string jsonString = diagSysConfigCap.dump();
     std::variant<std::string> variantData = jsonString;
 
-    dbus::utility::async_method_call(
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+        "/xyz/openbmc_project/Control/Diag", "xyz.openbmc_project.Control.Diag",
+        "DiagSystemConfig", variantData,
         [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -468,10 +469,7 @@ inline bool handleDiagSysConfigPostReq(
                 return;
             }
             BMCWEB_LOG_DEBUG("DiagSystemConfig done.");
-        },
-        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
-        "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.Control.Diag", "DiagSystemConfig", variantData);
+        });
 
     return true;
 }
@@ -590,7 +588,10 @@ inline bool handleDiagTidConfigPostReq(
     std::string jsonString = diagTidConfigCap.dump();
     std::variant<std::string> variantData = jsonString;
 
-    dbus::utility::async_method_call(
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Settings",
+        "/xyz/openbmc_project/Control/Diag", "xyz.openbmc_project.Control.Diag",
+        "DiagConfig", variantData,
         [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
@@ -605,10 +606,7 @@ inline bool handleDiagTidConfigPostReq(
                 return;
             }
             BMCWEB_LOG_DEBUG("DiagTidConfig done.");
-        },
-        "xyz.openbmc_project.Settings", "/xyz/openbmc_project/Control/Diag",
-        "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.Control.Diag", "DiagConfig", variantData);
+        });
 
     return true;
 }

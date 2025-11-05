@@ -175,18 +175,17 @@ inline void setCredentialBootstrap(
 
             const std::string& biosService = objType.begin()->first;
 
-            dbus::utility::async_method_call(
-                [asyncResp](const boost::system::error_code& ec1) {
+            sdbusplus::asio::setProperty(
+                *crow::connections::systemBus, biosService,
+                redfish::biosConfigObj, redfish::biosConfigIface, property,
+                flag, [asyncResp](const boost::system::error_code& ec1) {
                     if (ec1)
                     {
                         BMCWEB_LOG_DEBUG("DBUS response error {}", ec1);
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                },
-                biosService, redfish::biosConfigObj,
-                "org.freedesktop.DBus.Properties", "Set",
-                redfish::biosConfigIface, property, std::variant<bool>(flag));
+                });
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -198,20 +197,18 @@ inline void setInterfaceEnabled(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& ifaceId, const bool& interfaceEnabled)
 {
-    dbus::utility::async_method_call(
-        [asyncResp](const boost::system::error_code& ec) {
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, "xyz.openbmc_project.Network",
+        "/xyz/openbmc_project/network/" + ifaceId,
+        "xyz.openbmc_project.Network.EthernetInterface", "NICEnabled",
+        interfaceEnabled, [asyncResp](const boost::system::error_code& ec) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error {}", ec);
                 messages::internalError(asyncResp->res);
                 return;
             }
-        },
-        "xyz.openbmc_project.Network",
-        "/xyz/openbmc_project/network/" + ifaceId,
-        "org.freedesktop.DBus.Properties", "Set",
-        "xyz.openbmc_project.Network.EthernetInterface", "NICEnabled",
-        std::variant<bool>(interfaceEnabled));
+        });
 }
 
 inline void requestHostInterfacesRoutes(App& app)

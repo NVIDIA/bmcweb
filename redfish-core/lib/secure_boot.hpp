@@ -237,7 +237,12 @@ inline void handleSecureBootPatch(
 
         if (!secureBootCurrentBootStr.empty())
         {
-            dbus::utility::async_method_call(
+            sdbusplus::asio::setProperty(
+                *crow::connections::systemBus,
+                "xyz.openbmc_project.BIOSConfigManager",
+                "/xyz/openbmc_project/bios_config/manager",
+                "xyz.openbmc_project.BIOSConfig.SecureBoot", "CurrentBoot",
+                secureBootCurrentBootStr,
                 [aResp](const boost::system::error_code& ec1) {
                     if (ec1)
                     {
@@ -245,17 +250,17 @@ inline void handleSecureBootPatch(
                         messages::internalError(aResp->res);
                         return;
                     }
-                },
-                "xyz.openbmc_project.BIOSConfigManager",
-                "/xyz/openbmc_project/bios_config/manager",
-                "org.freedesktop.DBus.Properties", "Set",
-                "xyz.openbmc_project.BIOSConfig.SecureBoot", "CurrentBoot",
-                dbus::utility::DbusVariantType(secureBootCurrentBootStr));
+                });
         }
 
         if (secureBootEnable)
         {
-            dbus::utility::async_method_call(
+            sdbusplus::asio::setProperty(
+                *crow::connections::systemBus,
+                "xyz.openbmc_project.BIOSConfigManager",
+                "/xyz/openbmc_project/bios_config/manager",
+                "xyz.openbmc_project.BIOSConfig.SecureBoot", "PendingEnable",
+                *secureBootEnable,
                 [aResp](const boost::system::error_code& ec1) {
                     if (ec1)
                     {
@@ -263,17 +268,17 @@ inline void handleSecureBootPatch(
                         messages::internalError(aResp->res);
                         return;
                     }
-                },
-                "xyz.openbmc_project.BIOSConfigManager",
-                "/xyz/openbmc_project/bios_config/manager",
-                "org.freedesktop.DBus.Properties", "Set",
-                "xyz.openbmc_project.BIOSConfig.SecureBoot", "PendingEnable",
-                dbus::utility::DbusVariantType(*secureBootEnable));
+                });
         }
 
         if (!secureBootModeStr.empty())
         {
-            dbus::utility::async_method_call(
+            sdbusplus::asio::setProperty(
+                *crow::connections::systemBus,
+                "xyz.openbmc_project.BIOSConfigManager",
+                "/xyz/openbmc_project/bios_config/manager",
+                "xyz.openbmc_project.BIOSConfig.SecureBoot", "Mode",
+                secureBootModeStr,
                 [aResp](const boost::system::error_code& ec1) {
                     if (ec1)
                     {
@@ -281,12 +286,7 @@ inline void handleSecureBootPatch(
                         messages::internalError(aResp->res);
                         return;
                     }
-                },
-                "xyz.openbmc_project.BIOSConfigManager",
-                "/xyz/openbmc_project/bios_config/manager",
-                "org.freedesktop.DBus.Properties", "Set",
-                "xyz.openbmc_project.BIOSConfig.SecureBoot", "Mode",
-                dbus::utility::DbusVariantType(secureBootModeStr));
+                });
         }
     });
 }

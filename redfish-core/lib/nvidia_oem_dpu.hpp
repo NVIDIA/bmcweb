@@ -327,7 +327,10 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
             }
 
             // Single method call implementation
-            dbus::utility::async_method_call(
+            sdbusplus::asio::setProperty(
+                *crow::connections::systemBus, objectInfo.service,
+                objectInfo.obj, objectInfo.propertyInfo.intf,
+                objectInfo.propertyInfo.prop, propertyValue,
                 [asyncResp](const boost::system::error_code& errorCode) {
                     if (errorCode)
                     {
@@ -337,11 +340,7 @@ class DpuActionSetProperties : virtual public DpuCommonProperties
                     }
 
                     messages::success(asyncResp->res);
-                },
-                objectInfo.service, objectInfo.obj,
-                "org.freedesktop.DBus.Properties", "Set",
-                objectInfo.propertyInfo.intf, objectInfo.propertyInfo.prop,
-                propertyValue);
+                });
         }
     }
 
@@ -1053,18 +1052,17 @@ inline void handleTruststoreCertificatesCollectionPost(
 
                     if (owner)
                     {
-                        dbus::utility::async_method_call(
+                        sdbusplus::asio::setProperty(
+                            *crow::connections::systemBus,
+                            truststoreBiosService, objectPath,
+                            "xyz.openbmc_project.Common.UUID", "UUID", *owner,
                             [asyncResp](const boost::system::error_code& ec3) {
                                 if (ec3)
                                 {
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
-                            },
-                            truststoreBiosService, objectPath,
-                            "org.freedesktop.DBus.Properties", "Set",
-                            "xyz.openbmc_project.Common.UUID", "UUID",
-                            dbus::utility::DbusVariantType(*owner));
+                            });
                     }
                 },
                 truststoreBiosService, truststoreBiosPath,

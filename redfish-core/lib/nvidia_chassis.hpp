@@ -130,7 +130,12 @@ inline void powerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                     if (hostState ==
                         "xyz.openbmc_project.State.Host.HostState.Running")
                     {
-                        dbus::utility::async_method_call(
+                        sdbusplus::asio::setProperty(
+                            *crow::connections::systemBus,
+                            "xyz.openbmc_project.State.Host", objectPath,
+                            "xyz.openbmc_project.State.Host",
+                            "RequestedHostTransition",
+                            "xyz.openbmc_project.State.Host.Transition.Reboot",
                             [asyncResp,
                              objectPath](const boost::system::error_code& ec3) {
                                 // Use "Set" method to set the property
@@ -144,13 +149,7 @@ inline void powerCycle(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
                                 }
 
                                 messages::success(asyncResp->res);
-                            },
-                            "xyz.openbmc_project.State.Host", objectPath,
-                            "org.freedesktop.DBus.Properties", "Set",
-                            "xyz.openbmc_project.State.Host",
-                            "RequestedHostTransition",
-                            dbus::utility::DbusVariantType{
-                                "xyz.openbmc_project.State.Host.Transition.Reboot"});
+                            });
                     }
                     else
                     {

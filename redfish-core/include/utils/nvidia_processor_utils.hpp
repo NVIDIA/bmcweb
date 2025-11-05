@@ -438,8 +438,8 @@ inline void patchCCDevMode(const std::shared_ptr<bmcweb::AsyncResp>& resp,
 // Function to handle the getEgmModePendingData async method call response
 static void egmAsyncRespHandler(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                                 const std::string& processorId,
-                                boost::system::error_code ec,
-                                sdbusplus::message::message& msg)
+                                const boost::system::error_code& ec,
+                                const sdbusplus::message::message& msg)
 {
     if (!ec)
     {
@@ -523,13 +523,13 @@ static void egmGetDbusObjectHandler(
     BMCWEB_LOG_DEBUG("Performing Patch using set-property Call");
 
     // Set the property, with handler to check error responses
-    dbus::utility::async_method_call(
-        [resp, processorId](boost::system::error_code ec2,
-                            sdbusplus::message::message& msg) {
+    sdbusplus::asio::setProperty(
+        *crow::connections::systemBus, service, cpuObjectPath,
+        "com.nvidia.EgmMode", "EGMModeEnabled", egmMode,
+        [resp, processorId](const boost::system::error_code& ec2,
+                            const sdbusplus::message_t& msg) {
             egmAsyncRespHandler(resp, processorId, ec2, msg);
-        },
-        service, cpuObjectPath, "org.freedesktop.DBus.Properties", "Set",
-        "com.nvidia.EgmMode", "EGMModeEnabled", std::variant<bool>(egmMode));
+        });
 }
 
 /**
