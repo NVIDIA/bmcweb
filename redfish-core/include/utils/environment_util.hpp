@@ -820,7 +820,7 @@ inline void getEDPpData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         asyncResp->res.jsonValue["Oem"]["Nvidia"]["EDPpPercent"]
                                                 ["SetPoint"] = limit;
                         asyncResp->res.jsonValue["Oem"]["Nvidia"]["EDPpPercent"]
-                                                ["Persistency"] = {};
+                                                ["Persistency"] = persistency;
                     }
                 }
                 else if (key == "AllowableMax")
