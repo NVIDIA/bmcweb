@@ -868,6 +868,8 @@ inline void doNetworkAdapterGeneric(
     {
         redfish::nvidia_network_adapters_utils::populateErrorInjectionLink(
             asyncResp, chassisId, networkAdapterId, *validNetworkAdapterPath);
+        redfish::nvidia_network_adapters_utils::populateProtectionOptions(
+            asyncResp, chassisId, networkAdapterId, *validNetworkAdapterPath);
     }
 }
 
@@ -952,6 +954,94 @@ inline void handleNetworkAdapterGetGeneric(
         asyncResp, chassisId,
         std::bind_front(handleNetworkAdapterGetNext, asyncResp, chassisId,
                         networkAdapterId));
+}
+
+inline void doNetworkAdapterPatchGeneric(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& networkAdapterId,
+    const std::optional<std::string>& protectionOption,
+    const std::optional<std::string>& validNetworkAdapterPath)
+{
+    if (!validNetworkAdapterPath)
+    {
+        BMCWEB_LOG_ERROR("Not a valid networkAdapter ID{}", networkAdapterId);
+        messages::resourceNotFound(asyncResp->res, "NetworkAdapter",
+                                   networkAdapterId);
+        return;
+    }
+
+    if (protectionOption)
+    {
+        dbus::utility::getDbusObject(
+            *validNetworkAdapterPath, std::array<std::string_view, 0>{},
+            [asyncResp, networkAdapterId, protectionOption,
+             validNetworkAdapterPath](
+                const boost::system::error_code ec,
+                const dbus::utility::MapperServiceMap& serviceMap) {
+                if (ec)
+                {
+                    BMCWEB_LOG_ERROR(
+                        "GetObject failed for NetworkAdapter {}: {}",
+                        networkAdapterId, ec.message());
+                    messages::internalError(asyncResp->res);
+                    return;
+                }
+
+                redfish::nvidia_network_adapters_utils::patchProtectionOption(
+                    asyncResp, *protectionOption, *validNetworkAdapterPath,
+                    serviceMap);
+            });
+    }
+}
+
+inline void handleNetworkAdapterPatchNext(
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId,
+    const std::optional<std::string>& protectionOption,
+    const std::vector<std::string>& chassisIntfList,
+    const std::optional<std::string>& validChassisPath)
+{
+    if (!validChassisPath)
+    {
+        BMCWEB_LOG_ERROR("Not a valid chassis ID{}", chassisId);
+        messages::resourceNotFound(asyncResp->res, "Chassis", chassisId);
+        return;
+    }
+
+    getValidNetworkAdapterPath(
+        asyncResp, networkAdapterId, chassisIntfList, *validChassisPath,
+        std::bind_front(doNetworkAdapterPatchGeneric, asyncResp,
+                        networkAdapterId, protectionOption));
+}
+
+inline void handleNetworkAdapterPatchGeneric(
+    App& app, const crow::Request& req,
+    const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
+    const std::string& chassisId, const std::string& networkAdapterId)
+{
+    if (!redfish::setUpRedfishRoute(app, req, asyncResp))
+    {
+        return;
+    }
+
+    std::optional<std::string> protectionOption;
+    if (!redfish::json_util::readJsonPatch(req, asyncResp->res,
+                                           "Oem/Nvidia/ProtectionOption",
+                                           protectionOption))
+    {
+        return;
+    }
+
+    if (!protectionOption)
+    {
+        BMCWEB_LOG_ERROR("No ProtectionOption field provided for PATCH");
+        return;
+    }
+
+    redfish::chassis_utils::getValidChassisPathAndInterfaces(
+        asyncResp, chassisId,
+        std::bind_front(handleNetworkAdapterPatchNext, asyncResp, chassisId,
+                        networkAdapterId, protectionOption));
 }
 
 inline void doPortCollectionWithValidChassisId(
@@ -2723,6 +2813,10 @@ inline void requestRoutesNetworkAdaptersGeneric(App& app)
         .privileges(redfish::privileges::getNetworkAdapter)
         .methods(boost::beast::http::verb::get)(
             std::bind_front(handleNetworkAdapterGetGeneric, std::ref(app)));
+    BMCWEB_ROUTE(app, "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/")
+        .privileges(redfish::privileges::patchNetworkAdapter)
+        .methods(boost::beast::http::verb::patch)(
+            std::bind_front(handleNetworkAdapterPatchGeneric, std::ref(app)));
     BMCWEB_ROUTE(
         app,
         "/redfish/v1/Chassis/<str>/NetworkAdapters/<str>/Actions/NetworkAdapter.Reset/")
