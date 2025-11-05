@@ -254,7 +254,7 @@ inline void requestRoutesDebugTokenServiceDiagnosticDataCollect(App& app)
                 {
                     type = debug_token::RequestType::DebugTokenRequest;
                 }
-                if constexpr (BMCWEB_DOT_SUPPORT)
+                else if constexpr (BMCWEB_DOT_SUPPORT)
                 {
                     if (oemDiagnosticDataType == "GetDOTCAKUnlockTokenRequest")
                     {
