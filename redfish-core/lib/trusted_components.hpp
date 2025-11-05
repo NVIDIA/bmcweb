@@ -197,11 +197,10 @@ inline void trustedComponentGetAllProperties(
     const std::string& service, const std::string& path,
     const std::string& interface)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        service, path, interface,
         [asyncResp](const boost::system::error_code& ec,
-                    const std::vector<
-                        std::pair<std::string, dbus::utility::DbusVariantType>>&
-                        propertiesList) {
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -230,8 +229,7 @@ inline void trustedComponentGetAllProperties(
                         std::get<std::string>(propertyVariant);
                 }
             }
-        },
-        service, path, "org.freedesktop.DBus.Properties", "GetAll", interface);
+        });
 }
 
 /**
@@ -523,11 +521,11 @@ inline void fetchInventoryProperties(
 
             const std::string& service = servicesToInterfaces[0].first;
 
-            dbus::utility::async_method_call(
+            dbus::utility::getAllProperties(
+                service, componentInventoryPath, "",
                 [asyncResp, chassisID, service, componentInventoryPath](
                     const boost::system::error_code ecInv,
-                    const std::vector<std::pair<
-                        std::string, dbus::utility::DbusVariantType>>& props) {
+                    const dbus::utility::DBusPropertiesMap& props) {
                     if (ecInv)
                     {
                         BMCWEB_LOG_ERROR(
@@ -558,9 +556,7 @@ inline void fetchInventoryProperties(
                             }
                         }
                     }
-                },
-                service, componentInventoryPath,
-                "org.freedesktop.DBus.Properties", "GetAll", "");
+                });
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -875,11 +871,12 @@ static void constructCertificateResponse(
     const std::string& certificateID, const std::string& certPath,
     const CertificateData& certData)
 {
-    dbus::utility::async_method_call(
-        [asyncResp, chassisID, componentID, certificateID, certPath, certData](
-            const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, dbus::utility::DbusVariantType>& responderProps) {
+    dbus::utility::getAllProperties(
+        "xyz.openbmc_project.SPDM", certPath,
+        "xyz.openbmc_project.SPDM.Responder",
+        [asyncResp, chassisID, componentID, certificateID, certPath,
+         certData](const boost::system::error_code& ec,
+                   const dbus::utility::DBusPropertiesMap& responderProps) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -889,7 +886,10 @@ static void constructCertificateResponse(
             }
 
             const uint8_t* slot = nullptr;
-            auto itSlot = responderProps.find("Slot");
+            auto itSlot =
+                std::ranges::find_if(responderProps, [](const auto& property) {
+                    return property.first == "Slot";
+                });
             if (itSlot != responderProps.end())
             {
                 slot = std::get_if<uint8_t>(&itSlot->second);
@@ -955,9 +955,7 @@ static void constructCertificateResponse(
                     redfish::time_utils::getDateTimeUintMs(
                         certData.notBefore.value());
             }
-        },
-        "xyz.openbmc_project.SPDM", certPath, "org.freedesktop.DBus.Properties",
-        "GetAll", "xyz.openbmc_project.SPDM.Responder");
+        });
 }
 
 /**
@@ -984,8 +982,7 @@ static void handleCertificateProperties(
     const std::string& chassisID, const std::string& componentID,
     const std::string& certificateID, const std::string& certPath,
     const boost::system::error_code& ec,
-    const boost::container::flat_map<std::string,
-                                     dbus::utility::DbusVariantType>& certProps,
+    const dbus::utility::DBusPropertiesMap& certProps,
     CertificateData& certData)
 {
     if (ec)
@@ -996,7 +993,10 @@ static void handleCertificateProperties(
         return;
     }
 
-    auto itCertString = certProps.find("CertificateString");
+    auto itCertString =
+        std::ranges::find_if(certProps, [](const auto& property) {
+            return property.first == "CertificateString";
+        });
     if (itCertString == certProps.end())
     {
         BMCWEB_LOG_ERROR(
@@ -1018,7 +1018,9 @@ static void handleCertificateProperties(
     }
     certData.certString = *certificateString;
 
-    auto itKeyUsage = certProps.find("KeyUsage");
+    auto itKeyUsage = std::ranges::find_if(certProps, [](const auto& property) {
+        return property.first == "KeyUsage";
+    });
     if (itKeyUsage != certProps.end())
     {
         if (const auto* value =
@@ -1028,7 +1030,9 @@ static void handleCertificateProperties(
         }
     }
 
-    auto itIssuer = certProps.find("Issuer");
+    auto itIssuer = std::ranges::find_if(certProps, [](const auto& property) {
+        return property.first == "Issuer";
+    });
     if (itIssuer != certProps.end())
     {
         if (const auto* value = std::get_if<std::string>(&itIssuer->second))
@@ -1037,7 +1041,9 @@ static void handleCertificateProperties(
         }
     }
 
-    auto itSubject = certProps.find("Subject");
+    auto itSubject = std::ranges::find_if(certProps, [](const auto& property) {
+        return property.first == "Subject";
+    });
     if (itSubject != certProps.end())
     {
         if (const auto* value = std::get_if<std::string>(&itSubject->second))
@@ -1046,7 +1052,10 @@ static void handleCertificateProperties(
         }
     }
 
-    auto itValidNotAfter = certProps.find("ValidNotAfter");
+    auto itValidNotAfter =
+        std::ranges::find_if(certProps, [](const auto& property) {
+            return property.first == "ValidNotAfter";
+        });
     if (itValidNotAfter != certProps.end())
     {
         if (const auto* value = std::get_if<uint64_t>(&itValidNotAfter->second))
@@ -1055,7 +1064,10 @@ static void handleCertificateProperties(
         }
     }
 
-    auto itValidNotBefore = certProps.find("ValidNotBefore");
+    auto itValidNotBefore =
+        std::ranges::find_if(certProps, [](const auto& property) {
+            return property.first == "ValidNotBefore";
+        });
     if (itValidNotBefore != certProps.end())
     {
         if (const auto* value =
@@ -1093,18 +1105,16 @@ inline void getTrustedComponentCertificate(
     certPath.append(endpointComponent);
     // Construct the D-Bus path for the SPDM certificate object
     CertificateData certData;
-    dbus::utility::async_method_call(
-        [asyncResp, chassisID, componentID, certificateID, certPath, certData](
-            const boost::system::error_code& ec,
-            const boost::container::flat_map<std::string,
-                                             dbus::utility::DbusVariantType>&
-                certProps) mutable {
+    dbus::utility::getAllProperties(
+        "xyz.openbmc_project.SPDM", certPath,
+        "xyz.openbmc_project.Certs.Certificate",
+        [asyncResp, chassisID, componentID, certificateID, certPath,
+         certData](const boost::system::error_code& ec,
+                   const dbus::utility::DBusPropertiesMap& certProps) mutable {
             handleCertificateProperties(asyncResp, chassisID, componentID,
                                         certificateID, certPath, ec, certProps,
                                         certData);
-        },
-        "xyz.openbmc_project.SPDM", certPath, "org.freedesktop.DBus.Properties",
-        "GetAll", "xyz.openbmc_project.Certs.Certificate");
+        });
 }
 
 /**

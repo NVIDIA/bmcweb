@@ -117,12 +117,11 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         (interface ==
                          "xyz.openbmc_project.Inventory.Decorator.Area"))
                     {
-                        dbus::utility::async_method_call(
+                        dbus::utility::getAllProperties(
+                            element.first, path, interface,
                             [asyncResp, path,
                              interface](const boost::system::error_code& ec1,
-                                        const std::vector<std::pair<
-                                            std::string,
-                                            std::variant<size_t, std::string>>>&
+                                        const dbus::utility::DBusPropertiesMap&
                                             propertiesList) {
                                 if (ec1)
                                 {
@@ -132,10 +131,7 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
-                                for (const std::pair<
-                                         std::string,
-                                         std::variant<size_t, std::string>>&
-                                         property : propertiesList)
+                                for (const auto& property : propertiesList)
                                 {
                                     std::string propertyName = property.first;
                                     if (propertyName == "MaxPowerCapValue")
@@ -237,10 +233,7 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                         continue;
                                     }
                                 }
-                            },
-                            element.first, path,
-                            "org.freedesktop.DBus.Properties", "GetAll",
-                            interface);
+                            });
                     }
                 }
             }
@@ -377,12 +370,12 @@ inline void getControlSettings(
 
             for (const auto& element : objInfo)
             {
-                dbus::utility::async_method_call(
-                    [asyncResp,
-                     path](const boost::system::error_code& ec1,
-                           const std::vector<std::pair<
-                               std::string, dbus::utility::DbusVariantType>>&
-                               propertiesList) {
+                dbus::utility::getAllProperties(
+                    element.first, path,
+                    "xyz.openbmc_project.Control.Power.Cap",
+                    [asyncResp, path](const boost::system::error_code& ec1,
+                                      const dbus::utility::DBusPropertiesMap&
+                                          propertiesList) {
                         if (ec1)
                         {
                             BMCWEB_LOG_ERROR(
@@ -427,16 +420,14 @@ inline void getControlSettings(
                                     "OK";
                             }
                         }
-                    },
-                    element.first, path, "org.freedesktop.DBus.Properties",
-                    "GetAll", "xyz.openbmc_project.Control.Power.Cap");
+                    });
 
-                dbus::utility::async_method_call(
-                    [asyncResp,
-                     path](const boost::system::error_code& ec,
-                           const std::vector<std::pair<
-                               std::string, dbus::utility::DbusVariantType>>&
-                               propertiesList) {
+                dbus::utility::getAllProperties(
+                    element.first, path,
+                    "xyz.openbmc_project.Inventory.Decorator.Area",
+                    [asyncResp, path](const boost::system::error_code& ec,
+                                      const dbus::utility::DBusPropertiesMap&
+                                          propertiesList) {
                         if (ec)
                         {
                             return;
@@ -461,9 +452,7 @@ inline void getControlSettings(
                                 return;
                             }
                         }
-                    },
-                    element.first, path, "org.freedesktop.DBus.Properties",
-                    "GetAll", "xyz.openbmc_project.Inventory.Decorator.Area");
+                    });
 
                 // Read related items
                 dbus::utility::getProperty<std::vector<std::string>>(
@@ -545,12 +534,12 @@ inline void getPowerReading(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 
                         for (const auto& [service, interfaces] : objInfo)
                         {
-                            dbus::utility::async_method_call(
+                            dbus::utility::getAllProperties(
+                                service, sensorPath,
+                                "xyz.openbmc_project.Sensor.Value",
                                 [asyncResp, chassisPath, sensorPath](
                                     const boost::system::error_code& ec3,
-                                    const std::vector<std::pair<
-                                        std::string,
-                                        dbus::utility::DbusVariantType>>&
+                                    const dbus::utility::DBusPropertiesMap&
                                         propertiesList) {
                                     if (ec3)
                                     {
@@ -585,10 +574,7 @@ inline void getPowerReading(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                             return;
                                         }
                                     }
-                                },
-                                service, sensorPath,
-                                "org.freedesktop.DBus.Properties", "GetAll",
-                                "xyz.openbmc_project.Sensor.Value");
+                                });
                         }
                     },
                     "xyz.openbmc_project.ObjectMapper",

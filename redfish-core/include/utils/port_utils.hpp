@@ -325,10 +325,7 @@ inline std::string getClockModeString(const std::string& dbusClockMode)
 
 inline void addOEMPCIePortProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    [[maybe_unused]] const boost::container::flat_map<
-        std::string, std::variant<std::string, bool, uint8_t, uint16_t, double,
-                                  size_t, std::vector<std::string>>>&
-        properties)
+    const dbus::utility::DBusPropertiesMap& properties)
 {
     bool addNvidiaType = false;
 
@@ -414,10 +411,7 @@ inline void addOEMPCIePortProperties(
  */
 inline void addOEMNVLinkPortProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
-    const boost::container::flat_map<
-        std::string, std::variant<std::string, bool, uint8_t, uint16_t, double,
-                                  size_t, std::vector<std::string>>>&
-        properties)
+    const dbus::utility::DBusPropertiesMap& properties)
 {
     bool addNvidiaType = false;
 
@@ -468,13 +462,12 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Port Data");
-    using PropertyType = std::variant<std::string, bool, uint8_t, uint16_t,
-                                      double, size_t, std::vector<std::string>>;
-    using PropertiesMap = boost::container::flat_map<std::string, PropertyType>;
     // Get interface properties
-    dbus::utility::async_method_call(
-        [asyncResp{asyncResp}](const boost::system::error_code ec,
-                               const PropertiesMap& properties) {
+    dbus::utility::getAllProperties(
+        service, objPath, "",
+        [asyncResp{asyncResp}](
+            const boost::system::error_code ec,
+            const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);
@@ -639,8 +632,7 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     addOEMNVLinkPortProperties(asyncResp, properties);
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
+        });
 
     asyncResp->res.jsonValue["Status"]["Health"] = "OK";
     asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
@@ -663,13 +655,13 @@ inline void getCpuPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get CPU Port Data");
-    using PropertyType = std::variant<std::string>;
-    using PropertiesMap = boost::container::flat_map<std::string, PropertyType>;
 
     // Get interface properties
-    dbus::utility::async_method_call(
-        [asyncResp{asyncResp}](const boost::system::error_code& ec,
-                               const PropertiesMap& properties) {
+    dbus::utility::getAllProperties(
+        service, objPath, "",
+        [asyncResp{asyncResp}](
+            const boost::system::error_code& ec,
+            const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);
@@ -768,8 +760,7 @@ inline void getCpuPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     }
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
+        });
 }
 
 } // namespace port_utils

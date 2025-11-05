@@ -618,11 +618,10 @@ class RequestHandler : public OperationHandler
         {
             DebugTokenSpdmEndpoint* spdmEp =
                 dynamic_cast<DebugTokenSpdmEndpoint*>(ep.get());
-            dbus::utility::async_method_call(
-                [this, spdmEp](
-                    const boost::system::error_code& ec,
-                    const boost::container::flat_map<
-                        std::string, dbus::utility::DbusVariantType>& props) {
+            dbus::utility::getAllProperties(
+                spdmBusName, object, spdmResponderIntf,
+                [this, spdmEp](const boost::system::error_code& ec,
+                               const dbus::utility::DBusPropertiesMap& props) {
                     auto objectPath = spdmEp->getObject();
                     const std::string descStr =
                         "Reading properties of " + objectPath + " object";
@@ -635,7 +634,10 @@ class RequestHandler : public OperationHandler
                         finalize();
                         return;
                     }
-                    auto itSign = props.find("SignedMeasurements");
+                    auto itSign =
+                        std::ranges::find_if(props, [](const auto& property) {
+                            return property.first == "SignedMeasurements";
+                        });
                     if (itSign == props.end())
                     {
                         errCallback(false, descStr,
@@ -655,7 +657,10 @@ class RequestHandler : public OperationHandler
                         finalize();
                         return;
                     }
-                    auto itCaps = props.find("Capabilities");
+                    auto itCaps =
+                        std::ranges::find_if(props, [](const auto& property) {
+                            return property.first == "Capabilities";
+                        });
                     if (itCaps == props.end())
                     {
                         errCallback(false, descStr,
@@ -676,7 +681,10 @@ class RequestHandler : public OperationHandler
                     std::string pem;
                     if ((*caps & spdmCertCapability) != 0U)
                     {
-                        auto itCert = props.find("Certificate");
+                        auto itCert = std::ranges::find_if(
+                            props, [](const auto& property) {
+                                return property.first == "Certificate";
+                            });
                         if (itCert == props.end())
                         {
                             errCallback(false, descStr,
@@ -716,9 +724,7 @@ class RequestHandler : public OperationHandler
                     spdmEp->setRequest(request);
                     finalize();
                     return;
-                },
-                spdmBusName, object, "org.freedesktop.DBus.Properties",
-                "GetAll", spdmResponderIntf);
+                });
         }
         else if (startsWithPrefix(status, "Error_"))
         {

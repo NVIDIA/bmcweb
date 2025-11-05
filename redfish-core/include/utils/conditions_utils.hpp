@@ -61,8 +61,8 @@ inline void handleDeviceServiceConditions(
             const uint32_t* id = nullptr;
             const std::string* message = nullptr;
             const std::string* severity = nullptr;
-            const std::unordered_map<std::string, std::string>* additionalData =
-                nullptr;
+            const std::vector<std::pair<std::string, std::string>>*
+                additionalData = nullptr;
             const std::string prefix =
                 "xyz.openbmc_project.Logging.Entry.Level.";
             const std::string criticalSev = prefix + "Critical";
@@ -95,8 +95,8 @@ inline void handleDeviceServiceConditions(
                             }
                             else if (propertyMap.first == "AdditionalData")
                             {
-                                additionalData = std::get_if<std::unordered_map<
-                                    std::string, std::string>>(
+                                additionalData = std::get_if<std::vector<
+                                    std::pair<std::string, std::string>>>(
                                     &propertyMap.second);
                             }
                             else if (propertyMap.first == "Timestamp")
@@ -183,8 +183,8 @@ inline void handleServiceConditionsURI(
             const uint32_t* id = nullptr;
             const std::string* message = nullptr;
             const std::string* severity = nullptr;
-            const std::unordered_map<std::string, std::string>* additionalData =
-                nullptr;
+            const std::vector<std::pair<std::string, std::string>>*
+                additionalData = nullptr;
             const std::string prefix =
                 "xyz.openbmc_project.Logging.Entry.Level.";
             const std::string criticalSev = prefix + "Critical";
@@ -216,8 +216,8 @@ inline void handleServiceConditionsURI(
                             }
                             else if (propertyMap.first == "AdditionalData")
                             {
-                                additionalData = std::get_if<std::unordered_map<
-                                    std::string, std::string>>(
+                                additionalData = std::get_if<std::vector<
+                                    std::pair<std::string, std::string>>>(
                                     &propertyMap.second);
                             }
                             else if (propertyMap.first == "Timestamp")

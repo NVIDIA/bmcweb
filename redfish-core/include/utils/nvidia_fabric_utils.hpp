@@ -458,11 +458,10 @@ inline void getSwitchIsolationMode(
     const std::string& serv, const std::string& objPath,
     const std::string& interface)
 {
-    using PropertiesMap =
-        boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        serv, objPath, interface,
         [asyncResp](const boost::system::error_code& ec,
-                    const PropertiesMap& properties) {
+                    const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -489,8 +488,7 @@ inline void getSwitchIsolationMode(
                             : "Unknown";
                 }
             }
-        },
-        serv, objPath, "org.freedesktop.DBus.Properties", "GetAll", interface);
+        });
 }
 
 inline void getFabricManagerState(
@@ -498,11 +496,10 @@ inline void getFabricManagerState(
     const std::string& serv, const std::string& objPath,
     const std::string& interface)
 {
-    using PropertiesMap =
-        boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        serv, objPath, interface,
         [asyncResp](const boost::system::error_code& ec,
-                    const PropertiesMap& properties) {
+                    const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -572,8 +569,7 @@ inline void getFabricManagerState(
                         redfish::time_utils::getDateTimeUint(*value);
                 }
             }
-        },
-        serv, objPath, "org.freedesktop.DBus.Properties", "GetAll", interface);
+        });
 }
 
 inline void getSwitchHistogramLink(

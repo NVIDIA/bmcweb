@@ -285,14 +285,11 @@ inline void getHealthData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                           const std::string& service,
                           const std::string& objPath)
 {
-    using PropertiesMap =
-        boost::container::flat_map<std::string,
-                                   std::variant<std::string, size_t>>;
-
     // Get interface properties
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        service, objPath, "xyz.openbmc_project.State.Decorator.Health",
         [asyncResp](const boost::system::error_code& ec,
-                    const PropertiesMap& properties) {
+                    const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 messages::internalError(asyncResp->res);
@@ -317,9 +314,7 @@ inline void getHealthData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         convertHealthToRF(*value);
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.State.Decorator.Health");
+        });
 }
 
 inline void getHealthByAssociation(
@@ -393,9 +388,6 @@ inline void getAssetData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const std::string& objPath,
                          const std::string& networkAdapterId)
 {
-    using PropertyType = std::variant<std::string>;
-    using PropertiesMap = boost::container::flat_map<std::string, PropertyType>;
-
     dbus::utility::async_method_call(
         [asyncResp, objPath, networkAdapterId](
             const boost::system::error_code ec,
@@ -411,9 +403,12 @@ inline void getAssetData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             std::string service = object.front().first;
 
             // Get interface properties
-            dbus::utility::async_method_call(
-                [asyncResp, service](const boost::system::error_code ec1,
-                                     const PropertiesMap& properties) {
+            dbus::utility::getAllProperties(
+                service, objPath,
+                "xyz.openbmc_project.Inventory.Decorator.Asset",
+                [asyncResp,
+                 service](const boost::system::error_code ec1,
+                          const dbus::utility::DBusPropertiesMap& properties) {
                     if (ec1)
                     {
                         messages::internalError(asyncResp->res);
@@ -462,9 +457,7 @@ inline void getAssetData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             }
                         }
                     }
-                },
-                service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-                "xyz.openbmc_project.Inventory.Decorator.Asset");
+                });
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -492,12 +485,11 @@ inline void getPCIeInterfaceData(
             }
             auto service = object.front().first;
 
-            dbus::utility::async_method_call(
+            dbus::utility::getAllProperties(
+                service, path, "",
                 [asyncResp, deviceId, controllerObject](
                     const boost::system::error_code ec1,
-                    const std::vector<std::pair<
-                        std::string, std::variant<std::string, size_t>>>&
-                        propertiesList) {
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
                     if (ec1)
                     {
                         BMCWEB_LOG_ERROR(
@@ -507,9 +499,7 @@ inline void getPCIeInterfaceData(
                         return;
                     }
 
-                    for (const std::pair<std::string,
-                                         std::variant<std::string, size_t>>&
-                             property : propertiesList)
+                    for (const auto& property : propertiesList)
                     {
                         const std::string& propertyName = property.first;
                         if (propertyName == "MaxLanes")
@@ -585,8 +575,7 @@ inline void getPCIeInterfaceData(
                     }
                     asyncResp->res.jsonValue["Controllers"].emplace_back(
                         *controllerObject);
-                },
-                service, path, "org.freedesktop.DBus.Properties", "GetAll", "");
+                });
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",
@@ -1026,13 +1015,12 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         "/redfish/v1/Chassis/{}/NetworkAdapters/{}/Ports/{}/Metrics", chassisId,
         networkAdapterId, portId);
 
-    using PropertiesMap =
-        boost::container::flat_map<std::string,
-                                   std::variant<std::string, size_t, double>>;
     // Get interface properties
-    dbus::utility::async_method_call(
-        [asyncResp, networkAdapterId](const boost::system::error_code ec,
-                                      const PropertiesMap& properties) {
+    dbus::utility::getAllProperties(
+        service, objPath, "",
+        [asyncResp,
+         networkAdapterId](const boost::system::error_code ec,
+                           const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -1176,8 +1164,7 @@ inline void getPortData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     }
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
+        });
 
     if constexpr (!BMCWEB_DISABLE_HEALTH_ROLLUP)
     {
@@ -1743,12 +1730,13 @@ inline void getPortMetricsData(
     const std::string& service, const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Port Metric Data");
-    using PropertiesMap =
-        boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
+
     // Get interface properties
-    dbus::utility::async_method_call(
-        [asyncResp{asyncResp}](const boost::system::error_code ec,
-                               const PropertiesMap& properties) {
+    dbus::utility::getAllProperties(
+        service, objPath, "",
+        [asyncResp{asyncResp}](
+            const boost::system::error_code ec,
+            const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -1757,7 +1745,10 @@ inline void getPortMetricsData(
             }
 
             auto addNvidiaType = BMCWEB_NVIDIA_OEM_PROPERTIES;
-            auto linkTypePtr = properties.find("LinkType");
+            auto linkTypePtr =
+                std::ranges::find_if(properties, [](const auto& property) {
+                    return property.first == "LinkType";
+                });
             std::string linkType;
             if (linkTypePtr != properties.end())
             {
@@ -1937,8 +1928,7 @@ inline void getPortMetricsData(
                         "#NvidiaPortMetrics.v1_7_0.NvidiaNVLinkPortMetrics";
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
+        });
 }
 
 inline void getPortMetricsDataByAssociation(

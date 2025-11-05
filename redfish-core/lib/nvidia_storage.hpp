@@ -194,16 +194,13 @@ inline void getDrivePortProperties(
         *crow::connections::systemBus, connectionName, path,
         "xyz.openbmc_project.Inventory.Decorator.PortInfo",
         [asyncResp](const boost::system::error_code& ec,
-                    const std::vector<
-                        std::pair<std::string, dbus::utility::DbusVariantType>>&
-                        propertiesList) {
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
                 // this interface isn't required
                 return;
             }
-            for (const std::pair<std::string, dbus::utility::DbusVariantType>&
-                     property : propertiesList)
+            for (const auto& property : propertiesList)
             {
                 const std::string& propertyName = property.first;
                 if (propertyName == "MaxSpeed")

@@ -127,14 +127,12 @@ inline void getNvidiaPowerSupplyMetrics(
                         }
                         const std::string& serviceName = object.begin()->first;
                         // Fetch sensor data
-                        dbus::utility::async_method_call(
-                            [asyncResp, chassisId, sensorPath](
-                                const boost::system::error_code& ec3,
-                                const boost::container::flat_map<
-                                    std::string,
-                                    std::variant<std::string, double, uint64_t,
-                                                 std::vector<std::string>>>&
-                                    properties) {
+                        dbus::utility::getAllProperties(
+                            serviceName, sensorPath, "",
+                            [asyncResp, chassisId,
+                             sensorPath](const boost::system::error_code& ec3,
+                                         const dbus::utility::DBusPropertiesMap&
+                                             properties) {
                                 if (ec3)
                                 {
                                     messages::internalError(asyncResp->res);
@@ -143,7 +141,10 @@ inline void getNvidiaPowerSupplyMetrics(
                                         ec3.message());
                                     return;
                                 }
-                                auto it = properties.find("Value");
+                                auto it = std::ranges::find_if(
+                                    properties, [](const auto& property) {
+                                        return property.first == "Value";
+                                    });
                                 if (it != properties.end())
                                 {
                                     const double* attributeValue =
@@ -187,9 +188,7 @@ inline void getNvidiaPowerSupplyMetrics(
                                         }
                                     }
                                 }
-                            },
-                            serviceName, sensorPath,
-                            "org.freedesktop.DBus.Properties", "GetAll", "");
+                            });
                     });
             }
         });

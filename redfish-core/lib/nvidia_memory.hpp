@@ -126,9 +126,11 @@ inline void getMemoryDataByService(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                    const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get memory metrics data.");
-    dbus::utility::async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code& ec,
-                                  const DimmProperties& properties) {
+    dbus::utility::getAllProperties(
+        service, objPath, "xyz.openbmc_project.Inventory.Item.Dimm",
+        [aResp{std::move(aResp)}](
+            const boost::system::error_code& ec,
+            const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -160,9 +162,7 @@ inline void getMemoryDataByService(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     aResp->res.jsonValue["BandwidthPercent"] = *value;
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.Inventory.Item.Dimm");
+        });
 }
 
 inline void getMemoryECCData(std::shared_ptr<bmcweb::AsyncResp> aResp,
@@ -170,9 +170,11 @@ inline void getMemoryECCData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                              const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get memory ecc data.");
-    dbus::utility::async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code& ec,
-                                  const redfish::DimmProperties& properties) {
+    dbus::utility::getAllProperties(
+        service, objPath, "xyz.openbmc_project.Memory.MemoryECC",
+        [aResp{std::move(aResp)}](
+            const boost::system::error_code& ec,
+            const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -209,9 +211,7 @@ inline void getMemoryECCData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         *value;
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.Memory.MemoryECC");
+        });
 }
 
 inline void getMemoryMetrics(
@@ -219,9 +219,11 @@ inline void getMemoryMetrics(
     const std::string& objPath, const std::string& iface)
 {
     BMCWEB_LOG_DEBUG("Get memory metrics data.");
-    dbus::utility::async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code& ec,
-                                  const DimmProperties& properties) {
+    dbus::utility::getAllProperties(
+        service, objPath, iface,
+        [aResp{std::move(aResp)}](
+            const boost::system::error_code& ec,
+            const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for memory metrics");
@@ -243,8 +245,7 @@ inline void getMemoryMetrics(
                     aResp->res.jsonValue["CapacityUtilizationPercent"] = *value;
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll", iface);
+        });
 }
 
 inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
@@ -252,9 +253,11 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                    const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get memory row remapping counts.");
-    dbus::utility::async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code& ec,
-                                  const DimmProperties& properties) {
+    dbus::utility::getAllProperties(
+        service, objPath, "com.nvidia.MemoryRowRemapping",
+        [aResp{std::move(aResp)}](
+            const boost::system::error_code& ec,
+            const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -367,9 +370,7 @@ inline void getMemoryRowRemappings(std::shared_ptr<bmcweb::AsyncResp> aResp,
                         *value;
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "com.nvidia.MemoryRowRemapping");
+        });
 }
 
 inline void getMemoryMetricsData(std::shared_ptr<bmcweb::AsyncResp> aResp,

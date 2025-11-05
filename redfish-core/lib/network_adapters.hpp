@@ -316,12 +316,10 @@ inline void doPort(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     asyncResp->res.jsonValue["@odata.id"] = boost::urls::format(
         "/redfish/v1/Chassis/{}/NetworkAdapters/{}/Ports/{}", chassisId,
         BMCWEB_PLATFORM_NETWORK_ADAPTER, portId);
-    using GetManagedPropertyTypeAlias = boost::container::flat_map<
-        std::string,
-        std::variant<std::string, bool, double, uint64_t, uint32_t>>;
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        service, objPath, "",
         [asyncResp](const boost::system::error_code& ec,
-                    const GetManagedPropertyTypeAlias& properties) {
+                    const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
@@ -379,8 +377,7 @@ inline void doPort(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     }
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
+        });
 }
 
 inline void doNDF(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -405,12 +402,10 @@ inline void doNDF(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
         std::string(BMCWEB_PLATFORM_NETWORK_ADAPTER) +
         "/NetworkDeviceFunctions/" + ndfId;
     asyncResp->res.jsonValue["Id"] = ndfId;
-    using GetManagedPropertyTypeAlias = boost::container::flat_map<
-        std::string,
-        std::variant<std::string, bool, double, uint64_t, uint32_t>>;
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        service, objPath, "",
         [asyncResp](const boost::system::error_code& ec,
-                    const GetManagedPropertyTypeAlias& properties) {
+                    const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error {}", ec.value());
@@ -489,8 +484,7 @@ inline void doNDF(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     }
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
+        });
 }
 
 inline void handleGet(App& app, const crow::Request& req,

@@ -54,9 +54,11 @@ inline void getProcessorWorkloadPowerInfo(
     const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get processor smoothing control data.");
-    dbus::utility::async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code& ec,
-                                  const DbusProperties& properties) {
+    dbus::utility::getAllProperties(
+        service, objPath, "com.nvidia.PowerProfile.ProfileInfo",
+        [aResp{std::move(aResp)}](
+            const boost::system::error_code& ec,
+            const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -106,9 +108,7 @@ inline void getProcessorWorkloadPowerInfo(
                         vectorTo256BitHexString(*value);
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "com.nvidia.PowerProfile.ProfileInfo");
+        });
 }
 
 inline void validateProcessorAndGetWorkloadPowerInfo(
@@ -213,10 +213,11 @@ inline void getWorkLoadProfileData(
     const std::string& objPath, const std::string& processorId)
 {
     BMCWEB_LOG_DEBUG("Get processor current profile data.");
-    dbus::utility::async_method_call(
-        [processorId,
-         aResp{std::move(aResp)}](const boost::system::error_code& ec,
-                                  const DbusProperties& properties) {
+    dbus::utility::getAllProperties(
+        service, objPath, "com.nvidia.PowerProfile.Profile",
+        [processorId, aResp{std::move(aResp)}](
+            const boost::system::error_code& ec,
+            const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -264,9 +265,7 @@ inline void getWorkLoadProfileData(
                     aResp->res.jsonValue["Name"] = profileName;
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "com.nvidia.PowerProfile.Profile");
+        });
 }
 
 inline void validateProcessorWorkloadPowerProfile(

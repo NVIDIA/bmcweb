@@ -153,9 +153,10 @@ inline void getPCIeErrorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                              const std::string& service,
                              const std::string& objPath)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        service, objPath, "xyz.openbmc_project.PCIe.PCIeECC",
         [aResp](const boost::system::error_code& ec,
-                const OperatingConfigProperties& properties) {
+                const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -268,9 +269,7 @@ inline void getPCIeErrorData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                         nvidia::nsm_utils::tryConvertToInt64(*value);
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.PCIe.PCIeECC");
+        });
 }
 
 } // namespace processor_utils

@@ -18,17 +18,24 @@
 #include "utils/dbus_event_log_entry.hpp"
 
 #include <cstdint>
+#include <ranges>
 #include <string>
 #include <unordered_map>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+using ::testing::ElementsAre;
+using ::testing::Pair;
 
 TEST(DbusEventLogEntry, FillDbusEventLogEntryFromPropertyMapSuccess)
 {
+    std::vector<std::pair<std::string, std::string>> data;
+    data.emplace_back("KEY1", "VALUE1");
+    data.emplace_back("KEY2", "VALUE2");
+
     const dbus::utility::DBusPropertiesMap propMap = {
-        {"AdditionalData", dbus::utility::DbusVariantType(
-                               std::unordered_map<std::string, std::string>{
-                                   {"KEY1", "VALUE1"}, {"KEY2", "VALUE2"}})},
+        {"AdditionalData", dbus::utility::DbusVariantType(data)},
         {"Id", dbus::utility::DbusVariantType(static_cast<uint32_t>(1234))},
         {"Message", dbus::utility::DbusVariantType("Test message")},
         {"Path", dbus::utility::DbusVariantType("/test/path")},
@@ -58,8 +65,8 @@ TEST(DbusEventLogEntry, FillDbusEventLogEntryFromPropertyMapSuccess)
         EXPECT_EQ(entry.UpdateTimestamp, 9876543210);
         EXPECT_EQ(entry.ServiceProviderNotify, "Test notify");
         EXPECT_EQ(entry.AdditionalData.size(), 2);
-        EXPECT_EQ(entry.AdditionalData.at("KEY1"), "VALUE1");
-        EXPECT_EQ(entry.AdditionalData.at("KEY2"), "VALUE2");
+        EXPECT_THAT(entry.AdditionalData, ElementsAre(Pair("KEY1", "VALUE1"),
+                                                      Pair("KEY2", "VALUE2")));
         EXPECT_EQ(*entry.Path, "/test/path");
         EXPECT_EQ(*entry.Resolution, "Test resolution");
     }
@@ -77,10 +84,12 @@ TEST(DbusEventLogEntry, FillDbusEventLogEntryFromPropertyMapEmptyMap)
 TEST(DbusEventLogEntry,
      FillDbusEventLogEntryFromPropertyMapMissingRequiredFields)
 {
+    std::vector<std::pair<std::string, std::string>> data;
+    data.emplace_back("KEY1", "VALUE1");
+    data.emplace_back("KEY2", "VALUE2");
+
     const dbus::utility::DBusPropertiesMap propMap = {
-        {"AdditionalData",
-         dbus::utility::DbusVariantType(
-             std::unordered_map<std::string, std::string>{{"KEY", "VALUE"}})},
+        {"AdditionalData", dbus::utility::DbusVariantType(data)},
         // Missing Id, Message, Resolved, Severity, Timestamp
         {"UpdateTimestamp",
          dbus::utility::DbusVariantType(static_cast<uint64_t>(9999999999))},

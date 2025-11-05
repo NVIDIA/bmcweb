@@ -72,7 +72,8 @@ using DbusVariantType = std::variant<
     std::vector<std::tuple<std::string, uint64_t, std::string, double>>,
     std::vector<std::tuple<std::string, std::string, uint64_t, std::string>>,
     std::vector<std::tuple<uint16_t, std::tuple<double, double, double>>>,
-    std::unordered_map<std::string, std::string>
+    std::tuple<uint32_t, uint32_t>,
+    std::vector<std::pair<std::string, std::string>>
 >;
 
 // clang-format on

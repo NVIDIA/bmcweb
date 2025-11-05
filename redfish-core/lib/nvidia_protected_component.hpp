@@ -107,11 +107,10 @@ inline void updateSlotProperties(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& service, const std::string& objectPath)
 {
-    dbus::utility::async_method_call(
-        [asyncResp](
-            const boost::system::error_code ec,
-            const boost::container::flat_map<
-                std::string, dbus::utility::DbusVariantType>& properties) {
+    dbus::utility::getAllProperties(
+        service, objectPath, "",
+        [asyncResp](const boost::system::error_code& ec,
+                    const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 if (ec == boost::system::errc::host_unreachable)
@@ -269,8 +268,7 @@ inline void updateSlotProperties(
                     }
                 }
             }
-        },
-        service, objectPath, "org.freedesktop.DBus.Properties", "GetAll", "");
+        });
 }
 
 /**
@@ -761,12 +759,11 @@ inline void updateSigningKeyProperties(
             }
             const auto& valueIface = *mapperResponse.begin();
             const std::string& service = valueIface.first;
-            dbus::utility::async_method_call(
-                [asyncResp, chassisId,
-                 componentId](const boost::system::error_code ec1,
-                              const boost::container::flat_map<
-                                  std::string, dbus::utility::DbusVariantType>&
-                                  properties) {
+            dbus::utility::getAllProperties(
+                service, securityPath, securitySigningInterface,
+                [asyncResp, chassisId, componentId](
+                    const boost::system::error_code ec1,
+                    const dbus::utility::DBusPropertiesMap& properties) {
                     if (ec1)
                     {
                         if (ec1 == boost::system::errc::host_unreachable)
@@ -846,9 +843,7 @@ inline void updateSigningKeyProperties(
                             }
                         }
                     }
-                },
-                service, securityPath, "org.freedesktop.DBus.Properties",
-                "GetAll", securitySigningInterface);
+                });
         });
 }
 
@@ -961,11 +956,11 @@ inline void updatePendingProperties(
             }
             const auto& valueIface = *mapperResponse.begin();
             const std::string& service = valueIface.first;
-            dbus::utility::async_method_call(
-                [asyncResp](const boost::system::error_code ec1,
-                            const boost::container::flat_map<
-                                std::string, dbus::utility::DbusVariantType>&
-                                properties) {
+            dbus::utility::getAllProperties(
+                service, securityPath, "",
+                [asyncResp](
+                    const boost::system::error_code ec1,
+                    const dbus::utility::DBusPropertiesMap& properties) {
                     if (ec1)
                     {
                         if (ec1 == boost::system::errc::host_unreachable)
@@ -1023,9 +1018,7 @@ inline void updatePendingProperties(
                             }
                         }
                     }
-                },
-                service, securityPath, "org.freedesktop.DBus.Properties",
-                "GetAll", "");
+                });
         });
 }
 

@@ -45,8 +45,6 @@ using GetObjectType =
     std::vector<std::pair<std::string, std::vector<std::string>>>;
 using SPDMCertificates = std::vector<std::tuple<uint8_t, std::string>>;
 using SignedMeasurementData = std::vector<uint8_t>;
-using GetManagedPropertyType =
-    boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
 
 struct SPDMMeasurementData
 {
@@ -96,7 +94,7 @@ inline bool startsWithPrefix(const std::string& str, const std::string& prefix)
 }
 
 inline SPDMMeasurementData parseSPDMInterfaceProperties(
-    const GetManagedPropertyType& propMap)
+    const dbus::utility::DBusPropertiesMap& propMap)
 {
     SPDMMeasurementData config{};
     for (const auto& property : propMap)
@@ -179,9 +177,10 @@ template <typename CallbackFunc>
 inline void asyncGetSPDMMeasurementData(const std::string& objectPath,
                                         CallbackFunc&& callback)
 {
-    dbus::utility::async_method_call(
-        [objectPath, callback](const boost::system::error_code ec,
-                               GetManagedPropertyType& resp) {
+    dbus::utility::getAllProperties(
+        "xyz.openbmc_project.SPDM", objectPath, "",
+        [objectPath, callback](const boost::system::error_code& ec,
+                               const dbus::utility::DBusPropertiesMap& resp) {
             SPDMMeasurementData config{};
             if (ec)
             {
@@ -192,9 +191,7 @@ inline void asyncGetSPDMMeasurementData(const std::string& objectPath,
             }
             config = parseSPDMInterfaceProperties(resp);
             callback(std::move(config), ec);
-        },
-        "xyz.openbmc_project.SPDM", objectPath,
-        "org.freedesktop.DBus.Properties", "GetAll", "");
+        });
 }
 
 /**

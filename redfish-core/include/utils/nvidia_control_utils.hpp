@@ -82,14 +82,11 @@ inline void getChassisClockLimit(
                         (interface ==
                          "xyz.openbmc_project.Inventory.Decorator.Area"))
                     {
-                        dbus::utility::async_method_call(
+                        dbus::utility::getAllProperties(
+                            element.first, path, interface,
                             [asyncResp, path, interface](
                                 const boost::system::error_code& errorno2,
-                                const std::vector<std::pair<
-                                    std::string,
-                                    std::variant<
-                                        uint32_t, std::string,
-                                        std::tuple<uint32_t, uint32_t>>>>&
+                                const dbus::utility::DBusPropertiesMap&
                                     propertiesList) {
                                 if (errorno2)
                                 {
@@ -99,12 +96,7 @@ inline void getChassisClockLimit(
                                     messages::internalError(asyncResp->res);
                                     return;
                                 }
-                                for (const std::pair<
-                                         std::string,
-                                         std::variant<
-                                             uint32_t, std::string,
-                                             std::tuple<uint32_t, uint32_t>>>&
-                                         property : propertiesList)
+                                for (const auto& property : propertiesList)
                                 {
                                     std::string propertyName = property.first;
                                     if (propertyName == "MaxSpeed")
@@ -194,10 +186,7 @@ inline void getChassisClockLimit(
                                         }
                                     }
                                 }
-                            },
-                            element.first, path,
-                            "org.freedesktop.DBus.Properties", "GetAll",
-                            interface);
+                            });
                     }
                 }
             }

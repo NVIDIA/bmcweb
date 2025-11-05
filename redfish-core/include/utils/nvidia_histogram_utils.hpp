@@ -119,13 +119,12 @@ inline void updateHistogramData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& service, const std::string& objPath)
 {
-    using PropertiesMap =
-        boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
-
     // Get interface properties
-    dbus::utility::async_method_call(
-        [asyncResp, objPath](const boost::system::error_code ec,
-                             const PropertiesMap& properties) {
+    dbus::utility::getAllProperties(
+        service, objPath, "",
+        [asyncResp,
+         objPath](const boost::system::error_code ec,
+                  const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Error while GetAll histogram data: {}",
@@ -215,8 +214,7 @@ inline void updateHistogramData(
                     asyncResp->res.jsonValue["AccumulationCycle"] = *value;
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
+        });
 }
 
 inline void getHistogramDataByAssociation(
@@ -282,8 +280,6 @@ inline void updateHistogramBucketData(
     const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get Histogram Bucket Data");
-    using PropertiesMap =
-        boost::container::flat_map<std::string, dbus::utility::DbusVariantType>;
 
     dbus::utility::async_method_call(
         [asyncResp, objPath](
@@ -299,9 +295,11 @@ inline void updateHistogramBucketData(
                 return;
             }
             // Get interface properties
-            dbus::utility::async_method_call(
-                [asyncResp](const boost::system::error_code ec3,
-                            const PropertiesMap& properties) {
+            dbus::utility::getAllProperties(
+                object.front().first, objPath, "",
+                [asyncResp](
+                    const boost::system::error_code& ec3,
+                    const dbus::utility::DBusPropertiesMap& properties) {
                     if (ec3)
                     {
                         BMCWEB_LOG_ERROR("Error while GetAll Bucket Data: {}",
@@ -350,9 +348,7 @@ inline void updateHistogramBucketData(
                             }
                         }
                     }
-                },
-                object.front().first, objPath,
-                "org.freedesktop.DBus.Properties", "GetAll", "");
+                });
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",

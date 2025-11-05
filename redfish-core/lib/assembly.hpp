@@ -71,12 +71,11 @@ inline void updateAssemblies(
         memberId = assemblyId;
     }
     // Get interface properties
-    dbus::utility::async_method_call(
-        [asyncResp{asyncResp}, chassisId, memberId, objPath](
-            const boost::system::error_code& ec,
-            const std::vector<
-                std::pair<std::string, std::variant<std::string, uint64_t>>>&
-                propertiesList) {
+    dbus::utility::getAllProperties(
+        service, objPath, "",
+        [asyncResp{asyncResp}, chassisId, memberId,
+         objPath](const boost::system::error_code& ec,
+                  const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for assembly properties");
@@ -85,9 +84,7 @@ inline void updateAssemblies(
             // Assemblies data
             std::string id = memberId;
             nlohmann::json assemblyRes;
-            for (const std::pair<std::string,
-                                 std::variant<std::string, uint64_t>>&
-                     property : propertiesList)
+            for (const auto& property : propertiesList)
             {
                 // Store DBus properties that are also Redfish
                 // properties with same name and a string value
@@ -219,8 +216,7 @@ inline void updateAssemblies(
                 redfish::nvidia_chassis_utils::getOemAssemblyAssert(
                     asyncResp, id, objPath);
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
+        });
 }
 
 /**

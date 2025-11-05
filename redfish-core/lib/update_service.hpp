@@ -1804,21 +1804,20 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
 
         if (!versionService.empty())
         {
-            dbus::utility::async_method_call(
+            dbus::utility::getAllProperties(
+                versionService, obj.first, "",
                 [asyncResp,
-                 swId](const boost::system::error_code errorCode,
-                       const boost::container::flat_map<
-                           std::string, dbus::utility::DbusVariantType>&
-                           propertiesList) {
+                 swId](const boost::system::error_code& errorCode,
+                       const dbus::utility::DBusPropertiesMap& propertiesList) {
                     if (errorCode)
                     {
                         messages::internalError(asyncResp->res);
                         return;
                     }
-                    boost::container::flat_map<
-                        std::string,
-                        dbus::utility::DbusVariantType>::const_iterator it =
-                        propertiesList.find("Purpose");
+                    auto it = std::ranges::find_if(
+                        propertiesList, [](const auto& property) {
+                            return property.first == "Purpose";
+                        });
                     if (it == propertiesList.end())
                     {
                         BMCWEB_LOG_ERROR("Can't find property \"Version\"!");
@@ -1837,7 +1836,10 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
                     }
 
                     BMCWEB_LOG_DEBUG("swInvPurpose = {}", *swInvPurpose);
-                    it = propertiesList.find("Version");
+                    it = std::ranges::find_if(
+                        propertiesList, [](const auto& property) {
+                            return property.first == "Version";
+                        });
                     if (it == propertiesList.end())
                     {
                         BMCWEB_LOG_ERROR("Can't find property \"Version\"!");
@@ -1859,7 +1861,10 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
                         return;
                     }
 
-                    it = propertiesList.find("Manufacturer");
+                    it = std::ranges::find_if(
+                        propertiesList, [](const auto& property) {
+                            return property.first == "Manufacturer";
+                        });
                     if (it != propertiesList.end())
                     {
                         const std::string* manufacturer =
@@ -1876,7 +1881,10 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
                             *manufacturer;
                     }
 
-                    it = propertiesList.find("SoftwareId");
+                    it = std::ranges::find_if(
+                        propertiesList, [](const auto& property) {
+                            return property.first == "SoftwareId";
+                        });
                     if (it != propertiesList.end())
                     {
                         const std::string* softwareId =
@@ -1915,7 +1923,10 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
                     }
 
                     std::string formatDesc = swInvPurpose->substr(endDesc);
-                    it = propertiesList.find("Description");
+                    it = std::ranges::find_if(
+                        propertiesList, [](const auto& property) {
+                            return property.first == "Description";
+                        });
                     asyncResp->res.jsonValue["Description"] =
                         formatDesc + " image";
 
@@ -1931,7 +1942,10 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
                     }
                     getRelatedItems(asyncResp, *swId, *swInvPurpose);
 
-                    it = propertiesList.find("PrettyName");
+                    it = std::ranges::find_if(
+                        propertiesList, [](const auto& property) {
+                            return property.first == "PrettyName";
+                        });
                     if (it != propertiesList.end())
                     {
                         const std::string* foundName =
@@ -1941,9 +1955,7 @@ inline void handleUpdateServiceFirmwareInventoryGetCallback(
                             asyncResp->res.jsonValue["Name"] = *foundName;
                         }
                     }
-                },
-                versionService, obj.first, "org.freedesktop.DBus.Properties",
-                "GetAll", "");
+                });
         }
 
         asyncResp->res.jsonValue["Status"]["Health"] = "OK";

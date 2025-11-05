@@ -175,9 +175,11 @@ inline void getErrorInjectionCapabilityData(
     const std::string& objPath)
 
 {
-    dbus::utility::async_method_call(
-        [aResp, capability](const boost::system::error_code ec,
-                            const OperatingConfigProperties& properties) {
+    dbus::utility::getAllProperties(
+        service, objPath, "com.nvidia.ErrorInjection.ErrorInjectionCapability",
+        [aResp,
+         capability](const boost::system::error_code ec,
+                     const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 return;
@@ -209,9 +211,7 @@ inline void getErrorInjectionCapabilityData(
                     json["Enabled"] = *enabled;
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "com.nvidia.ErrorInjection.ErrorInjectionCapability");
+        });
 }
 
 /**
@@ -230,7 +230,8 @@ inline void getErrorInjectionPayloadData(
     const std::string& objPath, const std::string& chassisName)
 
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        service, objPath, "com.nvidia.ErrorInjection.ErrorInjectionPayload",
         [aResp, capability,
          chassisName](const boost::system::error_code ec,
                       const OperatingConfigProperties& properties) {
@@ -278,9 +279,7 @@ inline void getErrorInjectionPayloadData(
                     json["FaultBitmap"] = oss.str();
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "com.nvidia.ErrorInjection.ErrorInjectionPayload");
+        });
 }
 
 /**
@@ -297,10 +296,11 @@ inline void getErrorInjectionData(
     const std::string& service, const std::string& objPath)
 
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        service, objPath, "com.nvidia.ErrorInjection.ErrorInjection",
         [aResp, baseUri, service,
          objPath](const boost::system::error_code ec,
-                  const OperatingConfigProperties& properties) {
+                  const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -374,9 +374,7 @@ inline void getErrorInjectionData(
                                                  payloadPath, chassisName);
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "com.nvidia.ErrorInjection.ErrorInjection");
+        });
 }
 
 inline void patchErrorInjectionData(

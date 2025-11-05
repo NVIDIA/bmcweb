@@ -506,18 +506,18 @@ inline void getManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
 {
     BMCWEB_LOG_DEBUG("Get manager service state.");
 
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        connectionName, path,
+        "xyz.openbmc_project.State.Decorator.OperationalStatus",
         [aResp](const boost::system::error_code& ec,
-                const std::vector<std::pair<
-                    std::string, std::variant<std::string>>>& propertiesList) {
+                const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Error in getting manager service state");
                 messages::internalError(aResp->res);
                 return;
             }
-            for (const std::pair<std::string, std::variant<std::string>>&
-                     property : propertiesList)
+            for (const auto& property : propertiesList)
             {
                 if (property.first == "State")
                 {
@@ -543,9 +543,7 @@ inline void getManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     }
                 }
             }
-        },
-        connectionName, path, "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.State.Decorator.OperationalStatus");
+        });
 }
 
 /**
@@ -561,18 +559,17 @@ inline void getBMCAssetData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                             const std::string& path)
 {
     BMCWEB_LOG_DEBUG("Get BMC manager asset data.");
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        connectionName, path, "xyz.openbmc_project.Inventory.Decorator.Asset",
         [aResp](const boost::system::error_code& ec,
-                const std::vector<std::pair<
-                    std::string, std::variant<std::string>>>& propertiesList) {
+                const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("Can't get bmc asset!");
                 messages::internalError(aResp->res);
                 return;
             }
-            for (const std::pair<std::string, std::variant<std::string>>&
-                     property : propertiesList)
+            for (const auto& property : propertiesList)
             {
                 const std::string& propertyName = property.first;
 
@@ -594,10 +591,7 @@ inline void getBMCAssetData(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     aResp->res.jsonValue[propertyName] = *value;
                 }
             }
-        },
-        connectionName, path, "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.Inventory.Decorator."
-        "Asset");
+        });
 }
 
 inline void getLinkManagerForSwitches(
@@ -679,11 +673,12 @@ inline void getFencingPrivilege(
                 }
                 const std::string& serviceName = serviceMap[0].first;
                 // Get SMBPBI Fencing Privilege
-                dbus::utility::async_method_call(
+                dbus::utility::getAllProperties(
+                    serviceName, objectPath,
+                    "xyz.openbmc_project.GpuOobRecovery.Server",
                     [asyncResp](
                         const boost::system::error_code& getPropertyError,
-                        const std::vector<std::pair<
-                            std::string, std::variant<std::string, uint8_t>>>&
+                        const dbus::utility::DBusPropertiesMap&
                             propertiesList) {
                         if (getPropertyError)
                         {
@@ -693,10 +688,7 @@ inline void getFencingPrivilege(
                             messages::internalError(asyncResp->res);
                         }
 
-                        for (const std::pair<
-                                 std::string,
-                                 std::variant<std::string, uint8_t>>& property :
-                             propertiesList)
+                        for (const auto& property : propertiesList)
                         {
                             if (property.first == "SMBPBIFencingState")
                             {
@@ -716,9 +708,7 @@ inline void getFencingPrivilege(
                                         *fencingPrivilege);
                             }
                         }
-                    },
-                    serviceName, objectPath, "org.freedesktop.DBus.Properties",
-                    "GetAll", "xyz.openbmc_project.GpuOobRecovery.Server");
+                    });
             }
         },
         "xyz.openbmc_project.ObjectMapper",

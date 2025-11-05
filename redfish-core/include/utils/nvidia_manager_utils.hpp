@@ -67,21 +67,17 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                                const std::string& path)
 {
     BMCWEB_LOG_DEBUG("Get manager service Telemetry state.");
-    using namespace std::chrono_literals;
-    uint64_t timeout =
-        std::chrono::duration_cast<std::chrono::microseconds>(1s).count();
-    dbus::utility::async_method_call_timed(
+    dbus::utility::getAllProperties(
+        connectionName, path, "xyz.openbmc_project.State.FeatureReady",
         [aResp](const boost::system::error_code ec,
-                const std::vector<std::pair<
-                    std::string, std::variant<std::string>>>& propertiesList) {
+                const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Error in getting manager service state");
                 aResp->res.jsonValue["Status"]["State"] = "Starting";
                 return;
             }
-            for (const std::pair<std::string, std::variant<std::string>>&
-                     property : propertiesList)
+            for (const auto& property : propertiesList)
             {
                 if (property.first == "FeatureType")
                 {
@@ -96,9 +92,7 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     if (*value ==
                         "xyz.openbmc_project.State.FeatureReady.FeatureTypes.Manager")
                     {
-                        for (const std::pair<std::string,
-                                             std::variant<std::string>>&
-                                 propertyItr : propertiesList)
+                        for (const auto& propertyItr : propertiesList)
                         {
                             if (propertyItr.first == "State")
                             {
@@ -132,9 +126,7 @@ inline void getOemManagerState(const std::shared_ptr<bmcweb::AsyncResp>& aResp,
                     }
                 }
             }
-        },
-        connectionName, path, "org.freedesktop.DBus.Properties", "GetAll",
-        timeout, "xyz.openbmc_project.State.FeatureReady");
+        });
 }
 
 inline void getOemReadyState(
@@ -329,12 +321,10 @@ inline void getFabricManagerInformation(
 {
     BMCWEB_LOG_DEBUG("Get fabric manager state information.");
 
-    dbus::utility::async_method_call(
-        [aResp](
-            const boost::system::error_code& ec,
-            const std::vector<
-                std::pair<std::string, std::variant<std::string, uint64_t>>>&
-                propertiesList) {
+    dbus::utility::getAllProperties(
+        connectionName, path, "",
+        [aResp](const boost::system::error_code& ec,
+                const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("Error in getting fabric manager state info");
@@ -343,9 +333,7 @@ inline void getFabricManagerInformation(
             }
 
             auto addOemNvidiaOdataType = false;
-            for (const std::pair<std::string,
-                                 std::variant<std::string, uint64_t>>&
-                     property : propertiesList)
+            for (const auto& property : propertiesList)
             {
                 if (property.first == "Description")
                 {
@@ -427,8 +415,7 @@ inline void getFabricManagerInformation(
                 aResp->res.jsonValue["Oem"]["Nvidia"]["@odata.type"] =
                     "#NvidiaManager.v1_4_0.NvidiaFabricManager";
             }
-        },
-        connectionName, path, "org.freedesktop.DBus.Properties", "GetAll", "");
+        });
 }
 
 inline void getNSMRawCommandActions(

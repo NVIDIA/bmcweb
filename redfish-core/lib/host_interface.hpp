@@ -102,13 +102,11 @@ inline void getCredentialsBootStrap(
             }
 
             const std::string& biosService = objType.begin()->first;
-            dbus::utility::async_method_call(
+            dbus::utility::getAllProperties(
+                biosService, redfish::biosConfigObj, redfish::biosConfigIface,
                 [asyncResp](
                     const boost::system::error_code& ec1,
-                    const std::vector<std::pair<
-                        std::string,
-                        std::variant<std::string, redfish::BaseBIOSTable,
-                                     bool>>>& propertiesList) {
+                    const dbus::utility::DBusPropertiesMap& propertiesList) {
                     if (ec1)
                     {
                         BMCWEB_LOG_ERROR("Can't get BIOSConfig Manager!");
@@ -120,10 +118,7 @@ inline void getCredentialsBootStrap(
                         asyncResp->res.jsonValue["CredentialBootstrapping"];
                     credentialBootstrap["RoleId"] = "Administrator";
 
-                    for (const std::pair<
-                             std::string,
-                             std::variant<std::string, redfish::BaseBIOSTable,
-                                          bool>>& property : propertiesList)
+                    for (const auto& property : propertiesList)
                     {
                         const std::string& propertyName = property.first;
 
@@ -155,10 +150,7 @@ inline void getCredentialsBootStrap(
                             credentialBootstrap["EnableAfterReset"] = *value;
                         }
                     }
-                },
-                biosService, redfish::biosConfigObj,
-                "org.freedesktop.DBus.Properties", "GetAll",
-                redfish::biosConfigIface);
+                });
         },
         "xyz.openbmc_project.ObjectMapper",
         "/xyz/openbmc_project/object_mapper",

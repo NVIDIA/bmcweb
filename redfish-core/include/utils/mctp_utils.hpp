@@ -149,12 +149,11 @@ class MctpEndpoint
                     {
                         continue;
                     }
-                    dbus::utility::async_method_call(
-                        [this, callback](
-                            const boost::system::error_code& ec2,
-                            const boost::container::flat_map<
-                                std::string, dbus::utility::DbusVariantType>&
-                                properties) {
+                    dbus::utility::getAllProperties(
+                        service, mctpObj, "",
+                        [this, callback](const boost::system::error_code& ec2,
+                                         const dbus::utility::DBusPropertiesMap&
+                                             properties) {
                             if (ec2)
                             {
                                 callback(false,
@@ -206,9 +205,7 @@ class MctpEndpoint
                             }
                             callback(false, "GetAll properties failure for " +
                                                 mctpObj);
-                        },
-                        service, mctpObj, "org.freedesktop.DBus.Properties",
-                        "GetAll", "");
+                        });
                     return;
                 }
                 callback(false, "GetObject failure for: " + mctpObj);

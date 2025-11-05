@@ -60,22 +60,28 @@ class AdditionalData
         append = 1,
     };
 
-    // Add constructor for unordered_map
+    // Add constructor for values
     explicit AdditionalData(
-        const std::unordered_map<std::string, std::string>& additionalData,
+        const std::vector<std::pair<std::string, std::string>>& additionalData,
         const SameKeyOp& operation = overwrite)
     {
         for (const auto& [key, value] : additionalData)
         {
-            if (operation == overwrite)
-            {
-                data[key] = value;
-            }
-            else if (operation == append)
-            {
-                data[key] += (!data[key].empty()) ? ";" : "";
-                data[key] += value;
-            }
+            addProperty(key, value, operation);
+        }
+    }
+
+    void addProperty(const std::string& key, const std::string& value,
+                     const SameKeyOp& operation)
+    {
+        if (operation == overwrite)
+        {
+            data[key] = value;
+        }
+        else if (operation == append)
+        {
+            data[key] += (!data[key].empty()) ? ";" : "";
+            data[key] += value;
         }
     }
 

@@ -26,10 +26,11 @@ static const std::string& card1Path =
 inline void populateFromEntityManger(
     const std::shared_ptr<bmcweb::AsyncResp>& aResp)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        entityMangerService, card1Path,
+        "xyz.openbmc_project.Inventory.Decorator.Asset",
         [aResp](const boost::system::error_code& ec,
-                const std::vector<std::pair<
-                    std::string, std::variant<std::string>>>& propertiesList) {
+                const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error for "
@@ -67,9 +68,7 @@ inline void populateFromEntityManger(
                     }
                 }
             }
-        },
-        entityMangerService, card1Path, "org.freedesktop.DBus.Properties",
-        "GetAll", "xyz.openbmc_project.Inventory.Decorator.Asset");
+        });
     dbus::utility::getProperty<std::string>(
         entityMangerService, card1Path,
         "xyz.openbmc_project.Inventory.Decorator.SKU", "SKU",

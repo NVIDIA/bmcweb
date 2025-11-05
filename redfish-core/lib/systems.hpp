@@ -2196,13 +2196,13 @@ inline void getUefiPropertySettingsHost(
                         ["BootSourceOverrideTarget@Redfish.AllowableValues"] =
                         sourcesList;
                 }
-                dbus::utility::async_method_call(
+                dbus::utility::getAllProperties(
+                    settingsService, host0BootPath,
+                    "xyz.openbmc_project.Control.Boot.UEFI",
                     [aResp, isIncludeUefiTarget, isIncludeUefiBootNext,
-                     isIncludeUefiHttp](
-                        const boost::system::error_code& ec1,
-                        const std::vector<
-                            std::pair<std::string, std::variant<std::string>>>&
-                            propertiesList) {
+                     isIncludeUefiHttp](const boost::system::error_code& ec1,
+                                        const dbus::utility::DBusPropertiesMap&
+                                            propertiesList) {
                         if (ec1)
                         {
                             BMCWEB_LOG_DEBUG("DBUS response error for "
@@ -2249,10 +2249,7 @@ inline void getUefiPropertySettingsHost(
                                 }
                             }
                         }
-                    },
-                    settingsService, host0BootPath,
-                    "org.freedesktop.DBus.Properties", "GetAll",
-                    "xyz.openbmc_project.Control.Boot.UEFI");
+                    });
             }
         });
 }

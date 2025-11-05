@@ -615,13 +615,11 @@ inline void getProcessorPortMetricsData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& service, const std::string& path)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        service, path, "",
         [asyncResp, service,
          path](const boost::system::error_code& ec,
-               // const boost::container::flat_map<std::string,
-               // std::variant<size_t,uint16_t,uint32_t,uint64_t>>&
-               const boost::container::flat_map<
-                   std::string, dbus::utility::DbusVariantType>& properties) {
+               const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -1273,8 +1271,7 @@ inline void getProcessorPortMetricsData(
                         ::nvidia::nsm_utils::tryConvertToInt64(*value);
                 }
             }
-        },
-        service, path, "org.freedesktop.DBus.Properties", "GetAll", "");
+        });
 }
 
 inline void requestRoutesProcessorPortMetrics(App& app)

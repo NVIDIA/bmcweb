@@ -52,10 +52,11 @@ inline void getProcessorCurrentProfileData(
     const std::string& objPath, const std::string& presetProfileURI)
 {
     BMCWEB_LOG_DEBUG("Get processor current profile data.");
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        service, objPath, "com.nvidia.PowerSmoothing.CurrentPowerProfile",
         [aResp{std::move(aResp)}, objPath,
          presetProfileURI](const boost::system::error_code& ec,
-                           const DbusProperties& properties) {
+                           const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -307,9 +308,7 @@ inline void getProcessorCurrentProfileData(
                     }
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "com.nvidia.PowerSmoothing.CurrentPowerProfile");
+        });
 }
 
 inline void getProcessorPowerSmoothingControlData(
@@ -317,10 +316,11 @@ inline void getProcessorPowerSmoothingControlData(
     const std::string& objPath, const std::string& presetProfileURI)
 {
     BMCWEB_LOG_DEBUG("Get processor smoothing control data.");
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        service, objPath, "com.nvidia.PowerSmoothing.PowerSmoothing",
         [aResp{std::move(aResp)}, objPath, service,
          presetProfileURI](const boost::system::error_code& ec,
-                           const DbusProperties& properties) {
+                           const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -469,9 +469,7 @@ inline void getProcessorPowerSmoothingControlData(
                     aResp->res.jsonValue["MinAllowedPFAPointWatts"] = *value;
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "com.nvidia.PowerSmoothing.PowerSmoothing");
+        });
 }
 
 inline void getProcessorPowerSmoothingData(
@@ -591,9 +589,11 @@ inline void getAdminProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                                 const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get processor current profile data.");
-    dbus::utility::async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code& ec,
-                                  const DbusProperties& properties) {
+    dbus::utility::getAllProperties(
+        service, objPath, "com.nvidia.PowerSmoothing.AdminPowerProfile",
+        [aResp{std::move(aResp)}](
+            const boost::system::error_code& ec,
+            const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error");
@@ -696,9 +696,7 @@ inline void getAdminProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     aResp->res.jsonValue["PFAOffsetWatts"] = *value;
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "com.nvidia.PowerSmoothing.AdminPowerProfile");
+        });
 }
 
 inline void getProcessorPowerSmoothingAdminOverrideData(
@@ -826,9 +824,11 @@ inline void getProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                            const std::string& objPath)
 {
     BMCWEB_LOG_DEBUG("Get processor current profile data.");
-    dbus::utility::async_method_call(
-        [aResp{std::move(aResp)}](const boost::system::error_code& ec,
-                                  const DbusProperties& properties) {
+    dbus::utility::getAllProperties(
+        service, objPath, "com.nvidia.PowerSmoothing.PowerProfile",
+        [aResp{std::move(aResp)}](
+            const boost::system::error_code& ec,
+            const dbus::utility::DBusPropertiesMap& properties) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("DBUS response error");
@@ -920,9 +920,7 @@ inline void getProfileData(std::shared_ptr<bmcweb::AsyncResp> aResp,
                     aResp->res.jsonValue["PFAOffsetWatts"] = *value;
                 }
             }
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll",
-        "com.nvidia.PowerSmoothing.PowerProfile");
+        });
 }
 
 inline void getProcessorPowerSmoothingPresetProfileData(

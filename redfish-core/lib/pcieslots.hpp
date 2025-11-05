@@ -526,11 +526,11 @@ inline void updatePCIeSlots(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     BMCWEB_LOG_DEBUG("updatePCIeSlots ");
 
     // Get interface properties
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        service, objPath, "",
         [asyncResp{asyncResp}, chassisId,
          objPath](const boost::system::error_code& ec,
-                  const std::vector<std::pair<std::string, propertyTypes>>&
-                      propertiesList) {
+                  const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR("DBUS response error for pcieslot properties");
@@ -541,8 +541,7 @@ inline void updatePCIeSlots(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
             std::map<std::string, propertyTypes>
                 dbusProperties; // map of all pcislot dbus properties
             // pcieslots  data
-            for (const std::pair<std::string, propertyTypes>& property :
-                 propertiesList)
+            for (const auto& property : propertiesList)
             {
                 // Store DBus properties that are also Redfish
                 // properties with same name and a string value
@@ -680,8 +679,7 @@ inline void updatePCIeSlots(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 "/xyz/openbmc_project/object_mapper",
                 "xyz.openbmc_project.ObjectMapper", "GetSubTreePaths", objPath,
                 1, std::array<const char*, 0>{});
-        },
-        service, objPath, "org.freedesktop.DBus.Properties", "GetAll", "");
+        });
 }
 
 /**

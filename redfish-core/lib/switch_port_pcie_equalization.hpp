@@ -161,12 +161,12 @@ inline void getPCIeEqualization(
     const std::vector<std::pair<std::string, std::vector<std::string>>>& object)
 {
     BMCWEB_LOG_DEBUG("Get PCIe Equalization");
-    dbus::utility::async_method_call(
-        [asyncResp, portObjectPath, object](
-            const boost::system::error_code& ec2,
-            const boost::container::flat_map<
-                std::string, std::variant<uint64_t, std::vector<std::string>>>&
-                properties) {
+    dbus::utility::getAllProperties(
+        object.front().first, portObjectPath,
+        "xyz.openbmc_project.PCIe.PCIePortConfigurationInfo",
+        [asyncResp, portObjectPath,
+         object](const boost::system::error_code& ec2,
+                 const dbus::utility::DBusPropertiesMap& properties) {
             if (ec2)
             {
                 BMCWEB_LOG_ERROR("DBUS response error for PCIe Equalization {}",
@@ -249,9 +249,7 @@ inline void getPCIeEqualization(
                         txPresetGen6;
                 }
             }
-        },
-        object.front().first, portObjectPath, "org.freedesktop.DBus.Properties",
-        "GetAll", "xyz.openbmc_project.PCIe.PCIePortConfigurationInfo");
+        });
 }
 
 inline void requestRoutesPCIeEqualization(App& app)

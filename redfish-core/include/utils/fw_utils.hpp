@@ -188,13 +188,13 @@ inline void populateFirmwareInformation(
                         }
 
                         // Now grab its version info
-                        dbus::utility::async_method_call(
+                        dbus::utility::getAllProperties(
+                            obj.second[0].first, obj.first,
+                            "xyz.openbmc_project.Software.Version",
                             [aResp, swId, runningImage, fwVersionPurpose,
                              activeVersionPropName, populateLinkToImages](
                                 const boost::system::error_code& ec3,
-                                const boost::container::flat_map<
-                                    std::string,
-                                    dbus::utility::DbusVariantType>&
+                                const dbus::utility::DBusPropertiesMap&
                                     propertiesList) {
                                 if (ec3 || propertiesList.empty())
                                 {
@@ -210,11 +210,10 @@ inline void populateFirmwareInformation(
                                 // s
                                 // "xyz.openbmc_project.Software.Version.VersionPurpose.Host"
 
-                                boost::container::flat_map<
-                                    std::string,
-                                    dbus::utility::DbusVariantType>::
-                                    const_iterator it =
-                                        propertiesList.find("Purpose");
+                                auto it = std::ranges::find_if(
+                                    propertiesList, [](const auto& property) {
+                                        return property.first == "Purpose";
+                                    });
                                 if (it == propertiesList.end())
                                 {
                                     BMCWEB_LOG_ERROR(
@@ -276,7 +275,11 @@ inline void populateFirmwareInformation(
                                 if (!activeVersionPropName.empty() &&
                                     runningImage)
                                 {
-                                    it = propertiesList.find("Version");
+                                    it = std::ranges::find_if(
+                                        propertiesList,
+                                        [](const auto& property) {
+                                            return property.first == "Version";
+                                        });
                                     if (it == propertiesList.end())
                                     {
                                         BMCWEB_LOG_ERROR("Can't find property "
@@ -298,10 +301,7 @@ inline void populateFirmwareInformation(
                                         .jsonValue[activeVersionPropName] =
                                         *version;
                                 }
-                            },
-                            obj.second[0].first, obj.first,
-                            "org.freedesktop.DBus.Properties", "GetAll",
-                            "xyz.openbmc_project.Software.Version");
+                            });
                     }
                 },
                 "xyz.openbmc_project.ObjectMapper",
@@ -396,18 +396,22 @@ inline void getFwRecoveryStatus(
 
     BMCWEB_LOG_DEBUG("getFwRecoveryStatus: swId {} svc {}", *swId, dbusSvc);
 
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        dbusSvc, "/xyz/openbmc_project/software/" + *swId,
+        "xyz.openbmc_project.State.Decorator.Health",
         [asyncResp, swId, &getLastSegnmentFromDotterString](
             const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, dbus::utility::DbusVariantType>& propertiesList) {
+            const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec || propertiesList.empty())
             {
                 // OK since not all fwtypes support recovery
                 return;
             }
 
-            const auto& it = propertiesList.find("Health");
+            const auto& it =
+                std::ranges::find_if(propertiesList, [](const auto& property) {
+                    return property.first == "Health";
+                });
             if (it == propertiesList.end())
             {
                 BMCWEB_LOG_ERROR(
@@ -427,23 +431,24 @@ inline void getFwRecoveryStatus(
             BMCWEB_LOG_DEBUG("getFwRecoveryStatus: Health {}", *health);
             asyncResp->res.jsonValue["Status"]["Health"] =
                 getLastSegnmentFromDotterString(*health);
-        },
-        dbusSvc, "/xyz/openbmc_project/software/" + *swId,
-        "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.State.Decorator.Health");
+        });
 
-    dbus::utility::async_method_call(
+    dbus::utility::getAllProperties(
+        dbusSvc, "/xyz/openbmc_project/software/" + *swId,
+        "xyz.openbmc_project.State.Decorator.OperationalStatus",
         [asyncResp, swId, &getLastSegnmentFromDotterString](
             const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, dbus::utility::DbusVariantType>& propertiesList) {
+            const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec || propertiesList.empty())
             {
                 // OK since not all fwtypes support recovery
                 return;
             }
 
-            const auto& it = propertiesList.find("State");
+            auto it =
+                std::ranges::find_if(propertiesList, [](const auto& property) {
+                    return property.first == "State";
+                });
             if (it == propertiesList.end())
             {
                 BMCWEB_LOG_ERROR(
@@ -463,10 +468,7 @@ inline void getFwRecoveryStatus(
             BMCWEB_LOG_DEBUG("getFwRecoveryStatus: State {}", *state);
             asyncResp->res.jsonValue["Status"]["State"] =
                 getLastSegnmentFromDotterString(*state);
-        },
-        dbusSvc, "/xyz/openbmc_project/software/" + *swId,
-        "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.State.Decorator.OperationalStatus");
+        });
 }
 
 /**
@@ -487,20 +489,22 @@ inline void getFwStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 {
     BMCWEB_LOG_DEBUG("getFwStatus: swId {} svc {}", *swId, dbusSvc);
 
-    dbus::utility::async_method_call(
-        [asyncResp, swId](
-            const boost::system::error_code& ec,
-            const boost::container::flat_map<
-                std::string, dbus::utility::DbusVariantType>& propertiesList) {
+    dbus::utility::getAllProperties(
+        dbusSvc, "/xyz/openbmc_project/software/" + *swId,
+        "xyz.openbmc_project.Software.Activation",
+        [asyncResp,
+         swId](const boost::system::error_code& ec,
+               const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (ec || propertiesList.empty())
             {
                 // not all fwtypes are updateable, this is ok
                 asyncResp->res.jsonValue["Status"]["State"] = "Enabled";
                 return;
             }
-            boost::container::flat_map<
-                std::string, dbus::utility::DbusVariantType>::const_iterator
-                it = propertiesList.find("Activation");
+            auto it =
+                std::ranges::find_if(propertiesList, [](const auto& property) {
+                    return property.first == "Activation";
+                });
             if (it == propertiesList.end())
             {
                 BMCWEB_LOG_DEBUG("Can't find property \"Activation\"!");
@@ -521,10 +525,7 @@ inline void getFwStatus(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                 getRedfishFWState(*swInvActivation);
             asyncResp->res.jsonValue["Status"]["Health"] =
                 getRedfishFWHealth(*swInvActivation);
-        },
-        dbusSvc, "/xyz/openbmc_project/software/" + *swId,
-        "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.Software.Activation");
+        });
 }
 
 /**
@@ -546,18 +547,19 @@ inline void getFwWriteProtectedStatus(
     BMCWEB_LOG_DEBUG("getFwWriteProtectedStatus: swId {} serviceName {}", swId,
                      dbusSvc);
 
-    dbus::utility::async_method_call(
-        [asyncResp, swId](
-            const boost::system::error_code errorCode,
-            const boost::container::flat_map<
-                std::string, dbus::utility::DbusVariantType>& propertiesList) {
+    dbus::utility::getAllProperties(
+        dbusSvc, swId, "xyz.openbmc_project.Software.Settings",
+        [asyncResp,
+         swId](const boost::system::error_code errorCode,
+               const dbus::utility::DBusPropertiesMap& propertiesList) {
             if (errorCode)
             {
                 return;
             }
-            boost::container::flat_map<
-                std::string, dbus::utility::DbusVariantType>::const_iterator
-                it = propertiesList.find("WriteProtected");
+            auto it =
+                std::ranges::find_if(propertiesList, [](const auto& property) {
+                    return property.first == "WriteProtected";
+                });
             if (it == propertiesList.end())
             {
                 BMCWEB_LOG_DEBUG("Can't find property \"WriteProtected\"!");
@@ -572,9 +574,7 @@ inline void getFwWriteProtectedStatus(
                 return;
             }
             asyncResp->res.jsonValue["WriteProtected"] = *writeProtected;
-        },
-        dbusSvc, swId, "org.freedesktop.DBus.Properties", "GetAll",
-        "xyz.openbmc_project.Software.Settings");
+        });
 }
 
 /**
@@ -622,12 +622,11 @@ inline void populateSlotInfo(
 
             if (!slotService.empty())
             {
-                dbus::utility::async_method_call(
-                    [asyncResp, slotService, slotObjPath,
-                     slotType](const boost::system::error_code& ec1,
-                               const boost::container::flat_map<
-                                   std::string, dbus::utility::DbusVariantType>&
-                                   properties) {
+                dbus::utility::getAllProperties(
+                    slotService, slotObjPath, "",
+                    [asyncResp, slotService, slotObjPath, slotType](
+                        const boost::system::error_code& ec1,
+                        const dbus::utility::DBusPropertiesMap& properties) {
                         if (ec1)
                         {
                             BMCWEB_LOG_ERROR("error_code = {}", ec1);
@@ -727,9 +726,7 @@ inline void populateSlotInfo(
                                 }
                             }
                         }
-                    },
-                    slotService, slotObjPath, "org.freedesktop.DBus.Properties",
-                    "GetAll", "");
+                    });
             }
         },
         "xyz.openbmc_project.ObjectMapper",
