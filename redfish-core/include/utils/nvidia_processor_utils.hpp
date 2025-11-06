@@ -795,7 +795,8 @@ inline void populateErrorInjectionData(
            const std::string& procId, const std::string& path,
            [[maybe_unused]] const dbus::utility::MapperServiceMap& serviceMap,
            [[maybe_unused]] const std::string& deviceType) {
-            dbus::utility::async_method_call(
+            dbus::utility::getDbusObject(
+                path + "/ErrorInjection", std::array<std::string_view, 0>(),
                 [aResp2, procId,
                  path](const boost::system::error_code& ec,
                        const dbus::utility::MapperServiceMap& serviceMap2) {
@@ -824,11 +825,7 @@ inline void populateErrorInjectionData(
                                  "/Oem/Nvidia/ErrorInjection"}};
                         return;
                     }
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetObject",
-                path + "/ErrorInjection", std::array<const char*, 0>());
+                });
         });
 }
 
@@ -1143,7 +1140,10 @@ inline void getClearPCIeCountersActionInfo(
                             BMCWEB_LOG_DEBUG(
                                 "processor state sensor object path {}",
                                 sensorpath);
-                            dbus::utility::async_method_call(
+                            dbus::utility::getDbusObject(
+                                sensorpath,
+                                std::array<std::string_view, 1>(
+                                    {"xyz.openbmc_project.Inventory.Item.Port"}),
                                 [asyncResp, sensorpath, processorId, portId](
                                     const boost::system::error_code ec3,
                                     const std::vector<std::pair<
@@ -1212,13 +1212,7 @@ inline void getClearPCIeCountersActionInfo(
                                             }
                                         }
                                     }
-                                },
-                                "xyz.openbmc_project.ObjectMapper",
-                                "/xyz/openbmc_project/object_mapper",
-                                "xyz.openbmc_project.ObjectMapper", "GetObject",
-                                sensorpath,
-                                std::array<std::string, 1>(
-                                    {"xyz.openbmc_project.Inventory.Item.Port"}));
+                                });
                         }
                     });
                 return;
@@ -1361,7 +1355,10 @@ inline void getPortDisableFutureStatus(
                             continue;
                         }
 
-                        dbus::utility::async_method_call(
+                        dbus::utility::getDbusObject(
+                            portPath,
+                            std::array<std::string_view, 1>(
+                                {"xyz.openbmc_project.Inventory.Item.Port"}),
                             [aResp, processorId, portId, portPath,
                              portsToDisable](
                                 const boost::system::error_code ec2,
@@ -1377,13 +1374,7 @@ inline void getPortDisableFutureStatus(
                                 getPortLinkStatusSetting(aResp, portPath,
                                                          object.front().first,
                                                          portsToDisable);
-                            },
-                            "xyz.openbmc_project.ObjectMapper",
-                            "/xyz/openbmc_project/object_mapper",
-                            "xyz.openbmc_project.ObjectMapper", "GetObject",
-                            portPath,
-                            std::array<std::string, 1>(
-                                {"xyz.openbmc_project.Inventory.Item.Port"}));
+                            });
                     }
                 });
         });
@@ -1628,7 +1619,10 @@ inline void patchPortDisableFuture(
                             continue;
                         }
 
-                        dbus::utility::async_method_call(
+                        dbus::utility::getDbusObject(
+                            portPath,
+                            std::array<std::string_view, 1>(
+                                {"xyz.openbmc_project.Inventory.Item.Port"}),
                             [aResp, processorId, portId, portPath,
                              propertyValue, propertyName, objectPath, service,
                              portsToDisable](
@@ -1648,13 +1642,7 @@ inline void patchPortDisableFuture(
                                     propertyName, objectPath, service,
                                     object.front().first, portPath,
                                     portsToDisable);
-                            },
-                            "xyz.openbmc_project.ObjectMapper",
-                            "/xyz/openbmc_project/object_mapper",
-                            "xyz.openbmc_project.ObjectMapper", "GetObject",
-                            portPath,
-                            std::array<std::string, 1>(
-                                {"xyz.openbmc_project.Inventory.Item.Port"}));
+                            });
                     }
                 });
         });
@@ -2044,140 +2032,92 @@ inline void postPCIeClearCounter(
     const std::string& counterType)
 {
     BMCWEB_LOG_DEBUG("Get available system processor resource");
-    dbus::utility::getSubTree("/xyz/openbmc_project/inventory", 0,
-                              std::array<std::string_view, 2>{
-                                  "xyz.openbmc_project.Inventory.Item.Cpu",
-                                  "xyz.openbmc_project.Inventory.Item.Accelerator"},
-                              [processorId, portId, asyncResp, counterType](
-                                  const boost::system::error_code& ec,
-                                  const dbus::utility::MapperGetSubTreeResponse&
-                                      subtree) {
-                                  if (ec)
-                                  {
-                                      BMCWEB_LOG_ERROR("DBUS response error");
-                                      messages::internalError(asyncResp->res);
+    dbus::utility::getSubTree(
+        "/xyz/openbmc_project/inventory", 0,
+        std::array<std::string_view, 2>{
+            "xyz.openbmc_project.Inventory.Item.Cpu",
+            "xyz.openbmc_project.Inventory.Item.Accelerator"},
+        [processorId, portId, asyncResp,
+         counterType](const boost::system::error_code& ec,
+                      const dbus::utility::MapperGetSubTreeResponse& subtree) {
+            if (ec)
+            {
+                BMCWEB_LOG_ERROR("DBUS response error");
+                messages::internalError(asyncResp->res);
 
-                                      return;
-                                  }
-                                  for (const auto& [path, object] : subtree)
-                                  {
-                                      if (!path.ends_with(processorId))
-                                      {
-                                          continue;
-                                      }
-                                      dbus::
-                                          utility::
-                                              getProperty<
-                                                  std::
-                                                      vector<std::
-                                                                 string>>("xyz.openbmc_project.ObjectMapper",
-                                                                          path +
-                                                                              "/all_states",
-                                                                          "xyz.openbmc_project.Association",
-                                                                          "endpoints",
-                                                                          [asyncResp,
-                                                                           processorId,
-                                                                           portId,
-                                                                           counterType](
-                                                                              const boost::
-                                                                                  system::error_code&
-                                                                                      e,
-                                                                              const std::vector<
-                                                                                  std::
-                                                                                      string>&
-                                                                                  resp) {
-                                                                              if (e)
-                                                                              {
-                                                                                  // no state sensors attached.
-                                                                                  BMCWEB_LOG_ERROR(
-                                                                                      "Object Mapper call failed while finding all_states association, with error {}",
-                                                                                      e);
-                                                                                  messages::internalError(
-                                                                                      asyncResp
-                                                                                          ->res);
-                                                                                  return;
-                                                                              }
+                return;
+            }
+            for (const auto& [path, object] : subtree)
+            {
+                if (!path.ends_with(processorId))
+                {
+                    continue;
+                }
+                dbus::utility::getProperty<std::vector<std::string>>(
+                    "xyz.openbmc_project.ObjectMapper", path + "/all_states",
+                    "xyz.openbmc_project.Association", "endpoints",
+                    [asyncResp, processorId, portId,
+                     counterType](const boost::system::error_code& e,
+                                  const std::vector<std::string>& resp) {
+                        if (e)
+                        {
+                            // no state sensors attached.
+                            BMCWEB_LOG_ERROR(
+                                "Object Mapper call failed while finding all_states association, with error {}",
+                                e);
+                            messages::internalError(asyncResp->res);
+                            return;
+                        }
 
-                                                                              for (
-                                                                                  const std::
-                                                                                      string&
-                                                                                          sensorpath :
-                                                                                  resp)
-                                                                              {
-                                                                                  // Check Interface in Object or not
-                                                                                  BMCWEB_LOG_DEBUG(
-                                                                                      "processor state sensor object path {}",
-                                                                                      sensorpath);
+                        for (const std::string& sensorpath : resp)
+                        {
+                            // Check Interface in Object or not
+                            BMCWEB_LOG_DEBUG(
+                                "processor state sensor object path {}",
+                                sensorpath);
 
-                                                                                  sdbusplus::
-                                                                                      message::object_path
-                                                                                          path1(
-                                                                                              sensorpath);
-                                                                                  if (path1
-                                                                                          .filename() !=
-                                                                                      portId)
-                                                                                  {
-                                                                                      continue;
-                                                                                  }
+                            sdbusplus::message::object_path path1(sensorpath);
+                            if (path1.filename() != portId)
+                            {
+                                continue;
+                            }
 
-                                                                                  dbus::utility::async_method_call(
-                                                                                      [asyncResp,
-                                                                                       sensorpath,
-                                                                                       portId,
-                                                                                       counterType](
-                                                                                          const boost::
-                                                                                              system::error_code
-                                                                                                  ec1,
-                                                                                          const std::vector<std::pair<
-                                                                                              std::
-                                                                                                  string,
-                                                                                              std::vector<
-                                                                                                  std::
-                                                                                                      string>>>&
-                                                                                              interfaceObj) {
-                                                                                          if (ec1)
-                                                                                          {
-                                                                                              // the path does not implement port
-                                                                                              // interfaces
-                                                                                              BMCWEB_LOG_DEBUG(
-                                                                                                  "no port interface on object path {}",
-                                                                                                  sensorpath);
-                                                                                              return;
-                                                                                          }
+                            dbus::utility::getDbusObject(
+                                sensorpath,
+                                std::array<std::string_view, 2>(
+                                    {"xyz.openbmc_project.Inventory.Item.Port",
+                                     "xyz.openbmc_project.PCIe.ClearPCIeCounters"}),
+                                [asyncResp, sensorpath, portId, counterType](
+                                    const boost::system::error_code ec1,
+                                    const std::vector<std::pair<
+                                        std::string, std::vector<std::string>>>&
+                                        interfaceObj) {
+                                    if (ec1)
+                                    {
+                                        // the path does not implement port
+                                        // interfaces
+                                        BMCWEB_LOG_DEBUG(
+                                            "no port interface on object path {}",
+                                            sensorpath);
+                                        return;
+                                    }
 
-                                                                                          for (
-                                                                                              const auto& [connection,
-                                                                                                           interfaces] :
-                                                                                              interfaceObj)
-                                                                                          {
-                                                                                              clearPCIeCounter(
-                                                                                                  asyncResp,
-                                                                                                  connection,
-                                                                                                  sensorpath,
-                                                                                                  counterType);
-                                                                                          }
-                                                                                      },
-                                                                                      "xyz.openbmc_project.ObjectMapper",
-                                                                                      "/xyz/openbmc_project/object_mapper",
-                                                                                      "xyz.openbmc_project.ObjectMapper",
-                                                                                      "GetObject",
-                                                                                      sensorpath,
-                                                                                      std::array<
-                                                                                          std::
-                                                                                              string,
-                                                                                          2>(
-                                                                                          {"xyz.openbmc_project.Inventory.Item.Port",
-                                                                                           "xyz.openbmc_project.PCIe.ClearPCIeCounters"}));
-                                                                              }
-                                                                          });
-                                      return;
-                                  }
-                                  // Object not found
-                                  messages::resourceNotFound(
-                                      asyncResp->res,
-                                      "#Processor.v1_20_0.Processor",
-                                      processorId);
-                              });
+                                    for (const auto& [connection, interfaces] :
+                                         interfaceObj)
+                                    {
+                                        clearPCIeCounter(asyncResp, connection,
+                                                         sensorpath,
+                                                         counterType);
+                                    }
+                                });
+                        }
+                    });
+                return;
+            }
+            // Object not found
+            messages::resourceNotFound(
+                asyncResp->res, "#Processor.v1_20_0.Processor", processorId);
+        });
 }
 
 inline void setOperatingSpeedRange(
@@ -2185,7 +2125,10 @@ inline void setOperatingSpeedRange(
     const std::variant<uint32_t, std::tuple<uint32_t, uint32_t>>& value,
     const std::string& patchProp, const std::string& path)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        path,
+        std::array<std::string_view, 1>(
+            {"xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig"}),
         [asyncResp, path, value, patchProp](
             const boost::system::error_code errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -2268,12 +2211,7 @@ inline void setOperatingSpeedRange(
 
                 return;
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", path,
-        std::array<const char*, 1>(
-            {"xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig"}));
+        });
 }
 
 /**
@@ -2338,7 +2276,8 @@ inline void getOperatingSpeedRangeData(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& path)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        path, std::array<std::string_view, 0>(),
         [asyncResp, path](
             const boost::system::error_code errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -2442,12 +2381,7 @@ inline void getOperatingSpeedRangeData(
                     }
                 }
             }
-        },
-
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", path,
-        std::array<const char*, 0>());
+        });
 }
 
 /**

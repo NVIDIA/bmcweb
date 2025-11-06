@@ -244,11 +244,11 @@ inline void getHistogramDataByAssociation(
                     continue;
                 }
 
-                dbus::utility::async_method_call(
+                dbus::utility::getDbusObject(
+                    histoPath, std::array<std::string_view, 0>(),
                     [asyncResp, histoPath, histogramId](
                         const boost::system::error_code ec2,
-                        const std::vector<std::pair<
-                            std::string, std::vector<std::string>>>& object) {
+                        const dbus::utility::MapperGetObject& object) {
                         if (ec2)
                         {
                             BMCWEB_LOG_ERROR(
@@ -260,11 +260,7 @@ inline void getHistogramDataByAssociation(
 
                         updateHistogramData(asyncResp, object.front().first,
                                             histoPath);
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetObject", histoPath,
-                    std::array<const char*, 0>());
+                    });
                 return;
             }
             // Couldn't find an object with that name.
@@ -281,11 +277,10 @@ inline void updateHistogramBucketData(
 {
     BMCWEB_LOG_DEBUG("Get Histogram Bucket Data");
 
-    dbus::utility::async_method_call(
-        [asyncResp, objPath](
-            const boost::system::error_code ec,
-            const std::vector<std::pair<std::string, std::vector<std::string>>>&
-                object) {
+    dbus::utility::getDbusObject(
+        objPath, std::array<std::string_view, 0>(),
+        [asyncResp, objPath](const boost::system::error_code ec,
+                             const dbus::utility::MapperGetObject& object) {
             if (ec)
             {
                 BMCWEB_LOG_ERROR(
@@ -349,11 +344,7 @@ inline void updateHistogramBucketData(
                         }
                     }
                 });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
-        std::array<const char*, 0>());
+        });
 }
 
 } // namespace nvidia_histogram_utils

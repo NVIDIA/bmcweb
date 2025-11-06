@@ -417,10 +417,10 @@ inline void requestRoutesDBusSELLogEntryCollection(App& app)
                     nlohmann::json& entriesArray =
                         asyncResp->res.jsonValue["Members"];
                     entriesArray = nlohmann::json::array();
-                    for (auto& objectPath : resp)
+                    for (const auto& objectPath : resp)
                     {
                         nlohmann::json thisEntry = nlohmann::json::object();
-                        for (auto& interfaceMap : objectPath.second)
+                        for (const auto& interfaceMap : objectPath.second)
                         {
                             if (interfaceMap.first ==
                                 "xyz.openbmc_project.Logging.Entry")

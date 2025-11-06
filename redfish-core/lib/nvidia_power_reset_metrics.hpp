@@ -85,7 +85,10 @@ inline void getResetMetricsInterfaceProperties(
     BMCWEB_LOG_DEBUG("Get ResetMetrics interface properties for path: {}",
                      objPath);
 
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        objPath,
+        std::array<std::string_view, 1>{
+            "com.nvidia.ResetCounters.ResetCounterMetrics"},
         [asyncResp, objPath](
             const boost::system::error_code& ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -193,12 +196,7 @@ inline void getResetMetricsInterfaceProperties(
                         }
                     }
                 });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
-        std::array<const char*, 1>{
-            "com.nvidia.ResetCounters.ResetCounterMetrics"});
+        });
 }
 
 inline void getProcessorResetMetricsData(

@@ -69,12 +69,18 @@ inline void getCollectionMembersByAssociation(
             for (const std::string& sensorpath : resp)
             {
                 // Check Interface in Object or not
-                dbus::utility::async_method_call(
-                    [aResp, collectionPath, sensorpath, &members](
-                        const boost::system::error_code& ec,
-                        const std::vector<
-                            std::pair<std::string, std::vector<std::string>>>&
-                        /*object*/) {
+                std::vector<std::string_view> interfacesVec;
+                interfacesVec.reserve(interfaces.size());
+                for (const char* iface : interfaces)
+                {
+                    interfacesVec.emplace_back(iface);
+                }
+                dbus::utility::getDbusObject(
+                    sensorpath, interfacesVec,
+                    [aResp, collectionPath, sensorpath,
+                     &members](const boost::system::error_code& ec,
+                               const dbus::utility::MapperGetObject&
+                               /*object*/) {
                         if (ec)
                         {
                             // the path does not implement any interfaces
@@ -91,11 +97,7 @@ inline void getCollectionMembersByAssociation(
                                                              path.filename()}});
                         aResp->res.jsonValue["Members@odata.count"] =
                             members.size();
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetObject", sensorpath,
-                    interfaces);
+                    });
             }
         });
 }

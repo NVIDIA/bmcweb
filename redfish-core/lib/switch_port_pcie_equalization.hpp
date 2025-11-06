@@ -290,173 +290,169 @@ inline void requestRoutesPCIeEqualization(App& app)
                                 continue;
                             }
 
-                            dbus::utility::getProperty<std::vector<
-                                std::
-                                    string>>("xyz.openbmc_project.ObjectMapper",
-                                             fabricPath + "/all_switches",
-                                             "xyz.openbmc_project.Association",
-                                             "endpoints",
-                                             [asyncResp, fabricId, switchId,
-                                              portId](
-                                                 const boost::system::error_code
-                                                     ec3,
-                                                 const std::vector<std::string>&
-                                                     resp3) {
-                                                 if (ec3)
-                                                 {
-                                                     BMCWEB_LOG_ERROR(
-                                                         "DBUS response error");
-                                                     messages::internalError(
-                                                         asyncResp->res);
-                                                     return;
-                                                 }
+                            dbus::
+                                utility::
+                                    getProperty<std::vector<std::string>>(
+                                        "xyz.openbmc_project.ObjectMapper",
+                                        fabricPath + "/all_switches",
+                                        "xyz.openbmc_project.Association",
+                                        "endpoints",
+                                        [asyncResp, fabricId, switchId, portId](
+                                            const boost::system::error_code ec3,
+                                            const std::vector<std::string>&
+                                                resp3) {
+                                            if (ec3)
+                                            {
+                                                BMCWEB_LOG_ERROR(
+                                                    "DBUS response error");
+                                                messages::internalError(
+                                                    asyncResp->res);
+                                                return;
+                                            }
 
-                                                 for (const std::string&
-                                                          switchPath : resp3)
-                                                 {
-                                                     if (!switchPath.ends_with(
-                                                             switchId))
-                                                     {
-                                                         continue;
-                                                     }
+                                            for (const std::string& switchPath :
+                                                 resp3)
+                                            {
+                                                if (!switchPath.ends_with(
+                                                        switchId))
+                                                {
+                                                    continue;
+                                                }
 
-                                                     dbus::utility::getProperty<
-                                                         std::vector<std::string>>("xyz.openbmc_project.ObjectMapper",
-                                                                                   switchPath +
-                                                                                       "/all_states",
-                                                                                   "xyz.openbmc_project.Association",
-                                                                                   "endpoints",
-                                                                                   [asyncResp,
-                                                                                    fabricId,
-                                                                                    switchId,
-                                                                                    portId](
-                                                                                       const boost::
-                                                                                           system::error_code
-                                                                                               ec4,
-                                                                                       const std::
-                                                                                           vector<
-                                                                                               std::
-                                                                                                   string>&
-                                                                                               resp4) {
-                                                                                       if (ec4)
-                                                                                       {
-                                                                                           BMCWEB_LOG_ERROR(
-                                                                                               "DBUS response error");
-                                                                                           messages::internalError(
-                                                                                               asyncResp
-                                                                                                   ->res);
-                                                                                           return;
-                                                                                       }
+                                                dbus::
+                                                    utility::
+                                                        getProperty<std::vector<
+                                                            std::string>>(
+                                                            "xyz.openbmc_project.ObjectMapper",
+                                                            switchPath +
+                                                                "/all_states",
+                                                            "xyz.openbmc_project.Association",
+                                                            "endpoints",
+                                                            [asyncResp,
+                                                             fabricId, switchId,
+                                                             portId](
+                                                                const boost::
+                                                                    system::
+                                                                        error_code
+                                                                            ec4,
+                                                                const std::vector<
+                                                                    std::
+                                                                        string>&
+                                                                    resp4) {
+                                                                if (ec4)
+                                                                {
+                                                                    BMCWEB_LOG_ERROR(
+                                                                        "DBUS response error");
+                                                                    messages::internalError(
+                                                                        asyncResp
+                                                                            ->res);
+                                                                    return;
+                                                                }
 
-                                                                                       for (
-                                                                                           const std::
-                                                                                               string&
-                                                                                                   portPath :
-                                                                                           resp4)
-                                                                                       {
-                                                                                           // Get the portId object
-                                                                                           sdbusplus::
-                                                                                               message::object_path
-                                                                                                   pPath(
-                                                                                                       portPath);
-                                                                                           if (pPath
-                                                                                                   .filename() !=
-                                                                                               portId)
-                                                                                           {
-                                                                                               continue;
-                                                                                           }
-                                                                                           crow::connections::systemBus
-                                                                                               ->async_method_call(
-                                                                                                   [asyncResp,
-                                                                                                    portPath,
-                                                                                                    fabricId,
-                                                                                                    switchId,
-                                                                                                    portId](
-                                                                                                       const boost::
-                                                                                                           system::error_code&
-                                                                                                               ec5,
-                                                                                                       const std::vector<std::pair<
-                                                                                                           std::
-                                                                                                               string,
-                                                                                                           std::vector<
-                                                                                                               std::
-                                                                                                                   string>>>&
-                                                                                                           object) {
-                                                                                                       if (ec5 ||
-                                                                                                           object
-                                                                                                               .empty())
-                                                                                                       {
-                                                                                                           BMCWEB_LOG_DEBUG(
-                                                                                                               "No PCIe Equalization found {}",
-                                                                                                               portPath);
-                                                                                                           return;
-                                                                                                       }
-
-                                                                                                       std::string
-                                                                                                           portEqualizationURI =
-                                                                                                               "/redfish/v1/Fabrics/";
-                                                                                                       portEqualizationURI +=
-                                                                                                           fabricId;
-                                                                                                       portEqualizationURI +=
-                                                                                                           "/Switches/";
-                                                                                                       portEqualizationURI +=
-                                                                                                           switchId;
-                                                                                                       portEqualizationURI +=
-                                                                                                           "/Ports/";
-                                                                                                       portEqualizationURI +=
-                                                                                                           portId;
-                                                                                                       portEqualizationURI +=
-                                                                                                           "/Oem/Nvidia/PCIeEqualization";
-
-                                                                                                       asyncResp
-                                                                                                           ->res
-                                                                                                           .jsonValue
-                                                                                                               ["@odata.type"] =
-                                                                                                           "#NvidiaPCIeEqualization.v1_0_0.NvidiaPCIeEqualization";
-                                                                                                       asyncResp
-                                                                                                           ->res
-                                                                                                           .jsonValue
-                                                                                                               ["@odata.id"] =
-                                                                                                           portEqualizationURI;
-                                                                                                       asyncResp
-                                                                                                           ->res
-                                                                                                           .jsonValue
-                                                                                                               ["Name"] =
-                                                                                                           "HGX_PCIeTopology_0 Switches ConnectX_Switch_0 Ports UP_0 Oem Nvidia PCIeEqualization";
-                                                                                                       asyncResp
-                                                                                                           ->res
-                                                                                                           .jsonValue
-                                                                                                               ["Id"] =
-                                                                                                           "PCIeEqualization";
-
-                                                                                                       getPCIeEqualization(
-                                                                                                           asyncResp,
-                                                                                                           portPath,
-                                                                                                           object);
-                                                                                                   },
-                                                                                                   "xyz.openbmc_project.ObjectMapper",
-                                                                                                   "/xyz/openbmc_project/object_mapper",
-                                                                                                   "xyz.openbmc_project.ObjectMapper",
-                                                                                                   "GetObject",
-                                                                                                   portPath,
-                                                                                                   std::array<
-                                                                                                       std::
+                                                                for (
+                                                                    const std::
+                                                                        string&
+                                                                            portPath :
+                                                                    resp4)
+                                                                {
+                                                                    // Get the
+                                                                    // portId
+                                                                    // object
+                                                                    sdbusplus::
+                                                                        message::object_path
+                                                                            pPath(
+                                                                                portPath);
+                                                                    if (pPath
+                                                                            .filename() !=
+                                                                        portId)
+                                                                    {
+                                                                        continue;
+                                                                    }
+                                                                    dbus::utility::
+                                                                        getDbusObject(portPath,
+                                                                                      std::array<
+                                                                                          std::
+                                                                                              string_view,
+                                                                                          1>(
+                                                                                          {"xyz.openbmc_project.PCIe.PCIePortConfigurationInfo"}),
+                                                                                      [asyncResp,
+                                                                                       portPath,
+                                                                                       fabricId,
+                                                                                       switchId,
+                                                                                       portId](
+                                                                                          const boost::
+                                                                                              system::error_code&
+                                                                                                  ec5,
+                                                                                          const std::vector<
+                                                                                              std::
+                                                                                                  pair<std::
                                                                                                            string,
-                                                                                                       1>(
-                                                                                                       {"xyz.openbmc_project.PCIe.PCIePortConfigurationInfo"}));
-                                                                                       }
-                                                                                   });
-                                                     return;
-                                                 }
+                                                                                                       std::vector<std::string>>>& object) {
+                                                                                          if (ec5 ||
+                                                                                              object
+                                                                                                  .empty())
+                                                                                          {
+                                                                                              BMCWEB_LOG_DEBUG(
+                                                                                                  "No PCIe Equalization found {}",
+                                                                                                  portPath);
+                                                                                              return;
+                                                                                          }
 
-                                                 // Couldn't find an
-                                                 // object with that
-                                                 // name. Return an error
-                                                 messages::resourceNotFound(
-                                                     asyncResp->res,
-                                                     "#Switch.v1_8_0.Switch",
-                                                     switchId);
-                                             });
+                                                                                          std::string
+                                                                                              portEqualizationURI =
+                                                                                                  "/redfish/v1/Fabrics/";
+                                                                                          portEqualizationURI +=
+                                                                                              fabricId;
+                                                                                          portEqualizationURI +=
+                                                                                              "/Switches/";
+                                                                                          portEqualizationURI +=
+                                                                                              switchId;
+                                                                                          portEqualizationURI +=
+                                                                                              "/Ports/";
+                                                                                          portEqualizationURI +=
+                                                                                              portId;
+                                                                                          portEqualizationURI +=
+                                                                                              "/Oem/Nvidia/PCIeEqualization";
+
+                                                                                          asyncResp
+                                                                                              ->res
+                                                                                              .jsonValue
+                                                                                                  ["@odata.type"] =
+                                                                                              "#NvidiaPCIeEqualization.v1_0_0.NvidiaPCIeEqualization";
+                                                                                          asyncResp
+                                                                                              ->res
+                                                                                              .jsonValue
+                                                                                                  ["@odata.id"] =
+                                                                                              portEqualizationURI;
+                                                                                          asyncResp
+                                                                                              ->res
+                                                                                              .jsonValue
+                                                                                                  ["Name"] =
+                                                                                              "HGX_PCIeTopology_0 Switches ConnectX_Switch_0 Ports UP_0 Oem Nvidia PCIeEqualization";
+                                                                                          asyncResp
+                                                                                              ->res
+                                                                                              .jsonValue
+                                                                                                  ["Id"] =
+                                                                                              "PCIeEqualization";
+
+                                                                                          getPCIeEqualization(
+                                                                                              asyncResp,
+                                                                                              portPath,
+                                                                                              object);
+                                                                                      });
+                                                                }
+                                                            });
+                                                return;
+                                            }
+
+                                            // Couldn't find an
+                                            // object with that
+                                            // name. Return an error
+                                            messages::resourceNotFound(
+                                                asyncResp->res,
+                                                "#Switch.v1_8_0.Switch",
+                                                switchId);
+                                        });
                             return;
                         }
 
@@ -606,106 +602,121 @@ inline void requestRoutesPCIeEqualization(App& app)
                 BMCWEB_LOG_ERROR("Missing property TxAmplitude, TxPreset");
                 return;
             }
-            dbus::utility::getSubTreePaths(
-                "/xyz/openbmc_project/inventory", 0,
-                std::array<std::string_view, 1>{
-                    "xyz.openbmc_project.Inventory.Item.Fabric"},
-                [asyncResp{asyncResp}, fabricId, switchId, portId,
-                 portEqualizationData](
-                    const boost::system::error_code ec,
-                    const std::vector<std::string>& objects) {
-                    if (ec)
-                    {
-                        BMCWEB_LOG_ERROR("DBUS response error");
-                        messages::internalError(asyncResp->res);
-                        return;
-                    }
-
-                    for (const std::string& fabricPath : objects)
-                    {
-                        // Get the fabricId object
-                        if (!fabricPath.ends_with(fabricId))
+            dbus::utility::
+                getSubTreePaths(
+                    "/xyz/openbmc_project/inventory", 0,
+                    std::array<std::string_view, 1>{
+                        "xyz.openbmc_project.Inventory.Item.Fabric"},
+                    [asyncResp{asyncResp}, fabricId, switchId, portId,
+                     portEqualizationData](
+                        const boost::system::error_code ec,
+                        const std::vector<std::string>& objects) {
+                        if (ec)
                         {
-                            continue;
+                            BMCWEB_LOG_ERROR("DBUS response error");
+                            messages::internalError(asyncResp->res);
+                            return;
                         }
 
-                        dbus::utility::getProperty<std::vector<
-                            std::string>>("xyz.openbmc_project.ObjectMapper",
-                                          fabricPath + "/all_switches",
-                                          "xyz.openbmc_project.Association",
-                                          "endpoints",
-                                          [asyncResp, fabricId, switchId,
-                                           portId, portEqualizationData](
-                                              const boost::system::error_code
-                                                  ec3,
-                                              const std::vector<std::string>&
-                                                  resp3) {
-                                              if (ec3)
-                                              {
-                                                  BMCWEB_LOG_ERROR(
-                                                      "DBUS response error");
-                                                  messages::internalError(
-                                                      asyncResp->res);
-                                                  return;
-                                              }
+                        for (const std::string& fabricPath : objects)
+                        {
+                            // Get the fabricId object
+                            if (!fabricPath.ends_with(fabricId))
+                            {
+                                continue;
+                            }
 
-                                              for (const std::string&
-                                                       switchPath : resp3)
-                                              {
-                                                  if (!switchPath.ends_with(
-                                                          switchId))
-                                                  {
-                                                      continue;
-                                                  }
+                            dbus::utility::getProperty<
+                                std::vector<std::string>>("xyz.openbmc_project.ObjectMapper",
+                                                          fabricPath +
+                                                              "/all_switches",
+                                                          "xyz.openbmc_project.Association",
+                                                          "endpoints",
+                                                          [asyncResp, fabricId,
+                                                           switchId, portId,
+                                                           portEqualizationData](
+                                                              const boost::
+                                                                  system::
+                                                                      error_code
+                                                                          ec3,
+                                                              const std::vector<
+                                                                  std::string>&
+                                                                  resp3) {
+                                                              if (ec3)
+                                                              {
+                                                                  BMCWEB_LOG_ERROR(
+                                                                      "DBUS response error");
+                                                                  messages::internalError(
+                                                                      asyncResp
+                                                                          ->res);
+                                                                  return;
+                                                              }
 
-                                                  dbus::utility::
-                                                      getProperty<
-                                                          std::vector<std::string>>("xyz.openbmc_project.ObjectMapper",
-                                                                                    switchPath +
-                                                                                        "/all_states",
-                                                                                    "xyz.openbmc_project.Association",
-                                                                                    "endpoints",
-                                                                                    [asyncResp,
-                                                                                     fabricId,
-                                                                                     switchId,
-                                                                                     portId,
-                                                                                     portEqualizationData](
-                                                                                        const boost::
-                                                                                            system::error_code
-                                                                                                ec4,
-                                                                                        const std::vector<
-                                                                                            std::
-                                                                                                string>&
-                                                                                            resp4) {
-                                                                                        if (ec4)
-                                                                                        {
-                                                                                            BMCWEB_LOG_ERROR(
-                                                                                                "DBUS response error");
-                                                                                            messages::internalError(
-                                                                                                asyncResp
-                                                                                                    ->res);
-                                                                                            return;
-                                                                                        }
+                                                              for (
+                                                                  const std::string&
+                                                                      switchPath :
+                                                                  resp3)
+                                                              {
+                                                                  if (!switchPath
+                                                                           .ends_with(
+                                                                               switchId))
+                                                                  {
+                                                                      continue;
+                                                                  }
 
-                                                                                        for (
-                                                                                            const std::
-                                                                                                string&
-                                                                                                    portPath :
-                                                                                            resp4)
-                                                                                        {
-                                                                                            // Get the portId object
-                                                                                            sdbusplus::
-                                                                                                message::object_path
-                                                                                                    pPath(
-                                                                                                        portPath);
-                                                                                            if (pPath
-                                                                                                    .filename() !=
-                                                                                                portId)
+                                                                  dbus::utility::getProperty<
+                                                                      std::vector<
+                                                                          std::string>>("xyz.openbmc_project.ObjectMapper",
+                                                                                        switchPath +
+                                                                                            "/all_states",
+                                                                                        "xyz.openbmc_project.Association",
+                                                                                        "endpoints",
+                                                                                        [asyncResp,
+                                                                                         fabricId,
+                                                                                         switchId,
+                                                                                         portId,
+                                                                                         portEqualizationData](
+                                                                                            const boost::
+                                                                                                system::error_code
+                                                                                                    ec4,
+                                                                                            const std::vector<
+                                                                                                std::
+                                                                                                    string>&
+                                                                                                resp4) {
+                                                                                            if (ec4)
                                                                                             {
-                                                                                                continue;
+                                                                                                BMCWEB_LOG_ERROR(
+                                                                                                    "DBUS response error");
+                                                                                                messages::internalError(
+                                                                                                    asyncResp
+                                                                                                        ->res);
+                                                                                                return;
                                                                                             }
-                                                                                            crow::connections::systemBus
-                                                                                                ->async_method_call(
+
+                                                                                            for (
+                                                                                                const std::
+                                                                                                    string&
+                                                                                                        portPath :
+                                                                                                resp4)
+                                                                                            {
+                                                                                                // Get the portId object
+                                                                                                sdbusplus::
+                                                                                                    message::object_path
+                                                                                                        pPath(
+                                                                                                            portPath);
+                                                                                                if (pPath
+                                                                                                        .filename() !=
+                                                                                                    portId)
+                                                                                                {
+                                                                                                    continue;
+                                                                                                }
+                                                                                                dbus::utility::getDbusObject(
+                                                                                                    portPath,
+                                                                                                    std::array<
+                                                                                                        std::
+                                                                                                            string_view,
+                                                                                                        1>(
+                                                                                                        {"xyz.openbmc_project.PCIe.PCIePortConfigurationInfo"}),
                                                                                                     [asyncResp,
                                                                                                      portPath,
                                                                                                      fabricId,
@@ -752,38 +763,31 @@ inline void requestRoutesPCIeEqualization(App& app)
                                                                                                             nvidia_async_operation_utils::
                                                                                                                 PatchPCIeEqualizationCallback{
                                                                                                                     asyncResp});
-                                                                                                    },
-                                                                                                    "xyz.openbmc_project.ObjectMapper",
-                                                                                                    "/xyz/openbmc_project/object_mapper",
-                                                                                                    "xyz.openbmc_project.ObjectMapper",
-                                                                                                    "GetObject",
-                                                                                                    portPath,
-                                                                                                    std::array<
-                                                                                                        std::
-                                                                                                            string,
-                                                                                                        1>(
-                                                                                                        {"xyz.openbmc_project.PCIe.PCIePortConfigurationInfo"}));
-                                                                                        }
-                                                                                    });
-                                                  return;
-                                              }
+                                                                                                    });
+                                                                                            }
+                                                                                        });
+                                                                  return;
+                                                              }
 
-                                              // Couldn't find an
-                                              // object with that
-                                              // name. Return an error
-                                              messages::resourceNotFound(
-                                                  asyncResp->res,
-                                                  "#Switch.v1_8_0.Switch",
-                                                  switchId);
-                                          });
-                        return;
-                    }
+                                                              // Couldn't find
+                                                              // an object with
+                                                              // that name.
+                                                              // Return an error
+                                                              messages::
+                                                                  resourceNotFound(
+                                                                      asyncResp
+                                                                          ->res,
+                                                                      "#Switch.v1_8_0.Switch",
+                                                                      switchId);
+                                                          });
+                            return;
+                        }
 
-                    // Couldn't find an object with that name.
-                    // Return an error
-                    messages::resourceNotFound(
-                        asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
-                });
+                        // Couldn't find an object with that name.
+                        // Return an error
+                        messages::resourceNotFound(
+                            asyncResp->res, "#Fabric.v1_2_0.Fabric", fabricId);
+                    });
         });
 }
 } // namespace redfish

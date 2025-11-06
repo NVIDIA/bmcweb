@@ -88,9 +88,11 @@ inline void getInterfaceStatus(
 inline void getCredentialsBootStrap(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        redfish::biosConfigObj,
+        std::array<std::string_view, 1>{redfish::biosConfigIface},
         [asyncResp](const boost::system::error_code& ec,
-                    const GetObjectType& objType) {
+                    const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
             {
                 BMCWEB_LOG_ERROR("GetObject for path {}",
@@ -149,20 +151,19 @@ inline void getCredentialsBootStrap(
                         }
                     }
                 });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", redfish::biosConfigObj,
-        std::array<const char*, 1>{redfish::biosConfigIface});
+        });
 }
 
 inline void setCredentialBootstrap(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& property, const bool& flag)
 {
-    dbus::utility::async_method_call(
-        [asyncResp, property, flag](const boost::system::error_code& ec,
-                                    const GetObjectType& objType) {
+    dbus::utility::getDbusObject(
+        redfish::biosConfigObj,
+        std::array<std::string_view, 1>{redfish::biosConfigIface},
+        [asyncResp, property,
+         flag](const boost::system::error_code& ec,
+               const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
             {
                 BMCWEB_LOG_ERROR("GetObject for path {}",
@@ -184,11 +185,7 @@ inline void setCredentialBootstrap(
                         return;
                     }
                 });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", redfish::biosConfigObj,
-        std::array<const char*, 1>{redfish::biosConfigIface});
+        });
 }
 
 inline void setInterfaceEnabled(

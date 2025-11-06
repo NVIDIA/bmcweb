@@ -63,7 +63,7 @@ static const std::map<std::string, std::string> modes = {
     {"xyz.openbmc_project.Control.Power.Mode.PowerMode.PowerSaving", "Manual"},
     {"xyz.openbmc_project.Control.Power.Mode.PowerMode.Static", "Disabled"}};
 
-const std::array<const char*, 3> powerinterfaces = {
+const std::array<std::string_view, 3> powerinterfaces = {
     "xyz.openbmc_project.Control.Power.Cap", "com.nvidia.Common.ClearPowerCap",
     "xyz.openbmc_project.Control.Power.Mode"};
 inline void getPowercontrolObjects(
@@ -92,7 +92,8 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             const std::string& path,
                             const std::string& /*chassisPath*/)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        path, powerinterfaces,
         [asyncResp, path](
             const boost::system::error_code& errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -237,11 +238,7 @@ inline void getChassisPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     }
                 }
             }
-        },
-
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", path, powerinterfaces);
+        });
 }
 
 inline void getTotalPower(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -352,7 +349,8 @@ inline void getControlSettings(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& path)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        path, powerinterfaces,
         [asyncResp, path](
             const boost::system::error_code& errorno,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -484,10 +482,7 @@ inline void getControlSettings(
                         }
                     });
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", path, powerinterfaces);
+        });
 }
 
 inline void getPowerReading(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -515,7 +510,10 @@ inline void getPowerReading(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                     continue;
                 }
 
-                dbus::utility::async_method_call(
+                dbus::utility::getDbusObject(
+                    sensorPath,
+                    std::array<std::string_view, 1>{
+                        "xyz.openbmc_project.Sensor.Value"},
                     [asyncResp, chassisPath, sensorPath](
                         const boost::system::error_code& ec2,
                         const std::vector<std::pair<
@@ -573,12 +571,7 @@ inline void getPowerReading(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                                     }
                                 });
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetObject", sensorPath,
-                    std::array<const char*, 1>{
-                        "xyz.openbmc_project.Sensor.Value"});
+                    });
             }
         });
 }
@@ -586,11 +579,13 @@ inline void getPowerReading(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 inline void changepowercap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                            const std::string& path, size_t setpointValue)
 {
-    dbus::utility::async_method_call(
-        [asyncResp, setpointValue, path](
-            const boost::system::error_code& errorno,
-            const std::vector<std::pair<std::string, std::vector<std::string>>>&
-                objInfo) {
+    dbus::utility::getDbusObject(
+        path,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Control.Power.Cap"},
+        [asyncResp, setpointValue,
+         path](const boost::system::error_code& errorno,
+               const dbus::utility::MapperGetObject& objInfo) {
             if (errorno)
             {
                 BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}",
@@ -717,23 +712,20 @@ inline void changepowercap(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                             dbus::utility::DbusVariantType(setpointValue));
                     });
             }
-        },
-
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", path,
-        std::array<const char*, 1>{"xyz.openbmc_project.Control.Power.Cap"});
+        });
 }
 
 inline void changePowerCapEnable(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& path, const bool& enabled)
 {
-    dbus::utility::async_method_call(
-        [asyncResp, enabled, path](
-            const boost::system::error_code& errorno,
-            const std::vector<std::pair<std::string, std::vector<std::string>>>&
-                objInfo) {
+    dbus::utility::getDbusObject(
+        path,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Control.Power.Cap"},
+        [asyncResp, enabled,
+         path](const boost::system::error_code& errorno,
+               const dbus::utility::MapperGetObject& objInfo) {
             if (errorno)
             {
                 BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}",
@@ -786,22 +778,19 @@ inline void changePowerCapEnable(
                         }
                     });
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", path,
-        std::array<const char*, 1>{"xyz.openbmc_project.Control.Power.Cap"});
+        });
 }
 
 inline void changeControlMode(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& path, const std::string& mode)
 {
-    dbus::utility::async_method_call(
-        [asyncResp, mode, path](
-            const boost::system::error_code& errorno,
-            const std::vector<std::pair<std::string, std::vector<std::string>>>&
-                objInfo) {
+    dbus::utility::getDbusObject(
+        path,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Control.Power.Mode"},
+        [asyncResp, mode, path](const boost::system::error_code& errorno,
+                                const dbus::utility::MapperGetObject& objInfo) {
             if (errorno)
             {
                 BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}",
@@ -854,11 +843,7 @@ inline void changeControlMode(
                     "Set", "xyz.openbmc_project.Control.Power.Mode",
                     "PowerMode", dbus::utility::DbusVariantType(mode));
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", path,
-        std::array<const char*, 1>{"xyz.openbmc_project.Control.Power.Mode"});
+        });
 }
 
 inline void requestRoutesChassisControlsCollection(App& app)
@@ -1080,7 +1065,9 @@ inline void requestRoutesChassisControls(App& app)
 
                         for (const auto& processorPath : resp)
                         {
-                            dbus::utility::async_method_call(
+                            dbus::utility::getDbusObject(
+                                processorPath,
+                                std::array<std::string_view, 0>{},
                                 [asyncResp, controlID, chassisID, processorPath,
                                  validChassisPath](
                                     const boost::system::error_code& ec1,
@@ -1122,11 +1109,7 @@ inline void requestRoutesChassisControls(App& app)
                                             return;
                                         }
                                     }
-                                },
-                                "xyz.openbmc_project.ObjectMapper",
-                                "/xyz/openbmc_project/object_mapper",
-                                "xyz.openbmc_project.ObjectMapper", "GetObject",
-                                processorPath, std::array<const char*, 0>{});
+                                });
                         }
                     });
             };
@@ -1142,7 +1125,8 @@ inline void requestRoutesChassisControls(App& app)
                                                chassisID);
                     return;
                 }
-                dbus::utility::async_method_call(
+                dbus::utility::getDbusObject(
+                    *validChassisPath, std::array<std::string_view, 0>{},
                     [asyncResp, getControlSystem, getControlCpu,
                      getChassisControl, validChassisPath](
                         const boost::system::error_code& ec,
@@ -1172,11 +1156,7 @@ inline void requestRoutesChassisControls(App& app)
                             asyncResp, getControlCpu, validChassisPath);
                         // Not a CPU
                         getChassisControl(validChassisPath);
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetObject",
-                    *validChassisPath, std::array<const char*, 0>{});
+                    });
             };
             redfish::chassis_utils::getValidChassisPath(asyncResp, chassisID,
                                                         std::move(getControl));
@@ -1312,7 +1292,9 @@ inline void requestRoutesChassisControls(App& app)
 
                         for (const auto& processorPath : resp)
                         {
-                            dbus::utility::async_method_call(
+                            dbus::utility::getDbusObject(
+                                processorPath,
+                                std::array<std::string_view, 0>{},
                                 [asyncResp, controlID, chassisID, processorPath,
                                  validChassisPath,
                                  &req](const boost::system::error_code& ec1,
@@ -1355,11 +1337,7 @@ inline void requestRoutesChassisControls(App& app)
                                             return;
                                         }
                                     }
-                                },
-                                "xyz.openbmc_project.ObjectMapper",
-                                "/xyz/openbmc_project/object_mapper",
-                                "xyz.openbmc_project.ObjectMapper", "GetObject",
-                                processorPath, std::array<const char*, 0>{});
+                                });
                         }
                     });
             };
@@ -1465,7 +1443,8 @@ inline void requestRoutesChassisControls(App& app)
                                                chassisID);
                     return;
                 }
-                dbus::utility::async_method_call(
+                dbus::utility::getDbusObject(
+                    *validChassisPath, std::array<std::string_view, 0>{},
                     [asyncResp, patchChassisControl, patchControlSystem,
                      patchControlCpu, validChassisPath](
                         const boost::system::error_code& ec,
@@ -1493,11 +1472,7 @@ inline void requestRoutesChassisControls(App& app)
                         }
 
                         patchChassisControl(validChassisPath);
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetObject",
-                    *validChassisPath, std::array<const char*, 0>{});
+                    });
             };
             redfish::chassis_utils::getValidChassisPath(
                 asyncResp, chassisID, std::move(patchControl));
@@ -1607,7 +1582,9 @@ inline void requestRoutesChassisControlsReset(App& app)
 
                         for (const auto& processorPath : resp)
                         {
-                            dbus::utility::async_method_call(
+                            dbus::utility::getDbusObject(
+                                processorPath,
+                                std::array<std::string_view, 0>{},
                                 [asyncResp, controlId, processorPath,
                                  postChassisClockLimitControl,
                                  validChassisPath](
@@ -1648,11 +1625,7 @@ inline void requestRoutesChassisControlsReset(App& app)
                                             return;
                                         }
                                     }
-                                },
-                                "xyz.openbmc_project.ObjectMapper",
-                                "/xyz/openbmc_project/object_mapper",
-                                "xyz.openbmc_project.ObjectMapper", "GetObject",
-                                processorPath, std::array<const char*, 0>{});
+                                });
                         }
                     });
             };
@@ -1669,7 +1642,8 @@ inline void requestRoutesChassisControlsReset(App& app)
                     return;
                 }
 
-                dbus::utility::async_method_call(
+                dbus::utility::getDbusObject(
+                    *validChassisPath, std::array<std::string_view, 0>{},
                     [asyncResp, postChassisControl, validChassisPath](
                         const boost::system::error_code& ec,
                         const dbus::utility::MapperGetObject& objType) {
@@ -1694,11 +1668,7 @@ inline void requestRoutesChassisControlsReset(App& app)
                             }
                         }
                         postChassisControl(validChassisPath);
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetObject",
-                    *validChassisPath, std::array<const char*, 0>{});
+                    });
             };
 
             redfish::chassis_utils::getValidChassisPath(asyncResp, chassisId,

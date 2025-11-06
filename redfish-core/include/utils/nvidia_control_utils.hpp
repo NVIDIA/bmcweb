@@ -59,11 +59,10 @@ inline void getChassisClockLimit(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& path, const std::string& /*chassisPath*/)
 {
-    dbus::utility::async_method_call(
-        [asyncResp, path](
-            const boost::system::error_code& errorno,
-            const std::vector<std::pair<std::string, std::vector<std::string>>>&
-                objInfo) {
+    dbus::utility::getDbusObject(
+        path, std::array<std::string_view, 0>(),
+        [asyncResp, path](const boost::system::error_code& errorno,
+                          const dbus::utility::MapperGetObject& objInfo) {
             if (errorno)
             {
                 BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}",
@@ -190,12 +189,7 @@ inline void getChassisClockLimit(
                     }
                 }
             }
-        },
-
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", path,
-        std::array<const char*, 0>());
+        });
 }
 
 inline void getClockLimitControl(
@@ -285,11 +279,13 @@ inline void changeClockLimitControl(
     const std::variant<uint32_t, std::tuple<uint32_t, uint32_t>>& value,
     const std::string& patchProp)
 {
-    dbus::utility::async_method_call(
-        [asyncResp, path, value, patchProp](
-            const boost::system::error_code& errorno,
-            const std::vector<std::pair<std::string, std::vector<std::string>>>&
-                objInfo) {
+    dbus::utility::getDbusObject(
+        path,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig"},
+        [asyncResp, path, value,
+         patchProp](const boost::system::error_code& errorno,
+                    const dbus::utility::MapperGetObject& objInfo) {
             if (errorno)
             {
                 BMCWEB_LOG_ERROR("ObjectMapper::GetObject call failed: {}",
@@ -354,12 +350,7 @@ inline void changeClockLimitControl(
                             PatchClockLimitControlCallback{asyncResp});
                 }
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", path,
-        std::array<const char*, 1>{
-            "xyz.openbmc_project.Inventory.Item.Cpu.OperatingConfig"});
+        });
 }
 
 inline void patchClockLimitControl(
@@ -514,11 +505,13 @@ inline void postClockLimitControl(
 
             for (const auto& sensorpath : resp)
             {
-                dbus::utility::async_method_call(
-                    [asyncResp, sensorpath](
-                        const boost::system::error_code& ec1,
-                        const std::vector<std::pair<
-                            std::string, std::vector<std::string>>>& object) {
+                dbus::utility::getDbusObject(
+                    sensorpath,
+                    std::array<std::string_view, 1>{
+                        "com.nvidia.Common.ClearClockLimAsync"},
+                    [asyncResp,
+                     sensorpath](const boost::system::error_code& ec1,
+                                 const dbus::utility::MapperGetObject& object) {
                         if (ec1)
                         {
                             // the path does not implement clear clock limit
@@ -533,12 +526,7 @@ inline void postClockLimitControl(
                             resetClockLimitControl(asyncResp, connection,
                                                    sensorpath);
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetObject", sensorpath,
-                    std::array<std::string, 1>(
-                        {"com.nvidia.Common.ClearClockLimAsync"}));
+                    });
             }
         });
 };
@@ -582,7 +570,8 @@ inline void getControlCpuObjects(
                 objPath = resp.front();
             }
 
-            dbus::utility::async_method_call(
+            dbus::utility::getDbusObject(
+                objPath, std::array<std::string_view, 0>(),
                 [asyncResp, getControlCpu, objPath, validChassisPath](
                     const boost::system::error_code& ec1,
                     const dbus::utility::MapperGetObject& objType) {
@@ -607,11 +596,7 @@ inline void getControlCpuObjects(
                             return;
                         }
                     }
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
-                std::array<const char*, 0>{});
+                });
         });
 }
 

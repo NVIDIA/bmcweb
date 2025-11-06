@@ -64,7 +64,8 @@ enum class SecureSelector
     const bool& resetBiosToDefaultsPending)
 {
     BMCWEB_LOG_DEBUG("Set Reset Bios Settings to Defaults Pending Status");
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        biosConfigObj, std::array<std::string_view, 1>{biosConfigIface},
         [asyncResp, resetBiosToDefaultsPending](
             const boost::system::error_code& ec,
             const dbus::utility::MapperGetObject& objType) {
@@ -104,11 +105,7 @@ enum class SecureSelector
                 biosService, biosConfigObj, "org.freedesktop.DBus.Properties",
                 "Set", biosConfigIface, "ResetBIOSSettings",
                 std::variant<std::string>(biosMode));
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", biosConfigObj,
-        std::array<const char*, 1>{biosConfigIface});
+        });
 }
 
 /**
@@ -689,7 +686,8 @@ inline void getResetBiosSettings(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
     BMCWEB_LOG_DEBUG("Get Reset Bios Settings to Defaults Pending Status");
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        biosConfigObj, std::array<std::string_view, 1>{biosConfigIface},
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
@@ -735,11 +733,7 @@ inline void getResetBiosSettings(
                         return;
                     }
                 });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", biosConfigObj,
-        std::array<const char*, 1>{biosConfigIface});
+        });
 }
 
 /**
@@ -753,7 +747,8 @@ inline void getResetBiosSettings(
 inline void getBiosAttributes(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        biosConfigObj, std::array<std::string_view, 1>{biosConfigIface},
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
@@ -849,11 +844,7 @@ inline void getBiosAttributes(
                         }
                     }
                 });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", biosConfigObj,
-        std::array<const char*, 1>{biosConfigIface});
+        });
 }
 
 /**
@@ -1205,7 +1196,8 @@ inline void fillBiosTable(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
 inline void getBiosSettingsAttr(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        biosConfigObj, std::array<std::string_view, 1>{biosConfigIface},
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
@@ -1303,11 +1295,7 @@ inline void getBiosSettingsAttr(
                         }
                     }
                 });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", biosConfigObj,
-        std::array<const char*, 1>{biosConfigIface});
+        });
 }
 
 /**
@@ -1330,7 +1318,8 @@ inline void setBiosCurrentOrPendingAttr(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const nlohmann::json& pendingAttrJson, bool biosFlag)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        biosConfigObj, std::array<std::string_view, 1>{biosConfigIface},
         [asyncResp, pendingAttrJson,
          biosFlag](const boost::system::error_code& ec,
                    const dbus::utility::MapperGetObject& objType) {
@@ -1635,11 +1624,7 @@ inline void setBiosCurrentOrPendingAttr(
                             messages::success(asyncResp->res);
                         });
                 });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", biosConfigObj,
-        std::array<const char*, 1>{biosConfigIface});
+        });
 }
 
 /**
@@ -1685,7 +1670,8 @@ inline void setBiosServicCurrentAttr(
 [[maybe_unused]] static void getBiosAttributeRegistry(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        biosConfigObj, std::array<std::string_view, 1>{biosConfigIface},
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
@@ -2041,11 +2027,7 @@ inline void setBiosServicCurrentAttr(
                         attributeArray.push_back(attributeIt);
                     }
                 });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", biosConfigObj,
-        std::array<const char*, 1>{biosConfigIface});
+        });
 }
 
 /**
@@ -2059,7 +2041,8 @@ inline void setBiosServicCurrentAttr(
 static void updateBiosAttrRegistry(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        biosConfigObj, std::array<std::string_view, 1>{biosConfigIface},
         [asyncResp](const boost::system::error_code& ec,
                     const dbus::utility::MapperGetObject& objType) {
             if (ec || objType.empty())
@@ -2163,11 +2146,7 @@ static void updateBiosAttrRegistry(
                     }
                     asyncResp->res.jsonValue = biosRegistryJson;
                 });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", biosConfigObj,
-        std::array<const char*, 1>{biosConfigIface});
+        });
 }
 
 /**

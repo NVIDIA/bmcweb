@@ -583,7 +583,7 @@ inline void getAssociationEndpoint(const std::string& objPath,
             }
             // Getting only the first endpoint as we have 1*1 relationship
             // with ERoT and the inventory backed by it.
-            std::string endpointPath = resp.front();
+            const std::string& endpointPath = resp.front();
             callback(true, endpointPath);
         });
 }
@@ -593,16 +593,13 @@ inline void getRedfishURL(const std::filesystem::path& invObjPath,
                           CallbackFunc&& callback)
 {
     BMCWEB_LOG_DEBUG("getRedfishURL({})", invObjPath.string());
-    dbus::utility::async_method_call(
-        [invObjPath, callback](const boost::system::error_code& ec,
-                               const GetObjectType& resp) {
+    dbus::utility::getDbusObject(
+        invObjPath, std::array<std::string_view, 0>{},
+        [callback, invObjPath](const boost::system::error_code& ec,
+                               const dbus::utility::MapperGetObject& resp) {
             std::string urlStr;
             if (ec || resp.empty())
             {
-                BMCWEB_LOG_ERROR(
-                    "DBUS response error during getting of service name: {}",
-                    ec);
-                callback(false, urlStr);
                 return;
             }
             // if accelerator interface then the object would be
@@ -730,10 +727,7 @@ inline void getRedfishURL(const std::filesystem::path& invObjPath,
             }
             BMCWEB_LOG_ERROR("Failed to find proper URL");
             callback(false, urlStr);
-        },
-        dbus_utils::mapperBusName, dbus_utils::mapperObjectPath,
-        dbus_utils::mapperIntf, "GetObject", invObjPath.string(),
-        std::array<const char*, 0>());
+        });
 }
 
 } // namespace chassis_utils

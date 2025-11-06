@@ -53,10 +53,12 @@ inline void populateErrorInjectionLink(
     const std::string& chassisId, const std::string& networkAdapterId,
     const std::string& networkAdapterPath)
 {
-    dbus::utility::async_method_call(
-        [aResp, chassisId, networkAdapterId, networkAdapterPath](
-            const boost::system::error_code ec,
-            const dbus::utility::MapperServiceMap& serviceMap) {
+    dbus::utility::getDbusObject(
+        networkAdapterPath + "/ErrorInjection",
+        std::array<std::string_view, 0>(),
+        [aResp, chassisId, networkAdapterId,
+         networkAdapterPath](const boost::system::error_code ec,
+                             const dbus::utility::MapperGetObject& serviceMap) {
             if (ec)
             {
                 BMCWEB_LOG_DEBUG("ErrorInjection object not found in {}",
@@ -83,11 +85,7 @@ inline void populateErrorInjectionLink(
                     {"@odata.id", odataId}};
                 return;
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject",
-        networkAdapterPath + "/ErrorInjection", std::array<const char*, 0>());
+        });
 }
 
 /**

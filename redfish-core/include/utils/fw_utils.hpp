@@ -592,144 +592,204 @@ inline void populateSlotInfo(
     const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
     const std::string& slotObjPath, const std::string& slotType)
 {
-    dbus::utility::async_method_call(
-        [asyncResp, slotObjPath,
-         slotType](const boost::system::error_code& ec,
-                   const dbus::utility::MapperGetObject& subtree) {
-            if (ec)
-            {
-                BMCWEB_LOG_ERROR("error_code = {}", ec);
-                BMCWEB_LOG_ERROR("error msg = {}", ec.message());
-                return;
-            }
+    dbus::
+        utility::
+            getDbusObject(slotObjPath, std::array<std::string_view, 0>(),
+                          [asyncResp, slotObjPath, slotType](
+                              const boost::system::error_code& ec,
+                              const dbus::utility::MapperGetObject& subtree) {
+                              if (ec)
+                              {
+                                  BMCWEB_LOG_ERROR("error_code = {}", ec);
+                                  BMCWEB_LOG_ERROR("error msg = {}",
+                                                   ec.message());
+                                  return;
+                              }
 
-            const std::string softwareSlotInterface =
-                "xyz.openbmc_project.Software.Slot";
-            std::string slotService;
+                              const std::string softwareSlotInterface =
+                                  "xyz.openbmc_project.Software.Slot";
+                              std::string slotService;
 
-            for (const auto& [service, interfacesList] : subtree)
-            {
-                if (std::find(interfacesList.begin(), interfacesList.end(),
-                              softwareSlotInterface) != interfacesList.end())
-                {
-                    slotService = service;
-                    break;
-                }
-            }
+                              for (const auto& [service, interfacesList] :
+                                   subtree)
+                              {
+                                  if (std::find(interfacesList.begin(),
+                                                interfacesList.end(),
+                                                softwareSlotInterface) !=
+                                      interfacesList.end())
+                                  {
+                                      slotService = service;
+                                      break;
+                                  }
+                              }
 
-            if (!slotService.empty())
-            {
-                dbus::utility::getAllProperties(
-                    slotService, slotObjPath, "",
-                    [asyncResp, slotService, slotObjPath, slotType](
-                        const boost::system::error_code& ec1,
-                        const dbus::utility::DBusPropertiesMap& properties) {
-                        if (ec1)
-                        {
-                            BMCWEB_LOG_ERROR("error_code = {}", ec1);
-                            BMCWEB_LOG_ERROR("error msg = {}", ec1.message());
-                            return;
-                        }
-                        nlohmann::json& oemSlot =
-                            asyncResp->res.jsonValue["Oem"]["Nvidia"][slotType];
-                        for (const auto& [key, val] : properties)
-                        {
-                            if (key == "SlotId")
-                            {
-                                if (const uint8_t* value =
-                                        std::get_if<uint8_t>(&val))
-                                {
-                                    oemSlot["SlotId"] = *value;
-                                }
-                                else
-                                {
-                                    BMCWEB_LOG_ERROR(
-                                        "Null value returned for SlotId");
-                                }
-                            }
-                            else if (key == "FirmwareComparisonNumber")
-                            {
-                                if (const uint32_t* value =
-                                        std::get_if<uint32_t>(&val))
-                                {
-                                    oemSlot["FirmwareComparisonNumber"] =
-                                        *value;
-                                }
-                                else
-                                {
-                                    BMCWEB_LOG_ERROR(
-                                        "Null value returned for FirmwareComparisonNumber");
-                                }
-                            }
-                            else if (key == "ExtendedVersion")
-                            {
-                                if (const std::string* value =
-                                        std::get_if<std::string>(&val))
-                                {
-                                    oemSlot["Version"] = *value;
-                                }
-                                else
-                                {
-                                    BMCWEB_LOG_ERROR(
-                                        "Null value returned for Version");
-                                }
-                            }
-                            else if (key == "BuildType")
-                            {
-                                if (const std::string* value =
-                                        std::get_if<std::string>(&val))
-                                {
-                                    auto it = buildType.find(*value);
-                                    if (it != buildType.end())
-                                    {
-                                        oemSlot["BuildType"] = it->second;
-                                    }
-                                    else
-                                    {
-                                        BMCWEB_LOG_ERROR(
-                                            "BuildType '{}' not found in map",
-                                            *value);
-                                        oemSlot["BuildType"] = "";
-                                    }
-                                }
-                                else
-                                {
-                                    BMCWEB_LOG_ERROR(
-                                        "Null value returned for BuildType");
-                                }
-                            }
-                            else if (key == "State")
-                            {
-                                if (const std::string* value =
-                                        std::get_if<std::string>(&val))
-                                {
-                                    auto it = firmwareState.find(*value);
-                                    if (it != firmwareState.end())
-                                    {
-                                        oemSlot["FirmwareState"] = it->second;
-                                    }
-                                    else
-                                    {
-                                        BMCWEB_LOG_ERROR(
-                                            "FirmwareState '{}' not found in map",
-                                            *value);
-                                        oemSlot["FirmwareState"] = "";
-                                    }
-                                }
-                                else
-                                {
-                                    BMCWEB_LOG_ERROR(
-                                        "Null value returned for FirmwareState");
-                                }
-                            }
-                        }
-                    });
-            }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", slotObjPath,
-        std::array<const char*, 0>());
+                              if (!slotService.empty())
+                              {
+                                  dbus::
+                                      utility::getAllProperties(slotService,
+                                                                slotObjPath, "",
+                                                                [asyncResp,
+                                                                 slotService,
+                                                                 slotObjPath,
+                                                                 slotType](const boost::
+                                                                               system::error_code&
+                                                                                   ec1,
+                                                                           const dbus::
+                                                                               utility::DBusPropertiesMap& properties) {
+                                                                    if (ec1)
+                                                                    {
+                                                                        BMCWEB_LOG_ERROR(
+                                                                            "error_code = {}",
+                                                                            ec1);
+                                                                        BMCWEB_LOG_ERROR(
+                                                                            "error msg = {}",
+                                                                            ec1.message());
+                                                                        return;
+                                                                    }
+                                                                    nlohmann::json& oemSlot =
+                                                                        asyncResp
+                                                                            ->res
+                                                                            .jsonValue
+                                                                                ["Oem"]
+                                                                                ["Nvidia"]
+                                                                                [slotType];
+                                                                    for (
+                                                                        const auto& [key,
+                                                                                     val] :
+                                                                        properties)
+                                                                    {
+                                                                        if (key ==
+                                                                            "SlotId")
+                                                                        {
+                                                                            if (const uint8_t* value =
+                                                                                    std::get_if<
+                                                                                        uint8_t>(
+                                                                                        &val))
+                                                                            {
+                                                                                oemSlot["SlotId"] =
+                                                                                    *value;
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                BMCWEB_LOG_ERROR(
+                                                                                    "Null value returned for SlotId");
+                                                                            }
+                                                                        }
+                                                                        else if (
+                                                                            key ==
+                                                                            "FirmwareComparisonNumber")
+                                                                        {
+                                                                            if (const uint32_t* value =
+                                                                                    std::get_if<
+                                                                                        uint32_t>(
+                                                                                        &val))
+                                                                            {
+                                                                                oemSlot["FirmwareComparisonNumber"] =
+                                                                                    *value;
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                BMCWEB_LOG_ERROR(
+                                                                                    "Null value returned for FirmwareComparisonNumber");
+                                                                            }
+                                                                        }
+                                                                        else if (
+                                                                            key ==
+                                                                            "ExtendedVersion")
+                                                                        {
+                                                                            if (const std::string* value =
+                                                                                    std::get_if<
+                                                                                        std::
+                                                                                            string>(
+                                                                                        &val))
+                                                                            {
+                                                                                oemSlot["Version"] =
+                                                                                    *value;
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                BMCWEB_LOG_ERROR(
+                                                                                    "Null value returned for Version");
+                                                                            }
+                                                                        }
+                                                                        else if (
+                                                                            key ==
+                                                                            "BuildType")
+                                                                        {
+                                                                            if (const std::string* value =
+                                                                                    std::get_if<
+                                                                                        std::
+                                                                                            string>(
+                                                                                        &val))
+                                                                            {
+                                                                                auto it =
+                                                                                    buildType
+                                                                                        .find(
+                                                                                            *value);
+                                                                                if (it !=
+                                                                                    buildType
+                                                                                        .end())
+                                                                                {
+                                                                                    oemSlot["BuildType"] =
+                                                                                        it->second;
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    BMCWEB_LOG_ERROR(
+                                                                                        "BuildType '{}' not found in map",
+                                                                                        *value);
+                                                                                    oemSlot
+                                                                                        ["BuildType"] =
+                                                                                            "";
+                                                                                }
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                BMCWEB_LOG_ERROR(
+                                                                                    "Null value returned for BuildType");
+                                                                            }
+                                                                        }
+                                                                        else if (
+                                                                            key ==
+                                                                            "State")
+                                                                        {
+                                                                            if (const std::string* value =
+                                                                                    std::get_if<
+                                                                                        std::
+                                                                                            string>(
+                                                                                        &val))
+                                                                            {
+                                                                                auto it =
+                                                                                    firmwareState
+                                                                                        .find(
+                                                                                            *value);
+                                                                                if (it !=
+                                                                                    firmwareState
+                                                                                        .end())
+                                                                                {
+                                                                                    oemSlot["FirmwareState"] =
+                                                                                        it->second;
+                                                                                }
+                                                                                else
+                                                                                {
+                                                                                    BMCWEB_LOG_ERROR(
+                                                                                        "FirmwareState '{}' not found in map",
+                                                                                        *value);
+                                                                                    oemSlot
+                                                                                        ["FirmwareState"] =
+                                                                                            "";
+                                                                                }
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                BMCWEB_LOG_ERROR(
+                                                                                    "Null value returned for FirmwareState");
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                });
+                              }
+                          });
 }
 
 /**

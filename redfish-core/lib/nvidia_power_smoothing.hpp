@@ -989,16 +989,16 @@ inline void getProcessorPowerSmoothingPresetProfileData(
                             {
                                 continue;
                             }
+
                             profileExists = true;
-                            std::string objectPathToGetProfileData =
-                                profilePath;
-                            dbus::utility::async_method_call(
-                                [processorId, objectPathToGetProfileData,
-                                 aResp{aResp}](
+                            dbus::utility::getDbusObject(
+                                profilePath,
+                                std::array<std::string_view, 1>{
+                                    "com.nvidia.PowerSmoothing.PowerProfile"},
+                                [processorId, profilePath, aResp{aResp}](
                                     const boost::system::error_code&
                                         innerErrorCode,
-                                    const std::vector<std::pair<
-                                        std::string, std::vector<std::string>>>&
+                                    const dbus::utility::MapperGetObject&
                                         objectData) {
                                     if (innerErrorCode)
                                     {
@@ -1008,15 +1008,8 @@ inline void getProcessorPowerSmoothingPresetProfileData(
                                     }
                                     std::string service =
                                         objectData.front().first;
-                                    getProfileData(aResp, service,
-                                                   objectPathToGetProfileData);
-                                },
-                                "xyz.openbmc_project.ObjectMapper",
-                                "/xyz/openbmc_project/object_mapper",
-                                "xyz.openbmc_project.ObjectMapper", "GetObject",
-                                objectPathToGetProfileData,
-                                std::array<const char*, 1>{
-                                    "com.nvidia.PowerSmoothing.PowerProfile"});
+                                    getProfileData(aResp, service, profilePath);
+                                });
                         }
                         // Object not found
                         if (!profileExists)
@@ -1244,15 +1237,15 @@ inline void patchAdminOverrideProfile(
                                 BMCWEB_LOG_ERROR("Empty adminProfile");
                                 return;
                             }
-                            const std::array<const char*, 1> adminProfileIface =
-                                {"com.nvidia.PowerSmoothing.AdminPowerProfile"};
-                            dbus::utility::async_method_call(
+                            const std::array<std::string_view, 1>
+                                adminProfileIface = {
+                                    "com.nvidia.PowerSmoothing.AdminPowerProfile"};
+                            dbus::utility::getDbusObject(
+                                profilePath, adminProfileIface,
                                 [processorId, propName, profilePath, propValue,
                                  aResp{aResp}](
                                     const boost::system::error_code ec2,
-                                    const std::vector<std::pair<
-                                        std::string, std::vector<std::string>>>&
-                                        obj) {
+                                    const dbus::utility::MapperGetObject& obj) {
                                     if (ec2)
                                     {
                                         BMCWEB_LOG_ERROR("DBUS response error");
@@ -1276,11 +1269,7 @@ inline void patchAdminOverrideProfile(
                                                     PatchGenericCallback{
                                                         aResp});
                                     }
-                                },
-                                "xyz.openbmc_project.ObjectMapper",
-                                "/xyz/openbmc_project/object_mapper",
-                                "xyz.openbmc_project.ObjectMapper", "GetObject",
-                                profilePath, adminProfileIface);
+                                });
                         }
                     });
                 return;
@@ -1343,15 +1332,16 @@ inline void patchPresetProfile(
                                 continue;
                             }
                             profileExists = true;
-                            const std::array<const char*, 1> powerProfileIface =
-                                {"com.nvidia.PowerSmoothing.PowerProfile"};
-                            dbus::utility::async_method_call(
+                            const std::array<std::string_view, 1>
+                                powerProfileIface = {
+                                    "com.nvidia.PowerSmoothing.PowerProfile"};
+                            dbus::utility::getDbusObject(
+                                profilePath, powerProfileIface,
                                 [processorId, profileId, propName, propValue,
                                  profilePath, aResp{aResp}](
                                     const boost::system::error_code&
                                         getObjectError,
-                                    const std::vector<std::pair<
-                                        std::string, std::vector<std::string>>>&
+                                    const dbus::utility::MapperGetObject&
                                         objInner) {
                                     if (getObjectError)
                                     {
@@ -1376,11 +1366,7 @@ inline void patchPresetProfile(
                                                     PatchGenericCallback{
                                                         aResp});
                                     }
-                                },
-                                "xyz.openbmc_project.ObjectMapper",
-                                "/xyz/openbmc_project/object_mapper",
-                                "xyz.openbmc_project.ObjectMapper", "GetObject",
-                                profilePath, powerProfileIface);
+                                });
                         }
                         // Object not found
                         if (!profileExists)

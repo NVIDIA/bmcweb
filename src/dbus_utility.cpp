@@ -91,15 +91,12 @@ void getAllProperties(sdbusplus::asio::connection& /*conn*/,
 void checkDbusPathExists(const std::string& path,
                          std::function<void(bool)>&& callback)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        path, std::array<std::string_view, 0>(),
         [callback = std::move(callback)](const boost::system::error_code& ec,
                                          const MapperGetObject& objectNames) {
             callback(!ec && !objectNames.empty());
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", path,
-        std::array<std::string, 0>());
+        });
 }
 
 void getSubTree(const std::string& path, int32_t depth,

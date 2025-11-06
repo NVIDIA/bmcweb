@@ -893,7 +893,7 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
 
     static ServiceQueryingResult determineQueryingServiceNextMove(
         const boost::system::error_code ec,
-        const std::map<std::string, std::vector<std::string>>& result,
+        const dbus::utility::MapperGetObject& result,
         const std::string& objPath, const char* interface)
     {
         ServiceQueryingResult nextMove = SERVICE_ERROR_STOP;
@@ -1053,10 +1053,11 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
         //        state == ROOT_Q_ASSOCS_SERVICE ||
         //        state == ASSOC_Q_HEALTH_SERVICE); // (2)
         std::shared_ptr<HealthRollup> self = shared_from_this();
-        dbus::utility::async_method_call(
-            [self, objPath, interface](
-                const boost::system::error_code& ec,
-                const std::map<std::string, std::vector<std::string>>& result) {
+        dbus::utility::getDbusObject(
+            objPath, std::array<std::string_view, 1>{interface},
+            [self, objPath,
+             interface](const boost::system::error_code& ec,
+                        const dbus::utility::MapperGetObject& result) {
                 ServiceQueryingResult nextMove =
                     redfish::HealthRollup::determineQueryingServiceNextMove(
                         ec, result, objPath, interface);
@@ -1108,11 +1109,7 @@ class HealthRollup : public std::enable_shared_from_this<HealthRollup>
                 {
                     self->stopRollup(STOP_ERROR);
                 }
-            },
-            "xyz.openbmc_project.ObjectMapper",
-            "/xyz/openbmc_project/object_mapper",
-            "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
-            std::vector<std::string>{interface});
+            });
     }
 
     void proceedWithCurrentNodeHealth(const health_state::Type* nodeHealth,

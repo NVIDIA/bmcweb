@@ -192,12 +192,12 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                                 continue;
                             }
 
-                            dbus::utility::async_method_call(
-                                [resp, fabricId, switchId, path, handler](
-                                    const boost::system::error_code& ec3,
-                                    const std::vector<std::pair<
-                                        std::string, std::vector<std::string>>>&
-                                        object) {
+                            dbus::utility::getDbusObject(
+                                path, std::array<std::string_view, 0>(),
+                                [resp, fabricId, switchId, path,
+                                 handler](const boost::system::error_code& ec3,
+                                          const dbus::utility::MapperGetObject&
+                                              object) {
                                     if (ec3)
                                     {
                                         BMCWEB_LOG_ERROR(
@@ -207,11 +207,7 @@ inline void getSwitchObject(const std::shared_ptr<bmcweb::AsyncResp>& resp,
                                     }
                                     handler(resp, fabricId, switchId, path,
                                             object);
-                                },
-                                "xyz.openbmc_project.ObjectMapper",
-                                "/xyz/openbmc_project/object_mapper",
-                                "xyz.openbmc_project.ObjectMapper", "GetObject",
-                                path, std::array<const char*, 0>());
+                                });
                             isFoundSwitchObject = true;
                         }
                         if (!isFoundSwitchObject)
@@ -250,10 +246,11 @@ inline void populateErrorInjectionData(
            [[maybe_unused]] const dbus::utility::MapperServiceMap& serviceMap) {
             std::string errorInjectionObjPath = path;
             errorInjectionObjPath += "/ErrorInjection";
-            dbus::utility::async_method_call(
+            dbus::utility::getDbusObject(
+                errorInjectionObjPath, std::array<std::string_view, 0>(),
                 [aResp, fabricId2, switchId2,
                  path](const boost::system::error_code& ec4,
-                       const dbus::utility::MapperServiceMap& serviceMap2) {
+                       const dbus::utility::MapperGetObject& serviceMap2) {
                     if (ec4)
                     {
                         BMCWEB_LOG_DEBUG(
@@ -282,11 +279,7 @@ inline void populateErrorInjectionData(
                             {"@odata.id", errorInjectionPath}};
                         return;
                     }
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetObject",
-                errorInjectionObjPath, std::array<const char*, 0>());
+                });
         });
 }
 

@@ -486,10 +486,11 @@ inline void fetchInventoryProperties(
         return;
     }
 
-    const std::array<const char*, 1> interfaces = {
+    const std::array<std::string_view, 1> interfaces = {
         "xyz.openbmc_project.Inventory.Decorator.Asset"};
 
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        componentInventoryPath, interfaces,
         [asyncResp, chassisID, componentInventoryPath](
             const boost::system::error_code ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -548,11 +549,7 @@ inline void fetchInventoryProperties(
                         }
                     }
                 });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", componentInventoryPath,
-        interfaces);
+        });
 }
 
 /**

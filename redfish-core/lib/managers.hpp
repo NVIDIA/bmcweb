@@ -359,12 +359,12 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
                 sendFactoryResetEvent(req);
             }
             // NVIDIA code starts here
-            dbus::utility::async_method_call(
+            dbus::utility::getDbusObject(
+                "/xyz/openbmc_project/software/bmc",
+                std::array<std::string_view, 1>{ifnameFactoryReset},
                 [asyncResp, ifnameFactoryReset](
                     const boost::system::error_code& ec,
-                    const std::vector<
-                        std::pair<std::string, std::vector<std::string>>>&
-                        interfaceNames) {
+                    const dbus::utility::MapperGetObject& interfaceNames) {
                     if (ec || interfaceNames.empty())
                     {
                         BMCWEB_LOG_ERROR("Can't find object: {}", ec);
@@ -393,12 +393,7 @@ inline void requestRoutesManagerResetToDefaultsAction(App& app)
                             object.first, "/xyz/openbmc_project/software/bmc",
                             ifnameFactoryReset, "Reset");
                     }
-                },
-                "xyz.openbmc_project.ObjectMapper",
-                "/xyz/openbmc_project/object_mapper",
-                "xyz.openbmc_project.ObjectMapper", "GetObject",
-                "/xyz/openbmc_project/software/bmc",
-                std::array<const char*, 1>{ifnameFactoryReset.c_str()});
+                });
         });
     // NVIDIA code ends here
 }

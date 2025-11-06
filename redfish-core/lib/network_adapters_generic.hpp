@@ -350,12 +350,13 @@ inline void getHealthByAssociation(
                             continue;
                         }
                         // Check Interface in Object or not
-                        dbus::utility::async_method_call(
+                        dbus::utility::getDbusObject(
+                            sensorPath,
+                            std::array<std::string_view, 1>{
+                                "xyz.openbmc_project.State.Decorator.Health"},
                             [asyncResp, sensorPath, networkAdapterId](
                                 const boost::system::error_code ec2,
-                                const std::vector<std::pair<
-                                    std::string, std::vector<std::string>>>&
-                                    object) {
+                                const dbus::utility::MapperGetObject& object) {
                                 if (ec2)
                                 {
                                     // the path does not implement Decorator
@@ -366,13 +367,7 @@ inline void getHealthByAssociation(
                                 }
                                 getHealthData(asyncResp, object.front().first,
                                               sensorPath);
-                            },
-                            "xyz.openbmc_project.ObjectMapper",
-                            "/xyz/openbmc_project/object_mapper",
-                            "xyz.openbmc_project.ObjectMapper", "GetObject",
-                            sensorPath,
-                            std::array<std::string, 1>(
-                                {"xyz.openbmc_project.State.Decorator.Health"}));
+                            });
                     }
                 });
         });
@@ -382,11 +377,13 @@ inline void getAssetData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                          const std::string& objPath,
                          const std::string& networkAdapterId)
 {
-    dbus::utility::async_method_call(
-        [asyncResp, objPath, networkAdapterId](
-            const boost::system::error_code ec,
-            const std::vector<std::pair<std::string, std::vector<std::string>>>&
-                object) {
+    dbus::utility::getDbusObject(
+        objPath,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Inventory.Decorator.Asset"},
+        [asyncResp, objPath,
+         networkAdapterId](const boost::system::error_code& ec,
+                           const dbus::utility::MapperGetObject& object) {
             if (ec)
             {
                 // the path does not implement Decorator Asset
@@ -452,12 +449,7 @@ inline void getAssetData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
                         }
                     }
                 });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", objPath,
-        std::array<std::string, 1>(
-            {"xyz.openbmc_project.Inventory.Decorator.Asset"}));
+        });
 }
 
 inline void getPCIeInterfaceData(
@@ -465,7 +457,10 @@ inline void getPCIeInterfaceData(
     const std::string& deviceId, const std::string& path,
     const std::shared_ptr<nlohmann::json>& controllerObject)
 {
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        path,
+        std::array<std::string_view, 1>{
+            "xyz.openbmc_project.Inventory.Item.PCIeDevice"},
         [asyncResp, deviceId, path, controllerObject](
             const boost::system::error_code ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -570,12 +565,7 @@ inline void getPCIeInterfaceData(
                     asyncResp->res.jsonValue["Controllers"].emplace_back(
                         *controllerObject);
                 });
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", path,
-        std::array<std::string, 1>(
-            {"xyz.openbmc_project.Inventory.Item.PCIeDevice"}));
+        });
 }
 
 inline void getPCIeData(const std::shared_ptr<bmcweb::AsyncResp>& asyncResp,
@@ -1352,7 +1342,10 @@ inline void getPortDataByAssociation(
                             }
                         }
                         // Check Interface in Object or not
-                        dbus::utility::async_method_call(
+                        dbus::utility::getDbusObject(
+                            objectPathToGetPortData,
+                            std::array<std::string_view, 1>{
+                                "xyz.openbmc_project.Inventory.Item.Port"},
                             [asyncResp, objectPathToGetPortData, chassisId,
                              networkAdapterId, portId](
                                 const boost::system::error_code ec2,
@@ -1380,13 +1373,7 @@ inline void getPortDataByAssociation(
                                 getPortData(asyncResp, object.front().first,
                                             objectPathToGetPortData, chassisId,
                                             networkAdapterId, portId);
-                            },
-                            "xyz.openbmc_project.ObjectMapper",
-                            "/xyz/openbmc_project/object_mapper",
-                            "xyz.openbmc_project.ObjectMapper", "GetObject",
-                            objectPathToGetPortData,
-                            std::array<std::string, 1>(
-                                {"xyz.openbmc_project.Inventory.Item.Port"}));
+                            });
                     });
 
                 updatePortLink(asyncResp, sensorPath, chassisId,
@@ -1946,7 +1933,10 @@ inline void getPortMetricsDataByAssociation(
             for (const std::string& sensorPath : resp)
             {
                 // Check Interface in Object or not
-                dbus::utility::async_method_call(
+                dbus::utility::getDbusObject(
+                    sensorPath,
+                    std::array<std::string_view, 1>{
+                        "xyz.openbmc_project.Inventory.Item.Port"},
                     [asyncResp, sensorPath, chassisId, networkAdapterId,
                      portId](
                         const boost::system::error_code ec1,
@@ -1979,12 +1969,7 @@ inline void getPortMetricsDataByAssociation(
 
                         getPortMetricsData(asyncResp, object.front().first,
                                            sensorPath);
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetObject", sensorPath,
-                    std::array<std::string, 1>(
-                        {"xyz.openbmc_project.Inventory.Item.Port"}));
+                    });
             }
         });
 }
@@ -2155,7 +2140,8 @@ inline void doNetworkAdapterResetGeneric(
         return;
     }
 
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        *validNetworkAdapterPath, std::array<std::string_view, 0>{},
         [asyncResp, networkAdapterId, resetType, validNetworkAdapterPath](
             const boost::system::error_code ec,
             const std::vector<std::pair<std::string, std::vector<std::string>>>&
@@ -2170,11 +2156,7 @@ inline void doNetworkAdapterResetGeneric(
             networkAdapterPostResetType(asyncResp, networkAdapterId,
                                         *validNetworkAdapterPath, resetType,
                                         obj);
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject",
-        *validNetworkAdapterPath, std::array<const char*, 0>());
+        });
 }
 
 inline void handleNetworkAdapterResetNext(

@@ -134,7 +134,8 @@ class MctpEndpoint
   protected:
     void getDbusMctpProperties(const AssociationCallback& callback)
     {
-        dbus::utility::async_method_call(
+        dbus::utility::getDbusObject(
+            mctpObj, std::array<std::string_view, 0>{},
             [this, callback](const boost::system::error_code& ec,
                              const GetObjectType& response) {
                 if (ec || response.empty())
@@ -210,10 +211,7 @@ class MctpEndpoint
                 }
                 callback(false, "GetObject failure for: " + mctpObj);
                 return;
-            },
-            dbus_utils::mapperBusName, dbus_utils::mapperObjectPath,
-            dbus_utils::mapperIntf, "GetObject", mctpObj,
-            std::array<const char*, 0>());
+            });
     }
 
     std::string mctpObj;

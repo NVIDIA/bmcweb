@@ -1807,7 +1807,9 @@ inline void requestRoutesNvidiaManagerResetToDefaultsAction(App& app)
                 std::string ifnameCompleteReset =
                     "com.nvidia.Common.CompleteReset";
 
-                dbus::utility::async_method_call(
+                dbus::utility::getDbusObject(
+                    "/xyz/openbmc_project/software",
+                    std::array<std::string_view, 1>{ifnameCompleteReset},
                     [asyncResp, ifnameCompleteReset](
                         const boost::system::error_code& ec,
                         const std::vector<
@@ -1843,12 +1845,7 @@ inline void requestRoutesNvidiaManagerResetToDefaultsAction(App& app)
                                 object.first, "/xyz/openbmc_project/software",
                                 ifnameCompleteReset, "CompleteReset");
                         }
-                    },
-                    "xyz.openbmc_project.ObjectMapper",
-                    "/xyz/openbmc_project/object_mapper",
-                    "xyz.openbmc_project.ObjectMapper", "GetObject",
-                    "/xyz/openbmc_project/software",
-                    std::array<const char*, 1>{ifnameCompleteReset.c_str()});
+                    });
             });
 }
 

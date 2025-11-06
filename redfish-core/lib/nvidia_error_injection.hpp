@@ -461,7 +461,8 @@ inline void getErrorInjectionService(
 {
     std::string eiPath = path;
     eiPath += "/ErrorInjection";
-    dbus::utility::async_method_call(
+    dbus::utility::getDbusObject(
+        eiPath, std::array<std::string_view, 0>(),
         [aResp, eiPath, handler{std::forward<Handler>(handler)}](
             const boost::system::error_code& ec,
             const dbus::utility::MapperServiceMap& serviceMap) {
@@ -483,11 +484,7 @@ inline void getErrorInjectionService(
                 handler(service, eiPath);
                 return;
             }
-        },
-        "xyz.openbmc_project.ObjectMapper",
-        "/xyz/openbmc_project/object_mapper",
-        "xyz.openbmc_project.ObjectMapper", "GetObject", eiPath,
-        std::array<const char*, 0>());
+        });
 }
 
 template <typename Handler>

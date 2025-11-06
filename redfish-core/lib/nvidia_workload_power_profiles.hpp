@@ -331,12 +331,14 @@ inline void validateProcessorWorkloadPowerProfile(
                             profileExists = true;
                             const std::string& objectPathToGetProfileData =
                                 profilePath;
-                            dbus::utility::async_method_call(
+                            dbus::utility::getDbusObject(
+                                objectPathToGetProfileData,
+                                std::array<std::string_view, 1>{
+                                    "com.nvidia.PowerProfile.Profile"},
                                 [processorId, objectPathToGetProfileData,
                                  aResp{aResp}](
                                     const boost::system::error_code ec,
-                                    const std::vector<std::pair<
-                                        std::string, std::vector<std::string>>>&
+                                    const dbus::utility::MapperGetObject&
                                         objectData) {
                                     if (ec)
                                     {
@@ -350,13 +352,7 @@ inline void validateProcessorWorkloadPowerProfile(
                                         aResp, service,
                                         objectPathToGetProfileData,
                                         processorId);
-                                },
-                                "xyz.openbmc_project.ObjectMapper",
-                                "/xyz/openbmc_project/object_mapper",
-                                "xyz.openbmc_project.ObjectMapper", "GetObject",
-                                objectPathToGetProfileData,
-                                std::array<const char*, 1>{
-                                    "com.nvidia.PowerProfile.Profile"});
+                                });
                         }
                         // Object not found
                         if (!profileExists)
